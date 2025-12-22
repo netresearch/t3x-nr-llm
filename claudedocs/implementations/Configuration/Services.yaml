@@ -1,0 +1,131 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+
+  # Auto-register all classes in namespace
+  Netresearch\NrLlm\:
+    resource: '../Classes/*'
+    exclude: '../Classes/Domain/Model/*'
+
+  # Main facade (PUBLIC API)
+  Netresearch\NrLlm\Service\LlmServiceManager:
+    public: true
+    arguments:
+      $providerFactory: '@Netresearch\NrLlm\Service\Provider\ProviderFactory'
+      $requestBuilder: '@Netresearch\NrLlm\Service\Request\RequestBuilder'
+      $responseParser: '@Netresearch\NrLlm\Service\Response\ResponseParser'
+      $streamHandler: '@Netresearch\NrLlm\Service\Stream\StreamHandler'
+      $cache: '@cache.llm_responses'
+      $rateLimiter: '@Netresearch\NrLlm\Service\RateLimit\RateLimiter'
+      $logger: '@logger.llm'
+
+  # Request builder
+  Netresearch\NrLlm\Service\Request\RequestBuilder:
+    public: false
+    shared: false  # Create new instance for each injection
+
+  # Response parser
+  Netresearch\NrLlm\Service\Response\ResponseParser:
+    public: false
+
+  # Stream handler
+  Netresearch\NrLlm\Service\Stream\StreamHandler:
+    public: false
+    arguments:
+      $bufferSize: 8192
+      $timeout: 30
+
+  # Provider factory
+  Netresearch\NrLlm\Service\Provider\ProviderFactory:
+    public: false
+    arguments:
+      $providers: !tagged_iterator llm.provider
+      $configManager: '@Netresearch\NrLlm\Service\Configuration\ConfigurationManager'
+
+  # Individual providers (tagged for factory)
+  Netresearch\NrLlm\Provider\OpenAiProvider:
+    tags:
+      - { name: 'llm.provider', identifier: 'openai', priority: 100 }
+    arguments:
+      $configManager: '@Netresearch\NrLlm\Service\Configuration\ConfigurationManager'
+      $httpClient: '@GuzzleHttp\Client'
+      $logger: '@logger.llm'
+
+  Netresearch\NrLlm\Provider\AnthropicProvider:
+    tags:
+      - { name: 'llm.provider', identifier: 'anthropic', priority: 90 }
+    arguments:
+      $configManager: '@Netresearch\NrLlm\Service\Configuration\ConfigurationManager'
+      $httpClient: '@GuzzleHttp\Client'
+      $logger: '@logger.llm'
+
+  Netresearch\NrLlm\Provider\GeminiProvider:
+    tags:
+      - { name: 'llm.provider', identifier: 'gemini', priority: 80 }
+    arguments:
+      $configManager: '@Netresearch\NrLlm\Service\Configuration\ConfigurationManager'
+      $httpClient: '@GuzzleHttp\Client'
+      $logger: '@logger.llm'
+
+  Netresearch\NrLlm\Provider\DeepLProvider:
+    tags:
+      - { name: 'llm.provider', identifier: 'deepl', priority: 70 }
+    arguments:
+      $configManager: '@Netresearch\NrLlm\Service\Configuration\ConfigurationManager'
+      $httpClient: '@GuzzleHttp\Client'
+      $logger: '@logger.llm'
+
+  Netresearch\NrLlm\Provider\OllamaProvider:
+    tags:
+      - { name: 'llm.provider', identifier: 'ollama', priority: 60 }
+    arguments:
+      $configManager: '@Netresearch\NrLlm\Service\Configuration\ConfigurationManager'
+      $httpClient: '@GuzzleHttp\Client'
+      $logger: '@logger.llm'
+
+  Netresearch\NrLlm\Provider\OpenRouterProvider:
+    tags:
+      - { name: 'llm.provider', identifier: 'openrouter', priority: 50 }
+    arguments:
+      $configManager: '@Netresearch\NrLlm\Service\Configuration\ConfigurationManager'
+      $httpClient: '@GuzzleHttp\Client'
+      $logger: '@logger.llm'
+
+  # Configuration manager
+  Netresearch\NrLlm\Service\Configuration\ConfigurationManager:
+    public: false
+    arguments:
+      $extensionConfiguration: '@TYPO3\CMS\Core\Configuration\ExtensionConfiguration'
+
+  # Rate limiter
+  Netresearch\NrLlm\Service\RateLimit\RateLimiter:
+    public: false
+    arguments:
+      $configManager: '@Netresearch\NrLlm\Service\Configuration\ConfigurationManager'
+      $cache: '@cache.llm_ratelimit'
+      $userRepository: '@TYPO3\CMS\Extbase\Domain\Repository\BackendUserRepository'
+
+  # HTTP client
+  GuzzleHttp\Client:
+    public: false
+    factory: ['Netresearch\NrLlm\Factory\HttpClientFactory', 'create']
+
+  # Cache frontend for responses
+  cache.llm_responses:
+    class: TYPO3\CMS\Core\Cache\Frontend\VariableFrontend
+    factory: ['@TYPO3\CMS\Core\Cache\CacheManager', 'getCache']
+    arguments: ['llm_responses']
+
+  # Cache frontend for rate limiting
+  cache.llm_ratelimit:
+    class: TYPO3\CMS\Core\Cache\Frontend\VariableFrontend
+    factory: ['@TYPO3\CMS\Core\Cache\CacheManager', 'getCache']
+    arguments: ['llm_ratelimit']
+
+  # Logger
+  logger.llm:
+    class: Psr\Log\LoggerInterface
+    factory: ['@TYPO3\CMS\Core\Log\LogManager', 'getLogger']
+    arguments: ['NrLlm']

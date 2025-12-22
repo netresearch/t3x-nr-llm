@@ -1,0 +1,292 @@
+# Provider Configuration Examples for AI Base Extension
+# This file demonstrates how to configure the three secondary providers
+
+# =============================================================================
+# Site Configuration: config/sites/<site>/ai_providers.yaml
+# =============================================================================
+
+providers:
+  # ---------------------------------------------------------------------------
+  # Google Gemini Configuration
+  # ---------------------------------------------------------------------------
+  gemini:
+    enabled: true
+    apiKey: '%env(GEMINI_API_KEY)%'
+    model: 'gemini-1.5-flash'  # or gemini-1.5-pro, gemini-2.0-flash-exp
+    region: 'US'               # US or EU
+
+    # Safety settings for content filtering
+    safety_level: 'BLOCK_MEDIUM_AND_ABOVE'  # BLOCK_NONE, BLOCK_LOW_AND_ABOVE, BLOCK_MEDIUM_AND_ABOVE, BLOCK_ONLY_HIGH
+
+    # Per-category safety settings (optional, overrides safety_level)
+    safety_settings:
+      harassment: 'BLOCK_MEDIUM_AND_ABOVE'
+      hate_speech: 'BLOCK_MEDIUM_AND_ABOVE'
+      sexual: 'BLOCK_MEDIUM_AND_ABOVE'
+      dangerous: 'BLOCK_MEDIUM_AND_ABOVE'
+
+    # Default generation config
+    generation_config:
+      temperature: 0.7
+      topK: 40
+      topP: 0.95
+      max_tokens: 1024
+
+    # Embedding model
+    embedding_model: 'text-embedding-004'
+
+    # Use cases where Gemini is preferred
+    preferred_for:
+      - vision              # Native multimodal
+      - multimodal          # Text + images
+      - embeddings          # High-quality embeddings
+      - long_context        # Gemini 1.5 Pro: 2M tokens
+
+    # Cost optimization
+    cost_optimization:
+      use_flash_for_simple: true   # Use flash model for simple tasks
+      context_threshold: 128000     # Switch pricing tier
+
+  # ---------------------------------------------------------------------------
+  # DeepL Configuration
+  # ---------------------------------------------------------------------------
+  deepl:
+    enabled: true
+    apiKey: '%env(DEEPL_API_KEY)%'
+    tier: 'free'  # free or pro
+
+    # Translation settings
+    formality: 'default'  # default, more, less, prefer_more, prefer_less
+    preserve_html: true
+    preserve_formatting: true
+    tag_handling: 'html'  # html or xml
+    split_sentences: '1'  # 0, 1, nonewlines
+
+    # Glossaries for consistent terminology
+    glossaries:
+      technical_terms:
+        id: 'uuid-technical-glossary'
+        source_lang: 'EN'
+        target_lang: 'DE'
+        terms:
+          'backend': 'Backend-System'
+          'frontend': 'Frontend-Anwendung'
+
+      brand_terms:
+        id: 'uuid-brand-glossary'
+        source_lang: 'EN'
+        target_lang: 'DE'
+        terms:
+          'TYPO3': 'TYPO3'  # Keep brand names unchanged
+
+    # Language-specific formality (for supported languages)
+    language_formality:
+      DE: 'more'      # German: formal
+      FR: 'more'      # French: formal
+      ES: 'default'   # Spanish: default
+      IT: 'default'   # Italian: default
+
+    # Use cases where DeepL is preferred
+    preferred_for:
+      - translation           # ONLY translation
+      - translation_quality   # High-quality translations
+      - formality_control     # Business/formal translations
+
+    # Fallback configuration
+    fallback:
+      on_quota_exceeded:
+        provider: 'openai'    # Fall back to LLM-based translation
+        notify: true
+      on_unsupported_language:
+        provider: 'gemini'
+
+  # ---------------------------------------------------------------------------
+  # OpenRouter Configuration
+  # ---------------------------------------------------------------------------
+  openrouter:
+    enabled: true
+    apiKey: '%env(OPENROUTER_API_KEY)%'
+
+    # Default model and fallback chain
+    model: 'anthropic/claude-3-sonnet'
+
+    # Automatic fallback to alternative models
+    auto_fallback: true
+    fallback_models:
+      - 'anthropic/claude-3-haiku'     # Cheaper alternative
+      - 'openai/gpt-3.5-turbo'         # Further fallback
+      - 'google/gemini-pro'             # Final fallback
+
+    # Routing strategy
+    routing_strategy: 'balanced'  # cost_optimized, performance, balanced, explicit
+
+    # Model preferences by use case
+    model_preferences:
+      chat: 'anthropic/claude-3-sonnet'
+      vision: 'google/gemini-pro-vision'
+      long_context: 'anthropic/claude-3-opus'
+      code_generation: 'openai/gpt-4-turbo'
+      cost_sensitive: 'anthropic/claude-3-haiku'
+      embeddings: 'openai/text-embedding-3-small'
+
+    # Budget controls
+    budget:
+      monthly_limit: 100.00  # USD
+      daily_limit: 10.00
+      per_request_limit: 1.00
+      alert_threshold: 80    # Percent
+
+    # Site information (for OpenRouter analytics)
+    site_url: 'https://example.com'
+    app_name: 'TYPO3 CMS'
+
+    # Cost optimization
+    cost_optimization:
+      prefer_cheaper_models: true
+      max_cost_per_request: 0.10
+      use_cache_aggressively: true
+
+    # Use cases where OpenRouter is preferred
+    preferred_for:
+      - fallback            # Automatic provider fallback
+      - cost_optimization   # Cheapest model selection
+      - multi_provider      # Access to many models
+      - experimentation     # Try different models
+
+# =============================================================================
+# Feature-to-Provider Routing
+# =============================================================================
+
+routing:
+  # Translation routing
+  translation:
+    primary: 'deepl'        # Best quality
+    fallback: 'gemini'      # If DeepL unavailable
+    tertiary: 'openrouter'  # Last resort
+
+    # Language-specific routing
+    by_language:
+      'ZH': 'gemini'        # Chinese: better with Gemini
+      'JA': 'deepl'         # Japanese: DeepL excels
+
+  # Vision/Image tasks
+  vision:
+    primary: 'gemini'       # Native multimodal
+    fallback: 'openrouter'  # GPT-4V via OpenRouter
+
+  # Embeddings
+  embeddings:
+    primary: 'gemini'       # 768 dimensions
+    fallback: 'openrouter'  # OpenAI embeddings via OpenRouter
+
+  # Chat completion
+  chat:
+    strategy: 'cost_optimized'
+    primary: 'openrouter'   # Most flexible
+    fallback: 'gemini'
+
+# =============================================================================
+# Quota Management
+# =============================================================================
+
+quotas:
+  # Per-provider limits
+  by_provider:
+    deepl:
+      daily_characters: 500000  # Free tier limit
+      monthly_characters: 500000
+
+    gemini:
+      daily_requests: 1000      # Rate limit
+      monthly_cost: 50.00       # Budget limit
+
+    openrouter:
+      monthly_cost: 100.00
+      daily_cost: 10.00
+
+  # Per-user limits
+  by_user:
+    default:
+      daily_requests: 100
+      daily_cost: 5.00
+
+    admin:
+      daily_requests: 1000
+      daily_cost: 50.00
+
+# =============================================================================
+# Caching Strategy
+# =============================================================================
+
+caching:
+  # Provider-specific cache TTL
+  by_provider:
+    deepl:
+      ttl: 86400           # 24 hours (translations rarely change)
+      enabled: true
+
+    gemini:
+      ttl: 3600            # 1 hour
+      enabled: true
+
+    openrouter:
+      ttl: 1800            # 30 minutes (models change frequently)
+      enabled: true
+
+  # Feature-specific caching
+  by_feature:
+    translation:
+      ttl: 86400           # Long cache for translations
+      cache_key_includes:
+        - source_text
+        - target_language
+        - formality
+
+    vision:
+      ttl: 3600            # Shorter for vision
+      cache_key_includes:
+        - image_hash
+        - prompt
+
+    embeddings:
+      ttl: 604800          # 7 days (stable)
+      cache_key_includes:
+        - text_hash
+        - model
+
+# =============================================================================
+# Monitoring and Alerts
+# =============================================================================
+
+monitoring:
+  # Cost alerts
+  cost_alerts:
+    - threshold: 80       # 80% of budget
+      notify: 'admin@example.com'
+
+    - threshold: 95       # 95% of budget
+      notify: 'admin@example.com'
+      action: 'disable_non_essential'
+
+  # Usage tracking
+  track_metrics:
+    - requests_per_provider
+    - cost_per_provider
+    - average_response_time
+    - cache_hit_rate
+    - fallback_frequency
+
+  # Error tracking
+  error_alerts:
+    - provider_unavailable
+    - quota_exceeded
+    - budget_exceeded
+    - safety_filter_triggered
+
+# =============================================================================
+# Environment Variables (.env)
+# =============================================================================
+
+# GEMINI_API_KEY=your-gemini-api-key-here
+# DEEPL_API_KEY=your-deepl-api-key-here
+# OPENROUTER_API_KEY=sk-or-v1-your-openrouter-key-here

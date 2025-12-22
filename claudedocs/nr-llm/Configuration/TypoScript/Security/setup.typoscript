@@ -1,0 +1,70 @@
+# Security configuration for nr_llm extension
+plugin.tx_nrllm {
+    settings {
+        security {
+            # Encryption settings
+            encryption {
+                algorithm = aes-256-gcm
+                keyDerivation = pbkdf2
+                iterations = 100000
+            }
+
+            # Audit logging
+            audit {
+                logLevel = info
+                retentionDays = 90
+                anonymizeAfterDays = 30
+                enableSysLog = 1
+            }
+
+            # Input sanitization
+            sanitization {
+                enablePromptInjectionFilter = 1
+                enablePiiDetection = 0
+                maxPromptLength = 50000
+                blockOnInjectionDetection = 1
+                logSuspiciousPrompts = 1
+                piiMaskingChar = *
+            }
+
+            # Output sanitization
+            output {
+                allowHtml = 1
+                allowMarkdown = 1
+                allowLinks = 1
+                validateUrls = 1
+                maxOutputLength = 100000
+                stripScripts = 1
+                isolateCodeBlocks = 1
+            }
+
+            # Rate limiting
+            rateLimit {
+                requestsPerHour = 100
+                requestsPerDay = 1000
+                tokensPerHour = 500000
+                tokensPerDay = 5000000
+                enableQuotaEnforcement = 1
+            }
+
+            # Access control
+            accessControl {
+                requireAuthentication = 1
+                enforceSiteIsolation = 1
+                allowCrossSiteAccess = 0
+            }
+        }
+    }
+}
+
+# TSconfig for backend users
+# Add this to user/group TSconfig:
+# tx_nrllm {
+#     permissions {
+#         use_llm = 1
+#         configure_prompts = 0
+#         manage_keys = 0
+#         view_reports = 0
+#         admin_all = 0
+#     }
+# }
