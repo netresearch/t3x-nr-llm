@@ -1,7 +1,6 @@
-# Service configuration for nr-llm feature services
+# Service configuration for nr-llm extension
 #
-# This file defines dependency injection for high-level AI feature services
-# that wrap LlmServiceManager with domain-specific logic and prompt engineering.
+# This file defines dependency injection for AI/LLM services
 
 services:
   _defaults:
@@ -15,35 +14,62 @@ services:
 
   Netresearch\NrLlm\:
     resource: '../Classes/*'
-    exclude: '../Classes/Domain/Model/*'
+    exclude:
+      - '../Classes/Domain/Model/*'
+      - '../Classes/Provider/Exception/*'
+
+  # ========================================
+  # Core Services (PUBLIC)
+  # ========================================
+
+  Netresearch\NrLlm\Service\LlmServiceManager:
+    public: true
+
+  # ========================================
+  # Providers (PUBLIC)
+  # ========================================
+  # All providers are registered via tags and auto-configured
+
+  Netresearch\NrLlm\Provider\OpenAiProvider:
+    public: true
+    tags:
+      - name: nr_llm.provider
+        priority: 100
+
+  Netresearch\NrLlm\Provider\ClaudeProvider:
+    public: true
+    tags:
+      - name: nr_llm.provider
+        priority: 90
+
+  Netresearch\NrLlm\Provider\GeminiProvider:
+    public: true
+    tags:
+      - name: nr_llm.provider
+        priority: 80
+
+  # ========================================
+  # Provider Registry (handles auto-registration)
+  # ========================================
+
+  Netresearch\NrLlm\Provider\ProviderRegistry:
+    public: false
 
   # ========================================
   # Feature Services (PUBLIC)
   # ========================================
-  # These are the main services consumed by other extensions
 
   Netresearch\NrLlm\Service\Feature\CompletionService:
     public: true
-    arguments:
-      $llmManager: '@Netresearch\NrLlm\Service\LlmServiceManager'
 
   Netresearch\NrLlm\Service\Feature\VisionService:
     public: true
-    arguments:
-      $llmManager: '@Netresearch\NrLlm\Service\LlmServiceManager'
-      $promptService: '@Netresearch\NrLlm\Service\PromptTemplateService'
 
   Netresearch\NrLlm\Service\Feature\EmbeddingService:
     public: true
-    arguments:
-      $llmManager: '@Netresearch\NrLlm\Service\LlmServiceManager'
-      $cacheManager: '@Netresearch\NrLlm\Service\CacheManager'
 
   Netresearch\NrLlm\Service\Feature\TranslationService:
     public: true
-    arguments:
-      $llmManager: '@Netresearch\NrLlm\Service\LlmServiceManager'
-      $promptService: '@Netresearch\NrLlm\Service\PromptTemplateService'
 
   # ========================================
   # Supporting Services (PUBLIC)
@@ -51,33 +77,6 @@ services:
 
   Netresearch\NrLlm\Service\PromptTemplateService:
     public: true
-    arguments:
-      $repository: '@Netresearch\NrLlm\Domain\Repository\PromptTemplateRepository'
-
-  Netresearch\NrLlm\Service\LlmServiceManager:
-    public: true
-    # Configuration will be defined in core LLM manager setup
 
   Netresearch\NrLlm\Service\CacheManager:
     public: true
-    # Cache configuration will be defined separately
-
-  # ========================================
-  # Repositories
-  # ========================================
-
-  Netresearch\NrLlm\Domain\Repository\PromptTemplateRepository:
-    public: true
-    # Repository implementation will handle database operations
-
-  # ========================================
-  # Event Listeners (if needed)
-  # ========================================
-  # Event listeners for tracking feature service usage
-
-  Netresearch\NrLlm\EventListener\PromptUsageTracker:
-    tags:
-      - name: event.listener
-        identifier: 'prompt-usage-tracker'
-        event: Netresearch\NrLlm\Event\AfterPromptRenderEvent
-        method: 'trackUsage'
