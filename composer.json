@@ -1,0 +1,74 @@
+{
+    "name": "netresearch/nr-llm",
+    "type": "typo3-cms-extension",
+    "description": "TYPO3 extension providing unified AI/LLM provider abstraction layer for TYPO3 projects",
+    "license": "GPL-2.0-or-later",
+    "keywords": [
+        "TYPO3",
+        "extension",
+        "LLM",
+        "AI",
+        "OpenAI",
+        "Claude",
+        "Gemini"
+    ],
+    "authors": [
+        {
+            "name": "Netresearch DTT GmbH",
+            "email": "info@netresearch.de",
+            "homepage": "https://www.netresearch.de",
+            "role": "Developer"
+        }
+    ],
+    "homepage": "https://github.com/netresearch/t3x-nr-llm",
+    "support": {
+        "issues": "https://github.com/netresearch/t3x-nr-llm/issues",
+        "source": "https://github.com/netresearch/t3x-nr-llm"
+    },
+    "require": {
+        "php": "^8.1",
+        "typo3/cms-core": "^12.4 || ^13.0",
+        "psr/http-client": "^1.0",
+        "psr/http-factory": "^1.0",
+        "psr/log": "^2.0 || ^3.0"
+    },
+    "require-dev": {
+        "typo3/testing-framework": "^8.0",
+        "phpunit/phpunit": "^10.0",
+        "phpstan/phpstan": "^1.10",
+        "friendsofphp/php-cs-fixer": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Netresearch\\NrLlm\\": "Classes/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Netresearch\\NrLlm\\Tests\\": "Tests/"
+        }
+    },
+    "config": {
+        "vendor-dir": ".Build/vendor",
+        "bin-dir": ".Build/bin",
+        "sort-packages": true,
+        "allow-plugins": {
+            "typo3/cms-composer-installers": true,
+            "typo3/class-alias-loader": true
+        }
+    },
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "nr_llm",
+            "web-dir": ".Build/Web"
+        }
+    },
+    "scripts": {
+        "test": "phpunit -c Tests/phpunit.xml",
+        "test:unit": "phpunit -c Tests/phpunit.xml --testsuite unit",
+        "test:functional": "phpunit -c Tests/phpunit.xml --testsuite functional",
+        "lint": "php-cs-fixer fix --dry-run --diff",
+        "lint:fix": "php-cs-fixer fix",
+        "phpstan": "phpstan analyse"
+    }
+}
