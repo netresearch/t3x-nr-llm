@@ -10,8 +10,10 @@ namespace Netresearch\NrLlm\Domain\Model;
 final class VisionResponse
 {
     public function __construct(
-        public readonly string $analysis,
+        public readonly string $description,
+        public readonly string $model,
         public readonly UsageStatistics $usage,
+        public readonly string $provider = '',
         public readonly ?float $confidence = null,
         public readonly ?array $detectedObjects = null,
         public readonly ?array $metadata = null,
@@ -22,7 +24,15 @@ final class VisionResponse
      */
     public function getText(): string
     {
-        return $this->analysis;
+        return $this->description;
+    }
+
+    /**
+     * Alias for description property
+     */
+    public function getDescription(): string
+    {
+        return $this->description;
     }
 
     /**
