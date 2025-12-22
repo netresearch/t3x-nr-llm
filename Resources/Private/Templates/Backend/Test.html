@@ -1,0 +1,152 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+
+<f:layout name="Backend/Default" />
+
+<f:section name="Content">
+    <div class="module-docheader">
+        <h1>Test LLM Provider</h1>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Send Test Request</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="testForm">
+                            <div class="form-group">
+                                <label for="provider">Provider</label>
+                                <select id="provider" name="provider" class="form-control">
+                                    <f:for each="{providers}" as="provider">
+                                        <option value="{provider.identifier}">{provider.name}</option>
+                                    </f:for>
+                                </select>
+                            </div>
+
+                            <div class="form-group mt-3">
+                                <label for="prompt">Prompt</label>
+                                <textarea id="prompt" name="prompt" class="form-control" rows="4">Hello, please respond with a brief greeting to test the connection.</textarea>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary mt-3">
+                                Run Test
+                            </button>
+
+                            <f:link.action action="index" class="btn btn-default mt-3">
+                                Back to Overview
+                            </f:link.action>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Response</h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="responseContainer" style="display: none;">
+                            <div id="responseSuccess" class="alert alert-success" style="display: none;">
+                                <strong>Success!</strong>
+                            </div>
+                            <div id="responseError" class="alert alert-danger" style="display: none;">
+                                <strong>Error:</strong> <span id="errorMessage"></span>
+                            </div>
+
+                            <div id="responseDetails" style="display: none;">
+                                <h4>Content</h4>
+                                <pre id="responseContent" class="bg-light p-3"></pre>
+
+                                <h4>Usage</h4>
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td>Model</td>
+                                        <td id="responseModel"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Prompt Tokens</td>
+                                        <td id="promptTokens"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Completion Tokens</td>
+                                        <td id="completionTokens"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Total Tokens</td>
+                                        <td id="totalTokens"></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div id="loadingIndicator" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                            <span class="ml-2">Sending request...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('testForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const form = e.target;
+            const provider = document.getElementById('provider').value;
+            const prompt = document.getElementById('prompt').value;
+
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('responseContainer').style.display = 'none';
+
+            try {
+                const response = await fetch(TYPO3.settings.ajaxUrls['nrllm_test'], {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ provider, prompt }),
+                });
+
+                const data = await response.json();
+
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('responseContainer').style.display = 'block';
+
+                if (data.success) {
+                    document.getElementById('responseSuccess').style.display = 'block';
+                    document.getElementById('responseError').style.display = 'none';
+                    document.getElementById('responseDetails').style.display = 'block';
+
+                    document.getElementById('responseContent').textContent = data.content;
+                    document.getElementById('responseModel').textContent = data.model;
+                    document.getElementById('promptTokens').textContent = data.usage.promptTokens;
+                    document.getElementById('completionTokens').textContent = data.usage.completionTokens;
+                    document.getElementById('totalTokens').textContent = data.usage.totalTokens;
+                } else {
+                    document.getElementById('responseSuccess').style.display = 'none';
+                    document.getElementById('responseError').style.display = 'block';
+                    document.getElementById('responseDetails').style.display = 'none';
+                    document.getElementById('errorMessage').textContent = data.error;
+                }
+            } catch (error) {
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('responseContainer').style.display = 'block';
+                document.getElementById('responseSuccess').style.display = 'none';
+                document.getElementById('responseError').style.display = 'block';
+                document.getElementById('responseDetails').style.display = 'none';
+                document.getElementById('errorMessage').textContent = error.message;
+            }
+        });
+    </script>
+</f:section>
+
+</html>

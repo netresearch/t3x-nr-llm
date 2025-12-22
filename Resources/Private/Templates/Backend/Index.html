@@ -1,0 +1,111 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+
+<f:layout name="Backend/Default" />
+
+<f:section name="Content">
+    <div class="module-docheader">
+        <h1>
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.title" />
+        </h1>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Configured Providers</h2>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Provider</th>
+                                    <th>Status</th>
+                                    <th>Default Model</th>
+                                    <th>Features</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <f:for each="{providers}" as="provider" key="identifier">
+                                    <tr>
+                                        <td>
+                                            <strong>{provider.name}</strong>
+                                            <f:if condition="{provider.isDefault}">
+                                                <span class="badge badge-primary">Default</span>
+                                            </f:if>
+                                        </td>
+                                        <td>
+                                            <f:if condition="{provider.available}">
+                                                <f:then>
+                                                    <span class="badge badge-success">Available</span>
+                                                </f:then>
+                                                <f:else>
+                                                    <span class="badge badge-warning">Not configured</span>
+                                                </f:else>
+                                            </f:if>
+                                        </td>
+                                        <td>{provider.defaultModel}</td>
+                                        <td>
+                                            <f:if condition="{provider.features}">
+                                                <f:for each="{provider.features}" as="enabled" key="feature">
+                                                    <f:if condition="{enabled}">
+                                                        <span class="badge badge-info">{feature}</span>
+                                                    </f:if>
+                                                </f:for>
+                                            </f:if>
+                                        </td>
+                                        <td>
+                                            <f:if condition="{provider.available}">
+                                                <f:link.action action="test" arguments="{provider: identifier}" class="btn btn-sm btn-default">
+                                                    Test
+                                                </f:link.action>
+                                            </f:if>
+                                        </td>
+                                    </tr>
+                                </f:for>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Quick Reference</h2>
+                    </div>
+                    <div class="card-body">
+                        <h4>Usage in PHP</h4>
+                        <pre><code>use Netresearch\NrLlm\Service\LlmServiceManager;
+
+// Inject via constructor
+public function __construct(
+    private readonly LlmServiceManager $llmManager,
+) {}
+
+// Simple completion
+$response = $this->llmManager->complete('Your prompt here');
+echo $response->content;
+
+// Chat with messages
+$response = $this->llmManager->chat([
+    ['role' => 'system', 'content' => 'You are a helpful assistant.'],
+    ['role' => 'user', 'content' => 'Hello!'],
+]);
+
+// Use specific provider
+$response = $this->llmManager->complete('Hello', ['provider' => 'claude']);</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</f:section>
+
+</html>

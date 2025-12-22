@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" datatype="plaintext" original="messages">
+        <body>
+            <trans-unit id="module.title">
+                <source>LLM Providers</source>
+            </trans-unit>
+            <trans-unit id="module.description">
+                <source>Manage AI/LLM providers</source>
+            </trans-unit>
+            <trans-unit id="provider.available">
+                <source>Available</source>
+            </trans-unit>
+            <trans-unit id="provider.unavailable">
+                <source>Not configured</source>
+            </trans-unit>
+            <trans-unit id="provider.default">
+                <source>Default Provider</source>
+            </trans-unit>
+            <trans-unit id="provider.models">
+                <source>Available Models</source>
+            </trans-unit>
+            <trans-unit id="provider.features">
+                <source>Features</source>
+            </trans-unit>
+            <trans-unit id="feature.chat">
+                <source>Chat</source>
+            </trans-unit>
+            <trans-unit id="feature.completion">
+                <source>Completion</source>
+            </trans-unit>
+            <trans-unit id="feature.embeddings">
+                <source>Embeddings</source>
+            </trans-unit>
+            <trans-unit id="feature.vision">
+                <source>Vision</source>
+            </trans-unit>
+            <trans-unit id="feature.streaming">
+                <source>Streaming</source>
+            </trans-unit>
+            <trans-unit id="feature.tools">
+                <source>Tools</source>
+            </trans-unit>
+            <trans-unit id="test.title">
+                <source>Test Provider</source>
+            </trans-unit>
+            <trans-unit id="test.prompt">
+                <source>Test Prompt</source>
+            </trans-unit>
+            <trans-unit id="test.run">
+                <source>Run Test</source>
+            </trans-unit>
+            <trans-unit id="test.success">
+                <source>Test successful</source>
+            </trans-unit>
+            <trans-unit id="test.failed">
+                <source>Test failed</source>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>
