@@ -1,0 +1,53 @@
+# cat=basic/enable; type=string; label=Default Provider: The default LLM provider to use (openai, claude, gemini)
+defaultProvider = openai
+
+# cat=basic/enable; type=boolean; label=Enable Caching: Cache LLM responses to reduce API calls and costs
+enableCaching = 1
+
+# cat=basic/enable; type=int+; label=Default Cache Lifetime: Default cache lifetime in seconds (0 = no caching)
+defaultCacheLifetime = 3600
+
+# cat=openai; type=string; label=OpenAI API Key: Your OpenAI API key
+providers.openai.apiKey =
+
+# cat=openai; type=string; label=OpenAI Default Model: Default model to use (e.g., gpt-4o, gpt-4o-mini)
+providers.openai.defaultModel = gpt-4o
+
+# cat=openai; type=string; label=OpenAI Base URL: Custom base URL (leave empty for default)
+providers.openai.baseUrl =
+
+# cat=openai; type=int+; label=OpenAI Timeout: Request timeout in seconds
+providers.openai.timeout = 30
+
+# cat=claude; type=string; label=Claude API Key: Your Anthropic Claude API key
+providers.claude.apiKey =
+
+# cat=claude; type=string; label=Claude Default Model: Default model to use (e.g., claude-sonnet-4-20250514)
+providers.claude.defaultModel = claude-sonnet-4-20250514
+
+# cat=claude; type=string; label=Claude Base URL: Custom base URL (leave empty for default)
+providers.claude.baseUrl =
+
+# cat=claude; type=int+; label=Claude Timeout: Request timeout in seconds
+providers.claude.timeout = 30
+
+# cat=gemini; type=string; label=Gemini API Key: Your Google Gemini API key
+providers.gemini.apiKey =
+
+# cat=gemini; type=string; label=Gemini Default Model: Default model to use (e.g., gemini-2.0-flash)
+providers.gemini.defaultModel = gemini-2.0-flash
+
+# cat=gemini; type=string; label=Gemini Base URL: Custom base URL (leave empty for default)
+providers.gemini.baseUrl =
+
+# cat=gemini; type=int+; label=Gemini Timeout: Request timeout in seconds
+providers.gemini.timeout = 30
+
+# cat=advanced; type=int+; label=Max Retries: Maximum number of retry attempts for failed requests
+maxRetries = 3
+
+# cat=advanced; type=boolean; label=Enable Logging: Log LLM requests and responses for debugging
+enableLogging = 0
+
+# cat=advanced; type=options[none,basic,full]; label=Logging Level: Level of detail for logging
+loggingLevel = none

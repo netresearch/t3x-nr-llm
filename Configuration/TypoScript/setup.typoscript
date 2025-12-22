@@ -1,0 +1,44 @@
+# NR LLM Extension TypoScript Setup
+# ===================================
+# This file provides TypoScript configuration for the nr_llm extension.
+# Include this in your site's TypoScript setup.
+
+plugin.tx_nrllm {
+    settings {
+        # Default provider (openai, claude, gemini)
+        defaultProvider = {$plugin.tx_nrllm.settings.defaultProvider}
+
+        # Enable response caching
+        enableCaching = {$plugin.tx_nrllm.settings.enableCaching}
+
+        # Default cache lifetime in seconds
+        cacheLifetime = {$plugin.tx_nrllm.settings.cacheLifetime}
+
+        # Provider-specific settings
+        providers {
+            openai {
+                enabled = {$plugin.tx_nrllm.settings.providers.openai.enabled}
+                defaultModel = {$plugin.tx_nrllm.settings.providers.openai.defaultModel}
+                temperature = {$plugin.tx_nrllm.settings.providers.openai.temperature}
+                maxTokens = {$plugin.tx_nrllm.settings.providers.openai.maxTokens}
+            }
+
+            claude {
+                enabled = {$plugin.tx_nrllm.settings.providers.claude.enabled}
+                defaultModel = {$plugin.tx_nrllm.settings.providers.claude.defaultModel}
+                temperature = {$plugin.tx_nrllm.settings.providers.claude.temperature}
+                maxTokens = {$plugin.tx_nrllm.settings.providers.claude.maxTokens}
+            }
+
+            gemini {
+                enabled = {$plugin.tx_nrllm.settings.providers.gemini.enabled}
+                defaultModel = {$plugin.tx_nrllm.settings.providers.gemini.defaultModel}
+                temperature = {$plugin.tx_nrllm.settings.providers.gemini.temperature}
+                maxTokens = {$plugin.tx_nrllm.settings.providers.gemini.maxTokens}
+            }
+        }
+    }
+}
+
+# Module configuration for backend usage
+module.tx_nrllm < plugin.tx_nrllm

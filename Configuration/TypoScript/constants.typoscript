@@ -1,0 +1,60 @@
+# NR LLM Extension TypoScript Constants
+# =======================================
+# Configure these constants in your site's TypoScript constants.
+
+plugin.tx_nrllm {
+    settings {
+        # cat=plugin.tx_nrllm/basic/10; type=options[openai,claude,gemini]; label=Default Provider: The default LLM provider to use
+        defaultProvider = openai
+
+        # cat=plugin.tx_nrllm/basic/20; type=boolean; label=Enable Caching: Cache LLM responses
+        enableCaching = 1
+
+        # cat=plugin.tx_nrllm/basic/30; type=int+; label=Cache Lifetime: Default cache lifetime in seconds
+        cacheLifetime = 3600
+
+        providers {
+            openai {
+                # cat=plugin.tx_nrllm/openai/10; type=boolean; label=Enable OpenAI: Enable OpenAI provider
+                enabled = 1
+
+                # cat=plugin.tx_nrllm/openai/20; type=string; label=Default Model: OpenAI model to use
+                defaultModel = gpt-4o
+
+                # cat=plugin.tx_nrllm/openai/30; type=string; label=Temperature: Response temperature (0-2)
+                temperature = 0.7
+
+                # cat=plugin.tx_nrllm/openai/40; type=int+; label=Max Tokens: Maximum response tokens
+                maxTokens = 4096
+            }
+
+            claude {
+                # cat=plugin.tx_nrllm/claude/10; type=boolean; label=Enable Claude: Enable Claude provider
+                enabled = 1
+
+                # cat=plugin.tx_nrllm/claude/20; type=string; label=Default Model: Claude model to use
+                defaultModel = claude-sonnet-4-20250514
+
+                # cat=plugin.tx_nrllm/claude/30; type=string; label=Temperature: Response temperature (0-1)
+                temperature = 0.7
+
+                # cat=plugin.tx_nrllm/claude/40; type=int+; label=Max Tokens: Maximum response tokens
+                maxTokens = 4096
+            }
+
+            gemini {
+                # cat=plugin.tx_nrllm/gemini/10; type=boolean; label=Enable Gemini: Enable Gemini provider
+                enabled = 1
+
+                # cat=plugin.tx_nrllm/gemini/20; type=string; label=Default Model: Gemini model to use
+                defaultModel = gemini-2.0-flash
+
+                # cat=plugin.tx_nrllm/gemini/30; type=string; label=Temperature: Response temperature (0-2)
+                temperature = 0.7
+
+                # cat=plugin.tx_nrllm/gemini/40; type=int+; label=Max Tokens: Maximum response tokens
+                maxTokens = 4096
+            }
+        }
+    }
+}
