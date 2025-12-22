@@ -26,15 +26,15 @@
         "source": "https://github.com/netresearch/t3x-nr-llm"
     },
     "require": {
-        "php": "^8.1",
-        "typo3/cms-core": "^12.4 || ^13.0",
+        "php": "^8.5",
+        "typo3/cms-core": "^14.0",
         "psr/http-client": "^1.0",
         "psr/http-factory": "^1.0",
         "psr/log": "^2.0 || ^3.0"
     },
     "require-dev": {
-        "typo3/testing-framework": "^8.0",
-        "phpunit/phpunit": "^10.0",
+        "typo3/testing-framework": "^9.0",
+        "phpunit/phpunit": "^11.0",
         "phpstan/phpstan": "^1.10",
         "friendsofphp/php-cs-fixer": "^3.0"
     },
