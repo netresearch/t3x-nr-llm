@@ -10,10 +10,12 @@ namespace Netresearch\NrLlm\Domain\Model;
 final class CompletionResponse
 {
     public function __construct(
-        public readonly string $text,
+        public readonly string $content,
+        public readonly string $model,
         public readonly UsageStatistics $usage,
-        public readonly string $finishReason,
-        public readonly ?string $model = null,
+        public readonly string $finishReason = 'stop',
+        public readonly string $provider = '',
+        public readonly ?array $toolCalls = null,
         public readonly ?array $metadata = null,
     ) {}
 
@@ -39,5 +41,21 @@ final class CompletionResponse
     public function isComplete(): bool
     {
         return $this->finishReason === 'stop';
+    }
+
+    /**
+     * Check if the response contains tool calls
+     */
+    public function hasToolCalls(): bool
+    {
+        return $this->toolCalls !== null && $this->toolCalls !== [];
+    }
+
+    /**
+     * Get the text content (alias for content property)
+     */
+    public function getText(): string
+    {
+        return $this->content;
     }
 }

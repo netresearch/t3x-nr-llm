@@ -1,0 +1,216 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Provider;
+
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Log\LoggerInterface;
+
+abstract class AbstractProvider implements ProviderInterface
+{
+    protected const FEATURE_CHAT = 'chat';
+    protected const FEATURE_COMPLETION = 'completion';
+    protected const FEATURE_EMBEDDINGS = 'embeddings';
+    protected const FEATURE_VISION = 'vision';
+    protected const FEATURE_STREAMING = 'streaming';
+    protected const FEATURE_TOOLS = 'tools';
+
+    protected string $apiKey = '';
+    protected string $baseUrl = '';
+    protected string $defaultModel = '';
+    protected int $timeout = 30;
+    protected int $maxRetries = 3;
+
+    /** @var array<string> */
+    protected array $supportedFeatures = [];
+
+    public function __construct(
+        protected readonly ClientInterface $httpClient,
+        protected readonly RequestFactoryInterface $requestFactory,
+        protected readonly StreamFactoryInterface $streamFactory,
+        protected readonly LoggerInterface $logger,
+    ) {}
+
+    abstract public function getName(): string;
+
+    abstract public function getIdentifier(): string;
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    public function configure(array $config): void
+    {
+        $this->apiKey = (string)($config['apiKey'] ?? '');
+        $this->baseUrl = (string)($config['baseUrl'] ?? $this->getDefaultBaseUrl());
+        $this->defaultModel = (string)($config['defaultModel'] ?? $this->getDefaultModel());
+        $this->timeout = (int)($config['timeout'] ?? 30);
+        $this->maxRetries = (int)($config['maxRetries'] ?? 3);
+
+        $this->validateConfiguration();
+    }
+
+    abstract protected function getDefaultBaseUrl(): string;
+
+    public function isAvailable(): bool
+    {
+        return $this->apiKey !== '';
+    }
+
+    public function supportsFeature(string $feature): bool
+    {
+        return in_array($feature, $this->supportedFeatures, true);
+    }
+
+    public function complete(string $prompt, array $options = []): CompletionResponse
+    {
+        return $this->chatCompletion([
+            ['role' => 'user', 'content' => $prompt],
+        ], $options);
+    }
+
+    public function getDefaultModel(): string
+    {
+        return $this->defaultModel;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    protected function sendRequest(string $endpoint, array $payload, string $method = 'POST'): array
+    {
+        $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
+
+        $request = $this->requestFactory->createRequest($method, $url)
+            ->withHeader('Content-Type', 'application/json')
+            ->withHeader('Authorization', 'Bearer ' . $this->apiKey);
+
+        $request = $this->addProviderSpecificHeaders($request);
+
+        if ($method === 'POST' && $payload !== []) {
+            $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR));
+            $request = $request->withBody($body);
+        }
+
+        $attempt = 0;
+        $lastException = null;
+
+        while ($attempt < $this->maxRetries) {
+            try {
+                $response = $this->httpClient->sendRequest($request);
+                $statusCode = $response->getStatusCode();
+
+                if ($statusCode >= 200 && $statusCode < 300) {
+                    $body = (string)$response->getBody();
+                    return json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+                }
+
+                if ($statusCode >= 400 && $statusCode < 500) {
+                    $body = (string)$response->getBody();
+                    $error = json_decode($body, true) ?? ['error' => ['message' => 'Unknown error']];
+                    throw new ProviderResponseException(
+                        $this->extractErrorMessage($error),
+                        $statusCode
+                    );
+                }
+
+                throw new ProviderConnectionException(
+                    sprintf('Server returned status %d', $statusCode),
+                    $statusCode
+                );
+            } catch (ProviderResponseException $e) {
+                throw $e;
+            } catch (\Throwable $e) {
+                $lastException = $e;
+                $attempt++;
+
+                if ($attempt < $this->maxRetries) {
+                    usleep((int)(100000 * (2 ** $attempt)));
+                }
+            }
+        }
+
+        throw new ProviderConnectionException(
+            'Failed to connect to provider after ' . $this->maxRetries . ' attempts: ' .
+            ($lastException?->getMessage() ?? 'Unknown error'),
+            0,
+            $lastException
+        );
+    }
+
+    /**
+     * @param \Psr\Http\Message\RequestInterface $request
+     * @return \Psr\Http\Message\RequestInterface
+     */
+    protected function addProviderSpecificHeaders(\Psr\Http\Message\RequestInterface $request): \Psr\Http\Message\RequestInterface
+    {
+        return $request;
+    }
+
+    /**
+     * @param array<string, mixed> $error
+     */
+    protected function extractErrorMessage(array $error): string
+    {
+        return $error['error']['message']
+            ?? $error['error']
+            ?? $error['message']
+            ?? 'Unknown provider error';
+    }
+
+    protected function validateConfiguration(): void
+    {
+        if ($this->apiKey === '') {
+            throw new ProviderConfigurationException(
+                sprintf('API key is required for provider %s', $this->getName())
+            );
+        }
+    }
+
+    protected function createUsageStatistics(int $promptTokens, int $completionTokens): UsageStatistics
+    {
+        return new UsageStatistics(
+            promptTokens: $promptTokens,
+            completionTokens: $completionTokens,
+            totalTokens: $promptTokens + $completionTokens
+        );
+    }
+
+    protected function createCompletionResponse(
+        string $content,
+        string $model,
+        UsageStatistics $usage,
+        ?string $finishReason = null
+    ): CompletionResponse {
+        return new CompletionResponse(
+            content: $content,
+            model: $model,
+            usage: $usage,
+            finishReason: $finishReason ?? 'stop',
+            provider: $this->getIdentifier()
+        );
+    }
+
+    protected function createEmbeddingResponse(
+        array $embeddings,
+        string $model,
+        UsageStatistics $usage
+    ): EmbeddingResponse {
+        return new EmbeddingResponse(
+            embeddings: $embeddings,
+            model: $model,
+            usage: $usage,
+            provider: $this->getIdentifier()
+        );
+    }
+}

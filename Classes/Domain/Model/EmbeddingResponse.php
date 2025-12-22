@@ -9,19 +9,37 @@ namespace Netresearch\NrLlm\Domain\Model;
  */
 final class EmbeddingResponse
 {
+    /**
+     * @param array<int, array<int, float>> $embeddings Array of embedding vectors
+     * @param string $model Model used for embeddings
+     * @param UsageStatistics $usage Token usage statistics
+     * @param string $provider Provider identifier
+     */
     public function __construct(
-        public readonly array $vector,
-        public readonly int $dimensions,
+        public readonly array $embeddings,
+        public readonly string $model,
         public readonly UsageStatistics $usage,
-        public readonly ?string $model = null,
+        public readonly string $provider = '',
     ) {}
 
     /**
-     * Get the embedding vector
+     * Get the first embedding vector (for single input)
+     *
+     * @return array<int, float>
      */
     public function getVector(): array
     {
-        return $this->vector;
+        return $this->embeddings[0] ?? [];
+    }
+
+    /**
+     * Get all embedding vectors
+     *
+     * @return array<int, array<int, float>>
+     */
+    public function getEmbeddings(): array
+    {
+        return $this->embeddings;
     }
 
     /**
@@ -29,20 +47,65 @@ final class EmbeddingResponse
      */
     public function getDimensions(): int
     {
-        return $this->dimensions;
+        $vector = $this->getVector();
+        return count($vector);
     }
 
     /**
-     * Normalize the vector to unit length
+     * Get number of embeddings
      */
-    public function normalize(): array
+    public function getCount(): int
     {
-        $magnitude = sqrt(array_sum(array_map(fn($x) => $x * $x, $this->vector)));
+        return count($this->embeddings);
+    }
+
+    /**
+     * Normalize a vector to unit length
+     *
+     * @param array<int, float> $vector
+     * @return array<int, float>
+     */
+    public function normalizeVector(array $vector): array
+    {
+        $magnitude = sqrt(array_sum(array_map(static fn($x) => $x * $x, $vector)));
 
         if ($magnitude == 0) {
-            return $this->vector;
+            return $vector;
         }
 
-        return array_map(fn($x) => $x / $magnitude, $this->vector);
+        return array_map(static fn($x) => $x / $magnitude, $vector);
+    }
+
+    /**
+     * Calculate cosine similarity between two embedding vectors
+     *
+     * @param array<int, float> $vectorA
+     * @param array<int, float> $vectorB
+     */
+    public static function cosineSimilarity(array $vectorA, array $vectorB): float
+    {
+        if (count($vectorA) !== count($vectorB)) {
+            throw new \InvalidArgumentException('Vectors must have the same dimensions');
+        }
+
+        $dotProduct = 0.0;
+        $magnitudeA = 0.0;
+        $magnitudeB = 0.0;
+
+        foreach ($vectorA as $i => $a) {
+            $b = $vectorB[$i];
+            $dotProduct += $a * $b;
+            $magnitudeA += $a * $a;
+            $magnitudeB += $b * $b;
+        }
+
+        $magnitudeA = sqrt($magnitudeA);
+        $magnitudeB = sqrt($magnitudeB);
+
+        if ($magnitudeA == 0 || $magnitudeB == 0) {
+            return 0.0;
+        }
+
+        return $dotProduct / ($magnitudeA * $magnitudeB);
     }
 }
