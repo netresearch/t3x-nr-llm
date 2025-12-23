@@ -4,31 +4,30 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
-use Netresearch\NrLlm\Service\Feature\CompletionService;
-use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
+use Netresearch\NrLlm\Service\Feature\CompletionService;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 
-/**
- * Unit tests for CompletionService
- */
-class CompletionServiceTest extends TestCase
+#[CoversClass(CompletionService::class)]
+class CompletionServiceTest extends AbstractUnitTestCase
 {
     private CompletionService $subject;
-    private LlmServiceManager&MockObject $llmManagerMock;
+    private LlmServiceManagerInterface&MockObject $llmManagerMock;
 
     protected function setUp(): void
     {
-        $this->llmManagerMock = $this->createMock(LlmServiceManager::class);
+        parent::setUp();
+        $this->llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $this->subject = new CompletionService($this->llmManagerMock);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function completeGeneratesTextWithDefaultOptions(): void
     {
         $prompt = 'Test prompt';
@@ -55,9 +54,7 @@ class CompletionServiceTest extends TestCase
         $this->assertEquals('stop', $result->finishReason);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function completeIncludesSystemPromptWhenProvided(): void
     {
         $prompt = 'User prompt';
@@ -83,9 +80,7 @@ class CompletionServiceTest extends TestCase
         $this->subject->complete($prompt, ['system_prompt' => $systemPrompt]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function completeJsonReturnsDecodedArray(): void
     {
         $jsonResponse = '{"key": "value", "number": 42}';
@@ -103,9 +98,7 @@ class CompletionServiceTest extends TestCase
         $this->assertEquals(42, $result['number']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function completeJsonThrowsOnInvalidJson(): void
     {
         $mockResponse = $this->createMockResponse('Not valid JSON');
@@ -120,9 +113,7 @@ class CompletionServiceTest extends TestCase
         $this->subject->completeJson('Generate JSON');
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function completeMarkdownReturnsString(): void
     {
         $mockResponse = $this->createMockResponse('# Markdown');
@@ -137,9 +128,7 @@ class CompletionServiceTest extends TestCase
         $this->assertEquals('# Markdown', $result);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function completeFactualUsesLowTemperature(): void
     {
         $mockResponse = $this->createMockResponse('Factual response');
@@ -159,9 +148,7 @@ class CompletionServiceTest extends TestCase
         $this->subject->completeFactual('Factual question');
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function completeCreativeUsesHighTemperature(): void
     {
         $mockResponse = $this->createMockResponse('Creative response');
@@ -181,9 +168,7 @@ class CompletionServiceTest extends TestCase
         $this->subject->completeCreative('Creative prompt');
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function validateOptionsThrowsOnInvalidTemperature(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -192,9 +177,7 @@ class CompletionServiceTest extends TestCase
         $this->subject->complete('Test', ['temperature' => 3.0]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function validateOptionsThrowsOnInvalidMaxTokens(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -203,9 +186,7 @@ class CompletionServiceTest extends TestCase
         $this->subject->complete('Test', ['max_tokens' => -1]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function validateOptionsThrowsOnInvalidResponseFormat(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -214,9 +195,7 @@ class CompletionServiceTest extends TestCase
         $this->subject->complete('Test', ['response_format' => 'invalid']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function completionResponseIndicatesTruncation(): void
     {
         $mockResponse = $this->createMockResponse('Truncated', 'length');

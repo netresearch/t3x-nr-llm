@@ -8,7 +8,7 @@ use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\SingletonInterface;
 
-final class CacheManager implements SingletonInterface
+final class CacheManager implements CacheManagerInterface, SingletonInterface
 {
     private const CACHE_IDENTIFIER = 'nrllm_responses';
 

@@ -21,4 +21,16 @@ return [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/provider-gemini.svg',
     ],
+    'nrllm-provider-openrouter' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/provider-openrouter.svg',
+    ],
+    'nrllm-provider-mistral' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/provider-mistral.svg',
+    ],
+    'nrllm-provider-groq' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/provider-groq.svg',
+    ],
 ];

@@ -126,12 +126,13 @@ final readonly class TranscriptionResult
      */
     private function formatSrtTime(float $seconds): string
     {
-        $hours = floor($seconds / 3600);
-        $minutes = floor(($seconds % 3600) / 60);
-        $secs = $seconds % 60;
-        $ms = ($seconds - floor($seconds)) * 1000;
+        $totalSeconds = (int) floor($seconds);
+        $hours = intdiv($totalSeconds, 3600);
+        $minutes = intdiv($totalSeconds % 3600, 60);
+        $secs = $totalSeconds % 60;
+        $ms = (int) round(($seconds - floor($seconds)) * 1000);
 
-        return sprintf('%02d:%02d:%02d,%03d', (int) $hours, (int) $minutes, (int) $secs, (int) $ms);
+        return sprintf('%02d:%02d:%02d,%03d', $hours, $minutes, $secs, $ms);
     }
 
     /**
@@ -139,11 +140,12 @@ final readonly class TranscriptionResult
      */
     private function formatVttTime(float $seconds): string
     {
-        $hours = floor($seconds / 3600);
-        $minutes = floor(($seconds % 3600) / 60);
-        $secs = $seconds % 60;
-        $ms = ($seconds - floor($seconds)) * 1000;
+        $totalSeconds = (int) floor($seconds);
+        $hours = intdiv($totalSeconds, 3600);
+        $minutes = intdiv($totalSeconds % 3600, 60);
+        $secs = $totalSeconds % 60;
+        $ms = (int) round(($seconds - floor($seconds)) * 1000);
 
-        return sprintf('%02d:%02d:%02d.%03d', (int) $hours, (int) $minutes, (int) $secs, (int) $ms);
+        return sprintf('%02d:%02d:%02d.%03d', $hours, $minutes, $secs, $ms);
     }
 }

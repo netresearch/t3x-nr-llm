@@ -6,7 +6,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
-use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
 
@@ -21,7 +21,7 @@ class CompletionService
     use OptionsResolverTrait;
 
     public function __construct(
-        private readonly LlmServiceManager $llmManager,
+        private readonly LlmServiceManagerInterface $llmManager,
     ) {}
 
     /**

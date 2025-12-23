@@ -6,8 +6,8 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
-use Netresearch\NrLlm\Service\CacheManager;
-use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
 
@@ -24,8 +24,8 @@ class EmbeddingService
     private const DEFAULT_CACHE_TTL = 86400; // 24 hours (embeddings are deterministic)
 
     public function __construct(
-        private readonly LlmServiceManager $llmManager,
-        private readonly CacheManager $cacheManager,
+        private readonly LlmServiceManagerInterface $llmManager,
+        private readonly CacheManagerInterface $cacheManager,
     ) {}
 
     /**

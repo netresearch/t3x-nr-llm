@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Translation;
 
-use Netresearch\NrLlm\Service\UsageTrackerService;
+use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Option\DeepLOptions;
@@ -73,7 +73,7 @@ final class DeepLTranslator implements TranslatorInterface
         private readonly RequestFactoryInterface $requestFactory,
         private readonly StreamFactoryInterface $streamFactory,
         private readonly ExtensionConfiguration $extensionConfiguration,
-        private readonly UsageTrackerService $usageTracker,
+        private readonly UsageTrackerServiceInterface $usageTracker,
         private readonly LoggerInterface $logger,
     ) {
         $this->loadConfiguration();
@@ -117,7 +117,11 @@ final class DeepLTranslator implements TranslatorInterface
         // Parse response
         $translations = $response['translations'] ?? [];
         if (empty($translations)) {
-            throw new ServiceUnavailableException('DeepL returned empty translation response');
+            throw new ServiceUnavailableException(
+                'DeepL returned empty translation response',
+                'translation',
+                ['provider' => 'deepl']
+            );
         }
 
         $translation = $translations[0];

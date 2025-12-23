@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.5/phpunit.xsd"
+         bootstrap=".Build/vendor/autoload.php"
+         cacheDirectory=".Build/cache/phpunit"
+         executionOrder="depends,defects"
+         requireCoverageMetadata="false"
+         beStrictAboutCoverageMetadata="false"
+         beStrictAboutOutputDuringTests="true"
+         displayDetailsOnTestsThatTriggerDeprecations="true"
+         displayDetailsOnTestsThatTriggerNotices="true"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+         displayDetailsOnTestsThatTriggerErrors="true"
+         failOnRisky="true"
+         failOnWarning="true"
+         colors="true">
+
+    <testsuites>
+        <testsuite name="unit">
+            <directory>Tests/Unit</directory>
+        </testsuite>
+        <testsuite name="integration">
+            <directory>Tests/Integration</directory>
+        </testsuite>
+        <testsuite name="functional">
+            <directory>Tests/Functional</directory>
+        </testsuite>
+        <testsuite name="e2e">
+            <directory>Tests/E2E</directory>
+        </testsuite>
+        <testsuite name="fuzzy">
+            <directory>Tests/Fuzzy</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory suffix=".php">Classes</directory>
+        </include>
+        <exclude>
+            <directory>Classes/Domain/Model</directory>
+        </exclude>
+    </source>
+
+    <coverage includeUncoveredFiles="true"
+              pathCoverage="false"
+              ignoreDeprecatedCodeUnits="true"
+              disableCodeCoverageIgnore="false">
+        <report>
+            <clover outputFile=".Build/logs/clover.xml"/>
+            <html outputDirectory=".Build/logs/coverage"/>
+            <text outputFile="php://stdout" showOnlySummary="true"/>
+        </report>
+    </coverage>
+
+    <php>
+        <ini name="display_errors" value="1"/>
+        <env name="TYPO3_CONTEXT" value="Testing"/>
+    </php>
+</phpunit>

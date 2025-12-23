@@ -6,7 +6,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
-use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 
@@ -24,7 +24,7 @@ class VisionService
     private const PROMPT_DESCRIPTION = 'Provide a comprehensive description of this image including subjects, setting, colors, mood, composition, and notable details.';
 
     public function __construct(
-        private readonly LlmServiceManager $llmManager,
+        private readonly LlmServiceManagerInterface $llmManager,
     ) {}
 
     /**

@@ -4,34 +4,33 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
-use Netresearch\NrLlm\Service\Feature\EmbeddingService;
-use Netresearch\NrLlm\Service\LlmServiceManager;
-use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
+use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\Feature\EmbeddingService;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 
-/**
- * Unit tests for EmbeddingService
- */
-class EmbeddingServiceTest extends TestCase
+#[CoversClass(EmbeddingService::class)]
+class EmbeddingServiceTest extends AbstractUnitTestCase
 {
     private EmbeddingService $subject;
-    private LlmServiceManager&MockObject $llmManagerMock;
-    private CacheManager&MockObject $cacheMock;
+    private LlmServiceManagerInterface&MockObject $llmManagerMock;
+    private CacheManagerInterface&MockObject $cacheMock;
 
     protected function setUp(): void
     {
-        $this->llmManagerMock = $this->createMock(LlmServiceManager::class);
-        $this->cacheMock = $this->createMock(CacheManager::class);
+        parent::setUp();
+        $this->llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $this->cacheMock = $this->createMock(CacheManagerInterface::class);
         $this->subject = new EmbeddingService($this->llmManagerMock, $this->cacheMock);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function embedReturnsVectorArray(): void
     {
         $text = 'Test text';
@@ -51,9 +50,7 @@ class EmbeddingServiceTest extends TestCase
         $this->assertEquals($expectedVector, $result);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function embedUsesCachedResult(): void
     {
         $text = 'Cached text';
@@ -77,9 +74,7 @@ class EmbeddingServiceTest extends TestCase
         $this->assertEquals($cachedVector, $result);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function embedStoresResultInCache(): void
     {
         $text = 'New text';
@@ -100,9 +95,7 @@ class EmbeddingServiceTest extends TestCase
         $this->subject->embed($text);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function embedBatchProcessesMultipleTexts(): void
     {
         $texts = ['Text 1', 'Text 2', 'Text 3'];
@@ -119,9 +112,7 @@ class EmbeddingServiceTest extends TestCase
         $this->assertEquals($vectors, $results);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function cosineSimilarityCalculatesCorrectly(): void
     {
         $vectorA = [1.0, 0.0, 0.0];
@@ -132,9 +123,7 @@ class EmbeddingServiceTest extends TestCase
         $this->assertEquals(1.0, $similarity);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function cosineSimilarityHandlesOrthogonalVectors(): void
     {
         $vectorA = [1.0, 0.0];
@@ -145,9 +134,7 @@ class EmbeddingServiceTest extends TestCase
         $this->assertEquals(0.0, $similarity);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function findMostSimilarReturnsTopK(): void
     {
         $queryVector = [1.0, 0.0];
@@ -166,9 +153,7 @@ class EmbeddingServiceTest extends TestCase
         $this->assertGreaterThan($results[1]['similarity'], $results[0]['similarity']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function normalizeCreatesUnitVector(): void
     {
         $vector = [3.0, 4.0]; // Magnitude = 5.0
@@ -182,9 +167,7 @@ class EmbeddingServiceTest extends TestCase
         $this->assertEqualsWithDelta(1.0, $magnitude, 0.001);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function embedThrowsOnEmptyText(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -193,9 +176,7 @@ class EmbeddingServiceTest extends TestCase
         $this->subject->embed('');
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function pairwiseSimilaritiesCreatesMatrix(): void
     {
         $vectors = [
@@ -222,9 +203,7 @@ class EmbeddingServiceTest extends TestCase
         $this->assertEquals(0.0, $similarities[0][1]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function embedBatchReturnsEmptyArrayForEmptyInput(): void
     {
         $result = $this->subject->embedBatch([]);

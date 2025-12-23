@@ -4,31 +4,30 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
-use Netresearch\NrLlm\Service\Feature\VisionService;
-use Netresearch\NrLlm\Service\LlmServiceManager;
-use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
+use Netresearch\NrLlm\Service\Feature\VisionService;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 
-/**
- * Unit tests for VisionService
- */
-class VisionServiceTest extends TestCase
+#[CoversClass(VisionService::class)]
+class VisionServiceTest extends AbstractUnitTestCase
 {
     private VisionService $subject;
-    private LlmServiceManager&MockObject $llmManagerMock;
+    private LlmServiceManagerInterface&MockObject $llmManagerMock;
 
     protected function setUp(): void
     {
-        $this->llmManagerMock = $this->createMock(LlmServiceManager::class);
+        parent::setUp();
+        $this->llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $this->subject = new VisionService($this->llmManagerMock);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function generateAltTextReturnsSingleString(): void
     {
         $imageUrl = 'https://example.com/image.jpg';
@@ -41,9 +40,7 @@ class VisionServiceTest extends TestCase
         $this->assertEquals($expectedAltText, $result);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function generateAltTextProcessesBatch(): void
     {
         $imageUrls = [
@@ -64,9 +61,7 @@ class VisionServiceTest extends TestCase
         $this->assertCount(2, $results);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function generateTitleReturnsString(): void
     {
         $imageUrl = 'https://example.com/image.jpg';
@@ -79,9 +74,7 @@ class VisionServiceTest extends TestCase
         $this->assertEquals($expectedTitle, $result);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function generateDescriptionReturnsString(): void
     {
         $imageUrl = 'https://example.com/image.jpg';
@@ -94,9 +87,7 @@ class VisionServiceTest extends TestCase
         $this->assertEquals($expectedDescription, $result);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function analyzeImageWithCustomPrompt(): void
     {
         $imageUrl = 'https://example.com/chart.jpg';
@@ -121,9 +112,7 @@ class VisionServiceTest extends TestCase
         $this->assertEquals($expectedAnalysis, $result);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function analyzeImageFullReturnsVisionResponse(): void
     {
         $imageUrl = 'https://example.com/image.jpg';
@@ -137,9 +126,7 @@ class VisionServiceTest extends TestCase
         $this->assertEquals($analysis, $result->description);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function throwsOnInvalidImageUrl(): void
     {
         $invalidUrl = 'not-a-valid-url';
@@ -150,9 +137,7 @@ class VisionServiceTest extends TestCase
         $this->subject->generateAltText($invalidUrl);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function acceptsBase64DataUri(): void
     {
         $base64Uri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
@@ -164,9 +149,7 @@ class VisionServiceTest extends TestCase
         $this->assertIsString($result);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function appliesDetailLevelOption(): void
     {
         $imageUrl = 'https://example.com/image.jpg';

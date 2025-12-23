@@ -22,7 +22,7 @@ use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\SingletonInterface;
 
-final class LlmServiceManager implements SingletonInterface
+final class LlmServiceManager implements LlmServiceManagerInterface, SingletonInterface
 {
     use OptionsResolverTrait;
 

@@ -13,7 +13,7 @@ use TYPO3\CMS\Core\SingletonInterface;
  * Tracks usage metrics (requests, tokens, characters, audio, images)
  * with daily aggregation for cost monitoring and quota enforcement.
  */
-final class UsageTrackerService implements SingletonInterface
+final class UsageTrackerService implements UsageTrackerServiceInterface, SingletonInterface
 {
     private const TABLE = 'tx_nrllm_service_usage';
 
