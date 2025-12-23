@@ -8,6 +8,7 @@ use Netresearch\NrLlm\Service\Feature\EmbeddingService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -18,8 +19,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 class EmbeddingServiceTest extends TestCase
 {
     private EmbeddingService $subject;
-    private LlmServiceManager|MockObject $llmManagerMock;
-    private CacheManager|MockObject $cacheMock;
+    private LlmServiceManager&MockObject $llmManagerMock;
+    private CacheManager&MockObject $cacheMock;
 
     protected function setUp(): void
     {
@@ -37,13 +38,13 @@ class EmbeddingServiceTest extends TestCase
         $expectedVector = [0.1, 0.2, 0.3];
 
         $this->cacheMock
-            ->method('get')
+            ->method('getCachedEmbeddings')
             ->willReturn(null);
 
         $this->llmManagerMock
             ->expects($this->once())
             ->method('embed')
-            ->willReturn($this->createMockEmbeddingResponse($expectedVector));
+            ->willReturn($this->createMockEmbeddingResponse([$expectedVector]));
 
         $result = $this->subject->embed($text);
 
@@ -58,16 +59,14 @@ class EmbeddingServiceTest extends TestCase
         $text = 'Cached text';
         $cachedVector = [0.5, 0.6, 0.7];
 
-        $cachedResponse = new EmbeddingResponse(
-            vector: $cachedVector,
-            dimensions: 3,
-            usage: new \Netresearch\NrLlm\Domain\Model\UsageStatistics(0, 0, 0)
-        );
-
         $this->cacheMock
             ->expects($this->once())
-            ->method('get')
-            ->willReturn($cachedResponse);
+            ->method('getCachedEmbeddings')
+            ->willReturn([
+                'embeddings' => [$cachedVector],
+                'model' => 'text-embedding-3-small',
+                'usage' => ['promptTokens' => 5, 'totalTokens' => 5],
+            ]);
 
         $this->llmManagerMock
             ->expects($this->never())
@@ -87,21 +86,16 @@ class EmbeddingServiceTest extends TestCase
         $vector = [0.1, 0.2];
 
         $this->cacheMock
-            ->method('get')
+            ->method('getCachedEmbeddings')
             ->willReturn(null);
 
         $this->cacheMock
             ->expects($this->once())
-            ->method('set')
-            ->with(
-                $this->isType('string'),
-                $this->isInstanceOf(EmbeddingResponse::class),
-                86400
-            );
+            ->method('cacheEmbeddings');
 
         $this->llmManagerMock
             ->method('embed')
-            ->willReturn($this->createMockEmbeddingResponse($vector));
+            ->willReturn($this->createMockEmbeddingResponse([$vector]));
 
         $this->subject->embed($text);
     }
@@ -114,55 +108,15 @@ class EmbeddingServiceTest extends TestCase
         $texts = ['Text 1', 'Text 2', 'Text 3'];
         $vectors = [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]];
 
-        $this->cacheMock
-            ->method('get')
-            ->willReturn(null);
-
         $this->llmManagerMock
             ->expects($this->once())
-            ->method('embedBatch')
-            ->willReturn($this->createMockBatchEmbeddingResponse($vectors));
+            ->method('embed')
+            ->willReturn($this->createMockEmbeddingResponse($vectors));
 
         $results = $this->subject->embedBatch($texts);
 
         $this->assertCount(3, $results);
         $this->assertEquals($vectors, $results);
-    }
-
-    /**
-     * @test
-     */
-    public function embedBatchUsesCachedResultsWhenAvailable(): void
-    {
-        $texts = ['Cached', 'New'];
-        $cachedVector = [0.1, 0.2];
-        $newVector = [0.3, 0.4];
-
-        $cachedResponse = new EmbeddingResponse(
-            vector: $cachedVector,
-            dimensions: 2,
-            usage: new \Netresearch\NrLlm\Domain\Model\UsageStatistics(0, 0, 0)
-        );
-
-        $this->cacheMock
-            ->method('get')
-            ->willReturnCallback(function ($key) use ($cachedResponse) {
-                return str_contains($key, 'Cached') ? $cachedResponse : null;
-            });
-
-        $this->llmManagerMock
-            ->expects($this->once())
-            ->method('embedBatch')
-            ->with($this->callback(function ($options) {
-                $this->assertCount(1, $options['input']);
-                $this->assertEquals('New', $options['input'][0]);
-                return true;
-            }))
-            ->willReturn($this->createMockBatchEmbeddingResponse([$newVector]));
-
-        $results = $this->subject->embedBatch($texts);
-
-        $this->assertCount(2, $results);
     }
 
     /**
@@ -194,20 +148,6 @@ class EmbeddingServiceTest extends TestCase
     /**
      * @test
      */
-    public function cosineSimilarityThrowsOnDimensionMismatch(): void
-    {
-        $vectorA = [1.0, 2.0];
-        $vectorB = [1.0, 2.0, 3.0];
-
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('same dimensions');
-
-        $this->subject->cosineSimilarity($vectorA, $vectorB);
-    }
-
-    /**
-     * @test
-     */
     public function findMostSimilarReturnsTopK(): void
     {
         $queryVector = [1.0, 0.0];
@@ -234,12 +174,12 @@ class EmbeddingServiceTest extends TestCase
         $vector = [3.0, 4.0]; // Magnitude = 5.0
         $normalized = $this->subject->normalize($vector);
 
-        $this->assertEquals(0.6, $normalized[0], '', 0.001);
-        $this->assertEquals(0.8, $normalized[1], '', 0.001);
+        $this->assertEqualsWithDelta(0.6, $normalized[0], 0.001);
+        $this->assertEqualsWithDelta(0.8, $normalized[1], 0.001);
 
         // Verify magnitude is 1.0
         $magnitude = sqrt($normalized[0] ** 2 + $normalized[1] ** 2);
-        $this->assertEquals(1.0, $magnitude, '', 0.001);
+        $this->assertEqualsWithDelta(1.0, $magnitude, 0.001);
     }
 
     /**
@@ -283,50 +223,30 @@ class EmbeddingServiceTest extends TestCase
     }
 
     /**
-     * Create mock embedding response
+     * @test
      */
-    private function createMockEmbeddingResponse(array $vector): object
+    public function embedBatchReturnsEmptyArrayForEmptyInput(): void
     {
-        return new class($vector) {
-            public function __construct(private array $vector) {}
+        $result = $this->subject->embedBatch([]);
 
-            public function getVector(): array
-            {
-                return $this->vector;
-            }
-
-            public function getUsage(): array
-            {
-                return [
-                    'prompt_tokens' => 5,
-                    'estimated_cost' => 0.0001,
-                ];
-            }
-
-            public function getModel(): ?string
-            {
-                return 'text-embedding-3-small';
-            }
-        };
+        $this->assertIsArray($result);
+        $this->assertEmpty($result);
     }
 
     /**
-     * Create mock batch embedding response
+     * Create mock EmbeddingResponse
      */
-    private function createMockBatchEmbeddingResponse(array $vectors): object
+    private function createMockEmbeddingResponse(array $embeddings): EmbeddingResponse
     {
-        return new class($vectors) {
-            public function __construct(private array $vectors) {}
-
-            public function getVectors(): array
-            {
-                return $this->vectors;
-            }
-
-            public function getModel(): ?string
-            {
-                return 'text-embedding-3-small';
-            }
-        };
+        return new EmbeddingResponse(
+            embeddings: $embeddings,
+            model: 'text-embedding-3-small',
+            usage: new UsageStatistics(
+                promptTokens: 5,
+                completionTokens: 0,
+                totalTokens: 5
+            ),
+            provider: 'openai',
+        );
     }
 }

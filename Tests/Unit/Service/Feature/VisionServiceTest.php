@@ -6,9 +6,8 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
 use Netresearch\NrLlm\Service\Feature\VisionService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
-use Netresearch\NrLlm\Service\PromptTemplateService;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
-use Netresearch\NrLlm\Domain\Model\RenderedPrompt;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -19,14 +18,12 @@ use PHPUnit\Framework\MockObject\MockObject;
 class VisionServiceTest extends TestCase
 {
     private VisionService $subject;
-    private LlmServiceManager|MockObject $llmManagerMock;
-    private PromptTemplateService|MockObject $promptServiceMock;
+    private LlmServiceManager&MockObject $llmManagerMock;
 
     protected function setUp(): void
     {
         $this->llmManagerMock = $this->createMock(LlmServiceManager::class);
-        $this->promptServiceMock = $this->createMock(PromptTemplateService::class);
-        $this->subject = new VisionService($this->llmManagerMock, $this->promptServiceMock);
+        $this->subject = new VisionService($this->llmManagerMock);
     }
 
     /**
@@ -37,7 +34,6 @@ class VisionServiceTest extends TestCase
         $imageUrl = 'https://example.com/image.jpg';
         $expectedAltText = 'A red barn in a green field';
 
-        $this->mockPromptRendering('vision.alt_text');
         $this->mockVisionResponse($expectedAltText);
 
         $result = $this->subject->generateAltText($imageUrl);
@@ -55,9 +51,12 @@ class VisionServiceTest extends TestCase
             'https://example.com/img2.jpg',
         ];
 
-        $this->mockPromptRendering('vision.alt_text');
-        $this->mockVisionResponse('Alt text 1');
-        $this->mockVisionResponse('Alt text 2');
+        $this->llmManagerMock
+            ->method('vision')
+            ->willReturnOnConsecutiveCalls(
+                $this->createMockVisionResponse('Alt text 1'),
+                $this->createMockVisionResponse('Alt text 2')
+            );
 
         $results = $this->subject->generateAltText($imageUrls);
 
@@ -68,37 +67,31 @@ class VisionServiceTest extends TestCase
     /**
      * @test
      */
-    public function generateTitleUsesCorrectPrompt(): void
+    public function generateTitleReturnsString(): void
     {
         $imageUrl = 'https://example.com/image.jpg';
+        $expectedTitle = 'SEO optimized title';
 
-        $this->promptServiceMock
-            ->expects($this->once())
-            ->method('render')
-            ->with('vision.seo_title')
-            ->willReturn($this->createMockRenderedPrompt());
+        $this->mockVisionResponse($expectedTitle);
 
-        $this->mockVisionResponse('SEO optimized title');
+        $result = $this->subject->generateTitle($imageUrl);
 
-        $this->subject->generateTitle($imageUrl);
+        $this->assertEquals($expectedTitle, $result);
     }
 
     /**
      * @test
      */
-    public function generateDescriptionUsesCorrectPrompt(): void
+    public function generateDescriptionReturnsString(): void
     {
         $imageUrl = 'https://example.com/image.jpg';
+        $expectedDescription = 'Detailed description of the image';
 
-        $this->promptServiceMock
-            ->expects($this->once())
-            ->method('render')
-            ->with('vision.description')
-            ->willReturn($this->createMockRenderedPrompt());
+        $this->mockVisionResponse($expectedDescription);
 
-        $this->mockVisionResponse('Detailed description');
+        $result = $this->subject->generateDescription($imageUrl);
 
-        $this->subject->generateDescription($imageUrl);
+        $this->assertEquals($expectedDescription, $result);
     }
 
     /**
@@ -112,17 +105,16 @@ class VisionServiceTest extends TestCase
 
         $this->llmManagerMock
             ->expects($this->once())
-            ->method('complete')
-            ->with($this->callback(function ($options) use ($customPrompt) {
-                $this->assertArrayHasKey('messages', $options);
-                $messages = $options['messages'];
-                $this->assertEquals('user', $messages[0]['role']);
-                $content = $messages[0]['content'];
-                $this->assertEquals($customPrompt, $content[0]['text']);
-                $this->assertEquals('image_url', $content[1]['type']);
-                return true;
-            }))
-            ->willReturn($this->createMockLlmResponse($expectedAnalysis));
+            ->method('vision')
+            ->with(
+                $this->callback(function (array $content) use ($customPrompt) {
+                    return $content[0]['type'] === 'text'
+                        && $content[0]['text'] === $customPrompt
+                        && $content[1]['type'] === 'image_url';
+                }),
+                $this->anything()
+            )
+            ->willReturn($this->createMockVisionResponse($expectedAnalysis));
 
         $result = $this->subject->analyzeImage($imageUrl, $customPrompt);
 
@@ -137,13 +129,12 @@ class VisionServiceTest extends TestCase
         $imageUrl = 'https://example.com/image.jpg';
         $analysis = 'Detailed analysis';
 
-        $this->mockPromptRendering('vision.alt_text');
         $this->mockVisionResponse($analysis);
 
-        $result = $this->subject->analyzeImageFull($imageUrl, 'vision.alt_text');
+        $result = $this->subject->analyzeImageFull($imageUrl, 'Describe this image');
 
         $this->assertInstanceOf(VisionResponse::class, $result);
-        $this->assertEquals($analysis, $result->getText());
+        $this->assertEquals($analysis, $result->description);
     }
 
     /**
@@ -152,8 +143,6 @@ class VisionServiceTest extends TestCase
     public function throwsOnInvalidImageUrl(): void
     {
         $invalidUrl = 'not-a-valid-url';
-
-        $this->mockPromptRendering('vision.alt_text');
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid image URL');
@@ -168,7 +157,6 @@ class VisionServiceTest extends TestCase
     {
         $base64Uri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
-        $this->mockPromptRendering('vision.alt_text');
         $this->mockVisionResponse('Alt text');
 
         $result = $this->subject->generateAltText($base64Uri);
@@ -183,30 +171,18 @@ class VisionServiceTest extends TestCase
     {
         $imageUrl = 'https://example.com/image.jpg';
 
-        $this->mockPromptRendering('vision.alt_text');
-
         $this->llmManagerMock
             ->expects($this->once())
-            ->method('complete')
-            ->with($this->callback(function ($options) {
-                $imageUrl = $options['messages'][1]['content'][1]['image_url'];
-                $this->assertEquals('high', $imageUrl['detail']);
-                return true;
-            }))
-            ->willReturn($this->createMockLlmResponse('Alt text'));
+            ->method('vision')
+            ->with(
+                $this->callback(function (array $content) {
+                    return $content[1]['image_url']['detail'] === 'high';
+                }),
+                $this->anything()
+            )
+            ->willReturn($this->createMockVisionResponse('Alt text'));
 
         $this->subject->generateAltText($imageUrl, ['detail_level' => 'high']);
-    }
-
-    /**
-     * Mock prompt rendering
-     */
-    private function mockPromptRendering(string $identifier): void
-    {
-        $this->promptServiceMock
-            ->method('render')
-            ->with($identifier)
-            ->willReturn($this->createMockRenderedPrompt());
     }
 
     /**
@@ -215,49 +191,24 @@ class VisionServiceTest extends TestCase
     private function mockVisionResponse(string $content): void
     {
         $this->llmManagerMock
-            ->method('complete')
-            ->willReturn($this->createMockLlmResponse($content));
+            ->method('vision')
+            ->willReturn($this->createMockVisionResponse($content));
     }
 
     /**
-     * Create mock rendered prompt
+     * Create mock VisionResponse
      */
-    private function createMockRenderedPrompt(): RenderedPrompt
+    private function createMockVisionResponse(string $description): VisionResponse
     {
-        return new RenderedPrompt(
-            systemPrompt: 'Test system prompt',
-            userPrompt: 'Test user prompt',
-            temperature: 0.5,
-            maxTokens: 300
+        return new VisionResponse(
+            description: $description,
+            model: 'gpt-4o',
+            usage: new UsageStatistics(
+                promptTokens: 100,
+                completionTokens: 50,
+                totalTokens: 150
+            ),
+            provider: 'openai',
         );
-    }
-
-    /**
-     * Create mock LLM response
-     */
-    private function createMockLlmResponse(string $content): object
-    {
-        return new class($content) {
-            public function __construct(private string $content) {}
-
-            public function getContent(): string
-            {
-                return $this->content;
-            }
-
-            public function getUsage(): array
-            {
-                return [
-                    'prompt_tokens' => 100,
-                    'completion_tokens' => 50,
-                    'estimated_cost' => 0.002,
-                ];
-            }
-
-            public function getMetadata(): ?array
-            {
-                return ['confidence' => 0.95];
-            }
-        };
     }
 }

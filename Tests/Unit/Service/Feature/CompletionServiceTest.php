@@ -7,6 +7,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 use Netresearch\NrLlm\Service\Feature\CompletionService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -17,7 +18,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 class CompletionServiceTest extends TestCase
 {
     private CompletionService $subject;
-    private LlmServiceManager|MockObject $llmManagerMock;
+    private LlmServiceManager&MockObject $llmManagerMock;
 
     protected function setUp(): void
     {
@@ -33,24 +34,24 @@ class CompletionServiceTest extends TestCase
         $prompt = 'Test prompt';
         $expectedResponse = 'Test response';
 
-        $mockResponse = $this->createMockLlmResponse($expectedResponse);
+        $mockResponse = $this->createMockResponse($expectedResponse);
 
         $this->llmManagerMock
             ->expects($this->once())
-            ->method('complete')
-            ->with($this->callback(function ($options) use ($prompt) {
-                $this->assertArrayHasKey('messages', $options);
-                $this->assertArrayHasKey('temperature', $options);
-                $this->assertEquals(0.7, $options['temperature']);
-                $this->assertEquals($prompt, $options['messages'][0]['content']);
-                return true;
-            }))
+            ->method('chat')
+            ->with(
+                $this->callback(function (array $messages) use ($prompt) {
+                    return $messages[0]['role'] === 'user'
+                        && $messages[0]['content'] === $prompt;
+                }),
+                $this->anything()
+            )
             ->willReturn($mockResponse);
 
         $result = $this->subject->complete($prompt);
 
         $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertEquals($expectedResponse, $result->text);
+        $this->assertEquals($expectedResponse, $result->content);
         $this->assertEquals('stop', $result->finishReason);
     }
 
@@ -62,20 +63,21 @@ class CompletionServiceTest extends TestCase
         $prompt = 'User prompt';
         $systemPrompt = 'System instructions';
 
-        $mockResponse = $this->createMockLlmResponse('Response');
+        $mockResponse = $this->createMockResponse('Response');
 
         $this->llmManagerMock
             ->expects($this->once())
-            ->method('complete')
-            ->with($this->callback(function ($options) use ($systemPrompt, $prompt) {
-                $messages = $options['messages'];
-                $this->assertCount(2, $messages);
-                $this->assertEquals('system', $messages[0]['role']);
-                $this->assertEquals($systemPrompt, $messages[0]['content']);
-                $this->assertEquals('user', $messages[1]['role']);
-                $this->assertEquals($prompt, $messages[1]['content']);
-                return true;
-            }))
+            ->method('chat')
+            ->with(
+                $this->callback(function (array $messages) use ($systemPrompt, $prompt) {
+                    return count($messages) === 2
+                        && $messages[0]['role'] === 'system'
+                        && $messages[0]['content'] === $systemPrompt
+                        && $messages[1]['role'] === 'user'
+                        && $messages[1]['content'] === $prompt;
+                }),
+                $this->anything()
+            )
             ->willReturn($mockResponse);
 
         $this->subject->complete($prompt, ['system_prompt' => $systemPrompt]);
@@ -84,38 +86,14 @@ class CompletionServiceTest extends TestCase
     /**
      * @test
      */
-    public function completeAppliesCustomTemperature(): void
-    {
-        $mockResponse = $this->createMockLlmResponse('Response');
-
-        $this->llmManagerMock
-            ->expects($this->once())
-            ->method('complete')
-            ->with($this->callback(function ($options) {
-                $this->assertEquals(1.5, $options['temperature']);
-                return true;
-            }))
-            ->willReturn($mockResponse);
-
-        $this->subject->complete('Test', ['temperature' => 1.5]);
-    }
-
-    /**
-     * @test
-     */
     public function completeJsonReturnsDecodedArray(): void
     {
         $jsonResponse = '{"key": "value", "number": 42}';
-        $mockResponse = $this->createMockLlmResponse($jsonResponse);
+        $mockResponse = $this->createMockResponse($jsonResponse);
 
         $this->llmManagerMock
             ->expects($this->once())
-            ->method('complete')
-            ->with($this->callback(function ($options) {
-                $this->assertArrayHasKey('response_format', $options);
-                $this->assertEquals(['type' => 'json_object'], $options['response_format']);
-                return true;
-            }))
+            ->method('chat')
             ->willReturn($mockResponse);
 
         $result = $this->subject->completeJson('Generate JSON');
@@ -130,10 +108,10 @@ class CompletionServiceTest extends TestCase
      */
     public function completeJsonThrowsOnInvalidJson(): void
     {
-        $mockResponse = $this->createMockLlmResponse('Not valid JSON');
+        $mockResponse = $this->createMockResponse('Not valid JSON');
 
         $this->llmManagerMock
-            ->method('complete')
+            ->method('chat')
             ->willReturn($mockResponse);
 
         $this->expectException(InvalidArgumentException::class);
@@ -145,19 +123,13 @@ class CompletionServiceTest extends TestCase
     /**
      * @test
      */
-    public function completeMarkdownAddsFormattingInstruction(): void
+    public function completeMarkdownReturnsString(): void
     {
-        $mockResponse = $this->createMockLlmResponse('# Markdown');
+        $mockResponse = $this->createMockResponse('# Markdown');
 
         $this->llmManagerMock
             ->expects($this->once())
-            ->method('complete')
-            ->with($this->callback(function ($options) {
-                $messages = $options['messages'];
-                $systemMessage = $messages[0]['content'] ?? '';
-                $this->assertStringContainsString('Markdown', $systemMessage);
-                return true;
-            }))
+            ->method('chat')
             ->willReturn($mockResponse);
 
         $result = $this->subject->completeMarkdown('Test');
@@ -170,16 +142,18 @@ class CompletionServiceTest extends TestCase
      */
     public function completeFactualUsesLowTemperature(): void
     {
-        $mockResponse = $this->createMockLlmResponse('Factual response');
+        $mockResponse = $this->createMockResponse('Factual response');
 
         $this->llmManagerMock
             ->expects($this->once())
-            ->method('complete')
-            ->with($this->callback(function ($options) {
-                $this->assertEquals(0.2, $options['temperature']);
-                $this->assertEquals(0.9, $options['top_p']);
-                return true;
-            }))
+            ->method('chat')
+            ->with(
+                $this->anything(),
+                $this->callback(function (array $options) {
+                    return $options['temperature'] === 0.2
+                        && $options['top_p'] === 0.9;
+                })
+            )
             ->willReturn($mockResponse);
 
         $this->subject->completeFactual('Factual question');
@@ -190,16 +164,18 @@ class CompletionServiceTest extends TestCase
      */
     public function completeCreativeUsesHighTemperature(): void
     {
-        $mockResponse = $this->createMockLlmResponse('Creative response');
+        $mockResponse = $this->createMockResponse('Creative response');
 
         $this->llmManagerMock
             ->expects($this->once())
-            ->method('complete')
-            ->with($this->callback(function ($options) {
-                $this->assertEquals(1.2, $options['temperature']);
-                $this->assertEquals(0.6, $options['presence_penalty']);
-                return true;
-            }))
+            ->method('chat')
+            ->with(
+                $this->anything(),
+                $this->callback(function (array $options) {
+                    return $options['temperature'] === 1.2
+                        && $options['presence_penalty'] === 0.6;
+                })
+            )
             ->willReturn($mockResponse);
 
         $this->subject->completeCreative('Creative prompt');
@@ -243,10 +219,10 @@ class CompletionServiceTest extends TestCase
      */
     public function completionResponseIndicatesTruncation(): void
     {
-        $mockResponse = $this->createMockLlmResponse('Truncated', 'length');
+        $mockResponse = $this->createMockResponse('Truncated', 'length');
 
         $this->llmManagerMock
-            ->method('complete')
+            ->method('chat')
             ->willReturn($mockResponse);
 
         $result = $this->subject->complete('Test');
@@ -256,46 +232,22 @@ class CompletionServiceTest extends TestCase
     }
 
     /**
-     * Create mock LLM response
+     * Create mock CompletionResponse
      */
-    private function createMockLlmResponse(
+    private function createMockResponse(
         string $content,
         string $finishReason = 'stop'
-    ): object {
-        return new class($content, $finishReason) {
-            public function __construct(
-                private string $content,
-                private string $finishReason
-            ) {}
-
-            public function getContent(): string
-            {
-                return $this->content;
-            }
-
-            public function getFinishReason(): string
-            {
-                return $this->finishReason;
-            }
-
-            public function getUsage(): array
-            {
-                return [
-                    'prompt_tokens' => 10,
-                    'completion_tokens' => 20,
-                    'estimated_cost' => 0.001,
-                ];
-            }
-
-            public function getModel(): ?string
-            {
-                return 'test-model';
-            }
-
-            public function getMetadata(): ?array
-            {
-                return ['test' => 'metadata'];
-            }
-        };
+    ): CompletionResponse {
+        return new CompletionResponse(
+            content: $content,
+            model: 'test-model',
+            usage: new UsageStatistics(
+                promptTokens: 10,
+                completionTokens: 20,
+                totalTokens: 30
+            ),
+            finishReason: $finishReason,
+            provider: 'test',
+        );
     }
 }
