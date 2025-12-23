@@ -1,0 +1,16 @@
+# Docker Compose overrides for nr_llm extension development
+# This extends the default DDEV web container configuration
+
+services:
+  web:
+    environment:
+      # Extension development
+      - EXTENSION_KEY=nr_llm
+      - PACKAGE_NAME=netresearch/nr-llm
+      # API keys (set via .env.local or ddev auth)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      # Mount extension source (read-write for development)
+      - "../:/var/www/html/packages/nr_llm:cached"

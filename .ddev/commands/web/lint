@@ -1,0 +1,18 @@
+#!/bin/bash
+
+## Description: Run PHP-CS-Fixer for the nr_llm extension
+## Usage: lint [--fix]
+## Example: ddev lint
+## Example: ddev lint --fix
+
+set -e
+
+cd /var/www/html/packages/nr_llm
+
+echo "=== Running PHP-CS-Fixer ==="
+
+if [ "$1" = "--fix" ]; then
+    .Build/bin/php-cs-fixer fix
+else
+    .Build/bin/php-cs-fixer fix --dry-run --diff
+fi

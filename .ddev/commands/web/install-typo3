@@ -1,0 +1,136 @@
+#!/bin/bash
+
+## Description: Install TYPO3 v14 with nr_llm extension for development
+## Usage: install-typo3
+## Example: ddev install-typo3
+
+set -e
+
+echo "=== Installing TYPO3 v14 with nr_llm extension ==="
+
+cd /var/www/html
+
+# Create composer.json for TYPO3 installation if not exists
+if [ ! -f composer.json ]; then
+    echo "Creating TYPO3 v14 project..."
+    cat > composer.json << 'EOF'
+{
+    "name": "netresearch/nr-llm-dev",
+    "description": "TYPO3 v14 development environment for nr_llm extension",
+    "type": "project",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": "^8.5",
+        "typo3/cms-core": "^14.0",
+        "typo3/cms-backend": "^14.0",
+        "typo3/cms-frontend": "^14.0",
+        "typo3/cms-install": "^14.0",
+        "typo3/cms-filelist": "^14.0",
+        "typo3/cms-fluid": "^14.0",
+        "typo3/cms-fluid-styled-content": "^14.0",
+        "typo3/cms-info": "^14.0",
+        "typo3/cms-lowlevel": "^14.0",
+        "typo3/cms-rte-ckeditor": "^14.0",
+        "typo3/cms-setup": "^14.0",
+        "typo3/cms-tstemplate": "^14.0",
+        "helhum/typo3-console": "^9.0"
+    },
+    "require-dev": {
+        "typo3/cms-styleguide": "^14.0"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "./packages/*",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
+    "config": {
+        "allow-plugins": {
+            "typo3/cms-composer-installers": true,
+            "typo3/class-alias-loader": true
+        }
+    },
+    "extra": {
+        "typo3/cms": {
+            "web-dir": "public"
+        }
+    }
+}
+EOF
+fi
+
+# Install dependencies
+echo "Installing Composer dependencies..."
+composer require netresearch/nr-llm:@dev --no-interaction
+
+# Create TYPO3 configuration
+echo "Setting up TYPO3..."
+mkdir -p config/sites/main public/fileadmin public/typo3temp var
+
+# Create site configuration
+cat > config/sites/main/config.yaml << 'EOF'
+base: /
+rootPageId: 1
+languages:
+  -
+    title: English
+    enabled: true
+    languageId: 0
+    base: /
+    locale: en_US.UTF-8
+    navigationTitle: English
+    flag: us
+errorHandling: []
+routes: []
+EOF
+
+# Setup TYPO3 with typo3 console
+echo "Running TYPO3 setup..."
+vendor/bin/typo3 setup \
+    --driver=mysqli \
+    --host=db \
+    --port=3306 \
+    --dbname=db \
+    --username=db \
+    --password=db \
+    --admin-username=admin \
+    --admin-password='Joh316!' \
+    --admin-email=admin@example.com \
+    --project-name="NR LLM Development" \
+    --create-site="https://nr-llm.ddev.site/" \
+    --no-interaction \
+    --force || true
+
+# Configure trusted hosts for DDEV
+echo "Configuring TYPO3 for DDEV environment..."
+cat >> config/system/additional.php << 'EOF'
+<?php
+// DDEV Development Configuration
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['features']['security.backend.enforceReferrer'] = false;
+$GLOBALS['TYPO3_CONF_VARS']['BE']['debug'] = true;
+$GLOBALS['TYPO3_CONF_VARS']['FE']['debug'] = true;
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['devIPmask'] = '*';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['displayErrors'] = 1;
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['exceptionalErrors'] = E_ALL;
+$GLOBALS['TYPO3_CONF_VARS']['LOG']['writerConfiguration'][\Psr\Log\LogLevel::DEBUG] = [];
+EOF
+
+# Activate extension
+echo "Activating nr_llm extension..."
+vendor/bin/typo3 extension:activate nr_llm || true
+
+# Clear caches
+echo "Clearing caches..."
+vendor/bin/typo3 cache:flush
+
+echo ""
+echo "=== Installation Complete ==="
+echo ""
+echo "Access TYPO3 backend at: https://nr-llm.ddev.site/typo3/"
+echo "Username: admin"
+echo "Password: Joh316!"
+echo ""

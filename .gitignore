@@ -36,3 +36,17 @@ var/
 
 # Documentation build output
 Documentation-GENERATED-temp/
+
+# DDEV local files (keep config, ignore generated)
+.ddev/.ddev-docker-compose-full.yaml
+.ddev/.ddev-docker-compose-base.yaml
+.ddev/.global_commands
+.ddev/.homeadditions
+.ddev/.sso-config.yaml
+.ddev/db_snapshots/
+.ddev/.gitignore
+.ddev/traefik/
+
+# Local environment
+.env.local
+.envrc.local

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+## Description: Run PHPStan static analysis for the nr_llm extension
+## Usage: phpstan [options]
+## Example: ddev phpstan
+## Example: ddev phpstan --level=max
+
+set -e
+
+cd /var/www/html/packages/nr_llm
+
+echo "=== Running PHPStan ==="
+
+.Build/bin/phpstan analyse "$@"

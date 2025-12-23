@@ -1,0 +1,16 @@
+#!/bin/bash
+
+## Description: Run PHPUnit tests for the nr_llm extension
+## Usage: test [options]
+## Example: ddev test
+## Example: ddev test --testsuite unit
+## Example: ddev test --coverage-html coverage
+
+set -e
+
+cd /var/www/html/packages/nr_llm
+
+echo "=== Running nr_llm tests ==="
+
+# Run tests with any passed arguments
+.Build/bin/phpunit -c Tests/phpunit.xml "$@"
