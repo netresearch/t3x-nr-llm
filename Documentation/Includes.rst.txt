@@ -1,0 +1,19 @@
+.. This is included by all TYPO3 ReST based documentation
+
+.. |extension_key| replace:: nr_llm
+.. |extension_name| replace:: TYPO3 LLM Extension
+.. |vendor| replace:: Netresearch
+
+.. role:: typoscript(code)
+   :language: typoscript
+
+.. role:: php(code)
+   :language: php
+
+.. role:: yaml(code)
+   :language: yaml
+
+.. role:: sql(code)
+   :language: sql
+
+.. default-role:: code
