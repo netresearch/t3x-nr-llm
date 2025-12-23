@@ -1,4 +1,4 @@
-# cat=basic/enable; type=string; label=Default Provider: The default LLM provider to use (openai, claude, gemini)
+# cat=basic/enable; type=options[openai,claude,gemini,openrouter,mistral,groq]; label=Default Provider: The default LLM provider to use
 defaultProvider = openai
 
 # cat=basic/enable; type=boolean; label=Enable Caching: Cache LLM responses to reduce API calls and costs
@@ -43,6 +43,54 @@ providers.gemini.baseUrl =
 # cat=gemini; type=int+; label=Gemini Timeout: Request timeout in seconds
 providers.gemini.timeout = 30
 
+# cat=openrouter; type=string; label=OpenRouter API Key: Your OpenRouter API key (access 100+ models)
+providers.openrouter.apiKey =
+
+# cat=openrouter; type=string; label=OpenRouter Default Model: Default model to use (e.g., anthropic/claude-3.5-sonnet)
+providers.openrouter.defaultModel = anthropic/claude-3.5-sonnet
+
+# cat=openrouter; type=string; label=Site URL: Your site URL for OpenRouter attribution (HTTP-Referer header)
+providers.openrouter.siteUrl =
+
+# cat=openrouter; type=string; label=App Name: Your application name for OpenRouter attribution (X-Title header)
+providers.openrouter.appName = TYPO3 NR-LLM
+
+# cat=openrouter; type=options[cost_optimized,performance,balanced,explicit]; label=Routing Strategy: Model selection strategy
+providers.openrouter.routingStrategy = balanced
+
+# cat=openrouter; type=boolean; label=Auto Fallback: Automatically fallback to alternative models on failure
+providers.openrouter.autoFallback = 1
+
+# cat=openrouter; type=string; label=Fallback Models: Comma-separated list of fallback model IDs
+providers.openrouter.fallbackModels =
+
+# cat=openrouter; type=int+; label=OpenRouter Timeout: Request timeout in seconds
+providers.openrouter.timeout = 60
+
+# cat=mistral; type=string; label=Mistral API Key: Your Mistral AI API key (EU-based, GDPR compliant)
+providers.mistral.apiKey =
+
+# cat=mistral; type=string; label=Mistral Default Model: Default model to use (e.g., mistral-large-latest, codestral-latest)
+providers.mistral.defaultModel = mistral-large-latest
+
+# cat=mistral; type=string; label=Mistral Base URL: Custom base URL (leave empty for default)
+providers.mistral.baseUrl =
+
+# cat=mistral; type=int+; label=Mistral Timeout: Request timeout in seconds
+providers.mistral.timeout = 30
+
+# cat=groq; type=string; label=Groq API Key: Your Groq API key (ultra-fast inference)
+providers.groq.apiKey =
+
+# cat=groq; type=string; label=Groq Default Model: Default model to use (e.g., llama-3.3-70b-versatile, mixtral-8x7b-32768)
+providers.groq.defaultModel = llama-3.3-70b-versatile
+
+# cat=groq; type=string; label=Groq Base URL: Custom base URL (leave empty for default)
+providers.groq.baseUrl =
+
+# cat=groq; type=int+; label=Groq Timeout: Request timeout in seconds (Groq is fast, 30s is usually enough)
+providers.groq.timeout = 30
+
 # cat=advanced; type=int+; label=Max Retries: Maximum number of retry attempts for failed requests
 maxRetries = 3
 
@@ -51,3 +99,57 @@ enableLogging = 0
 
 # cat=advanced; type=options[none,basic,full]; label=Logging Level: Level of detail for logging
 loggingLevel = none
+
+# cat=deepl; type=string; label=DeepL API Key: Your DeepL API key (Free or Pro). Free keys end with ':fx'
+translators.deepl.apiKey =
+
+# cat=deepl; type=string; label=DeepL Base URL: Custom base URL (leave empty for auto-detection based on key type)
+translators.deepl.baseUrl =
+
+# cat=deepl; type=int+; label=DeepL Timeout: Request timeout in seconds
+translators.deepl.timeout = 30
+
+# cat=speech; type=string; label=Whisper Base URL: Custom base URL for Whisper API (leave empty for OpenAI default)
+speech.whisper.baseUrl =
+
+# cat=speech; type=int+; label=Whisper Timeout: Request timeout in seconds (transcription can take longer)
+speech.whisper.timeout = 120
+
+# cat=speech; type=string; label=TTS Base URL: Custom base URL for TTS API (leave empty for OpenAI default)
+speech.tts.baseUrl =
+
+# cat=speech; type=int+; label=TTS Timeout: Request timeout in seconds
+speech.tts.timeout = 60
+
+# cat=speech; type=options[alloy,echo,fable,onyx,nova,shimmer]; label=TTS Default Voice: Default voice for text-to-speech
+speech.tts.defaultVoice = alloy
+
+# cat=speech; type=options[tts-1,tts-1-hd]; label=TTS Default Model: Default model for text-to-speech
+speech.tts.defaultModel = tts-1
+
+# cat=image; type=string; label=DALL-E Base URL: Custom base URL for DALL-E API (leave empty for OpenAI default)
+image.dalle.baseUrl =
+
+# cat=image; type=int+; label=DALL-E Timeout: Request timeout in seconds (image generation can take time)
+image.dalle.timeout = 120
+
+# cat=image; type=options[dall-e-2,dall-e-3]; label=DALL-E Default Model: Default model for image generation
+image.dalle.defaultModel = dall-e-3
+
+# cat=image; type=options[1024x1024,1792x1024,1024x1792]; label=DALL-E Default Size: Default image size
+image.dalle.defaultSize = 1024x1024
+
+# cat=fal; type=string; label=FAL API Key: Your FAL.ai API key for alternative image generation
+image.fal.apiKey =
+
+# cat=fal; type=string; label=FAL Base URL: Custom base URL for FAL API (leave empty for default)
+image.fal.baseUrl =
+
+# cat=fal; type=int+; label=FAL Timeout: Request timeout in seconds
+image.fal.timeout = 120
+
+# cat=fal; type=int+; label=FAL Poll Interval: Queue polling interval in milliseconds
+image.fal.pollInterval = 1000
+
+# cat=fal; type=options[flux-pro,flux-dev,flux-schnell,sdxl,sd3,playground]; label=FAL Default Model: Default model for FAL image generation
+image.fal.defaultModel = flux-schnell

@@ -17,6 +17,7 @@ services:
     exclude:
       - '../Classes/Domain/Model/*'
       - '../Classes/Provider/Exception/*'
+      - '../Classes/Specialized/Exception/*'
 
   # ========================================
   # Core Services (PUBLIC)
@@ -47,6 +48,24 @@ services:
     tags:
       - name: nr_llm.provider
         priority: 80
+
+  Netresearch\NrLlm\Provider\OpenRouterProvider:
+    public: true
+    tags:
+      - name: nr_llm.provider
+        priority: 70
+
+  Netresearch\NrLlm\Provider\MistralProvider:
+    public: true
+    tags:
+      - name: nr_llm.provider
+        priority: 60
+
+  Netresearch\NrLlm\Provider\GroqProvider:
+    public: true
+    tags:
+      - name: nr_llm.provider
+        priority: 50
 
   # ========================================
   # Provider Registry (handles auto-registration)
@@ -79,4 +98,61 @@ services:
     public: true
 
   Netresearch\NrLlm\Service\CacheManager:
+    public: true
+
+  Netresearch\NrLlm\Service\LlmConfigurationService:
+    public: true
+
+  Netresearch\NrLlm\Service\UsageTrackerService:
+    public: true
+
+  # ========================================
+  # Repositories (PUBLIC)
+  # ========================================
+
+  Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository:
+    public: true
+
+  # ========================================
+  # Translation Registry
+  # ========================================
+
+  Netresearch\NrLlm\Specialized\Translation\TranslatorRegistry:
+    public: true
+
+  # ========================================
+  # Specialized Translators
+  # ========================================
+  # All translators are registered via tags and auto-configured
+
+  Netresearch\NrLlm\Specialized\Translation\LlmTranslator:
+    public: true
+    tags:
+      - name: nr_llm.translator
+        priority: 100
+
+  Netresearch\NrLlm\Specialized\Translation\DeepLTranslator:
+    public: true
+    tags:
+      - name: nr_llm.translator
+        priority: 90
+
+  # ========================================
+  # Speech Services
+  # ========================================
+
+  Netresearch\NrLlm\Specialized\Speech\WhisperTranscriptionService:
+    public: true
+
+  Netresearch\NrLlm\Specialized\Speech\TextToSpeechService:
+    public: true
+
+  # ========================================
+  # Image Generation Services
+  # ========================================
+
+  Netresearch\NrLlm\Specialized\Image\DallEImageService:
+    public: true
+
+  Netresearch\NrLlm\Specialized\Image\FalImageService:
     public: true

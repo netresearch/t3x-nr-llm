@@ -7,21 +7,34 @@ namespace Netresearch\NrLlm\Service\Feature;
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
+use Netresearch\NrLlm\Service\Option\TranslationOptions;
+use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
+use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistry;
+use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 
 /**
  * High-level service for text translation
  *
  * Provides language translation with quality control,
  * glossary support, and context awareness.
+ *
+ * Supports dual-path translation:
+ * - LLM-based translation (default)
+ * - Specialized translators (DeepL, etc.) via TranslatorRegistry
  */
 class TranslationService
 {
+    use OptionsResolverTrait;
     private const SUPPORTED_FORMALITIES = ['default', 'formal', 'informal'];
     private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
     public function __construct(
         private readonly LlmServiceManager $llmManager,
+        private readonly TranslatorRegistry $translatorRegistry,
+        private readonly LlmConfigurationService $configurationService,
     ) {}
 
     /**
@@ -30,7 +43,7 @@ class TranslationService
      * @param string $text Text to translate
      * @param string $targetLanguage Target language code (ISO 639-1)
      * @param string|null $sourceLanguage Source language code (auto-detected if null)
-     * @param array<string, mixed> $options Configuration options:
+     * @param TranslationOptions|array<string, mixed> $options Configuration options:
      *   - formality: string ('default'|'formal'|'informal')
      *   - glossary: array<string, string> Term translations ['term' => 'translation']
      *   - context: string Surrounding content for context
@@ -44,8 +57,9 @@ class TranslationService
         string $text,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        array $options = []
+        TranslationOptions|array $options = []
     ): TranslationResult {
+        $options = $this->resolveTranslationOptions($options);
         if (empty($text)) {
             throw new InvalidArgumentException('Text cannot be empty');
         }
@@ -108,19 +122,20 @@ class TranslationService
      * @param array<int, string> $texts Array of texts to translate
      * @param string $targetLanguage Target language code
      * @param string|null $sourceLanguage Source language code (auto-detected if null)
-     * @param array<string, mixed> $options Configuration options (same as translate())
+     * @param TranslationOptions|array<string, mixed> $options Configuration options (same as translate())
      * @return array<int, TranslationResult> Array of TranslationResult objects
      */
     public function translateBatch(
         array $texts,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        array $options = []
+        TranslationOptions|array $options = []
     ): array {
         if (empty($texts)) {
             return [];
         }
 
+        $options = $this->resolveTranslationOptions($options);
         $results = [];
 
         foreach ($texts as $text) {
@@ -134,11 +149,12 @@ class TranslationService
      * Detect language of text
      *
      * @param string $text Text to analyze
-     * @param array<string, mixed> $options Options including provider
+     * @param TranslationOptions|array<string, mixed> $options Options including provider
      * @return string Language code (ISO 639-1)
      */
-    public function detectLanguage(string $text, array $options = []): string
+    public function detectLanguage(string $text, TranslationOptions|array $options = []): string
     {
+        $options = $this->resolveTranslationOptions($options);
         $messages = [
             [
                 'role' => 'system',
@@ -180,15 +196,16 @@ class TranslationService
      * @param string $sourceText Original text
      * @param string $translatedText Translated text
      * @param string $targetLanguage Target language code
-     * @param array<string, mixed> $options Options including provider
+     * @param TranslationOptions|array<string, mixed> $options Options including provider
      * @return float Quality score (0.0-1.0)
      */
     public function scoreTranslationQuality(
         string $sourceText,
         string $translatedText,
         string $targetLanguage,
-        array $options = []
+        TranslationOptions|array $options = []
     ): float {
+        $options = $this->resolveTranslationOptions($options);
         $messages = [
             [
                 'role' => 'system',
@@ -220,6 +237,168 @@ class TranslationService
 
         // Clamp to 0.0-1.0 range
         return max(0.0, min(1.0, $score));
+    }
+
+    /**
+     * Translate using specialized translator or LLM
+     *
+     * Supports dual-path translation with priority routing:
+     * 1. Explicit translator specified in options
+     * 2. Translator from LlmConfiguration preset
+     * 3. Default LLM-based translation
+     *
+     * @param string $text Text to translate
+     * @param string $targetLanguage Target language code (ISO 639-1)
+     * @param string|null $sourceLanguage Source language code (auto-detected if null)
+     * @param TranslationOptions|array<string, mixed> $options Configuration options:
+     *   - translator: string Explicit translator identifier ('deepl', 'llm')
+     *   - preset: string LlmConfiguration identifier to use
+     *   - formality: string ('default'|'formal'|'informal')
+     *   - glossary: array<string, string> Term translations
+     *   - context: string Surrounding content for context
+     *   - preserve_formatting: bool Keep HTML, markdown, etc.
+     *   - domain: string ('general'|'technical'|'medical'|'legal'|'marketing')
+     * @return TranslatorResult Translation result with metadata
+     */
+    public function translateWithTranslator(
+        string $text,
+        string $targetLanguage,
+        ?string $sourceLanguage = null,
+        TranslationOptions|array $options = []
+    ): TranslatorResult {
+        $options = $this->resolveTranslationOptions($options);
+
+        if (empty($text)) {
+            throw new InvalidArgumentException('Text cannot be empty');
+        }
+
+        $this->validateLanguageCode($targetLanguage);
+        if ($sourceLanguage !== null) {
+            $this->validateLanguageCode($sourceLanguage);
+        }
+
+        // Determine translator to use
+        $translator = $this->resolveTranslator($options);
+
+        // Execute translation via resolved translator
+        return $translator->translate($text, $targetLanguage, $sourceLanguage, $options);
+    }
+
+    /**
+     * Translate batch using specialized translator or LLM
+     *
+     * @param array<int, string> $texts Texts to translate
+     * @param string $targetLanguage Target language code
+     * @param string|null $sourceLanguage Source language code
+     * @param TranslationOptions|array<string, mixed> $options Configuration options
+     * @return array<int, TranslatorResult> Translation results
+     */
+    public function translateBatchWithTranslator(
+        array $texts,
+        string $targetLanguage,
+        ?string $sourceLanguage = null,
+        TranslationOptions|array $options = []
+    ): array {
+        if (empty($texts)) {
+            return [];
+        }
+
+        $options = $this->resolveTranslationOptions($options);
+        $translator = $this->resolveTranslator($options);
+
+        return $translator->translateBatch($texts, $targetLanguage, $sourceLanguage, $options);
+    }
+
+    /**
+     * Get available translators
+     *
+     * @return array<string, array{identifier: string, name: string, available: bool}>
+     */
+    public function getAvailableTranslators(): array
+    {
+        return $this->translatorRegistry->getTranslatorInfo();
+    }
+
+    /**
+     * Check if a specific translator is available
+     */
+    public function hasTranslator(string $identifier): bool
+    {
+        return $this->translatorRegistry->has($identifier);
+    }
+
+    /**
+     * Get translator by identifier
+     *
+     * @throws \Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException
+     */
+    public function getTranslator(string $identifier): TranslatorInterface
+    {
+        return $this->translatorRegistry->get($identifier);
+    }
+
+    /**
+     * Find best translator for a language pair
+     */
+    public function findBestTranslator(string $sourceLanguage, string $targetLanguage): ?TranslatorInterface
+    {
+        return $this->translatorRegistry->findBestTranslator($sourceLanguage, $targetLanguage);
+    }
+
+    /**
+     * Resolve which translator to use based on options
+     */
+    private function resolveTranslator(array $options): TranslatorInterface
+    {
+        // Priority 1: Explicit translator specified
+        if (isset($options['translator']) && $options['translator'] !== '') {
+            return $this->translatorRegistry->get($options['translator']);
+        }
+
+        // Priority 2: Preset specified - check for translator in configuration
+        if (isset($options['preset']) && $options['preset'] !== '') {
+            $configuration = $this->configurationService->getConfiguration($options['preset']);
+            if ($configuration !== null && $configuration->getTranslator() !== '') {
+                return $this->translatorRegistry->get($configuration->getTranslator());
+            }
+        }
+
+        // Default: Use LLM-based translator
+        return $this->translatorRegistry->get('llm');
+    }
+
+    /**
+     * Convert TranslatorResult to legacy TranslationResult
+     *
+     * For backwards compatibility with existing code.
+     */
+    public function convertToLegacyResult(TranslatorResult $result): TranslationResult
+    {
+        return new TranslationResult(
+            translation: $result->translatedText,
+            sourceLanguage: $result->sourceLanguage,
+            targetLanguage: $result->targetLanguage,
+            confidence: $result->confidence,
+            usage: $this->extractUsageFromMetadata($result->metadata)
+        );
+    }
+
+    /**
+     * Extract UsageStatistics from translator metadata
+     */
+    private function extractUsageFromMetadata(array $metadata): ?UsageStatistics
+    {
+        if (!isset($metadata['usage'])) {
+            return null;
+        }
+
+        $usage = $metadata['usage'];
+
+        return new UsageStatistics(
+            promptTokens: $usage['prompt_tokens'] ?? 0,
+            completionTokens: $usage['completion_tokens'] ?? 0,
+            totalTokens: $usage['total_tokens'] ?? 0
+        );
     }
 
     /**

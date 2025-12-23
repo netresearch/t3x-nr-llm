@@ -13,12 +13,19 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
+use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
+use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\SingletonInterface;
 
 final class LlmServiceManager implements SingletonInterface
 {
+    use OptionsResolverTrait;
+
     /** @var array<string, ProviderInterface> */
     private array $providers = [];
 
@@ -114,10 +121,11 @@ final class LlmServiceManager implements SingletonInterface
      * Send a chat completion request
      *
      * @param array<int, array{role: string, content: string}> $messages
-     * @param array<string, mixed> $options
+     * @param ChatOptions|array<string, mixed> $options
      */
-    public function chat(array $messages, array $options = []): CompletionResponse
+    public function chat(array $messages, ChatOptions|array $options = []): CompletionResponse
     {
+        $options = $this->resolveChatOptions($options);
         $provider = $this->getProvider($options['provider'] ?? null);
         unset($options['provider']);
 
@@ -127,10 +135,11 @@ final class LlmServiceManager implements SingletonInterface
     /**
      * Send a simple completion request
      *
-     * @param array<string, mixed> $options
+     * @param ChatOptions|array<string, mixed> $options
      */
-    public function complete(string $prompt, array $options = []): CompletionResponse
+    public function complete(string $prompt, ChatOptions|array $options = []): CompletionResponse
     {
+        $options = $this->resolveChatOptions($options);
         $provider = $this->getProvider($options['provider'] ?? null);
         unset($options['provider']);
 
@@ -141,10 +150,11 @@ final class LlmServiceManager implements SingletonInterface
      * Generate embeddings for text
      *
      * @param string|array<int, string> $input
-     * @param array<string, mixed> $options
+     * @param EmbeddingOptions|array<string, mixed> $options
      */
-    public function embed(string|array $input, array $options = []): EmbeddingResponse
+    public function embed(string|array $input, EmbeddingOptions|array $options = []): EmbeddingResponse
     {
+        $options = $this->resolveEmbeddingOptions($options);
         $provider = $this->getProvider($options['provider'] ?? null);
         unset($options['provider']);
 
@@ -161,10 +171,11 @@ final class LlmServiceManager implements SingletonInterface
      * Analyze an image with vision capabilities
      *
      * @param array<int, array{type: string, image_url?: array{url: string}, text?: string}> $content
-     * @param array<string, mixed> $options
+     * @param VisionOptions|array<string, mixed> $options
      */
-    public function vision(array $content, array $options = []): VisionResponse
+    public function vision(array $content, VisionOptions|array $options = []): VisionResponse
     {
+        $options = $this->resolveVisionOptions($options);
         $provider = $this->getProvider($options['provider'] ?? null);
         unset($options['provider']);
 
@@ -181,11 +192,12 @@ final class LlmServiceManager implements SingletonInterface
      * Stream a chat completion response
      *
      * @param array<int, array{role: string, content: string}> $messages
-     * @param array<string, mixed> $options
+     * @param ChatOptions|array<string, mixed> $options
      * @return \Generator<int, string, mixed, void>
      */
-    public function streamChat(array $messages, array $options = []): \Generator
+    public function streamChat(array $messages, ChatOptions|array $options = []): \Generator
     {
+        $options = $this->resolveChatOptions($options);
         $provider = $this->getProvider($options['provider'] ?? null);
         unset($options['provider']);
 
@@ -203,10 +215,11 @@ final class LlmServiceManager implements SingletonInterface
      *
      * @param array<int, array{role: string, content: string}> $messages
      * @param array<int, array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> $tools
-     * @param array<string, mixed> $options
+     * @param ToolOptions|array<string, mixed> $options
      */
-    public function chatWithTools(array $messages, array $tools, array $options = []): CompletionResponse
+    public function chatWithTools(array $messages, array $tools, ToolOptions|array $options = []): CompletionResponse
     {
+        $options = $this->resolveToolOptions($options);
         $provider = $this->getProvider($options['provider'] ?? null);
         unset($options['provider']);
 

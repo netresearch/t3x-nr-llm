@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" datatype="plaintext" original="messages">
+        <body>
+            <!-- Table title -->
+            <trans-unit id="tx_nrllm_configuration">
+                <source>LLM Configuration</source>
+            </trans-unit>
+
+            <!-- Tabs -->
+            <trans-unit id="tab.parameters">
+                <source>Parameters</source>
+            </trans-unit>
+            <trans-unit id="tab.limits">
+                <source>Usage Limits</source>
+            </trans-unit>
+            <trans-unit id="tab.access">
+                <source>Access Control</source>
+            </trans-unit>
+
+            <!-- Palettes -->
+            <trans-unit id="palette.identity">
+                <source>Identity</source>
+            </trans-unit>
+            <trans-unit id="palette.provider">
+                <source>Provider</source>
+            </trans-unit>
+            <trans-unit id="palette.parameters">
+                <source>Model Parameters</source>
+            </trans-unit>
+            <trans-unit id="palette.limits">
+                <source>Usage Limits</source>
+            </trans-unit>
+            <trans-unit id="palette.status">
+                <source>Status</source>
+            </trans-unit>
+
+            <!-- Fields -->
+            <trans-unit id="tx_nrllm_configuration.identifier">
+                <source>Identifier</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.identifier.description">
+                <source>Unique technical identifier (lowercase, no spaces)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.name">
+                <source>Name</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.description">
+                <source>Description</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.provider">
+                <source>Provider</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.model">
+                <source>Model</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.model.description">
+                <source>Model identifier (e.g., gpt-4o, claude-3-5-sonnet-20241022)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.translator">
+                <source>Specialized Translator</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.translator.description">
+                <source>Use a specialized translation service instead of LLM-based translation</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.system_prompt">
+                <source>System Prompt</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.temperature">
+                <source>Temperature</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.temperature.description">
+                <source>Controls randomness (0.0 = deterministic, 2.0 = very creative)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.max_tokens">
+                <source>Max Tokens</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.max_tokens.description">
+                <source>Maximum number of tokens in the response</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.top_p">
+                <source>Top P</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.frequency_penalty">
+                <source>Frequency Penalty</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.presence_penalty">
+                <source>Presence Penalty</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.options">
+                <source>Additional Options</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.options.description">
+                <source>Additional options as JSON (optional)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.max_requests_per_day">
+                <source>Max Requests/Day</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.max_requests_per_day.description">
+                <source>Maximum requests per day (0 = unlimited)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.max_tokens_per_day">
+                <source>Max Tokens/Day</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.max_cost_per_day">
+                <source>Max Cost/Day ($)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.is_active">
+                <source>Active</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.is_default">
+                <source>Default Configuration</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.allowed_groups">
+                <source>Allowed Backend Groups</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.allowed_groups.description">
+                <source>If empty, configuration is accessible to all users with LLM permissions</source>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

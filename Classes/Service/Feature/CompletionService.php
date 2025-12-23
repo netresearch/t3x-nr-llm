@@ -7,6 +7,8 @@ namespace Netresearch\NrLlm\Service\Feature;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
 
 /**
  * High-level service for text completion
@@ -16,6 +18,8 @@ use Netresearch\NrLlm\Service\LlmServiceManager;
  */
 class CompletionService
 {
+    use OptionsResolverTrait;
+
     public function __construct(
         private readonly LlmServiceManager $llmManager,
     ) {}
@@ -24,7 +28,7 @@ class CompletionService
      * Generate text completion
      *
      * @param string $prompt The user prompt
-     * @param array<string, mixed> $options Configuration options:
+     * @param ChatOptions|array<string, mixed> $options Configuration options:
      *   - temperature: float (0.0-2.0) Creativity level, default 0.7
      *   - max_tokens: int Maximum output tokens, default 1000
      *   - top_p: float (0.0-1.0) Nucleus sampling, default 1.0
@@ -36,8 +40,9 @@ class CompletionService
      *   - provider: string Specific provider to use
      * @throws InvalidArgumentException
      */
-    public function complete(string $prompt, array $options = []): CompletionResponse
+    public function complete(string $prompt, ChatOptions|array $options = []): CompletionResponse
     {
+        $options = $this->resolveChatOptions($options);
         $this->validateOptions($options);
 
         $messages = [];
@@ -76,12 +81,13 @@ class CompletionService
      * Generate JSON-formatted completion
      *
      * @param string $prompt The user prompt
-     * @param array<string, mixed> $options Configuration options (same as complete())
+     * @param ChatOptions|array<string, mixed> $options Configuration options (same as complete())
      * @return array<string, mixed> Parsed JSON response
      * @throws InvalidArgumentException
      */
-    public function completeJson(string $prompt, array $options = []): array
+    public function completeJson(string $prompt, ChatOptions|array $options = []): array
     {
+        $options = $this->resolveChatOptions($options);
         $options['response_format'] = 'json';
 
         $response = $this->complete($prompt, $options);
@@ -101,11 +107,12 @@ class CompletionService
      * Generate markdown-formatted completion
      *
      * @param string $prompt The user prompt
-     * @param array<string, mixed> $options Configuration options (same as complete())
+     * @param ChatOptions|array<string, mixed> $options Configuration options (same as complete())
      * @return string Markdown-formatted text
      */
-    public function completeMarkdown(string $prompt, array $options = []): string
+    public function completeMarkdown(string $prompt, ChatOptions|array $options = []): string
     {
+        $options = $this->resolveChatOptions($options);
         $options['response_format'] = 'markdown';
 
         $systemPrompt = $options['system_prompt'] ?? '';
@@ -121,10 +128,11 @@ class CompletionService
      * Generate completion with low creativity (factual, consistent)
      *
      * @param string $prompt The user prompt
-     * @param array<string, mixed> $options Additional configuration options
+     * @param ChatOptions|array<string, mixed> $options Additional configuration options
      */
-    public function completeFactual(string $prompt, array $options = []): CompletionResponse
+    public function completeFactual(string $prompt, ChatOptions|array $options = []): CompletionResponse
     {
+        $options = $this->resolveChatOptions($options);
         $options['temperature'] = $options['temperature'] ?? 0.2;
         $options['top_p'] = $options['top_p'] ?? 0.9;
 
@@ -135,10 +143,11 @@ class CompletionService
      * Generate completion with high creativity (diverse, creative)
      *
      * @param string $prompt The user prompt
-     * @param array<string, mixed> $options Additional configuration options
+     * @param ChatOptions|array<string, mixed> $options Additional configuration options
      */
-    public function completeCreative(string $prompt, array $options = []): CompletionResponse
+    public function completeCreative(string $prompt, ChatOptions|array $options = []): CompletionResponse
     {
+        $options = $this->resolveChatOptions($options);
         $options['temperature'] = $options['temperature'] ?? 1.2;
         $options['top_p'] = $options['top_p'] ?? 1.0;
         $options['presence_penalty'] = $options['presence_penalty'] ?? 0.6;

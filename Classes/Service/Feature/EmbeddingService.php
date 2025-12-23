@@ -8,6 +8,8 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
+use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
 
 /**
  * High-level service for text embeddings and similarity calculations
@@ -17,6 +19,8 @@ use Netresearch\NrLlm\Service\LlmServiceManager;
  */
 class EmbeddingService
 {
+    use OptionsResolverTrait;
+
     private const DEFAULT_CACHE_TTL = 86400; // 24 hours (embeddings are deterministic)
 
     public function __construct(
@@ -30,14 +34,14 @@ class EmbeddingService
      * Embeddings are deterministic and aggressively cached.
      *
      * @param string $text Text to embed
-     * @param array<string, mixed> $options Configuration options:
+     * @param EmbeddingOptions|array<string, mixed> $options Configuration options:
      *   - model: string Provider-specific embedding model
      *   - dimensions: int Output dimensions (if supported by provider)
      *   - cache_ttl: int Cache duration in seconds, default 86400
      *   - provider: string Specific provider to use
      * @return array<int, float> Embedding vector
      */
-    public function embed(string $text, array $options = []): array
+    public function embed(string $text, EmbeddingOptions|array $options = []): array
     {
         $response = $this->embedFull($text, $options);
         return $response->getVector();
@@ -47,10 +51,11 @@ class EmbeddingService
      * Generate embedding with full response object
      *
      * @param string $text Text to embed
-     * @param array<string, mixed> $options Configuration options (same as embed())
+     * @param EmbeddingOptions|array<string, mixed> $options Configuration options (same as embed())
      */
-    public function embedFull(string $text, array $options = []): EmbeddingResponse
+    public function embedFull(string $text, EmbeddingOptions|array $options = []): EmbeddingResponse
     {
+        $options = $this->resolveEmbeddingOptions($options);
         if (empty($text)) {
             throw new InvalidArgumentException('Text cannot be empty');
         }
@@ -101,15 +106,16 @@ class EmbeddingService
      * Generate embeddings for multiple texts efficiently
      *
      * @param array<int, string> $texts Array of texts to embed
-     * @param array<string, mixed> $options Configuration options (same as embed())
+     * @param EmbeddingOptions|array<string, mixed> $options Configuration options (same as embed())
      * @return array<int, array<int, float>> Array of embedding vectors
      */
-    public function embedBatch(array $texts, array $options = []): array
+    public function embedBatch(array $texts, EmbeddingOptions|array $options = []): array
     {
         if (empty($texts)) {
             return [];
         }
 
+        $options = $this->resolveEmbeddingOptions($options);
         $response = $this->llmManager->embed($texts, $options);
         return $response->embeddings;
     }
