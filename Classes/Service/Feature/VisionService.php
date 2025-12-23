@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
-use Netresearch\NrLlm\Domain\Model\UsageStatistics;
-use Netresearch\NrLlm\Service\LlmServiceManager;
-use Netresearch\NrLlm\Service\PromptTemplateService;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\LlmServiceManager;
 
 /**
  * High-level service for image analysis and vision tasks
@@ -18,9 +16,12 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  */
 class VisionService
 {
+    private const PROMPT_ALT_TEXT = 'Generate a concise alt text for this image, under 125 characters, focused on essential information for screen readers. Be descriptive but brief.';
+    private const PROMPT_SEO_TITLE = 'Generate an SEO-optimized title for this image, under 60 characters, that is compelling and keyword-rich for search rankings.';
+    private const PROMPT_DESCRIPTION = 'Provide a comprehensive description of this image including subjects, setting, colors, mood, composition, and notable details.';
+
     public function __construct(
         private readonly LlmServiceManager $llmManager,
-        private readonly PromptTemplateService $promptService,
     ) {}
 
     /**
@@ -29,21 +30,24 @@ class VisionService
      * Optimized for screen readers and WCAG 2.1 Level AA compliance.
      * Output is concise (under 125 characters) and focuses on essential information.
      *
-     * @param string|array $imageUrl Single URL or array of URLs
-     * @param array $options Configuration options:
+     * @param string|array<int, string> $imageUrl Single URL or array of URLs
+     * @param array<string, mixed> $options Configuration options:
      *   - detail_level: string ('auto'|'low'|'high') Vision API detail
      *   - max_tokens: int Maximum output tokens, default 100
      *   - temperature: float Creativity level, default 0.5
-     *   - batch_mode: bool Process multiple images efficiently
-     * @return string|array Alt text(s)
+     *   - provider: string Specific provider to use
+     * @return string|array<int, string> Alt text(s)
      */
     public function generateAltText(string|array $imageUrl, array $options = []): string|array
     {
+        $options['max_tokens'] = $options['max_tokens'] ?? 100;
+        $options['temperature'] = $options['temperature'] ?? 0.5;
+
         if (is_array($imageUrl)) {
-            return $this->processBatch($imageUrl, 'vision.alt_text', $options);
+            return $this->processBatch($imageUrl, self::PROMPT_ALT_TEXT, $options);
         }
 
-        return $this->processImage($imageUrl, 'vision.alt_text', $options);
+        return $this->processImage($imageUrl, self::PROMPT_ALT_TEXT, $options);
     }
 
     /**
@@ -52,17 +56,20 @@ class VisionService
      * Creates compelling, keyword-rich titles under 60 characters
      * for improved search rankings.
      *
-     * @param string|array $imageUrl Single URL or array of URLs
-     * @param array $options Configuration options (same as generateAltText)
-     * @return string|array Title(s)
+     * @param string|array<int, string> $imageUrl Single URL or array of URLs
+     * @param array<string, mixed> $options Configuration options (same as generateAltText)
+     * @return string|array<int, string> Title(s)
      */
     public function generateTitle(string|array $imageUrl, array $options = []): string|array
     {
+        $options['max_tokens'] = $options['max_tokens'] ?? 50;
+        $options['temperature'] = $options['temperature'] ?? 0.7;
+
         if (is_array($imageUrl)) {
-            return $this->processBatch($imageUrl, 'vision.seo_title', $options);
+            return $this->processBatch($imageUrl, self::PROMPT_SEO_TITLE, $options);
         }
 
-        return $this->processImage($imageUrl, 'vision.seo_title', $options);
+        return $this->processImage($imageUrl, self::PROMPT_SEO_TITLE, $options);
     }
 
     /**
@@ -71,17 +78,20 @@ class VisionService
      * Provides comprehensive analysis including subjects, setting,
      * colors, mood, composition, and notable details.
      *
-     * @param string|array $imageUrl Single URL or array of URLs
-     * @param array $options Configuration options (same as generateAltText)
-     * @return string|array Description(s)
+     * @param string|array<int, string> $imageUrl Single URL or array of URLs
+     * @param array<string, mixed> $options Configuration options (same as generateAltText)
+     * @return string|array<int, string> Description(s)
      */
     public function generateDescription(string|array $imageUrl, array $options = []): string|array
     {
+        $options['max_tokens'] = $options['max_tokens'] ?? 500;
+        $options['temperature'] = $options['temperature'] ?? 0.7;
+
         if (is_array($imageUrl)) {
-            return $this->processBatch($imageUrl, 'vision.description', $options);
+            return $this->processBatch($imageUrl, self::PROMPT_DESCRIPTION, $options);
         }
 
-        return $this->processImage($imageUrl, 'vision.description', $options);
+        return $this->processImage($imageUrl, self::PROMPT_DESCRIPTION, $options);
     }
 
     /**
@@ -89,10 +99,10 @@ class VisionService
      *
      * Allows arbitrary image analysis queries with user-defined prompts.
      *
-     * @param string|array $imageUrl Single URL or array of URLs
+     * @param string|array<int, string> $imageUrl Single URL or array of URLs
      * @param string $customPrompt Custom analysis prompt
-     * @param array $options Configuration options (same as generateAltText)
-     * @return string|array Analysis result(s)
+     * @param array<string, mixed> $options Configuration options (same as generateAltText)
+     * @return string|array<int, string> Analysis result(s)
      */
     public function analyzeImage(
         string|array $imageUrl,
@@ -100,10 +110,10 @@ class VisionService
         array $options = []
     ): string|array {
         if (is_array($imageUrl)) {
-            return $this->processBatchCustom($imageUrl, $customPrompt, $options);
+            return $this->processBatch($imageUrl, $customPrompt, $options);
         }
 
-        return $this->processImageCustom($imageUrl, $customPrompt, $options);
+        return $this->processImage($imageUrl, $customPrompt, $options);
     }
 
     /**
@@ -112,162 +122,62 @@ class VisionService
      * Returns complete VisionResponse with metadata and usage statistics.
      *
      * @param string $imageUrl Image URL
-     * @param string $promptIdentifier Prompt template identifier
-     * @param array $options Configuration options
-     * @return VisionResponse
+     * @param string $prompt Analysis prompt
+     * @param array<string, mixed> $options Configuration options
      */
     public function analyzeImageFull(
         string $imageUrl,
-        string $promptIdentifier,
+        string $prompt,
         array $options = []
     ): VisionResponse {
         $this->validateImageUrl($imageUrl);
 
-        $prompt = $this->promptService->render($promptIdentifier, [
-            'image_url' => $imageUrl,
-        ]);
-
-        $requestOptions = [
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => $prompt->getSystemPrompt(),
-                ],
-                [
-                    'role' => 'user',
-                    'content' => [
-                        [
-                            'type' => 'text',
-                            'text' => $prompt->getUserPrompt(),
-                        ],
-                        [
-                            'type' => 'image_url',
-                            'image_url' => [
-                                'url' => $imageUrl,
-                                'detail' => $options['detail_level'] ?? 'auto',
-                            ],
-                        ],
-                    ],
+        $content = [
+            [
+                'type' => 'text',
+                'text' => $prompt,
+            ],
+            [
+                'type' => 'image_url',
+                'image_url' => [
+                    'url' => $imageUrl,
+                    'detail' => $options['detail_level'] ?? 'auto',
                 ],
             ],
-            'temperature' => $options['temperature'] ?? $prompt->getTemperature(),
-            'max_tokens' => $options['max_tokens'] ?? $prompt->getMaxTokens(),
         ];
 
-        $response = $this->llmManager->complete($requestOptions);
+        unset($options['detail_level']);
 
-        return new VisionResponse(
-            analysis: $response->getContent(),
-            usage: UsageStatistics::fromTokens(
-                promptTokens: $response->getUsage()['prompt_tokens'] ?? 0,
-                completionTokens: $response->getUsage()['completion_tokens'] ?? 0,
-                estimatedCost: $response->getUsage()['estimated_cost'] ?? null
-            ),
-            confidence: $response->getMetadata()['confidence'] ?? null,
-            detectedObjects: $response->getMetadata()['objects'] ?? null,
-            metadata: $response->getMetadata()
-        );
+        return $this->llmManager->vision($content, $options);
     }
 
     /**
-     * Process single image with template
-     *
-     * @param string $imageUrl
-     * @param string $promptIdentifier
-     * @param array $options
-     * @return string
+     * Process single image with prompt
      */
     private function processImage(
         string $imageUrl,
-        string $promptIdentifier,
+        string $prompt,
         array $options
     ): string {
-        $response = $this->analyzeImageFull($imageUrl, $promptIdentifier, $options);
-        return $response->getText();
+        $response = $this->analyzeImageFull($imageUrl, $prompt, $options);
+        return $response->description;
     }
 
     /**
-     * Process single image with custom prompt
+     * Process batch of images with prompt
      *
-     * @param string $imageUrl
-     * @param string $customPrompt
-     * @param array $options
-     * @return string
-     */
-    private function processImageCustom(
-        string $imageUrl,
-        string $customPrompt,
-        array $options
-    ): string {
-        $this->validateImageUrl($imageUrl);
-
-        $requestOptions = [
-            'messages' => [
-                [
-                    'role' => 'user',
-                    'content' => [
-                        [
-                            'type' => 'text',
-                            'text' => $customPrompt,
-                        ],
-                        [
-                            'type' => 'image_url',
-                            'image_url' => [
-                                'url' => $imageUrl,
-                                'detail' => $options['detail_level'] ?? 'auto',
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-            'temperature' => $options['temperature'] ?? 0.5,
-            'max_tokens' => $options['max_tokens'] ?? 300,
-        ];
-
-        $response = $this->llmManager->complete($requestOptions);
-
-        return $response->getContent();
-    }
-
-    /**
-     * Process batch of images with template
-     *
-     * @param array $imageUrls
-     * @param string $promptIdentifier
-     * @param array $options
-     * @return array
+     * @param array<int, string> $imageUrls
+     * @return array<int, string>
      */
     private function processBatch(
         array $imageUrls,
-        string $promptIdentifier,
+        string $prompt,
         array $options
     ): array {
         $results = [];
 
         foreach ($imageUrls as $imageUrl) {
-            $results[] = $this->processImage($imageUrl, $promptIdentifier, $options);
-        }
-
-        return $results;
-    }
-
-    /**
-     * Process batch of images with custom prompt
-     *
-     * @param array $imageUrls
-     * @param string $customPrompt
-     * @param array $options
-     * @return array
-     */
-    private function processBatchCustom(
-        array $imageUrls,
-        string $customPrompt,
-        array $options
-    ): array {
-        $results = [];
-
-        foreach ($imageUrls as $imageUrl) {
-            $results[] = $this->processImageCustom($imageUrl, $customPrompt, $options);
+            $results[] = $this->processImage($imageUrl, $prompt, $options);
         }
 
         return $results;
@@ -276,7 +186,6 @@ class VisionService
     /**
      * Validate image URL
      *
-     * @param string $imageUrl
      * @throws InvalidArgumentException
      */
     private function validateImageUrl(string $imageUrl): void

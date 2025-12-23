@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
-use Netresearch\NrLlm\Domain\Model\UsageStatistics;
-use Netresearch\NrLlm\Service\LlmServiceManager;
-use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\CacheManager;
+use Netresearch\NrLlm\Service\LlmServiceManager;
 
 /**
  * High-level service for text embeddings and similarity calculations
@@ -31,12 +30,12 @@ class EmbeddingService
      * Embeddings are deterministic and aggressively cached.
      *
      * @param string $text Text to embed
-     * @param array $options Configuration options:
+     * @param array<string, mixed> $options Configuration options:
      *   - model: string Provider-specific embedding model
      *   - dimensions: int Output dimensions (if supported by provider)
-     *   - encoding_format: string ('float'|'base64')
      *   - cache_ttl: int Cache duration in seconds, default 86400
-     * @return array Embedding vector
+     *   - provider: string Specific provider to use
+     * @return array<int, float> Embedding vector
      */
     public function embed(string $text, array $options = []): array
     {
@@ -48,8 +47,7 @@ class EmbeddingService
      * Generate embedding with full response object
      *
      * @param string $text Text to embed
-     * @param array $options Configuration options (same as embed())
-     * @return EmbeddingResponse
+     * @param array<string, mixed> $options Configuration options (same as embed())
      */
     public function embedFull(string $text, array $options = []): EmbeddingResponse
     {
@@ -58,54 +56,53 @@ class EmbeddingService
         }
 
         $model = $options['model'] ?? 'default';
-        $cacheKey = $this->getCacheKey($text, $model);
+        $provider = $options['provider'] ?? 'openai';
+        $cacheKey = $this->getCacheKey($text, $model, $provider);
         $cacheTtl = $options['cache_ttl'] ?? self::DEFAULT_CACHE_TTL;
 
         // Check cache
-        $cached = $this->cacheManager->get($cacheKey);
+        $cached = $this->cacheManager->getCachedEmbeddings($provider, $text, $options);
         if ($cached !== null) {
-            return $cached;
+            return new EmbeddingResponse(
+                embeddings: $cached['embeddings'],
+                model: $cached['model'],
+                usage: new \Netresearch\NrLlm\Domain\Model\UsageStatistics(
+                    promptTokens: $cached['usage']['promptTokens'] ?? 0,
+                    completionTokens: 0,
+                    totalTokens: $cached['usage']['totalTokens'] ?? 0
+                ),
+                provider: $provider
+            );
         }
 
         // Execute embedding request
-        $requestOptions = [
-            'input' => $text,
-            'encoding_format' => $options['encoding_format'] ?? 'float',
-        ];
-
-        if (isset($options['model'])) {
-            $requestOptions['model'] = $options['model'];
-        }
-
-        if (isset($options['dimensions'])) {
-            $requestOptions['dimensions'] = $options['dimensions'];
-        }
-
-        $response = $this->llmManager->embed($requestOptions);
-
-        $embeddingResponse = new EmbeddingResponse(
-            vector: $response->getVector(),
-            dimensions: count($response->getVector()),
-            usage: UsageStatistics::fromTokens(
-                promptTokens: $response->getUsage()['prompt_tokens'] ?? 0,
-                completionTokens: 0,
-                estimatedCost: $response->getUsage()['estimated_cost'] ?? null
-            ),
-            model: $response->getModel()
-        );
+        $response = $this->llmManager->embed($text, $options);
 
         // Cache the result
-        $this->cacheManager->set($cacheKey, $embeddingResponse, $cacheTtl);
+        $this->cacheManager->cacheEmbeddings(
+            $provider,
+            $text,
+            $options,
+            [
+                'embeddings' => $response->embeddings,
+                'model' => $response->model,
+                'usage' => [
+                    'promptTokens' => $response->usage->promptTokens,
+                    'totalTokens' => $response->usage->totalTokens,
+                ],
+            ],
+            $cacheTtl
+        );
 
-        return $embeddingResponse;
+        return $response;
     }
 
     /**
      * Generate embeddings for multiple texts efficiently
      *
-     * @param array $texts Array of texts to embed
-     * @param array $options Configuration options (same as embed())
-     * @return array Array of embedding vectors
+     * @param array<int, string> $texts Array of texts to embed
+     * @param array<string, mixed> $options Configuration options (same as embed())
+     * @return array<int, array<int, float>> Array of embedding vectors
      */
     public function embedBatch(array $texts, array $options = []): array
     {
@@ -113,74 +110,8 @@ class EmbeddingService
             return [];
         }
 
-        $model = $options['model'] ?? 'default';
-        $batchSize = $options['batch_size'] ?? 100;
-
-        // Split into chunks if needed
-        $chunks = array_chunk($texts, $batchSize);
-        $allVectors = [];
-
-        foreach ($chunks as $chunk) {
-            // Check cache for each text
-            $uncachedTexts = [];
-            $uncachedIndices = [];
-            $cachedVectors = [];
-
-            foreach ($chunk as $index => $text) {
-                $cacheKey = $this->getCacheKey($text, $model);
-                $cached = $this->cacheManager->get($cacheKey);
-
-                if ($cached !== null) {
-                    $cachedVectors[$index] = $cached->getVector();
-                } else {
-                    $uncachedTexts[] = $text;
-                    $uncachedIndices[] = $index;
-                }
-            }
-
-            // Process uncached texts
-            if (!empty($uncachedTexts)) {
-                $requestOptions = [
-                    'input' => $uncachedTexts,
-                    'encoding_format' => $options['encoding_format'] ?? 'float',
-                ];
-
-                if (isset($options['model'])) {
-                    $requestOptions['model'] = $options['model'];
-                }
-
-                if (isset($options['dimensions'])) {
-                    $requestOptions['dimensions'] = $options['dimensions'];
-                }
-
-                $response = $this->llmManager->embedBatch($requestOptions);
-                $vectors = $response->getVectors();
-
-                // Cache each result
-                $cacheTtl = $options['cache_ttl'] ?? self::DEFAULT_CACHE_TTL;
-                foreach ($uncachedTexts as $idx => $text) {
-                    $cacheKey = $this->getCacheKey($text, $model);
-                    $vector = $vectors[$idx];
-
-                    $embeddingResponse = new EmbeddingResponse(
-                        vector: $vector,
-                        dimensions: count($vector),
-                        usage: new UsageStatistics(0, 0, 0),
-                        model: $response->getModel()
-                    );
-
-                    $this->cacheManager->set($cacheKey, $embeddingResponse, $cacheTtl);
-
-                    $cachedVectors[$uncachedIndices[$idx]] = $vector;
-                }
-            }
-
-            // Reconstruct in original order
-            ksort($cachedVectors);
-            $allVectors = array_merge($allVectors, $cachedVectors);
-        }
-
-        return $allVectors;
+        $response = $this->llmManager->embed($texts, $options);
+        return $response->embeddings;
     }
 
     /**
@@ -191,50 +122,23 @@ class EmbeddingService
      * - 0 means orthogonal (no similarity)
      * - -1 means opposite vectors
      *
-     * @param array $vectorA First vector
-     * @param array $vectorB Second vector
-     * @return float Similarity score (0.0-1.0 for normalized vectors)
+     * @param array<int, float> $vectorA First vector
+     * @param array<int, float> $vectorB Second vector
+     * @return float Similarity score
      * @throws InvalidArgumentException
      */
     public function cosineSimilarity(array $vectorA, array $vectorB): float
     {
-        if (count($vectorA) !== count($vectorB)) {
-            throw new InvalidArgumentException(
-                'Vectors must have the same dimensions'
-            );
-        }
-
-        if (empty($vectorA)) {
-            throw new InvalidArgumentException('Vectors cannot be empty');
-        }
-
-        $dotProduct = 0;
-        $magnitudeA = 0;
-        $magnitudeB = 0;
-
-        for ($i = 0; $i < count($vectorA); $i++) {
-            $dotProduct += $vectorA[$i] * $vectorB[$i];
-            $magnitudeA += $vectorA[$i] * $vectorA[$i];
-            $magnitudeB += $vectorB[$i] * $vectorB[$i];
-        }
-
-        $magnitudeA = sqrt($magnitudeA);
-        $magnitudeB = sqrt($magnitudeB);
-
-        if ($magnitudeA == 0 || $magnitudeB == 0) {
-            return 0.0;
-        }
-
-        return $dotProduct / ($magnitudeA * $magnitudeB);
+        return EmbeddingResponse::cosineSimilarity($vectorA, $vectorB);
     }
 
     /**
      * Find most similar vectors to query vector
      *
-     * @param array $queryVector Query vector
-     * @param array $candidateVectors Array of candidate vectors
+     * @param array<int, float> $queryVector Query vector
+     * @param array<int, array<int, float>> $candidateVectors Array of candidate vectors
      * @param int $topK Number of results to return
-     * @return array Array of ['index' => int, 'similarity' => float] sorted by similarity
+     * @return array<int, array{index: int, similarity: float}> Results sorted by similarity
      */
     public function findMostSimilar(
         array $queryVector,
@@ -256,7 +160,7 @@ class EmbeddingService
         }
 
         // Sort by similarity descending
-        usort($similarities, fn($a, $b) => $b['similarity'] <=> $a['similarity']);
+        usort($similarities, static fn($a, $b) => $b['similarity'] <=> $a['similarity']);
 
         // Return top K results
         return array_slice($similarities, 0, $topK);
@@ -265,8 +169,8 @@ class EmbeddingService
     /**
      * Calculate pairwise similarities between all vectors
      *
-     * @param array $vectors Array of vectors
-     * @return array 2D array of similarity scores
+     * @param array<int, array<int, float>> $vectors Array of vectors
+     * @return array<int, array<int, float>> 2D array of similarity scores
      */
     public function pairwiseSimilarities(array $vectors): array
     {
@@ -293,29 +197,25 @@ class EmbeddingService
     /**
      * Normalize vector to unit length
      *
-     * @param array $vector
-     * @return array Normalized vector
+     * @param array<int, float> $vector
+     * @return array<int, float> Normalized vector
      */
     public function normalize(array $vector): array
     {
-        $magnitude = sqrt(array_sum(array_map(fn($x) => $x * $x, $vector)));
+        $magnitude = sqrt(array_sum(array_map(static fn($x) => $x * $x, $vector)));
 
         if ($magnitude == 0) {
             return $vector;
         }
 
-        return array_map(fn($x) => $x / $magnitude, $vector);
+        return array_map(static fn($x) => $x / $magnitude, $vector);
     }
 
     /**
      * Generate cache key for embedding
-     *
-     * @param string $text
-     * @param string $model
-     * @return string
      */
-    private function getCacheKey(string $text, string $model): string
+    private function getCacheKey(string $text, string $model, string $provider): string
     {
-        return 'embedding_' . hash('sha256', $model . '|' . $text);
+        return 'embedding_' . hash('sha256', $provider . '|' . $model . '|' . $text);
     }
 }

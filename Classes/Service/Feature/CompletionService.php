@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
-use Netresearch\NrLlm\Domain\Model\UsageStatistics;
-use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\LlmServiceManager;
 
 /**
  * High-level service for text completion
@@ -25,7 +24,7 @@ class CompletionService
      * Generate text completion
      *
      * @param string $prompt The user prompt
-     * @param array $options Configuration options:
+     * @param array<string, mixed> $options Configuration options:
      *   - temperature: float (0.0-2.0) Creativity level, default 0.7
      *   - max_tokens: int Maximum output tokens, default 1000
      *   - top_p: float (0.0-1.0) Nucleus sampling, default 1.0
@@ -34,36 +33,22 @@ class CompletionService
      *   - response_format: string ('text'|'json'|'markdown') Output format
      *   - system_prompt: string Optional system context
      *   - stop_sequences: array Stop generation on these strings
-     * @return CompletionResponse
+     *   - provider: string Specific provider to use
      * @throws InvalidArgumentException
      */
     public function complete(string $prompt, array $options = []): CompletionResponse
     {
         $this->validateOptions($options);
 
-        $requestOptions = [
-            'temperature' => $options['temperature'] ?? 0.7,
-            'max_tokens' => $options['max_tokens'] ?? 1000,
-            'top_p' => $options['top_p'] ?? 1.0,
-            'frequency_penalty' => $options['frequency_penalty'] ?? 0.0,
-            'presence_penalty' => $options['presence_penalty'] ?? 0.0,
-            'stop' => $options['stop_sequences'] ?? [],
-        ];
-
-        // Handle response format
-        if (isset($options['response_format'])) {
-            $requestOptions['response_format'] = $this->normalizeResponseFormat(
-                $options['response_format']
-            );
-        }
+        $messages = [];
 
         // Add system prompt if provided
-        $messages = [];
         if (!empty($options['system_prompt'])) {
             $messages[] = [
                 'role' => 'system',
                 'content' => $options['system_prompt'],
             ];
+            unset($options['system_prompt']);
         }
 
         $messages[] = [
@@ -71,30 +56,28 @@ class CompletionService
             'content' => $prompt,
         ];
 
-        $requestOptions['messages'] = $messages;
+        // Handle response format
+        if (isset($options['response_format'])) {
+            $options['response_format'] = $this->normalizeResponseFormat(
+                $options['response_format']
+            );
+        }
 
-        // Execute request through LLM manager
-        $response = $this->llmManager->complete($requestOptions);
+        // Map stop_sequences to stop
+        if (isset($options['stop_sequences'])) {
+            $options['stop'] = $options['stop_sequences'];
+            unset($options['stop_sequences']);
+        }
 
-        return new CompletionResponse(
-            text: $response->getContent(),
-            usage: UsageStatistics::fromTokens(
-                promptTokens: $response->getUsage()['prompt_tokens'] ?? 0,
-                completionTokens: $response->getUsage()['completion_tokens'] ?? 0,
-                estimatedCost: $response->getUsage()['estimated_cost'] ?? null
-            ),
-            finishReason: $response->getFinishReason(),
-            model: $response->getModel(),
-            metadata: $response->getMetadata()
-        );
+        return $this->llmManager->chat($messages, $options);
     }
 
     /**
      * Generate JSON-formatted completion
      *
      * @param string $prompt The user prompt
-     * @param array $options Configuration options (same as complete())
-     * @return array Parsed JSON response
+     * @param array<string, mixed> $options Configuration options (same as complete())
+     * @return array<string, mixed> Parsed JSON response
      * @throws InvalidArgumentException
      */
     public function completeJson(string $prompt, array $options = []): array
@@ -103,7 +86,7 @@ class CompletionService
 
         $response = $this->complete($prompt, $options);
 
-        $decoded = json_decode($response->text, true);
+        $decoded = json_decode($response->content, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new InvalidArgumentException(
@@ -118,7 +101,7 @@ class CompletionService
      * Generate markdown-formatted completion
      *
      * @param string $prompt The user prompt
-     * @param array $options Configuration options (same as complete())
+     * @param array<string, mixed> $options Configuration options (same as complete())
      * @return string Markdown-formatted text
      */
     public function completeMarkdown(string $prompt, array $options = []): string
@@ -131,15 +114,14 @@ class CompletionService
 
         $response = $this->complete($prompt, $options);
 
-        return $response->text;
+        return $response->content;
     }
 
     /**
      * Generate completion with low creativity (factual, consistent)
      *
      * @param string $prompt The user prompt
-     * @param array $options Additional configuration options
-     * @return CompletionResponse
+     * @param array<string, mixed> $options Additional configuration options
      */
     public function completeFactual(string $prompt, array $options = []): CompletionResponse
     {
@@ -153,8 +135,7 @@ class CompletionService
      * Generate completion with high creativity (diverse, creative)
      *
      * @param string $prompt The user prompt
-     * @param array $options Additional configuration options
-     * @return CompletionResponse
+     * @param array<string, mixed> $options Additional configuration options
      */
     public function completeCreative(string $prompt, array $options = []): CompletionResponse
     {
@@ -168,7 +149,7 @@ class CompletionService
     /**
      * Validate completion options
      *
-     * @param array $options
+     * @param array<string, mixed> $options
      * @throws InvalidArgumentException
      */
     private function validateOptions(array $options): void
@@ -213,8 +194,7 @@ class CompletionService
     /**
      * Normalize response format for provider compatibility
      *
-     * @param string $format
-     * @return array|string
+     * @return array<string, string>|string
      */
     private function normalizeResponseFormat(string $format): array|string
     {

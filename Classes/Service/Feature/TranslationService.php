@@ -6,9 +6,8 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
-use Netresearch\NrLlm\Service\LlmServiceManager;
-use Netresearch\NrLlm\Service\PromptTemplateService;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\LlmServiceManager;
 
 /**
  * High-level service for text translation
@@ -23,7 +22,6 @@ class TranslationService
 
     public function __construct(
         private readonly LlmServiceManager $llmManager,
-        private readonly PromptTemplateService $promptService,
     ) {}
 
     /**
@@ -32,15 +30,15 @@ class TranslationService
      * @param string $text Text to translate
      * @param string $targetLanguage Target language code (ISO 639-1)
      * @param string|null $sourceLanguage Source language code (auto-detected if null)
-     * @param array $options Configuration options:
+     * @param array<string, mixed> $options Configuration options:
      *   - formality: string ('default'|'formal'|'informal')
-     *   - glossary: array Term translations ['term' => 'translation']
+     *   - glossary: array<string, string> Term translations ['term' => 'translation']
      *   - context: string Surrounding content for context
      *   - preserve_formatting: bool Keep HTML, markdown, etc. (default true)
      *   - domain: string ('general'|'technical'|'medical'|'legal'|'marketing')
      *   - temperature: float Creativity level (default 0.3 for consistency)
      *   - max_tokens: int Maximum output tokens (default 2000)
-     * @return TranslationResult
+     *   - provider: string Specific provider to use
      */
     public function translate(
         string $text,
@@ -56,7 +54,7 @@ class TranslationService
 
         // Auto-detect source language if not provided
         if ($sourceLanguage === null) {
-            $sourceLanguage = $this->detectLanguage($text);
+            $sourceLanguage = $this->detectLanguage($text, $options);
         } else {
             $this->validateLanguageCode($sourceLanguage);
         }
@@ -73,43 +71,45 @@ class TranslationService
         );
 
         // Execute translation
-        $response = $this->llmManager->complete([
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => $prompt['system'],
-                ],
-                [
-                    'role' => 'user',
-                    'content' => $prompt['user'],
-                ],
+        $messages = [
+            [
+                'role' => 'system',
+                'content' => $prompt['system'],
             ],
+            [
+                'role' => 'user',
+                'content' => $prompt['user'],
+            ],
+        ];
+
+        $requestOptions = [
             'temperature' => $options['temperature'] ?? 0.3,
             'max_tokens' => $options['max_tokens'] ?? 2000,
-        ]);
+        ];
+
+        if (isset($options['provider'])) {
+            $requestOptions['provider'] = $options['provider'];
+        }
+
+        $response = $this->llmManager->chat($messages, $requestOptions);
 
         return new TranslationResult(
-            translation: $response->getContent(),
+            translation: $response->content,
             sourceLanguage: $sourceLanguage,
             targetLanguage: $targetLanguage,
-            confidence: $this->calculateConfidence($response),
-            usage: UsageStatistics::fromTokens(
-                promptTokens: $response->getUsage()['prompt_tokens'] ?? 0,
-                completionTokens: $response->getUsage()['completion_tokens'] ?? 0,
-                estimatedCost: $response->getUsage()['estimated_cost'] ?? null
-            ),
-            metadata: $response->getMetadata()
+            confidence: $this->calculateConfidence($response->finishReason),
+            usage: $response->usage
         );
     }
 
     /**
      * Translate multiple texts efficiently
      *
-     * @param array $texts Array of texts to translate
+     * @param array<int, string> $texts Array of texts to translate
      * @param string $targetLanguage Target language code
      * @param string|null $sourceLanguage Source language code (auto-detected if null)
-     * @param array $options Configuration options (same as translate())
-     * @return array Array of TranslationResult objects
+     * @param array<string, mixed> $options Configuration options (same as translate())
+     * @return array<int, TranslationResult> Array of TranslationResult objects
      */
     public function translateBatch(
         array $texts,
@@ -134,27 +134,34 @@ class TranslationService
      * Detect language of text
      *
      * @param string $text Text to analyze
+     * @param array<string, mixed> $options Options including provider
      * @return string Language code (ISO 639-1)
      */
-    public function detectLanguage(string $text): string
+    public function detectLanguage(string $text, array $options = []): string
     {
-        // Use LLM for language detection
-        $response = $this->llmManager->complete([
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => 'You are a language detection expert. Respond with ONLY the ISO 639-1 language code (e.g., "en", "de", "fr"). No explanation.',
-                ],
-                [
-                    'role' => 'user',
-                    'content' => "Detect the language of this text:\n\n" . $text,
-                ],
+        $messages = [
+            [
+                'role' => 'system',
+                'content' => 'You are a language detection expert. Respond with ONLY the ISO 639-1 language code (e.g., "en", "de", "fr"). No explanation.',
             ],
+            [
+                'role' => 'user',
+                'content' => "Detect the language of this text:\n\n" . $text,
+            ],
+        ];
+
+        $requestOptions = [
             'temperature' => 0.1,
             'max_tokens' => 10,
-        ]);
+        ];
 
-        $detectedLang = trim(strtolower($response->getContent()));
+        if (isset($options['provider'])) {
+            $requestOptions['provider'] = $options['provider'];
+        }
+
+        $response = $this->llmManager->chat($messages, $requestOptions);
+
+        $detectedLang = trim(strtolower($response->content));
 
         // Validate the response is a 2-letter code
         if (!preg_match('/^[a-z]{2}$/', $detectedLang)) {
@@ -173,34 +180,43 @@ class TranslationService
      * @param string $sourceText Original text
      * @param string $translatedText Translated text
      * @param string $targetLanguage Target language code
+     * @param array<string, mixed> $options Options including provider
      * @return float Quality score (0.0-1.0)
      */
     public function scoreTranslationQuality(
         string $sourceText,
         string $translatedText,
-        string $targetLanguage
+        string $targetLanguage,
+        array $options = []
     ): float {
-        $response = $this->llmManager->complete([
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => 'You are a translation quality expert. Evaluate the translation quality based on accuracy, fluency, and consistency. Respond with ONLY a number between 0.0 and 1.0 (e.g., "0.85"). No explanation.',
-                ],
-                [
-                    'role' => 'user',
-                    'content' => sprintf(
-                        "Source text:\n%s\n\nTranslation to %s:\n%s\n\nQuality score:",
-                        $sourceText,
-                        $targetLanguage,
-                        $translatedText
-                    ),
-                ],
+        $messages = [
+            [
+                'role' => 'system',
+                'content' => 'You are a translation quality expert. Evaluate the translation quality based on accuracy, fluency, and consistency. Respond with ONLY a number between 0.0 and 1.0 (e.g., "0.85"). No explanation.',
             ],
+            [
+                'role' => 'user',
+                'content' => sprintf(
+                    "Source text:\n%s\n\nTranslation to %s:\n%s\n\nQuality score:",
+                    $sourceText,
+                    $targetLanguage,
+                    $translatedText
+                ),
+            ],
+        ];
+
+        $requestOptions = [
             'temperature' => 0.1,
             'max_tokens' => 10,
-        ]);
+        ];
 
-        $score = (float) trim($response->getContent());
+        if (isset($options['provider'])) {
+            $requestOptions['provider'] = $options['provider'];
+        }
+
+        $response = $this->llmManager->chat($messages, $requestOptions);
+
+        $score = (float) trim($response->content);
 
         // Clamp to 0.0-1.0 range
         return max(0.0, min(1.0, $score));
@@ -209,11 +225,7 @@ class TranslationService
     /**
      * Build translation prompt with template
      *
-     * @param string $text
-     * @param string $sourceLanguage
-     * @param string $targetLanguage
-     * @param array $options
-     * @return array ['system' => string, 'user' => string]
+     * @return array{system: string, user: string}
      */
     private function buildTranslationPrompt(
         string $text,
@@ -270,29 +282,20 @@ class TranslationService
     }
 
     /**
-     * Calculate confidence score from response
-     *
-     * @param mixed $response
-     * @return float
+     * Calculate confidence score from finish reason
      */
-    private function calculateConfidence($response): float
+    private function calculateConfidence(string $finishReason): float
     {
-        // Default confidence based on finish reason
-        $finishReason = $response->getFinishReason();
-
-        if ($finishReason === 'stop') {
-            return 0.9;
-        } elseif ($finishReason === 'length') {
-            return 0.6;
-        }
-
-        return 0.5;
+        return match ($finishReason) {
+            'stop' => 0.9,
+            'length' => 0.6,
+            default => 0.5,
+        };
     }
 
     /**
      * Validate language code format
      *
-     * @param string $languageCode
      * @throws InvalidArgumentException
      */
     private function validateLanguageCode(string $languageCode): void
@@ -307,7 +310,6 @@ class TranslationService
     /**
      * Validate translation options
      *
-     * @param array $options
      * @throws InvalidArgumentException
      */
     private function validateOptions(array $options): void
@@ -341,9 +343,6 @@ class TranslationService
 
     /**
      * Get human-readable language name
-     *
-     * @param string $code
-     * @return string
      */
     private function getLanguageName(string $code): string
     {
