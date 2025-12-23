@@ -1,0 +1,8 @@
+"tx_nrllm_configuration"
+,"uid","pid","identifier","name","description","provider","model","translator","system_prompt","temperature","max_tokens","top_p","frequency_penalty","presence_penalty","options","max_requests_per_day","max_tokens_per_day","max_cost_per_day","is_active","is_default","allowed_groups","tstamp","crdate","cruser_id","deleted","hidden","sorting"
+,1,0,"default-config","Default Configuration","The default LLM configuration for general use","openai","gpt-4o","","You are a helpful assistant.",0.70,1000,1.00,0.00,0.00,"{}",0,0,0.00,1,1,0,1703347200,1703347200,1,0,0,1
+,2,0,"creative-config","Creative Writing","Configuration optimized for creative content generation","claude","claude-sonnet-4-20250514","","You are a creative writer.",0.90,2000,0.95,0.50,0.50,"{}",100,50000,5.00,1,0,0,1703347200,1703347200,1,0,0,2
+,3,0,"code-review","Code Review","Technical code review configuration with low temperature","openai","gpt-4o","","You are a code reviewer. Be thorough and constructive.",0.30,4000,1.00,0.00,0.00,"{""response_format"":""json""}",0,0,0.00,1,0,0,1703347200,1703347200,1,0,0,3
+,4,0,"translation-de","German Translation","German translation configuration","openai","gpt-4o","deepl","Translate the following text to German.",0.50,1000,1.00,0.00,0.00,"{}",500,100000,10.00,1,0,0,1703347200,1703347200,1,0,0,4
+,5,0,"inactive-config","Inactive Configuration","This configuration is not active","openai","gpt-4o","","",0.70,1000,1.00,0.00,0.00,"{}",0,0,0.00,0,0,0,1703347200,1703347200,1,0,0,5
+,6,0,"restricted-config","Restricted Configuration","Configuration with group access restrictions","openai","gpt-4o","","",0.70,1000,1.00,0.00,0.00,"{}",0,0,0.00,1,0,1,1703347200,1703347200,1,0,0,6

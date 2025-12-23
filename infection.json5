@@ -1,0 +1,31 @@
+{
+    "$schema": "https://raw.githubusercontent.com/infection/infection/0.28.0/resources/schema.json",
+    "source": {
+        "directories": [
+            "Classes"
+        ],
+        "excludes": [
+            "Domain/Model",
+            "Exception",
+            "Controller"
+        ]
+    },
+    "timeout": 30,
+    "testFramework": "phpunit",
+    "testFrameworkOptions": "--testsuite unit",
+    "mutators": {
+        "@default": true
+    },
+    "logs": {
+        "text": ".Build/logs/infection.log",
+        "html": ".Build/logs/infection.html",
+        "summary": ".Build/logs/infection-summary.log"
+    },
+    "phpUnit": {
+        "configDir": ".",
+        "customPath": ".Build/bin/phpunit"
+    },
+    "minMsi": 40,
+    "minCoveredMsi": 55,
+    "tmpDir": ".Build/cache/infection"
+}

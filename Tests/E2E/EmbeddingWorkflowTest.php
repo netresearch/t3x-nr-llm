@@ -1,0 +1,269 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Tests\E2E;
+
+use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Provider\OpenAiProvider;
+use Netresearch\NrLlm\Service\Feature\EmbeddingService;
+use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\CacheManager;
+use Netresearch\NrLlm\Service\CacheManagerInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Log\NullLogger;
+use TYPO3\CMS\Core\Cache\CacheManager as CoreCacheManager;
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+
+/**
+ * E2E tests for complete embedding workflows
+ *
+ * Tests the full path from EmbeddingService through to provider
+ * with caching integration.
+ */
+#[CoversClass(EmbeddingService::class)]
+class EmbeddingWorkflowTest extends AbstractE2ETestCase
+{
+    #[Test]
+    public function completeEmbeddingWorkflow(): void
+    {
+        // Arrange
+        $responseData = $this->createOpenAiEmbeddingResponse(dimensions: 1536);
+
+        $httpClient = $this->createMockHttpClient([
+            $this->createJsonResponse($responseData),
+        ]);
+
+        $provider = new OpenAiProvider(
+            $httpClient,
+            $this->requestFactory,
+            $this->streamFactory,
+            $this->logger
+        );
+        $provider->configure([
+            'apiKey' => 'sk-test-key',
+            'defaultModel' => 'gpt-4o',
+            'embeddingModel' => 'text-embedding-3-small',
+        ]);
+
+        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig->method('get')->willReturn([
+            'defaultProvider' => 'openai',
+            'providers' => ['openai' => ['apiKey' => 'sk-test']],
+        ]);
+
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger());
+        $serviceManager->registerProvider($provider);
+        $serviceManager->setDefaultProvider('openai');
+
+        // Mock cache manager
+        $cacheManager = $this->createMock(CacheManagerInterface::class);
+        $cacheManager->method('getCachedEmbeddings')->willReturn(null);
+        $cacheManager->method('cacheEmbeddings')->willReturn('cache-key');
+
+        $embeddingService = new EmbeddingService($serviceManager, $cacheManager);
+
+        // Act
+        $result = $embeddingService->embedFull('Test text for embedding');
+
+        // Assert
+        $this->assertInstanceOf(EmbeddingResponse::class, $result);
+        $this->assertCount(1, $result->embeddings);
+        $this->assertCount(1536, $result->embeddings[0]);
+        $this->assertEquals('text-embedding-3-small', $result->model);
+    }
+
+    #[Test]
+    public function embeddingWithCacheHitWorkflow(): void
+    {
+        // Arrange - No HTTP client needed when cache hits
+        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig->method('get')->willReturn([
+            'defaultProvider' => 'openai',
+            'providers' => ['openai' => ['apiKey' => 'sk-test']],
+        ]);
+
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger());
+
+        // Mock cache manager returning cached embeddings with full structure
+        $cachedData = [
+            'embeddings' => [
+                array_map(fn() => $this->faker->randomFloat(8, -1, 1), range(1, 1536)),
+            ],
+            'model' => 'text-embedding-3-small',
+            'usage' => [
+                'promptTokens' => 10,
+                'totalTokens' => 10,
+            ],
+        ];
+
+        $cacheManager = $this->createMock(CacheManagerInterface::class);
+        $cacheManager->method('getCachedEmbeddings')
+            ->willReturn($cachedData);
+
+        $embeddingService = new EmbeddingService($serviceManager, $cacheManager);
+
+        // Act - Should hit cache, not make HTTP request
+        $result = $embeddingService->embedFull('Cached text');
+
+        // Assert
+        $this->assertInstanceOf(EmbeddingResponse::class, $result);
+        $this->assertCount(1, $result->embeddings);
+        $this->assertCount(1536, $result->embeddings[0]);
+    }
+
+    #[Test]
+    public function batchEmbeddingWorkflow(): void
+    {
+        // Arrange
+        $responseData = [
+            'object' => 'list',
+            'data' => [
+                [
+                    'object' => 'embedding',
+                    'index' => 0,
+                    'embedding' => array_map(
+                        fn() => $this->faker->randomFloat(8, -1, 1),
+                        range(1, 1536)
+                    ),
+                ],
+                [
+                    'object' => 'embedding',
+                    'index' => 1,
+                    'embedding' => array_map(
+                        fn() => $this->faker->randomFloat(8, -1, 1),
+                        range(1, 1536)
+                    ),
+                ],
+                [
+                    'object' => 'embedding',
+                    'index' => 2,
+                    'embedding' => array_map(
+                        fn() => $this->faker->randomFloat(8, -1, 1),
+                        range(1, 1536)
+                    ),
+                ],
+            ],
+            'model' => 'text-embedding-3-small',
+            'usage' => ['prompt_tokens' => 30, 'total_tokens' => 30],
+        ];
+
+        $httpClient = $this->createMockHttpClient([
+            $this->createJsonResponse($responseData),
+        ]);
+
+        $provider = new OpenAiProvider(
+            $httpClient,
+            $this->requestFactory,
+            $this->streamFactory,
+            $this->logger
+        );
+        $provider->configure([
+            'apiKey' => 'sk-test-key',
+            'defaultModel' => 'gpt-4o',
+            'embeddingModel' => 'text-embedding-3-small',
+        ]);
+
+        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig->method('get')->willReturn([
+            'defaultProvider' => 'openai',
+            'providers' => ['openai' => ['apiKey' => 'sk-test']],
+        ]);
+
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger());
+        $serviceManager->registerProvider($provider);
+        $serviceManager->setDefaultProvider('openai');
+
+        $cacheManager = $this->createMock(CacheManagerInterface::class);
+        $cacheManager->method('getCachedEmbeddings')->willReturn(null);
+        $cacheManager->method('cacheEmbeddings')->willReturn('cache-key');
+
+        $embeddingService = new EmbeddingService($serviceManager, $cacheManager);
+
+        // Act: Batch embedding
+        $result = $embeddingService->embedBatch([
+            'First text',
+            'Second text',
+            'Third text',
+        ]);
+
+        // Assert: embedBatch returns array of vectors directly
+        $this->assertIsArray($result);
+        $this->assertCount(3, $result);
+        foreach ($result as $embedding) {
+            $this->assertCount(1536, $embedding);
+        }
+    }
+
+    #[Test]
+    public function semanticSimilarityWorkflow(): void
+    {
+        // Arrange: Create two embeddings that would be similar
+        $embedding1 = array_map(fn() => $this->faker->randomFloat(8, 0, 1), range(1, 1536));
+        $embedding2 = array_map(fn($i) => $embedding1[$i - 1] + $this->faker->randomFloat(8, -0.1, 0.1), range(1, 1536));
+
+        $response1 = [
+            'object' => 'list',
+            'data' => [['object' => 'embedding', 'index' => 0, 'embedding' => $embedding1]],
+            'model' => 'text-embedding-3-small',
+            'usage' => ['prompt_tokens' => 10, 'total_tokens' => 10],
+        ];
+
+        $response2 = [
+            'object' => 'list',
+            'data' => [['object' => 'embedding', 'index' => 0, 'embedding' => $embedding2]],
+            'model' => 'text-embedding-3-small',
+            'usage' => ['prompt_tokens' => 10, 'total_tokens' => 10],
+        ];
+
+        $httpClient = $this->createMockHttpClient([
+            $this->createJsonResponse($response1),
+            $this->createJsonResponse($response2),
+        ]);
+
+        $provider = new OpenAiProvider(
+            $httpClient,
+            $this->requestFactory,
+            $this->streamFactory,
+            $this->logger
+        );
+        $provider->configure([
+            'apiKey' => 'sk-test-key',
+            'defaultModel' => 'gpt-4o',
+            'embeddingModel' => 'text-embedding-3-small',
+        ]);
+
+        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig->method('get')->willReturn([
+            'defaultProvider' => 'openai',
+            'providers' => ['openai' => ['apiKey' => 'sk-test']],
+        ]);
+
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger());
+        $serviceManager->registerProvider($provider);
+        $serviceManager->setDefaultProvider('openai');
+
+        $cacheManager = $this->createMock(CacheManagerInterface::class);
+        $cacheManager->method('getCachedEmbeddings')->willReturn(null);
+        $cacheManager->method('cacheEmbeddings')->willReturn('cache-key');
+
+        $embeddingService = new EmbeddingService($serviceManager, $cacheManager);
+
+        // Act: Get embedding vectors (not full responses)
+        $vector1 = $embeddingService->embed('Hello world');
+        $vector2 = $embeddingService->embed('Hello world!');
+
+        // Assert: Both should return valid embedding vectors
+        $this->assertCount(1536, $vector1);
+        $this->assertCount(1536, $vector2);
+
+        // Calculate cosine similarity using service method
+        $similarity = $embeddingService->cosineSimilarity($vector1, $vector2);
+
+        // Similar texts should have similarity > 0.5
+        $this->assertGreaterThan(0.5, $similarity);
+    }
+}

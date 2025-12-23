@@ -35,6 +35,8 @@
     "require-dev": {
         "fakerphp/faker": "^1.24",
         "friendsofphp/php-cs-fixer": "^3.0",
+        "giorgiosironi/eris": "^1.0",
+        "infection/infection": "^0.31.9",
         "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^12.0",
         "typo3/testing-framework": "^9.0"
@@ -55,7 +57,8 @@
         "sort-packages": true,
         "allow-plugins": {
             "typo3/cms-composer-installers": true,
-            "typo3/class-alias-loader": true
+            "typo3/class-alias-loader": true,
+            "infection/extension-installer": true
         }
     },
     "extra": {
