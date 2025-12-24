@@ -17,7 +17,7 @@ class TranslatorRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function getReturnsRegisteredTranslator(): void
     {
-        $translator = $this->createMock(TranslatorInterface::class);
+        $translator = $this->createStub(TranslatorInterface::class);
         $translator->method('getIdentifier')->willReturn('deepl');
         $translator->method('getName')->willReturn('DeepL');
         $translator->method('isAvailable')->willReturn(true);
@@ -34,7 +34,7 @@ class TranslatorRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function getThrowsWhenNotFound(): void
     {
-        $translator = $this->createMock(TranslatorInterface::class);
+        $translator = $this->createStub(TranslatorInterface::class);
         $translator->method('getIdentifier')->willReturn('llm');
 
         $registry = new TranslatorRegistry(
@@ -49,7 +49,7 @@ class TranslatorRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function getThrowsWhenNotAvailable(): void
     {
-        $translator = $this->createMock(TranslatorInterface::class);
+        $translator = $this->createStub(TranslatorInterface::class);
         $translator->method('getIdentifier')->willReturn('deepl');
         $translator->method('isAvailable')->willReturn(false);
 
@@ -65,7 +65,7 @@ class TranslatorRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function hasReturnsTrueForAvailableTranslator(): void
     {
-        $translator = $this->createMock(TranslatorInterface::class);
+        $translator = $this->createStub(TranslatorInterface::class);
         $translator->method('getIdentifier')->willReturn('deepl');
         $translator->method('isAvailable')->willReturn(true);
 
@@ -79,7 +79,7 @@ class TranslatorRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function hasReturnsFalseForUnavailableTranslator(): void
     {
-        $translator = $this->createMock(TranslatorInterface::class);
+        $translator = $this->createStub(TranslatorInterface::class);
         $translator->method('getIdentifier')->willReturn('deepl');
         $translator->method('isAvailable')->willReturn(false);
 
@@ -101,11 +101,11 @@ class TranslatorRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function getAvailableReturnsOnlyAvailable(): void
     {
-        $available = $this->createMock(TranslatorInterface::class);
+        $available = $this->createStub(TranslatorInterface::class);
         $available->method('getIdentifier')->willReturn('available');
         $available->method('isAvailable')->willReturn(true);
 
-        $unavailable = $this->createMock(TranslatorInterface::class);
+        $unavailable = $this->createStub(TranslatorInterface::class);
         $unavailable->method('getIdentifier')->willReturn('unavailable');
         $unavailable->method('isAvailable')->willReturn(false);
 
@@ -123,10 +123,10 @@ class TranslatorRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function getRegisteredIdentifiersReturnsAllIdentifiers(): void
     {
-        $t1 = $this->createMock(TranslatorInterface::class);
+        $t1 = $this->createStub(TranslatorInterface::class);
         $t1->method('getIdentifier')->willReturn('deepl');
 
-        $t2 = $this->createMock(TranslatorInterface::class);
+        $t2 = $this->createStub(TranslatorInterface::class);
         $t2->method('getIdentifier')->willReturn('llm');
 
         $registry = new TranslatorRegistry(
@@ -143,7 +143,7 @@ class TranslatorRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function getTranslatorInfoReturnsInfoArray(): void
     {
-        $translator = $this->createMock(TranslatorInterface::class);
+        $translator = $this->createStub(TranslatorInterface::class);
         $translator->method('getIdentifier')->willReturn('deepl');
         $translator->method('getName')->willReturn('DeepL Translation');
         $translator->method('isAvailable')->willReturn(true);
@@ -163,15 +163,15 @@ class TranslatorRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function findBestTranslatorReturnsFirstSupportingLanguagePair(): void
     {
-        $notSupporting = $this->createMock(TranslatorInterface::class);
+        $notSupporting = $this->createStub(TranslatorInterface::class);
         $notSupporting->method('getIdentifier')->willReturn('first');
         $notSupporting->method('isAvailable')->willReturn(true);
         $notSupporting->method('supportsLanguagePair')->willReturn(false);
 
-        $supporting = $this->createMock(TranslatorInterface::class);
+        $supporting = $this->createStub(TranslatorInterface::class);
         $supporting->method('getIdentifier')->willReturn('second');
         $supporting->method('isAvailable')->willReturn(true);
-        $supporting->method('supportsLanguagePair')->with('en', 'de')->willReturn(true);
+        $supporting->method('supportsLanguagePair')->willReturn(true);
 
         $registry = new TranslatorRegistry(
             new \ArrayIterator([$notSupporting, $supporting])
@@ -185,7 +185,7 @@ class TranslatorRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function findBestTranslatorReturnsNullWhenNoneSupports(): void
     {
-        $translator = $this->createMock(TranslatorInterface::class);
+        $translator = $this->createStub(TranslatorInterface::class);
         $translator->method('getIdentifier')->willReturn('translator');
         $translator->method('isAvailable')->willReturn(true);
         $translator->method('supportsLanguagePair')->willReturn(false);
@@ -202,15 +202,15 @@ class TranslatorRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function findBestTranslatorSkipsUnavailable(): void
     {
-        $unavailable = $this->createMock(TranslatorInterface::class);
+        $unavailable = $this->createStub(TranslatorInterface::class);
         $unavailable->method('getIdentifier')->willReturn('unavailable');
         $unavailable->method('isAvailable')->willReturn(false);
         $unavailable->method('supportsLanguagePair')->willReturn(true);
 
-        $available = $this->createMock(TranslatorInterface::class);
+        $available = $this->createStub(TranslatorInterface::class);
         $available->method('getIdentifier')->willReturn('available');
         $available->method('isAvailable')->willReturn(true);
-        $available->method('supportsLanguagePair')->with('en', 'de')->willReturn(true);
+        $available->method('supportsLanguagePair')->willReturn(true);
 
         $registry = new TranslatorRegistry(
             new \ArrayIterator([$unavailable, $available])

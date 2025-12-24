@@ -33,98 +33,109 @@ abstract class AbstractUnitTestCase extends TestCase
     }
 
     /**
-     * Create a mock HTTP client.
+     * Create a stub HTTP client.
+     * Use createHttpClientWithExpectations() if you need expects().
      */
     protected function createHttpClientMock(): ClientInterface
+    {
+        return $this->createStub(ClientInterface::class);
+    }
+
+    /**
+     * Create a mock HTTP client that supports expectations.
+     * Use this when your test needs expects($this->once()) etc.
+     *
+     * @return ClientInterface&\PHPUnit\Framework\MockObject\MockObject
+     */
+    protected function createHttpClientWithExpectations(): ClientInterface
     {
         return $this->createMock(ClientInterface::class);
     }
 
     /**
-     * Create a mock request factory.
+     * Create a stub request factory.
      */
     protected function createRequestFactoryMock(): RequestFactoryInterface
     {
-        $mock = $this->createMock(RequestFactoryInterface::class);
-        $mock->method('createRequest')
+        $stub = $this->createStub(RequestFactoryInterface::class);
+        $stub->method('createRequest')
             ->willReturnCallback(function (string $method, string $uri): RequestInterface {
                 return $this->createRequestMock($method, $uri);
             });
-        return $mock;
+        return $stub;
     }
 
     /**
-     * Create a mock HTTP request with proper chaining support.
+     * Create a stub HTTP request with proper chaining support.
      */
     protected function createRequestMock(string $method = 'GET', string $uri = 'https://example.com'): RequestInterface
     {
-        $uriMock = $this->createMock(UriInterface::class);
-        $uriMock->method('__toString')->willReturn($uri);
-        $uriMock->method('getHost')->willReturn(parse_url($uri, PHP_URL_HOST) ?? '');
-        $uriMock->method('getPath')->willReturn(parse_url($uri, PHP_URL_PATH) ?? '');
+        $uriStub = $this->createStub(UriInterface::class);
+        $uriStub->method('__toString')->willReturn($uri);
+        $uriStub->method('getHost')->willReturn(parse_url($uri, PHP_URL_HOST) ?? '');
+        $uriStub->method('getPath')->willReturn(parse_url($uri, PHP_URL_PATH) ?? '');
 
-        // Create a mock with explicit return callback for proper type handling
-        $request = $this->createMock(RequestInterface::class);
+        // Create a stub with explicit return callback for proper type handling
+        $request = $this->createStub(RequestInterface::class);
 
-        // Use callback to return the same mock for chaining methods
+        // Use callback to return the same stub for chaining methods
         $request->method('withHeader')->willReturnCallback(fn() => $request);
         $request->method('withBody')->willReturnCallback(fn() => $request);
         $request->method('withoutHeader')->willReturnCallback(fn() => $request);
         $request->method('getMethod')->willReturn($method);
-        $request->method('getUri')->willReturn($uriMock);
+        $request->method('getUri')->willReturn($uriStub);
 
         return $request;
     }
 
     /**
-     * Create a mock stream factory.
+     * Create a stub stream factory.
      */
     protected function createStreamFactoryMock(): StreamFactoryInterface
     {
-        $mock = $this->createMock(StreamFactoryInterface::class);
-        $mock->method('createStream')
+        $stub = $this->createStub(StreamFactoryInterface::class);
+        $stub->method('createStream')
             ->willReturnCallback(function (string $content) {
-                $stream = $this->createMock(StreamInterface::class);
+                $stream = $this->createStub(StreamInterface::class);
                 $stream->method('__toString')->willReturn($content);
                 $stream->method('getContents')->willReturn($content);
                 return $stream;
             });
-        return $mock;
+        return $stub;
     }
 
     /**
-     * Create a mock extension configuration.
+     * Create a stub extension configuration.
      */
     protected function createExtensionConfigurationMock(array $config = []): ExtensionConfiguration
     {
-        $mock = $this->createMock(ExtensionConfiguration::class);
-        $mock->method('get')
-            ->with('nr_llm')
+        $stub = $this->createStub(ExtensionConfiguration::class);
+        $stub->method('get')
             ->willReturn($config);
-        return $mock;
+        return $stub;
     }
 
     /**
-     * Create a mock logger.
+     * Create a stub logger.
      */
     protected function createLoggerMock(): LoggerInterface
     {
-        return $this->createMock(LoggerInterface::class);
+        return $this->createStub(LoggerInterface::class);
     }
 
     /**
-     * Create a mock HTTP response.
+     * Create a stub HTTP response.
      */
     protected function createHttpResponseMock(
         int $statusCode,
         string $body,
         array $headers = []
     ): ResponseInterface {
-        $stream = $this->createMock(StreamInterface::class);
+        $stream = $this->createStub(StreamInterface::class);
         $stream->method('__toString')->willReturn($body);
         $stream->method('getContents')->willReturn($body);
 
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn($statusCode);
         $response->method('getBody')->willReturn($stream);
         $response->method('getHeader')->willReturnCallback(

@@ -19,24 +19,40 @@ use PHPUnit\Framework\MockObject\MockObject;
 class CompletionServiceTest extends AbstractUnitTestCase
 {
     private CompletionService $subject;
-    private LlmServiceManagerInterface&MockObject $llmManagerMock;
+    private LlmServiceManagerInterface $llmManagerStub;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $this->subject = new CompletionService($this->llmManagerMock);
+        $this->llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
+        $this->subject = new CompletionService($this->llmManagerStub);
+    }
+
+    /**
+     * Create a subject with a mock LLM manager for expectation testing.
+     *
+     * @return array{subject: CompletionService, llmManager: LlmServiceManagerInterface&MockObject}
+     */
+    private function createSubjectWithMockManager(): array
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        return [
+            'subject' => new CompletionService($llmManagerMock),
+            'llmManager' => $llmManagerMock,
+        ];
     }
 
     #[Test]
     public function completeGeneratesTextWithDefaultOptions(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $prompt = 'Test prompt';
         $expectedResponse = 'Test response';
 
         $mockResponse = $this->createMockResponse($expectedResponse);
 
-        $this->llmManagerMock
+        $llmManagerMock
             ->expects($this->once())
             ->method('chat')
             ->with(
@@ -48,7 +64,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             )
             ->willReturn($mockResponse);
 
-        $result = $this->subject->complete($prompt);
+        $result = $subject->complete($prompt);
 
         $this->assertInstanceOf(CompletionResponse::class, $result);
         $this->assertEquals($expectedResponse, $result->content);
@@ -58,12 +74,14 @@ class CompletionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function completeIncludesSystemPromptWhenProvided(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $prompt = 'User prompt';
         $systemPrompt = 'System instructions';
 
         $mockResponse = $this->createMockResponse('Response');
 
-        $this->llmManagerMock
+        $llmManagerMock
             ->expects($this->once())
             ->method('chat')
             ->with(
@@ -78,21 +96,23 @@ class CompletionServiceTest extends AbstractUnitTestCase
             )
             ->willReturn($mockResponse);
 
-        $this->subject->complete($prompt, new ChatOptions(systemPrompt: $systemPrompt));
+        $subject->complete($prompt, new ChatOptions(systemPrompt: $systemPrompt));
     }
 
     #[Test]
     public function completeJsonReturnsDecodedArray(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $jsonResponse = '{"key": "value", "number": 42}';
         $mockResponse = $this->createMockResponse($jsonResponse);
 
-        $this->llmManagerMock
+        $llmManagerMock
             ->expects($this->once())
             ->method('chat')
             ->willReturn($mockResponse);
 
-        $result = $this->subject->completeJson('Generate JSON');
+        $result = $subject->completeJson('Generate JSON');
 
         $this->assertIsArray($result);
         $this->assertEquals('value', $result['key']);
@@ -102,29 +122,34 @@ class CompletionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function completeJsonThrowsOnInvalidJson(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $mockResponse = $this->createMockResponse('Not valid JSON');
 
-        $this->llmManagerMock
+        $llmManagerMock
+            ->expects($this->once())
             ->method('chat')
             ->willReturn($mockResponse);
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Failed to decode JSON response');
 
-        $this->subject->completeJson('Generate JSON');
+        $subject->completeJson('Generate JSON');
     }
 
     #[Test]
     public function completeMarkdownReturnsString(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $mockResponse = $this->createMockResponse('# Markdown');
 
-        $this->llmManagerMock
+        $llmManagerMock
             ->expects($this->once())
             ->method('chat')
             ->willReturn($mockResponse);
 
-        $result = $this->subject->completeMarkdown('Test');
+        $result = $subject->completeMarkdown('Test');
 
         $this->assertEquals('# Markdown', $result);
     }
@@ -132,9 +157,11 @@ class CompletionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function completeFactualUsesLowTemperature(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $mockResponse = $this->createMockResponse('Factual response');
 
-        $this->llmManagerMock
+        $llmManagerMock
             ->expects($this->once())
             ->method('chat')
             ->with(
@@ -146,15 +173,17 @@ class CompletionServiceTest extends AbstractUnitTestCase
             )
             ->willReturn($mockResponse);
 
-        $this->subject->completeFactual('Factual question');
+        $subject->completeFactual('Factual question');
     }
 
     #[Test]
     public function completeCreativeUsesHighTemperature(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $mockResponse = $this->createMockResponse('Creative response');
 
-        $this->llmManagerMock
+        $llmManagerMock
             ->expects($this->once())
             ->method('chat')
             ->with(
@@ -166,7 +195,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             )
             ->willReturn($mockResponse);
 
-        $this->subject->completeCreative('Creative prompt');
+        $subject->completeCreative('Creative prompt');
     }
 
     #[Test]
@@ -199,13 +228,16 @@ class CompletionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function completionResponseIndicatesTruncation(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $mockResponse = $this->createMockResponse('Truncated', 'length');
 
-        $this->llmManagerMock
+        $llmManagerMock
+            ->expects($this->once())
             ->method('chat')
             ->willReturn($mockResponse);
 
-        $result = $this->subject->complete('Test');
+        $result = $subject->complete('Test');
 
         $this->assertTrue($result->wasTruncated());
         $this->assertFalse($result->isComplete());

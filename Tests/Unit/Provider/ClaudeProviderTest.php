@@ -16,16 +16,16 @@ use Psr\Http\Client\ClientInterface;
 class ClaudeProviderTest extends AbstractUnitTestCase
 {
     private ClaudeProvider $subject;
-    private ClientInterface $httpClientMock;
+    private ClientInterface $httpClientStub;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->httpClientMock = $this->createHttpClientMock();
+        $this->httpClientStub = $this->createHttpClientMock();
 
         $this->subject = new ClaudeProvider(
-            $this->httpClientMock,
+            $this->httpClientStub,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
@@ -37,6 +37,32 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             'baseUrl' => '',
             'timeout' => 30,
         ]);
+    }
+
+    /**
+     * Create a provider with a mock HTTP client for expectation testing.
+     *
+     * @return array{subject: ClaudeProvider, httpClient: ClientInterface&\PHPUnit\Framework\MockObject\MockObject}
+     */
+    private function createSubjectWithMockHttpClient(): array
+    {
+        $httpClientMock = $this->createHttpClientWithExpectations();
+
+        $subject = new ClaudeProvider(
+            $httpClientMock,
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+        );
+
+        $subject->configure([
+            'apiKey' => $this->randomApiKey(),
+            'defaultModel' => 'claude-sonnet-4-20250514',
+            'baseUrl' => '',
+            'timeout' => 30,
+        ]);
+
+        return ['subject' => $subject, 'httpClient' => $httpClientMock];
     }
 
     #[Test]
@@ -60,6 +86,8 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     #[Test]
     public function chatCompletionReturnsValidResponse(): void
     {
+        ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
+
         $messages = [
             ['role' => 'user', 'content' => $this->randomPrompt()],
         ];
@@ -82,12 +110,12 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->httpClientMock
+        $httpClientMock
             ->expects($this->once())
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
-        $result = $this->subject->chatCompletion($messages);
+        $result = $subject->chatCompletion($messages);
 
         $this->assertInstanceOf(CompletionResponse::class, $result);
         $this->assertEquals('Claude response content', $result->content);
@@ -113,7 +141,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             'usage' => ['input_tokens' => 5, 'output_tokens' => 2],
         ];
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
@@ -133,7 +161,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($errorResponse, 401));
 
@@ -153,7 +181,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($errorResponse, 429));
 
@@ -207,7 +235,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             'usage' => ['input_tokens' => 5, 'output_tokens' => 10],
         ];
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
@@ -229,7 +257,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
         ];
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 

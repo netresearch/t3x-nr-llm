@@ -16,22 +16,35 @@ use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 class CacheManagerTest extends AbstractUnitTestCase
 {
     private CacheManager $subject;
-    private FrontendInterface&MockObject $cacheFrontendMock;
-    private Typo3CacheManager&MockObject $typo3CacheManagerMock;
+    private FrontendInterface $cacheFrontendStub;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->cacheFrontendMock = $this->createMock(FrontendInterface::class);
+        $this->cacheFrontendStub = $this->createStub(FrontendInterface::class);
 
-        $this->typo3CacheManagerMock = $this->createMock(Typo3CacheManager::class);
-        $this->typo3CacheManagerMock
+        $typo3CacheManagerStub = $this->createStub(Typo3CacheManager::class);
+        $typo3CacheManagerStub
             ->method('getCache')
-            ->with('nrllm_responses')
-            ->willReturn($this->cacheFrontendMock);
+            ->willReturn($this->cacheFrontendStub);
 
-        $this->subject = new CacheManager($this->typo3CacheManagerMock);
+        $this->subject = new CacheManager($typo3CacheManagerStub);
+    }
+
+    /**
+     * Create a CacheManager with a mock cache frontend for expectation testing.
+     */
+    private function createSubjectWithMockFrontend(): array
+    {
+        $cacheFrontendMock = $this->createMock(FrontendInterface::class);
+        $typo3CacheManagerStub = $this->createStub(Typo3CacheManager::class);
+        $typo3CacheManagerStub->method('getCache')->willReturn($cacheFrontendMock);
+
+        return [
+            'subject' => new CacheManager($typo3CacheManagerStub),
+            'cacheFrontend' => $cacheFrontendMock,
+        ];
     }
 
     #[Test]
@@ -94,13 +107,15 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function getReturnsNullWhenNotCached(): void
     {
-        $this->cacheFrontendMock
+        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+
+        $cacheFrontendMock
             ->expects($this->once())
             ->method('has')
             ->with('test_key')
             ->willReturn(false);
 
-        $result = $this->subject->get('test_key');
+        $result = $subject->get('test_key');
 
         $this->assertNull($result);
     }
@@ -110,14 +125,12 @@ class CacheManagerTest extends AbstractUnitTestCase
     {
         $cachedData = ['content' => 'cached response'];
 
-        $this->cacheFrontendMock
+        $this->cacheFrontendStub
             ->method('has')
-            ->with('test_key')
             ->willReturn(true);
 
-        $this->cacheFrontendMock
+        $this->cacheFrontendStub
             ->method('get')
-            ->with('test_key')
             ->willReturn($cachedData);
 
         $result = $this->subject->get('test_key');
@@ -128,9 +141,11 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function setStoresDataWithDefaultTags(): void
     {
+        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+
         $data = ['content' => 'test'];
 
-        $this->cacheFrontendMock
+        $cacheFrontendMock
             ->expects($this->once())
             ->method('set')
             ->with(
@@ -144,16 +159,18 @@ class CacheManagerTest extends AbstractUnitTestCase
                 3600
             );
 
-        $this->subject->set('test_key', $data, 3600);
+        $subject->set('test_key', $data, 3600);
     }
 
     #[Test]
     public function setMergesCustomTags(): void
     {
+        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+
         $data = ['content' => 'test'];
         $customTags = ['custom_tag'];
 
-        $this->cacheFrontendMock
+        $cacheFrontendMock
             ->expects($this->once())
             ->method('set')
             ->with(
@@ -168,76 +185,88 @@ class CacheManagerTest extends AbstractUnitTestCase
                 3600
             );
 
-        $this->subject->set('test_key', $data, 3600, $customTags);
+        $subject->set('test_key', $data, 3600, $customTags);
     }
 
     #[Test]
     public function hasReturnsCacheFrontendResult(): void
     {
-        $this->cacheFrontendMock
+        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+
+        $cacheFrontendMock
             ->expects($this->once())
             ->method('has')
             ->with('test_key')
             ->willReturn(true);
 
-        $this->assertTrue($this->subject->has('test_key'));
+        $this->assertTrue($subject->has('test_key'));
     }
 
     #[Test]
     public function removeCallsCacheFrontend(): void
     {
-        $this->cacheFrontendMock
+        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+
+        $cacheFrontendMock
             ->expects($this->once())
             ->method('remove')
             ->with('test_key');
 
-        $this->subject->remove('test_key');
+        $subject->remove('test_key');
     }
 
     #[Test]
     public function flushCallsCacheFrontend(): void
     {
-        $this->cacheFrontendMock
+        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+
+        $cacheFrontendMock
             ->expects($this->once())
             ->method('flush');
 
-        $this->subject->flush();
+        $subject->flush();
     }
 
     #[Test]
     public function flushByTagCallsCacheFrontend(): void
     {
-        $this->cacheFrontendMock
+        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+
+        $cacheFrontendMock
             ->expects($this->once())
             ->method('flushByTag')
             ->with('test_tag');
 
-        $this->subject->flushByTag('test_tag');
+        $subject->flushByTag('test_tag');
     }
 
     #[Test]
     public function flushByProviderCallsFlushByTagWithProviderTag(): void
     {
-        $this->cacheFrontendMock
+        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+
+        $cacheFrontendMock
             ->expects($this->once())
             ->method('flushByTag')
             ->with('nrllm_provider_openai');
 
-        $this->subject->flushByProvider('openai');
+        $subject->flushByProvider('openai');
     }
 
     #[Test]
     public function cacheCompletionStoresAndReturnsCacheKey(): void
     {
+        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+
         $messages = [['role' => 'user', 'content' => 'Hello']];
         $options = ['temperature' => 0.7];
         $response = ['content' => 'Hi there'];
 
-        $this->cacheFrontendMock
+        $cacheFrontendMock
             ->expects($this->once())
             ->method('set')
             ->with(
-                $this->isType('string'),
+                $this->isString(),
                 $response,
                 $this->callback(
                     fn(array $tags)
@@ -247,7 +276,7 @@ class CacheManagerTest extends AbstractUnitTestCase
                 3600
             );
 
-        $cacheKey = $this->subject->cacheCompletion('openai', $messages, $options, $response);
+        $cacheKey = $subject->cacheCompletion('openai', $messages, $options, $response);
 
         $this->assertStringStartsWith('openai_completion_', $cacheKey);
     }
@@ -255,11 +284,13 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function cacheCompletionIncludesModelTag(): void
     {
+        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+
         $messages = [['role' => 'user', 'content' => 'Hello']];
         $options = ['model' => 'gpt-4o'];
         $response = ['content' => 'Hi'];
 
-        $this->cacheFrontendMock
+        $cacheFrontendMock
             ->expects($this->once())
             ->method('set')
             ->with(
@@ -272,7 +303,7 @@ class CacheManagerTest extends AbstractUnitTestCase
                 $this->anything()
             );
 
-        $this->subject->cacheCompletion('openai', $messages, $options, $response);
+        $subject->cacheCompletion('openai', $messages, $options, $response);
     }
 
     #[Test]
@@ -281,7 +312,7 @@ class CacheManagerTest extends AbstractUnitTestCase
         $messages = [['role' => 'user', 'content' => 'Hello']];
         $options = [];
 
-        $this->cacheFrontendMock
+        $this->cacheFrontendStub
             ->method('has')
             ->willReturn(false);
 
@@ -297,11 +328,11 @@ class CacheManagerTest extends AbstractUnitTestCase
         $options = [];
         $cachedResponse = ['content' => 'cached'];
 
-        $this->cacheFrontendMock
+        $this->cacheFrontendStub
             ->method('has')
             ->willReturn(true);
 
-        $this->cacheFrontendMock
+        $this->cacheFrontendStub
             ->method('get')
             ->willReturn($cachedResponse);
 
@@ -313,11 +344,13 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function cacheEmbeddingsUsesLongerDefaultLifetime(): void
     {
+        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+
         $input = 'test text';
         $options = [];
         $response = ['embeddings' => [[0.1, 0.2, 0.3]]];
 
-        $this->cacheFrontendMock
+        $cacheFrontendMock
             ->expects($this->once())
             ->method('set')
             ->with(
@@ -327,7 +360,7 @@ class CacheManagerTest extends AbstractUnitTestCase
                 86400 // 24 hours
             );
 
-        $this->subject->cacheEmbeddings('openai', $input, $options, $response);
+        $subject->cacheEmbeddings('openai', $input, $options, $response);
     }
 
     #[Test]
@@ -336,7 +369,7 @@ class CacheManagerTest extends AbstractUnitTestCase
         $input = ['text1', 'text2'];
         $options = [];
 
-        $this->cacheFrontendMock
+        $this->cacheFrontendStub
             ->method('has')
             ->willReturn(false);
 

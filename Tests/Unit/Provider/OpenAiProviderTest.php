@@ -19,16 +19,16 @@ use Psr\Http\Client\ClientInterface;
 class OpenAiProviderTest extends AbstractUnitTestCase
 {
     private OpenAiProvider $subject;
-    private ClientInterface $httpClientMock;
+    private ClientInterface $httpClientStub;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->httpClientMock = $this->createHttpClientMock();
+        $this->httpClientStub = $this->createHttpClientMock();
 
         $this->subject = new OpenAiProvider(
-            $this->httpClientMock,
+            $this->httpClientStub,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
@@ -40,6 +40,32 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             'baseUrl' => '',
             'timeout' => 30,
         ]);
+    }
+
+    /**
+     * Create a provider with a mock HTTP client for expectation testing.
+     *
+     * @return array{subject: OpenAiProvider, httpClient: ClientInterface&\PHPUnit\Framework\MockObject\MockObject}
+     */
+    private function createSubjectWithMockHttpClient(): array
+    {
+        $httpClientMock = $this->createHttpClientWithExpectations();
+
+        $subject = new OpenAiProvider(
+            $httpClientMock,
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+        );
+
+        $subject->configure([
+            'apiKey' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-4o',
+            'baseUrl' => '',
+            'timeout' => 30,
+        ]);
+
+        return ['subject' => $subject, 'httpClient' => $httpClientMock];
     }
 
     #[Test]
@@ -64,7 +90,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function isAvailableReturnsFalseWhenNoApiKey(): void
     {
         $provider = new OpenAiProvider(
-            $this->httpClientMock,
+            $this->httpClientStub,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
@@ -77,6 +103,8 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     #[Test]
     public function chatCompletionReturnsValidResponse(): void
     {
+        ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
+
         $messages = [
             ['role' => 'user', 'content' => $this->randomPrompt()],
         ];
@@ -103,12 +131,12 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->httpClientMock
+        $httpClientMock
             ->expects($this->once())
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
-        $result = $this->subject->chatCompletion($messages);
+        $result = $subject->chatCompletion($messages);
 
         $this->assertInstanceOf(CompletionResponse::class, $result);
         $this->assertEquals('Test response content', $result->content);
@@ -132,7 +160,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             'usage' => ['prompt_tokens' => 5, 'completion_tokens' => 1, 'total_tokens' => 6],
         ];
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
@@ -144,7 +172,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     #[Test]
     public function chatCompletionThrowsProviderResponseExceptionOn401(): void
     {
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createErrorResponseMock(401, 'Invalid API key'));
 
@@ -157,7 +185,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     #[Test]
     public function chatCompletionThrowsProviderResponseExceptionOn429(): void
     {
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createErrorResponseMock(429, 'Rate limit exceeded'));
 
@@ -169,7 +197,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     #[Test]
     public function chatCompletionThrowsProviderExceptionOnServerError(): void
     {
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createErrorResponseMock(500, 'Internal server error'));
 
@@ -181,6 +209,8 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     #[Test]
     public function embeddingsReturnsValidResponse(): void
     {
+        ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
+
         $text = $this->randomPrompt();
 
         $apiResponse = [
@@ -199,12 +229,12 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->httpClientMock
+        $httpClientMock
             ->expects($this->once())
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
-        $result = $this->subject->embeddings($text);
+        $result = $subject->embeddings($text);
 
         $this->assertInstanceOf(EmbeddingResponse::class, $result);
         $this->assertCount(1536, $result->embeddings[0]);
@@ -226,7 +256,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             'usage' => ['prompt_tokens' => 20, 'total_tokens' => 20],
         ];
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
@@ -275,7 +305,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             'model' => 'gpt-4o',
             'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ];
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
@@ -306,7 +336,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 0, 'total_tokens' => 1],
         ];
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
@@ -328,7 +358,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
         ];
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 

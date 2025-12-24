@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -23,28 +22,27 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 class LlmServiceManagerTest extends AbstractUnitTestCase
 {
     private LlmServiceManager $subject;
-    private ExtensionConfiguration&MockObject $extensionConfigMock;
-    private LoggerInterface&MockObject $loggerMock;
+    private ExtensionConfiguration $extensionConfigStub;
+    private LoggerInterface $loggerStub;
     private TestableProvider $provider;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $this->extensionConfigMock
+        $this->extensionConfigStub = $this->createStub(ExtensionConfiguration::class);
+        $this->extensionConfigStub
             ->method('get')
-            ->with('nr_llm')
             ->willReturn([
                 'defaultProvider' => 'openai',
                 'providers' => [],
             ]);
 
-        $this->loggerMock = $this->createMock(LoggerInterface::class);
+        $this->loggerStub = $this->createStub(LoggerInterface::class);
 
         $this->subject = new LlmServiceManager(
-            $this->extensionConfigMock,
-            $this->loggerMock,
+            $this->extensionConfigStub,
+            $this->loggerStub,
         );
 
         // Create and register a testable provider
@@ -90,13 +88,12 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     public function getProviderThrowsWhenNoDefaultConfigured(): void
     {
         // Create manager without default provider
-        $extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $extensionConfigMock
+        $extensionConfigStub = $this->createStub(ExtensionConfiguration::class);
+        $extensionConfigStub
             ->method('get')
-            ->with('nr_llm')
             ->willReturn(['providers' => []]);
 
-        $manager = new LlmServiceManager($extensionConfigMock, $this->loggerMock);
+        $manager = new LlmServiceManager($extensionConfigStub, $this->loggerStub);
 
         $this->expectException(ProviderException::class);
         $this->expectExceptionMessage('No provider specified and no default provider configured');
@@ -251,10 +248,9 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function getProviderConfigurationReturnsConfig(): void
     {
-        $extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $extensionConfigMock
+        $extensionConfigStub = $this->createStub(ExtensionConfiguration::class);
+        $extensionConfigStub
             ->method('get')
-            ->with('nr_llm')
             ->willReturn([
                 'defaultProvider' => 'openai',
                 'providers' => [
@@ -265,7 +261,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
                 ],
             ]);
 
-        $manager = new LlmServiceManager($extensionConfigMock, $this->loggerMock);
+        $manager = new LlmServiceManager($extensionConfigStub, $this->loggerStub);
         $config = $manager->getProviderConfiguration('openai');
 
         $this->assertArrayHasKey('apiKey', $config);

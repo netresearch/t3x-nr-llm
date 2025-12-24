@@ -19,24 +19,43 @@ use PHPUnit\Framework\MockObject\MockObject;
 class VisionServiceTest extends AbstractUnitTestCase
 {
     private VisionService $subject;
-    private LlmServiceManagerInterface&MockObject $llmManagerMock;
+    private LlmServiceManagerInterface $llmManagerStub;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $this->subject = new VisionService($this->llmManagerMock);
+        $this->llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
+        $this->subject = new VisionService($this->llmManagerStub);
+    }
+
+    /**
+     * Create a subject with a mock LLM manager for expectation testing.
+     *
+     * @return array{subject: VisionService, llmManager: LlmServiceManagerInterface&MockObject}
+     */
+    private function createSubjectWithMockManager(): array
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        return [
+            'subject' => new VisionService($llmManagerMock),
+            'llmManager' => $llmManagerMock,
+        ];
     }
 
     #[Test]
     public function generateAltTextReturnsSingleString(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $imageUrl = 'https://example.com/image.jpg';
         $expectedAltText = 'A red barn in a green field';
 
-        $this->mockVisionResponse($expectedAltText);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('vision')
+            ->willReturn($this->createMockVisionResponse($expectedAltText));
 
-        $result = $this->subject->generateAltText($imageUrl);
+        $result = $subject->generateAltText($imageUrl);
 
         $this->assertEquals($expectedAltText, $result);
     }
@@ -44,19 +63,22 @@ class VisionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function generateAltTextProcessesBatch(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $imageUrls = [
             'https://example.com/img1.jpg',
             'https://example.com/img2.jpg',
         ];
 
-        $this->llmManagerMock
+        $llmManagerMock
+            ->expects($this->exactly(2))
             ->method('vision')
             ->willReturnOnConsecutiveCalls(
                 $this->createMockVisionResponse('Alt text 1'),
                 $this->createMockVisionResponse('Alt text 2')
             );
 
-        $results = $this->subject->generateAltText($imageUrls);
+        $results = $subject->generateAltText($imageUrls);
 
         $this->assertIsArray($results);
         $this->assertCount(2, $results);
@@ -65,12 +87,17 @@ class VisionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function generateTitleReturnsString(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $imageUrl = 'https://example.com/image.jpg';
         $expectedTitle = 'SEO optimized title';
 
-        $this->mockVisionResponse($expectedTitle);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('vision')
+            ->willReturn($this->createMockVisionResponse($expectedTitle));
 
-        $result = $this->subject->generateTitle($imageUrl);
+        $result = $subject->generateTitle($imageUrl);
 
         $this->assertEquals($expectedTitle, $result);
     }
@@ -78,12 +105,17 @@ class VisionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function generateDescriptionReturnsString(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $imageUrl = 'https://example.com/image.jpg';
         $expectedDescription = 'Detailed description of the image';
 
-        $this->mockVisionResponse($expectedDescription);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('vision')
+            ->willReturn($this->createMockVisionResponse($expectedDescription));
 
-        $result = $this->subject->generateDescription($imageUrl);
+        $result = $subject->generateDescription($imageUrl);
 
         $this->assertEquals($expectedDescription, $result);
     }
@@ -91,11 +123,13 @@ class VisionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function analyzeImageWithCustomPrompt(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $imageUrl = 'https://example.com/chart.jpg';
         $customPrompt = 'What trends are shown in this chart?';
         $expectedAnalysis = 'The chart shows upward trends';
 
-        $this->llmManagerMock
+        $llmManagerMock
             ->expects($this->once())
             ->method('vision')
             ->with(
@@ -108,7 +142,7 @@ class VisionServiceTest extends AbstractUnitTestCase
             )
             ->willReturn($this->createMockVisionResponse($expectedAnalysis));
 
-        $result = $this->subject->analyzeImage($imageUrl, $customPrompt);
+        $result = $subject->analyzeImage($imageUrl, $customPrompt);
 
         $this->assertEquals($expectedAnalysis, $result);
     }
@@ -116,12 +150,17 @@ class VisionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function analyzeImageFullReturnsVisionResponse(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $imageUrl = 'https://example.com/image.jpg';
         $analysis = 'Detailed analysis';
 
-        $this->mockVisionResponse($analysis);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('vision')
+            ->willReturn($this->createMockVisionResponse($analysis));
 
-        $result = $this->subject->analyzeImageFull($imageUrl, 'Describe this image');
+        $result = $subject->analyzeImageFull($imageUrl, 'Describe this image');
 
         $this->assertInstanceOf(VisionResponse::class, $result);
         $this->assertEquals($analysis, $result->description);
@@ -141,11 +180,16 @@ class VisionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function acceptsBase64DataUri(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $base64Uri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
-        $this->mockVisionResponse('Alt text');
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('vision')
+            ->willReturn($this->createMockVisionResponse('Alt text'));
 
-        $result = $this->subject->generateAltText($base64Uri);
+        $result = $subject->generateAltText($base64Uri);
 
         $this->assertIsString($result);
     }
@@ -153,9 +197,11 @@ class VisionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function appliesDetailLevelOption(): void
     {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
         $imageUrl = 'https://example.com/image.jpg';
 
-        $this->llmManagerMock
+        $llmManagerMock
             ->expects($this->once())
             ->method('vision')
             ->with(
@@ -166,17 +212,7 @@ class VisionServiceTest extends AbstractUnitTestCase
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
-        $this->subject->generateAltText($imageUrl, new VisionOptions(detailLevel: 'high'));
-    }
-
-    /**
-     * Mock vision response
-     */
-    private function mockVisionResponse(string $content): void
-    {
-        $this->llmManagerMock
-            ->method('vision')
-            ->willReturn($this->createMockVisionResponse($content));
+        $subject->generateAltText($imageUrl, new VisionOptions(detailLevel: 'high'));
     }
 
     /**

@@ -19,15 +19,15 @@ use PHPUnit\Framework\MockObject\MockObject;
 class EmbeddingServiceTest extends AbstractUnitTestCase
 {
     private EmbeddingService $subject;
-    private LlmServiceManagerInterface&MockObject $llmManagerMock;
-    private CacheManagerInterface&MockObject $cacheMock;
+    private LlmServiceManagerInterface $llmManagerStub;
+    private CacheManagerInterface $cacheStub;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $this->cacheMock = $this->createMock(CacheManagerInterface::class);
-        $this->subject = new EmbeddingService($this->llmManagerMock, $this->cacheMock);
+        $this->llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
+        $this->cacheStub = $this->createStub(CacheManagerInterface::class);
+        $this->subject = new EmbeddingService($this->llmManagerStub, $this->cacheStub);
     }
 
     #[Test]
@@ -36,16 +36,17 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
         $text = 'Test text';
         $expectedVector = [0.1, 0.2, 0.3];
 
-        $this->cacheMock
-            ->method('getCachedEmbeddings')
-            ->willReturn(null);
+        $cacheStub = $this->createStub(CacheManagerInterface::class);
+        $cacheStub->method('getCachedEmbeddings')->willReturn(null);
 
-        $this->llmManagerMock
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
             ->expects($this->once())
             ->method('embed')
             ->willReturn($this->createMockEmbeddingResponse([$expectedVector]));
 
-        $result = $this->subject->embed($text);
+        $subject = new EmbeddingService($llmManagerMock, $cacheStub);
+        $result = $subject->embed($text);
 
         $this->assertEquals($expectedVector, $result);
     }
@@ -56,7 +57,8 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
         $text = 'Cached text';
         $cachedVector = [0.5, 0.6, 0.7];
 
-        $this->cacheMock
+        $cacheMock = $this->createMock(CacheManagerInterface::class);
+        $cacheMock
             ->expects($this->once())
             ->method('getCachedEmbeddings')
             ->willReturn([
@@ -65,11 +67,13 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
                 'usage' => ['promptTokens' => 5, 'totalTokens' => 5],
             ]);
 
-        $this->llmManagerMock
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
             ->expects($this->never())
             ->method('embed');
 
-        $result = $this->subject->embed($text);
+        $subject = new EmbeddingService($llmManagerMock, $cacheMock);
+        $result = $subject->embed($text);
 
         $this->assertEquals($cachedVector, $result);
     }
@@ -80,19 +84,15 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
         $text = 'New text';
         $vector = [0.1, 0.2];
 
-        $this->cacheMock
-            ->method('getCachedEmbeddings')
-            ->willReturn(null);
+        $cacheMock = $this->createMock(CacheManagerInterface::class);
+        $cacheMock->method('getCachedEmbeddings')->willReturn(null);
+        $cacheMock->expects($this->once())->method('cacheEmbeddings');
 
-        $this->cacheMock
-            ->expects($this->once())
-            ->method('cacheEmbeddings');
+        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
+        $llmManagerStub->method('embed')->willReturn($this->createMockEmbeddingResponse([$vector]));
 
-        $this->llmManagerMock
-            ->method('embed')
-            ->willReturn($this->createMockEmbeddingResponse([$vector]));
-
-        $this->subject->embed($text);
+        $subject = new EmbeddingService($llmManagerStub, $cacheMock);
+        $subject->embed($text);
     }
 
     #[Test]
@@ -101,12 +101,14 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
         $texts = ['Text 1', 'Text 2', 'Text 3'];
         $vectors = [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]];
 
-        $this->llmManagerMock
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
             ->expects($this->once())
             ->method('embed')
             ->willReturn($this->createMockEmbeddingResponse($vectors));
 
-        $results = $this->subject->embedBatch($texts);
+        $subject = new EmbeddingService($llmManagerMock, $this->cacheStub);
+        $results = $subject->embedBatch($texts);
 
         $this->assertCount(3, $results);
         $this->assertEquals($vectors, $results);
