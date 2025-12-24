@@ -12,7 +12,7 @@
     },
     "timeout": 30,
     "testFramework": "phpunit",
-    "testFrameworkOptions": "--testsuite unit",
+    "testFrameworkOptions": "--testsuite=unit",
     "mutators": {
         "@default": true
     },

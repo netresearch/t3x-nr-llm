@@ -7,10 +7,10 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\Model;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
-#[CoversClass(EmbeddingResponse::class)]
+#[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
 class EmbeddingResponseTest extends AbstractUnitTestCase
 {
     private function createSampleEmbedding(int $dimensions = 1536): array

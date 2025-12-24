@@ -263,6 +263,20 @@ class ChatOptions extends AbstractOptions
         ]);
     }
 
+    /**
+     * Merge current options with overrides
+     *
+     * Returns an array with current options merged with the provided overrides.
+     * Overrides take precedence over current values.
+     *
+     * @param array<string, mixed> $overrides Values to override
+     * @return array<string, mixed> Merged options array
+     */
+    public function merge(array $overrides): array
+    {
+        return array_merge($this->toArray(), $overrides);
+    }
+
     // ========================================
     // Validation
     // ========================================

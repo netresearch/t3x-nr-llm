@@ -7,11 +7,11 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\Model;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
-#[CoversClass(CompletionResponse::class)]
+#[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
 class CompletionResponseTest extends AbstractUnitTestCase
 {
     #[Test]

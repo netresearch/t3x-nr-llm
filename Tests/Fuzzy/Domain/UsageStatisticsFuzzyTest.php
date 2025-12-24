@@ -7,13 +7,13 @@ namespace Netresearch\NrLlm\Tests\Fuzzy\Domain;
 use Eris\Generator;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Tests\Fuzzy\AbstractFuzzyTestCase;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
  * Property-based tests for UsageStatistics
  */
-#[CoversClass(UsageStatistics::class)]
+#[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
 class UsageStatisticsFuzzyTest extends AbstractFuzzyTestCase
 {
     #[Test]
