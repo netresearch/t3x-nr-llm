@@ -346,58 +346,6 @@ class ChatOptionsTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function fromArrayCreatesOptionsCorrectly(): void
-    {
-        $array = [
-            'temperature' => 0.8,
-            'max_tokens' => 2000,
-            'top_p' => 0.95,
-            'frequency_penalty' => 0.2,
-            'presence_penalty' => 0.3,
-            'response_format' => 'markdown',
-            'system_prompt' => 'Be helpful',
-            'stop_sequences' => ['DONE'],
-            'provider' => 'claude',
-            'model' => 'claude-sonnet-4-20250514',
-        ];
-
-        $options = ChatOptions::fromArray($array);
-
-        $this->assertEquals(0.8, $options->getTemperature());
-        $this->assertEquals(2000, $options->getMaxTokens());
-        $this->assertEquals(0.95, $options->getTopP());
-        $this->assertEquals(0.2, $options->getFrequencyPenalty());
-        $this->assertEquals(0.3, $options->getPresencePenalty());
-        $this->assertEquals('markdown', $options->getResponseFormat());
-        $this->assertEquals('Be helpful', $options->getSystemPrompt());
-        $this->assertEquals(['DONE'], $options->getStopSequences());
-        $this->assertEquals('claude', $options->getProvider());
-        $this->assertEquals('claude-sonnet-4-20250514', $options->getModel());
-    }
-
-    #[Test]
-    public function fromArrayHandlesMissingKeys(): void
-    {
-        $options = ChatOptions::fromArray([]);
-
-        $this->assertNull($options->getTemperature());
-        $this->assertNull($options->getMaxTokens());
-        $this->assertNull($options->getProvider());
-    }
-
-    #[Test]
-    public function mergeOverridesWithArray(): void
-    {
-        $options = new ChatOptions(temperature: 0.5, maxTokens: 1000);
-
-        $merged = $options->merge(['temperature' => 0.9, 'model' => 'gpt-4']);
-
-        $this->assertEquals(0.9, $merged['temperature']);
-        $this->assertEquals(1000, $merged['max_tokens']);
-        $this->assertEquals('gpt-4', $merged['model']);
-    }
-
-    #[Test]
     public function chainedFluentSettersWork(): void
     {
         $options = ChatOptions::factual()

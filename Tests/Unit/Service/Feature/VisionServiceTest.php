@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Feature\VisionService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -165,7 +166,7 @@ class VisionServiceTest extends AbstractUnitTestCase
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
-        $this->subject->generateAltText($imageUrl, ['detail_level' => 'high']);
+        $this->subject->generateAltText($imageUrl, new VisionOptions(detailLevel: 'high'));
     }
 
     /**

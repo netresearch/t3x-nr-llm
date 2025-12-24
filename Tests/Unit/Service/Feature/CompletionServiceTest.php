@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Feature\CompletionService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -77,7 +78,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             )
             ->willReturn($mockResponse);
 
-        $this->subject->complete($prompt, ['system_prompt' => $systemPrompt]);
+        $this->subject->complete($prompt, new ChatOptions(systemPrompt: $systemPrompt));
     }
 
     #[Test]
@@ -138,9 +139,9 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 $this->anything(),
-                $this->callback(function (array $options) {
-                    return $options['temperature'] === 0.2
-                        && $options['top_p'] === 0.9;
+                $this->callback(function (ChatOptions $options) {
+                    return $options->getTemperature() === 0.2
+                        && $options->getTopP() === 0.9;
                 })
             )
             ->willReturn($mockResponse);
@@ -158,9 +159,9 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 $this->anything(),
-                $this->callback(function (array $options) {
-                    return $options['temperature'] === 1.2
-                        && $options['presence_penalty'] === 0.6;
+                $this->callback(function (ChatOptions $options) {
+                    return $options->getTemperature() === 1.2
+                        && $options->getPresencePenalty() === 0.6;
                 })
             )
             ->willReturn($mockResponse);
@@ -172,9 +173,9 @@ class CompletionServiceTest extends AbstractUnitTestCase
     public function validateOptionsThrowsOnInvalidTemperature(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Temperature must be between 0.0 and 2.0');
+        $this->expectExceptionMessage('temperature must be between 0 and 2');
 
-        $this->subject->complete('Test', ['temperature' => 3.0]);
+        $this->subject->complete('Test', new ChatOptions(temperature: 3.0));
     }
 
     #[Test]
@@ -183,7 +184,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('max_tokens must be a positive integer');
 
-        $this->subject->complete('Test', ['max_tokens' => -1]);
+        $this->subject->complete('Test', new ChatOptions(maxTokens: -1));
     }
 
     #[Test]
@@ -192,7 +193,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('response_format must be');
 
-        $this->subject->complete('Test', ['response_format' => 'invalid']);
+        $this->subject->complete('Test', new ChatOptions(responseFormat: 'invalid'));
     }
 
     #[Test]

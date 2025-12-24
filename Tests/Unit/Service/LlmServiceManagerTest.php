@@ -11,6 +11,7 @@ use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -225,11 +226,11 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     public function chatPassesOptionsToProvider(): void
     {
         $messages = [['role' => 'user', 'content' => 'Hello']];
-        $options = [
-            'temperature' => 0.7,
-            'maxTokens' => 1000,
-            'model' => 'gpt-4-turbo',
-        ];
+        $options = new ChatOptions(
+            temperature: 0.7,
+            maxTokens: 1000,
+            model: 'gpt-4-turbo',
+        );
 
         $this->provider->setNextResponse(new CompletionResponse(
             content: 'Response',
@@ -243,7 +244,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $passedOptions = $this->provider->getLastOptions();
         $this->assertEquals(0.7, $passedOptions['temperature']);
-        $this->assertEquals(1000, $passedOptions['maxTokens']);
+        $this->assertEquals(1000, $passedOptions['max_tokens']);
         $this->assertEquals('gpt-4-turbo', $passedOptions['model']);
     }
 

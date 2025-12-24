@@ -4,8 +4,11 @@
 # Install PCOV for fast code coverage using apt-get (pecl not available in DDEV)
 RUN apt-get update && apt-get install -y php${PHP_VERSION}-pcov && rm -rf /var/lib/apt/lists/*
 
-# Upgrade PHP to latest patch version (optional - get fixes before DDEV updates)
-# RUN apt-get update && apt-get install --only-upgrade -y php${PHP_VERSION}-* && rm -rf /var/lib/apt/lists/*
+# Upgrade PHP to latest patch version (get fixes before DDEV updates)
+# Use dist-upgrade to handle dependency changes between versions
+RUN apt-get update && \
+    apt-get dist-upgrade -y && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy landing page to temporary location for deployment at runtime
 COPY index.html /tmp/landing-index.html

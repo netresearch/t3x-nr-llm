@@ -219,18 +219,6 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function mergeOverridesWithArray(): void
-    {
-        $options = new DeepLOptions(formality: 'more', preserveFormatting: true);
-
-        $merged = $options->merge(['formality' => 'less', 'glossary_id' => 'new_gls']);
-
-        $this->assertEquals('less', $merged['formality']);
-        $this->assertTrue($merged['preserve_formatting']);
-        $this->assertEquals('new_gls', $merged['glossary_id']);
-    }
-
-    #[Test]
     public function nullFormalityIsAllowed(): void
     {
         $options = new DeepLOptions(formality: null);
