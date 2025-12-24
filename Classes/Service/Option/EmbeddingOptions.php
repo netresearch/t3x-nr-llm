@@ -8,6 +8,8 @@ namespace Netresearch\NrLlm\Service\Option;
  * Options for embedding requests
  *
  * Embeddings are deterministic, so caching is enabled by default.
+ *
+ * @phpstan-consistent-constructor
  */
 class EmbeddingOptions extends AbstractOptions
 {

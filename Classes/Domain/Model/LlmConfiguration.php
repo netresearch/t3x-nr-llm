@@ -43,7 +43,7 @@ class LlmConfiguration extends AbstractEntity
     /**
      * Allowed backend groups (MM relation)
      *
-     * @var ObjectStorage<\TYPO3\CMS\Beuser\Domain\Model\BackendUserGroup>|null
+     * @var ObjectStorage<\TYPO3\CMS\Extbase\DomainObject\AbstractEntity>|null
      */
     protected ?ObjectStorage $beGroups = null;
 
@@ -175,6 +175,9 @@ class LlmConfiguration extends AbstractEntity
         return $this->allowedGroups;
     }
 
+    /**
+     * @return ObjectStorage<\TYPO3\CMS\Extbase\DomainObject\AbstractEntity>|null
+     */
     public function getBeGroups(): ?ObjectStorage
     {
         return $this->beGroups;
@@ -304,6 +307,9 @@ class LlmConfiguration extends AbstractEntity
         $this->allowedGroups = $allowedGroups;
     }
 
+    /**
+     * @param ObjectStorage<\TYPO3\CMS\Extbase\DomainObject\AbstractEntity>|null $beGroups
+     */
     public function setBeGroups(?ObjectStorage $beGroups): void
     {
         $this->beGroups = $beGroups;

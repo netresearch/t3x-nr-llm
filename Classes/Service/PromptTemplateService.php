@@ -46,8 +46,8 @@ class PromptTemplateService
      * Render prompt with variables
      *
      * @param string $identifier Prompt template identifier
-     * @param array $variables Template variables
-     * @param array $options Rendering options
+     * @param array<string, mixed> $variables Template variables
+     * @param array<string, mixed> $options Rendering options
      * @return RenderedPrompt
      * @throws PromptTemplateNotFoundException
      * @throws InvalidArgumentException
@@ -93,7 +93,7 @@ class PromptTemplateService
      * Create new version of existing template
      *
      * @param string $identifier Base template identifier
-     * @param array $updates Fields to update
+     * @param array<string, mixed> $updates Fields to update
      * @return PromptTemplate
      * @throws PromptTemplateNotFoundException
      */
@@ -189,11 +189,11 @@ class PromptTemplateService
      * Get all templates for a feature
      *
      * @param string $feature Feature identifier
-     * @return array Array of PromptTemplate objects
+     * @return array<int, PromptTemplate>
      */
     public function getTemplatesForFeature(string $feature): array
     {
-        return $this->repository->findByFeature($feature);
+        return $this->repository->findByFeature($feature)->toArray();
     }
 
     /**
@@ -205,7 +205,7 @@ class PromptTemplateService
      * - Loops: {{#each items}}...{{/each}}
      *
      * @param string $template Template string
-     * @param array $variables Variables to substitute
+     * @param array<string, mixed> $variables Variables to substitute
      * @return string Rendered template
      */
     private function substitute(string $template, array $variables): string
@@ -273,7 +273,7 @@ class PromptTemplateService
      * Validate required variables are provided
      *
      * @param PromptTemplate $template
-     * @param array $variables
+     * @param array<string, mixed> $variables
      * @throws InvalidArgumentException
      */
     private function validateVariables(PromptTemplate $template, array $variables): void

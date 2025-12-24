@@ -90,6 +90,14 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
+     * Check if at least one provider is available
+     */
+    public function hasAvailableProvider(): bool
+    {
+        return $this->getAvailableProviders() !== [];
+    }
+
+    /**
      * @return array<string, string>
      */
     public function getProviderList(): array

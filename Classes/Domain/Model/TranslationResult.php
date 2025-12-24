@@ -9,6 +9,10 @@ namespace Netresearch\NrLlm\Domain\Model;
  */
 final class TranslationResult
 {
+    /**
+     * @param array<int, string>|null $alternatives
+     * @param array<string, mixed>|null $metadata
+     */
     public function __construct(
         public readonly string $translation,
         public readonly string $sourceLanguage,
@@ -37,6 +41,8 @@ final class TranslationResult
 
     /**
      * Get alternative translations if available
+     *
+     * @return array<int, string>
      */
     public function getAlternatives(): array
     {

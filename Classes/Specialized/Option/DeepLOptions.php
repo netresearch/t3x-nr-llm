@@ -14,6 +14,10 @@ final class DeepLOptions extends AbstractOptions
     private const VALID_FORMALITIES = ['default', 'more', 'less', 'prefer_more', 'prefer_less'];
     private const VALID_TAG_HANDLING = ['xml', 'html'];
 
+    /**
+     * @param array<int, string>|null $ignoreTags
+     * @param array<int, string>|null $nonSplittingTags
+     */
     public function __construct(
         public readonly ?string $formality = 'default',
         public readonly ?string $glossaryId = null,
@@ -44,6 +48,9 @@ final class DeepLOptions extends AbstractOptions
         ]);
     }
 
+    /**
+     * @param array<string, mixed> $options
+     */
     public static function fromArray(array $options): static
     {
         return new self(

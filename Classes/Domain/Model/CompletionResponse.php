@@ -9,6 +9,10 @@ namespace Netresearch\NrLlm\Domain\Model;
  */
 final class CompletionResponse
 {
+    /**
+     * @param array<int, array<string, mixed>>|null $toolCalls
+     * @param array<string, mixed>|null $metadata
+     */
     public function __construct(
         public readonly string $content,
         public readonly string $model,

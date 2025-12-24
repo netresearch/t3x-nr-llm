@@ -58,6 +58,7 @@ final class DallEImageService
 
     private string $apiKey = '';
     private string $baseUrl = '';
+    /** @phpstan-ignore property.onlyWritten (intended for future HTTP client configuration) */
     private int $timeout = 120;
 
     public function __construct(
@@ -410,6 +411,7 @@ final class DallEImageService
     /**
      * Build generation request payload.
      *
+     * @param array<string, mixed> $options
      * @return array<string, mixed>
      */
     private function buildGeneratePayload(string $prompt, array $options): array
@@ -440,6 +442,7 @@ final class DallEImageService
     /**
      * Send JSON request.
      *
+     * @param array<string, mixed> $payload
      * @return array<string, mixed>
      * @throws ServiceUnavailableException
      */
@@ -460,6 +463,7 @@ final class DallEImageService
     /**
      * Send multipart request for image upload.
      *
+     * @param array<string, mixed> $fields
      * @return array<string, mixed>
      * @throws ServiceUnavailableException
      */

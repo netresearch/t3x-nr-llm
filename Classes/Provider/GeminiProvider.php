@@ -119,10 +119,10 @@ final class GeminiProvider extends AbstractProvider implements
 
         // Convert OpenAI tool format to Gemini format
         $geminiTools = [
-            'functionDeclarations' => array_map(static fn($tool) => [
+            'functionDeclarations' => array_map(static fn(array $tool): array => [
                 'name' => $tool['function']['name'],
-                'description' => $tool['function']['description'] ?? '',
-                'parameters' => $tool['function']['parameters'] ?? ['type' => 'object', 'properties' => []],
+                'description' => $tool['function']['description'],
+                'parameters' => $tool['function']['parameters'],
             ], $tools),
         ];
 
@@ -371,7 +371,7 @@ final class GeminiProvider extends AbstractProvider implements
 
     /**
      * @param array<int, array{role: string, content: string}> $messages
-     * @return array{contents: array, systemInstruction?: array}
+     * @return array{contents: array<int, array<string, mixed>>, systemInstruction?: array<string, mixed>}
      */
     private function convertToGeminiFormat(array $messages): array
     {

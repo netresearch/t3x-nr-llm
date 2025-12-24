@@ -8,11 +8,16 @@ namespace Netresearch\NrLlm\Service\Option;
  * Options for tool/function calling requests
  *
  * Extends ChatOptions with tool-specific configuration.
+ *
+ * @phpstan-consistent-constructor
  */
 class ToolOptions extends ChatOptions
 {
     private const TOOL_CHOICES = ['auto', 'none', 'required'];
 
+    /**
+     * @param array<int, string>|null $stopSequences
+     */
     public function __construct(
         ?float $temperature = null,
         ?int $maxTokens = null,

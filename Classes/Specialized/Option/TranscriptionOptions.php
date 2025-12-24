@@ -39,6 +39,9 @@ final class TranscriptionOptions extends AbstractOptions
         ]);
     }
 
+    /**
+     * @param array<string, mixed> $options
+     */
     public static function fromArray(array $options): static
     {
         return new self(

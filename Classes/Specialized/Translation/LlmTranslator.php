@@ -176,6 +176,7 @@ final class LlmTranslator implements TranslatorInterface
     /**
      * Build translation prompt.
      *
+     * @param array<string, mixed> $options
      * @return array{messages: array<int, array{role: string, content: string}>}
      */
     private function buildPrompt(

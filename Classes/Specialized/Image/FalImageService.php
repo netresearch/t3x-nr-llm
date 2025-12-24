@@ -298,6 +298,7 @@ final class FalImageService
     /**
      * Build generation payload.
      *
+     * @param array<string, mixed> $options
      * @return array<string, mixed>
      */
     private function buildGeneratePayload(string $prompt, array $options): array
@@ -361,6 +362,8 @@ final class FalImageService
 
     /**
      * Extract size from image response.
+     *
+     * @param array<string, mixed> $image
      */
     private function extractSize(array $image): string
     {
@@ -374,6 +377,7 @@ final class FalImageService
     /**
      * Send synchronous request.
      *
+     * @param array<string, mixed> $payload
      * @return array<string, mixed>
      * @throws ServiceUnavailableException
      */
@@ -394,6 +398,7 @@ final class FalImageService
     /**
      * Send queue-based request with polling.
      *
+     * @param array<string, mixed> $payload
      * @return array<string, mixed>
      * @throws ServiceUnavailableException
      */

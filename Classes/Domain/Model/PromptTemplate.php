@@ -4,51 +4,44 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
+
 /**
  * Domain model for prompt templates
  *
  * Represents a reusable prompt template with versioning,
  * configuration, and performance tracking.
  */
-class PromptTemplate
+class PromptTemplate extends AbstractEntity
 {
-    private ?int $uid = null;
-    private int $pid = 0;
-    private string $identifier = '';
-    private string $title = '';
-    private ?string $description = null;
-    private string $feature = '';
-    private ?string $systemPrompt = null;
-    private ?string $userPromptTemplate = null;
-    private int $version = 1;
-    private int $parentUid = 0;
-    private bool $isActive = true;
-    private bool $isDefault = false;
-    private ?string $provider = null;
-    private ?string $model = null;
-    private float $temperature = 0.7;
-    private int $maxTokens = 1000;
-    private float $topP = 1.0;
-    private array $variables = [];
-    private ?string $exampleOutput = null;
-    private array $tags = [];
-    private int $usageCount = 0;
-    private int $avgResponseTime = 0;
-    private int $avgTokensUsed = 0;
-    private float $qualityScore = 0.0;
-    private int $tstamp = 0;
-    private int $crdate = 0;
+    protected string $identifier = '';
+    protected string $title = '';
+    protected ?string $description = null;
+    protected string $feature = '';
+    protected ?string $systemPrompt = null;
+    protected ?string $userPromptTemplate = null;
+    protected int $version = 1;
+    protected int $parentUid = 0;
+    protected bool $isActive = true;
+    protected bool $isDefault = false;
+    protected ?string $provider = null;
+    protected ?string $model = null;
+    protected float $temperature = 0.7;
+    protected int $maxTokens = 1000;
+    protected float $topP = 1.0;
+    /** @var array<string, mixed> */
+    protected array $variables = [];
+    protected ?string $exampleOutput = null;
+    /** @var array<int, string> */
+    protected array $tags = [];
+    protected int $usageCount = 0;
+    protected int $avgResponseTime = 0;
+    protected int $avgTokensUsed = 0;
+    protected float $qualityScore = 0.0;
+    protected int $tstamp = 0;
+    protected int $crdate = 0;
 
     // Getters
-    public function getUid(): ?int
-    {
-        return $this->uid;
-    }
-
-    public function getPid(): int
-    {
-        return $this->pid;
-    }
 
     public function getIdentifier(): string
     {
@@ -125,6 +118,9 @@ class PromptTemplate
         return $this->topP;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getVariables(): array
     {
         return $this->variables;
@@ -135,6 +131,9 @@ class PromptTemplate
         return $this->exampleOutput;
     }
 
+    /**
+     * @return array<int, string>
+     */
     public function getTags(): array
     {
         return $this->tags;
@@ -256,6 +255,9 @@ class PromptTemplate
         $this->topP = $topP;
     }
 
+    /**
+     * @param array<string, mixed> $variables
+     */
     public function setVariables(array $variables): void
     {
         $this->variables = $variables;
@@ -266,6 +268,9 @@ class PromptTemplate
         $this->exampleOutput = $exampleOutput;
     }
 
+    /**
+     * @param array<int, string> $tags
+     */
     public function setTags(array $tags): void
     {
         $this->tags = $tags;
@@ -306,7 +311,7 @@ class PromptTemplate
      *
      * Extracts all {{variable}} placeholders from prompts
      *
-     * @return array
+     * @return array<int, string>
      */
     public function getRequiredVariables(): array
     {

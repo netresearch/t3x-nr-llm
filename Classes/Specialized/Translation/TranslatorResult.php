@@ -12,6 +12,10 @@ namespace Netresearch\NrLlm\Specialized\Translation;
  */
 final readonly class TranslatorResult
 {
+    /**
+     * @param array<int, string>|null $alternatives
+     * @param array<string, mixed>|null $metadata
+     */
     public function __construct(
         public string $translatedText,
         public string $sourceLanguage,

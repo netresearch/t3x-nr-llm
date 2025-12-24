@@ -201,6 +201,9 @@ abstract class AbstractProvider implements ProviderInterface
         );
     }
 
+    /**
+     * @param array<int, array<int, float>> $embeddings
+     */
     protected function createEmbeddingResponse(
         array $embeddings,
         string $model,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
@@ -79,7 +80,8 @@ final class LlmModuleController extends ActionController
         }
 
         try {
-            $response = $this->llmServiceManager->complete($prompt, ['provider' => $provider]);
+            $chatOptions = new ChatOptions(provider: $provider);
+            $response = $this->llmServiceManager->complete($prompt, $chatOptions);
 
             return new JsonResponse([
                 'success' => true,

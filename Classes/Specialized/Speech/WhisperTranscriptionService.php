@@ -51,6 +51,7 @@ final class WhisperTranscriptionService
 
     private string $apiKey = '';
     private string $baseUrl = '';
+    /** @phpstan-ignore property.onlyWritten (intended for future HTTP client configuration) */
     private int $timeout = 120; // Transcription can take longer
 
     public function __construct(

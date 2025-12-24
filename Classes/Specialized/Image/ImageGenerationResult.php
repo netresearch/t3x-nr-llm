@@ -108,10 +108,13 @@ final readonly class ImageGenerationResult
     public function getDimensions(): array
     {
         $parts = explode('x', $this->size);
+        // explode always returns at least one element
+        $width = $parts[0];
+        $height = $parts[1] ?? $width;
 
         return [
-            'width' => (int) ($parts[0] ?? 0),
-            'height' => (int) ($parts[1] ?? 0),
+            'width' => (int) $width,
+            'height' => (int) $height,
         ];
     }
 

@@ -320,6 +320,8 @@ class TranslationService
 
     /**
      * Resolve which translator to use based on options
+     *
+     * @param array<string, mixed> $options
      */
     private function resolveTranslator(array $options): TranslatorInterface
     {
@@ -330,9 +332,13 @@ class TranslationService
 
         // Priority 2: Preset specified - check for translator in configuration
         if (isset($options['preset']) && $options['preset'] !== '') {
-            $configuration = $this->configurationService->getConfiguration($options['preset']);
-            if ($configuration !== null && $configuration->getTranslator() !== '') {
-                return $this->translatorRegistry->get($configuration->getTranslator());
+            try {
+                $configuration = $this->configurationService->getConfiguration($options['preset']);
+                if ($configuration->getTranslator() !== '') {
+                    return $this->translatorRegistry->get($configuration->getTranslator());
+                }
+            } catch (\Netresearch\NrLlm\Exception\ConfigurationNotFoundException) {
+                // Fall through to default translator
             }
         }
 
@@ -358,6 +364,8 @@ class TranslationService
 
     /**
      * Extract UsageStatistics from translator metadata
+     *
+     * @param array<string, mixed> $metadata
      */
     private function extractUsageFromMetadata(array $metadata): ?UsageStatistics
     {
@@ -377,6 +385,7 @@ class TranslationService
     /**
      * Build translation prompt with template
      *
+     * @param array<string, mixed> $options
      * @return array{system: string, user: string}
      */
     private function buildTranslationPrompt(
@@ -462,6 +471,7 @@ class TranslationService
     /**
      * Validate translation options
      *
+     * @param array<string, mixed> $options
      * @throws InvalidArgumentException
      */
     private function validateOptions(array $options): void

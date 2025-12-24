@@ -38,7 +38,7 @@ class LlmConfigurationRepository extends Repository
     /**
      * Find all active configurations
      *
-     * @return QueryResultInterface<LlmConfiguration>
+     * @return QueryResultInterface<int, LlmConfiguration>
      */
     public function findActive(): QueryResultInterface
     {
@@ -69,7 +69,7 @@ class LlmConfigurationRepository extends Repository
     /**
      * Find configurations by provider
      *
-     * @return QueryResultInterface<LlmConfiguration>
+     * @return QueryResultInterface<int, LlmConfiguration>
      */
     public function findByProvider(string $provider): QueryResultInterface
     {
@@ -87,7 +87,7 @@ class LlmConfigurationRepository extends Repository
      * Find configurations accessible to specific backend user groups
      *
      * @param array<int> $groupUids
-     * @return QueryResultInterface<LlmConfiguration>
+     * @return QueryResultInterface<int, LlmConfiguration>
      */
     public function findAccessibleForGroups(array $groupUids): QueryResultInterface
     {

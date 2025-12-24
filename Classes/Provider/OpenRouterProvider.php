@@ -73,11 +73,15 @@ final class OpenRouterProvider extends AbstractProvider implements
 
     /**
      * Comma-separated fallback model IDs
+     *
+     * @var array<int, string>
      */
     private array $fallbackModels = [];
 
     /**
      * Cached models list
+     *
+     * @var array<string, array<string, mixed>>|null
      */
     private ?array $cachedModels = null;
 
@@ -168,7 +172,7 @@ final class OpenRouterProvider extends AbstractProvider implements
      * Fetch live model list from OpenRouter API
      *
      * @param bool $forceRefresh Bypass cache and fetch fresh data
-     * @return array<string, array{name: string, context_length: int, pricing: array, capabilities: array}>
+     * @return array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}>
      */
     public function fetchAvailableModels(bool $forceRefresh = false): array
     {
@@ -207,7 +211,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     /**
      * Get OpenRouter credits/balance information
      *
-     * @return array{balance: float, usage: float, is_free_tier: bool, rate_limit: array}
+     * @return array{balance: float, usage: float, is_free_tier: bool, rate_limit: array<string, mixed>}
      */
     public function getCredits(): array
     {
@@ -526,6 +530,8 @@ final class OpenRouterProvider extends AbstractProvider implements
 
     /**
      * Select model based on routing strategy
+     *
+     * @param array<string, mixed> $options
      */
     private function selectModel(array $options): string
     {
@@ -561,6 +567,10 @@ final class OpenRouterProvider extends AbstractProvider implements
 
     /**
      * Filter models by requirements from options
+     *
+     * @param array<string, array<string, mixed>> $models
+     * @param array<string, mixed> $options
+     * @return array<string, array<string, mixed>>
      */
     private function filterModelsByRequirements(array $models, array $options): array
     {
@@ -595,6 +605,8 @@ final class OpenRouterProvider extends AbstractProvider implements
 
     /**
      * Select cheapest model from candidates
+     *
+     * @param array<string, array<string, mixed>> $candidates
      */
     private function selectCheapestModel(array $candidates): string
     {
@@ -614,6 +626,8 @@ final class OpenRouterProvider extends AbstractProvider implements
 
     /**
      * Select fastest model (heuristic: flash/haiku/turbo models)
+     *
+     * @param array<string, array<string, mixed>> $candidates
      */
     private function selectFastestModel(array $candidates): string
     {
@@ -632,6 +646,8 @@ final class OpenRouterProvider extends AbstractProvider implements
 
     /**
      * Select balanced model (mid-tier quality and speed)
+     *
+     * @param array<string, array<string, mixed>> $candidates
      */
     private function selectBalancedModel(array $candidates): string
     {
@@ -694,6 +710,9 @@ final class OpenRouterProvider extends AbstractProvider implements
 
     /**
      * Send request to OpenRouter API with custom headers
+     *
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
      */
     private function sendOpenRouterRequest(string $endpoint, array $payload): array
     {

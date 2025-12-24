@@ -6,6 +6,8 @@ namespace Netresearch\NrLlm\Service\Option;
 
 /**
  * Options for translation requests
+ *
+ * @phpstan-consistent-constructor
  */
 class TranslationOptions extends AbstractOptions
 {

@@ -9,6 +9,10 @@ namespace Netresearch\NrLlm\Domain\Model;
  */
 final class VisionResponse
 {
+    /**
+     * @param array<int, array<string, mixed>>|null $detectedObjects
+     * @param array<string, mixed>|null $metadata
+     */
     public function __construct(
         public readonly string $description,
         public readonly string $model,

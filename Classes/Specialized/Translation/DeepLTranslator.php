@@ -66,6 +66,7 @@ final class DeepLTranslator implements TranslatorInterface
 
     private string $apiKey = '';
     private string $baseUrl = '';
+    /** @phpstan-ignore property.onlyWritten (intended for future HTTP client configuration) */
     private int $timeout = 30;
 
     public function __construct(
@@ -345,6 +346,7 @@ final class DeepLTranslator implements TranslatorInterface
     /**
      * Build translate request payload.
      *
+     * @param array<string, mixed> $options
      * @return array<string, mixed>
      */
     private function buildTranslatePayload(
@@ -409,6 +411,7 @@ final class DeepLTranslator implements TranslatorInterface
      * Build batch translate request payload.
      *
      * @param array<int, string> $texts
+     * @param array<string, mixed> $options
      * @return array<string, mixed>
      */
     private function buildBatchPayload(
@@ -533,6 +536,8 @@ final class DeepLTranslator implements TranslatorInterface
 
             throw new ServiceUnavailableException(
                 'Failed to connect to DeepL API: ' . $e->getMessage(),
+                'translation',
+                ['endpoint' => $endpoint, 'exception' => $e->getMessage()],
                 0,
                 $e
             );

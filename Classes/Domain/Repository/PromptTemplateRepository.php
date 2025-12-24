@@ -37,7 +37,7 @@ class PromptTemplateRepository extends Repository
     /**
      * Find all active templates
      *
-     * @return QueryResultInterface<PromptTemplate>
+     * @return QueryResultInterface<int, PromptTemplate>
      */
     public function findActive(): QueryResultInterface
     {
@@ -51,7 +51,7 @@ class PromptTemplateRepository extends Repository
     /**
      * Find templates by category
      *
-     * @return QueryResultInterface<PromptTemplate>
+     * @return QueryResultInterface<int, PromptTemplate>
      */
     public function findByCategory(string $category): QueryResultInterface
     {
@@ -63,5 +63,51 @@ class PromptTemplateRepository extends Repository
             )
         );
         return $query->execute();
+    }
+
+    /**
+     * Find templates by feature
+     *
+     * @return QueryResultInterface<int, PromptTemplate>
+     */
+    public function findByFeature(string $feature): QueryResultInterface
+    {
+        $query = $this->createQuery();
+        $query->matching(
+            $query->logicalAnd(
+                $query->equals('isActive', true),
+                $query->equals('feature', $feature)
+            )
+        );
+        return $query->execute();
+    }
+
+    /**
+     * Find a variant template by parent identifier and variant name
+     */
+    public function findVariant(string $parentIdentifier, string $variantName): ?PromptTemplate
+    {
+        $query = $this->createQuery();
+        $query->matching(
+            $query->logicalAnd(
+                $query->equals('parentIdentifier', $parentIdentifier),
+                $query->equals('variantName', $variantName)
+            )
+        );
+        /** @var PromptTemplate|null $result */
+        $result = $query->execute()->getFirst();
+        return $result;
+    }
+
+    /**
+     * Save a prompt template
+     */
+    public function save(PromptTemplate $template): void
+    {
+        if ($template->getUid() === null) {
+            $this->add($template);
+        } else {
+            $this->update($template);
+        }
     }
 }

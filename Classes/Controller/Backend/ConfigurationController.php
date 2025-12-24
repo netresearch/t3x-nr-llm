@@ -323,10 +323,10 @@ final class ConfigurationController extends ActionController
         }
 
         try {
-            $options = $configuration->toOptionsArray();
+            $chatOptions = $configuration->toChatOptions();
             $response = $this->llmServiceManager->complete(
                 'Hello, please respond with a brief greeting.',
-                $options
+                $chatOptions
             );
 
             return new JsonResponse([

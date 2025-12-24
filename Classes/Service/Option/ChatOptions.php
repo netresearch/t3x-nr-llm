@@ -9,6 +9,8 @@ namespace Netresearch\NrLlm\Service\Option;
  *
  * Provides typed, validated options with fluent setters and factory presets
  * for common use cases like factual, creative, and code generation.
+ *
+ * @phpstan-consistent-constructor
  */
 class ChatOptions extends AbstractOptions
 {

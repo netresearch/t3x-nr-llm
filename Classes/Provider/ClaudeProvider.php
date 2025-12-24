@@ -144,10 +144,10 @@ final class ClaudeProvider extends AbstractProvider implements
         }
 
         // Convert OpenAI tool format to Claude format
-        $claudeTools = array_map(static fn($tool) => [
+        $claudeTools = array_map(static fn(array $tool): array => [
             'name' => $tool['function']['name'],
-            'description' => $tool['function']['description'] ?? '',
-            'input_schema' => $tool['function']['parameters'] ?? ['type' => 'object', 'properties' => []],
+            'description' => $tool['function']['description'],
+            'input_schema' => $tool['function']['parameters'],
         ], $tools);
 
         $payload = [
@@ -389,6 +389,9 @@ final class ClaudeProvider extends AbstractProvider implements
         };
     }
 
+    /**
+     * @return array<string, string>
+     */
     private function mapToolChoice(mixed $choice): array
     {
         if (is_string($choice)) {
@@ -400,6 +403,6 @@ final class ClaudeProvider extends AbstractProvider implements
             };
         }
 
-        return $choice;
+        return is_array($choice) ? $choice : ['type' => 'auto'];
     }
 }

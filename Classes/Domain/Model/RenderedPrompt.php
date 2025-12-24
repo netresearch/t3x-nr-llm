@@ -12,6 +12,9 @@ namespace Netresearch\NrLlm\Domain\Model;
  */
 final class RenderedPrompt
 {
+    /**
+     * @param array<string, mixed> $metadata
+     */
     public function __construct(
         private readonly string $systemPrompt,
         private readonly string $userPrompt,
@@ -52,6 +55,9 @@ final class RenderedPrompt
         return $this->topP;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getMetadata(): array
     {
         return $this->metadata;
@@ -80,7 +86,7 @@ final class RenderedPrompt
     /**
      * Convert to messages array format
      *
-     * @return array
+     * @return array<int, array{role: string, content: string}>
      */
     public function toMessages(): array
     {

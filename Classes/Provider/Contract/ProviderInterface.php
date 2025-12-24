@@ -13,6 +13,13 @@ interface ProviderInterface
 
     public function getIdentifier(): string;
 
+    /**
+     * Configure the provider with API key and other settings
+     *
+     * @param array<string, mixed> $config
+     */
+    public function configure(array $config): void;
+
     public function isAvailable(): bool;
 
     public function supportsFeature(string $feature): bool;
