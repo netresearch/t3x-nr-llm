@@ -50,3 +50,4 @@ Documentation-GENERATED-temp/
 # Local environment
 .env.local
 .envrc.local
+public/.git-info.json
