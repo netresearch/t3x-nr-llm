@@ -145,9 +145,8 @@ final class OpenRouterProvider extends AbstractProvider implements
             'anthropic/claude-sonnet-4-5' => 'Claude Sonnet 4.5 (Anthropic)',
             'anthropic/claude-opus-4-1' => 'Claude Opus 4.1 (Anthropic)',
             // OpenAI (December 2025)
-            'openai/gpt-5' => 'GPT-5 (OpenAI)',
-            'openai/gpt-4.1' => 'GPT-4.1 (OpenAI)',
-            'openai/gpt-4.1-mini' => 'GPT-4.1 Mini (OpenAI)',
+            'openai/gpt-5.2' => 'GPT-5.2 (OpenAI)',
+            'openai/gpt-5.2-pro' => 'GPT-5.2 Pro (OpenAI)',
             'openai/o3' => 'O3 Reasoning (OpenAI)',
             'openai/o4-mini' => 'O4 Mini (OpenAI)',
             // Google (December 2025)
@@ -657,8 +656,8 @@ final class OpenRouterProvider extends AbstractProvider implements
         $visionModels = [
             'anthropic/claude-sonnet-4-5',
             'anthropic/claude-opus-4-5',
-            'openai/gpt-4.1',
-            'openai/gpt-5',
+            'openai/gpt-5.2',
+            'openai/gpt-5.2-pro',
             'google/gemini-3-flash',
         ];
 
@@ -678,7 +677,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             }
         }
 
-        return 'openai/gpt-4.1'; // Fallback
+        return 'openai/gpt-5.2'; // Fallback
     }
 
     /**

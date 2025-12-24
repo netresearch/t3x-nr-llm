@@ -41,7 +41,7 @@ Configure API keys in **Admin Tools > Settings > Extension Configuration > nr_ll
 | Setting | Description |
 |---------|-------------|
 | `openai_api_key` | OpenAI API key |
-| `openai_default_model` | Default model (e.g., `gpt-4.1`) |
+| `openai_default_model` | Default model (e.g., `gpt-5.2`) |
 | `claude_api_key` | Anthropic Claude API key |
 | `claude_default_model` | Default model (e.g., `claude-sonnet-4-5-20250929`) |
 | `gemini_api_key` | Google Gemini API key |
@@ -246,7 +246,7 @@ For detailed documentation on each service, see [Documentation/Developer/Feature
 
 ### OpenAI
 
-- **Models**: gpt-5, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, o3, o4-mini
+- **Models**: gpt-5.2, gpt-5.2-pro, gpt-5.2-instant, o3, o4-mini
 - **Features**: Chat, Completion, Embeddings, Vision, Streaming, Tools
 
 ### Anthropic Claude

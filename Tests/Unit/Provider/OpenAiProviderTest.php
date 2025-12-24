@@ -243,8 +243,8 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $this->assertIsArray($models);
         $this->assertNotEmpty($models);
         // Models are returned as key => label pairs
-        $this->assertArrayHasKey('gpt-4o', $models);
-        $this->assertArrayHasKey('gpt-4o-mini', $models);
+        $this->assertArrayHasKey('gpt-5.2', $models);
+        $this->assertArrayHasKey('gpt-5.2-pro', $models);
     }
 
     #[Test]

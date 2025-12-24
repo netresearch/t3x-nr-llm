@@ -10,8 +10,8 @@ defaultCacheLifetime = 3600
 # cat=openai; type=string; label=OpenAI API Key: Your OpenAI API key
 providers.openai.apiKey =
 
-# cat=openai; type=string; label=OpenAI Default Model: Default model to use (e.g., gpt-4.1, gpt-4.1-mini, gpt-5)
-providers.openai.defaultModel = gpt-4.1
+# cat=openai; type=string; label=OpenAI Default Model: Default model to use (e.g., gpt-5.2, gpt-5.2-pro, gpt-5.2-instant)
+providers.openai.defaultModel = gpt-5.2
 
 # cat=openai; type=string; label=OpenAI Base URL: Custom base URL (leave empty for default)
 providers.openai.baseUrl =

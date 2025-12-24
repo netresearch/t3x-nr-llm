@@ -26,14 +26,13 @@ Provider Settings
 .. confval:: openai_default_model
 
    :type: string
-   :Default: gpt-4.1
+   :Default: gpt-5.2
 
    Default model for OpenAI requests. Options:
 
-   - ``gpt-5`` - Most capable model
-   - ``gpt-4.1`` - Recommended balanced model
-   - ``gpt-4.1-mini`` - Smaller, faster variant
-   - ``gpt-4.1-nano`` - Fast, cost-effective
+   - ``gpt-5.2`` - GPT-5.2 Thinking (Current, December 2025)
+   - ``gpt-5.2-pro`` - GPT-5.2 Pro (Most Capable)
+   - ``gpt-5.2-instant`` - GPT-5.2 Instant (Fast)
    - ``o3`` - Advanced reasoning model
    - ``o4-mini`` - Smaller reasoning model
 
@@ -146,7 +145,7 @@ Setup
            # Provider-specific overrides
            providers {
                openai {
-                   model = gpt-4.1
+                   model = gpt-5.2
                    temperature = 0.7
                    maxTokens = 2000
                }
