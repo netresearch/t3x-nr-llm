@@ -1,16 +1,37 @@
-# Docker Compose overrides for nr_llm extension development
-# This extends the default DDEV web container configuration
-
 services:
-  web:
-    environment:
-      # Extension development
-      - EXTENSION_KEY=nr_llm
-      - PACKAGE_NAME=netresearch/nr-llm
-      # API keys (set via .env.local or ddev auth)
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-    volumes:
-      # Mount extension source (read-write for development)
-      - "../:/var/www/html/packages/nr_llm:cached"
+    web:
+        environment:
+            - EXTENSION_KEY=nr_llm
+            - PACKAGE_NAME=netresearch/nr-llm
+
+            # API keys (set via .env.local or ddev auth)
+            - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+            - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+            - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+
+            # TYPO3 v14 config
+            - TYPO3_DB_DRIVER=mysqli
+            - TYPO3_DB_USERNAME=root
+            - TYPO3_DB_PASSWORD=root
+            - TYPO3_DB_HOST=db
+            - TYPO3_SETUP_ADMIN_EMAIL=admin@example.com
+            - TYPO3_SETUP_ADMIN_USERNAME=admin
+            - TYPO3_SETUP_ADMIN_PASSWORD=Joh316!
+            - TYPO3_PROJECT_NAME=EXT:nr_llm Dev Environment
+            - TYPO3_SERVER_TYPE=apache
+        volumes:
+            # Extension source (at project root)
+            - type: bind
+              source: ../
+              target: /var/www/nr_llm
+              consistency: cached
+            # Landing page
+            - type: bind
+              source: ../public
+              target: /var/www/html
+              consistency: cached
+            # TYPO3 v14 installation volume
+            - v14-data:/var/www/html/v14
+volumes:
+    v14-data:
+        name: "nr-llm-v14-data"

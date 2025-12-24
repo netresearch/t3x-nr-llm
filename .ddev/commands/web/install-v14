@@ -1,0 +1,93 @@
+#!/bin/bash
+
+## Description: Install TYPO3 14 with nr_llm extension
+## Usage: install-v14
+## Example: ddev install-v14
+
+set -e
+
+VERSION=v14
+INSTALL_DIR="/var/www/html/$VERSION"
+EXTENSION_PATH="/var/www/nr_llm"
+
+echo "🚀 Installing TYPO3 v14 with nr_llm extension..."
+echo ""
+
+# Clean and create installation directory
+echo "📁 Creating installation directory..."
+rm -rf "$INSTALL_DIR"/*
+mkdir -p "$INSTALL_DIR"
+
+# Create database
+echo "🗄️ Setting up database..."
+mysql -h db -u root -p"root" -e "DROP DATABASE IF EXISTS ${VERSION};"
+mysql -h db -u root -p"root" -e "CREATE DATABASE ${VERSION};"
+
+# Install TYPO3 base distribution
+echo "📦 Installing TYPO3 v14 base distribution..."
+cd "$INSTALL_DIR"
+composer create-project typo3/cms-base-distribution:^14 . --no-interaction --no-progress
+
+# Remove PHP platform override to use actual PHP 8.5
+echo "🔧 Removing platform PHP override..."
+composer config --unset platform.php
+
+# Add extension repository and install
+echo "🔌 Adding nr_llm extension..."
+composer config repositories.nr_llm path "$EXTENSION_PATH"
+composer require netresearch/nr-llm:@dev --no-interaction --no-progress
+
+# Add dev dependencies
+echo "📦 Installing development packages..."
+composer require --dev typo3/cms-styleguide --no-interaction --no-progress
+
+# Setup TYPO3
+echo "⚙️ Running TYPO3 setup..."
+vendor/bin/typo3 setup -n \
+    --dbname="$VERSION" \
+    --password=root \
+    --create-site="https://${VERSION}.nr-llm.ddev.site" \
+    --admin-user-password="$TYPO3_SETUP_ADMIN_PASSWORD"
+
+# Configure development settings
+echo "🔧 Configuring development settings..."
+vendor/bin/typo3 configuration:set 'BE/debug' 1
+vendor/bin/typo3 configuration:set 'FE/debug' 1
+vendor/bin/typo3 configuration:set 'SYS/devIPmask' '*'
+vendor/bin/typo3 configuration:set 'SYS/displayErrors' 1
+vendor/bin/typo3 configuration:set 'MAIL/transport' 'smtp'
+vendor/bin/typo3 configuration:set 'MAIL/transport_smtp_server' 'localhost:1025'
+vendor/bin/typo3 configuration:set 'MAIL/defaultMailFromAddress' 'admin@example.com'
+vendor/bin/typo3 configuration:set 'GFX/processor' 'ImageMagick'
+vendor/bin/typo3 configuration:set 'GFX/processor_path' '/usr/bin/'
+
+# Create additional.php for security settings that don't work via CLI
+mkdir -p "$INSTALL_DIR/config/system"
+cat > "$INSTALL_DIR/config/system/additional.php" << 'EOF'
+<?php
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['features']['security.backend.enforceReferrer'] = false;
+EOF
+
+# Setup extensions
+echo "🔌 Setting up extensions..."
+vendor/bin/typo3 extension:setup
+
+# Generate styleguide demo content
+echo "📐 Generating styleguide demo content..."
+vendor/bin/typo3 styleguide:generate || echo "⚠️ Styleguide generation skipped"
+
+# Flush caches
+vendor/bin/typo3 cache:flush
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ TYPO3 $VERSION installation complete!"
+echo ""
+echo "🌐 Frontend: https://v14.nr-llm.ddev.site/"
+echo "🔧 Backend:  https://v14.nr-llm.ddev.site/typo3/"
+echo ""
+echo "📋 Credentials:"
+echo "   Username: admin"
+echo "   Password: Joh316!"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

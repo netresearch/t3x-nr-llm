@@ -1,58 +1,30 @@
-# DDEV configuration for nr_llm TYPO3 extension development
-# https://ddev.readthedocs.io/en/stable/users/configuration/config/
-
 name: nr-llm
-type: typo3
-
-# PHP 8.5 for TYPO3 v14
+type: php
+docroot: ""
+no_project_mount: true
 php_version: "8.5"
-
-# MariaDB 11.4 (recommended for TYPO3 v14)
+composer_version: "2"
+webserver_type: apache-fpm
+router_http_port: "80"
+router_https_port: "443"
+xdebug_enabled: false
 database:
   type: mariadb
   version: "11.4"
-
-# Web server
-webserver_type: apache-fpm
-
-# Performance settings
-router_http_port: "80"
-router_https_port: "443"
-nodejs_version: "20"
-
-# Composer settings
-composer_version: "2"
-composer_root: /var/www/html
-
-# Additional hostnames for multi-version testing
 additional_hostnames:
-  - v14
-
-# Timezone
-timezone: Europe/Berlin
-
-# Working directory inside container
-working_dir:
-  web: /var/www/html
-
-# Disable default TYPO3 configuration
-disable_settings_management: false
-
-# Upload directory settings
-upload_dirs:
-  - fileadmin
-  - uploads
-
-# Web environment
-web_environment:
-  - TYPO3_CONTEXT=Development
-  - XDEBUG_MODE=debug,develop
-  - COMPOSER_PROCESS_TIMEOUT=600
-
-# Hooks
+  - docs.nr-llm
+  - v14.nr-llm
+additional_fqdns: []
+use_dns_when_possible: true
 hooks:
   post-start:
-    - exec: composer install --no-interaction --prefer-dist || true
+    - exec-host: |
+        # Capture git info and write to container automatically on every ddev start
+        BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+        COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+        PR=$(gh pr view --json number -q .number 2>/dev/null || echo "unknown")
 
-# XDebug settings
-xdebug_enabled: false
+        # Write git info as JSON to web container
+        ddev exec "printf '{\"branch\":\"%s\",\"commit\":\"%s\",\"pr\":\"%s\"}' '$BRANCH' '$COMMIT' '$PR' > /var/www/html/.git-info.json"
+
+        echo "📋 Git info updated: Branch=$BRANCH, Commit=$COMMIT, PR=$PR"
