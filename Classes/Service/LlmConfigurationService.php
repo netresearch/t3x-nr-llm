@@ -33,7 +33,7 @@ class LlmConfigurationService implements SingletonInterface
      */
     public function getConfiguration(string $identifier): LlmConfiguration
     {
-        $configuration = $this->configurationRepository->findByIdentifier($identifier);
+        $configuration = $this->configurationRepository->findOneByIdentifier($identifier);
 
         if ($configuration === null) {
             throw new ConfigurationNotFoundException(

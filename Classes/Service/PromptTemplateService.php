@@ -31,7 +31,7 @@ class PromptTemplateService
      */
     public function getPrompt(string $identifier): PromptTemplate
     {
-        $template = $this->repository->findByIdentifier($identifier);
+        $template = $this->repository->findOneByIdentifier($identifier);
 
         if ($template === null) {
             throw new PromptTemplateNotFoundException(

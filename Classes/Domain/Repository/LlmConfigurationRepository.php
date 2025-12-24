@@ -22,9 +22,9 @@ class LlmConfigurationRepository extends Repository
     ];
 
     /**
-     * Find configuration by identifier
+     * Find configuration by identifier string
      */
-    public function findByIdentifier(string $identifier): ?LlmConfiguration
+    public function findOneByIdentifier(string $identifier): ?LlmConfiguration
     {
         $query = $this->createQuery();
         $query->matching(
