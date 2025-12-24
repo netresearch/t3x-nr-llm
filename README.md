@@ -232,100 +232,15 @@ if ($response->toolCalls) {
 
 ## Feature Services
 
-### CompletionService
+The extension provides high-level feature services for common AI tasks:
 
-High-level text completion with format control:
+- **CompletionService** - Text generation and completion with format control
+- **VisionService** - Image analysis and metadata generation (alt text, SEO titles)
+- **EmbeddingService** - Text-to-vector conversion and similarity search
+- **TranslationService** - Language translation with quality control
+- **PromptTemplateService** - Centralized prompt management
 
-```php
-use Netresearch\NrLlm\Service\Feature\CompletionService;
-
-// Standard completion
-$response = $completionService->complete($prompt, [
-    'temperature' => 0.7,
-    'max_tokens' => 1000,
-]);
-
-// JSON output
-$data = $completionService->completeJson('List 3 colors as JSON array');
-
-// Markdown output
-$markdown = $completionService->completeMarkdown('Write documentation for...');
-
-// Factual (low creativity)
-$response = $completionService->completeFactual('What is PHP?');
-
-// Creative (high creativity)
-$response = $completionService->completeCreative('Write a poem about coding');
-```
-
-### EmbeddingService
-
-Text embeddings with caching and similarity calculations:
-
-```php
-use Netresearch\NrLlm\Service\Feature\EmbeddingService;
-
-// Generate embedding
-$vector = $embeddingService->embed('Some text');
-
-// Calculate similarity
-$similarity = $embeddingService->cosineSimilarity($vectorA, $vectorB);
-
-// Find most similar
-$results = $embeddingService->findMostSimilar(
-    $queryVector,
-    $candidateVectors,
-    topK: 5
-);
-```
-
-### VisionService
-
-Image analysis with specialized prompts:
-
-```php
-use Netresearch\NrLlm\Service\Feature\VisionService;
-
-// Accessibility alt text (WCAG compliant)
-$altText = $visionService->generateAltText($imageUrl);
-
-// SEO-optimized title
-$title = $visionService->generateTitle($imageUrl);
-
-// Detailed description
-$description = $visionService->generateDescription($imageUrl);
-
-// Custom analysis
-$analysis = $visionService->analyzeImage($imageUrl, 'What objects are visible?');
-```
-
-### TranslationService
-
-Language translation with quality control:
-
-```php
-use Netresearch\NrLlm\Service\Feature\TranslationService;
-
-// Basic translation
-$result = $translationService->translate($text, 'de');
-
-// With options
-$result = $translationService->translate($text, 'de', 'en', [
-    'formality' => 'formal', // formal, informal, default
-    'domain' => 'legal',     // general, technical, medical, legal, marketing
-    'glossary' => ['term' => 'translation'],
-    'preserve_formatting' => true,
-]);
-
-// Batch translation
-$results = $translationService->translateBatch($texts, 'de');
-
-// Language detection
-$lang = $translationService->detectLanguage($text);
-
-// Quality scoring
-$score = $translationService->scoreTranslationQuality($source, $translation, 'de');
-```
+For detailed documentation on each service, see [Documentation/Developer/FeatureServices/Index.rst](Documentation/Developer/FeatureServices/Index.rst)
 
 ## Supported Providers
 

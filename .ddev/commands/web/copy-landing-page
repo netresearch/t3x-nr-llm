@@ -1,0 +1,8 @@
+#!/bin/bash
+
+## Description: Copy landing page to web root
+## Usage: copy-landing-page
+## Example: ddev copy-landing-page
+
+cp -f /tmp/landing-index.html /var/www/html/index.html
+echo "Landing page copied to /var/www/html/index.html"

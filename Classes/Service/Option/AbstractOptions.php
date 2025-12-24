@@ -22,26 +22,6 @@ abstract class AbstractOptions
     abstract public function toArray(): array;
 
     /**
-     * Create options from array (backwards compatibility)
-     *
-     * @param array<string, mixed> $options
-     */
-    abstract public static function fromArray(array $options): static;
-
-    /**
-     * Merge with override array
-     *
-     * Options from the array take precedence over object values.
-     *
-     * @param array<string, mixed> $overrides
-     * @return array<string, mixed>
-     */
-    public function merge(array $overrides): array
-    {
-        return array_merge($this->toArray(), $overrides);
-    }
-
-    /**
      * Validate value is within numeric range
      *
      * @throws InvalidArgumentException

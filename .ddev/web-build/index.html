@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EXT:nr_llm - TYPO3 Development Environment</title>
+    <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Raleway', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #2F99A4 0%, #1a7680 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -28,12 +29,14 @@
             font-size: 2.5em;
             margin-bottom: 10px;
             text-align: center;
+            font-weight: 700;
         }
         .subtitle {
             color: #718096;
             text-align: center;
             margin-bottom: 40px;
             font-size: 1.1em;
+            font-weight: 400;
         }
         .versions {
             display: grid;
@@ -48,9 +51,9 @@
             transition: all 0.3s ease;
         }
         .version-card:hover {
-            border-color: #667eea;
+            border-color: #2F99A4;
             transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+            box-shadow: 0 10px 30px rgba(47, 153, 164, 0.2);
         }
         .version-title {
             color: #2d3748;
@@ -61,12 +64,13 @@
             align-items: center;
         }
         .version-badge {
-            background: #667eea;
+            background: #2F99A4;
             color: white;
             padding: 4px 12px;
             border-radius: 6px;
             font-size: 0.7em;
             margin-left: 10px;
+            font-weight: 600;
         }
         .links {
             display: flex;
@@ -85,7 +89,7 @@
             font-weight: 500;
         }
         .link:hover {
-            background: #667eea;
+            background: #2F99A4;
             color: white;
             transform: translateX(5px);
         }
@@ -139,16 +143,33 @@
             margin-right: 10px;
             margin-bottom: 10px;
             transition: all 0.2s ease;
+            font-weight: 600;
         }
         .tool-link:hover {
             background: #38a169;
             transform: translateY(-2px);
         }
         .tool-link.docs {
-            background: #4299e1;
+            background: #2F99A4;
         }
         .tool-link.docs:hover {
-            background: #3182ce;
+            background: #1a7680;
+        }
+        .branding {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e2e8f0;
+            color: #718096;
+            font-size: 0.9em;
+        }
+        .branding a {
+            color: #2F99A4;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .branding a:hover {
+            text-decoration: underline;
         }
         @media (max-width: 768px) {
             .versions {
@@ -216,6 +237,10 @@
                 <a href="https://nr-llm.ddev.site:8026/" class="tool-link">Mailpit</a>
                 <a href="https://docs.nr-llm.ddev.site/" class="tool-link docs">Documentation</a>
             </div>
+        </div>
+
+        <div class="branding">
+            Powered by <a href="https://www.netresearch.de/" target="_blank">Netresearch</a>
         </div>
     </div>
 </body>

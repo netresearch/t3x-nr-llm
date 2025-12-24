@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized\Translation;
 
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\UsageTrackerService;
 
 /**
@@ -72,20 +73,14 @@ final class LlmTranslator implements TranslatorInterface
         $prompt = $this->buildPrompt($text, $sourceLanguage, $targetLanguage, $options);
 
         // Execute translation
-        $requestOptions = [
-            'temperature' => $options['temperature'] ?? 0.3,
-            'max_tokens' => $options['max_tokens'] ?? 2000,
-        ];
+        $chatOptions = new ChatOptions(
+            temperature: $options['temperature'] ?? 0.3,
+            maxTokens: $options['max_tokens'] ?? 2000,
+            provider: $options['provider'] ?? null,
+            model: $options['model'] ?? null
+        );
 
-        if (isset($options['provider'])) {
-            $requestOptions['provider'] = $options['provider'];
-        }
-
-        if (isset($options['model'])) {
-            $requestOptions['model'] = $options['model'];
-        }
-
-        $response = $this->llmManager->chat($prompt['messages'], $requestOptions);
+        $response = $this->llmManager->chat($prompt['messages'], $chatOptions);
 
         // Track usage
         $providerUsed = $options['provider'] ?? 'default';
@@ -155,10 +150,12 @@ final class LlmTranslator implements TranslatorInterface
             ],
         ];
 
-        $response = $this->llmManager->chat($messages, [
-            'temperature' => 0.1,
-            'max_tokens' => 10,
-        ]);
+        $chatOptions = new ChatOptions(
+            temperature: 0.1,
+            maxTokens: 10
+        );
+
+        $response = $this->llmManager->chat($messages, $chatOptions);
 
         $detectedLang = trim(strtolower($response->content));
 

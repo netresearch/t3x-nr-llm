@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
-use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Psr\Log\LoggerInterface;
@@ -24,7 +23,6 @@ use TYPO3\CMS\Core\SingletonInterface;
 
 final class LlmServiceManager implements LlmServiceManagerInterface, SingletonInterface
 {
-    use OptionsResolverTrait;
 
     /** @var array<string, ProviderInterface> */
     private array $providers = [];
@@ -121,42 +119,41 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      * Send a chat completion request
      *
      * @param array<int, array{role: string, content: string}> $messages
-     * @param ChatOptions|array<string, mixed> $options
      */
-    public function chat(array $messages, ChatOptions|array $options = []): CompletionResponse
+    public function chat(array $messages, ?ChatOptions $options = null): CompletionResponse
     {
-        $options = $this->resolveChatOptions($options);
-        $provider = $this->getProvider($options['provider'] ?? null);
-        unset($options['provider']);
+        $options = $options ?? new ChatOptions();
+        $optionsArray = $options->toArray();
+        $provider = $this->getProvider($optionsArray['provider'] ?? null);
+        unset($optionsArray['provider']);
 
-        return $provider->chatCompletion($messages, $options);
+        return $provider->chatCompletion($messages, $optionsArray);
     }
 
     /**
      * Send a simple completion request
-     *
-     * @param ChatOptions|array<string, mixed> $options
      */
-    public function complete(string $prompt, ChatOptions|array $options = []): CompletionResponse
+    public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        $options = $this->resolveChatOptions($options);
-        $provider = $this->getProvider($options['provider'] ?? null);
-        unset($options['provider']);
+        $options = $options ?? new ChatOptions();
+        $optionsArray = $options->toArray();
+        $provider = $this->getProvider($optionsArray['provider'] ?? null);
+        unset($optionsArray['provider']);
 
-        return $provider->complete($prompt, $options);
+        return $provider->complete($prompt, $optionsArray);
     }
 
     /**
      * Generate embeddings for text
      *
      * @param string|array<int, string> $input
-     * @param EmbeddingOptions|array<string, mixed> $options
      */
-    public function embed(string|array $input, EmbeddingOptions|array $options = []): EmbeddingResponse
+    public function embed(string|array $input, ?EmbeddingOptions $options = null): EmbeddingResponse
     {
-        $options = $this->resolveEmbeddingOptions($options);
-        $provider = $this->getProvider($options['provider'] ?? null);
-        unset($options['provider']);
+        $options = $options ?? new EmbeddingOptions();
+        $optionsArray = $options->toArray();
+        $provider = $this->getProvider($optionsArray['provider'] ?? null);
+        unset($optionsArray['provider']);
 
         if (!$provider->supportsFeature('embeddings')) {
             throw new UnsupportedFeatureException(
@@ -164,20 +161,20 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             );
         }
 
-        return $provider->embeddings($input, $options);
+        return $provider->embeddings($input, $optionsArray);
     }
 
     /**
      * Analyze an image with vision capabilities
      *
      * @param array<int, array{type: string, image_url?: array{url: string}, text?: string}> $content
-     * @param VisionOptions|array<string, mixed> $options
      */
-    public function vision(array $content, VisionOptions|array $options = []): VisionResponse
+    public function vision(array $content, ?VisionOptions $options = null): VisionResponse
     {
-        $options = $this->resolveVisionOptions($options);
-        $provider = $this->getProvider($options['provider'] ?? null);
-        unset($options['provider']);
+        $options = $options ?? new VisionOptions();
+        $optionsArray = $options->toArray();
+        $provider = $this->getProvider($optionsArray['provider'] ?? null);
+        unset($optionsArray['provider']);
 
         if (!$provider instanceof VisionCapableInterface) {
             throw new UnsupportedFeatureException(
@@ -185,21 +182,21 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             );
         }
 
-        return $provider->analyzeImage($content, $options);
+        return $provider->analyzeImage($content, $optionsArray);
     }
 
     /**
      * Stream a chat completion response
      *
      * @param array<int, array{role: string, content: string}> $messages
-     * @param ChatOptions|array<string, mixed> $options
      * @return \Generator<int, string, mixed, void>
      */
-    public function streamChat(array $messages, ChatOptions|array $options = []): \Generator
+    public function streamChat(array $messages, ?ChatOptions $options = null): \Generator
     {
-        $options = $this->resolveChatOptions($options);
-        $provider = $this->getProvider($options['provider'] ?? null);
-        unset($options['provider']);
+        $options = $options ?? new ChatOptions();
+        $optionsArray = $options->toArray();
+        $provider = $this->getProvider($optionsArray['provider'] ?? null);
+        unset($optionsArray['provider']);
 
         if (!$provider instanceof StreamingCapableInterface) {
             throw new UnsupportedFeatureException(
@@ -207,7 +204,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             );
         }
 
-        return $provider->streamChatCompletion($messages, $options);
+        return $provider->streamChatCompletion($messages, $optionsArray);
     }
 
     /**
@@ -215,13 +212,13 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      *
      * @param array<int, array{role: string, content: string}> $messages
      * @param array<int, array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> $tools
-     * @param ToolOptions|array<string, mixed> $options
      */
-    public function chatWithTools(array $messages, array $tools, ToolOptions|array $options = []): CompletionResponse
+    public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse
     {
-        $options = $this->resolveToolOptions($options);
-        $provider = $this->getProvider($options['provider'] ?? null);
-        unset($options['provider']);
+        $options = $options ?? new ToolOptions();
+        $optionsArray = $options->toArray();
+        $provider = $this->getProvider($optionsArray['provider'] ?? null);
+        unset($optionsArray['provider']);
 
         if (!$provider instanceof ToolCapableInterface) {
             throw new UnsupportedFeatureException(
@@ -229,7 +226,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             );
         }
 
-        return $provider->chatCompletionWithTools($messages, $tools, $options);
+        return $provider->chatCompletionWithTools($messages, $tools, $optionsArray);
     }
 
     /**

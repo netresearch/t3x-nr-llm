@@ -159,17 +159,6 @@ class VisionOptions extends AbstractOptions
         ]);
     }
 
-    public static function fromArray(array $options): static
-    {
-        return new static(
-            detailLevel: $options['detail_level'] ?? null,
-            maxTokens: isset($options['max_tokens']) ? (int) $options['max_tokens'] : null,
-            temperature: isset($options['temperature']) ? (float) $options['temperature'] : null,
-            provider: $options['provider'] ?? null,
-            model: $options['model'] ?? null,
-        );
-    }
-
     // ========================================
     // Validation
     // ========================================

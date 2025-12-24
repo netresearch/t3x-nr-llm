@@ -251,21 +251,6 @@ class TranslationOptions extends AbstractOptions
         ]);
     }
 
-    public static function fromArray(array $options): static
-    {
-        return new static(
-            formality: $options['formality'] ?? null,
-            domain: $options['domain'] ?? null,
-            glossary: $options['glossary'] ?? null,
-            context: $options['context'] ?? null,
-            preserveFormatting: $options['preserve_formatting'] ?? true,
-            temperature: isset($options['temperature']) ? (float) $options['temperature'] : null,
-            maxTokens: isset($options['max_tokens']) ? (int) $options['max_tokens'] : null,
-            provider: $options['provider'] ?? null,
-            model: $options['model'] ?? null,
-        );
-    }
-
     // ========================================
     // Validation
     // ========================================

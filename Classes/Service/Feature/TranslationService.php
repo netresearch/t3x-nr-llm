@@ -9,7 +9,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
-use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistry;
@@ -27,7 +27,6 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
  */
 class TranslationService
 {
-    use OptionsResolverTrait;
     private const SUPPORTED_FORMALITIES = ['default', 'formal', 'informal'];
     private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
@@ -43,23 +42,16 @@ class TranslationService
      * @param string $text Text to translate
      * @param string $targetLanguage Target language code (ISO 639-1)
      * @param string|null $sourceLanguage Source language code (auto-detected if null)
-     * @param TranslationOptions|array<string, mixed> $options Configuration options:
-     *   - formality: string ('default'|'formal'|'informal')
-     *   - glossary: array<string, string> Term translations ['term' => 'translation']
-     *   - context: string Surrounding content for context
-     *   - preserve_formatting: bool Keep HTML, markdown, etc. (default true)
-     *   - domain: string ('general'|'technical'|'medical'|'legal'|'marketing')
-     *   - temperature: float Creativity level (default 0.3 for consistency)
-     *   - max_tokens: int Maximum output tokens (default 2000)
-     *   - provider: string Specific provider to use
      */
     public function translate(
         string $text,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        TranslationOptions|array $options = []
+        ?TranslationOptions $options = null
     ): TranslationResult {
-        $options = $this->resolveTranslationOptions($options);
+        $options = $options ?? new TranslationOptions();
+        $optionsArray = $options->toArray();
+
         if (empty($text)) {
             throw new InvalidArgumentException('Text cannot be empty');
         }
@@ -74,14 +66,14 @@ class TranslationService
         }
 
         // Validate options
-        $this->validateOptions($options);
+        $this->validateOptions($optionsArray);
 
         // Build prompt
         $prompt = $this->buildTranslationPrompt(
             $text,
             $sourceLanguage,
             $targetLanguage,
-            $options
+            $optionsArray
         );
 
         // Execute translation
@@ -96,16 +88,13 @@ class TranslationService
             ],
         ];
 
-        $requestOptions = [
-            'temperature' => $options['temperature'] ?? 0.3,
-            'max_tokens' => $options['max_tokens'] ?? 2000,
-        ];
+        $chatOptions = new ChatOptions(
+            temperature: $options->getTemperature() ?? 0.3,
+            maxTokens: $options->getMaxTokens() ?? 2000,
+            provider: $options->getProvider()
+        );
 
-        if (isset($options['provider'])) {
-            $requestOptions['provider'] = $options['provider'];
-        }
-
-        $response = $this->llmManager->chat($messages, $requestOptions);
+        $response = $this->llmManager->chat($messages, $chatOptions);
 
         return new TranslationResult(
             translation: $response->content,
@@ -122,20 +111,19 @@ class TranslationService
      * @param array<int, string> $texts Array of texts to translate
      * @param string $targetLanguage Target language code
      * @param string|null $sourceLanguage Source language code (auto-detected if null)
-     * @param TranslationOptions|array<string, mixed> $options Configuration options (same as translate())
      * @return array<int, TranslationResult> Array of TranslationResult objects
      */
     public function translateBatch(
         array $texts,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        TranslationOptions|array $options = []
+        ?TranslationOptions $options = null
     ): array {
         if (empty($texts)) {
             return [];
         }
 
-        $options = $this->resolveTranslationOptions($options);
+        $options = $options ?? new TranslationOptions();
         $results = [];
 
         foreach ($texts as $text) {
@@ -149,12 +137,11 @@ class TranslationService
      * Detect language of text
      *
      * @param string $text Text to analyze
-     * @param TranslationOptions|array<string, mixed> $options Options including provider
      * @return string Language code (ISO 639-1)
      */
-    public function detectLanguage(string $text, TranslationOptions|array $options = []): string
+    public function detectLanguage(string $text, ?TranslationOptions $options = null): string
     {
-        $options = $this->resolveTranslationOptions($options);
+        $options = $options ?? new TranslationOptions();
         $messages = [
             [
                 'role' => 'system',
@@ -166,16 +153,13 @@ class TranslationService
             ],
         ];
 
-        $requestOptions = [
-            'temperature' => 0.1,
-            'max_tokens' => 10,
-        ];
+        $chatOptions = new ChatOptions(
+            temperature: 0.1,
+            maxTokens: 10,
+            provider: $options->getProvider()
+        );
 
-        if (isset($options['provider'])) {
-            $requestOptions['provider'] = $options['provider'];
-        }
-
-        $response = $this->llmManager->chat($messages, $requestOptions);
+        $response = $this->llmManager->chat($messages, $chatOptions);
 
         $detectedLang = trim(strtolower($response->content));
 
@@ -196,16 +180,15 @@ class TranslationService
      * @param string $sourceText Original text
      * @param string $translatedText Translated text
      * @param string $targetLanguage Target language code
-     * @param TranslationOptions|array<string, mixed> $options Options including provider
      * @return float Quality score (0.0-1.0)
      */
     public function scoreTranslationQuality(
         string $sourceText,
         string $translatedText,
         string $targetLanguage,
-        TranslationOptions|array $options = []
+        ?TranslationOptions $options = null
     ): float {
-        $options = $this->resolveTranslationOptions($options);
+        $options = $options ?? new TranslationOptions();
         $messages = [
             [
                 'role' => 'system',
@@ -222,16 +205,13 @@ class TranslationService
             ],
         ];
 
-        $requestOptions = [
-            'temperature' => 0.1,
-            'max_tokens' => 10,
-        ];
+        $chatOptions = new ChatOptions(
+            temperature: 0.1,
+            maxTokens: 10,
+            provider: $options->getProvider()
+        );
 
-        if (isset($options['provider'])) {
-            $requestOptions['provider'] = $options['provider'];
-        }
-
-        $response = $this->llmManager->chat($messages, $requestOptions);
+        $response = $this->llmManager->chat($messages, $chatOptions);
 
         $score = (float) trim($response->content);
 
@@ -250,23 +230,16 @@ class TranslationService
      * @param string $text Text to translate
      * @param string $targetLanguage Target language code (ISO 639-1)
      * @param string|null $sourceLanguage Source language code (auto-detected if null)
-     * @param TranslationOptions|array<string, mixed> $options Configuration options:
-     *   - translator: string Explicit translator identifier ('deepl', 'llm')
-     *   - preset: string LlmConfiguration identifier to use
-     *   - formality: string ('default'|'formal'|'informal')
-     *   - glossary: array<string, string> Term translations
-     *   - context: string Surrounding content for context
-     *   - preserve_formatting: bool Keep HTML, markdown, etc.
-     *   - domain: string ('general'|'technical'|'medical'|'legal'|'marketing')
      * @return TranslatorResult Translation result with metadata
      */
     public function translateWithTranslator(
         string $text,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        TranslationOptions|array $options = []
+        ?TranslationOptions $options = null
     ): TranslatorResult {
-        $options = $this->resolveTranslationOptions($options);
+        $options = $options ?? new TranslationOptions();
+        $optionsArray = $options->toArray();
 
         if (empty($text)) {
             throw new InvalidArgumentException('Text cannot be empty');
@@ -278,10 +251,10 @@ class TranslationService
         }
 
         // Determine translator to use
-        $translator = $this->resolveTranslator($options);
+        $translator = $this->resolveTranslator($optionsArray);
 
         // Execute translation via resolved translator
-        return $translator->translate($text, $targetLanguage, $sourceLanguage, $options);
+        return $translator->translate($text, $targetLanguage, $sourceLanguage, $optionsArray);
     }
 
     /**
@@ -290,23 +263,23 @@ class TranslationService
      * @param array<int, string> $texts Texts to translate
      * @param string $targetLanguage Target language code
      * @param string|null $sourceLanguage Source language code
-     * @param TranslationOptions|array<string, mixed> $options Configuration options
      * @return array<int, TranslatorResult> Translation results
      */
     public function translateBatchWithTranslator(
         array $texts,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        TranslationOptions|array $options = []
+        ?TranslationOptions $options = null
     ): array {
         if (empty($texts)) {
             return [];
         }
 
-        $options = $this->resolveTranslationOptions($options);
-        $translator = $this->resolveTranslator($options);
+        $options = $options ?? new TranslationOptions();
+        $optionsArray = $options->toArray();
+        $translator = $this->resolveTranslator($optionsArray);
 
-        return $translator->translateBatch($texts, $targetLanguage, $sourceLanguage, $options);
+        return $translator->translateBatch($texts, $targetLanguage, $sourceLanguage, $optionsArray);
     }
 
     /**

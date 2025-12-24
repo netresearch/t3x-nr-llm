@@ -14,6 +14,29 @@ development of the TYPO3 LLM Extension.
    :local:
    :depth: 1
 
+Symbol Legend
+=============
+
+Each consequence in the ADRs is marked with severity symbols to indicate impact weight:
+
++--------+------------------+-------------+
+| Symbol | Meaning          | Weight      |
++========+==================+=============+
+| ●●     | Strong Positive  | +2 to +3    |
++--------+------------------+-------------+
+| ●      | Medium Positive  | +1 to +2    |
++--------+------------------+-------------+
+| ◐      | Light Positive   | +0.5 to +1  |
++--------+------------------+-------------+
+| ✕      | Medium Negative  | -1 to -2    |
++--------+------------------+-------------+
+| ✕✕     | Strong Negative  | -2 to -3    |
++--------+------------------+-------------+
+| ◑      | Light Negative   | -0.5 to -1  |
++--------+------------------+-------------+
+
+Net Score indicates the overall impact of the decision (sum of weights).
+
 .. _adr-001:
 
 ADR-001: Provider Abstraction Layer
@@ -50,16 +73,18 @@ Consequences
 ------------
 **Positive:**
 
-- Consumers use single API regardless of provider
-- Easy to add new providers
-- Capability checking via interface detection
-- Provider switching requires no code changes
+- ●● Consumers use single API regardless of provider
+- ●● Easy to add new providers
+- ● Capability checking via interface detection
+- ●● Provider switching requires no code changes
 
 **Negative:**
 
-- Lowest common denominator for shared features
-- Provider-specific features require direct provider access
-- Additional abstraction layer complexity
+- ✕ Lowest common denominator for shared features
+- ◑ Provider-specific features require direct provider access
+- ◑ Additional abstraction layer complexity
+
+**Net Score:** +5.5 (Strong positive impact - abstraction enables flexibility and maintainability)
 
 Alternatives Considered
 -----------------------
@@ -105,16 +130,18 @@ Consequences
 ------------
 **Positive:**
 
-- Clear separation of concerns
-- Reusable, tested implementations
-- Consistent behavior across use cases
-- Built-in best practices (caching, prompts)
+- ●● Clear separation of concerns
+- ● Reusable, tested implementations
+- ●● Consistent behavior across use cases
+- ● Built-in best practices (caching, prompts)
 
 **Negative:**
 
-- Additional classes to maintain
-- Potential duplication with manager methods
-- Learning curve for service selection
+- ◑ Additional classes to maintain
+- ◑ Potential duplication with manager methods
+- ◑ Learning curve for service selection
+
+**Net Score:** +6.5 (Strong positive impact - services provide high-level abstractions with best practices)
 
 .. _adr-003:
 
@@ -162,16 +189,18 @@ Consequences
 ------------
 **Positive:**
 
-- Strong typing with IDE support
-- Immutable objects are thread-safe
-- Clear API contract
-- Easy testing and mocking
+- ●● Strong typing with IDE support
+- ● Immutable objects are thread-safe
+- ●● Clear API contract
+- ● Easy testing and mocking
 
 **Negative:**
 
-- Cannot extend responses
-- Breaking changes require new properties
-- Slight memory overhead vs arrays
+- ◑ Cannot extend responses
+- ✕ Breaking changes require new properties
+- ◑ Slight memory overhead vs arrays
+
+**Net Score:** +5.5 (Strong positive impact - type safety and immutability outweigh flexibility limitations)
 
 .. _adr-004:
 
@@ -209,16 +238,18 @@ Consequences
 ------------
 **Positive:**
 
-- Follows TYPO3 conventions
-- Decoupled extension mechanism
-- Multiple listeners without modification
-- Testable event handlers
+- ●● Follows TYPO3 conventions
+- ●● Decoupled extension mechanism
+- ● Multiple listeners without modification
+- ● Testable event handlers
 
 **Negative:**
 
-- Event overhead on every request
-- Listener ordering considerations
-- Debugging event flow complexity
+- ◑ Event overhead on every request
+- ◑ Listener ordering considerations
+- ◑ Debugging event flow complexity
+
+**Net Score:** +6.5 (Strong positive impact - standard TYPO3 integration with decoupled extensibility)
 
 .. _adr-005:
 
@@ -256,16 +287,18 @@ Consequences
 ------------
 **Positive:**
 
-- Reduced API costs
-- Faster responses for cached content
-- Follows TYPO3 patterns
-- Configurable per deployment
+- ●● Reduced API costs
+- ●● Faster responses for cached content
+- ● Follows TYPO3 patterns
+- ◐ Configurable per deployment
 
 **Negative:**
 
-- Cache invalidation complexity
-- Storage requirements
-- Stale responses if TTL too long
+- ✕ Cache invalidation complexity
+- ◑ Storage requirements
+- ✕ Stale responses if TTL too long
+
+**Net Score:** +4.5 (Positive impact - significant cost/performance gains with manageable cache complexity)
 
 .. _adr-006:
 
@@ -274,7 +307,7 @@ ADR-006: Option Objects vs Arrays
 
 Status
 ------
-**Accepted** (2024-04)
+**Superseded** by :ref:`ADR-011 <adr-011>` (2024-12)
 
 Context
 -------
@@ -287,42 +320,40 @@ Method signatures like ``chat(array $messages, array $options)`` lack:
 
 Decision
 --------
-Introduce **Option Objects** with array backwards compatibility:
+Introduce **Option Objects** (initially with array backwards compatibility):
 
 .. code-block:: php
 
-   // New: Option objects
+   // Option objects only
    $options = ChatOptions::creative()
        ->withMaxTokens(2000)
        ->withSystemPrompt('Be creative');
 
-   // Still works: Array syntax
-   $options = ['temperature' => 1.2, 'max_tokens' => 2000];
-
-   // Both accepted
    $response = $llmManager->chat($messages, $options);
 
 Implementation:
 
-- Union type signatures: ``ChatOptions|array``
-- Internal resolution to arrays
+- Pure object signatures: ``?ChatOptions``
 - Factory presets: ``factual()``, ``creative()``, ``json()``
 - Fluent builder pattern
+- Validation in constructors
 
 Consequences
 ------------
 **Positive:**
 
-- IDE autocompletion for options
-- Built-in validation
-- Convenient factory presets
-- Full backwards compatibility
+- ● IDE autocompletion for options
+- ● Built-in validation
+- ● Convenient factory presets
+- ●● Type safety enforced
+- ● Single consistent API
 
 **Negative:**
 
-- Two ways to do same thing
-- Option class maintenance
-- Slight complexity increase
+- ◑ Migration required for existing code
+- ◑ No array syntax available
+
+**Net Score:** +5.5 (Strong positive impact - developer experience improvements with backwards compatibility)
 
 .. _adr-007:
 
@@ -370,16 +401,18 @@ Consequences
 ------------
 **Positive:**
 
-- Easy provider registration
-- Clear priority system
-- Supports custom providers
-- Automatic fallback
+- ● Easy provider registration
+- ● Clear priority system
+- ●● Supports custom providers
+- ● Automatic fallback
 
 **Negative:**
 
-- Priority conflicts possible
-- All providers instantiated
-- Configuration complexity
+- ◑ Priority conflicts possible
+- ◑ All providers instantiated
+- ◑ Configuration complexity
+
+**Net Score:** +5.5 (Strong positive impact - flexible multi-provider support with minor overhead)
 
 .. _adr-008:
 
@@ -425,16 +458,18 @@ Consequences
 ------------
 **Positive:**
 
-- Granular error handling
-- Provider-specific recovery strategies
-- Clear exception hierarchy
-- Actionable error information
+- ●● Granular error handling
+- ● Provider-specific recovery strategies
+- ● Clear exception hierarchy
+- ● Actionable error information
 
 **Negative:**
 
-- Many exception classes
-- Exception handling complexity
-- Breaking changes in new versions
+- ◑ Many exception classes
+- ◑ Exception handling complexity
+- ✕ Breaking changes in new versions
+
+**Net Score:** +5.0 (Positive impact - robust error handling enables graceful recovery strategies)
 
 .. _adr-009:
 
@@ -485,17 +520,19 @@ Consequences
 ------------
 **Positive:**
 
-- Memory efficient
-- Natural iteration syntax
-- Real-time output
-- Works with output buffering
+- ●● Memory efficient
+- ● Natural iteration syntax
+- ●● Real-time output
+- ◐ Works with output buffering
 
 **Negative:**
 
-- No response object until complete
-- Error handling complexity
-- Connection management
-- No caching possible
+- ✕ No response object until complete
+- ◑ Error handling complexity
+- ◑ Connection management
+- ✕ No caching possible
+
+**Net Score:** +3.5 (Positive impact - streaming UX benefits outweigh implementation complexity)
 
 .. _adr-010:
 
@@ -547,14 +584,111 @@ Consequences
 ------------
 **Positive:**
 
-- Industry-standard format
-- Cross-provider compatibility
-- Flexible tool definitions
-- Type-safe parameters
+- ●● Industry-standard format
+- ●● Cross-provider compatibility
+- ● Flexible tool definitions
+- ● Type-safe parameters
 
 **Negative:**
 
-- Complex nested structure
-- Provider translation needed
-- No automatic execution
-- Testing complexity
+- ◑ Complex nested structure
+- ◑ Provider translation needed
+- ✕ No automatic execution
+- ◑ Testing complexity
+
+**Net Score:** +5.0 (Positive impact - OpenAI-compatible format ensures broad compatibility)
+
+.. _adr-011:
+
+ADR-011: Object-Only Options API
+================================
+
+Status
+------
+**Accepted** (2024-12)
+
+**Supersedes:** :ref:`ADR-006 <adr-006>`
+
+Context
+-------
+ADR-006 introduced Option Objects with array backwards compatibility (union types
+``ChatOptions|array``). This dual-path approach created:
+
+- Unnecessary complexity in the codebase
+- OptionsResolverTrait with 6 resolution methods
+- ``fromArray()`` methods in all Option classes
+- Cognitive load deciding which syntax to use
+- Inconsistent usage patterns across the codebase
+
+Given that:
+
+- No external users exist yet (pre-release)
+- No breaking change impact on third parties
+- Clean break is possible without migration burden
+
+Decision
+--------
+Remove array support entirely. Use **typed Option objects only**:
+
+.. code-block:: php
+
+   // All methods now use nullable typed parameters
+   public function chat(array $messages, ?ChatOptions $options = null): CompletionResponse;
+   public function embed(string|array $input, ?EmbeddingOptions $options = null): EmbeddingResponse;
+   public function vision(array $content, ?VisionOptions $options = null): VisionResponse;
+
+   // Usage with factory presets
+   $response = $llmManager->chat($messages, ChatOptions::creative());
+
+   // Usage with custom options
+   $response = $llmManager->chat($messages, new ChatOptions(
+       temperature: 0.7,
+       maxTokens: 2000
+   ));
+
+   // Usage with defaults (null)
+   $response = $llmManager->chat($messages);
+
+Implementation:
+
+- Signatures: ``?ChatOptions`` instead of ``ChatOptions|array``
+- Defaults: ``null`` creates default Options in method body
+- Removed: ``OptionsResolverTrait``, all ``fromArray()`` methods
+- Preserved: Factory presets, fluent builders, validation
+
+Consequences
+------------
+**Positive:**
+
+- ●● Type safety enforced at compile time
+- ●● Single consistent API pattern
+- ● Reduced codebase complexity (~250 lines removed)
+- ● No trait usage or resolution overhead
+- ● Better IDE support without union types
+- ◐ Cleaner method signatures
+
+**Negative:**
+
+- ◑ No array syntax for quick prototyping
+- ◑ Slightly more verbose for simple cases
+
+**Net Score:** +6.0 (Strong positive - type safety and consistency outweigh minor verbosity increase)
+
+Files Changed
+-------------
+**Deleted:**
+
+- ``Classes/Service/Option/OptionsResolverTrait.php``
+
+**Modified:**
+
+- ``Classes/Service/Option/AbstractOptions.php`` - Removed ``fromArray()`` abstract
+- ``Classes/Service/Option/ChatOptions.php`` - Removed ``fromArray()``
+- ``Classes/Service/Option/EmbeddingOptions.php`` - Removed ``fromArray()``
+- ``Classes/Service/Option/VisionOptions.php`` - Removed ``fromArray()``
+- ``Classes/Service/Option/ToolOptions.php`` - Removed ``fromArray()``
+- ``Classes/Service/Option/TranslationOptions.php`` - Removed ``fromArray()``
+- ``Classes/Service/LlmServiceManager.php`` - Object-only signatures
+- ``Classes/Service/LlmServiceManagerInterface.php`` - Object-only signatures
+- ``Classes/Service/Feature/*Service.php`` - All feature services updated
+- ``Classes/Specialized/Translation/LlmTranslator.php`` - Uses ChatOptions objects

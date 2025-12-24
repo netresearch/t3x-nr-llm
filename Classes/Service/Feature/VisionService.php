@@ -7,7 +7,6 @@ namespace Netresearch\NrLlm\Service\Feature;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
-use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 
 /**
@@ -18,7 +17,6 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
  */
 class VisionService
 {
-    use OptionsResolverTrait;
     private const PROMPT_ALT_TEXT = 'Generate a concise alt text for this image, under 125 characters, focused on essential information for screen readers. Be descriptive but brief.';
     private const PROMPT_SEO_TITLE = 'Generate an SEO-optimized title for this image, under 60 characters, that is compelling and keyword-rich for search rankings.';
     private const PROMPT_DESCRIPTION = 'Provide a comprehensive description of this image including subjects, setting, colors, mood, composition, and notable details.';
@@ -34,18 +32,17 @@ class VisionService
      * Output is concise (under 125 characters) and focuses on essential information.
      *
      * @param string|array<int, string> $imageUrl Single URL or array of URLs
-     * @param VisionOptions|array<string, mixed> $options Configuration options:
-     *   - detail_level: string ('auto'|'low'|'high') Vision API detail
-     *   - max_tokens: int Maximum output tokens, default 100
-     *   - temperature: float Creativity level, default 0.5
-     *   - provider: string Specific provider to use
      * @return string|array<int, string> Alt text(s)
      */
-    public function generateAltText(string|array $imageUrl, VisionOptions|array $options = []): string|array
+    public function generateAltText(string|array $imageUrl, ?VisionOptions $options = null): string|array
     {
-        $options = $this->resolveVisionOptions($options);
-        $options['max_tokens'] = $options['max_tokens'] ?? 100;
-        $options['temperature'] = $options['temperature'] ?? 0.5;
+        $options = $options ?? new VisionOptions();
+        if ($options->getMaxTokens() === null) {
+            $options = $options->withMaxTokens(100);
+        }
+        if ($options->getTemperature() === null) {
+            $options = $options->withTemperature(0.5);
+        }
 
         if (is_array($imageUrl)) {
             return $this->processBatch($imageUrl, self::PROMPT_ALT_TEXT, $options);
@@ -61,14 +58,17 @@ class VisionService
      * for improved search rankings.
      *
      * @param string|array<int, string> $imageUrl Single URL or array of URLs
-     * @param VisionOptions|array<string, mixed> $options Configuration options (same as generateAltText)
      * @return string|array<int, string> Title(s)
      */
-    public function generateTitle(string|array $imageUrl, VisionOptions|array $options = []): string|array
+    public function generateTitle(string|array $imageUrl, ?VisionOptions $options = null): string|array
     {
-        $options = $this->resolveVisionOptions($options);
-        $options['max_tokens'] = $options['max_tokens'] ?? 50;
-        $options['temperature'] = $options['temperature'] ?? 0.7;
+        $options = $options ?? new VisionOptions();
+        if ($options->getMaxTokens() === null) {
+            $options = $options->withMaxTokens(50);
+        }
+        if ($options->getTemperature() === null) {
+            $options = $options->withTemperature(0.7);
+        }
 
         if (is_array($imageUrl)) {
             return $this->processBatch($imageUrl, self::PROMPT_SEO_TITLE, $options);
@@ -84,14 +84,17 @@ class VisionService
      * colors, mood, composition, and notable details.
      *
      * @param string|array<int, string> $imageUrl Single URL or array of URLs
-     * @param VisionOptions|array<string, mixed> $options Configuration options (same as generateAltText)
      * @return string|array<int, string> Description(s)
      */
-    public function generateDescription(string|array $imageUrl, VisionOptions|array $options = []): string|array
+    public function generateDescription(string|array $imageUrl, ?VisionOptions $options = null): string|array
     {
-        $options = $this->resolveVisionOptions($options);
-        $options['max_tokens'] = $options['max_tokens'] ?? 500;
-        $options['temperature'] = $options['temperature'] ?? 0.7;
+        $options = $options ?? new VisionOptions();
+        if ($options->getMaxTokens() === null) {
+            $options = $options->withMaxTokens(500);
+        }
+        if ($options->getTemperature() === null) {
+            $options = $options->withTemperature(0.7);
+        }
 
         if (is_array($imageUrl)) {
             return $this->processBatch($imageUrl, self::PROMPT_DESCRIPTION, $options);
@@ -107,15 +110,15 @@ class VisionService
      *
      * @param string|array<int, string> $imageUrl Single URL or array of URLs
      * @param string $customPrompt Custom analysis prompt
-     * @param VisionOptions|array<string, mixed> $options Configuration options (same as generateAltText)
      * @return string|array<int, string> Analysis result(s)
      */
     public function analyzeImage(
         string|array $imageUrl,
         string $customPrompt,
-        VisionOptions|array $options = []
+        ?VisionOptions $options = null
     ): string|array {
-        $options = $this->resolveVisionOptions($options);
+        $options = $options ?? new VisionOptions();
+
         if (is_array($imageUrl)) {
             return $this->processBatch($imageUrl, $customPrompt, $options);
         }
@@ -130,14 +133,14 @@ class VisionService
      *
      * @param string $imageUrl Image URL
      * @param string $prompt Analysis prompt
-     * @param VisionOptions|array<string, mixed> $options Configuration options
      */
     public function analyzeImageFull(
         string $imageUrl,
         string $prompt,
-        VisionOptions|array $options = []
+        ?VisionOptions $options = null
     ): VisionResponse {
-        $options = $this->resolveVisionOptions($options);
+        $options = $options ?? new VisionOptions();
+        $optionsArray = $options->toArray();
         $this->validateImageUrl($imageUrl);
 
         $content = [
@@ -149,14 +152,20 @@ class VisionService
                 'type' => 'image_url',
                 'image_url' => [
                     'url' => $imageUrl,
-                    'detail' => $options['detail_level'] ?? 'auto',
+                    'detail' => $optionsArray['detail_level'] ?? 'auto',
                 ],
             ],
         ];
 
-        unset($options['detail_level']);
+        // Create new options without detail_level
+        $visionOptions = new VisionOptions(
+            maxTokens: $options->getMaxTokens(),
+            temperature: $options->getTemperature(),
+            provider: $options->getProvider(),
+            model: $options->getModel()
+        );
 
-        return $this->llmManager->vision($content, $options);
+        return $this->llmManager->vision($content, $visionOptions);
     }
 
     /**
@@ -165,7 +174,7 @@ class VisionService
     private function processImage(
         string $imageUrl,
         string $prompt,
-        array $options
+        VisionOptions $options
     ): string {
         $response = $this->analyzeImageFull($imageUrl, $prompt, $options);
         return $response->description;
@@ -180,7 +189,7 @@ class VisionService
     private function processBatch(
         array $imageUrls,
         string $prompt,
-        array $options
+        VisionOptions $options
     ): array {
         $results = [];
 

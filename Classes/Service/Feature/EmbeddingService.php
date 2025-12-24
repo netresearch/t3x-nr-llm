@@ -9,7 +9,6 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
-use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
 
 /**
  * High-level service for text embeddings and similarity calculations
@@ -19,7 +18,6 @@ use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
  */
 class EmbeddingService
 {
-    use OptionsResolverTrait;
 
     private const DEFAULT_CACHE_TTL = 86400; // 24 hours (embeddings are deterministic)
 
@@ -34,14 +32,9 @@ class EmbeddingService
      * Embeddings are deterministic and aggressively cached.
      *
      * @param string $text Text to embed
-     * @param EmbeddingOptions|array<string, mixed> $options Configuration options:
-     *   - model: string Provider-specific embedding model
-     *   - dimensions: int Output dimensions (if supported by provider)
-     *   - cache_ttl: int Cache duration in seconds, default 86400
-     *   - provider: string Specific provider to use
      * @return array<int, float> Embedding vector
      */
-    public function embed(string $text, EmbeddingOptions|array $options = []): array
+    public function embed(string $text, ?EmbeddingOptions $options = null): array
     {
         $response = $this->embedFull($text, $options);
         return $response->getVector();
@@ -51,22 +44,23 @@ class EmbeddingService
      * Generate embedding with full response object
      *
      * @param string $text Text to embed
-     * @param EmbeddingOptions|array<string, mixed> $options Configuration options (same as embed())
      */
-    public function embedFull(string $text, EmbeddingOptions|array $options = []): EmbeddingResponse
+    public function embedFull(string $text, ?EmbeddingOptions $options = null): EmbeddingResponse
     {
-        $options = $this->resolveEmbeddingOptions($options);
+        $options = $options ?? new EmbeddingOptions();
+        $optionsArray = $options->toArray();
+
         if (empty($text)) {
             throw new InvalidArgumentException('Text cannot be empty');
         }
 
-        $model = $options['model'] ?? 'default';
-        $provider = $options['provider'] ?? 'openai';
+        $model = $optionsArray['model'] ?? 'default';
+        $provider = $optionsArray['provider'] ?? 'openai';
         $cacheKey = $this->getCacheKey($text, $model, $provider);
-        $cacheTtl = $options['cache_ttl'] ?? self::DEFAULT_CACHE_TTL;
+        $cacheTtl = $optionsArray['cache_ttl'] ?? self::DEFAULT_CACHE_TTL;
 
         // Check cache
-        $cached = $this->cacheManager->getCachedEmbeddings($provider, $text, $options);
+        $cached = $this->cacheManager->getCachedEmbeddings($provider, $text, $optionsArray);
         if ($cached !== null) {
             return new EmbeddingResponse(
                 embeddings: $cached['embeddings'],
@@ -87,7 +81,7 @@ class EmbeddingService
         $this->cacheManager->cacheEmbeddings(
             $provider,
             $text,
-            $options,
+            $optionsArray,
             [
                 'embeddings' => $response->embeddings,
                 'model' => $response->model,
@@ -106,16 +100,15 @@ class EmbeddingService
      * Generate embeddings for multiple texts efficiently
      *
      * @param array<int, string> $texts Array of texts to embed
-     * @param EmbeddingOptions|array<string, mixed> $options Configuration options (same as embed())
      * @return array<int, array<int, float>> Array of embedding vectors
      */
-    public function embedBatch(array $texts, EmbeddingOptions|array $options = []): array
+    public function embedBatch(array $texts, ?EmbeddingOptions $options = null): array
     {
         if (empty($texts)) {
             return [];
         }
 
-        $options = $this->resolveEmbeddingOptions($options);
+        $options = $options ?? new EmbeddingOptions();
         $response = $this->llmManager->embed($texts, $options);
         return $response->embeddings;
     }

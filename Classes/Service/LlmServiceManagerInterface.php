@@ -40,40 +40,32 @@ interface LlmServiceManagerInterface
 
     /**
      * @param array<int, array{role: string, content: string}> $messages
-     * @param ChatOptions|array<string, mixed> $options
      */
-    public function chat(array $messages, ChatOptions|array $options = []): CompletionResponse;
+    public function chat(array $messages, ?ChatOptions $options = null): CompletionResponse;
 
-    /**
-     * @param ChatOptions|array<string, mixed> $options
-     */
-    public function complete(string $prompt, ChatOptions|array $options = []): CompletionResponse;
+    public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse;
 
     /**
      * @param string|array<int, string> $input
-     * @param EmbeddingOptions|array<string, mixed> $options
      */
-    public function embed(string|array $input, EmbeddingOptions|array $options = []): EmbeddingResponse;
+    public function embed(string|array $input, ?EmbeddingOptions $options = null): EmbeddingResponse;
 
     /**
      * @param array<int, array{type: string, image_url?: array{url: string}, text?: string}> $content
-     * @param VisionOptions|array<string, mixed> $options
      */
-    public function vision(array $content, VisionOptions|array $options = []): VisionResponse;
+    public function vision(array $content, ?VisionOptions $options = null): VisionResponse;
 
     /**
      * @param array<int, array{role: string, content: string}> $messages
-     * @param ChatOptions|array<string, mixed> $options
      * @return \Generator<int, string, mixed, void>
      */
-    public function streamChat(array $messages, ChatOptions|array $options = []): \Generator;
+    public function streamChat(array $messages, ?ChatOptions $options = null): \Generator;
 
     /**
      * @param array<int, array{role: string, content: string}> $messages
      * @param array<int, array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> $tools
-     * @param ToolOptions|array<string, mixed> $options
      */
-    public function chatWithTools(array $messages, array $tools, ToolOptions|array $options = []): CompletionResponse;
+    public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse;
 
     public function supportsFeature(string $feature, ?string $provider = null): bool;
 

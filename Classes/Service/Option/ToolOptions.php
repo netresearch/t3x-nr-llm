@@ -139,24 +139,6 @@ class ToolOptions extends ChatOptions
         );
     }
 
-    public static function fromArray(array $options): static
-    {
-        return new static(
-            temperature: isset($options['temperature']) ? (float) $options['temperature'] : null,
-            maxTokens: isset($options['max_tokens']) ? (int) $options['max_tokens'] : null,
-            topP: isset($options['top_p']) ? (float) $options['top_p'] : null,
-            frequencyPenalty: isset($options['frequency_penalty']) ? (float) $options['frequency_penalty'] : null,
-            presencePenalty: isset($options['presence_penalty']) ? (float) $options['presence_penalty'] : null,
-            responseFormat: $options['response_format'] ?? null,
-            systemPrompt: $options['system_prompt'] ?? null,
-            stopSequences: $options['stop_sequences'] ?? null,
-            provider: $options['provider'] ?? null,
-            model: $options['model'] ?? null,
-            toolChoice: $options['tool_choice'] ?? null,
-            parallelToolCalls: isset($options['parallel_tool_calls']) ? (bool) $options['parallel_tool_calls'] : null,
-        );
-    }
-
     // ========================================
     // Validation
     // ========================================

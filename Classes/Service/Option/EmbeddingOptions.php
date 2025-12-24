@@ -140,16 +140,6 @@ class EmbeddingOptions extends AbstractOptions
         ]);
     }
 
-    public static function fromArray(array $options): static
-    {
-        return new static(
-            model: $options['model'] ?? null,
-            dimensions: isset($options['dimensions']) ? (int) $options['dimensions'] : null,
-            cacheTtl: isset($options['cache_ttl']) ? (int) $options['cache_ttl'] : self::DEFAULT_CACHE_TTL,
-            provider: $options['provider'] ?? null,
-        );
-    }
-
     // ========================================
     // Validation
     // ========================================

@@ -25,11 +25,6 @@ services:
               source: ../
               target: /var/www/nr_llm
               consistency: cached
-            # Landing page
-            - type: bind
-              source: ../public
-              target: /var/www/html
-              consistency: cached
             # TYPO3 v14 installation volume
             - v14-data:/var/www/html/v14
 volumes:

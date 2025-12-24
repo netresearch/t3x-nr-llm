@@ -1,7 +1,7 @@
 {
     "name": "netresearch/nr-llm",
     "type": "typo3-cms-extension",
-    "description": "TYPO3 extension providing unified AI/LLM provider abstraction layer for TYPO3 projects",
+    "description": "TYPO3 extension providing unified AI/LLM provider abstraction layer for TYPO3 projects - by Netresearch",
     "license": "GPL-2.0-or-later",
     "keywords": [
         "TYPO3",
@@ -15,8 +15,8 @@
     "authors": [
         {
             "name": "Netresearch DTT GmbH",
-            "email": "info@netresearch.de",
-            "homepage": "https://www.netresearch.de",
+            "email": "typo3@netresearch.de",
+            "homepage": "https://www.netresearch.de/",
             "role": "Developer"
         }
     ],

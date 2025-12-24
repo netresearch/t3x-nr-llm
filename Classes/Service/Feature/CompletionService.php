@@ -8,7 +8,6 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
-use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
 
 /**
  * High-level service for text completion
@@ -18,7 +17,6 @@ use Netresearch\NrLlm\Service\Option\OptionsResolverTrait;
  */
 class CompletionService
 {
-    use OptionsResolverTrait;
 
     public function __construct(
         private readonly LlmServiceManagerInterface $llmManager,
@@ -28,32 +26,22 @@ class CompletionService
      * Generate text completion
      *
      * @param string $prompt The user prompt
-     * @param ChatOptions|array<string, mixed> $options Configuration options:
-     *   - temperature: float (0.0-2.0) Creativity level, default 0.7
-     *   - max_tokens: int Maximum output tokens, default 1000
-     *   - top_p: float (0.0-1.0) Nucleus sampling, default 1.0
-     *   - frequency_penalty: float (-2.0-2.0) Repetition penalty, default 0.0
-     *   - presence_penalty: float (-2.0-2.0) Topic diversity, default 0.0
-     *   - response_format: string ('text'|'json'|'markdown') Output format
-     *   - system_prompt: string Optional system context
-     *   - stop_sequences: array Stop generation on these strings
-     *   - provider: string Specific provider to use
      * @throws InvalidArgumentException
      */
-    public function complete(string $prompt, ChatOptions|array $options = []): CompletionResponse
+    public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        $options = $this->resolveChatOptions($options);
-        $this->validateOptions($options);
+        $options = $options ?? new ChatOptions();
+        $optionsArray = $options->toArray();
+        $this->validateOptions($optionsArray);
 
         $messages = [];
 
         // Add system prompt if provided
-        if (!empty($options['system_prompt'])) {
+        if (!empty($optionsArray['system_prompt'])) {
             $messages[] = [
                 'role' => 'system',
-                'content' => $options['system_prompt'],
+                'content' => $optionsArray['system_prompt'],
             ];
-            unset($options['system_prompt']);
         }
 
         $messages[] = [
@@ -62,16 +50,33 @@ class CompletionService
         ];
 
         // Handle response format
-        if (isset($options['response_format'])) {
-            $options['response_format'] = $this->normalizeResponseFormat(
-                $options['response_format']
+        if (isset($optionsArray['response_format'])) {
+            $normalizedFormat = $this->normalizeResponseFormat(
+                $optionsArray['response_format']
+            );
+            $options = $options->withResponseFormat(
+                is_string($normalizedFormat) ? $normalizedFormat : 'json'
             );
         }
 
         // Map stop_sequences to stop
-        if (isset($options['stop_sequences'])) {
-            $options['stop'] = $options['stop_sequences'];
-            unset($options['stop_sequences']);
+        if ($options->getStopSequences() !== null) {
+            $optionsArray = $options->toArray();
+            $optionsArray['stop'] = $optionsArray['stop_sequences'];
+            unset($optionsArray['stop_sequences']);
+
+            // Create temporary options with modified array
+            $tempOptions = new ChatOptions(
+                temperature: $options->getTemperature(),
+                maxTokens: $options->getMaxTokens(),
+                topP: $options->getTopP(),
+                frequencyPenalty: $options->getFrequencyPenalty(),
+                presencePenalty: $options->getPresencePenalty(),
+                responseFormat: $options->getResponseFormat(),
+                provider: $options->getProvider(),
+                model: $options->getModel()
+            );
+            return $this->llmManager->chat($messages, $tempOptions);
         }
 
         return $this->llmManager->chat($messages, $options);
@@ -81,14 +86,13 @@ class CompletionService
      * Generate JSON-formatted completion
      *
      * @param string $prompt The user prompt
-     * @param ChatOptions|array<string, mixed> $options Configuration options (same as complete())
      * @return array<string, mixed> Parsed JSON response
      * @throws InvalidArgumentException
      */
-    public function completeJson(string $prompt, ChatOptions|array $options = []): array
+    public function completeJson(string $prompt, ?ChatOptions $options = null): array
     {
-        $options = $this->resolveChatOptions($options);
-        $options['response_format'] = 'json';
+        $options = $options ?? new ChatOptions();
+        $options = $options->withResponseFormat('json');
 
         $response = $this->complete($prompt, $options);
 
@@ -107,17 +111,16 @@ class CompletionService
      * Generate markdown-formatted completion
      *
      * @param string $prompt The user prompt
-     * @param ChatOptions|array<string, mixed> $options Configuration options (same as complete())
      * @return string Markdown-formatted text
      */
-    public function completeMarkdown(string $prompt, ChatOptions|array $options = []): string
+    public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
     {
-        $options = $this->resolveChatOptions($options);
-        $options['response_format'] = 'markdown';
+        $options = $options ?? new ChatOptions();
+        $options = $options->withResponseFormat('markdown');
 
-        $systemPrompt = $options['system_prompt'] ?? '';
+        $systemPrompt = $options->getSystemPrompt() ?? '';
         $systemPrompt .= "\n\nFormat your response in clean, well-structured Markdown.";
-        $options['system_prompt'] = trim($systemPrompt);
+        $options = $options->withSystemPrompt(trim($systemPrompt));
 
         $response = $this->complete($prompt, $options);
 
@@ -128,13 +131,17 @@ class CompletionService
      * Generate completion with low creativity (factual, consistent)
      *
      * @param string $prompt The user prompt
-     * @param ChatOptions|array<string, mixed> $options Additional configuration options
      */
-    public function completeFactual(string $prompt, ChatOptions|array $options = []): CompletionResponse
+    public function completeFactual(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        $options = $this->resolveChatOptions($options);
-        $options['temperature'] = $options['temperature'] ?? 0.2;
-        $options['top_p'] = $options['top_p'] ?? 0.9;
+        $options = $options ?? new ChatOptions();
+
+        if ($options->getTemperature() === null) {
+            $options = $options->withTemperature(0.2);
+        }
+        if ($options->getTopP() === null) {
+            $options = $options->withTopP(0.9);
+        }
 
         return $this->complete($prompt, $options);
     }
@@ -143,14 +150,20 @@ class CompletionService
      * Generate completion with high creativity (diverse, creative)
      *
      * @param string $prompt The user prompt
-     * @param ChatOptions|array<string, mixed> $options Additional configuration options
      */
-    public function completeCreative(string $prompt, ChatOptions|array $options = []): CompletionResponse
+    public function completeCreative(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        $options = $this->resolveChatOptions($options);
-        $options['temperature'] = $options['temperature'] ?? 1.2;
-        $options['top_p'] = $options['top_p'] ?? 1.0;
-        $options['presence_penalty'] = $options['presence_penalty'] ?? 0.6;
+        $options = $options ?? new ChatOptions();
+
+        if ($options->getTemperature() === null) {
+            $options = $options->withTemperature(1.2);
+        }
+        if ($options->getTopP() === null) {
+            $options = $options->withTopP(1.0);
+        }
+        if ($options->getPresencePenalty() === null) {
+            $options = $options->withPresencePenalty(0.6);
+        }
 
         return $this->complete($prompt, $options);
     }
