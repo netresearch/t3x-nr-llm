@@ -1,0 +1,369 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
+
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Feature\CompletionService;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
+
+/**
+ * Additional mutation-killing tests for CompletionService.
+ */
+#[CoversClass(CompletionService::class)]
+class CompletionServiceMutationTest extends AbstractUnitTestCase
+{
+    private function createMockResponse(
+        string $content,
+        string $finishReason = 'stop'
+    ): CompletionResponse {
+        return new CompletionResponse(
+            content: $content,
+            model: 'test-model',
+            usage: new UsageStatistics(10, 20, 30),
+            finishReason: $finishReason,
+            provider: 'test',
+        );
+    }
+
+    #[Test]
+    public function completeCreatesDefaultOptionsWhenNull(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->willReturn($this->createMockResponse('Response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $result = $service->complete('Test prompt', null);
+
+        $this->assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function completeFactualSetsDefaultTemperatureWhenNull(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->with(
+                $this->anything(),
+                $this->callback(fn(ChatOptions $opts) => $opts->getTemperature() === 0.2)
+            )
+            ->willReturn($this->createMockResponse('Factual response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $service->completeFactual('Factual question');
+    }
+
+    #[Test]
+    public function completeFactualSetsDefaultTopPWhenNull(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->with(
+                $this->anything(),
+                $this->callback(fn(ChatOptions $opts) => $opts->getTopP() === 0.9)
+            )
+            ->willReturn($this->createMockResponse('Factual response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $service->completeFactual('Factual question');
+    }
+
+    #[Test]
+    public function completeFactualPreservesUserProvidedTemperature(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->with(
+                $this->anything(),
+                $this->callback(fn(ChatOptions $opts) => $opts->getTemperature() === 0.5)
+            )
+            ->willReturn($this->createMockResponse('Response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $options = new ChatOptions(temperature: 0.5);
+        $service->completeFactual('Question', $options);
+    }
+
+    #[Test]
+    public function completeCreativeSetsDefaultTemperatureWhenNull(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->with(
+                $this->anything(),
+                $this->callback(fn(ChatOptions $opts) => $opts->getTemperature() === 1.2)
+            )
+            ->willReturn($this->createMockResponse('Creative response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $service->completeCreative('Creative prompt');
+    }
+
+    #[Test]
+    public function completeCreativeSetsDefaultTopPWhenNull(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->with(
+                $this->anything(),
+                $this->callback(fn(ChatOptions $opts) => $opts->getTopP() === 1.0)
+            )
+            ->willReturn($this->createMockResponse('Creative response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $service->completeCreative('Creative prompt');
+    }
+
+    #[Test]
+    public function completeCreativeSetsDefaultPresencePenaltyWhenNull(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->with(
+                $this->anything(),
+                $this->callback(fn(ChatOptions $opts) => $opts->getPresencePenalty() === 0.6)
+            )
+            ->willReturn($this->createMockResponse('Creative response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $service->completeCreative('Creative prompt');
+    }
+
+    #[Test]
+    public function completeCreativePreservesUserProvidedPresencePenalty(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->with(
+                $this->anything(),
+                $this->callback(fn(ChatOptions $opts) => $opts->getPresencePenalty() === 0.3)
+            )
+            ->willReturn($this->createMockResponse('Response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $options = new ChatOptions(presencePenalty: 0.3);
+        $service->completeCreative('Prompt', $options);
+    }
+
+    #[Test]
+    public function completeJsonCreatesDefaultOptionsWhenNull(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->willReturn($this->createMockResponse('{"key": "value"}'));
+
+        $service = new CompletionService($llmManagerMock);
+        $result = $service->completeJson('Generate JSON', null);
+
+        $this->assertEquals(['key' => 'value'], $result);
+    }
+
+    #[Test]
+    public function completeMarkdownCreatesDefaultOptionsWhenNull(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->willReturn($this->createMockResponse('# Heading'));
+
+        $service = new CompletionService($llmManagerMock);
+        $result = $service->completeMarkdown('Generate markdown', null);
+
+        $this->assertEquals('# Heading', $result);
+    }
+
+    #[Test]
+    public function completeMarkdownAppendsMarkdownInstructions(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->with(
+                $this->callback(function (array $messages) {
+                    $systemMessage = $messages[0] ?? null;
+                    return $systemMessage !== null
+                        && $systemMessage['role'] === 'system'
+                        && str_contains($systemMessage['content'], 'Markdown');
+                }),
+                $this->anything()
+            )
+            ->willReturn($this->createMockResponse('# Result'));
+
+        $service = new CompletionService($llmManagerMock);
+        $options = new ChatOptions(systemPrompt: 'You are helpful');
+        $service->completeMarkdown('Generate content', $options);
+    }
+
+    #[Test]
+    #[DataProvider('validTemperatureProvider')]
+    public function validateOptionsAcceptsValidTemperature(float $temperature): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->method('chat')
+            ->willReturn($this->createMockResponse('Response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $options = new ChatOptions(temperature: $temperature);
+
+        $result = $service->complete('Test', $options);
+
+        $this->assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    public static function validTemperatureProvider(): array
+    {
+        return [
+            'zero' => [0.0],
+            'half' => [0.5],
+            'one' => [1.0],
+            'max' => [2.0],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('invalidTemperatureProvider')]
+    public function validateOptionsRejectsInvalidTemperature(float $temperature): void
+    {
+        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
+        $service = new CompletionService($llmManagerStub);
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $options = new ChatOptions(temperature: $temperature);
+        $service->complete('Test', $options);
+    }
+
+    public static function invalidTemperatureProvider(): array
+    {
+        return [
+            'negative' => [-0.1],
+            'too high' => [2.1],
+            'very high' => [3.0],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('validTopPProvider')]
+    public function validateOptionsAcceptsValidTopP(float $topP): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->method('chat')
+            ->willReturn($this->createMockResponse('Response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $options = new ChatOptions(topP: $topP);
+
+        $result = $service->complete('Test', $options);
+
+        $this->assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    public static function validTopPProvider(): array
+    {
+        return [
+            'zero' => [0.0],
+            'half' => [0.5],
+            'one' => [1.0],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('invalidTopPProvider')]
+    public function validateOptionsRejectsInvalidTopP(float $topP): void
+    {
+        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
+        $service = new CompletionService($llmManagerStub);
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $options = new ChatOptions(topP: $topP);
+        $service->complete('Test', $options);
+    }
+
+    public static function invalidTopPProvider(): array
+    {
+        return [
+            'negative' => [-0.1],
+            'too high' => [1.1],
+        ];
+    }
+
+    #[Test]
+    public function validateOptionsAcceptsValidMaxTokens(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->method('chat')
+            ->willReturn($this->createMockResponse('Response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $options = new ChatOptions(maxTokens: 100);
+
+        $result = $service->complete('Test', $options);
+
+        $this->assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function completeWithStopSequencesMapsToStop(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->willReturn($this->createMockResponse('Response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $options = new ChatOptions(stopSequences: ['END', 'STOP']);
+
+        $service->complete('Test', $options);
+    }
+
+    #[Test]
+    public function completeWithJsonResponseFormatNormalizesIt(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->willReturn($this->createMockResponse('{"result": true}'));
+
+        $service = new CompletionService($llmManagerMock);
+        $options = new ChatOptions(responseFormat: 'json');
+
+        $result = $service->complete('Test', $options);
+
+        $this->assertInstanceOf(CompletionResponse::class, $result);
+    }
+}
