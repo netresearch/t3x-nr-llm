@@ -144,8 +144,8 @@ class DeepLProvider extends AbstractProvider
     public function complete(string $prompt, array $options = []): CompletionResponse
     {
         throw new NotSupportedException(
-            'DeepL provider does not support completion. Use translate() instead, ' .
-            'or switch to an LLM provider (OpenAI, Anthropic, Gemini).'
+            'DeepL provider does not support completion. Use translate() instead, '
+            . 'or switch to an LLM provider (OpenAI, Anthropic, Gemini).'
         );
     }
 
@@ -156,8 +156,8 @@ class DeepLProvider extends AbstractProvider
     public function stream(string $prompt, callable $callback, array $options = []): void
     {
         throw new NotSupportedException(
-            'DeepL provider does not support streaming. ' .
-            'Use an LLM provider (OpenAI, Anthropic, Gemini) for streaming.'
+            'DeepL provider does not support streaming. '
+            . 'Use an LLM provider (OpenAI, Anthropic, Gemini) for streaming.'
         );
     }
 
@@ -168,8 +168,8 @@ class DeepLProvider extends AbstractProvider
     public function embed(string|array $text, array $options = []): EmbeddingResponse
     {
         throw new NotSupportedException(
-            'DeepL provider does not support embeddings. ' .
-            'Use OpenAI or Gemini for embedding generation.'
+            'DeepL provider does not support embeddings. '
+            . 'Use OpenAI or Gemini for embedding generation.'
         );
     }
 
@@ -180,8 +180,8 @@ class DeepLProvider extends AbstractProvider
     public function analyzeImage(string $imageUrl, string $prompt, array $options = []): VisionResponse
     {
         throw new NotSupportedException(
-            'DeepL provider does not support vision/image analysis. ' .
-            'Use OpenAI GPT-4V, Gemini, or Anthropic Claude for vision tasks.'
+            'DeepL provider does not support vision/image analysis. '
+            . 'Use OpenAI GPT-4V, Gemini, or Anthropic Claude for vision tasks.'
         );
     }
 
@@ -343,7 +343,7 @@ class DeepLProvider extends AbstractProvider
         $characters = $inputTokens * 4;
 
         // Pricing (approximate as of Dec 2024)
-        $pricePerMillionChars = match($this->tier) {
+        $pricePerMillionChars = match ($this->tier) {
             'free' => 0.0, // Free tier
             'pro' => 25.0, // $25 per million characters
             default => 0.0,
@@ -362,7 +362,7 @@ class DeepLProvider extends AbstractProvider
             return true;
         } catch (\Exception $e) {
             $this->logger->error('DeepL availability check failed', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
             return false;
         }
@@ -458,7 +458,7 @@ class DeepLProvider extends AbstractProvider
     {
         // DeepL formality support (as of Dec 2024)
         return in_array($language, [
-            'DE', 'FR', 'IT', 'ES', 'NL', 'PL', 'PT-BR', 'PT-PT', 'JA', 'RU'
+            'DE', 'FR', 'IT', 'ES', 'NL', 'PL', 'PT-BR', 'PT-PT', 'JA', 'RU',
         ]);
     }
 
@@ -513,7 +513,7 @@ class DeepLProvider extends AbstractProvider
     {
         $message = $response['message'] ?? 'Unknown DeepL API error';
 
-        $errorMessage = match($statusCode) {
+        $errorMessage = match ($statusCode) {
             400 => "Bad request: {$message}",
             403 => 'Invalid DeepL API key',
             404 => 'Resource not found',
@@ -531,7 +531,7 @@ class DeepLProvider extends AbstractProvider
             [
                 'status_code' => $statusCode,
                 'response' => $response,
-                'provider' => 'deepl'
+                'provider' => 'deepl',
             ]
         );
     }

@@ -74,7 +74,7 @@ class VisionResponse extends LlmResponse
             'description' => $this->description,
             'objects' => $this->objects,
             'scene' => $this->scene,
-            'confidence' => $this->confidence
+            'confidence' => $this->confidence,
         ]);
     }
 }

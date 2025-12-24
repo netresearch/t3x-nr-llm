@@ -249,9 +249,9 @@ final class TextToSpeechService
             $config = $this->extensionConfiguration->get('nr_llm');
 
             // Use OpenAI API key for TTS
-            $this->apiKey = (string)($config['providers']['openai']['apiKey'] ?? '');
-            $this->baseUrl = (string)($config['speech']['tts']['baseUrl'] ?? self::API_URL);
-            $this->timeout = (int)($config['speech']['tts']['timeout'] ?? 60);
+            $this->apiKey = (string) ($config['providers']['openai']['apiKey'] ?? '');
+            $this->baseUrl = (string) ($config['speech']['tts']['baseUrl'] ?? self::API_URL);
+            $this->timeout = (int) ($config['speech']['tts']['timeout'] ?? 60);
         } catch (\Exception $e) {
             $this->logger->warning('Failed to load TTS configuration', [
                 'exception' => $e->getMessage(),

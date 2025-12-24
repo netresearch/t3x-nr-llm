@@ -57,8 +57,8 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
         if (!$this->canRunFunctionalTests()) {
             $this->skipped = true;
             $this->markTestSkipped(
-                'Functional tests require database configuration. ' .
-                'Set typo3DatabaseDriver environment variable (e.g., pdo_sqlite) to enable.'
+                'Functional tests require database configuration. '
+                . 'Set typo3DatabaseDriver environment variable (e.g., pdo_sqlite) to enable.'
             );
         }
 

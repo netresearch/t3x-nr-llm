@@ -41,11 +41,11 @@ Configure API keys in **Admin Tools > Settings > Extension Configuration > nr_ll
 | Setting | Description |
 |---------|-------------|
 | `openai_api_key` | OpenAI API key |
-| `openai_default_model` | Default model (e.g., `gpt-4o`) |
+| `openai_default_model` | Default model (e.g., `gpt-4.1`) |
 | `claude_api_key` | Anthropic Claude API key |
-| `claude_default_model` | Default model (e.g., `claude-sonnet-4-20250514`) |
+| `claude_default_model` | Default model (e.g., `claude-sonnet-4-5-20250929`) |
 | `gemini_api_key` | Google Gemini API key |
-| `gemini_default_model` | Default model (e.g., `gemini-2.0-flash`) |
+| `gemini_default_model` | Default model (e.g., `gemini-3-flash-preview`) |
 | `default_provider` | Default provider (`openai`, `claude`, `gemini`) |
 | `request_timeout` | HTTP request timeout in seconds |
 
@@ -102,7 +102,7 @@ echo $response->content;
 ```php
 $response = $this->llmManager->chat($messages, [
     'provider' => 'claude',
-    'model' => 'claude-opus-4-20250514',
+    'model' => 'claude-opus-4-5-20251124',
     'temperature' => 0.5,
 ]);
 ```
@@ -246,18 +246,18 @@ For detailed documentation on each service, see [Documentation/Developer/Feature
 
 ### OpenAI
 
-- **Models**: gpt-4o, gpt-4o-mini, gpt-4-turbo, o1-preview, o1-mini
+- **Models**: gpt-5, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, o3, o4-mini
 - **Features**: Chat, Completion, Embeddings, Vision, Streaming, Tools
 
 ### Anthropic Claude
 
-- **Models**: claude-opus-4, claude-sonnet-4, claude-3.5-sonnet, claude-3.5-haiku
+- **Models**: claude-opus-4-5, claude-sonnet-4-5, claude-opus-4-1, claude-opus-4, claude-sonnet-4
 - **Features**: Chat, Completion, Vision, Streaming, Tools
 - **Note**: No native embeddings support
 
 ### Google Gemini
 
-- **Models**: gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash
+- **Models**: gemini-3-flash-preview, gemini-3-pro, gemini-2.5-flash, gemini-2.5-pro
 - **Features**: Chat, Completion, Embeddings, Vision, Streaming, Tools
 
 ## Adding Custom Providers

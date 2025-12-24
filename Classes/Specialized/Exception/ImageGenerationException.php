@@ -10,6 +10,4 @@ namespace Netresearch\NrLlm\Specialized\Exception;
  * This covers errors from DALL-E and other image generation services,
  * including content policy violations and generation failures.
  */
-final class ImageGenerationException extends SpecializedServiceException
-{
-}
+final class ImageGenerationException extends SpecializedServiceException {}

@@ -67,7 +67,7 @@ class InputSanitizer implements SingletonInterface
         'ip_address' => '/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/',
     ];
 
-    public function __construct(AuditLogger $auditLogger = null)
+    public function __construct(?AuditLogger $auditLogger = null)
     {
         $this->auditLogger = $auditLogger ?? GeneralUtility::makeInstance(AuditLogger::class);
 
@@ -362,7 +362,7 @@ class InputSanitizer implements SingletonInterface
 
         // Validate temperature (0.0 - 2.0)
         if (isset($config['temperature'])) {
-            $temp = (float)$config['temperature'];
+            $temp = (float) $config['temperature'];
             if ($temp < 0 || $temp > 2.0) {
                 throw new \InvalidArgumentException('Temperature must be between 0 and 2.0', 1703003000);
             }
@@ -371,7 +371,7 @@ class InputSanitizer implements SingletonInterface
 
         // Validate max_tokens (positive integer, reasonable limit)
         if (isset($config['max_tokens'])) {
-            $tokens = (int)$config['max_tokens'];
+            $tokens = (int) $config['max_tokens'];
             if ($tokens < 1 || $tokens > 200000) {
                 throw new \InvalidArgumentException('max_tokens must be between 1 and 200000', 1703003001);
             }
@@ -380,7 +380,7 @@ class InputSanitizer implements SingletonInterface
 
         // Validate top_p (0.0 - 1.0)
         if (isset($config['top_p'])) {
-            $topP = (float)$config['top_p'];
+            $topP = (float) $config['top_p'];
             if ($topP < 0 || $topP > 1.0) {
                 throw new \InvalidArgumentException('top_p must be between 0 and 1.0', 1703003002);
             }
@@ -389,7 +389,7 @@ class InputSanitizer implements SingletonInterface
 
         // Validate frequency_penalty (-2.0 - 2.0)
         if (isset($config['frequency_penalty'])) {
-            $penalty = (float)$config['frequency_penalty'];
+            $penalty = (float) $config['frequency_penalty'];
             if ($penalty < -2.0 || $penalty > 2.0) {
                 throw new \InvalidArgumentException('frequency_penalty must be between -2.0 and 2.0', 1703003003);
             }
@@ -398,7 +398,7 @@ class InputSanitizer implements SingletonInterface
 
         // Validate presence_penalty (-2.0 - 2.0)
         if (isset($config['presence_penalty'])) {
-            $penalty = (float)$config['presence_penalty'];
+            $penalty = (float) $config['presence_penalty'];
             if ($penalty < -2.0 || $penalty > 2.0) {
                 throw new \InvalidArgumentException('presence_penalty must be between -2.0 and 2.0', 1703003004);
             }
@@ -409,7 +409,7 @@ class InputSanitizer implements SingletonInterface
         $stringFields = ['model', 'provider', 'user_identifier'];
         foreach ($stringFields as $field) {
             if (isset($config[$field])) {
-                $sanitized[$field] = strip_tags((string)$config[$field]);
+                $sanitized[$field] = strip_tags((string) $config[$field]);
             }
         }
 

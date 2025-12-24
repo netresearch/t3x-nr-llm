@@ -50,29 +50,29 @@ class TranslationAiService
                 'alternatives' => $response->getAlternatives(),
                 'metadata' => [
                     'tokens' => $response->getTotalTokens(),
-                    'cost' => $response->getCostEstimate()
-                ]
+                    'cost' => $response->getCostEstimate(),
+                ],
             ];
         } catch (QuotaExceededException $e) {
             $this->logger->warning('Translation quota exceeded', [
                 'text' => $sourceText,
-                'target_lang' => $targetLanguage
+                'target_lang' => $targetLanguage,
             ]);
 
             return [
                 'error' => 'quota_exceeded',
                 'message' => $e->getMessage(),
-                'suggestion' => $e->getSuggestion()
+                'suggestion' => $e->getSuggestion(),
             ];
         } catch (LlmException $e) {
             $this->logger->error('Translation failed', [
                 'error' => $e->getMessage(),
-                'provider' => $e->getProviderName()
+                'provider' => $e->getProviderName(),
             ]);
 
             return [
                 'error' => 'translation_failed',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ];
         }
     }
@@ -105,7 +105,7 @@ class TranslationAiService
                     'success' => true,
                     'translation' => $response->getTranslation(),
                     'confidence' => $response->getConfidence(),
-                    'tokens' => $response->getTotalTokens()
+                    'tokens' => $response->getTotalTokens(),
                 ];
 
                 $totalCost += $response->getCostEstimate();
@@ -117,17 +117,17 @@ class TranslationAiService
                 $this->logger->warning('Bulk translation quota exceeded at index ' . $key);
                 $results[$key] = [
                     'success' => false,
-                    'error' => 'quota_exceeded'
+                    'error' => 'quota_exceeded',
                 ];
                 break;  // Stop processing
             } catch (LlmException $e) {
                 $this->logger->error('Translation failed for text: ' . $text, [
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ]);
 
                 $results[$key] = [
                     'success' => false,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ];
                 $errorCount++;
             }
@@ -139,8 +139,8 @@ class TranslationAiService
                 'total' => count($untranslatedTexts),
                 'success' => $successCount,
                 'errors' => $errorCount,
-                'total_cost' => $totalCost
-            ]
+                'total_cost' => $totalCost,
+            ],
         ];
     }
 
@@ -154,25 +154,25 @@ class TranslationAiService
     public function checkQuality(string $translation, string $targetLanguage): array
     {
         $prompt = <<<PROMPT
-Analyze this {$targetLanguage} translation for quality:
+            Analyze this {$targetLanguage} translation for quality:
 
-Translation: "{$translation}"
+            Translation: "{$translation}"
 
-Provide a quality assessment with:
-1. Grammar check (correct/incorrect)
-2. Natural language flow (1-10)
-3. Suggested improvements (if any)
-4. Overall quality score (0-100)
+            Provide a quality assessment with:
+            1. Grammar check (correct/incorrect)
+            2. Natural language flow (1-10)
+            3. Suggested improvements (if any)
+            4. Overall quality score (0-100)
 
-Respond in JSON format:
-{
-    "grammar": "correct|incorrect",
-    "flow_score": 0-10,
-    "improvements": ["suggestion1", "suggestion2"],
-    "overall_score": 0-100,
-    "notes": "brief explanation"
-}
-PROMPT;
+            Respond in JSON format:
+            {
+                "grammar": "correct|incorrect",
+                "flow_score": 0-10,
+                "improvements": ["suggestion1", "suggestion2"],
+                "overall_score": 0-100,
+                "notes": "brief explanation"
+            }
+            PROMPT;
 
         try {
             $response = $this->llm
@@ -182,12 +182,12 @@ PROMPT;
             return json_decode($response->getContent(), true);
         } catch (LlmException $e) {
             $this->logger->error('Quality check failed', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
                 'error' => true,
-                'message' => 'Quality check unavailable'
+                'message' => 'Quality check unavailable',
             ];
         }
     }

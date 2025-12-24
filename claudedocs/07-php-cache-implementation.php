@@ -87,7 +87,7 @@ class CacheService implements SingletonInterface
         $response = $provider();
 
         // Store in cache
-        $ttl = $ttl ?? $this->getTtlForFeature($request->getFeature());
+        $ttl ??= $this->getTtlForFeature($request->getFeature());
         $this->set($cacheKey, $response, $ttl);
 
         return $response;
@@ -226,7 +226,7 @@ class CacheService implements SingletonInterface
             $configKey = 'cache.ttl.' . $feature;
             $ttl = $this->extensionConfiguration->get('ai_base', $configKey);
             if ($ttl !== null) {
-                return (int)$ttl;
+                return (int) $ttl;
             }
         } catch (\Exception $e) {
             // Fallback to map
@@ -308,7 +308,7 @@ class CacheKeyGenerator implements SingletonInterface
         ksort($filteredOptions);
 
         // Recursively sort nested arrays
-        array_walk_recursive($filteredOptions, function(&$value) {
+        array_walk_recursive($filteredOptions, function (&$value) {
             if (is_array($value)) {
                 ksort($value);
             }

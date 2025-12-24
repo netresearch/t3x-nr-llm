@@ -50,11 +50,11 @@ abstract class AbstractProvider implements ProviderInterface
      */
     public function configure(array $config): void
     {
-        $this->apiKey = (string)($config['apiKey'] ?? '');
-        $this->baseUrl = (string)($config['baseUrl'] ?? $this->getDefaultBaseUrl());
-        $this->defaultModel = (string)($config['defaultModel'] ?? $this->getDefaultModel());
-        $this->timeout = (int)($config['timeout'] ?? 30);
-        $this->maxRetries = (int)($config['maxRetries'] ?? 3);
+        $this->apiKey = (string) ($config['apiKey'] ?? '');
+        $this->baseUrl = (string) ($config['baseUrl'] ?? $this->getDefaultBaseUrl());
+        $this->defaultModel = (string) ($config['defaultModel'] ?? $this->getDefaultModel());
+        $this->timeout = (int) ($config['timeout'] ?? 30);
+        $this->maxRetries = (int) ($config['maxRetries'] ?? 3);
 
         $this->validateConfiguration();
     }
@@ -111,12 +111,12 @@ abstract class AbstractProvider implements ProviderInterface
                 $statusCode = $response->getStatusCode();
 
                 if ($statusCode >= 200 && $statusCode < 300) {
-                    $body = (string)$response->getBody();
+                    $body = (string) $response->getBody();
                     return json_decode($body, true, 512, JSON_THROW_ON_ERROR);
                 }
 
                 if ($statusCode >= 400 && $statusCode < 500) {
-                    $body = (string)$response->getBody();
+                    $body = (string) $response->getBody();
                     $error = json_decode($body, true) ?? ['error' => ['message' => 'Unknown error']];
                     throw new ProviderResponseException(
                         $this->extractErrorMessage($error),
@@ -135,14 +135,14 @@ abstract class AbstractProvider implements ProviderInterface
                 $attempt++;
 
                 if ($attempt < $this->maxRetries) {
-                    usleep((int)(100000 * (2 ** $attempt)));
+                    usleep((int) (100000 * (2 ** $attempt)));
                 }
             }
         }
 
         throw new ProviderConnectionException(
-            'Failed to connect to provider after ' . $this->maxRetries . ' attempts: ' .
-            ($lastException?->getMessage() ?? 'Unknown error'),
+            'Failed to connect to provider after ' . $this->maxRetries . ' attempts: '
+            . ($lastException?->getMessage() ?? 'Unknown error'),
             0,
             $lastException
         );

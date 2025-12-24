@@ -95,7 +95,7 @@ class ResponseParser
             'model' => $response['model'] ?? null,
             'created' => $response['created'] ?? null,
             'id' => $response['id'] ?? null,
-            'provider' => 'openai'
+            'provider' => 'openai',
         ];
 
         return new LlmResponse(
@@ -127,8 +127,8 @@ class ResponseParser
             $usage = new TokenUsage(
                 promptTokens: $response['usage']['input_tokens'] ?? 0,
                 completionTokens: $response['usage']['output_tokens'] ?? 0,
-                totalTokens: ($response['usage']['input_tokens'] ?? 0) +
-                            ($response['usage']['output_tokens'] ?? 0)
+                totalTokens: ($response['usage']['input_tokens'] ?? 0)
+                            + ($response['usage']['output_tokens'] ?? 0)
             );
         }
 
@@ -136,7 +136,7 @@ class ResponseParser
             'model' => $response['model'] ?? null,
             'id' => $response['id'] ?? null,
             'role' => $response['role'] ?? null,
-            'provider' => 'anthropic'
+            'provider' => 'anthropic',
         ];
 
         return new LlmResponse(
@@ -174,7 +174,7 @@ class ResponseParser
 
         $metadata = [
             'model' => $response['modelVersion'] ?? null,
-            'provider' => 'gemini'
+            'provider' => 'gemini',
         ];
 
         return new LlmResponse(
@@ -201,7 +201,7 @@ class ResponseParser
 
         $metadata = [
             'detected_source_language' => $response['translations'][0]['detected_source_language'] ?? null,
-            'provider' => 'deepl'
+            'provider' => 'deepl',
         ];
 
         return new LlmResponse(
@@ -240,7 +240,7 @@ class ResponseParser
         $metadata = [
             'model' => $response['model'] ?? null,
             'created_at' => $response['created_at'] ?? null,
-            'provider' => 'ollama'
+            'provider' => 'ollama',
         ];
 
         return new LlmResponse(

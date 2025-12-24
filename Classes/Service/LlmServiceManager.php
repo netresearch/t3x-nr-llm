@@ -23,7 +23,6 @@ use TYPO3\CMS\Core\SingletonInterface;
 
 final class LlmServiceManager implements LlmServiceManagerInterface, SingletonInterface
 {
-
     /** @var array<string, ProviderInterface> */
     private array $providers = [];
 
@@ -66,7 +65,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
     public function getProvider(?string $identifier = null): ProviderInterface
     {
-        $identifier = $identifier ?? $this->defaultProvider;
+        $identifier ??= $this->defaultProvider;
 
         if ($identifier === null) {
             throw new ProviderException('No provider specified and no default provider configured');
@@ -122,7 +121,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function chat(array $messages, ?ChatOptions $options = null): CompletionResponse
     {
-        $options = $options ?? new ChatOptions();
+        $options ??= new ChatOptions();
         $optionsArray = $options->toArray();
         $provider = $this->getProvider($optionsArray['provider'] ?? null);
         unset($optionsArray['provider']);
@@ -135,7 +134,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        $options = $options ?? new ChatOptions();
+        $options ??= new ChatOptions();
         $optionsArray = $options->toArray();
         $provider = $this->getProvider($optionsArray['provider'] ?? null);
         unset($optionsArray['provider']);
@@ -150,7 +149,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function embed(string|array $input, ?EmbeddingOptions $options = null): EmbeddingResponse
     {
-        $options = $options ?? new EmbeddingOptions();
+        $options ??= new EmbeddingOptions();
         $optionsArray = $options->toArray();
         $provider = $this->getProvider($optionsArray['provider'] ?? null);
         unset($optionsArray['provider']);
@@ -171,7 +170,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function vision(array $content, ?VisionOptions $options = null): VisionResponse
     {
-        $options = $options ?? new VisionOptions();
+        $options ??= new VisionOptions();
         $optionsArray = $options->toArray();
         $provider = $this->getProvider($optionsArray['provider'] ?? null);
         unset($optionsArray['provider']);
@@ -193,7 +192,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function streamChat(array $messages, ?ChatOptions $options = null): \Generator
     {
-        $options = $options ?? new ChatOptions();
+        $options ??= new ChatOptions();
         $optionsArray = $options->toArray();
         $provider = $this->getProvider($optionsArray['provider'] ?? null);
         unset($optionsArray['provider']);
@@ -215,7 +214,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse
     {
-        $options = $options ?? new ToolOptions();
+        $options ??= new ToolOptions();
         $optionsArray = $options->toArray();
         $provider = $this->getProvider($optionsArray['provider'] ?? null);
         unset($optionsArray['provider']);

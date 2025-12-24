@@ -25,7 +25,7 @@ final class ClaudeProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+    private const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
     private const API_VERSION = '2023-06-01';
 
     public function getName(): string
@@ -51,13 +51,17 @@ final class ClaudeProvider extends AbstractProvider implements
     public function getAvailableModels(): array
     {
         return [
-            'claude-opus-4-20250514' => 'Claude Opus 4 (Most Capable)',
-            'claude-sonnet-4-20250514' => 'Claude Sonnet 4 (Balanced)',
-            'claude-3-5-sonnet-20241022' => 'Claude 3.5 Sonnet',
-            'claude-3-5-haiku-20241022' => 'Claude 3.5 Haiku (Fast)',
-            'claude-3-opus-20240229' => 'Claude 3 Opus',
-            'claude-3-sonnet-20240229' => 'Claude 3 Sonnet',
-            'claude-3-haiku-20240307' => 'Claude 3 Haiku',
+            // Claude 4.5 Series (Latest)
+            'claude-opus-4-5-20251124' => 'Claude Opus 4.5 (Most Capable)',
+            'claude-sonnet-4-5-20250929' => 'Claude Sonnet 4.5 (Recommended)',
+            // Claude 4.1 Series
+            'claude-opus-4-1-20250805' => 'Claude Opus 4.1',
+            // Claude 4 Series
+            'claude-opus-4-20250514' => 'Claude Opus 4',
+            'claude-sonnet-4-20250514' => 'Claude Sonnet 4',
+            // Claude 3.5 Series (Legacy)
+            'claude-3-5-sonnet-20241022' => 'Claude 3.5 Sonnet (Legacy)',
+            'claude-3-5-haiku-20241022' => 'Claude 3.5 Haiku (Legacy)',
         ];
     }
 
@@ -254,7 +258,7 @@ final class ClaudeProvider extends AbstractProvider implements
         ];
 
         $payload = [
-            'model' => $options['model'] ?? 'claude-sonnet-4-20250514',
+            'model' => $options['model'] ?? 'claude-sonnet-4-5-20250929',
             'messages' => $messages,
             'max_tokens' => $options['max_tokens'] ?? 4096,
         ];

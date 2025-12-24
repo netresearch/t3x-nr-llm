@@ -203,9 +203,9 @@ final class WhisperTranscriptionService
             $config = $this->extensionConfiguration->get('nr_llm');
 
             // Use OpenAI API key for Whisper
-            $this->apiKey = (string)($config['providers']['openai']['apiKey'] ?? '');
-            $this->baseUrl = (string)($config['speech']['whisper']['baseUrl'] ?? self::API_URL);
-            $this->timeout = (int)($config['speech']['whisper']['timeout'] ?? 120);
+            $this->apiKey = (string) ($config['providers']['openai']['apiKey'] ?? '');
+            $this->baseUrl = (string) ($config['speech']['whisper']['baseUrl'] ?? self::API_URL);
+            $this->timeout = (int) ($config['speech']['whisper']['timeout'] ?? 120);
         } catch (\Exception $e) {
             $this->logger->warning('Failed to load Whisper configuration', [
                 'exception' => $e->getMessage(),

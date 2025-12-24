@@ -136,9 +136,10 @@ class CacheManagerTest extends AbstractUnitTestCase
             ->with(
                 'test_key',
                 $data,
-                $this->callback(fn(array $tags) =>
-                    in_array('nrllm', $tags, true) &&
-                    in_array('nrllm_response', $tags, true)
+                $this->callback(
+                    fn(array $tags)
+                    => in_array('nrllm', $tags, true)
+                    && in_array('nrllm_response', $tags, true)
                 ),
                 3600
             );
@@ -158,10 +159,11 @@ class CacheManagerTest extends AbstractUnitTestCase
             ->with(
                 'test_key',
                 $data,
-                $this->callback(fn(array $tags) =>
-                    in_array('nrllm', $tags, true) &&
-                    in_array('nrllm_response', $tags, true) &&
-                    in_array('custom_tag', $tags, true)
+                $this->callback(
+                    fn(array $tags)
+                    => in_array('nrllm', $tags, true)
+                    && in_array('nrllm_response', $tags, true)
+                    && in_array('custom_tag', $tags, true)
                 ),
                 3600
             );
@@ -237,9 +239,10 @@ class CacheManagerTest extends AbstractUnitTestCase
             ->with(
                 $this->isType('string'),
                 $response,
-                $this->callback(fn(array $tags) =>
-                    in_array('nrllm_completion', $tags, true) &&
-                    in_array('nrllm_provider_openai', $tags, true)
+                $this->callback(
+                    fn(array $tags)
+                    => in_array('nrllm_completion', $tags, true)
+                    && in_array('nrllm_provider_openai', $tags, true)
                 ),
                 3600
             );
@@ -262,8 +265,9 @@ class CacheManagerTest extends AbstractUnitTestCase
             ->with(
                 $this->anything(),
                 $this->anything(),
-                $this->callback(fn(array $tags) =>
-                    in_array('nrllm_model_gpt_4o', $tags, true)
+                $this->callback(
+                    fn(array $tags)
+                    => in_array('nrllm_model_gpt_4o', $tags, true)
                 ),
                 $this->anything()
             );

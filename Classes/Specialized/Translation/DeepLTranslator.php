@@ -294,14 +294,14 @@ final class DeepLTranslator implements TranslatorInterface
         try {
             $config = $this->extensionConfiguration->get('nr_llm');
 
-            $this->apiKey = (string)($config['translators']['deepl']['apiKey'] ?? '');
-            $this->timeout = (int)($config['translators']['deepl']['timeout'] ?? 30);
+            $this->apiKey = (string) ($config['translators']['deepl']['apiKey'] ?? '');
+            $this->timeout = (int) ($config['translators']['deepl']['timeout'] ?? 30);
 
             // Determine API URL based on API key type (free keys end with :fx)
             if ($this->apiKey !== '' && str_ends_with($this->apiKey, ':fx')) {
                 $this->baseUrl = self::FREE_API_URL;
             } else {
-                $this->baseUrl = (string)($config['translators']['deepl']['baseUrl'] ?? self::PRO_API_URL);
+                $this->baseUrl = (string) ($config['translators']['deepl']['baseUrl'] ?? self::PRO_API_URL);
             }
         } catch (\Exception $e) {
             $this->logger->warning('Failed to load DeepL configuration', [
@@ -502,7 +502,7 @@ final class DeepLTranslator implements TranslatorInterface
         try {
             $response = $this->httpClient->sendRequest($request);
             $statusCode = $response->getStatusCode();
-            $body = (string)$response->getBody();
+            $body = (string) $response->getBody();
 
             if ($statusCode >= 200 && $statusCode < 300) {
                 return json_decode($body, true, 512, JSON_THROW_ON_ERROR);

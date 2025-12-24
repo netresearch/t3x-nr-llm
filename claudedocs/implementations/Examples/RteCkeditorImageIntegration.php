@@ -44,16 +44,16 @@ class ImageAiService
         };
 
         $prompt = <<<PROMPT
-Generate alt text for this image (maximum {$maxLength} characters).
+            Generate alt text for this image (maximum {$maxLength} characters).
 
-Style: {$styleInstructions}
+            Style: {$styleInstructions}
 
-Requirements:
-- Clear and concise
-- WCAG 2.1 compliant
-- No "image of" or "picture of" prefix
-- Focus on content, not presentation
-PROMPT;
+            Requirements:
+            - Clear and concise
+            - WCAG 2.1 compliant
+            - No "image of" or "picture of" prefix
+            - Focus on content, not presentation
+            PROMPT;
 
         try {
             $response = $this->llm
@@ -72,7 +72,7 @@ PROMPT;
         } catch (LlmException $e) {
             $this->logger->error('Alt text generation failed', [
                 'image' => $imageUrl,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return '';
@@ -88,27 +88,27 @@ PROMPT;
     public function analyzeImage(string $imageUrl): array
     {
         $prompt = <<<PROMPT
-Analyze this image and provide:
+            Analyze this image and provide:
 
-1. Alt text (concise, WCAG compliant)
-2. Title text (for tooltip, 50-60 chars)
-3. Detailed description (2-3 sentences)
-4. Objects detected (array)
-5. Scene type and setting
-6. Dominant colors
-7. Accessibility notes
+            1. Alt text (concise, WCAG compliant)
+            2. Title text (for tooltip, 50-60 chars)
+            3. Detailed description (2-3 sentences)
+            4. Objects detected (array)
+            5. Scene type and setting
+            6. Dominant colors
+            7. Accessibility notes
 
-Respond in JSON format:
-{
-    "alt_text": "...",
-    "title": "...",
-    "description": "...",
-    "objects": ["object1", "object2"],
-    "scene": {"type": "...", "setting": "..."},
-    "colors": ["#hex1", "#hex2"],
-    "accessibility": {"contrast": "good|poor", "notes": "..."}
-}
-PROMPT;
+            Respond in JSON format:
+            {
+                "alt_text": "...",
+                "title": "...",
+                "description": "...",
+                "objects": ["object1", "object2"],
+                "scene": {"type": "...", "setting": "..."},
+                "colors": ["#hex1", "#hex2"],
+                "accessibility": {"contrast": "good|poor", "notes": "..."}
+            }
+            PROMPT;
 
         try {
             $response = $this->llm
@@ -125,18 +125,18 @@ PROMPT;
                 'metadata' => [
                     'confidence' => $response->getConfidence(),
                     'tokens' => $response->getTotalTokens(),
-                    'cost' => $response->getCostEstimate()
-                ]
+                    'cost' => $response->getCostEstimate(),
+                ],
             ];
         } catch (LlmException $e) {
             $this->logger->error('Image analysis failed', [
                 'image' => $imageUrl,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -153,16 +153,16 @@ PROMPT;
         string $pageContext
     ): string {
         $prompt = <<<PROMPT
-Generate alt text for this image considering the surrounding page content:
+            Generate alt text for this image considering the surrounding page content:
 
-Page context: {$pageContext}
+            Page context: {$pageContext}
 
-Requirements:
-- Complement the surrounding text (don't repeat information)
-- Maximum 125 characters
-- WCAG 2.1 compliant
-- Natural and descriptive
-PROMPT;
+            Requirements:
+            - Complement the surrounding text (don't repeat information)
+            - Maximum 125 characters
+            - WCAG 2.1 compliant
+            - Natural and descriptive
+            PROMPT;
 
         try {
             $response = $this->llm
@@ -173,7 +173,7 @@ PROMPT;
             return substr($response->getDescription(), 0, 125);
         } catch (LlmException $e) {
             $this->logger->error('Contextual alt text generation failed', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             // Fallback to non-contextual
@@ -202,12 +202,12 @@ PROMPT;
 
                 $results[$imageUrl] = [
                     'success' => true,
-                    'alt_text' => $altText
+                    'alt_text' => $altText,
                 ];
             } catch (\Exception $e) {
                 $results[$imageUrl] = [
                     'success' => false,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ];
             }
 

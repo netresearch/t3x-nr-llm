@@ -26,7 +26,7 @@ final class OpenAiProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const DEFAULT_CHAT_MODEL = 'gpt-4o';
+    private const DEFAULT_CHAT_MODEL = 'gpt-4.1';
     private const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 
     public function getName(): string
@@ -52,13 +52,18 @@ final class OpenAiProvider extends AbstractProvider implements
     public function getAvailableModels(): array
     {
         return [
-            'gpt-4o' => 'GPT-4o (Latest)',
-            'gpt-4o-mini' => 'GPT-4o Mini',
-            'gpt-4-turbo' => 'GPT-4 Turbo',
-            'gpt-4' => 'GPT-4',
-            'gpt-3.5-turbo' => 'GPT-3.5 Turbo',
-            'o1-preview' => 'O1 Preview (Reasoning)',
-            'o1-mini' => 'O1 Mini (Reasoning)',
+            // GPT-5 Series (Latest)
+            'gpt-5' => 'GPT-5 (Most Capable)',
+            // GPT-4.1 Series (April 2025)
+            'gpt-4.1' => 'GPT-4.1 (Recommended)',
+            'gpt-4.1-mini' => 'GPT-4.1 Mini',
+            'gpt-4.1-nano' => 'GPT-4.1 Nano (Fast)',
+            // Reasoning Models
+            'o3' => 'O3 (Advanced Reasoning)',
+            'o4-mini' => 'O4 Mini (Reasoning)',
+            // Legacy Models
+            'gpt-4o' => 'GPT-4o (Legacy)',
+            'gpt-4o-mini' => 'GPT-4o Mini (Legacy)',
         ];
     }
 
@@ -202,7 +207,7 @@ final class OpenAiProvider extends AbstractProvider implements
         }
 
         $payload = [
-            'model' => $options['model'] ?? 'gpt-4o',
+            'model' => $options['model'] ?? 'gpt-4.1',
             'messages' => $messages,
             'max_tokens' => $options['max_tokens'] ?? 4096,
         ];

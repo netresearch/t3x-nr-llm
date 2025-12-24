@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Cost Calculator & Notification Services
  *
@@ -206,7 +207,7 @@ class CostCalculator
 
         // Get current version
         $queryBuilder = $connection->createQueryBuilder();
-        $currentVersion = (int)$queryBuilder
+        $currentVersion = (int) $queryBuilder
             ->select('MAX(version) as max_version')
             ->from(self::TABLE_PRICING)
             ->where(
@@ -411,7 +412,7 @@ class CostCalculator
         int $maxOutputTokens = 1000
     ): array {
         // Estimate token count (rough approximation: 1 token ≈ 4 characters)
-        $estimatedPromptTokens = (int)(strlen($prompt) / 4);
+        $estimatedPromptTokens = (int) (strlen($prompt) / 4);
 
         return $this->calculateCost(
             provider: $provider,
@@ -509,7 +510,7 @@ class NotificationService
         $subject = sprintf(
             'AI Quota %s: %d%% Used',
             ucfirst($level),
-            (int)$percentUsed
+            (int) $percentUsed
         );
 
         $message = $this->buildQuotaWarningMessage($quota, $percentUsed);
@@ -584,11 +585,11 @@ class NotificationService
         $subject = 'AI Request Rate Limit Reached';
 
         $message = sprintf(
-            "You have reached your AI request rate limit.\n\n" .
-            "Usage: %d / %d requests\n" .
-            "Scope: %s\n" .
-            "Please wait %d seconds before trying again.\n\n" .
-            "Your quota will reset at: %s",
+            "You have reached your AI request rate limit.\n\n"
+            . "Usage: %d / %d requests\n"
+            . "Scope: %s\n"
+            . "Please wait %d seconds before trying again.\n\n"
+            . "Your quota will reset at: %s",
             $currentUsage,
             $limit,
             $scope,
@@ -660,7 +661,7 @@ class NotificationService
             ]
         );
 
-        $notificationUid = (int)$connection->lastInsertId();
+        $notificationUid = (int) $connection->lastInsertId();
 
         // Send email if configured
         if ($this->shouldSendEmail($type, $severity)) {
@@ -756,14 +757,14 @@ class NotificationService
         $resetTime = date('Y-m-d H:i:s', $quota['period_end']);
 
         return sprintf(
-            "Your AI usage quota is at %d%%.\n\n" .
-            "Details:\n" .
-            "- Type: %s\n" .
-            "- Used: %s / %s\n" .
-            "- Period: %s\n" .
-            "- Resets: %s\n\n" .
-            "Consider reducing usage or contact your administrator to increase your quota.",
-            (int)$percentUsed,
+            "Your AI usage quota is at %d%%.\n\n"
+            . "Details:\n"
+            . "- Type: %s\n"
+            . "- Used: %s / %s\n"
+            . "- Period: %s\n"
+            . "- Resets: %s\n\n"
+            . "Consider reducing usage or contact your administrator to increase your quota.",
+            (int) $percentUsed,
             ucfirst($quota['quota_type']),
             $this->formatQuotaValue($quota['quota_used'], $quota['quota_type']),
             $this->formatQuotaValue($quota['quota_limit'], $quota['quota_type']),
@@ -780,14 +781,14 @@ class NotificationService
         $resetTime = date('Y-m-d H:i:s', $quota['period_end']);
 
         return sprintf(
-            "Your AI usage quota has been exceeded.\n\n" .
-            "Details:\n" .
-            "- Type: %s\n" .
-            "- Used: %s / %s\n" .
-            "- Period: %s\n" .
-            "- Resets: %s\n\n" .
-            "Your AI features are temporarily disabled until the quota resets.\n" .
-            "Contact your administrator if you need to increase your quota.",
+            "Your AI usage quota has been exceeded.\n\n"
+            . "Details:\n"
+            . "- Type: %s\n"
+            . "- Used: %s / %s\n"
+            . "- Period: %s\n"
+            . "- Resets: %s\n\n"
+            . "Your AI features are temporarily disabled until the quota resets.\n"
+            . "Contact your administrator if you need to increase your quota.",
             ucfirst($quota['quota_type']),
             $this->formatQuotaValue($quota['quota_used'], $quota['quota_type']),
             $this->formatQuotaValue($quota['quota_limit'], $quota['quota_type']),
@@ -805,7 +806,7 @@ class NotificationService
             'requests' => number_format($value, 0) . ' requests',
             'tokens' => number_format($value, 0) . ' tokens',
             'cost' => '$' . number_format($value, 2),
-            default => (string)$value,
+            default => (string) $value,
         };
     }
 
@@ -827,7 +828,7 @@ class NotificationService
         // Get first admin user
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('be_users');
 
-        return (int)$queryBuilder
+        return (int) $queryBuilder
             ->select('uid')
             ->from('be_users')
             ->where(

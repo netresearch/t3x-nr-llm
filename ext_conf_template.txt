@@ -10,8 +10,8 @@ defaultCacheLifetime = 3600
 # cat=openai; type=string; label=OpenAI API Key: Your OpenAI API key
 providers.openai.apiKey =
 
-# cat=openai; type=string; label=OpenAI Default Model: Default model to use (e.g., gpt-4o, gpt-4o-mini)
-providers.openai.defaultModel = gpt-4o
+# cat=openai; type=string; label=OpenAI Default Model: Default model to use (e.g., gpt-4.1, gpt-4.1-mini, gpt-5)
+providers.openai.defaultModel = gpt-4.1
 
 # cat=openai; type=string; label=OpenAI Base URL: Custom base URL (leave empty for default)
 providers.openai.baseUrl =
@@ -22,8 +22,8 @@ providers.openai.timeout = 30
 # cat=claude; type=string; label=Claude API Key: Your Anthropic Claude API key
 providers.claude.apiKey =
 
-# cat=claude; type=string; label=Claude Default Model: Default model to use (e.g., claude-sonnet-4-20250514)
-providers.claude.defaultModel = claude-sonnet-4-20250514
+# cat=claude; type=string; label=Claude Default Model: Default model to use (e.g., claude-sonnet-4-5-20250929)
+providers.claude.defaultModel = claude-sonnet-4-5-20250929
 
 # cat=claude; type=string; label=Claude Base URL: Custom base URL (leave empty for default)
 providers.claude.baseUrl =
@@ -34,8 +34,8 @@ providers.claude.timeout = 30
 # cat=gemini; type=string; label=Gemini API Key: Your Google Gemini API key
 providers.gemini.apiKey =
 
-# cat=gemini; type=string; label=Gemini Default Model: Default model to use (e.g., gemini-2.0-flash)
-providers.gemini.defaultModel = gemini-2.0-flash
+# cat=gemini; type=string; label=Gemini Default Model: Default model to use (e.g., gemini-3-flash-preview)
+providers.gemini.defaultModel = gemini-3-flash-preview
 
 # cat=gemini; type=string; label=Gemini Base URL: Custom base URL (leave empty for default)
 providers.gemini.baseUrl =
@@ -46,8 +46,8 @@ providers.gemini.timeout = 30
 # cat=openrouter; type=string; label=OpenRouter API Key: Your OpenRouter API key (access 100+ models)
 providers.openrouter.apiKey =
 
-# cat=openrouter; type=string; label=OpenRouter Default Model: Default model to use (e.g., anthropic/claude-3.5-sonnet)
-providers.openrouter.defaultModel = anthropic/claude-3.5-sonnet
+# cat=openrouter; type=string; label=OpenRouter Default Model: Default model to use (e.g., anthropic/claude-sonnet-4-5)
+providers.openrouter.defaultModel = anthropic/claude-sonnet-4-5
 
 # cat=openrouter; type=string; label=Site URL: Your site URL for OpenRouter attribution (HTTP-Referer header)
 providers.openrouter.siteUrl =

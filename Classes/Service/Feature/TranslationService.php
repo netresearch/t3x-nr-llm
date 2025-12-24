@@ -49,7 +49,7 @@ class TranslationService
         ?string $sourceLanguage = null,
         ?TranslationOptions $options = null
     ): TranslationResult {
-        $options = $options ?? new TranslationOptions();
+        $options ??= new TranslationOptions();
         $optionsArray = $options->toArray();
 
         if (empty($text)) {
@@ -123,7 +123,7 @@ class TranslationService
             return [];
         }
 
-        $options = $options ?? new TranslationOptions();
+        $options ??= new TranslationOptions();
         $results = [];
 
         foreach ($texts as $text) {
@@ -141,7 +141,7 @@ class TranslationService
      */
     public function detectLanguage(string $text, ?TranslationOptions $options = null): string
     {
-        $options = $options ?? new TranslationOptions();
+        $options ??= new TranslationOptions();
         $messages = [
             [
                 'role' => 'system',
@@ -188,7 +188,7 @@ class TranslationService
         string $targetLanguage,
         ?TranslationOptions $options = null
     ): float {
-        $options = $options ?? new TranslationOptions();
+        $options ??= new TranslationOptions();
         $messages = [
             [
                 'role' => 'system',
@@ -238,7 +238,7 @@ class TranslationService
         ?string $sourceLanguage = null,
         ?TranslationOptions $options = null
     ): TranslatorResult {
-        $options = $options ?? new TranslationOptions();
+        $options ??= new TranslationOptions();
         $optionsArray = $options->toArray();
 
         if (empty($text)) {
@@ -275,7 +275,7 @@ class TranslationService
             return [];
         }
 
-        $options = $options ?? new TranslationOptions();
+        $options ??= new TranslationOptions();
         $optionsArray = $options->toArray();
         $translator = $this->resolveTranslator($optionsArray);
 

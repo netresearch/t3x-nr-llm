@@ -146,9 +146,9 @@ class GeminiProvider extends AbstractProvider
             $requestBody = [
                 'content' => [
                     'parts' => [
-                        ['text' => $singleText]
-                    ]
-                ]
+                        ['text' => $singleText],
+                    ],
+                ],
             ];
 
             $response = $this->makeRequest('POST', $endpoint, $requestBody);
@@ -214,7 +214,7 @@ class GeminiProvider extends AbstractProvider
 
         $response = $this->complete($prompt, [
             'temperature' => 0.3, // Lower temperature for translation
-            ...$options
+            ...$options,
         ]);
 
         return new TranslationResponse(
@@ -251,7 +251,7 @@ class GeminiProvider extends AbstractProvider
      */
     public function estimateCost(int $inputTokens, int $outputTokens, ?string $model = null): float
     {
-        $model = $model ?? $this->model;
+        $model ??= $this->model;
 
         if (!isset(self::MODEL_PRICING[$model])) {
             return 0.0;
@@ -293,7 +293,7 @@ class GeminiProvider extends AbstractProvider
             return true;
         } catch (\Exception $e) {
             $this->logger->error('Gemini availability check failed', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
             return false;
         }
@@ -423,7 +423,7 @@ class GeminiProvider extends AbstractProvider
         $finishReason = $candidate['finishReason'] ?? 'UNKNOWN';
         if ($finishReason === 'SAFETY') {
             throw new ProviderException('Content blocked by safety filters', [
-                'safety_ratings' => $candidate['safetyRatings'] ?? []
+                'safety_ratings' => $candidate['safetyRatings'] ?? [],
             ]);
         }
 
@@ -488,7 +488,7 @@ class GeminiProvider extends AbstractProvider
      */
     private function getMaxContext(): int
     {
-        return match($this->model) {
+        return match ($this->model) {
             'gemini-1.5-pro' => 2_000_000,
             'gemini-1.5-flash' => 1_000_000,
             default => 32_000,
@@ -521,7 +521,7 @@ class GeminiProvider extends AbstractProvider
     {
         $extension = strtolower(pathinfo($url, PATHINFO_EXTENSION));
 
-        return match($extension) {
+        return match ($extension) {
             'jpg', 'jpeg' => 'image/jpeg',
             'png' => 'image/png',
             'gif' => 'image/gif',

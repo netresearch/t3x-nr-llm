@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Rate Limiting & Quota Management - Tests & Configuration
  *
@@ -718,158 +719,158 @@ class RateLimitingIntegrationTest extends UnitTestCase
  * Configuration/Services.yaml
  */
 $servicesYaml = <<<YAML
-services:
-  _defaults:
-    autowire: true
-    autoconfigure: true
-    public: false
+    services:
+      _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
 
-  # Rate Limiter
-  Netresearch\\NrLlm\\Service\\RateLimiterService:
-    public: true
-    arguments:
-      \$cache: '@cache.nrllm_ratelimit'
-      \$configuration:
-        limits:
-          global:
-            limit: 10000
-            window_size: 3600
-            capacity: 10000
-            algorithm: 'sliding_window'
-          provider:
-            limit: 0  # Configured per-provider
-            algorithm: 'token_bucket'
-          user:
-            limit: 100
-            window_size: 3600
-            capacity: 100
-            algorithm: 'token_bucket'
-          feature:
-            limit: 0  # Configured per-feature
-            algorithm: 'token_bucket'
-        providers:
-          openai:
-            limit: 3500
-            window_size: 60
-            capacity: 3500
-            algorithm: 'sliding_window'
-          anthropic:
-            limit: 1000
-            window_size: 60
-            capacity: 1000
-            algorithm: 'sliding_window'
+      # Rate Limiter
+      Netresearch\\NrLlm\\Service\\RateLimiterService:
+        public: true
+        arguments:
+          \$cache: '@cache.nrllm_ratelimit'
+          \$configuration:
+            limits:
+              global:
+                limit: 10000
+                window_size: 3600
+                capacity: 10000
+                algorithm: 'sliding_window'
+              provider:
+                limit: 0  # Configured per-provider
+                algorithm: 'token_bucket'
+              user:
+                limit: 100
+                window_size: 3600
+                capacity: 100
+                algorithm: 'token_bucket'
+              feature:
+                limit: 0  # Configured per-feature
+                algorithm: 'token_bucket'
+            providers:
+              openai:
+                limit: 3500
+                window_size: 60
+                capacity: 3500
+                algorithm: 'sliding_window'
+              anthropic:
+                limit: 1000
+                window_size: 60
+                capacity: 1000
+                algorithm: 'sliding_window'
 
-  # Quota Manager
-  Netresearch\\NrLlm\\Service\\QuotaManager:
-    public: true
-    arguments:
-      \$cache: '@cache.nrllm_quotas'
-      \$configuration:
-        quotas:
-          default:
-            hourly_request_limit: 100
-            daily_request_limit: 1000
-            monthly_request_limit: 10000
-            daily_cost_limit: 10.00
-            monthly_cost_limit: 200.00
-            daily_token_limit: 100000
-            monthly_token_limit: 1000000
-            warn_threshold: 80.0
-            alert_threshold: 90.0
-          admin:
-            daily_cost_limit: 100.00
-            monthly_cost_limit: 2000.00
+      # Quota Manager
+      Netresearch\\NrLlm\\Service\\QuotaManager:
+        public: true
+        arguments:
+          \$cache: '@cache.nrllm_quotas'
+          \$configuration:
+            quotas:
+              default:
+                hourly_request_limit: 100
+                daily_request_limit: 1000
+                monthly_request_limit: 10000
+                daily_cost_limit: 10.00
+                monthly_cost_limit: 200.00
+                daily_token_limit: 100000
+                monthly_token_limit: 1000000
+                warn_threshold: 80.0
+                alert_threshold: 90.0
+              admin:
+                daily_cost_limit: 100.00
+                monthly_cost_limit: 2000.00
 
-  # Cost Calculator
-  Netresearch\\NrLlm\\Service\\CostCalculator:
-    public: true
-    arguments:
-      \$cache: '@cache.nrllm_pricing'
-      \$configuration:
-        pricing:
-          updateMode: 'auto_sync'
-          exchangeRateApiKey: '%env(EXCHANGE_RATE_API_KEY)%'
+      # Cost Calculator
+      Netresearch\\NrLlm\\Service\\CostCalculator:
+        public: true
+        arguments:
+          \$cache: '@cache.nrllm_pricing'
+          \$configuration:
+            pricing:
+              updateMode: 'auto_sync'
+              exchangeRateApiKey: '%env(EXCHANGE_RATE_API_KEY)%'
 
-  # Usage Tracker
-  Netresearch\\NrLlm\\Service\\UsageTracker:
-    public: true
-    arguments:
-      \$configuration:
-        usageTracking:
-          enabled: true
-          storeIpAddress: false
-          archiveAfterDays: 90
+      # Usage Tracker
+      Netresearch\\NrLlm\\Service\\UsageTracker:
+        public: true
+        arguments:
+          \$configuration:
+            usageTracking:
+              enabled: true
+              storeIpAddress: false
+              archiveAfterDays: 90
 
-  # Notification Service
-  Netresearch\\NrLlm\\Service\\NotificationService:
-    public: true
-    arguments:
-      \$configuration:
-        notifications:
-          email:
-            quota_warning: true
-            quota_exceeded: true
-            rate_limited: false
-            admin_alert: true
-          adminEmail: '%env(ADMIN_EMAIL)%'
+      # Notification Service
+      Netresearch\\NrLlm\\Service\\NotificationService:
+        public: true
+        arguments:
+          \$configuration:
+            notifications:
+              email:
+                quota_warning: true
+                quota_exceeded: true
+                rate_limited: false
+                admin_alert: true
+              adminEmail: '%env(ADMIN_EMAIL)%'
 
-  # Cache Definitions
-  cache.nrllm_ratelimit:
-    class: TYPO3\\CMS\\Core\\Cache\\Frontend\\VariableFrontend
-    factory: ['@TYPO3\\CMS\\Core\\Cache\\CacheManager', 'getCache']
-    arguments: ['nrllm_ratelimit']
+      # Cache Definitions
+      cache.nrllm_ratelimit:
+        class: TYPO3\\CMS\\Core\\Cache\\Frontend\\VariableFrontend
+        factory: ['@TYPO3\\CMS\\Core\\Cache\\CacheManager', 'getCache']
+        arguments: ['nrllm_ratelimit']
 
-  cache.nrllm_quotas:
-    class: TYPO3\\CMS\\Core\\Cache\\Frontend\\VariableFrontend
-    factory: ['@TYPO3\\CMS\\Core\\Cache\\CacheManager', 'getCache']
-    arguments: ['nrllm_quotas']
+      cache.nrllm_quotas:
+        class: TYPO3\\CMS\\Core\\Cache\\Frontend\\VariableFrontend
+        factory: ['@TYPO3\\CMS\\Core\\Cache\\CacheManager', 'getCache']
+        arguments: ['nrllm_quotas']
 
-  cache.nrllm_pricing:
-    class: TYPO3\\CMS\\Core\\Cache\\Frontend\\VariableFrontend
-    factory: ['@TYPO3\\CMS\\Core\\Cache\\CacheManager', 'getCache']
-    arguments: ['nrllm_pricing']
-YAML;
+      cache.nrllm_pricing:
+        class: TYPO3\\CMS\\Core\\Cache\\Frontend\\VariableFrontend
+        factory: ['@TYPO3\\CMS\\Core\\Cache\\CacheManager', 'getCache']
+        arguments: ['nrllm_pricing']
+    YAML;
 
 /**
  * ext_localconf.php - Cache configuration
  */
 $extLocalconf = <<<'PHP'
-<?php
-if (!defined('TYPO3')) {
-    die('Access denied.');
-}
+    <?php
+    if (!defined('TYPO3')) {
+        die('Access denied.');
+    }
 
-// Register caches
-if (!isset($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_ratelimit'])) {
-    $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_ratelimit'] = [
-        'frontend' => \TYPO3\CMS\Core\Cache\Frontend\VariableFrontend::class,
-        'backend' => \TYPO3\CMS\Core\Cache\Backend\RedisBackend::class,
-        'options' => [
-            'defaultLifetime' => 3600,
-        ],
-    ];
-}
+    // Register caches
+    if (!isset($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_ratelimit'])) {
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_ratelimit'] = [
+            'frontend' => \TYPO3\CMS\Core\Cache\Frontend\VariableFrontend::class,
+            'backend' => \TYPO3\CMS\Core\Cache\Backend\RedisBackend::class,
+            'options' => [
+                'defaultLifetime' => 3600,
+            ],
+        ];
+    }
 
-if (!isset($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_quotas'])) {
-    $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_quotas'] = [
-        'frontend' => \TYPO3\CMS\Core\Cache\Frontend\VariableFrontend::class,
-        'backend' => \TYPO3\CMS\Core\Cache\Backend\RedisBackend::class,
-        'options' => [
-            'defaultLifetime' => 300,
-        ],
-    ];
-}
+    if (!isset($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_quotas'])) {
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_quotas'] = [
+            'frontend' => \TYPO3\CMS\Core\Cache\Frontend\VariableFrontend::class,
+            'backend' => \TYPO3\CMS\Core\Cache\Backend\RedisBackend::class,
+            'options' => [
+                'defaultLifetime' => 300,
+            ],
+        ];
+    }
 
-if (!isset($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_pricing'])) {
-    $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_pricing'] = [
-        'frontend' => \TYPO3\CMS\Core\Cache\Frontend\VariableFrontend::class,
-        'backend' => \TYPO3\CMS\Core\Cache\Backend\Typo3DatabaseBackend::class,
-        'options' => [
-            'defaultLifetime' => 86400,
-        ],
-    ];
-}
-PHP;
+    if (!isset($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_pricing'])) {
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_pricing'] = [
+            'frontend' => \TYPO3\CMS\Core\Cache\Frontend\VariableFrontend::class,
+            'backend' => \TYPO3\CMS\Core\Cache\Backend\Typo3DatabaseBackend::class,
+            'options' => [
+                'defaultLifetime' => 86400,
+            ],
+        ];
+    }
+    PHP;
 
 /**
  * Scheduler Task for Cleanup

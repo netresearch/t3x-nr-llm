@@ -36,7 +36,7 @@ class VisionService
      */
     public function generateAltText(string|array $imageUrl, ?VisionOptions $options = null): string|array
     {
-        $options = $options ?? new VisionOptions();
+        $options ??= new VisionOptions();
         if ($options->getMaxTokens() === null) {
             $options = $options->withMaxTokens(100);
         }
@@ -62,7 +62,7 @@ class VisionService
      */
     public function generateTitle(string|array $imageUrl, ?VisionOptions $options = null): string|array
     {
-        $options = $options ?? new VisionOptions();
+        $options ??= new VisionOptions();
         if ($options->getMaxTokens() === null) {
             $options = $options->withMaxTokens(50);
         }
@@ -88,7 +88,7 @@ class VisionService
      */
     public function generateDescription(string|array $imageUrl, ?VisionOptions $options = null): string|array
     {
-        $options = $options ?? new VisionOptions();
+        $options ??= new VisionOptions();
         if ($options->getMaxTokens() === null) {
             $options = $options->withMaxTokens(500);
         }
@@ -117,7 +117,7 @@ class VisionService
         string $customPrompt,
         ?VisionOptions $options = null
     ): string|array {
-        $options = $options ?? new VisionOptions();
+        $options ??= new VisionOptions();
 
         if (is_array($imageUrl)) {
             return $this->processBatch($imageUrl, $customPrompt, $options);
@@ -139,7 +139,7 @@ class VisionService
         string $prompt,
         ?VisionOptions $options = null
     ): VisionResponse {
-        $options = $options ?? new VisionOptions();
+        $options ??= new VisionOptions();
         $optionsArray = $options->toArray();
         $this->validateImageUrl($imageUrl);
 

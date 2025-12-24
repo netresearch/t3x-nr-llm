@@ -9,6 +9,4 @@ namespace Netresearch\NrLlm\Exception;
  *
  * @api This class is part of the public API
  */
-class ValidationException extends LlmException
-{
-}
+class ValidationException extends LlmException {}

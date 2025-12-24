@@ -80,7 +80,7 @@ class EmbeddingResponse extends LlmResponse
         return array_merge(parent::toArray(), [
             'embeddings' => $this->embeddings,
             'model' => $this->model,
-            'dimensions' => $this->getDimensions()
+            'dimensions' => $this->getDimensions(),
         ]);
     }
 }

@@ -130,8 +130,8 @@ class LlmResponse
             default => 0.002 / 1000
         };
 
-        return ($this->usage->getPromptTokens() * $promptCost) +
-               ($this->usage->getCompletionTokens() * $completionCost);
+        return ($this->usage->getPromptTokens() * $promptCost)
+               + ($this->usage->getCompletionTokens() * $completionCost);
     }
 
     /**
@@ -143,7 +143,7 @@ class LlmResponse
             'content' => $this->content,
             'usage' => $this->usage?->toArray(),
             'metadata' => $this->metadata,
-            'finish_reason' => $this->finishReason
+            'finish_reason' => $this->finishReason,
         ];
     }
 

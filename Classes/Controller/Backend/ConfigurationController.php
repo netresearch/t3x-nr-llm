@@ -227,7 +227,7 @@ final class ConfigurationController extends ActionController
     public function toggleActiveAction(): ResponseInterface
     {
         $body = $this->request->getParsedBody();
-        $uid = (int)($body['uid'] ?? 0);
+        $uid = (int) ($body['uid'] ?? 0);
 
         if ($uid === 0) {
             return new JsonResponse(['error' => 'No configuration UID specified'], 400);
@@ -255,7 +255,7 @@ final class ConfigurationController extends ActionController
     public function setDefaultAction(): ResponseInterface
     {
         $body = $this->request->getParsedBody();
-        $uid = (int)($body['uid'] ?? 0);
+        $uid = (int) ($body['uid'] ?? 0);
 
         if ($uid === 0) {
             return new JsonResponse(['error' => 'No configuration UID specified'], 400);
@@ -311,7 +311,7 @@ final class ConfigurationController extends ActionController
     public function testConfigurationAction(): ResponseInterface
     {
         $body = $this->request->getParsedBody();
-        $uid = (int)($body['uid'] ?? 0);
+        $uid = (int) ($body['uid'] ?? 0);
 
         if ($uid === 0) {
             return new JsonResponse(['error' => 'No configuration UID specified'], 400);
@@ -374,55 +374,55 @@ final class ConfigurationController extends ActionController
     private function mapDataToConfiguration(LlmConfiguration $configuration, array $data): void
     {
         if (isset($data['identifier'])) {
-            $configuration->setIdentifier((string)$data['identifier']);
+            $configuration->setIdentifier((string) $data['identifier']);
         }
         if (isset($data['name'])) {
-            $configuration->setName((string)$data['name']);
+            $configuration->setName((string) $data['name']);
         }
         if (isset($data['description'])) {
-            $configuration->setDescription((string)$data['description']);
+            $configuration->setDescription((string) $data['description']);
         }
         if (isset($data['provider'])) {
-            $configuration->setProvider((string)$data['provider']);
+            $configuration->setProvider((string) $data['provider']);
         }
         if (isset($data['model'])) {
-            $configuration->setModel((string)$data['model']);
+            $configuration->setModel((string) $data['model']);
         }
         if (isset($data['systemPrompt'])) {
-            $configuration->setSystemPrompt((string)$data['systemPrompt']);
+            $configuration->setSystemPrompt((string) $data['systemPrompt']);
         }
         if (isset($data['temperature'])) {
-            $configuration->setTemperature((float)$data['temperature']);
+            $configuration->setTemperature((float) $data['temperature']);
         }
         if (isset($data['maxTokens'])) {
-            $configuration->setMaxTokens((int)$data['maxTokens']);
+            $configuration->setMaxTokens((int) $data['maxTokens']);
         }
         if (isset($data['topP'])) {
-            $configuration->setTopP((float)$data['topP']);
+            $configuration->setTopP((float) $data['topP']);
         }
         if (isset($data['frequencyPenalty'])) {
-            $configuration->setFrequencyPenalty((float)$data['frequencyPenalty']);
+            $configuration->setFrequencyPenalty((float) $data['frequencyPenalty']);
         }
         if (isset($data['presencePenalty'])) {
-            $configuration->setPresencePenalty((float)$data['presencePenalty']);
+            $configuration->setPresencePenalty((float) $data['presencePenalty']);
         }
         if (isset($data['options'])) {
-            $configuration->setOptions((string)$data['options']);
+            $configuration->setOptions((string) $data['options']);
         }
         if (isset($data['maxRequestsPerDay'])) {
-            $configuration->setMaxRequestsPerDay((int)$data['maxRequestsPerDay']);
+            $configuration->setMaxRequestsPerDay((int) $data['maxRequestsPerDay']);
         }
         if (isset($data['maxTokensPerDay'])) {
-            $configuration->setMaxTokensPerDay((int)$data['maxTokensPerDay']);
+            $configuration->setMaxTokensPerDay((int) $data['maxTokensPerDay']);
         }
         if (isset($data['maxCostPerDay'])) {
-            $configuration->setMaxCostPerDay((float)$data['maxCostPerDay']);
+            $configuration->setMaxCostPerDay((float) $data['maxCostPerDay']);
         }
         if (isset($data['isActive'])) {
-            $configuration->setIsActive((bool)$data['isActive']);
+            $configuration->setIsActive((bool) $data['isActive']);
         }
         if (isset($data['isDefault'])) {
-            $configuration->setIsDefault((bool)$data['isDefault']);
+            $configuration->setIsDefault((bool) $data['isDefault']);
         }
     }
 }

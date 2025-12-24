@@ -36,8 +36,8 @@ class ApiKeyManager implements SingletonInterface
     private string $pepper;
 
     public function __construct(
-        ConnectionPool $connectionPool = null,
-        AuditLogger $auditLogger = null
+        ?ConnectionPool $connectionPool = null,
+        ?AuditLogger $auditLogger = null
     ) {
         $this->connectionPool = $connectionPool ?? GeneralUtility::makeInstance(ConnectionPool::class);
         $this->auditLogger = $auditLogger ?? GeneralUtility::makeInstance(AuditLogger::class);
@@ -114,7 +114,7 @@ class ApiKeyManager implements SingletonInterface
             $data['crdate'] = time();
             $connection->insert(self::TABLE_NAME, $data);
 
-            $this->auditLogger->logKeyCreation($provider, $scope, (int)$connection->lastInsertId());
+            $this->auditLogger->logKeyCreation($provider, $scope, (int) $connection->lastInsertId());
         }
     }
 

@@ -72,7 +72,7 @@ class LlmServiceManager
     {
         $this->logger->debug('LLM completion request', [
             'prompt_length' => strlen($prompt),
-            'options' => array_keys($options)
+            'options' => array_keys($options),
         ]);
 
         // Check rate limits
@@ -121,7 +121,7 @@ class LlmServiceManager
 
         $this->logger->info('LLM completion successful', [
             'provider' => $provider->getIdentifier(),
-            'tokens' => $parsedResponse->getTotalTokens()
+            'tokens' => $parsedResponse->getTotalTokens(),
         ]);
 
         return $parsedResponse;
@@ -142,7 +142,7 @@ class LlmServiceManager
     public function stream(string $prompt, callable $callback, array $options = []): void
     {
         $this->logger->debug('LLM streaming request', [
-            'prompt_length' => strlen($prompt)
+            'prompt_length' => strlen($prompt),
         ]);
 
         // Check rate limits
@@ -178,7 +178,7 @@ class LlmServiceManager
         $provider->stream($prompt, $wrappedCallback, $request);
 
         $this->logger->info('LLM streaming completed', [
-            'provider' => $provider->getIdentifier()
+            'provider' => $provider->getIdentifier(),
         ]);
     }
 
@@ -202,7 +202,7 @@ class LlmServiceManager
         $this->logger->debug('Translation request', [
             'text_length' => strlen($text),
             'target_lang' => $targetLang,
-            'source_lang' => $sourceLang
+            'source_lang' => $sourceLang,
         ]);
 
         // Check rate limits
@@ -215,7 +215,7 @@ class LlmServiceManager
             $cacheKey = $this->getCacheKey('translate', [
                 'text' => $text,
                 'target' => $targetLang,
-                'source' => $sourceLang
+                'source' => $sourceLang,
             ]);
             $cached = $this->cache->get($cacheKey);
             if ($cached !== false) {
@@ -247,7 +247,7 @@ class LlmServiceManager
 
         $this->logger->info('Translation successful', [
             'provider' => $provider->getIdentifier(),
-            'confidence' => $response->getConfidence()
+            'confidence' => $response->getConfidence(),
         ]);
 
         return $response;
@@ -268,7 +268,7 @@ class LlmServiceManager
     {
         $this->logger->debug('Image analysis request', [
             'image_url' => $imageUrl,
-            'prompt' => $prompt
+            'prompt' => $prompt,
         ]);
 
         // Check rate limits
@@ -280,7 +280,7 @@ class LlmServiceManager
         if ($this->cacheEnabled) {
             $cacheKey = $this->getCacheKey('vision', [
                 'image' => $imageUrl,
-                'prompt' => $prompt
+                'prompt' => $prompt,
             ]);
             $cached = $this->cache->get($cacheKey);
             if ($cached !== false) {
@@ -307,7 +307,7 @@ class LlmServiceManager
 
         $this->logger->info('Image analysis successful', [
             'provider' => $provider->getIdentifier(),
-            'confidence' => $response->getConfidence()
+            'confidence' => $response->getConfidence(),
         ]);
 
         return $response;
@@ -328,7 +328,7 @@ class LlmServiceManager
         $texts = is_array($text) ? $text : [$text];
 
         $this->logger->debug('Embedding request', [
-            'text_count' => count($texts)
+            'text_count' => count($texts),
         ]);
 
         // Check rate limits
@@ -362,7 +362,7 @@ class LlmServiceManager
 
         $this->logger->info('Embedding successful', [
             'provider' => $provider->getIdentifier(),
-            'embedding_count' => count($response->getEmbeddings())
+            'embedding_count' => count($response->getEmbeddings()),
         ]);
 
         return $response;
@@ -481,12 +481,12 @@ class LlmServiceManager
         ?string $sourceLang = null
     ): TranslationResponse {
         $sourceInfo = $sourceLang ? "from {$sourceLang} " : '';
-        $prompt = "Translate the following text {$sourceInfo}to {$targetLang}. " .
-                  "Provide only the translation, no explanations:\n\n{$text}";
+        $prompt = "Translate the following text {$sourceInfo}to {$targetLang}. "
+                  . "Provide only the translation, no explanations:\n\n{$text}";
 
         $response = $this->complete($prompt, [
             'temperature' => 0.3,  // Lower temperature for deterministic translation
-            'max_tokens' => strlen($text) * 3  // Estimate max tokens
+            'max_tokens' => strlen($text) * 3,  // Estimate max tokens
         ]);
 
         return new TranslationResponse(
@@ -512,7 +512,7 @@ class LlmServiceManager
         $data = [
             'operation' => $operation,
             'provider' => $this->preferredProvider ?? 'default',
-            'params' => $normalized
+            'params' => $normalized,
         ];
         return 'llm_' . hash('sha256', json_encode($data));
     }

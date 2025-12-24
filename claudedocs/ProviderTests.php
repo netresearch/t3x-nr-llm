@@ -71,19 +71,19 @@ class GeminiProviderTest extends UnitTestCase
             'candidates' => [
                 [
                     'content' => [
-                        'parts' => [['text' => 'Generated response']]
+                        'parts' => [['text' => 'Generated response']],
                     ],
                     'finishReason' => 'STOP',
                     'safetyRatings' => [
-                        ['category' => 'HARM_CATEGORY_HARASSMENT', 'probability' => 'NEGLIGIBLE']
-                    ]
-                ]
+                        ['category' => 'HARM_CATEGORY_HARASSMENT', 'probability' => 'NEGLIGIBLE'],
+                    ],
+                ],
             ],
             'usageMetadata' => [
                 'promptTokenCount' => 10,
                 'candidatesTokenCount' => 20,
                 'totalTokenCount' => 30,
-            ]
+            ],
         ]);
 
         $this->requestFactory
@@ -106,17 +106,17 @@ class GeminiProviderTest extends UnitTestCase
             'candidates' => [
                 [
                     'content' => [
-                        'parts' => [['text' => 'This image shows a cat']]
+                        'parts' => [['text' => 'This image shows a cat']],
                     ],
                     'finishReason' => 'STOP',
                     'safetyRatings' => [
-                        ['category' => 'HARM_CATEGORY_HARASSMENT', 'probability' => 'NEGLIGIBLE']
-                    ]
-                ]
+                        ['category' => 'HARM_CATEGORY_HARASSMENT', 'probability' => 'NEGLIGIBLE'],
+                    ],
+                ],
             ],
             'usageMetadata' => [
                 'totalTokenCount' => 50,
-            ]
+            ],
         ]);
 
         $this->requestFactory
@@ -140,10 +140,10 @@ class GeminiProviderTest extends UnitTestCase
                 [
                     'finishReason' => 'SAFETY',
                     'safetyRatings' => [
-                        ['category' => 'HARM_CATEGORY_HATE_SPEECH', 'probability' => 'HIGH']
-                    ]
-                ]
-            ]
+                        ['category' => 'HARM_CATEGORY_HATE_SPEECH', 'probability' => 'HIGH'],
+                    ],
+                ],
+            ],
         ]);
 
         $this->requestFactory
@@ -164,8 +164,8 @@ class GeminiProviderTest extends UnitTestCase
     {
         $mockResponse = $this->createMockResponse([
             'embedding' => [
-                'values' => array_fill(0, 768, 0.1)
-            ]
+                'values' => array_fill(0, 768, 0.1),
+            ],
         ]);
 
         $this->requestFactory
@@ -271,9 +271,9 @@ class DeepLProviderTest extends UnitTestCase
             'translations' => [
                 [
                     'text' => 'Hallo Welt',
-                    'detected_source_language' => 'EN'
-                ]
-            ]
+                    'detected_source_language' => 'EN',
+                ],
+            ],
         ]);
 
         $this->requestFactory
@@ -297,7 +297,7 @@ class DeepLProviderTest extends UnitTestCase
             'translations' => [
                 ['text' => 'Hallo', 'detected_source_language' => 'EN'],
                 ['text' => 'Welt', 'detected_source_language' => 'EN'],
-            ]
+            ],
         ]);
 
         $this->requestFactory
@@ -478,8 +478,8 @@ class OpenRouterProviderTest extends UnitTestCase
             'choices' => [
                 [
                     'message' => ['content' => 'Generated response'],
-                    'finish_reason' => 'stop'
-                ]
+                    'finish_reason' => 'stop',
+                ],
             ],
             'usage' => [
                 'prompt_tokens' => 10,
@@ -517,7 +517,7 @@ class OpenRouterProviderTest extends UnitTestCase
 
                 return $this->createMockResponse([
                     'choices' => [
-                        ['message' => ['content' => 'Response'], 'finish_reason' => 'stop']
+                        ['message' => ['content' => 'Response'], 'finish_reason' => 'stop'],
                     ],
                     'usage' => ['total_tokens' => 30],
                 ]);
@@ -550,7 +550,7 @@ class OpenRouterProviderTest extends UnitTestCase
                     'context_length' => 128000,
                     'pricing' => ['prompt' => 0.00001, 'completion' => 0.00003],
                 ],
-            ]
+            ],
         ]);
 
         $this->cache->method('get')->willReturn(false);
@@ -602,7 +602,7 @@ class OpenRouterProviderTest extends UnitTestCase
 
         $mockResponse = $this->createMockResponse([
             'choices' => [
-                ['message' => ['content' => 'Image description'], 'finish_reason' => 'stop']
+                ['message' => ['content' => 'Image description'], 'finish_reason' => 'stop'],
             ],
             'usage' => ['total_tokens' => 50],
             'total_cost' => 0.001,

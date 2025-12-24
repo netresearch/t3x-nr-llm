@@ -86,7 +86,7 @@ class OpenRouterProvider extends AbstractProvider
         $this->autoFallback = $configuration['autoFallback'] ?? true;
         $this->fallbackModels = $this->parseFallbackModels($configuration['fallbackModels'] ?? '');
         $this->routingStrategy = $configuration['routingStrategy'] ?? 'balanced';
-        $this->budgetLimit = (float)($configuration['budgetLimit'] ?? 100.0);
+        $this->budgetLimit = (float) ($configuration['budgetLimit'] ?? 100.0);
         $this->siteUrl = $configuration['siteUrl'] ?? 'https://localhost';
         $this->appName = $configuration['appName'] ?? 'TYPO3 AI Base';
         $this->requestFactory = $requestFactory;
@@ -231,7 +231,7 @@ class OpenRouterProvider extends AbstractProvider
 
         $response = $this->complete($prompt, [
             'temperature' => 0.3,
-            ...$options
+            ...$options,
         ]);
 
         return new TranslationResponse(
@@ -328,7 +328,7 @@ class OpenRouterProvider extends AbstractProvider
      */
     public function estimateCost(int $inputTokens, int $outputTokens, ?string $model = null): float
     {
-        $model = $model ?? $this->defaultModel;
+        $model ??= $this->defaultModel;
 
         $models = $this->getAvailableModels();
 
@@ -356,7 +356,7 @@ class OpenRouterProvider extends AbstractProvider
             return true;
         } catch (\Exception $e) {
             $this->logger->error('OpenRouter availability check failed', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
             return false;
         }
@@ -387,7 +387,7 @@ class OpenRouterProvider extends AbstractProvider
         }
 
         // Select based on strategy
-        return match($this->routingStrategy) {
+        return match ($this->routingStrategy) {
             'cost_optimized' => $this->selectCheapestModel($candidates),
             'performance' => $this->selectFastestModel($candidates),
             'balanced' => $this->selectBalancedModel($candidates),
@@ -499,8 +499,8 @@ class OpenRouterProvider extends AbstractProvider
 
         // Check if default model supports vision
         $models = $this->getAvailableModels();
-        if (isset($models[$this->defaultModel]['capabilities']['vision']) &&
-            $models[$this->defaultModel]['capabilities']['vision']) {
+        if (isset($models[$this->defaultModel]['capabilities']['vision'])
+            && $models[$this->defaultModel]['capabilities']['vision']) {
             return $this->defaultModel;
         }
 
@@ -720,7 +720,7 @@ class OpenRouterProvider extends AbstractProvider
         $error = $response['error'] ?? [];
         $message = $error['message'] ?? 'Unknown OpenRouter API error';
 
-        $errorMessage = match($statusCode) {
+        $errorMessage = match ($statusCode) {
             400 => "Bad request: {$message}",
             401 => 'Invalid OpenRouter API key',
             402 => 'Insufficient credits',
@@ -739,7 +739,7 @@ class OpenRouterProvider extends AbstractProvider
             [
                 'status_code' => $statusCode,
                 'response' => $response,
-                'provider' => 'openrouter'
+                'provider' => 'openrouter',
             ]
         );
     }

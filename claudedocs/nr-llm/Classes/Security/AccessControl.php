@@ -45,8 +45,8 @@ class AccessControl implements SingletonInterface
     private AuditLogger $auditLogger;
 
     public function __construct(
-        Context $context = null,
-        AuditLogger $auditLogger = null
+        ?Context $context = null,
+        ?AuditLogger $auditLogger = null
     ) {
         $this->context = $context ?? GeneralUtility::makeInstance(Context::class);
         $this->auditLogger = $auditLogger ?? GeneralUtility::makeInstance(AuditLogger::class);
@@ -285,7 +285,7 @@ class AccessControl implements SingletonInterface
         $cacheIdentifier = $this->getQuotaCacheIdentifier($userId, $quotaType);
         $cache = $this->getQuotaCache();
 
-        return (int)($cache->get($cacheIdentifier) ?? 0);
+        return (int) ($cache->get($cacheIdentifier) ?? 0);
     }
 
     /**
@@ -302,7 +302,7 @@ class AccessControl implements SingletonInterface
         $permissions = $tsConfig['tx_nrllm.']['permissions.'] ?? [];
 
         // Permission explicitly granted
-        if (isset($permissions[$permission]) && (int)$permissions[$permission] === 1) {
+        if (isset($permissions[$permission]) && (int) $permissions[$permission] === 1) {
             return true;
         }
 
@@ -329,7 +329,7 @@ class AccessControl implements SingletonInterface
             $groupTsConfig = BackendUtility::getPagesTSconfig($group['uid']);
             $permissions = $groupTsConfig['tx_nrllm.']['permissions.'] ?? [];
 
-            if (isset($permissions[$permission]) && (int)$permissions[$permission] === 1) {
+            if (isset($permissions[$permission]) && (int) $permissions[$permission] === 1) {
                 return true;
             }
         }

@@ -70,7 +70,7 @@ class TranslationResponse extends LlmResponse
         return array_merge(parent::toArray(), [
             'translation' => $this->translation,
             'confidence' => $this->confidence,
-            'alternatives' => $this->alternatives
+            'alternatives' => $this->alternatives,
         ]);
     }
 }

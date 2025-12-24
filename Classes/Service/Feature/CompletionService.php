@@ -17,7 +17,6 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
  */
 class CompletionService
 {
-
     public function __construct(
         private readonly LlmServiceManagerInterface $llmManager,
     ) {}
@@ -30,7 +29,7 @@ class CompletionService
      */
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        $options = $options ?? new ChatOptions();
+        $options ??= new ChatOptions();
         $optionsArray = $options->toArray();
         $this->validateOptions($optionsArray);
 
@@ -91,7 +90,7 @@ class CompletionService
      */
     public function completeJson(string $prompt, ?ChatOptions $options = null): array
     {
-        $options = $options ?? new ChatOptions();
+        $options ??= new ChatOptions();
         $options = $options->withResponseFormat('json');
 
         $response = $this->complete($prompt, $options);
@@ -115,7 +114,7 @@ class CompletionService
      */
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
     {
-        $options = $options ?? new ChatOptions();
+        $options ??= new ChatOptions();
         $options = $options->withResponseFormat('markdown');
 
         $systemPrompt = $options->getSystemPrompt() ?? '';
@@ -134,7 +133,7 @@ class CompletionService
      */
     public function completeFactual(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        $options = $options ?? new ChatOptions();
+        $options ??= new ChatOptions();
 
         if ($options->getTemperature() === null) {
             $options = $options->withTemperature(0.2);
@@ -153,7 +152,7 @@ class CompletionService
      */
     public function completeCreative(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        $options = $options ?? new ChatOptions();
+        $options ??= new ChatOptions();
 
         if ($options->getTemperature() === null) {
             $options = $options->withTemperature(1.2);

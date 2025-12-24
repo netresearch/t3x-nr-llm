@@ -7,6 +7,4 @@ namespace Netresearch\NrLlm\Exception;
 /**
  * Exception thrown when an LLM configuration cannot be found
  */
-class ConfigurationNotFoundException extends \RuntimeException
-{
-}
+class ConfigurationNotFoundException extends \RuntimeException {}

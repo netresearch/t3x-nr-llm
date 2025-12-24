@@ -10,6 +10,4 @@ namespace Netresearch\NrLlm\Specialized\Exception;
  * This covers errors from specialized translators like DeepL,
  * as well as LLM-based translation failures.
  */
-final class TranslatorException extends SpecializedServiceException
-{
-}
+final class TranslatorException extends SpecializedServiceException {}

@@ -41,7 +41,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const DEFAULT_CHAT_MODEL = 'anthropic/claude-3.5-sonnet';
+    private const DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4-5';
     private const DEFAULT_EMBEDDING_MODEL = 'openai/text-embedding-3-small';
 
     private const ROUTING_STRATEGIES = [
@@ -140,24 +140,26 @@ final class OpenRouterProvider extends AbstractProvider implements
     public function getAvailableModels(): array
     {
         return [
-            // Anthropic
-            'anthropic/claude-3.5-sonnet' => 'Claude 3.5 Sonnet (Anthropic)',
-            'anthropic/claude-3-opus' => 'Claude 3 Opus (Anthropic)',
-            'anthropic/claude-3-haiku' => 'Claude 3 Haiku (Anthropic)',
-            // OpenAI
-            'openai/gpt-4o' => 'GPT-4o (OpenAI)',
-            'openai/gpt-4o-mini' => 'GPT-4o Mini (OpenAI)',
-            'openai/gpt-4-turbo' => 'GPT-4 Turbo (OpenAI)',
-            'openai/o1-preview' => 'O1 Preview (OpenAI)',
-            // Google
-            'google/gemini-2.0-flash-exp' => 'Gemini 2.0 Flash (Google)',
-            'google/gemini-pro' => 'Gemini Pro (Google)',
+            // Anthropic (December 2025)
+            'anthropic/claude-opus-4-5' => 'Claude Opus 4.5 (Anthropic)',
+            'anthropic/claude-sonnet-4-5' => 'Claude Sonnet 4.5 (Anthropic)',
+            'anthropic/claude-opus-4-1' => 'Claude Opus 4.1 (Anthropic)',
+            // OpenAI (December 2025)
+            'openai/gpt-5' => 'GPT-5 (OpenAI)',
+            'openai/gpt-4.1' => 'GPT-4.1 (OpenAI)',
+            'openai/gpt-4.1-mini' => 'GPT-4.1 Mini (OpenAI)',
+            'openai/o3' => 'O3 Reasoning (OpenAI)',
+            'openai/o4-mini' => 'O4 Mini (OpenAI)',
+            // Google (December 2025)
+            'google/gemini-3-flash' => 'Gemini 3 Flash (Google)',
+            'google/gemini-3-pro' => 'Gemini 3 Pro (Google)',
+            'google/gemini-2.5-flash' => 'Gemini 2.5 Flash (Google)',
             // Meta
+            'meta-llama/llama-3.3-70b-instruct' => 'Llama 3.3 70B (Meta)',
             'meta-llama/llama-3.1-405b-instruct' => 'Llama 3.1 405B (Meta)',
-            'meta-llama/llama-3.1-70b-instruct' => 'Llama 3.1 70B (Meta)',
             // Mistral
             'mistralai/mistral-large' => 'Mistral Large (Mistral AI)',
-            'mistralai/mixtral-8x7b-instruct' => 'Mixtral 8x7B (Mistral AI)',
+            'mistralai/pixtral-large' => 'Pixtral Large (Mistral AI)',
             // Cohere
             'cohere/command-r-plus' => 'Command R+ (Cohere)',
         ];
@@ -653,19 +655,19 @@ final class OpenRouterProvider extends AbstractProvider implements
     private function selectVisionModel(): string
     {
         $visionModels = [
-            'anthropic/claude-3.5-sonnet',
-            'anthropic/claude-3-opus',
-            'openai/gpt-4o',
-            'openai/gpt-4-turbo',
-            'google/gemini-pro-vision',
+            'anthropic/claude-sonnet-4-5',
+            'anthropic/claude-opus-4-5',
+            'openai/gpt-4.1',
+            'openai/gpt-5',
+            'google/gemini-3-flash',
         ];
 
         // Check if default model supports vision
         $models = $this->fetchAvailableModels();
         $defaultModel = $this->getDefaultModel();
 
-        if (isset($models[$defaultModel]['capabilities']['vision']) &&
-            $models[$defaultModel]['capabilities']['vision']) {
+        if (isset($models[$defaultModel]['capabilities']['vision'])
+            && $models[$defaultModel]['capabilities']['vision']) {
             return $defaultModel;
         }
 
@@ -676,7 +678,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             }
         }
 
-        return 'openai/gpt-4o'; // Fallback
+        return 'openai/gpt-4.1'; // Fallback
     }
 
     /**

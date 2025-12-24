@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Rate Limiting, Quota Management & Usage Tracking Implementations
  *
@@ -126,11 +127,11 @@ class RateLimiterService
 
         // Calculate retry after time
         $tokensNeeded = $cost - $state['tokens_available'];
-        $retryAfter = (int)ceil($tokensNeeded / $state['refill_rate']);
+        $retryAfter = (int) ceil($tokensNeeded / $state['refill_rate']);
 
         throw new RateLimitExceededException(
-            currentUsage: (int)($state['tokens_capacity'] - $state['tokens_available']),
-            limit: (int)$state['tokens_capacity'],
+            currentUsage: (int) ($state['tokens_capacity'] - $state['tokens_available']),
+            limit: (int) $state['tokens_capacity'],
             retryAfter: $retryAfter,
             scope: $limitKey
         );
@@ -201,7 +202,7 @@ class RateLimiterService
 
         $cacheKey = "ratelimit:fw:$limitKey:$windowStart";
 
-        $count = (int)($this->cache->get($cacheKey) ?: 0);
+        $count = (int) ($this->cache->get($cacheKey) ?: 0);
 
         if ($count >= $limit) {
             $retryAfter = $windowSize - ($now % $windowSize);
@@ -238,19 +239,19 @@ class RateLimiterService
 
         if ($row) {
             return [
-                'tokens_available' => (float)$row['tokens_available'],
-                'tokens_capacity' => (float)$row['tokens_capacity'],
-                'last_refill_time' => (int)$row['last_refill_time'],
-                'refill_rate' => (float)$row['refill_rate'],
+                'tokens_available' => (float) $row['tokens_available'],
+                'tokens_capacity' => (float) $row['tokens_capacity'],
+                'last_refill_time' => (int) $row['last_refill_time'],
+                'refill_rate' => (float) $row['refill_rate'],
             ];
         }
 
         // Initialize new state
         return [
-            'tokens_available' => (float)$config['capacity'],
-            'tokens_capacity' => (float)$config['capacity'],
+            'tokens_available' => (float) $config['capacity'],
+            'tokens_capacity' => (float) $config['capacity'],
             'last_refill_time' => time(),
-            'refill_rate' => (float)($config['capacity'] / $config['window_size']),
+            'refill_rate' => (float) ($config['capacity'] / $config['window_size']),
         ];
     }
 
@@ -347,10 +348,10 @@ class RateLimiterService
         $state = $this->cache->get($cacheKey) ?: $this->loadRateLimitState($limitKey, $config);
 
         return [
-            'used' => (int)($state['tokens_capacity'] - $state['tokens_available']),
-            'limit' => (int)$state['tokens_capacity'],
-            'remaining' => (int)$state['tokens_available'],
-            'reset_at' => $state['last_refill_time'] + (int)($state['tokens_available'] / $state['refill_rate']),
+            'used' => (int) ($state['tokens_capacity'] - $state['tokens_available']),
+            'limit' => (int) $state['tokens_capacity'],
+            'remaining' => (int) $state['tokens_available'],
+            'reset_at' => $state['last_refill_time'] + (int) ($state['tokens_available'] / $state['refill_rate']),
         ];
     }
 }
@@ -727,7 +728,7 @@ class QuotaManager
     private function extractLimitFromConfig(array $config, string $quotaType, string $period): float
     {
         $key = $period . '_' . $quotaType . '_limit';
-        return (float)($config[$key] ?? 0.0);
+        return (float) ($config[$key] ?? 0.0);
     }
 
     /**
@@ -891,7 +892,7 @@ class UsageTracker
     {
         $startTime = $context['start_time'] ?? microtime(true);
         $endTime = microtime(true);
-        $requestTimeMs = (int)(($endTime - $startTime) * 1000);
+        $requestTimeMs = (int) (($endTime - $startTime) * 1000);
 
         // Calculate cost
         $cost = $this->costCalculator->calculateCost(
@@ -935,7 +936,7 @@ class UsageTracker
             ]
         );
 
-        $usageUid = (int)$connection->lastInsertId();
+        $usageUid = (int) $connection->lastInsertId();
 
         // Update aggregated statistics (async if possible)
         $this->updateAggregatedStats($context);
@@ -964,7 +965,7 @@ class UsageTracker
      */
     private function shouldStoreIp(): bool
     {
-        return (bool)($this->configuration['usageTracking']['storeIpAddress'] ?? false);
+        return (bool) ($this->configuration['usageTracking']['storeIpAddress'] ?? false);
     }
 
     /**
@@ -973,14 +974,14 @@ class UsageTracker
     private function updateAggregatedStats(array $context): void
     {
         $date = date('Y-m-d');
-        $hour = (int)date('G');
+        $hour = (int) date('G');
 
         // Update hourly stats
         $this->incrementAggregatedStat([
             'stat_date' => $date,
             'stat_hour' => $hour,
             'scope' => 'user',
-            'scope_id' => (string)$context['user_id'],
+            'scope_id' => (string) $context['user_id'],
             'total_requests' => 1,
             'total_tokens' => ($context['prompt_tokens'] ?? 0) + ($context['completion_tokens'] ?? 0),
             'total_cost' => $this->costCalculator->calculateCost(

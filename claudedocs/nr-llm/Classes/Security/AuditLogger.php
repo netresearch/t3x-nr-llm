@@ -60,8 +60,8 @@ class AuditLogger implements SingletonInterface
     private int $anonymizeAfterDays;
 
     public function __construct(
-        ConnectionPool $connectionPool = null,
-        LogManager $logManager = null
+        ?ConnectionPool $connectionPool = null,
+        ?LogManager $logManager = null
     ) {
         $this->connectionPool = $connectionPool ?? GeneralUtility::makeInstance(ConnectionPool::class);
         $this->logger = ($logManager ?? GeneralUtility::makeInstance(LogManager::class))
@@ -69,8 +69,8 @@ class AuditLogger implements SingletonInterface
 
         // Load retention configuration
         $config = $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['security']['audit'] ?? [];
-        $this->retentionDays = (int)($config['retentionDays'] ?? 90);
-        $this->anonymizeAfterDays = (int)($config['anonymizeAfterDays'] ?? 30);
+        $this->retentionDays = (int) ($config['retentionDays'] ?? 90);
+        $this->anonymizeAfterDays = (int) ($config['anonymizeAfterDays'] ?? 30);
     }
 
     /**
@@ -388,7 +388,7 @@ class AuditLogger implements SingletonInterface
             $queryBuilder->andWhere(
                 $queryBuilder->expr()->eq(
                     'user_id',
-                    $queryBuilder->createNamedParameter((int)$filters['user_id'])
+                    $queryBuilder->createNamedParameter((int) $filters['user_id'])
                 )
             );
         }
@@ -397,7 +397,7 @@ class AuditLogger implements SingletonInterface
             $queryBuilder->andWhere(
                 $queryBuilder->expr()->gte(
                     'severity',
-                    $queryBuilder->createNamedParameter((int)$filters['severity'])
+                    $queryBuilder->createNamedParameter((int) $filters['severity'])
                 )
             );
         }
@@ -482,7 +482,7 @@ class AuditLogger implements SingletonInterface
             'event_type' => $eventType,
             'severity' => $severity,
             'message' => $message,
-            'user_id' => $user ? (int)$user->user['uid'] : 0,
+            'user_id' => $user ? (int) $user->user['uid'] : 0,
             'username' => $user ? $user->user['username'] : '',
             'ip_address' => GeneralUtility::getIndpEnv('REMOTE_ADDR'),
             'user_agent' => GeneralUtility::getIndpEnv('HTTP_USER_AGENT'),
@@ -536,7 +536,7 @@ class AuditLogger implements SingletonInterface
             return json_encode($value);
         }
 
-        return (string)$value;
+        return (string) $value;
     }
 
     /**

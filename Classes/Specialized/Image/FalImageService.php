@@ -209,7 +209,7 @@ final class FalImageService
         $this->ensureAvailable();
 
         $options['image_url'] = $imageUrl;
-        $options['strength'] = $options['strength'] ?? 0.75;
+        $options['strength'] ??= 0.75;
 
         return $this->generate($prompt, $model, $options);
     }
@@ -242,10 +242,10 @@ final class FalImageService
         try {
             $config = $this->extensionConfiguration->get('nr_llm');
 
-            $this->apiKey = (string)($config['image']['fal']['apiKey'] ?? '');
-            $this->baseUrl = (string)($config['image']['fal']['baseUrl'] ?? self::API_URL);
-            $this->timeout = (int)($config['image']['fal']['timeout'] ?? 120);
-            $this->pollInterval = (int)($config['image']['fal']['pollInterval'] ?? 1000);
+            $this->apiKey = (string) ($config['image']['fal']['apiKey'] ?? '');
+            $this->baseUrl = (string) ($config['image']['fal']['baseUrl'] ?? self::API_URL);
+            $this->timeout = (int) ($config['image']['fal']['timeout'] ?? 120);
+            $this->pollInterval = (int) ($config['image']['fal']['pollInterval'] ?? 1000);
         } catch (\Exception $e) {
             $this->logger->warning('Failed to load FAL configuration', [
                 'exception' => $e->getMessage(),

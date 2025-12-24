@@ -25,7 +25,7 @@ final class GeminiProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const DEFAULT_MODEL = 'gemini-2.0-flash';
+    private const DEFAULT_MODEL = 'gemini-3-flash-preview';
     private const EMBEDDING_MODEL = 'text-embedding-004';
 
     public function getName(): string
@@ -51,11 +51,15 @@ final class GeminiProvider extends AbstractProvider implements
     public function getAvailableModels(): array
     {
         return [
-            'gemini-2.0-flash' => 'Gemini 2.0 Flash (Latest)',
-            'gemini-2.0-flash-thinking' => 'Gemini 2.0 Flash Thinking',
-            'gemini-1.5-pro' => 'Gemini 1.5 Pro',
-            'gemini-1.5-flash' => 'Gemini 1.5 Flash',
-            'gemini-1.5-flash-8b' => 'Gemini 1.5 Flash 8B',
+            // Gemini 3 Series (Latest - December 2025)
+            'gemini-3-flash-preview' => 'Gemini 3 Flash (Latest)',
+            'gemini-3-pro' => 'Gemini 3 Pro (Most Capable)',
+            // Gemini 2.5 Series
+            'gemini-2.5-flash' => 'Gemini 2.5 Flash',
+            'gemini-2.5-pro' => 'Gemini 2.5 Pro',
+            'gemini-2.5-flash-lite' => 'Gemini 2.5 Flash Lite (Fast)',
+            // Gemini 2.0 Series (Legacy)
+            'gemini-2.0-flash' => 'Gemini 2.0 Flash (Legacy)',
         ];
     }
 
@@ -210,7 +214,7 @@ final class GeminiProvider extends AbstractProvider implements
             embeddings: $embeddings,
             model: $model,
             usage: $this->createUsageStatistics(
-                promptTokens: (int)$totalTokens,
+                promptTokens: (int) $totalTokens,
                 completionTokens: 0
             )
         );
@@ -218,7 +222,7 @@ final class GeminiProvider extends AbstractProvider implements
 
     public function analyzeImage(array $content, array $options = []): VisionResponse
     {
-        $model = $options['model'] ?? 'gemini-2.0-flash';
+        $model = $options['model'] ?? 'gemini-3-flash-preview';
 
         $parts = [];
         foreach ($content as $item) {

@@ -72,14 +72,14 @@ class LlmServiceManagerTest extends UnitTestCase
             'choices' => [
                 [
                     'message' => ['content' => 'Test response'],
-                    'finish_reason' => 'stop'
-                ]
+                    'finish_reason' => 'stop',
+                ],
             ],
             'usage' => [
                 'prompt_tokens' => 10,
                 'completion_tokens' => 20,
-                'total_tokens' => 30
-            ]
+                'total_tokens' => 30,
+            ],
         ];
 
         $this->mockProvider->expects($this->once())
@@ -173,8 +173,8 @@ class LlmServiceManagerTest extends UnitTestCase
     {
         $providerResponse = [
             'choices' => [
-                ['message' => ['content' => 'Response'], 'finish_reason' => 'stop']
-            ]
+                ['message' => ['content' => 'Response'], 'finish_reason' => 'stop'],
+            ],
         ];
 
         $this->mockProvider->method('complete')->willReturn($providerResponse);
@@ -201,7 +201,7 @@ class LlmServiceManagerTest extends UnitTestCase
             ->method('assertNotExceeded');
 
         $this->mockProvider->method('complete')->willReturn([
-            'choices' => [['message' => ['content' => 'Response']]]
+            'choices' => [['message' => ['content' => 'Response']]],
         ]);
 
         $this->mockCache->method('get')->willReturn(false);
@@ -282,7 +282,7 @@ class LlmServiceManagerTest extends UnitTestCase
     {
         $embeddings = [
             [0.1, 0.2, 0.3],
-            [0.4, 0.5, 0.6]
+            [0.4, 0.5, 0.6],
         ];
 
         $embeddingResponse = new EmbeddingResponse($embeddings, 'text-embedding-ada-002');
@@ -339,7 +339,7 @@ class LlmServiceManagerTest extends UnitTestCase
     public function highTemperatureDisablesCaching(): void
     {
         $this->mockProvider->method('complete')->willReturn([
-            'choices' => [['message' => ['content' => 'Response']]]
+            'choices' => [['message' => ['content' => 'Response']]],
         ]);
 
         $this->mockCache->method('get')->willReturn(false);
@@ -356,7 +356,7 @@ class LlmServiceManagerTest extends UnitTestCase
     public function fluentApiWorks(): void
     {
         $this->mockProvider->method('complete')->willReturn([
-            'choices' => [['message' => ['content' => 'Response']]]
+            'choices' => [['message' => ['content' => 'Response']]],
         ]);
 
         $this->mockCache->method('get')->willReturn(false);

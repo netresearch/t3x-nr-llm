@@ -7,6 +7,4 @@ namespace Netresearch\NrLlm\Security;
 /**
  * Exception thrown when access is denied
  */
-class AccessDeniedException extends \RuntimeException
-{
-}
+class AccessDeniedException extends \RuntimeException {}

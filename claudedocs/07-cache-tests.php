@@ -438,7 +438,7 @@ class CacheServiceTest extends UnitTestCase
             ->method('recordMiss');
 
         $providerExecuted = false;
-        $provider = function() use ($expectedResponse, &$providerExecuted) {
+        $provider = function () use ($expectedResponse, &$providerExecuted) {
             $providerExecuted = true;
             return $expectedResponse;
         };
@@ -832,7 +832,7 @@ class CacheIntegrationTest extends \TYPO3\TestingFramework\Core\Functional\Funct
         $cacheService = $this->getContainer()->get(CacheService::class);
 
         $providerCallCount = 0;
-        $provider = function() use (&$providerCallCount) {
+        $provider = function () use (&$providerCallCount) {
             $providerCallCount++;
             return new AiResponse([
                 'content' => 'Hallo',

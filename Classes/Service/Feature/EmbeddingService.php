@@ -18,7 +18,6 @@ use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
  */
 class EmbeddingService
 {
-
     private const DEFAULT_CACHE_TTL = 86400; // 24 hours (embeddings are deterministic)
 
     public function __construct(
@@ -47,7 +46,7 @@ class EmbeddingService
      */
     public function embedFull(string $text, ?EmbeddingOptions $options = null): EmbeddingResponse
     {
-        $options = $options ?? new EmbeddingOptions();
+        $options ??= new EmbeddingOptions();
         $optionsArray = $options->toArray();
 
         if (empty($text)) {
@@ -108,7 +107,7 @@ class EmbeddingService
             return [];
         }
 
-        $options = $options ?? new EmbeddingOptions();
+        $options ??= new EmbeddingOptions();
         $response = $this->llmManager->embed($texts, $options);
         return $response->embeddings;
     }

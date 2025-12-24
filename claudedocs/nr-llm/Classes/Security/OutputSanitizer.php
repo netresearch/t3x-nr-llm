@@ -49,7 +49,7 @@ class OutputSanitizer implements SingletonInterface
     // Allowed URL schemes
     private const ALLOWED_URL_SCHEMES = ['http', 'https', 'mailto'];
 
-    public function __construct(HtmlParser $htmlParser = null)
+    public function __construct(?HtmlParser $htmlParser = null)
     {
         $this->htmlParser = $htmlParser ?? GeneralUtility::makeInstance(HtmlParser::class);
 

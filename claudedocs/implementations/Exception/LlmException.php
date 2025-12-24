@@ -57,7 +57,7 @@ class LlmException extends \RuntimeException
             'suggestion' => $this->suggestion,
             'code' => $this->getCode(),
             'file' => $this->getFile(),
-            'line' => $this->getLine()
+            'line' => $this->getLine(),
         ];
     }
 }

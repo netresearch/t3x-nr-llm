@@ -10,6 +10,4 @@ namespace Netresearch\NrLlm\Specialized\Exception;
  * This covers errors from speech-to-text (Whisper) and
  * text-to-speech (TTS) services.
  */
-final class SpeechServiceException extends SpecializedServiceException
-{
-}
+final class SpeechServiceException extends SpecializedServiceException {}

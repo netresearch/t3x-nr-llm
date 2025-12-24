@@ -26,15 +26,16 @@ Provider Settings
 .. confval:: openai_default_model
 
    :type: string
-   :Default: gpt-4o
+   :Default: gpt-4.1
 
    Default model for OpenAI requests. Options:
 
-   - ``gpt-4o`` - Latest multimodal model
-   - ``gpt-4o-mini`` - Smaller, faster variant
-   - ``gpt-4-turbo`` - Previous generation turbo
-   - ``o1-preview`` - Advanced reasoning model
-   - ``o1-mini`` - Smaller reasoning model
+   - ``gpt-5`` - Most capable model
+   - ``gpt-4.1`` - Recommended balanced model
+   - ``gpt-4.1-mini`` - Smaller, faster variant
+   - ``gpt-4.1-nano`` - Fast, cost-effective
+   - ``o3`` - Advanced reasoning model
+   - ``o4-mini`` - Smaller reasoning model
 
 .. confval:: claude_api_key
 
@@ -46,14 +47,15 @@ Provider Settings
 .. confval:: claude_default_model
 
    :type: string
-   :Default: claude-sonnet-4-20250514
+   :Default: claude-sonnet-4-5-20250929
 
    Default model for Claude requests. Options:
 
-   - ``claude-opus-4-20250514`` - Most capable
-   - ``claude-sonnet-4-20250514`` - Balanced performance
-   - ``claude-3-5-sonnet-20241022`` - Previous Sonnet
-   - ``claude-3-5-haiku-20241022`` - Fast and efficient
+   - ``claude-opus-4-5-20251124`` - Most capable (November 2025)
+   - ``claude-sonnet-4-5-20250929`` - Recommended balanced model
+   - ``claude-opus-4-1-20250805`` - Previous Opus
+   - ``claude-opus-4-20250514`` - Claude 4 Opus
+   - ``claude-sonnet-4-20250514`` - Claude 4 Sonnet
 
 .. confval:: gemini_api_key
 
@@ -65,13 +67,15 @@ Provider Settings
 .. confval:: gemini_default_model
 
    :type: string
-   :Default: gemini-2.0-flash
+   :Default: gemini-3-flash-preview
 
    Default model for Gemini requests. Options:
 
-   - ``gemini-2.0-flash`` - Latest flash model
-   - ``gemini-1.5-pro`` - High capability
-   - ``gemini-1.5-flash`` - Fast responses
+   - ``gemini-3-flash-preview`` - Latest flash model (December 2025)
+   - ``gemini-3-pro`` - Most capable
+   - ``gemini-2.5-flash`` - Stable flash model
+   - ``gemini-2.5-pro`` - Stable pro model
+   - ``gemini-2.5-flash-lite`` - Fast, cost-effective
 
 General Settings
 ----------------
@@ -142,12 +146,12 @@ Setup
            # Provider-specific overrides
            providers {
                openai {
-                   model = gpt-4o
+                   model = gpt-4.1
                    temperature = 0.7
                    maxTokens = 2000
                }
                claude {
-                   model = claude-sonnet-4-20250514
+                   model = claude-sonnet-4-5-20250929
                    temperature = 0.5
                    maxTokens = 4000
                }

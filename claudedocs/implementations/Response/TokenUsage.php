@@ -49,7 +49,7 @@ class TokenUsage
         return [
             'prompt_tokens' => $this->promptTokens,
             'completion_tokens' => $this->completionTokens,
-            'total_tokens' => $this->totalTokens
+            'total_tokens' => $this->totalTokens,
         ];
     }
 }
