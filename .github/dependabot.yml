@@ -4,18 +4,46 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
     commit-message:
       prefix: "chore(deps)"
+    reviewers:
+      - "netresearch/typo3-team"
+    groups:
+      dev-dependencies:
+        patterns:
+          - "phpunit/*"
+          - "phpstan/*"
+          - "friendsofphp/*"
+          - "rector/*"
+          - "infection/*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
     labels:
       - "dependencies"
-      - "github-actions"
+      - "ci"
     commit-message:
       prefix: "chore(deps)"
+    reviewers:
+      - "netresearch/typo3-team"
+    groups:
+      actions:
+        patterns:
+          - "actions/*"
+        update-types:
+          - "minor"
+          - "patch"
