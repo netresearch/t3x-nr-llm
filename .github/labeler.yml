@@ -1,0 +1,45 @@
+# Label configuration for PR Labeler
+# https://github.com/actions/labeler
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Documentation/**'
+          - '*.md'
+          - 'docs/**'
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Tests/**'
+          - 'phpunit.xml'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.github/dependabot.yml'
+
+configuration:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Configuration/**'
+          - 'ext_*.php'
+          - 'composer.json'
+
+providers:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Classes/Provider/**'
+
+services:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Classes/Service/**'
+
+backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Classes/Controller/**'
+          - 'Configuration/Backend/**'
+          - 'Resources/Private/Backend/**'
