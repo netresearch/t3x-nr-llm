@@ -1,5 +1,5 @@
 {
-    "$schema": "https://raw.githubusercontent.com/infection/infection/0.28.0/resources/schema.json",
+    "$schema": "https://raw.githubusercontent.com/infection/infection/0.32.0/resources/schema.json",
     "source": {
         "directories": [
             "Classes"
@@ -25,7 +25,7 @@
         "configDir": ".",
         "customPath": ".Build/bin/phpunit"
     },
-    "minMsi": 40,
-    "minCoveredMsi": 55,
+    "minMsi": 55,
+    "minCoveredMsi": 58,
     "tmpDir": ".Build/cache/infection"
 }
