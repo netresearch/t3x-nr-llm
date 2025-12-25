@@ -1,0 +1,19 @@
+# Code Owners for nr_llm TYPO3 Extension
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything
+* @netresearch/typo3-team
+
+# Documentation
+/Documentation/ @netresearch/typo3-team
+*.md @netresearch/typo3-team
+
+# CI/CD and GitHub configuration
+/.github/ @netresearch/typo3-team
+
+# Core extension code
+/Classes/ @netresearch/typo3-team
+/Configuration/ @netresearch/typo3-team
+
+# Tests
+/Tests/ @netresearch/typo3-team
