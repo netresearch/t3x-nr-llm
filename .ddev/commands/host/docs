@@ -1,0 +1,33 @@
+#!/bin/bash
+
+## Description: Render TYPO3 documentation using render-guides
+## Usage: docs [--clean]
+## Example: ddev docs
+## Example: ddev docs --clean
+
+set -e
+
+EXTENSION_PATH="$(dirname "$(dirname "$(dirname "$0")")")/.."
+cd "$EXTENSION_PATH"
+
+# Check for --clean flag
+if [[ "$1" == "--clean" ]]; then
+    echo "🧹 Cleaning previous documentation build..."
+    rm -rf Documentation-GENERATED-temp
+fi
+
+echo "📚 Rendering documentation..."
+echo ""
+
+docker run --rm \
+    -v "$(pwd):/project" \
+    -v "$(pwd)/Documentation-GENERATED-temp:/project/Documentation-GENERATED-temp" \
+    ghcr.io/typo3-documentation/render-guides:latest \
+    --config Documentation
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ Documentation rendered successfully!"
+echo ""
+echo "📖 View at: https://docs.nr-llm.ddev.site/"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

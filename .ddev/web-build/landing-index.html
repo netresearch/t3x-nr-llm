@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>nr_llm - TYPO3 Extension Development</title>
+    <style>
+        :root {
+            --primary: #ff8700;
+            --secondary: #313131;
+            --bg: #1a1a2e;
+            --card-bg: #16213e;
+            --text: #eee;
+            --text-muted: #aaa;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+        }
+        .container { max-width: 900px; width: 100%; }
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        h1 {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+        .subtitle { color: var(--text-muted); font-size: 1.1rem; }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: var(--text);
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid rgba(255,135,0,0.1);
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(255,135,0,0.15);
+            border-color: var(--primary);
+        }
+        .card-icon {
+            font-size: 2rem;
+            margin-bottom: 0.75rem;
+        }
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .card-desc {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .card-url {
+            display: block;
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+            color: var(--primary);
+            font-family: monospace;
+        }
+        .git-info {
+            margin-top: 2rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-family: monospace;
+        }
+        footer {
+            margin-top: auto;
+            padding-top: 2rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>nr_llm</h1>
+            <p class="subtitle">TYPO3 LLM Integration Extension - Development Environment</p>
+        </header>
+
+        <div class="cards">
+            <a href="https://v14.nr-llm.ddev.site/typo3/" class="card">
+                <div class="card-icon">🔧</div>
+                <div class="card-title">TYPO3 v14 Backend</div>
+                <div class="card-desc">Access the TYPO3 backend with PHP 8.5 and the latest features.</div>
+                <span class="card-url">v14.nr-llm.ddev.site/typo3/</span>
+            </a>
+
+            <a href="https://v14.nr-llm.ddev.site/" class="card">
+                <div class="card-icon">🌐</div>
+                <div class="card-title">TYPO3 v14 Frontend</div>
+                <div class="card-desc">View the frontend site with your extension installed.</div>
+                <span class="card-url">v14.nr-llm.ddev.site/</span>
+            </a>
+
+            <a href="https://docs.nr-llm.ddev.site/" class="card">
+                <div class="card-icon">📚</div>
+                <div class="card-title">Documentation</div>
+                <div class="card-desc">Browse the rendered RST documentation for this extension.</div>
+                <span class="card-url">docs.nr-llm.ddev.site/</span>
+            </a>
+
+            <a href="https://nr-llm.ddev.site:8026/" class="card">
+                <div class="card-icon">📧</div>
+                <div class="card-title">Mailpit</div>
+                <div class="card-desc">View captured emails sent from the TYPO3 installation.</div>
+                <span class="card-url">nr-llm.ddev.site:8026/</span>
+            </a>
+        </div>
+
+        <div class="git-info" id="git-info">
+            Loading git info...
+        </div>
+    </div>
+
+    <footer>
+        <p>Credentials: admin / Joh316!!</p>
+        <p style="margin-top: 0.5rem;">Powered by DDEV</p>
+    </footer>
+
+    <script>
+        fetch('/.git-info.json')
+            .then(r => r.json())
+            .then(info => {
+                document.getElementById('git-info').innerHTML =
+                    `Branch: <strong>${info.branch}</strong> | ` +
+                    `Commit: <strong>${info.commit}</strong>` +
+                    (info.pr !== 'unknown' ? ` | PR: <strong>#${info.pr}</strong>` : '');
+            })
+            .catch(() => {
+                document.getElementById('git-info').textContent = '';
+            });
+    </script>
+</body>
+</html>

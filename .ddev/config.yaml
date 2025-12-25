@@ -19,10 +19,6 @@ use_dns_when_possible: true
 hooks:
   post-start:
     - exec-host: |
-        # Copy landing page to web root
-        ddev exec "cp -f /tmp/landing-index.html /var/www/html/index.html"
-        echo "✅ Landing page deployed to /var/www/html/index.html"
-
         # Capture git info and write to container automatically on every ddev start
         BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
         COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
