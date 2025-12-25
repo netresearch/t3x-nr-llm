@@ -9,7 +9,7 @@ use InvalidArgumentException;
 /**
  * Response object for embedding requests.
  */
-final class EmbeddingResponse
+final readonly class EmbeddingResponse
 {
     /**
      * @param array<int, array<int, float>> $embeddings Array of embedding vectors
@@ -18,10 +18,10 @@ final class EmbeddingResponse
      * @param string                        $provider   Provider identifier
      */
     public function __construct(
-        public readonly array $embeddings,
-        public readonly string $model,
-        public readonly UsageStatistics $usage,
-        public readonly string $provider = '',
+        public array $embeddings,
+        public string $model,
+        public UsageStatistics $usage,
+        public string $provider = '',
     ) {}
 
     /**
@@ -88,7 +88,7 @@ final class EmbeddingResponse
     public static function cosineSimilarity(array $vectorA, array $vectorB): float
     {
         if (count($vectorA) !== count($vectorB)) {
-            throw new InvalidArgumentException('Vectors must have the same dimensions');
+            throw new InvalidArgumentException('Vectors must have the same dimensions', 5756353142);
         }
 
         $dotProduct = 0.0;

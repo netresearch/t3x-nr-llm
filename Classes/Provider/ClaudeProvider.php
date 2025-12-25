@@ -13,6 +13,8 @@ use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Override;
+use Psr\Http\Message\RequestInterface;
 
 final class ClaudeProvider extends AbstractProvider implements
     VisionCapableInterface,
@@ -27,8 +29,8 @@ final class ClaudeProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
-    private const API_VERSION = '2023-06-01';
+    private const string DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
+    private const string API_VERSION = '2023-06-01';
 
     public function getName(): string
     {
@@ -45,6 +47,7 @@ final class ClaudeProvider extends AbstractProvider implements
         return 'https://api.anthropic.com/v1';
     }
 
+    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_MODEL;
@@ -67,7 +70,8 @@ final class ClaudeProvider extends AbstractProvider implements
         ];
     }
 
-    protected function addProviderSpecificHeaders(\Psr\Http\Message\RequestInterface $request): \Psr\Http\Message\RequestInterface
+    #[Override]
+    protected function addProviderSpecificHeaders(RequestInterface $request): RequestInterface
     {
         return $request
             ->withHeader('x-api-key', $this->apiKey)
@@ -211,6 +215,7 @@ final class ClaudeProvider extends AbstractProvider implements
     {
         throw new UnsupportedFeatureException(
             'Anthropic Claude does not support embeddings. Use OpenAI or a dedicated embedding provider.',
+            8109610521,
         );
     }
 

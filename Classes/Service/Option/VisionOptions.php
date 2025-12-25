@@ -11,7 +11,7 @@ namespace Netresearch\NrLlm\Service\Option;
  */
 class VisionOptions extends AbstractOptions
 {
-    private const DETAIL_LEVELS = ['auto', 'low', 'high'];
+    private const array DETAIL_LEVELS = ['auto', 'low', 'high'];
 
     public function __construct(
         private ?string $detailLevel = null,

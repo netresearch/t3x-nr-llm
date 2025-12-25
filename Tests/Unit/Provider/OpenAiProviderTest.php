@@ -10,9 +10,11 @@ use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
 
 #[CoversClass(OpenAiProvider::class)]
@@ -21,6 +23,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     private OpenAiProvider $subject;
     private ClientInterface $httpClientStub;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -45,7 +48,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     /**
      * Create a provider with a mock HTTP client for expectation testing.
      *
-     * @return array{subject: OpenAiProvider, httpClient: ClientInterface&\PHPUnit\Framework\MockObject\MockObject}
+     * @return array{subject: OpenAiProvider, httpClient: ClientInterface&MockObject}
      */
     private function createSubjectWithMockHttpClient(): array
     {

@@ -33,12 +33,12 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  */
 final class DeepLTranslator implements TranslatorInterface
 {
-    private const API_VERSION = 'v2';
-    private const FREE_API_URL = 'https://api-free.deepl.com';
-    private const PRO_API_URL = 'https://api.deepl.com';
+    private const string API_VERSION = 'v2';
+    private const string FREE_API_URL = 'https://api-free.deepl.com';
+    private const string PRO_API_URL = 'https://api.deepl.com';
 
     /** DeepL supported source languages (ISO 639-1 codes). */
-    private const SUPPORTED_SOURCE_LANGUAGES = [
+    private const array SUPPORTED_SOURCE_LANGUAGES = [
         'bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'et', 'fi', 'fr',
         'hu', 'id', 'it', 'ja', 'ko', 'lt', 'lv', 'nb', 'nl', 'pl',
         'pt', 'ro', 'ru', 'sk', 'sl', 'sv', 'tr', 'uk', 'zh',
@@ -49,7 +49,7 @@ final class DeepLTranslator implements TranslatorInterface
      * DeepL supported target languages.
      * Note: Some languages have regional variants (e.g., EN-GB, EN-US, PT-BR, PT-PT).
      */
-    private const SUPPORTED_TARGET_LANGUAGES = [
+    private const array SUPPORTED_TARGET_LANGUAGES = [
         'bg', 'cs', 'da', 'de', 'el', 'en', 'en-gb', 'en-us', 'es', 'et',
         'fi', 'fr', 'hu', 'id', 'it', 'ja', 'ko', 'lt', 'lv', 'nb', 'nl',
         'pl', 'pt', 'pt-br', 'pt-pt', 'ro', 'ru', 'sk', 'sl', 'sv', 'tr',
@@ -58,7 +58,7 @@ final class DeepLTranslator implements TranslatorInterface
     ];
 
     /** Languages that support formality control. */
-    private const FORMALITY_SUPPORTED_LANGUAGES = [
+    private const array FORMALITY_SUPPORTED_LANGUAGES = [
         'de', 'fr', 'it', 'es', 'nl', 'pl', 'pt', 'pt-br', 'pt-pt', 'ru', 'ja',
     ];
 
@@ -189,7 +189,7 @@ final class DeepLTranslator implements TranslatorInterface
         }
 
         // Track batch usage
-        $totalCharacters = array_sum(array_map('mb_strlen', $texts));
+        $totalCharacters = array_sum(array_map(mb_strlen(...), $texts));
         $this->usageTracker->trackUsage('translation', 'deepl', [
             'characters' => $totalCharacters,
             'batch_size' => count($texts),

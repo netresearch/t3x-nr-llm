@@ -11,6 +11,7 @@ use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Integration\AbstractIntegrationTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -28,6 +29,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     private LlmServiceManager $subject;
     private ExtensionConfiguration&MockObject $extensionConfigMock;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

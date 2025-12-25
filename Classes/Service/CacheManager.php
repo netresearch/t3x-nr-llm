@@ -10,7 +10,7 @@ use TYPO3\CMS\Core\SingletonInterface;
 
 final class CacheManager implements CacheManagerInterface, SingletonInterface
 {
-    private const CACHE_IDENTIFIER = 'nrllm_responses';
+    private const string CACHE_IDENTIFIER = 'nrllm_responses';
 
     private ?FrontendInterface $cache = null;
 

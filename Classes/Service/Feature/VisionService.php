@@ -17,9 +17,9 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
  */
 class VisionService
 {
-    private const PROMPT_ALT_TEXT = 'Generate a concise alt text for this image, under 125 characters, focused on essential information for screen readers. Be descriptive but brief.';
-    private const PROMPT_SEO_TITLE = 'Generate an SEO-optimized title for this image, under 60 characters, that is compelling and keyword-rich for search rankings.';
-    private const PROMPT_DESCRIPTION = 'Provide a comprehensive description of this image including subjects, setting, colors, mood, composition, and notable details.';
+    private const string PROMPT_ALT_TEXT = 'Generate a concise alt text for this image, under 125 characters, focused on essential information for screen readers. Be descriptive but brief.';
+    private const string PROMPT_SEO_TITLE = 'Generate an SEO-optimized title for this image, under 60 characters, that is compelling and keyword-rich for search rankings.';
+    private const string PROMPT_DESCRIPTION = 'Provide a comprehensive description of this image including subjects, setting, colors, mood, composition, and notable details.';
 
     public function __construct(
         private readonly LlmServiceManagerInterface $llmManager,
@@ -218,6 +218,7 @@ class VisionService
             if (!preg_match('/^data:image\/(png|jpeg|jpg|gif|webp);base64,/', $imageUrl)) {
                 throw new InvalidArgumentException(
                     'Invalid image URL or base64 data URI',
+                    1919008030,
                 );
             }
         }

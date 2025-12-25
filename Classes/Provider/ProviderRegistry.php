@@ -7,10 +7,10 @@ namespace Netresearch\NrLlm\Provider;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 
-final class ProviderRegistry
+final readonly class ProviderRegistry
 {
     public function __construct(
-        private readonly LlmServiceManager $serviceManager,
+        private LlmServiceManager $serviceManager,
     ) {}
 
     public function register(ProviderInterface $provider): void

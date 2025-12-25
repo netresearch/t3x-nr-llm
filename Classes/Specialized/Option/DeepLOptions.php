@@ -11,8 +11,8 @@ use Netresearch\NrLlm\Service\Option\AbstractOptions;
  */
 final class DeepLOptions extends AbstractOptions
 {
-    private const VALID_FORMALITIES = ['default', 'more', 'less', 'prefer_more', 'prefer_less'];
-    private const VALID_TAG_HANDLING = ['xml', 'html'];
+    private const array VALID_FORMALITIES = ['default', 'more', 'less', 'prefer_more', 'prefer_less'];
+    private const array VALID_TAG_HANDLING = ['xml', 'html'];
 
     /**
      * @param array<int, string>|null $ignoreTags

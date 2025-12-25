@@ -52,7 +52,7 @@ final readonly class Segment
         $words = null;
         if (isset($data['words']) && is_array($data['words'])) {
             $words = array_map(
-                fn(array $w) => Word::fromWhisperResponse($w),
+                Word::fromWhisperResponse(...),
                 $data['words'],
             );
         }

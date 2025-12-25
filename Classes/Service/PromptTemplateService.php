@@ -36,6 +36,7 @@ class PromptTemplateService
         if ($template === null) {
             throw new PromptTemplateNotFoundException(
                 sprintf('Prompt template "%s" not found', $identifier),
+                9955601078,
             );
         }
 
@@ -137,6 +138,7 @@ class PromptTemplateService
                     $variantName,
                     $identifier,
                 ),
+                3830663264,
             );
         }
 
@@ -229,7 +231,7 @@ class PromptTemplateService
                 $content = $matches[2];
                 return !empty($variables[$key]) ? $content : '';
             },
-            $result,
+            (string)$result,
         );
 
         // Conditional else: {{#if variable}}...{{else}}...{{/if}}
@@ -241,7 +243,7 @@ class PromptTemplateService
                 $elseContent = $matches[3];
                 return !empty($variables[$key]) ? $ifContent : $elseContent;
             },
-            $result,
+            (string)$result,
         );
 
         // Loop: {{#each items}}{{this}}{{/each}}
@@ -264,7 +266,7 @@ class PromptTemplateService
 
                 return $output;
             },
-            $result,
+            (string)$result,
         );
 
         return $result;
@@ -294,6 +296,7 @@ class PromptTemplateService
                     $template->getIdentifier(),
                     implode(', ', $missing),
                 ),
+                3948213377,
             );
         }
     }

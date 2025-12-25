@@ -10,19 +10,19 @@ namespace Netresearch\NrLlm\Domain\Model;
  * Immutable value object representing a fully rendered prompt
  * ready for execution.
  */
-final class RenderedPrompt
+final readonly class RenderedPrompt
 {
     /**
      * @param array<string, mixed> $metadata
      */
     public function __construct(
-        private readonly string $systemPrompt,
-        private readonly string $userPrompt,
-        private readonly ?string $model = null,
-        private readonly float $temperature = 0.7,
-        private readonly int $maxTokens = 1000,
-        private readonly float $topP = 1.0,
-        private readonly array $metadata = [],
+        private string $systemPrompt,
+        private string $userPrompt,
+        private ?string $model = null,
+        private float $temperature = 0.7,
+        private int $maxTokens = 1000,
+        private float $topP = 1.0,
+        private array $metadata = [],
     ) {}
 
     public function getSystemPrompt(): string

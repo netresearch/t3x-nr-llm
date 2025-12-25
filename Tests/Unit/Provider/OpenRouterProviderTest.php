@@ -7,6 +7,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,6 +19,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     private OpenRouterProvider $subject;
     private ClientInterface $httpClientMock;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -110,7 +112,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         // OpenRouter models have provider prefixes in keys (e.g., "anthropic/claude-3.5-sonnet")
         $modelKeys = array_keys($models);
         self::assertTrue(
-            count(array_filter($modelKeys, fn($m) => str_contains($m, '/'))) > 0,
+            count(array_filter($modelKeys, fn($m) => str_contains((string)$m, '/'))) > 0,
             'OpenRouter models should have provider prefixes in keys',
         );
     }

@@ -10,6 +10,7 @@ use JsonException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
+use Override;
 
 /**
  * Groq Provider.
@@ -36,9 +37,9 @@ final class GroqProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const DEFAULT_CHAT_MODEL = 'llama-3.3-70b-versatile';
+    private const string DEFAULT_CHAT_MODEL = 'llama-3.3-70b-versatile';
 
-    private const MODELS = [
+    private const array MODELS = [
         // Llama 3.3
         'llama-3.3-70b-versatile' => 'Llama 3.3 70B Versatile',
         'llama-3.3-70b-specdec' => 'Llama 3.3 70B SpecDec (Fast)',
@@ -74,6 +75,7 @@ final class GroqProvider extends AbstractProvider implements
         return 'https://api.groq.com/openai/v1';
     }
 
+    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_CHAT_MODEL;
@@ -161,7 +163,7 @@ final class GroqProvider extends AbstractProvider implements
                 'type' => $tc['type'],
                 'function' => [
                     'name' => $tc['function']['name'],
-                    'arguments' => json_decode($tc['function']['arguments'], true),
+                    'arguments' => json_decode((string)$tc['function']['arguments'], true),
                 ],
             ], $message['tool_calls']);
         }
@@ -271,6 +273,6 @@ final class GroqProvider extends AbstractProvider implements
      */
     public function embeddings(string|array $input, array $options = []): never
     {
-        throw new BadMethodCallException('Groq does not support embeddings. Use OpenAI or Mistral for embeddings.');
+        throw new BadMethodCallException('Groq does not support embeddings. Use OpenAI or Mistral for embeddings.', 4840547720);
     }
 }

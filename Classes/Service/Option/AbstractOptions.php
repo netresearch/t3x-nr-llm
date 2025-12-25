@@ -35,6 +35,7 @@ abstract class AbstractOptions
         if ($value < $min || $value > $max) {
             throw new InvalidArgumentException(
                 sprintf('%s must be between %s and %s, got %s', $name, $min, $max, $value),
+                3976896171,
             );
         }
     }
@@ -51,6 +52,7 @@ abstract class AbstractOptions
         if (!in_array($value, $allowed, true)) {
             throw new InvalidArgumentException(
                 sprintf('%s must be one of: %s, got "%s"', $name, implode(', ', $allowed), $value),
+                8287317140,
             );
         }
     }
@@ -65,6 +67,7 @@ abstract class AbstractOptions
         if ($value < 1) {
             throw new InvalidArgumentException(
                 sprintf('%s must be a positive integer, got %d', $name, $value),
+                5622106267,
             );
         }
     }

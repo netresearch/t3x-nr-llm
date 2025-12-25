@@ -7,6 +7,7 @@ namespace Netresearch\NrLlm\Tests\Integration;
 use GuzzleHttp\Psr7\HttpFactory;
 use GuzzleHttp\Psr7\Response;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -26,6 +27,7 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     protected RequestFactoryInterface $requestFactory;
     protected StreamFactoryInterface $streamFactory;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

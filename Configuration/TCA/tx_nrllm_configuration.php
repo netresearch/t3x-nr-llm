@@ -77,7 +77,8 @@ return [
                 'type' => 'input',
                 'size' => 30,
                 'max' => 100,
-                'eval' => 'trim,required,alphanum_x,lower,unique',
+                'eval' => 'trim,alphanum_x,lower,unique',
+                'required' => true,
             ],
         ],
         'name' => [
@@ -86,7 +87,8 @@ return [
                 'type' => 'input',
                 'size' => 50,
                 'max' => 255,
-                'eval' => 'trim,required',
+                'eval' => 'trim',
+                'required' => true,
             ],
         ],
         'description' => [

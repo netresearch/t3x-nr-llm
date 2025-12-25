@@ -7,6 +7,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Domain\Repository;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
@@ -22,6 +23,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     private LlmConfigurationRepository $subject;
     private PersistenceManager $persistenceManager;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

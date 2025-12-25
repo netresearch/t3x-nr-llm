@@ -46,7 +46,7 @@ final readonly class ImageGenerationResult
     public function getBinaryContent(): ?string
     {
         if ($this->hasBase64()) {
-            return base64_decode($this->base64, true) ?: null;
+            return base64_decode((string)$this->base64, true) ?: null;
         }
 
         return null;

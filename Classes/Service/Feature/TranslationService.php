@@ -6,11 +6,13 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
+use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistry;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
@@ -27,8 +29,8 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
  */
 class TranslationService
 {
-    private const SUPPORTED_FORMALITIES = ['default', 'formal', 'informal'];
-    private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
+    private const array SUPPORTED_FORMALITIES = ['default', 'formal', 'informal'];
+    private const array SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
     public function __construct(
         private readonly LlmServiceManager $llmManager,
@@ -53,7 +55,7 @@ class TranslationService
         $optionsArray = $options->toArray();
 
         if (empty($text)) {
-            throw new InvalidArgumentException('Text cannot be empty');
+            throw new InvalidArgumentException('Text cannot be empty', 1478981390);
         }
 
         $this->validateLanguageCode($targetLanguage);
@@ -246,7 +248,7 @@ class TranslationService
         $optionsArray = $options->toArray();
 
         if (empty($text)) {
-            throw new InvalidArgumentException('Text cannot be empty');
+            throw new InvalidArgumentException('Text cannot be empty', 3459949413);
         }
 
         $this->validateLanguageCode($targetLanguage);
@@ -308,7 +310,7 @@ class TranslationService
     /**
      * Get translator by identifier.
      *
-     * @throws \Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException
+     * @throws ServiceUnavailableException
      */
     public function getTranslator(string $identifier): TranslatorInterface
     {
@@ -342,7 +344,7 @@ class TranslationService
                 if ($configuration->getTranslator() !== '') {
                     return $this->translatorRegistry->get($configuration->getTranslator());
                 }
-            } catch (\Netresearch\NrLlm\Exception\ConfigurationNotFoundException) {
+            } catch (ConfigurationNotFoundException) {
                 // Fall through to default translator
             }
         }
@@ -470,6 +472,7 @@ class TranslationService
         if (!preg_match('/^[a-z]{2}(-[A-Z]{2})?$/', $languageCode)) {
             throw new InvalidArgumentException(
                 'Invalid language code format. Expected ISO 639-1 (e.g., "en", "de-DE")',
+                8727807751,
             );
         }
     }
@@ -490,6 +493,7 @@ class TranslationService
                         'Invalid formality. Supported: %s',
                         implode(', ', self::SUPPORTED_FORMALITIES),
                     ),
+                    6448506079,
                 );
             }
         }
@@ -501,12 +505,13 @@ class TranslationService
                         'Invalid domain. Supported: %s',
                         implode(', ', self::SUPPORTED_DOMAINS),
                     ),
+                    3885497401,
                 );
             }
         }
 
         if (isset($options['glossary']) && !is_array($options['glossary'])) {
-            throw new InvalidArgumentException('Glossary must be an associative array');
+            throw new InvalidArgumentException('Glossary must be an associative array', 8571915742);
         }
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -18,7 +19,7 @@ use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
  */
 class EmbeddingService
 {
-    private const DEFAULT_CACHE_TTL = 86400; // 24 hours (embeddings are deterministic)
+    private const int DEFAULT_CACHE_TTL = 86400; // 24 hours (embeddings are deterministic)
 
     public function __construct(
         private readonly LlmServiceManagerInterface $llmManager,
@@ -51,7 +52,7 @@ class EmbeddingService
         $optionsArray = $options->toArray();
 
         if (empty($text)) {
-            throw new InvalidArgumentException('Text cannot be empty');
+            throw new InvalidArgumentException('Text cannot be empty', 6048498820);
         }
 
         $model = $optionsArray['model'] ?? 'default';
@@ -65,7 +66,7 @@ class EmbeddingService
             return new EmbeddingResponse(
                 embeddings: $cached['embeddings'],
                 model: $cached['model'],
-                usage: new \Netresearch\NrLlm\Domain\Model\UsageStatistics(
+                usage: new UsageStatistics(
                     promptTokens: $cached['usage']['promptTokens'] ?? 0,
                     completionTokens: 0,
                     totalTokens: $cached['usage']['totalTokens'] ?? 0,

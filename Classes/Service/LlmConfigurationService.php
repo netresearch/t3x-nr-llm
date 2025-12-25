@@ -38,12 +38,14 @@ class LlmConfigurationService implements SingletonInterface
         if ($configuration === null) {
             throw new ConfigurationNotFoundException(
                 sprintf('LLM configuration "%s" not found', $identifier),
+                8232736809,
             );
         }
 
         if (!$configuration->isActive()) {
             throw new ConfigurationNotFoundException(
                 sprintf('LLM configuration "%s" is not active', $identifier),
+                2690936773,
             );
         }
 
@@ -63,7 +65,7 @@ class LlmConfigurationService implements SingletonInterface
         $configuration = $this->configurationRepository->findDefault();
 
         if ($configuration === null) {
-            throw new ConfigurationNotFoundException('No default LLM configuration found');
+            throw new ConfigurationNotFoundException('No default LLM configuration found', 7230464472);
         }
 
         $this->checkAccess($configuration);
@@ -101,7 +103,7 @@ class LlmConfigurationService implements SingletonInterface
         $configurations = $this->configurationRepository->findByProvider($provider)->toArray();
 
         // Filter by access
-        return array_filter($configurations, fn(LlmConfiguration $config) => $this->hasAccess($config));
+        return array_filter($configurations, $this->hasAccess(...));
     }
 
     /**
@@ -114,6 +116,7 @@ class LlmConfigurationService implements SingletonInterface
         if (!$this->hasAccess($configuration)) {
             throw new AccessDeniedException(
                 sprintf('Access denied to LLM configuration "%s"', $configuration->getIdentifier()),
+                9955441896,
             );
         }
     }
@@ -233,7 +236,7 @@ class LlmConfigurationService implements SingletonInterface
             return [];
         }
 
-        return array_map('intval', explode(',', $groupList));
+        return array_map(intval(...), explode(',', (string)$groupList));
     }
 
     /**

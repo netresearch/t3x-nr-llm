@@ -212,7 +212,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
                     $systemMessage = $messages[0] ?? null;
                     return $systemMessage !== null
                         && $systemMessage['role'] === 'system'
-                        && str_contains($systemMessage['content'], 'Markdown');
+                        && str_contains((string)$systemMessage['content'], 'Markdown');
                 }),
                 self::anything(),
             )

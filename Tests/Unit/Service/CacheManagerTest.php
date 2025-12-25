@@ -6,6 +6,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service;
 
 use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
@@ -17,6 +18,7 @@ class CacheManagerTest extends AbstractUnitTestCase
     private CacheManager $subject;
     private FrontendInterface $cacheFrontendStub;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

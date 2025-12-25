@@ -17,15 +17,15 @@ use Netresearch\NrLlm\Service\UsageTrackerService;
  * This is the default translator and is always available if any LLM provider
  * is configured.
  */
-final class LlmTranslator implements TranslatorInterface
+final readonly class LlmTranslator implements TranslatorInterface
 {
-    private const SUPPORTED_LANGUAGES = [
+    private const array SUPPORTED_LANGUAGES = [
         'en', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'pl', 'ru', 'ja', 'zh', 'ko',
         'ar', 'cs', 'da', 'fi', 'el', 'hu', 'id', 'no', 'ro', 'sk', 'sv', 'th',
         'tr', 'uk', 'vi', 'bg', 'hr', 'et', 'lv', 'lt', 'sl', 'he', 'hi', 'ms',
     ];
 
-    private const LANGUAGE_NAMES = [
+    private const array LANGUAGE_NAMES = [
         'en' => 'English', 'de' => 'German', 'fr' => 'French', 'es' => 'Spanish',
         'it' => 'Italian', 'pt' => 'Portuguese', 'nl' => 'Dutch', 'pl' => 'Polish',
         'ru' => 'Russian', 'ja' => 'Japanese', 'zh' => 'Chinese', 'ko' => 'Korean',
@@ -38,8 +38,8 @@ final class LlmTranslator implements TranslatorInterface
     ];
 
     public function __construct(
-        private readonly LlmServiceManager $llmManager,
-        private readonly UsageTrackerService $usageTracker,
+        private LlmServiceManager $llmManager,
+        private UsageTrackerService $usageTracker,
     ) {}
 
     public function getIdentifier(): string

@@ -33,17 +33,17 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  */
 final class WhisperTranscriptionService
 {
-    private const API_URL = 'https://api.openai.com/v1/audio';
-    private const DEFAULT_MODEL = 'whisper-1';
+    private const string API_URL = 'https://api.openai.com/v1/audio';
+    private const string DEFAULT_MODEL = 'whisper-1';
     private const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
 
     /** Supported input audio formats. */
-    private const SUPPORTED_FORMATS = [
+    private const array SUPPORTED_FORMATS = [
         'flac', 'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'webm',
     ];
 
     /** Supported output response formats. */
-    private const RESPONSE_FORMATS = [
+    private const array RESPONSE_FORMATS = [
         'json', 'text', 'srt', 'vtt', 'verbose_json',
     ];
 
@@ -513,7 +513,7 @@ final class WhisperTranscriptionService
         $segments = null;
         if ($format === 'verbose_json' && isset($response['segments'])) {
             $segments = array_map(
-                fn(array $s) => Segment::fromWhisperResponse($s),
+                Segment::fromWhisperResponse(...),
                 $response['segments'],
             );
         }

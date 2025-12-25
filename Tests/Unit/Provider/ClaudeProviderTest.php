@@ -8,8 +8,10 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
 
 #[CoversClass(ClaudeProvider::class)]
@@ -18,6 +20,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     private ClaudeProvider $subject;
     private ClientInterface $httpClientStub;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -42,7 +45,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     /**
      * Create a provider with a mock HTTP client for expectation testing.
      *
-     * @return array{subject: ClaudeProvider, httpClient: ClientInterface&\PHPUnit\Framework\MockObject\MockObject}
+     * @return array{subject: ClaudeProvider, httpClient: ClientInterface&MockObject}
      */
     private function createSubjectWithMockHttpClient(): array
     {

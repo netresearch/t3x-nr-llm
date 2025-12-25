@@ -10,6 +10,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Tests\Integration\AbstractIntegrationTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -23,6 +24,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
 {
     private OpenAiProvider $subject;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

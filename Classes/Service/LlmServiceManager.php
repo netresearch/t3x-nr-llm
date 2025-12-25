@@ -70,11 +70,11 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $identifier ??= $this->defaultProvider;
 
         if ($identifier === null) {
-            throw new ProviderException('No provider specified and no default provider configured');
+            throw new ProviderException('No provider specified and no default provider configured', 4867297358);
         }
 
         if (!isset($this->providers[$identifier])) {
-            throw new ProviderException(sprintf('Provider "%s" not found', $identifier));
+            throw new ProviderException(sprintf('Provider "%s" not found', $identifier), 6273324883);
         }
 
         return $this->providers[$identifier];
@@ -114,7 +114,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     public function setDefaultProvider(string $identifier): void
     {
         if (!isset($this->providers[$identifier])) {
-            throw new ProviderException(sprintf('Cannot set default: Provider "%s" not found', $identifier));
+            throw new ProviderException(sprintf('Cannot set default: Provider "%s" not found', $identifier), 7808641575);
         }
         $this->defaultProvider = $identifier;
     }
@@ -167,6 +167,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         if (!$provider->supportsFeature('embeddings')) {
             throw new UnsupportedFeatureException(
                 sprintf('Provider "%s" does not support embeddings', $provider->getIdentifier()),
+                8701213030,
             );
         }
 
@@ -188,6 +189,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         if (!$provider instanceof VisionCapableInterface) {
             throw new UnsupportedFeatureException(
                 sprintf('Provider "%s" does not support vision', $provider->getIdentifier()),
+                5549344501,
             );
         }
 
@@ -211,6 +213,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         if (!$provider instanceof StreamingCapableInterface) {
             throw new UnsupportedFeatureException(
                 sprintf('Provider "%s" does not support streaming', $provider->getIdentifier()),
+                1581627129,
             );
         }
 
@@ -233,6 +236,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         if (!$provider instanceof ToolCapableInterface) {
             throw new UnsupportedFeatureException(
                 sprintf('Provider "%s" does not support tool calling', $provider->getIdentifier()),
+                9324699785,
             );
         }
 
@@ -270,7 +274,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     public function configureProvider(string $identifier, array $config): void
     {
         if (!isset($this->providers[$identifier])) {
-            throw new ProviderException(sprintf('Provider "%s" not found', $identifier));
+            throw new ProviderException(sprintf('Provider "%s" not found', $identifier), 5332497319);
         }
 
         $this->providers[$identifier]->configure($config);

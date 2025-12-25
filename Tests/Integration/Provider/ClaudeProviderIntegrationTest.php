@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Tests\Integration\AbstractIntegrationTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -20,6 +21,7 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversClass(ClaudeProvider::class)]
 class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
 {
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

@@ -12,6 +12,7 @@ use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
+use Override;
 
 final class OpenAiProvider extends AbstractProvider implements
     VisionCapableInterface,
@@ -27,8 +28,8 @@ final class OpenAiProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const DEFAULT_CHAT_MODEL = 'gpt-5.2';
-    private const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
+    private const string DEFAULT_CHAT_MODEL = 'gpt-5.2';
+    private const string DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 
     public function getName(): string
     {
@@ -45,6 +46,7 @@ final class OpenAiProvider extends AbstractProvider implements
         return 'https://api.openai.com/v1';
     }
 
+    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_CHAT_MODEL;
@@ -134,7 +136,7 @@ final class OpenAiProvider extends AbstractProvider implements
                 'type' => $tc['type'],
                 'function' => [
                     'name' => $tc['function']['name'],
-                    'arguments' => json_decode($tc['function']['arguments'], true),
+                    'arguments' => json_decode((string)$tc['function']['arguments'], true),
                 ],
             ], $message['tool_calls']);
         }

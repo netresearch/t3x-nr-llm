@@ -11,6 +11,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -32,12 +33,12 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  */
 final class DallEImageService
 {
-    private const API_URL = 'https://api.openai.com/v1/images';
-    private const DEFAULT_MODEL = 'dall-e-3';
-    private const DEFAULT_SIZE = '1024x1024';
+    private const string API_URL = 'https://api.openai.com/v1/images';
+    private const string DEFAULT_MODEL = 'dall-e-3';
+    private const string DEFAULT_SIZE = '1024x1024';
 
     /** Model capabilities. */
-    private const MODEL_CAPABILITIES = [
+    private const array MODEL_CAPABILITIES = [
         'dall-e-2' => [
             'sizes' => ['256x256', '512x512', '1024x1024'],
             'max_prompt_length' => 1000,
@@ -531,7 +532,7 @@ final class DallEImageService
      *
      * @return array<string, mixed>
      */
-    private function executeRequest(\Psr\Http\Message\RequestInterface $request): array
+    private function executeRequest(RequestInterface $request): array
     {
         try {
             $response = $this->httpClient->sendRequest($request);

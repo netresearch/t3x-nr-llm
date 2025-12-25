@@ -10,6 +10,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -32,11 +33,11 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  */
 final class FalImageService
 {
-    private const API_URL = 'https://fal.run';
-    private const QUEUE_API_URL = 'https://queue.fal.run';
+    private const string API_URL = 'https://fal.run';
+    private const string QUEUE_API_URL = 'https://queue.fal.run';
 
     /** Default model endpoints. */
-    private const MODELS = [
+    private const array MODELS = [
         'flux-pro' => 'fal-ai/flux-pro',
         'flux-dev' => 'fal-ai/flux/dev',
         'flux-schnell' => 'fal-ai/flux/schnell',
@@ -46,7 +47,7 @@ final class FalImageService
     ];
 
     /** Standard aspect ratios. */
-    private const ASPECT_RATIOS = [
+    private const array ASPECT_RATIOS = [
         'square' => '1:1',
         'landscape' => '16:9',
         'portrait' => '9:16',
@@ -490,7 +491,7 @@ final class FalImageService
      *
      * @return array<string, mixed>
      */
-    private function executeRequest(\Psr\Http\Message\RequestInterface $request): array
+    private function executeRequest(RequestInterface $request): array
     {
         try {
             $response = $this->httpClient->sendRequest($request);

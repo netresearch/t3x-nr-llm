@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
+use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -15,7 +16,7 @@ use ReflectionClass;
 /**
  * Tests for AbstractProvider::configure() method to kill escaped mutants.
  */
-#[CoversClass(\Netresearch\NrLlm\Provider\AbstractProvider::class)]
+#[CoversClass(AbstractProvider::class)]
 class AbstractProviderConfigureTest extends AbstractUnitTestCase
 {
     #[Test]

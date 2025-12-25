@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -150,7 +151,7 @@ abstract class AbstractProvider implements ProviderInterface
         );
     }
 
-    protected function addProviderSpecificHeaders(\Psr\Http\Message\RequestInterface $request): \Psr\Http\Message\RequestInterface
+    protected function addProviderSpecificHeaders(RequestInterface $request): RequestInterface
     {
         return $request;
     }
@@ -171,6 +172,7 @@ abstract class AbstractProvider implements ProviderInterface
         if ($this->apiKey === '') {
             throw new ProviderConfigurationException(
                 sprintf('API key is required for provider %s', $this->getName()),
+                1307337100,
             );
         }
     }

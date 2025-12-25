@@ -7,13 +7,13 @@ namespace Netresearch\NrLlm\Domain\Model;
 /**
  * Token usage statistics from LLM requests.
  */
-final class UsageStatistics
+final readonly class UsageStatistics
 {
     public function __construct(
-        public readonly int $promptTokens,
-        public readonly int $completionTokens,
-        public readonly int $totalTokens,
-        public readonly ?float $estimatedCost = null,
+        public int $promptTokens,
+        public int $completionTokens,
+        public int $totalTokens,
+        public ?float $estimatedCost = null,
     ) {}
 
     /**

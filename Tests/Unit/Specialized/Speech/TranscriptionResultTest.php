@@ -314,7 +314,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
         );
 
         $srt = $result->toSrt();
-        $lines = explode("\n", $srt);
+        $lines = explode("\n", (string)$srt);
 
         // Check segment numbers appear at start of blocks
         self::assertEquals('1', $lines[0]);

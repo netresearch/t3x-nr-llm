@@ -13,7 +13,7 @@ namespace Netresearch\NrLlm\Service\Option;
  */
 class EmbeddingOptions extends AbstractOptions
 {
-    private const DEFAULT_CACHE_TTL = 86400; // 24 hours
+    private const int DEFAULT_CACHE_TTL = 86400; // 24 hours
 
     public function __construct(
         private ?string $model = null,

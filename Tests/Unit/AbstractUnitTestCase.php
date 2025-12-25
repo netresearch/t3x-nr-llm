@@ -6,6 +6,7 @@ namespace Netresearch\NrLlm\Tests\Unit;
 
 use Faker\Factory as FakerFactory;
 use Faker\Generator as Faker;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -45,7 +46,7 @@ abstract class AbstractUnitTestCase extends TestCase
      * Create a mock HTTP client that supports expectations.
      * Use this when your test needs expects($this->once()) etc.
      *
-     * @return ClientInterface&\PHPUnit\Framework\MockObject\MockObject
+     * @return ClientInterface&MockObject
      */
     protected function createHttpClientWithExpectations(): ClientInterface
     {

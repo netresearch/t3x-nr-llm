@@ -7,20 +7,20 @@ namespace Netresearch\NrLlm\Domain\Model;
 /**
  * Response object for text completion requests.
  */
-final class CompletionResponse
+final readonly class CompletionResponse
 {
     /**
      * @param array<int, array<string, mixed>>|null $toolCalls
      * @param array<string, mixed>|null             $metadata
      */
     public function __construct(
-        public readonly string $content,
-        public readonly string $model,
-        public readonly UsageStatistics $usage,
-        public readonly string $finishReason = 'stop',
-        public readonly string $provider = '',
-        public readonly ?array $toolCalls = null,
-        public readonly ?array $metadata = null,
+        public string $content,
+        public string $model,
+        public UsageStatistics $usage,
+        public string $finishReason = 'stop',
+        public string $provider = '',
+        public ?array $toolCalls = null,
+        public ?array $metadata = null,
     ) {}
 
     /**

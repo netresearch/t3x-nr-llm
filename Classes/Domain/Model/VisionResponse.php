@@ -7,20 +7,20 @@ namespace Netresearch\NrLlm\Domain\Model;
 /**
  * Response object for vision/image analysis requests.
  */
-final class VisionResponse
+final readonly class VisionResponse
 {
     /**
      * @param array<int, array<string, mixed>>|null $detectedObjects
      * @param array<string, mixed>|null             $metadata
      */
     public function __construct(
-        public readonly string $description,
-        public readonly string $model,
-        public readonly UsageStatistics $usage,
-        public readonly string $provider = '',
-        public readonly ?float $confidence = null,
-        public readonly ?array $detectedObjects = null,
-        public readonly ?array $metadata = null,
+        public string $description,
+        public string $model,
+        public UsageStatistics $usage,
+        public string $provider = '',
+        public ?float $confidence = null,
+        public ?array $detectedObjects = null,
+        public ?array $metadata = null,
     ) {}
 
     /**

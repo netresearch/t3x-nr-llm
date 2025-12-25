@@ -12,6 +12,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
@@ -25,6 +26,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     private LoggerInterface $loggerStub;
     private TestableProvider $provider;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -323,11 +325,13 @@ class TestableProvider extends AbstractProvider
         return $this->id;
     }
 
+    #[Override]
     public function isAvailable(): bool
     {
         return $this->available;
     }
 
+    #[Override]
     public function supportsFeature(string $feature): bool
     {
         return in_array($feature, ['chat', 'embeddings', 'vision'], true);
@@ -345,6 +349,7 @@ class TestableProvider extends AbstractProvider
         );
     }
 
+    #[Override]
     public function complete(string $prompt, array $options = []): CompletionResponse
     {
         return $this->chatCompletion([['role' => 'user', 'content' => $prompt]], $options);
@@ -366,11 +371,13 @@ class TestableProvider extends AbstractProvider
         return ['gpt-4o' => 'GPT-4o', 'gpt-4o-mini' => 'GPT-4o Mini'];
     }
 
+    #[Override]
     public function getDefaultModel(): string
     {
         return 'gpt-4o';
     }
 
+    #[Override]
     public function configure(array $config): void
     {
         $this->lastConfiguration = $config;

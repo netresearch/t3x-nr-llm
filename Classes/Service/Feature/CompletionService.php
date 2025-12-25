@@ -103,6 +103,7 @@ class CompletionService
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new InvalidArgumentException(
                 'Failed to decode JSON response: ' . json_last_error_msg(),
+                2805117333,
             );
         }
 
@@ -185,6 +186,7 @@ class CompletionService
             if (!is_numeric($temp) || $temp < 0 || $temp > 2) {
                 throw new InvalidArgumentException(
                     'Temperature must be between 0.0 and 2.0',
+                    3543071196,
                 );
             }
         }
@@ -194,6 +196,7 @@ class CompletionService
             if (!is_int($maxTokens) || $maxTokens < 1) {
                 throw new InvalidArgumentException(
                     'max_tokens must be a positive integer',
+                    5189150391,
                 );
             }
         }
@@ -203,6 +206,7 @@ class CompletionService
             if (!is_numeric($topP) || $topP < 0 || $topP > 1) {
                 throw new InvalidArgumentException(
                     'top_p must be between 0.0 and 1.0',
+                    6248946507,
                 );
             }
         }
@@ -212,6 +216,7 @@ class CompletionService
             if (!in_array($format, ['text', 'json', 'markdown'], true)) {
                 throw new InvalidArgumentException(
                     'response_format must be "text", "json", or "markdown"',
+                    2518770347,
                 );
             }
         }

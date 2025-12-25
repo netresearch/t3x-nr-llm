@@ -469,7 +469,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     public function translateBatchTracksCorrectTotalCharacters(): void
     {
         $texts = ['Hello', 'World', 'Test'];
-        $expectedTotalChars = array_sum(array_map('mb_strlen', $texts));
+        $expectedTotalChars = array_sum(array_map(mb_strlen(...), $texts));
 
         $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
         $usageTrackerMock

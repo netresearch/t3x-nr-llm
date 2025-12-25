@@ -7,20 +7,20 @@ namespace Netresearch\NrLlm\Domain\Model;
 /**
  * Result object for translation requests.
  */
-final class TranslationResult
+final readonly class TranslationResult
 {
     /**
      * @param array<int, string>|null   $alternatives
      * @param array<string, mixed>|null $metadata
      */
     public function __construct(
-        public readonly string $translation,
-        public readonly string $sourceLanguage,
-        public readonly string $targetLanguage,
-        public readonly float $confidence,
-        public readonly UsageStatistics $usage,
-        public readonly ?array $alternatives = null,
-        public readonly ?array $metadata = null,
+        public string $translation,
+        public string $sourceLanguage,
+        public string $targetLanguage,
+        public float $confidence,
+        public UsageStatistics $usage,
+        public ?array $alternatives = null,
+        public ?array $metadata = null,
     ) {}
 
     /**

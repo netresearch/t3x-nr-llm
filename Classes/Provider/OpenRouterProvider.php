@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
+use Override;
 
 /**
  * OpenRouter Provider.
@@ -44,10 +45,10 @@ final class OpenRouterProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4-5';
-    private const DEFAULT_EMBEDDING_MODEL = 'openai/text-embedding-3-small';
+    private const string DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4-5';
+    private const string DEFAULT_EMBEDDING_MODEL = 'openai/text-embedding-3-small';
 
-    private const ROUTING_STRATEGIES = [
+    private const array ROUTING_STRATEGIES = [
         'cost_optimized',
         'performance',
         'balanced',
@@ -95,6 +96,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         return 'https://openrouter.ai/api/v1';
     }
 
+    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_CHAT_MODEL;
@@ -103,6 +105,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     /**
      * Configure provider with additional OpenRouter-specific options.
      */
+    #[Override]
     public function configure(array $config): void
     {
         parent::configure($config);
@@ -125,7 +128,7 @@ final class OpenRouterProvider extends AbstractProvider implements
 
         if (isset($config['fallbackModels']) && is_string($config['fallbackModels'])) {
             $this->fallbackModels = array_filter(
-                array_map('trim', explode(',', $config['fallbackModels'])),
+                array_map(trim(...), explode(',', $config['fallbackModels'])),
             );
         }
     }
@@ -198,7 +201,7 @@ final class OpenRouterProvider extends AbstractProvider implements
 
             $this->cachedModels = $models;
             return $models;
-        } catch (Exception $e) {
+        } catch (Exception) {
             // Return empty array on failure, static list still available via getAvailableModels()
             return [];
         }
@@ -324,7 +327,7 @@ final class OpenRouterProvider extends AbstractProvider implements
                 'type' => $tc['type'],
                 'function' => [
                     'name' => $tc['function']['name'],
-                    'arguments' => json_decode($tc['function']['arguments'], true),
+                    'arguments' => json_decode((string)$tc['function']['arguments'], true),
                 ],
             ], $message['tool_calls']);
         }

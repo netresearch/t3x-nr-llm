@@ -10,6 +10,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
+use Override;
 
 /**
  * Mistral AI Provider.
@@ -35,10 +36,10 @@ final class MistralProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const DEFAULT_CHAT_MODEL = 'mistral-large-latest';
-    private const DEFAULT_EMBEDDING_MODEL = 'mistral-embed';
+    private const string DEFAULT_CHAT_MODEL = 'mistral-large-latest';
+    private const string DEFAULT_EMBEDDING_MODEL = 'mistral-embed';
 
-    private const MODELS = [
+    private const array MODELS = [
         'mistral-large-latest' => 'Mistral Large (Latest)',
         'mistral-large-2411' => 'Mistral Large 2411',
         'mistral-medium-latest' => 'Mistral Medium',
@@ -66,6 +67,7 @@ final class MistralProvider extends AbstractProvider implements
         return 'https://api.mistral.ai/v1';
     }
 
+    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_CHAT_MODEL;
@@ -142,7 +144,7 @@ final class MistralProvider extends AbstractProvider implements
                 'type' => $tc['type'],
                 'function' => [
                     'name' => $tc['function']['name'],
-                    'arguments' => json_decode($tc['function']['arguments'], true),
+                    'arguments' => json_decode((string)$tc['function']['arguments'], true),
                 ],
             ], $message['tool_calls']);
         }
