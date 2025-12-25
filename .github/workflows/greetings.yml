@@ -1,0 +1,40 @@
+name: Greetings
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  greeting:
+    name: Greet Contributors
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/first-interaction@34f15f655c0a1b2205c73fb9e66362dc2ca217b7 # v1.3.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            Thanks for opening your first issue! We appreciate you taking the time to report this.
+
+            A maintainer will review your issue soon. In the meantime, please make sure you've:
+            - Checked the [documentation](https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/)
+            - Searched for [existing issues](https://github.com/netresearch/t3x-nr-llm/issues)
+
+            If you have questions, feel free to use [Discussions](https://github.com/netresearch/t3x-nr-llm/discussions).
+          pr-message: |
+            Thanks for your first pull request! We're excited to have you contribute.
+
+            A maintainer will review your PR soon. Please ensure:
+            - All CI checks pass
+            - Your code follows the project's coding standards
+            - Tests are included for new functionality
+
+            Check our [Contributing Guide](https://github.com/netresearch/t3x-nr-llm/blob/main/CONTRIBUTING.md) for more details.
