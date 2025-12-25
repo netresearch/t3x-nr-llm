@@ -22,10 +22,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Render Documentation
-        uses: typo3-documentation/render-guides@c43b21a12a9e6ce44f0eae3c75c8c2f484a68a96 # v0.2.5
+        uses: typo3-documentation/render-guides@4434f670ae2d520d9163f299494fdd3afbac5de5 # 0.35.1
         with:
           source-path: Documentation
           output-path: Documentation-GENERATED-temp
@@ -39,7 +39,7 @@ jobs:
           fi
 
       - name: Upload Documentation Artifact
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: github.event_name == 'pull_request'
         with:
           name: documentation
