@@ -20,16 +20,8 @@
         name="typo3-docs-theme"
     />
 
-    <inventory id="t3coreapi">
-        <source url="https://docs.typo3.org/m/typo3/reference-coreapi/main/en-us/"/>
-    </inventory>
-    <inventory id="t3tca">
-        <source url="https://docs.typo3.org/m/typo3/reference-tca/main/en-us/"/>
-    </inventory>
-    <inventory id="t3tsconfig">
-        <source url="https://docs.typo3.org/m/typo3/reference-tsconfig/main/en-us/"/>
-    </inventory>
-    <inventory id="t3start">
-        <source url="https://docs.typo3.org/m/typo3/tutorial-getting-started/main/en-us/"/>
-    </inventory>
+    <inventory id="t3coreapi" url="https://docs.typo3.org/m/typo3/reference-coreapi/main/en-us/"/>
+    <inventory id="t3tca" url="https://docs.typo3.org/m/typo3/reference-tca/main/en-us/"/>
+    <inventory id="t3tsconfig" url="https://docs.typo3.org/m/typo3/reference-tsconfig/main/en-us/"/>
+    <inventory id="t3start" url="https://docs.typo3.org/m/typo3/tutorial-getting-started/main/en-us/"/>
 </guides>
