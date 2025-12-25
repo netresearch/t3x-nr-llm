@@ -14,12 +14,11 @@ declare(strict_types=1);
  * - ExtEmConf automatic maintenance
  */
 
-use Rector\CodeQuality\Rector\If_\ExplicitBoolCompareRector;
 use Rector\Config\RectorConfig;
+use Rector\Php81\Rector\Property\ReadOnlyPropertyRector;
 use Rector\PHPUnit\Set\PHPUnitSetList;
 use Rector\TypeDeclaration\Rector\ClassMethod\AddVoidReturnTypeWhereNoReturnRector;
 use Rector\ValueObject\PhpVersion;
-use Ssch\TYPO3Rector\CodeQuality\General\ConvertImplicitVariablesToExplicitGlobalsRector;
 use Ssch\TYPO3Rector\CodeQuality\General\ExtEmConfRector;
 use Ssch\TYPO3Rector\Configuration\Typo3Option;
 use Ssch\TYPO3Rector\Set\Typo3LevelSetList;
@@ -55,18 +54,21 @@ return RectorConfig::configure()
     // Additional useful rules
     ->withRules([
         AddVoidReturnTypeWhereNoReturnRector::class,
-        ConvertImplicitVariablesToExplicitGlobalsRector::class,
     ])
-    // Auto-import class names (removes need for full namespaces)
-    ->withImportNames(true, true, false)
     // ExtEmConfRector: Automatically maintains ext_emconf.php
     ->withConfiguredRule(ExtEmConfRector::class, [
         ExtEmConfRector::PHP_VERSION_CONSTRAINT => '8.5.0-8.99.99',
         ExtEmConfRector::TYPO3_VERSION_CONSTRAINT => '14.0.0-14.99.99',
         ExtEmConfRector::ADDITIONAL_VALUES_TO_BE_REMOVED => [],
     ])
-    // Skip specific rules if they cause issues
+    // Skip specific rules and files that cause issues
     ->withSkip([
-        // Skip overly aggressive boolean comparisons
-        ExplicitBoolCompareRector::class,
-    ]);
+        // Skip readonly for test properties that are set in setUp() - causes PHPStan errors
+        ReadOnlyPropertyRector::class => [
+            __DIR__ . '/../../Tests/Integration/Provider/OpenAiProviderIntegrationTest.php',
+        ],
+        // Skip Fuzzy tests - Eris\Generator namespace functions conflict with auto-imports
+        __DIR__ . '/../../Tests/Fuzzy/',
+    ])
+    // Disable function imports for Fuzzy tests - Eris\Generator uses namespace functions
+    ->withImportNames(true, true, false, false);
