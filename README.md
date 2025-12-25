@@ -1,5 +1,9 @@
 # TYPO3 Extension: nr_llm
 
+[![CI](https://github.com/netresearch/t3x-nr-llm/actions/workflows/ci.yml/badge.svg)](https://github.com/netresearch/t3x-nr-llm/actions/workflows/ci.yml)
+[![PHP 8.5+](https://img.shields.io/badge/PHP-8.5%2B-blue.svg)](https://www.php.net/)
+[![TYPO3 v14](https://img.shields.io/badge/TYPO3-v14-orange.svg)](https://typo3.org/)
+
 A unified LLM (Large Language Model) provider abstraction layer for TYPO3 v14.
 
 ## Features
