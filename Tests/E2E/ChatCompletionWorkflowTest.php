@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Service\Feature\CompletionService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
@@ -209,10 +210,10 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         $completionService = new CompletionService($serviceManager);
 
         // Act: Request with specific options
-        $result = $completionService->complete('Generate JSON', [
-            'temperature' => 0.1,
-            'max_tokens' => 500,
-        ]);
+        $result = $completionService->complete(
+            'Generate JSON',
+            new ChatOptions(temperature: 0.1, maxTokens: 500),
+        );
 
         // Assert
         self::assertInstanceOf(CompletionResponse::class, $result);
@@ -373,7 +374,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         $completionService = new CompletionService($serviceManager);
 
         // Act: Request Claude specifically
-        $result = $completionService->complete('Hello', ['provider' => 'claude']);
+        $result = $completionService->complete('Hello', new ChatOptions(provider: 'claude'));
 
         // Assert: Response came from Claude
         self::assertEquals('Claude response', $result->content);

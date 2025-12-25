@@ -8,9 +8,9 @@
 
 set -e
 
-cd /var/www/html/packages/nr_llm
+cd /var/www/nr_llm
 
 echo "=== Running nr_llm tests ==="
 
 # Run tests with any passed arguments
-.Build/bin/phpunit -c Tests/phpunit.xml "$@"
+.Build/bin/phpunit -c phpunit.xml "$@"

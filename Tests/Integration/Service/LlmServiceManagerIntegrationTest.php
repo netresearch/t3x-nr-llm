@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Integration\AbstractIntegrationTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -142,7 +143,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         // Request Claude specifically
         $result = $this->subject->chat(
             [['role' => 'user', 'content' => 'Hello']],
-            ['provider' => 'claude'],
+            new ChatOptions(provider: 'claude'),
         );
 
         self::assertEquals('Claude response', $result->content);
@@ -239,7 +240,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 
         $this->subject->chat(
             [['role' => 'user', 'content' => 'Hello']],
-            ['temperature' => 0.5, 'max_tokens' => 100],
+            new ChatOptions(temperature: 0.5, maxTokens: 100),
         );
 
         self::assertCount(1, $clientSetup['requests']);

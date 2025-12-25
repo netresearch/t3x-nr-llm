@@ -7,8 +7,8 @@
 
 set -e
 
-cd /var/www/html/packages/nr_llm
+cd /var/www/nr_llm
 
 echo "=== Running PHPStan ==="
 
-.Build/bin/phpstan analyse "$@"
+.Build/bin/phpstan analyse -c Build/phpstan/phpstan.neon "$@"
