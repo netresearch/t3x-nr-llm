@@ -8,7 +8,7 @@ use GuzzleHttp\Psr7\HttpFactory;
 use GuzzleHttp\Psr7\Response;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Override;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
@@ -36,13 +36,13 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Create an HTTP client mock that returns sequential responses.
+     * Create an HTTP client stub that returns sequential responses.
      *
      * @param array<ResponseInterface> $responses
      */
-    protected function createHttpClientWithResponses(array $responses): ClientInterface&MockObject
+    protected function createHttpClientWithResponses(array $responses): ClientInterface&Stub
     {
-        $client = $this->createMock(ClientInterface::class);
+        $client = self::createStub(ClientInterface::class);
         $client->method('sendRequest')
             ->willReturnOnConsecutiveCalls(...$responses);
 
@@ -78,14 +78,14 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Create a mock HTTP client that captures request bodies.
+     * Create a stub HTTP client that captures request bodies.
      *
-     * @return array{client: ClientInterface&MockObject, requests: array<RequestInterface>}
+     * @return array{client: ClientInterface&Stub, requests: array<RequestInterface>}
      */
     protected function createRequestCapturingClient(ResponseInterface $response): array
     {
         $requests = [];
-        $client = $this->createMock(ClientInterface::class);
+        $client = self::createStub(ClientInterface::class);
         $client->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use ($response, &$requests) {
                 $requests[] = $request;

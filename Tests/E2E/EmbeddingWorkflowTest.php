@@ -45,7 +45,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             'embeddingModel' => 'text-embedding-3-small',
         ]);
 
-        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
@@ -56,7 +56,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $serviceManager->setDefaultProvider('openai');
 
         // Mock cache manager
-        $cacheManager = $this->createMock(CacheManagerInterface::class);
+        $cacheManager = self::createStub(CacheManagerInterface::class);
         $cacheManager->method('getCachedEmbeddings')->willReturn(null);
         $cacheManager->method('cacheEmbeddings')->willReturn('cache-key');
 
@@ -76,7 +76,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
     public function embeddingWithCacheHitWorkflow(): void
     {
         // Arrange - No HTTP client needed when cache hits
-        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
@@ -96,7 +96,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             ],
         ];
 
-        $cacheManager = $this->createMock(CacheManagerInterface::class);
+        $cacheManager = self::createStub(CacheManagerInterface::class);
         $cacheManager->method('getCachedEmbeddings')
             ->willReturn($cachedData);
 
@@ -163,7 +163,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             'embeddingModel' => 'text-embedding-3-small',
         ]);
 
-        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
@@ -173,7 +173,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $serviceManager->registerProvider($provider);
         $serviceManager->setDefaultProvider('openai');
 
-        $cacheManager = $this->createMock(CacheManagerInterface::class);
+        $cacheManager = self::createStub(CacheManagerInterface::class);
         $cacheManager->method('getCachedEmbeddings')->willReturn(null);
         $cacheManager->method('cacheEmbeddings')->willReturn('cache-key');
 
@@ -232,7 +232,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             'embeddingModel' => 'text-embedding-3-small',
         ]);
 
-        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
@@ -242,7 +242,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $serviceManager->registerProvider($provider);
         $serviceManager->setDefaultProvider('openai');
 
-        $cacheManager = $this->createMock(CacheManagerInterface::class);
+        $cacheManager = self::createStub(CacheManagerInterface::class);
         $cacheManager->method('getCachedEmbeddings')->willReturn(null);
         $cacheManager->method('cacheEmbeddings')->willReturn('cache-key');
 

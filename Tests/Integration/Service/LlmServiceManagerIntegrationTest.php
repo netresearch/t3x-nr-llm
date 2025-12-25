@@ -14,7 +14,7 @@ use Netresearch\NrLlm\Tests\Integration\AbstractIntegrationTestCase;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -27,15 +27,15 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 {
     private LlmServiceManager $subject;
-    private ExtensionConfiguration&MockObject $extensionConfigMock;
+    private ExtensionConfiguration&Stub $extensionConfigStub;
 
     #[Override]
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $this->extensionConfigMock->method('get')
+        $this->extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $this->extensionConfigStub->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'defaultProvider' => 'openai',
@@ -52,7 +52,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
             ]);
 
         $this->subject = new LlmServiceManager(
-            $this->extensionConfigMock,
+            $this->extensionConfigStub,
             new NullLogger(),
         );
     }
@@ -204,7 +204,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     public function throwsExceptionWhenNoDefaultProviderConfigured(): void
     {
         // Create manager without default provider
-        $configMock = $this->createMock(ExtensionConfiguration::class);
+        $configMock = self::createStub(ExtensionConfiguration::class);
         $configMock->method('get')->willReturn([
             'providers' => [],
         ]);

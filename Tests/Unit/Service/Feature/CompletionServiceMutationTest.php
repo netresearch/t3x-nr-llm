@@ -227,12 +227,12 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     #[DataProvider('validTemperatureProvider')]
     public function validateOptionsAcceptsValidTemperature(float $temperature): void
     {
-        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManagerMock
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $llmManagerStub
             ->method('chat')
             ->willReturn($this->createMockResponse('Response'));
 
-        $service = new CompletionService($llmManagerMock);
+        $service = new CompletionService($llmManagerStub);
         $options = new ChatOptions(temperature: $temperature);
 
         $result = $service->complete('Test', $options);
@@ -276,12 +276,12 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     #[DataProvider('validTopPProvider')]
     public function validateOptionsAcceptsValidTopP(float $topP): void
     {
-        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManagerMock
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $llmManagerStub
             ->method('chat')
             ->willReturn($this->createMockResponse('Response'));
 
-        $service = new CompletionService($llmManagerMock);
+        $service = new CompletionService($llmManagerStub);
         $options = new ChatOptions(topP: $topP);
 
         $result = $service->complete('Test', $options);
@@ -322,12 +322,12 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     #[Test]
     public function validateOptionsAcceptsValidMaxTokens(): void
     {
-        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManagerMock
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $llmManagerStub
             ->method('chat')
             ->willReturn($this->createMockResponse('Response'));
 
-        $service = new CompletionService($llmManagerMock);
+        $service = new CompletionService($llmManagerStub);
         $options = new ChatOptions(maxTokens: 100);
 
         $result = $service->complete('Test', $options);

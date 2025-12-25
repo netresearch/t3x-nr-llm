@@ -66,7 +66,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[DataProvider('formalityMappingProvider')]
     public function translateWithFormalityUsesCorrectMapping(string $inputFormality, string $expectedMapping): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
@@ -130,7 +130,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithGlossaryIdIncludesInPayload(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
@@ -150,7 +150,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithPreserveFormattingIncludesInPayload(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
@@ -170,7 +170,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithTagHandlingIncludesInPayload(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
@@ -194,7 +194,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithSplitSentencesIncludesInPayload(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
@@ -214,7 +214,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithArrayOptionsCreatesDeepLOptions(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
@@ -237,7 +237,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[Test]
     public function detectLanguageReturnsLowercase(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
@@ -256,7 +256,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[Test]
     public function detectLanguageReturnsEnglishFallbackOnEmptyResponse(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
@@ -273,7 +273,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[Test]
     public function translateBatchWithOptionsAppliesOptions(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
@@ -297,7 +297,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     public function translateResultContainsBilledCharacters(): void
     {
         $text = 'Hello World';
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
@@ -316,7 +316,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[Test]
     public function getUsageReturnsCharacterCountAndLimit(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
@@ -334,7 +334,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[Test]
     public function getUsageReturnsZerosOnMissingData(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([]));
@@ -349,7 +349,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[Test]
     public function getGlossariesReturnsEmptyArrayOnMissingData(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([]));
@@ -364,7 +364,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithSourceLanguagePassesItToApi(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
@@ -481,7 +481,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
                 self::callback(fn(array $data) => $data['characters'] === $expectedTotalChars && $data['batch_size'] === 3),
             );
 
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([

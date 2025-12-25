@@ -49,7 +49,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'defaultModel' => 'gpt-4o',
         ]);
 
-        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
@@ -97,7 +97,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'defaultModel' => 'claude-sonnet-4-20250514',
         ]);
 
-        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'claude',
             'providers' => ['claude' => ['apiKey' => 'sk-ant-test']],
@@ -143,7 +143,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'defaultModel' => 'gpt-4o',
         ]);
 
-        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
@@ -197,7 +197,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'defaultModel' => 'gpt-4o',
         ]);
 
-        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
@@ -248,7 +248,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'defaultModel' => 'gpt-4o',
         ]);
 
-        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
@@ -294,7 +294,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'defaultModel' => 'gpt-4o',
         ]);
 
-        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
@@ -357,7 +357,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'defaultModel' => 'claude-sonnet-4-20250514',
         ]);
 
-        $extensionConfig = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
             'providers' => [
