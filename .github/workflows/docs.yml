@@ -1,0 +1,47 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Documentation/**'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Documentation/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    name: Render Documentation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Render Documentation
+        uses: typo3-documentation/render-guides@c43b21a12a9e6ce44f0eae3c75c8c2f484a68a96 # v0.2.5
+        with:
+          source-path: Documentation
+          output-path: Documentation-GENERATED-temp
+
+      - name: Check for Warnings
+        run: |
+          if [ -f "Documentation-GENERATED-temp/warnings.txt" ]; then
+            echo "Documentation warnings found:"
+            cat Documentation-GENERATED-temp/warnings.txt
+            # Don't fail on warnings, just report them
+          fi
+
+      - name: Upload Documentation Artifact
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        if: github.event_name == 'pull_request'
+        with:
+          name: documentation
+          path: Documentation-GENERATED-temp
+          retention-days: 7
