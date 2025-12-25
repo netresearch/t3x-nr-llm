@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability
+    url: https://github.com/netresearch/t3x-nr-llm/security/policy
+    about: Report security issues privately
+  - name: Documentation
+    url: https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/
+    about: Check the documentation before opening an issue
