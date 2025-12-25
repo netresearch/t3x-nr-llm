@@ -3,101 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>nr_llm - TYPO3 Extension Development</title>
+    <title>nr_llm - TYPO3 Extension Development | Netresearch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Raleway:wght@600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #ff8700;
-            --secondary: #313131;
-            --bg: #1a1a2e;
-            --card-bg: #16213e;
-            --text: #eee;
-            --text-muted: #aaa;
+            /* Netresearch Brand Colors */
+            --nr-turquoise: #2F99A4;
+            --nr-orange: #FF4D00;
+            --nr-text: #585961;
+            --nr-text-light: #ffffff;
+            --nr-bg: #f5f5f5;
+            --nr-card-bg: #ffffff;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg);
-            color: var(--text);
+            font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--nr-bg);
+            color: var(--nr-text);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            padding: 2rem;
         }
-        .container { max-width: 900px; width: 100%; }
         header {
+            background: var(--nr-turquoise);
+            color: var(--nr-text-light);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .nr-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            color: var(--nr-text-light);
+        }
+        .nr-logo-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--nr-text-light);
+            color: var(--nr-turquoise);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Raleway', sans-serif;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+        .nr-logo-text {
+            font-family: 'Raleway', sans-serif;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        main {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        .hero {
             text-align: center;
-            margin-bottom: 2rem;
+            margin-bottom: 2.5rem;
         }
         h1 {
+            font-family: 'Raleway', sans-serif;
             font-size: 2.5rem;
-            color: var(--primary);
+            font-weight: 700;
+            color: var(--nr-turquoise);
             margin-bottom: 0.5rem;
         }
-        .subtitle { color: var(--text-muted); font-size: 1.1rem; }
+        .subtitle {
+            color: var(--nr-text);
+            font-size: 1.1rem;
+        }
         .cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 1.5rem;
-            margin-top: 2rem;
         }
         .card {
-            background: var(--card-bg);
-            border-radius: 12px;
+            background: var(--nr-card-bg);
+            border-radius: 8px;
             padding: 1.5rem;
             text-decoration: none;
-            color: var(--text);
+            color: var(--nr-text);
             transition: transform 0.2s, box-shadow 0.2s;
-            border: 1px solid rgba(255,135,0,0.1);
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         .card:hover {
             transform: translateY(-4px);
-            box-shadow: 0 8px 24px rgba(255,135,0,0.15);
-            border-color: var(--primary);
+            box-shadow: 0 8px 24px rgba(47,153,164,0.15);
+            border-color: var(--nr-turquoise);
         }
         .card-icon {
             font-size: 2rem;
             margin-bottom: 0.75rem;
         }
         .card-title {
-            font-size: 1.25rem;
+            font-family: 'Raleway', sans-serif;
+            font-size: 1.15rem;
             font-weight: 600;
             margin-bottom: 0.5rem;
+            color: var(--nr-turquoise);
         }
         .card-desc {
-            color: var(--text-muted);
             font-size: 0.9rem;
             line-height: 1.5;
+            margin-bottom: 0.75rem;
         }
         .card-url {
             display: block;
-            margin-top: 0.75rem;
             font-size: 0.8rem;
-            color: var(--primary);
+            color: var(--nr-orange);
             font-family: monospace;
         }
         .git-info {
             margin-top: 2rem;
             text-align: center;
-            color: var(--text-muted);
+            color: var(--nr-text);
             font-size: 0.85rem;
             font-family: monospace;
+            background: var(--nr-card-bg);
+            padding: 0.75rem;
+            border-radius: 4px;
         }
         footer {
-            margin-top: auto;
-            padding-top: 2rem;
+            background: var(--nr-text);
+            color: var(--nr-text-light);
+            padding: 1.5rem 2rem;
             text-align: center;
-            color: var(--text-muted);
-            font-size: 0.85rem;
+            font-size: 0.9rem;
+        }
+        footer a {
+            color: var(--nr-text-light);
+        }
+        .credentials {
+            background: var(--nr-turquoise);
+            color: var(--nr-text-light);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-family: monospace;
+            display: inline-block;
+            margin-top: 0.5rem;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
+    <header>
+        <a href="https://www.netresearch.de" class="nr-logo" target="_blank">
+            <span class="nr-logo-icon">n</span>
+            <span class="nr-logo-text">Netresearch</span>
+        </a>
+    </header>
+
+    <main>
+        <div class="hero">
             <h1>nr_llm</h1>
             <p class="subtitle">TYPO3 LLM Integration Extension - Development Environment</p>
-        </header>
+        </div>
 
         <div class="cards">
             <a href="https://v14.nr-llm.ddev.site/typo3/" class="card">
@@ -132,11 +201,11 @@
         <div class="git-info" id="git-info">
             Loading git info...
         </div>
-    </div>
+    </main>
 
     <footer>
-        <p>Credentials: admin / Joh316!!</p>
-        <p style="margin-top: 0.5rem;">Powered by DDEV</p>
+        <p>Credentials: <span class="credentials">admin / Joh316!!</span></p>
+        <p style="margin-top: 0.75rem;">Powered by DDEV | <a href="https://www.netresearch.de">Netresearch DTT GmbH</a></p>
     </footer>
 
     <script>
