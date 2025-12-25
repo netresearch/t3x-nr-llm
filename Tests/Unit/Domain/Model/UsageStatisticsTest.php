@@ -22,10 +22,10 @@ class UsageStatisticsTest extends AbstractUnitTestCase
             estimatedCost: 0.0025,
         );
 
-        $this->assertEquals(100, $usage->promptTokens);
-        $this->assertEquals(50, $usage->completionTokens);
-        $this->assertEquals(150, $usage->totalTokens);
-        $this->assertEquals(0.0025, $usage->estimatedCost);
+        self::assertEquals(100, $usage->promptTokens);
+        self::assertEquals(50, $usage->completionTokens);
+        self::assertEquals(150, $usage->totalTokens);
+        self::assertEquals(0.0025, $usage->estimatedCost);
     }
 
     #[Test]
@@ -33,7 +33,7 @@ class UsageStatisticsTest extends AbstractUnitTestCase
     {
         $usage = new UsageStatistics(100, 50, 150);
 
-        $this->assertNull($usage->estimatedCost);
+        self::assertNull($usage->estimatedCost);
     }
 
     #[Test]
@@ -41,8 +41,8 @@ class UsageStatisticsTest extends AbstractUnitTestCase
     {
         $usage = new UsageStatistics(100, 50, 150);
 
-        $this->assertEquals(150, $usage->getTotal());
-        $this->assertEquals($usage->totalTokens, $usage->getTotal());
+        self::assertEquals(150, $usage->getTotal());
+        self::assertEquals($usage->totalTokens, $usage->getTotal());
     }
 
     #[Test]
@@ -50,7 +50,7 @@ class UsageStatisticsTest extends AbstractUnitTestCase
     {
         $usage = new UsageStatistics(100, 50, 150, 0.003);
 
-        $this->assertEquals(0.003, $usage->getCost());
+        self::assertEquals(0.003, $usage->getCost());
     }
 
     #[Test]
@@ -58,7 +58,7 @@ class UsageStatisticsTest extends AbstractUnitTestCase
     {
         $usage = new UsageStatistics(100, 50, 150);
 
-        $this->assertNull($usage->getCost());
+        self::assertNull($usage->getCost());
     }
 
     #[Test]
@@ -66,10 +66,10 @@ class UsageStatisticsTest extends AbstractUnitTestCase
     {
         $usage = UsageStatistics::fromTokens(100, 50);
 
-        $this->assertEquals(100, $usage->promptTokens);
-        $this->assertEquals(50, $usage->completionTokens);
-        $this->assertEquals(150, $usage->totalTokens);
-        $this->assertNull($usage->estimatedCost);
+        self::assertEquals(100, $usage->promptTokens);
+        self::assertEquals(50, $usage->completionTokens);
+        self::assertEquals(150, $usage->totalTokens);
+        self::assertNull($usage->estimatedCost);
     }
 
     #[Test]
@@ -77,8 +77,8 @@ class UsageStatisticsTest extends AbstractUnitTestCase
     {
         $usage = UsageStatistics::fromTokens(100, 50, 0.002);
 
-        $this->assertEquals(0.002, $usage->estimatedCost);
-        $this->assertEquals(0.002, $usage->getCost());
+        self::assertEquals(0.002, $usage->estimatedCost);
+        self::assertEquals(0.002, $usage->getCost());
     }
 
     #[Test]
@@ -94,7 +94,7 @@ class UsageStatisticsTest extends AbstractUnitTestCase
 
         foreach ($testCases as [$prompt, $completion, $expectedTotal]) {
             $usage = UsageStatistics::fromTokens($prompt, $completion);
-            $this->assertEquals($expectedTotal, $usage->totalTokens);
+            self::assertEquals($expectedTotal, $usage->totalTokens);
         }
     }
 
@@ -104,9 +104,9 @@ class UsageStatisticsTest extends AbstractUnitTestCase
         $usage = new UsageStatistics(100, 50, 150, 0.001);
 
         // Test that readonly properties exist and are accessible
-        $this->assertIsInt($usage->promptTokens);
-        $this->assertIsInt($usage->completionTokens);
-        $this->assertIsInt($usage->totalTokens);
+        self::assertIsInt($usage->promptTokens);
+        self::assertIsInt($usage->completionTokens);
+        self::assertIsInt($usage->totalTokens);
     }
 
     #[Test]
@@ -114,10 +114,10 @@ class UsageStatisticsTest extends AbstractUnitTestCase
     {
         $usage = new UsageStatistics(0, 0, 0);
 
-        $this->assertEquals(0, $usage->promptTokens);
-        $this->assertEquals(0, $usage->completionTokens);
-        $this->assertEquals(0, $usage->totalTokens);
-        $this->assertEquals(0, $usage->getTotal());
+        self::assertEquals(0, $usage->promptTokens);
+        self::assertEquals(0, $usage->completionTokens);
+        self::assertEquals(0, $usage->totalTokens);
+        self::assertEquals(0, $usage->getTotal());
     }
 
     #[Test]
@@ -126,9 +126,9 @@ class UsageStatisticsTest extends AbstractUnitTestCase
         $largeCount = 1_000_000;
         $usage = new UsageStatistics($largeCount, $largeCount, $largeCount * 2);
 
-        $this->assertEquals($largeCount, $usage->promptTokens);
-        $this->assertEquals($largeCount, $usage->completionTokens);
-        $this->assertEquals($largeCount * 2, $usage->totalTokens);
+        self::assertEquals($largeCount, $usage->promptTokens);
+        self::assertEquals($largeCount, $usage->completionTokens);
+        self::assertEquals($largeCount * 2, $usage->totalTokens);
     }
 
     #[Test]
@@ -136,8 +136,8 @@ class UsageStatisticsTest extends AbstractUnitTestCase
     {
         $usage = new UsageStatistics(100, 50, 150, 0.0);
 
-        $this->assertEquals(0.0, $usage->estimatedCost);
-        $this->assertEquals(0.0, $usage->getCost());
+        self::assertEquals(0.0, $usage->estimatedCost);
+        self::assertEquals(0.0, $usage->getCost());
     }
 
     #[Test]
@@ -146,6 +146,6 @@ class UsageStatisticsTest extends AbstractUnitTestCase
         $smallCost = 0.000001;
         $usage = new UsageStatistics(10, 5, 15, $smallCost);
 
-        $this->assertEquals($smallCost, $usage->getCost());
+        self::assertEquals($smallCost, $usage->getCost());
     }
 }

@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Client\ClientInterface;
+use ReflectionClass;
 
 /**
  * Additional tests for DeepLTranslator to kill escaped mutants.
@@ -35,7 +36,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createExtensionConfigurationMock(array_merge($defaultConfig, $config)),
-            $this->createStub(UsageTrackerServiceInterface::class),
+            self::createStub(UsageTrackerServiceInterface::class),
             $this->createLoggerMock(),
         );
     }
@@ -56,7 +57,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createExtensionConfigurationMock($config),
-            $this->createStub(UsageTrackerServiceInterface::class),
+            self::createStub(UsageTrackerServiceInterface::class),
             $this->createLoggerMock(),
         );
     }
@@ -80,7 +81,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $options = new DeepLOptions(formality: $inputFormality);
         $result = $translator->translate('Hello', 'de', null, ['deepl' => $options]);
 
-        $this->assertEquals('Hallo', $result->translatedText);
+        self::assertEquals('Hallo', $result->translatedText);
     }
 
     public static function formalityMappingProvider(): array
@@ -99,13 +100,13 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     public function supportsLanguagePairNormalizesLanguageCodes(
         string $source,
         string $target,
-        bool $expected
+        bool $expected,
     ): void {
         $translator = $this->createTranslator();
 
         $result = $translator->supportsLanguagePair($source, $target);
 
-        $this->assertEquals($expected, $result);
+        self::assertEquals($expected, $result);
     }
 
     public static function languageNormalizationProvider(): array
@@ -143,7 +144,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $options = new DeepLOptions(glossaryId: 'gls_12345');
         $result = $translator->translate('Hello', 'de', null, ['deepl' => $options]);
 
-        $this->assertEquals('Translated', $result->translatedText);
+        self::assertEquals('Translated', $result->translatedText);
     }
 
     #[Test]
@@ -163,7 +164,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $options = new DeepLOptions(preserveFormatting: true);
         $result = $translator->translate('Hello', 'de', null, ['deepl' => $options]);
 
-        $this->assertEquals('Formatted', $result->translatedText);
+        self::assertEquals('Formatted', $result->translatedText);
     }
 
     #[Test]
@@ -187,7 +188,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         );
         $result = $translator->translate('<p>Hello</p>', 'de', null, ['deepl' => $options]);
 
-        $this->assertEquals('<p>Translated</p>', $result->translatedText);
+        self::assertEquals('<p>Translated</p>', $result->translatedText);
     }
 
     #[Test]
@@ -207,7 +208,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $options = new DeepLOptions(splitSentences: false);
         $result = $translator->translate('Hello.', 'de', null, ['deepl' => $options]);
 
-        $this->assertEquals('Sentence.', $result->translatedText);
+        self::assertEquals('Sentence.', $result->translatedText);
     }
 
     #[Test]
@@ -230,7 +231,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             'preserve_formatting' => true,
         ]);
 
-        $this->assertEquals('Result', $result->translatedText);
+        self::assertEquals('Result', $result->translatedText);
     }
 
     #[Test]
@@ -249,7 +250,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
 
         $detected = $translator->detectLanguage('Hallo Welt');
 
-        $this->assertEquals('de', $detected);
+        self::assertEquals('de', $detected);
     }
 
     #[Test]
@@ -266,7 +267,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
 
         $detected = $translator->detectLanguage('Some text');
 
-        $this->assertEquals('en', $detected);
+        self::assertEquals('en', $detected);
     }
 
     #[Test]
@@ -287,9 +288,9 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $options = new DeepLOptions(formality: 'more', glossaryId: 'gls_test');
         $results = $translator->translateBatch(['One', 'Two'], 'de', null, ['deepl' => $options]);
 
-        $this->assertCount(2, $results);
-        $this->assertEquals('Eins', $results[0]->translatedText);
-        $this->assertEquals('Zwei', $results[1]->translatedText);
+        self::assertCount(2, $results);
+        self::assertEquals('Eins', $results[0]->translatedText);
+        self::assertEquals('Zwei', $results[1]->translatedText);
     }
 
     #[Test]
@@ -308,8 +309,8 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $translator = $this->createTranslatorWithMockClient($httpClientMock);
         $result = $translator->translate($text, 'de');
 
-        $this->assertArrayHasKey('billed_characters', $result->metadata);
-        $this->assertEquals(mb_strlen($text), $result->metadata['billed_characters']);
+        self::assertArrayHasKey('billed_characters', $result->metadata);
+        self::assertEquals(mb_strlen($text), $result->metadata['billed_characters']);
     }
 
     #[Test]
@@ -326,8 +327,8 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $translator = $this->createTranslatorWithMockClient($httpClientMock);
         $usage = $translator->getUsage();
 
-        $this->assertEquals(12345, $usage['character_count']);
-        $this->assertEquals(500000, $usage['character_limit']);
+        self::assertEquals(12345, $usage['character_count']);
+        self::assertEquals(500000, $usage['character_limit']);
     }
 
     #[Test]
@@ -341,8 +342,8 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $translator = $this->createTranslatorWithMockClient($httpClientMock);
         $usage = $translator->getUsage();
 
-        $this->assertEquals(0, $usage['character_count']);
-        $this->assertEquals(0, $usage['character_limit']);
+        self::assertEquals(0, $usage['character_count']);
+        self::assertEquals(0, $usage['character_limit']);
     }
 
     #[Test]
@@ -356,8 +357,8 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $translator = $this->createTranslatorWithMockClient($httpClientMock);
         $glossaries = $translator->getGlossaries();
 
-        $this->assertIsArray($glossaries);
-        $this->assertEmpty($glossaries);
+        self::assertIsArray($glossaries);
+        self::assertEmpty($glossaries);
     }
 
     #[Test]
@@ -375,7 +376,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $translator = $this->createTranslatorWithMockClient($httpClientMock);
         $result = $translator->translate('Hello', 'de', 'en');
 
-        $this->assertEquals('en', $result->sourceLanguage);
+        self::assertEquals('en', $result->sourceLanguage);
     }
 
     #[Test]
@@ -395,15 +396,15 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createExtensionConfigurationMock($config),
-            $this->createStub(UsageTrackerServiceInterface::class),
+            self::createStub(UsageTrackerServiceInterface::class),
             $this->createLoggerMock(),
         );
 
         // Access baseUrl via reflection
-        $reflection = new \ReflectionClass($translator);
+        $reflection = new ReflectionClass($translator);
         $baseUrl = $reflection->getProperty('baseUrl');
 
-        $this->assertStringContainsString('api-free.deepl.com', $baseUrl->getValue($translator));
+        self::assertStringContainsString('api-free.deepl.com', $baseUrl->getValue($translator));
     }
 
     #[Test]
@@ -423,16 +424,16 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createExtensionConfigurationMock($config),
-            $this->createStub(UsageTrackerServiceInterface::class),
+            self::createStub(UsageTrackerServiceInterface::class),
             $this->createLoggerMock(),
         );
 
         // Access baseUrl via reflection
-        $reflection = new \ReflectionClass($translator);
+        $reflection = new ReflectionClass($translator);
         $baseUrl = $reflection->getProperty('baseUrl');
 
-        $this->assertStringContainsString('api.deepl.com', $baseUrl->getValue($translator));
-        $this->assertStringNotContainsString('api-free', $baseUrl->getValue($translator));
+        self::assertStringContainsString('api.deepl.com', $baseUrl->getValue($translator));
+        self::assertStringNotContainsString('api-free', $baseUrl->getValue($translator));
     }
 
     #[Test]
@@ -454,14 +455,14 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createExtensionConfigurationMock($config),
-            $this->createStub(UsageTrackerServiceInterface::class),
+            self::createStub(UsageTrackerServiceInterface::class),
             $this->createLoggerMock(),
         );
 
-        $reflection = new \ReflectionClass($translator);
+        $reflection = new ReflectionClass($translator);
         $baseUrl = $reflection->getProperty('baseUrl');
 
-        $this->assertEquals($customUrl, $baseUrl->getValue($translator));
+        self::assertEquals($customUrl, $baseUrl->getValue($translator));
     }
 
     #[Test]
@@ -472,12 +473,12 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
 
         $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
         $usageTrackerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('trackUsage')
             ->with(
                 'translation',
                 'deepl',
-                $this->callback(fn(array $data) => $data['characters'] === $expectedTotalChars && $data['batch_size'] === 3)
+                self::callback(fn(array $data) => $data['characters'] === $expectedTotalChars && $data['batch_size'] === 3),
             );
 
         $httpClientMock = $this->createMock(ClientInterface::class);

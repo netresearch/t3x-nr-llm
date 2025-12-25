@@ -28,7 +28,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
         );
 
         // Provider without configure() call should not have API key
-        $this->assertFalse($provider->isAvailable());
+        self::assertFalse($provider->isAvailable());
     }
 
     #[Test]
@@ -48,7 +48,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
             'timeout' => 30,
         ]);
 
-        $this->assertTrue($provider->isAvailable());
+        self::assertTrue($provider->isAvailable());
     }
 
     #[Test]
@@ -62,7 +62,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
         );
 
-        $this->assertEquals($providerName, $provider->getName());
+        self::assertEquals($providerName, $provider->getName());
     }
 
     #[Test]
@@ -84,8 +84,8 @@ class AbstractProviderTest extends AbstractUnitTestCase
 
         $models = $provider->getAvailableModels();
 
-        $this->assertIsArray($models);
-        $this->assertNotEmpty($models);
+        self::assertIsArray($models);
+        self::assertNotEmpty($models);
     }
 
     public static function providerConfigProvider(): array

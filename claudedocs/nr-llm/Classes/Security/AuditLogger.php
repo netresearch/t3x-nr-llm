@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Security;
 
+use Exception;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -13,7 +14,7 @@ use TYPO3\CMS\Core\SingletonInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * Comprehensive audit logging for security events
+ * Comprehensive audit logging for security events.
  *
  * Logged Events:
  * - API key access/rotation/deletion
@@ -61,7 +62,7 @@ class AuditLogger implements SingletonInterface
 
     public function __construct(
         ?ConnectionPool $connectionPool = null,
-        ?LogManager $logManager = null
+        ?LogManager $logManager = null,
     ) {
         $this->connectionPool = $connectionPool ?? GeneralUtility::makeInstance(ConnectionPool::class);
         $this->logger = ($logManager ?? GeneralUtility::makeInstance(LogManager::class))
@@ -69,16 +70,16 @@ class AuditLogger implements SingletonInterface
 
         // Load retention configuration
         $config = $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['security']['audit'] ?? [];
-        $this->retentionDays = (int) ($config['retentionDays'] ?? 90);
-        $this->anonymizeAfterDays = (int) ($config['anonymizeAfterDays'] ?? 30);
+        $this->retentionDays = (int)($config['retentionDays'] ?? 90);
+        $this->anonymizeAfterDays = (int)($config['anonymizeAfterDays'] ?? 30);
     }
 
     /**
-     * Log successful API key access
+     * Log successful API key access.
      *
      * @param string $provider Provider identifier
-     * @param string $scope Scope identifier
-     * @param int $keyUid Key record UID
+     * @param string $scope    Scope identifier
+     * @param int    $keyUid   Key record UID
      */
     public function logKeyAccess(string $provider, string $scope, int $keyUid): void
     {
@@ -90,17 +91,17 @@ class AuditLogger implements SingletonInterface
                 'provider' => $provider,
                 'scope' => $scope,
                 'key_uid' => $keyUid,
-            ]
+            ],
         );
     }
 
     /**
-     * Log failed API key access attempt
+     * Log failed API key access attempt.
      *
      * @param string $provider Provider identifier
-     * @param string $scope Scope identifier
-     * @param bool $success Whether access was successful
-     * @param string $reason Failure reason
+     * @param string $scope    Scope identifier
+     * @param bool   $success  Whether access was successful
+     * @param string $reason   Failure reason
      */
     public function logKeyAccessAttempt(string $provider, string $scope, bool $success, string $reason = ''): void
     {
@@ -113,16 +114,16 @@ class AuditLogger implements SingletonInterface
                 'scope' => $scope,
                 'success' => $success,
                 'reason' => $reason,
-            ]
+            ],
         );
     }
 
     /**
-     * Log API key creation
+     * Log API key creation.
      *
      * @param string $provider Provider identifier
-     * @param string $scope Scope identifier
-     * @param int $keyUid New key record UID
+     * @param string $scope    Scope identifier
+     * @param int    $keyUid   New key record UID
      */
     public function logKeyCreation(string $provider, string $scope, int $keyUid): void
     {
@@ -134,16 +135,16 @@ class AuditLogger implements SingletonInterface
                 'provider' => $provider,
                 'scope' => $scope,
                 'key_uid' => $keyUid,
-            ]
+            ],
         );
     }
 
     /**
-     * Log API key rotation
+     * Log API key rotation.
      *
      * @param string $provider Provider identifier
-     * @param string $scope Scope identifier
-     * @param int $keyUid Key record UID
+     * @param string $scope    Scope identifier
+     * @param int    $keyUid   Key record UID
      */
     public function logKeyRotation(string $provider, string $scope, int $keyUid): void
     {
@@ -155,16 +156,16 @@ class AuditLogger implements SingletonInterface
                 'provider' => $provider,
                 'scope' => $scope,
                 'key_uid' => $keyUid,
-            ]
+            ],
         );
     }
 
     /**
-     * Log API key deletion
+     * Log API key deletion.
      *
      * @param string $provider Provider identifier
-     * @param string $scope Scope identifier
-     * @param int $keyUid Deleted key record UID
+     * @param string $scope    Scope identifier
+     * @param int    $keyUid   Deleted key record UID
      */
     public function logKeyDeletion(string $provider, string $scope, int $keyUid): void
     {
@@ -176,23 +177,23 @@ class AuditLogger implements SingletonInterface
                 'provider' => $provider,
                 'scope' => $scope,
                 'key_uid' => $keyUid,
-            ]
+            ],
         );
     }
 
     /**
-     * Log LLM request (metadata only, NOT full prompt)
+     * Log LLM request (metadata only, NOT full prompt).
      *
-     * @param string $provider LLM provider
-     * @param string $model Model identifier
-     * @param int $promptTokens Prompt token count
-     * @param array $metadata Additional metadata
+     * @param string $provider     LLM provider
+     * @param string $model        Model identifier
+     * @param int    $promptTokens Prompt token count
+     * @param array  $metadata     Additional metadata
      */
     public function logLlmRequest(
         string $provider,
         string $model,
         int $promptTokens,
-        array $metadata = []
+        array $metadata = [],
     ): void {
         $this->log(
             self::EVENT_LLM_REQUEST,
@@ -204,19 +205,19 @@ class AuditLogger implements SingletonInterface
                 'prompt_tokens' => $promptTokens,
                 'prompt_length' => $metadata['prompt_length'] ?? 0,
                 // Note: Full prompt is NOT logged for privacy
-            ], $metadata)
+            ], $metadata),
         );
     }
 
     /**
-     * Log LLM response (metadata only)
+     * Log LLM response (metadata only).
      *
-     * @param string $provider LLM provider
-     * @param string $model Model identifier
-     * @param int $completionTokens Completion token count
-     * @param int $totalTokens Total token count
-     * @param float $duration Request duration in seconds
-     * @param array $metadata Additional metadata
+     * @param string $provider         LLM provider
+     * @param string $model            Model identifier
+     * @param int    $completionTokens Completion token count
+     * @param int    $totalTokens      Total token count
+     * @param float  $duration         Request duration in seconds
+     * @param array  $metadata         Additional metadata
      */
     public function logLlmResponse(
         string $provider,
@@ -224,7 +225,7 @@ class AuditLogger implements SingletonInterface
         int $completionTokens,
         int $totalTokens,
         float $duration,
-        array $metadata = []
+        array $metadata = [],
     ): void {
         $this->log(
             self::EVENT_LLM_RESPONSE,
@@ -238,23 +239,23 @@ class AuditLogger implements SingletonInterface
                 'duration' => $duration,
                 'response_length' => $metadata['response_length'] ?? 0,
                 // Note: Full response is NOT logged for privacy
-            ], $metadata)
+            ], $metadata),
         );
     }
 
     /**
-     * Log LLM error
+     * Log LLM error.
      *
-     * @param string $provider LLM provider
-     * @param string $model Model identifier
+     * @param string $provider     LLM provider
+     * @param string $model        Model identifier
      * @param string $errorMessage Error message
-     * @param int $statusCode HTTP status code
+     * @param int    $statusCode   HTTP status code
      */
     public function logLlmError(
         string $provider,
         string $model,
         string $errorMessage,
-        int $statusCode = 0
+        int $statusCode = 0,
     ): void {
         $this->log(
             self::EVENT_LLM_ERROR,
@@ -265,16 +266,16 @@ class AuditLogger implements SingletonInterface
                 'model' => $model,
                 'error_message' => $errorMessage,
                 'status_code' => $statusCode,
-            ]
+            ],
         );
     }
 
     /**
-     * Log configuration change
+     * Log configuration change.
      *
      * @param string $configKey Configuration key
-     * @param mixed $oldValue Old value (will be JSON encoded)
-     * @param mixed $newValue New value (will be JSON encoded)
+     * @param mixed  $oldValue  Old value (will be JSON encoded)
+     * @param mixed  $newValue  New value (will be JSON encoded)
      */
     public function logConfigChange(string $configKey, $oldValue, $newValue): void
     {
@@ -286,16 +287,16 @@ class AuditLogger implements SingletonInterface
                 'config_key' => $configKey,
                 'old_value' => $this->sanitizeValue($oldValue),
                 'new_value' => $this->sanitizeValue($newValue),
-            ]
+            ],
         );
     }
 
     /**
-     * Log access denied event
+     * Log access denied event.
      *
-     * @param string $permission Permission that was denied
-     * @param int|null $userId User ID (if available)
-     * @param string $context Additional context
+     * @param string   $permission Permission that was denied
+     * @param int|null $userId     User ID (if available)
+     * @param string   $context    Additional context
      */
     public function logAccessDenied(string $permission, ?int $userId, string $context = ''): void
     {
@@ -307,17 +308,17 @@ class AuditLogger implements SingletonInterface
                 'permission' => $permission,
                 'user_id' => $userId,
                 'context' => $context,
-            ]
+            ],
         );
     }
 
     /**
-     * Log quota exceeded event
+     * Log quota exceeded event.
      *
-     * @param int $userId User ID
+     * @param int    $userId    User ID
      * @param string $quotaType Quota type
-     * @param int $usage Current usage
-     * @param int $limit Quota limit
+     * @param int    $usage     Current usage
+     * @param int    $limit     Quota limit
      */
     public function logQuotaExceeded(int $userId, string $quotaType, int $usage, int $limit): void
     {
@@ -330,21 +331,21 @@ class AuditLogger implements SingletonInterface
                 'quota_type' => $quotaType,
                 'usage' => $usage,
                 'limit' => $limit,
-            ]
+            ],
         );
     }
 
     /**
-     * Log suspicious activity
+     * Log suspicious activity.
      *
      * @param string $activityType Type of suspicious activity
-     * @param string $description Description
-     * @param array $metadata Additional metadata
+     * @param string $description  Description
+     * @param array  $metadata     Additional metadata
      */
     public function logSuspiciousActivity(
         string $activityType,
         string $description,
-        array $metadata = []
+        array $metadata = [],
     ): void {
         $this->log(
             self::EVENT_SUSPICIOUS_ACTIVITY,
@@ -352,16 +353,17 @@ class AuditLogger implements SingletonInterface
             "Suspicious activity: {$activityType} - {$description}",
             array_merge([
                 'activity_type' => $activityType,
-            ], $metadata)
+            ], $metadata),
         );
     }
 
     /**
-     * Retrieve audit log entries
+     * Retrieve audit log entries.
      *
      * @param array $filters Filters (event_type, user_id, date_from, date_to, severity)
-     * @param int $limit Maximum results
-     * @param int $offset Offset for pagination
+     * @param int   $limit   Maximum results
+     * @param int   $offset  Offset for pagination
+     *
      * @return array Audit log entries
      */
     public function getAuditLog(array $filters = [], int $limit = 100, int $offset = 0): array
@@ -379,8 +381,8 @@ class AuditLogger implements SingletonInterface
             $queryBuilder->andWhere(
                 $queryBuilder->expr()->eq(
                     'event_type',
-                    $queryBuilder->createNamedParameter($filters['event_type'])
-                )
+                    $queryBuilder->createNamedParameter($filters['event_type']),
+                ),
             );
         }
 
@@ -388,8 +390,8 @@ class AuditLogger implements SingletonInterface
             $queryBuilder->andWhere(
                 $queryBuilder->expr()->eq(
                     'user_id',
-                    $queryBuilder->createNamedParameter((int) $filters['user_id'])
-                )
+                    $queryBuilder->createNamedParameter((int)$filters['user_id']),
+                ),
             );
         }
 
@@ -397,8 +399,8 @@ class AuditLogger implements SingletonInterface
             $queryBuilder->andWhere(
                 $queryBuilder->expr()->gte(
                     'severity',
-                    $queryBuilder->createNamedParameter((int) $filters['severity'])
-                )
+                    $queryBuilder->createNamedParameter((int)$filters['severity']),
+                ),
             );
         }
 
@@ -406,8 +408,8 @@ class AuditLogger implements SingletonInterface
             $queryBuilder->andWhere(
                 $queryBuilder->expr()->gte(
                     'tstamp',
-                    $queryBuilder->createNamedParameter(strtotime($filters['date_from']))
-                )
+                    $queryBuilder->createNamedParameter(strtotime($filters['date_from'])),
+                ),
             );
         }
 
@@ -415,8 +417,8 @@ class AuditLogger implements SingletonInterface
             $queryBuilder->andWhere(
                 $queryBuilder->expr()->lte(
                     'tstamp',
-                    $queryBuilder->createNamedParameter(strtotime($filters['date_to']))
-                )
+                    $queryBuilder->createNamedParameter(strtotime($filters['date_to'])),
+                ),
             );
         }
 
@@ -424,7 +426,7 @@ class AuditLogger implements SingletonInterface
     }
 
     /**
-     * Cleanup old audit logs based on retention policy
+     * Cleanup old audit logs based on retention policy.
      *
      * @return int Number of deleted records
      */
@@ -436,12 +438,12 @@ class AuditLogger implements SingletonInterface
 
         return $connection->delete(
             self::TABLE_NAME,
-            ['tstamp' => ['<', $cutoffDate]]
+            ['tstamp' => ['<', $cutoffDate]],
         );
     }
 
     /**
-     * Anonymize old audit logs (GDPR compliance)
+     * Anonymize old audit logs (GDPR compliance).
      *
      * @return int Number of anonymized records
      */
@@ -462,17 +464,17 @@ class AuditLogger implements SingletonInterface
             [
                 'tstamp' => ['<', $cutoffDate],
                 'anonymized' => 0,
-            ]
+            ],
         );
     }
 
     /**
-     * Core logging method
+     * Core logging method.
      *
      * @param string $eventType Event type constant
-     * @param int $severity Severity level constant
-     * @param string $message Log message
-     * @param array $data Additional data
+     * @param int    $severity  Severity level constant
+     * @param string $message   Log message
+     * @param array  $data      Additional data
      */
     private function log(string $eventType, int $severity, string $message, array $data = []): void
     {
@@ -482,7 +484,7 @@ class AuditLogger implements SingletonInterface
             'event_type' => $eventType,
             'severity' => $severity,
             'message' => $message,
-            'user_id' => $user ? (int) $user->user['uid'] : 0,
+            'user_id' => $user ? (int)$user->user['uid'] : 0,
             'username' => $user ? $user->user['username'] : '',
             'ip_address' => GeneralUtility::getIndpEnv('REMOTE_ADDR'),
             'user_agent' => GeneralUtility::getIndpEnv('HTTP_USER_AGENT'),
@@ -495,7 +497,7 @@ class AuditLogger implements SingletonInterface
         try {
             $connection = $this->connectionPool->getConnectionForTable(self::TABLE_NAME);
             $connection->insert(self::TABLE_NAME, $logData);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Fallback to TYPO3 logging if database insert fails
             $this->logger->error('Failed to write audit log to database', [
                 'exception' => $e->getMessage(),
@@ -508,15 +510,16 @@ class AuditLogger implements SingletonInterface
             $this->logger->log(
                 $this->mapSeverityToLogLevel($severity),
                 $message,
-                $data
+                $data,
             );
         }
     }
 
     /**
-     * Sanitize value for logging (remove sensitive data)
+     * Sanitize value for logging (remove sensitive data).
      *
      * @param mixed $value Value to sanitize
+     *
      * @return string Sanitized value
      */
     private function sanitizeValue($value): string
@@ -536,13 +539,14 @@ class AuditLogger implements SingletonInterface
             return json_encode($value);
         }
 
-        return (string) $value;
+        return (string)$value;
     }
 
     /**
-     * Map audit severity to TYPO3 log level
+     * Map audit severity to TYPO3 log level.
      *
      * @param int $severity Audit severity
+     *
      * @return int TYPO3 log level
      */
     private function mapSeverityToLogLevel(int $severity): int
@@ -558,9 +562,7 @@ class AuditLogger implements SingletonInterface
     }
 
     /**
-     * Get current backend user
-     *
-     * @return BackendUserAuthentication|null
+     * Get current backend user.
      */
     private function getBackendUser(): ?BackendUserAuthentication
     {
@@ -568,9 +570,7 @@ class AuditLogger implements SingletonInterface
     }
 
     /**
-     * Get a fresh query builder instance
-     *
-     * @return QueryBuilder
+     * Get a fresh query builder instance.
      */
     private function getQueryBuilder(): QueryBuilder
     {

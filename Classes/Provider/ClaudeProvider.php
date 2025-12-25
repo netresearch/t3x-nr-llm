@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
+use Generator;
+use JsonException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
@@ -124,9 +126,9 @@ final class ClaudeProvider extends AbstractProvider implements
             model: $response['model'] ?? $payload['model'],
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['input_tokens'] ?? 0,
-                completionTokens: $usage['output_tokens'] ?? 0
+                completionTokens: $usage['output_tokens'] ?? 0,
             ),
-            finishReason: $this->mapStopReason($response['stop_reason'] ?? 'end_turn')
+            finishReason: $this->mapStopReason($response['stop_reason'] ?? 'end_turn'),
         );
     }
 
@@ -192,11 +194,11 @@ final class ClaudeProvider extends AbstractProvider implements
             model: $response['model'] ?? $payload['model'],
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['input_tokens'] ?? 0,
-                completionTokens: $usage['output_tokens'] ?? 0
+                completionTokens: $usage['output_tokens'] ?? 0,
             ),
             finishReason: $this->mapStopReason($response['stop_reason'] ?? 'end_turn'),
             provider: $this->getIdentifier(),
-            toolCalls: $toolCalls !== [] ? $toolCalls : null
+            toolCalls: $toolCalls !== [] ? $toolCalls : null,
         );
     }
 
@@ -208,7 +210,7 @@ final class ClaudeProvider extends AbstractProvider implements
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
         throw new UnsupportedFeatureException(
-            'Anthropic Claude does not support embeddings. Use OpenAI or a dedicated embedding provider.'
+            'Anthropic Claude does not support embeddings. Use OpenAI or a dedicated embedding provider.',
         );
     }
 
@@ -283,9 +285,9 @@ final class ClaudeProvider extends AbstractProvider implements
             model: $response['model'] ?? $payload['model'],
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['input_tokens'] ?? 0,
-                completionTokens: $usage['output_tokens'] ?? 0
+                completionTokens: $usage['output_tokens'] ?? 0,
             ),
-            provider: $this->getIdentifier()
+            provider: $this->getIdentifier(),
         );
     }
 
@@ -304,7 +306,7 @@ final class ClaudeProvider extends AbstractProvider implements
         return 20 * 1024 * 1024; // 20 MB
     }
 
-    public function streamChatCompletion(array $messages, array $options = []): \Generator
+    public function streamChatCompletion(array $messages, array $options = []): Generator
     {
         $systemMessage = null;
         $filteredMessages = [];
@@ -365,7 +367,7 @@ final class ClaudeProvider extends AbstractProvider implements
                         } elseif ($json['type'] === 'message_stop') {
                             return;
                         }
-                    } catch (\JsonException) {
+                    } catch (JsonException) {
                         // Skip malformed JSON
                     }
                 }

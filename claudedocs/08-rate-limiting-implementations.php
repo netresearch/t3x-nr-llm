@@ -1,7 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 /**
- * Rate Limiting, Quota Management & Usage Tracking Implementations
+ * Rate Limiting, Quota Management & Usage Tracking Implementations.
  *
  * This file contains complete, production-ready implementations for:
  * - RateLimiterService (Token Bucket + Sliding Window)
@@ -15,20 +17,18 @@
 
 namespace Netresearch\NrLlm\Service;
 
+use InvalidArgumentException;
+use PDO;
+use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Query\QueryBuilder;
-use TYPO3\CMS\Core\Mail\MailMessage;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\Core\Log\LogManager;
-use Psr\Log\LoggerInterface;
 
 // ============================================================================
 // RATE LIMITER SERVICE
 // ============================================================================
 
 /**
- * Token Bucket Rate Limiter with Sliding Window Fallback
+ * Token Bucket Rate Limiter with Sliding Window Fallback.
  *
  * Features:
  * - Token bucket algorithm (allows bursts)
@@ -49,24 +49,26 @@ class RateLimiterService
         private readonly FrontendInterface $cache,
         private readonly ConnectionPool $connectionPool,
         private readonly LoggerInterface $logger,
-        private readonly array $configuration
+        private readonly array $configuration,
     ) {}
 
     /**
-     * Check if request is allowed under rate limits
+     * Check if request is allowed under rate limits.
      *
-     * @param string $scope Limit scope: 'global', 'provider', 'user', 'feature'
+     * @param string $scope      Limit scope: 'global', 'provider', 'user', 'feature'
      * @param string $identifier Scope identifier (user_id, provider name, etc.)
-     * @param string $provider Provider name for provider-specific limits
-     * @param array $options Additional options (algorithm, cost, etc.)
-     * @return bool True if allowed, false if rate limited
+     * @param string $provider   Provider name for provider-specific limits
+     * @param array  $options    Additional options (algorithm, cost, etc.)
+     *
      * @throws RateLimitExceededException If limit exceeded
+     *
+     * @return bool True if allowed, false if rate limited
      */
     public function checkLimit(
         string $scope,
         string $identifier,
         string $provider = '',
-        array $options = []
+        array $options = [],
     ): bool {
         $limitKey = $this->buildLimitKey($scope, $identifier, $provider);
         $config = $this->getLimitConfiguration($scope, $provider);
@@ -81,12 +83,12 @@ class RateLimiterService
             self::ALGORITHM_TOKEN_BUCKET => $this->checkTokenBucket($limitKey, $config, $options),
             self::ALGORITHM_SLIDING_WINDOW => $this->checkSlidingWindow($limitKey, $config),
             self::ALGORITHM_FIXED_WINDOW => $this->checkFixedWindow($limitKey, $config),
-            default => throw new \InvalidArgumentException("Unknown algorithm: $algorithm"),
+            default => throw new InvalidArgumentException("Unknown algorithm: $algorithm"),
         };
     }
 
     /**
-     * Token Bucket Algorithm Implementation
+     * Token Bucket Algorithm Implementation.
      *
      * Allows bursts up to capacity, then refills at steady rate.
      * Best for user-facing limits (smooth UX).
@@ -110,7 +112,7 @@ class RateLimiterService
         $tokensToAdd = $timeElapsed * $state['refill_rate'];
         $state['tokens_available'] = min(
             $state['tokens_available'] + $tokensToAdd,
-            $state['tokens_capacity']
+            $state['tokens_capacity'],
         );
         $state['last_refill_time'] = $now;
 
@@ -127,18 +129,18 @@ class RateLimiterService
 
         // Calculate retry after time
         $tokensNeeded = $cost - $state['tokens_available'];
-        $retryAfter = (int) ceil($tokensNeeded / $state['refill_rate']);
+        $retryAfter = (int)ceil($tokensNeeded / $state['refill_rate']);
 
         throw new RateLimitExceededException(
-            currentUsage: (int) ($state['tokens_capacity'] - $state['tokens_available']),
-            limit: (int) $state['tokens_capacity'],
+            currentUsage: (int)($state['tokens_capacity'] - $state['tokens_available']),
+            limit: (int)$state['tokens_capacity'],
             retryAfter: $retryAfter,
-            scope: $limitKey
+            scope: $limitKey,
         );
     }
 
     /**
-     * Sliding Window Algorithm Implementation
+     * Sliding Window Algorithm Implementation.
      *
      * Strict limit enforcement across rolling time window.
      * Best for provider API limits (prevent throttling).
@@ -167,7 +169,7 @@ class RateLimiterService
                 currentUsage: count($timestamps),
                 limit: $limit,
                 retryAfter: $retryAfter,
-                scope: $limitKey
+                scope: $limitKey,
             );
         }
 
@@ -186,7 +188,7 @@ class RateLimiterService
     }
 
     /**
-     * Fixed Window Algorithm Implementation
+     * Fixed Window Algorithm Implementation.
      *
      * Simplest implementation - resets at window boundaries.
      * Used as fallback when cache unavailable.
@@ -202,7 +204,7 @@ class RateLimiterService
 
         $cacheKey = "ratelimit:fw:$limitKey:$windowStart";
 
-        $count = (int) ($this->cache->get($cacheKey) ?: 0);
+        $count = (int)($this->cache->get($cacheKey) ?: 0);
 
         if ($count >= $limit) {
             $retryAfter = $windowSize - ($now % $windowSize);
@@ -211,7 +213,7 @@ class RateLimiterService
                 currentUsage: $count,
                 limit: $limit,
                 retryAfter: $retryAfter,
-                scope: $limitKey
+                scope: $limitKey,
             );
         }
 
@@ -222,7 +224,7 @@ class RateLimiterService
     }
 
     /**
-     * Load rate limit state from database
+     * Load rate limit state from database.
      */
     private function loadRateLimitState(string $limitKey, array $config): array
     {
@@ -232,31 +234,31 @@ class RateLimiterService
             ->select('*')
             ->from(self::TABLE_RATE_LIMIT_STATE)
             ->where(
-                $queryBuilder->expr()->eq('limit_key', $queryBuilder->createNamedParameter($limitKey))
+                $queryBuilder->expr()->eq('limit_key', $queryBuilder->createNamedParameter($limitKey)),
             )
             ->executeQuery()
             ->fetchAssociative();
 
         if ($row) {
             return [
-                'tokens_available' => (float) $row['tokens_available'],
-                'tokens_capacity' => (float) $row['tokens_capacity'],
-                'last_refill_time' => (int) $row['last_refill_time'],
-                'refill_rate' => (float) $row['refill_rate'],
+                'tokens_available' => (float)$row['tokens_available'],
+                'tokens_capacity' => (float)$row['tokens_capacity'],
+                'last_refill_time' => (int)$row['last_refill_time'],
+                'refill_rate' => (float)$row['refill_rate'],
             ];
         }
 
         // Initialize new state
         return [
-            'tokens_available' => (float) $config['capacity'],
-            'tokens_capacity' => (float) $config['capacity'],
+            'tokens_available' => (float)$config['capacity'],
+            'tokens_capacity' => (float)$config['capacity'],
             'last_refill_time' => time(),
-            'refill_rate' => (float) ($config['capacity'] / $config['window_size']),
+            'refill_rate' => (float)($config['capacity'] / $config['window_size']),
         ];
     }
 
     /**
-     * Save rate limit state to database
+     * Save rate limit state to database.
      */
     private function saveRateLimitState(string $limitKey, array $state): void
     {
@@ -274,21 +276,21 @@ class RateLimiterService
                 'tstamp' => time(),
             ],
             [
-                'tokens_available' => \PDO::PARAM_STR, // Use string for precision
-                'tokens_capacity' => \PDO::PARAM_STR,
-                'refill_rate' => \PDO::PARAM_STR,
-            ]
+                'tokens_available' => PDO::PARAM_STR, // Use string for precision
+                'tokens_capacity' => PDO::PARAM_STR,
+                'refill_rate' => PDO::PARAM_STR,
+            ],
         );
     }
 
     /**
-     * Sync sliding window data to database (background persistence)
+     * Sync sliding window data to database (background persistence).
      */
     private function syncSlidingWindowToDatabase(
         string $limitKey,
         array $timestamps,
         int $windowStart,
-        int $windowSize
+        int $windowSize,
     ): void {
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RATE_LIMIT_STATE);
 
@@ -301,12 +303,12 @@ class RateLimiterService
                 'window_requests' => count($timestamps),
                 'window_size' => $windowSize,
                 'tstamp' => time(),
-            ]
+            ],
         );
     }
 
     /**
-     * Get rate limit configuration for scope
+     * Get rate limit configuration for scope.
      */
     private function getLimitConfiguration(string $scope, string $provider = ''): array
     {
@@ -325,7 +327,7 @@ class RateLimiterService
     }
 
     /**
-     * Build unique rate limit key
+     * Build unique rate limit key.
      */
     private function buildLimitKey(string $scope, string $identifier, string $provider): string
     {
@@ -337,7 +339,7 @@ class RateLimiterService
     }
 
     /**
-     * Get current usage for informational purposes
+     * Get current usage for informational purposes.
      */
     public function getCurrentUsage(string $scope, string $identifier, string $provider = ''): array
     {
@@ -348,10 +350,10 @@ class RateLimiterService
         $state = $this->cache->get($cacheKey) ?: $this->loadRateLimitState($limitKey, $config);
 
         return [
-            'used' => (int) ($state['tokens_capacity'] - $state['tokens_available']),
-            'limit' => (int) $state['tokens_capacity'],
-            'remaining' => (int) $state['tokens_available'],
-            'reset_at' => $state['last_refill_time'] + (int) ($state['tokens_available'] / $state['refill_rate']),
+            'used' => (int)($state['tokens_capacity'] - $state['tokens_available']),
+            'limit' => (int)$state['tokens_capacity'],
+            'remaining' => (int)$state['tokens_available'],
+            'reset_at' => $state['last_refill_time'] + (int)($state['tokens_available'] / $state['refill_rate']),
         ];
     }
 }
@@ -361,7 +363,7 @@ class RateLimiterService
 // ============================================================================
 
 /**
- * Multi-Scope Quota Management
+ * Multi-Scope Quota Management.
  *
  * Features:
  * - Multiple quota types (requests, tokens, cost)
@@ -395,26 +397,28 @@ class QuotaManager
         private readonly ConnectionPool $connectionPool,
         private readonly NotificationService $notificationService,
         private readonly LoggerInterface $logger,
-        private readonly array $configuration
+        private readonly array $configuration,
     ) {}
 
     /**
-     * Check if quota allows the operation
+     * Check if quota allows the operation.
      *
-     * @param string $scope Quota scope
-     * @param int $scopeId Scope identifier (user_id, group_id, etc.)
+     * @param string $scope     Quota scope
+     * @param int    $scopeId   Scope identifier (user_id, group_id, etc.)
      * @param string $quotaType Type of quota to check
-     * @param float $cost Cost of operation (requests=1, tokens=count, cost=USD)
-     * @param bool $reserve Reserve quota for operation (prevents race conditions)
-     * @return bool True if allowed
+     * @param float  $cost      Cost of operation (requests=1, tokens=count, cost=USD)
+     * @param bool   $reserve   Reserve quota for operation (prevents race conditions)
+     *
      * @throws QuotaExceededException If quota exceeded
+     *
+     * @return bool True if allowed
      */
     public function checkQuota(
         string $scope,
         int $scopeId,
         string $quotaType,
         float $cost = 1.0,
-        bool $reserve = false
+        bool $reserve = false,
     ): bool {
         // Check all relevant quota levels (user → group → site → global)
         $quotas = $this->getApplicableQuotas($scope, $scopeId, $quotaType);
@@ -429,7 +433,7 @@ class QuotaManager
                     quotaType: $quotaType,
                     used: $quota['quota_used'],
                     limit: $quota['quota_limit'],
-                    resetAt: $quota['period_end']
+                    resetAt: $quota['period_end'],
                 );
             }
 
@@ -453,20 +457,20 @@ class QuotaManager
     }
 
     /**
-     * Consume quota after successful operation
+     * Consume quota after successful operation.
      *
-     * @param string $scope Quota scope
-     * @param int $scopeId Scope identifier
-     * @param string $quotaType Type of quota
-     * @param float $actualCost Actual cost of operation
-     * @param float $reservedCost Previously reserved amount (if any)
+     * @param string $scope        Quota scope
+     * @param int    $scopeId      Scope identifier
+     * @param string $quotaType    Type of quota
+     * @param float  $actualCost   Actual cost of operation
+     * @param float  $reservedCost Previously reserved amount (if any)
      */
     public function consumeQuota(
         string $scope,
         int $scopeId,
         string $quotaType,
         float $actualCost,
-        float $reservedCost = 0.0
+        float $reservedCost = 0.0,
     ): void {
         $quotas = $this->getApplicableQuotas($scope, $scopeId, $quotaType);
 
@@ -480,7 +484,7 @@ class QuotaManager
                     'quota_reserved' => max(0, $quota['quota_reserved'] - $reservedCost),
                     'tstamp' => time(),
                 ],
-                ['uid' => $quota['uid']]
+                ['uid' => $quota['uid']],
             );
 
             // Clear cache
@@ -488,7 +492,7 @@ class QuotaManager
             $this->cache->remove($cacheKey);
 
             // Check if exceeded
-            if ($quota['quota_used'] + $actualCost >= $quota['quota_limit']) {
+            if ($quota['quota_limit'] <= $quota['quota_used'] + $actualCost) {
                 $this->markQuotaExceeded($quota['uid']);
                 $this->notificationService->sendQuotaExceeded($quota);
             }
@@ -496,13 +500,13 @@ class QuotaManager
     }
 
     /**
-     * Release reserved quota (if operation failed)
+     * Release reserved quota (if operation failed).
      */
     public function releaseQuota(
         string $scope,
         int $scopeId,
         string $quotaType,
-        float $reservedCost
+        float $reservedCost,
     ): void {
         $quotas = $this->getApplicableQuotas($scope, $scopeId, $quotaType);
 
@@ -515,13 +519,13 @@ class QuotaManager
                     'quota_reserved' => max(0, $quota['quota_reserved'] - $reservedCost),
                     'tstamp' => time(),
                 ],
-                ['uid' => $quota['uid']]
+                ['uid' => $quota['uid']],
             );
         }
     }
 
     /**
-     * Get all applicable quotas for scope (including inherited)
+     * Get all applicable quotas for scope (including inherited).
      */
     private function getApplicableQuotas(string $scope, int $scopeId, string $quotaType): array
     {
@@ -563,7 +567,7 @@ class QuotaManager
     }
 
     /**
-     * Get or create quota record for scope
+     * Get or create quota record for scope.
      */
     private function getOrCreateQuota(string $scope, int $scopeId, string $quotaType): ?array
     {
@@ -584,10 +588,10 @@ class QuotaManager
             ->from(self::TABLE_QUOTAS)
             ->where(
                 $queryBuilder->expr()->eq('scope', $queryBuilder->createNamedParameter($scope)),
-                $queryBuilder->expr()->eq('scope_id', $queryBuilder->createNamedParameter($scopeId, \PDO::PARAM_INT)),
+                $queryBuilder->expr()->eq('scope_id', $queryBuilder->createNamedParameter($scopeId, PDO::PARAM_INT)),
                 $queryBuilder->expr()->eq('quota_type', $queryBuilder->createNamedParameter($quotaType)),
                 $queryBuilder->expr()->eq('quota_period', $queryBuilder->createNamedParameter($period)),
-                $queryBuilder->expr()->eq('is_active', $queryBuilder->createNamedParameter(1, \PDO::PARAM_INT))
+                $queryBuilder->expr()->eq('is_active', $queryBuilder->createNamedParameter(1, PDO::PARAM_INT)),
             )
             ->executeQuery()
             ->fetchAssociative();
@@ -623,14 +627,14 @@ class QuotaManager
                 'is_active' => 1,
                 'tstamp' => time(),
                 'crdate' => time(),
-            ]
+            ],
         );
 
         return $this->getOrCreateQuota($scope, $scopeId, $quotaType);
     }
 
     /**
-     * Ensure quota period is current (rollover if needed)
+     * Ensure quota period is current (rollover if needed).
      */
     private function ensureQuotaPeriodCurrent(array &$quota): void
     {
@@ -655,7 +659,7 @@ class QuotaManager
                     'warning_count' => 0,
                     'tstamp' => time(),
                 ],
-                ['uid' => $quota['uid']]
+                ['uid' => $quota['uid']],
             );
 
             // Update local array
@@ -668,7 +672,7 @@ class QuotaManager
     }
 
     /**
-     * Calculate period start and end timestamps
+     * Calculate period start and end timestamps.
      */
     private function calculatePeriodBounds(string $period): array
     {
@@ -691,12 +695,12 @@ class QuotaManager
                 'start' => strtotime('first day of this month midnight', $now),
                 'end' => strtotime('first day of next month midnight', $now) - 1,
             ],
-            default => throw new \InvalidArgumentException("Unknown period: $period"),
+            default => throw new InvalidArgumentException("Unknown period: $period"),
         };
     }
 
     /**
-     * Get quota configuration for scope
+     * Get quota configuration for scope.
      */
     private function getQuotaConfiguration(string $scope, int $scopeId): array
     {
@@ -708,7 +712,7 @@ class QuotaManager
             ->from(self::TABLE_QUOTA_CONFIG)
             ->where(
                 $queryBuilder->expr()->eq('config_scope', $queryBuilder->createNamedParameter($scope)),
-                $queryBuilder->expr()->eq('is_active', $queryBuilder->createNamedParameter(1, \PDO::PARAM_INT))
+                $queryBuilder->expr()->eq('is_active', $queryBuilder->createNamedParameter(1, PDO::PARAM_INT)),
             )
             ->orderBy('priority', 'DESC')
             ->executeQuery()
@@ -723,16 +727,16 @@ class QuotaManager
     }
 
     /**
-     * Extract limit from configuration for specific type and period
+     * Extract limit from configuration for specific type and period.
      */
     private function extractLimitFromConfig(array $config, string $quotaType, string $period): float
     {
         $key = $period . '_' . $quotaType . '_limit';
-        return (float) ($config[$key] ?? 0.0);
+        return (float)($config[$key] ?? 0.0);
     }
 
     /**
-     * Reserve quota for in-flight operations
+     * Reserve quota for in-flight operations.
      */
     private function reserveQuota(array $quotas, float $cost): void
     {
@@ -745,13 +749,13 @@ class QuotaManager
                     'quota_reserved' => $quota['quota_reserved'] + $cost,
                     'tstamp' => time(),
                 ],
-                ['uid' => $quota['uid']]
+                ['uid' => $quota['uid']],
             );
         }
     }
 
     /**
-     * Mark quota as exceeded
+     * Mark quota as exceeded.
      */
     private function markQuotaExceeded(int $quotaUid): void
     {
@@ -764,12 +768,12 @@ class QuotaManager
                 'exceeded_at' => time(),
                 'tstamp' => time(),
             ],
-            ['uid' => $quotaUid]
+            ['uid' => $quotaUid],
         );
     }
 
     /**
-     * Update last warning sent timestamp
+     * Update last warning sent timestamp.
      */
     private function updateQuotaWarning(int $quotaUid): void
     {
@@ -785,7 +789,7 @@ class QuotaManager
     }
 
     /**
-     * Get current quota status (for UI display)
+     * Get current quota status (for UI display).
      */
     public function getQuotaStatus(string $scope, int $scopeId): array
     {
@@ -822,7 +826,7 @@ class QuotaManager
     }
 
     /**
-     * Get status label based on usage percentage
+     * Get status label based on usage percentage.
      */
     private function getStatusLabel(float $percentUsed, array $quota): string
     {
@@ -837,7 +841,7 @@ class QuotaManager
     }
 
     /**
-     * Get user's group quota
+     * Get user's group quota.
      */
     private function getUserGroupQuota(int $userId, string $quotaType): ?array
     {
@@ -847,7 +851,7 @@ class QuotaManager
     }
 
     /**
-     * Build cache key for quota
+     * Build cache key for quota.
      */
     private function buildQuotaCacheKey(string $scope, int $scopeId, string $quotaType, string $period): string
     {
@@ -860,7 +864,7 @@ class QuotaManager
 // ============================================================================
 
 /**
- * Comprehensive Usage Tracking
+ * Comprehensive Usage Tracking.
  *
  * Features:
  * - Request-level tracking with full metadata
@@ -879,27 +883,28 @@ class UsageTracker
         private readonly ConnectionPool $connectionPool,
         private readonly CostCalculator $costCalculator,
         private readonly LoggerInterface $logger,
-        private readonly array $configuration
+        private readonly array $configuration,
     ) {}
 
     /**
-     * Track AI request usage
+     * Track AI request usage.
      *
      * @param array $context Request context
+     *
      * @return int Usage record UID
      */
     public function trackUsage(array $context): int
     {
         $startTime = $context['start_time'] ?? microtime(true);
         $endTime = microtime(true);
-        $requestTimeMs = (int) (($endTime - $startTime) * 1000);
+        $requestTimeMs = (int)(($endTime - $startTime) * 1000);
 
         // Calculate cost
         $cost = $this->costCalculator->calculateCost(
             provider: $context['provider'],
             model: $context['model'],
             promptTokens: $context['prompt_tokens'] ?? 0,
-            completionTokens: $context['completion_tokens'] ?? 0
+            completionTokens: $context['completion_tokens'] ?? 0,
         );
 
         // Generate request hash for deduplication
@@ -933,10 +938,10 @@ class UsageTracker
                 'error_message' => $context['error_message'] ?? '',
                 'tstamp' => time(),
                 'crdate' => time(),
-            ]
+            ],
         );
 
-        $usageUid = (int) $connection->lastInsertId();
+        $usageUid = (int)$connection->lastInsertId();
 
         // Update aggregated statistics (async if possible)
         $this->updateAggregatedStats($context);
@@ -945,7 +950,7 @@ class UsageTracker
     }
 
     /**
-     * Generate request hash for deduplication
+     * Generate request hash for deduplication.
      */
     private function generateRequestHash(array $context): string
     {
@@ -961,34 +966,34 @@ class UsageTracker
     }
 
     /**
-     * Check if IP addresses should be stored (GDPR compliance)
+     * Check if IP addresses should be stored (GDPR compliance).
      */
     private function shouldStoreIp(): bool
     {
-        return (bool) ($this->configuration['usageTracking']['storeIpAddress'] ?? false);
+        return (bool)($this->configuration['usageTracking']['storeIpAddress'] ?? false);
     }
 
     /**
-     * Update aggregated statistics
+     * Update aggregated statistics.
      */
     private function updateAggregatedStats(array $context): void
     {
         $date = date('Y-m-d');
-        $hour = (int) date('G');
+        $hour = (int)date('G');
 
         // Update hourly stats
         $this->incrementAggregatedStat([
             'stat_date' => $date,
             'stat_hour' => $hour,
             'scope' => 'user',
-            'scope_id' => (string) $context['user_id'],
+            'scope_id' => (string)$context['user_id'],
             'total_requests' => 1,
             'total_tokens' => ($context['prompt_tokens'] ?? 0) + ($context['completion_tokens'] ?? 0),
             'total_cost' => $this->costCalculator->calculateCost(
                 $context['provider'],
                 $context['model'],
                 $context['prompt_tokens'] ?? 0,
-                $context['completion_tokens'] ?? 0
+                $context['completion_tokens'] ?? 0,
             )['total'],
             'cache_hits' => $context['cache_hit'] ?? 0,
             'cache_misses' => $context['cache_hit'] ? 0 : 1,
@@ -1007,7 +1012,7 @@ class UsageTracker
                 $context['provider'],
                 $context['model'],
                 $context['prompt_tokens'] ?? 0,
-                $context['completion_tokens'] ?? 0
+                $context['completion_tokens'] ?? 0,
             )['total'],
         ]);
 
@@ -1023,13 +1028,13 @@ class UsageTracker
                 $context['provider'],
                 $context['model'],
                 $context['prompt_tokens'] ?? 0,
-                $context['completion_tokens'] ?? 0
+                $context['completion_tokens'] ?? 0,
             )['total'],
         ]);
     }
 
     /**
-     * Increment aggregated statistic (upsert)
+     * Increment aggregated statistic (upsert).
      */
     private function incrementAggregatedStat(array $data): void
     {
@@ -1042,9 +1047,9 @@ class UsageTracker
             ->from(self::TABLE_USAGE_STATS)
             ->where(
                 $queryBuilder->expr()->eq('stat_date', $queryBuilder->createNamedParameter($data['stat_date'])),
-                $queryBuilder->expr()->eq('stat_hour', $queryBuilder->createNamedParameter($data['stat_hour'] ?? null, \PDO::PARAM_INT)),
+                $queryBuilder->expr()->eq('stat_hour', $queryBuilder->createNamedParameter($data['stat_hour'] ?? null, PDO::PARAM_INT)),
                 $queryBuilder->expr()->eq('scope', $queryBuilder->createNamedParameter($data['scope'])),
-                $queryBuilder->expr()->eq('scope_id', $queryBuilder->createNamedParameter($data['scope_id']))
+                $queryBuilder->expr()->eq('scope_id', $queryBuilder->createNamedParameter($data['scope_id'])),
             )
             ->executeQuery()
             ->fetchAssociative();
@@ -1062,7 +1067,7 @@ class UsageTracker
                     'error_count' => $existing['error_count'] + ($data['error_count'] ?? 0),
                     'tstamp' => time(),
                 ],
-                ['uid' => $existing['uid']]
+                ['uid' => $existing['uid']],
             );
         } else {
             // Insert new record
@@ -1080,13 +1085,13 @@ class UsageTracker
                     'cache_misses' => $data['cache_misses'] ?? 0,
                     'error_count' => $data['error_count'] ?? 0,
                     'tstamp' => time(),
-                ]
+                ],
             );
         }
     }
 
     /**
-     * Get usage statistics for reporting
+     * Get usage statistics for reporting.
      */
     public function getUsageStats(array $filters = []): array
     {
@@ -1099,25 +1104,25 @@ class UsageTracker
         // Apply filters
         if (isset($filters['date_from'])) {
             $query->andWhere(
-                $queryBuilder->expr()->gte('stat_date', $queryBuilder->createNamedParameter($filters['date_from']))
+                $queryBuilder->expr()->gte('stat_date', $queryBuilder->createNamedParameter($filters['date_from'])),
             );
         }
 
         if (isset($filters['date_to'])) {
             $query->andWhere(
-                $queryBuilder->expr()->lte('stat_date', $queryBuilder->createNamedParameter($filters['date_to']))
+                $queryBuilder->expr()->lte('stat_date', $queryBuilder->createNamedParameter($filters['date_to'])),
             );
         }
 
         if (isset($filters['scope'])) {
             $query->andWhere(
-                $queryBuilder->expr()->eq('scope', $queryBuilder->createNamedParameter($filters['scope']))
+                $queryBuilder->expr()->eq('scope', $queryBuilder->createNamedParameter($filters['scope'])),
             );
         }
 
         if (isset($filters['scope_id'])) {
             $query->andWhere(
-                $queryBuilder->expr()->eq('scope_id', $queryBuilder->createNamedParameter($filters['scope_id']))
+                $queryBuilder->expr()->eq('scope_id', $queryBuilder->createNamedParameter($filters['scope_id'])),
             );
         }
 
@@ -1128,7 +1133,7 @@ class UsageTracker
     }
 
     /**
-     * Archive old usage data
+     * Archive old usage data.
      */
     public function archiveOldData(int $daysToKeep = 90): int
     {
@@ -1138,7 +1143,7 @@ class UsageTracker
 
         $archivedCount = $connection->delete(
             self::TABLE_USAGE,
-            ['tstamp' => ['<', $cutoffDate]]
+            ['tstamp' => ['<', $cutoffDate]],
         );
 
         $this->logger->info("Archived $archivedCount usage records older than $daysToKeep days");

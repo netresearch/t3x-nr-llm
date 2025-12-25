@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Image;
 
+use Exception;
 use Netresearch\NrLlm\Service\UsageTrackerService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -12,6 +13,7 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
+use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
@@ -34,9 +36,7 @@ final class DallEImageService
     private const DEFAULT_MODEL = 'dall-e-3';
     private const DEFAULT_SIZE = '1024x1024';
 
-    /**
-     * Model capabilities.
-     */
+    /** Model capabilities. */
     private const MODEL_CAPABILITIES = [
         'dall-e-2' => [
             'sizes' => ['256x256', '512x512', '1024x1024'],
@@ -83,14 +83,16 @@ final class DallEImageService
     /**
      * Generate an image from a text prompt.
      *
-     * @param string $prompt Text description of desired image
+     * @param string                                      $prompt  Text description of desired image
      * @param ImageGenerationOptions|array<string, mixed> $options Generation options
-     * @return ImageGenerationResult Generation result
+     *
      * @throws ServiceUnavailableException
+     *
+     * @return ImageGenerationResult Generation result
      */
     public function generate(
         string $prompt,
-        ImageGenerationOptions|array $options = []
+        ImageGenerationOptions|array $options = [],
     ): ImageGenerationResult {
         $this->ensureAvailable();
 
@@ -130,7 +132,7 @@ final class DallEImageService
             metadata: [
                 'quality' => $optionsArray['quality'] ?? 'standard',
                 'style' => $optionsArray['style'] ?? 'vivid',
-            ]
+            ],
         );
     }
 
@@ -139,15 +141,16 @@ final class DallEImageService
      *
      * Note: DALL-E 3 only supports n=1, multiple calls will be made.
      *
-     * @param string $prompt Text description of desired image
-     * @param int $count Number of images to generate (1-10 for DALL-E 2, any for DALL-E 3)
+     * @param string                                      $prompt  Text description of desired image
+     * @param int                                         $count   Number of images to generate (1-10 for DALL-E 2, any for DALL-E 3)
      * @param ImageGenerationOptions|array<string, mixed> $options Generation options
+     *
      * @return array<int, ImageGenerationResult> Generation results
      */
     public function generateMultiple(
         string $prompt,
         int $count = 1,
-        ImageGenerationOptions|array $options = []
+        ImageGenerationOptions|array $options = [],
     ): array {
         $this->ensureAvailable();
 
@@ -190,7 +193,7 @@ final class DallEImageService
                 metadata: [
                     'quality' => $optionsArray['quality'] ?? 'standard',
                     'style' => $optionsArray['style'] ?? 'vivid',
-                ]
+                ],
             );
         }
 
@@ -207,15 +210,17 @@ final class DallEImageService
      * Create variations of an image (DALL-E 2 only).
      *
      * @param string $imagePath Path to source image (PNG, max 4MB, square)
-     * @param int $count Number of variations (1-10)
-     * @param string $size Output size
-     * @return array<int, ImageGenerationResult> Variation results
+     * @param int    $count     Number of variations (1-10)
+     * @param string $size      Output size
+     *
      * @throws ServiceUnavailableException
+     *
+     * @return array<int, ImageGenerationResult> Variation results
      */
     public function createVariations(
         string $imagePath,
         int $count = 1,
-        string $size = '1024x1024'
+        string $size = '1024x1024',
     ): array {
         $this->ensureAvailable();
 
@@ -224,7 +229,7 @@ final class DallEImageService
         $count = min(max($count, 1), 10);
 
         $response = $this->sendMultipartRequest('variations', $imagePath, null, [
-            'n' => (string) $count,
+            'n' => (string)$count,
             'size' => $size,
             'response_format' => 'url',
         ]);
@@ -239,7 +244,7 @@ final class DallEImageService
                 model: 'dall-e-2',
                 size: $size,
                 provider: 'dall-e',
-                metadata: ['type' => 'variation']
+                metadata: ['type' => 'variation'],
             );
         }
 
@@ -254,18 +259,20 @@ final class DallEImageService
     /**
      * Edit an image with a prompt (DALL-E 2 only).
      *
-     * @param string $imagePath Path to source image (PNG, max 4MB, square)
-     * @param string $prompt Description of the edit
-     * @param string|null $maskPath Path to mask image (transparent areas will be edited)
-     * @param string $size Output size
-     * @return ImageGenerationResult Edit result
+     * @param string      $imagePath Path to source image (PNG, max 4MB, square)
+     * @param string      $prompt    Description of the edit
+     * @param string|null $maskPath  Path to mask image (transparent areas will be edited)
+     * @param string      $size      Output size
+     *
      * @throws ServiceUnavailableException
+     *
+     * @return ImageGenerationResult Edit result
      */
     public function edit(
         string $imagePath,
         string $prompt,
         ?string $maskPath = null,
-        string $size = '1024x1024'
+        string $size = '1024x1024',
     ): ImageGenerationResult {
         $this->ensureAvailable();
 
@@ -294,7 +301,7 @@ final class DallEImageService
             model: 'dall-e-2',
             size: $size,
             provider: 'dall-e',
-            metadata: ['type' => 'edit']
+            metadata: ['type' => 'edit'],
         );
     }
 
@@ -326,10 +333,10 @@ final class DallEImageService
         try {
             $config = $this->extensionConfiguration->get('nr_llm');
 
-            $this->apiKey = (string) ($config['providers']['openai']['apiKey'] ?? '');
-            $this->baseUrl = (string) ($config['image']['dalle']['baseUrl'] ?? self::API_URL);
-            $this->timeout = (int) ($config['image']['dalle']['timeout'] ?? 120);
-        } catch (\Exception $e) {
+            $this->apiKey = (string)($config['providers']['openai']['apiKey'] ?? '');
+            $this->baseUrl = (string)($config['image']['dalle']['baseUrl'] ?? self::API_URL);
+            $this->timeout = (int)($config['image']['dalle']['timeout'] ?? 120);
+        } catch (Exception $e) {
             $this->logger->warning('Failed to load DALL-E configuration', [
                 'exception' => $e->getMessage(),
             ]);
@@ -359,7 +366,7 @@ final class DallEImageService
             throw new ServiceUnavailableException(
                 'Prompt cannot be empty',
                 'image',
-                ['provider' => 'dall-e']
+                ['provider' => 'dall-e'],
             );
         }
 
@@ -369,7 +376,7 @@ final class DallEImageService
             throw new ServiceUnavailableException(
                 sprintf('Prompt exceeds maximum length of %d characters for %s', $maxLength, $model),
                 'image',
-                ['provider' => 'dall-e', 'length' => mb_strlen($prompt)]
+                ['provider' => 'dall-e', 'length' => mb_strlen($prompt)],
             );
         }
     }
@@ -385,7 +392,7 @@ final class DallEImageService
             throw new ServiceUnavailableException(
                 sprintf('Image file not found: %s', $path),
                 'image',
-                ['provider' => 'dall-e']
+                ['provider' => 'dall-e'],
             );
         }
 
@@ -394,7 +401,7 @@ final class DallEImageService
             throw new ServiceUnavailableException(
                 'Image file must be less than 4MB',
                 'image',
-                ['provider' => 'dall-e']
+                ['provider' => 'dall-e'],
             );
         }
 
@@ -403,7 +410,7 @@ final class DallEImageService
             throw new ServiceUnavailableException(
                 'Image must be a PNG file',
                 'image',
-                ['provider' => 'dall-e']
+                ['provider' => 'dall-e'],
             );
         }
     }
@@ -412,6 +419,7 @@ final class DallEImageService
      * Build generation request payload.
      *
      * @param array<string, mixed> $options
+     *
      * @return array<string, mixed>
      */
     private function buildGeneratePayload(string $prompt, array $options): array
@@ -443,8 +451,10 @@ final class DallEImageService
      * Send JSON request.
      *
      * @param array<string, mixed> $payload
-     * @return array<string, mixed>
+     *
      * @throws ServiceUnavailableException
+     *
+     * @return array<string, mixed>
      */
     private function sendRequest(string $endpoint, array $payload): array
     {
@@ -464,14 +474,16 @@ final class DallEImageService
      * Send multipart request for image upload.
      *
      * @param array<string, mixed> $fields
-     * @return array<string, mixed>
+     *
      * @throws ServiceUnavailableException
+     *
+     * @return array<string, mixed>
      */
     private function sendMultipartRequest(
         string $endpoint,
         string $imagePath,
         ?string $maskPath,
-        array $fields
+        array $fields,
     ): array {
         $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
 
@@ -515,15 +527,16 @@ final class DallEImageService
     /**
      * Execute HTTP request.
      *
-     * @return array<string, mixed>
      * @throws ServiceUnavailableException
+     *
+     * @return array<string, mixed>
      */
     private function executeRequest(\Psr\Http\Message\RequestInterface $request): array
     {
         try {
             $response = $this->httpClient->sendRequest($request);
             $statusCode = $response->getStatusCode();
-            $responseBody = (string) $response->getBody();
+            $responseBody = (string)$response->getBody();
 
             if ($statusCode >= 200 && $statusCode < 300) {
                 return json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
@@ -545,7 +558,7 @@ final class DallEImageService
             };
         } catch (ServiceUnavailableException|ServiceConfigurationException $e) {
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->error('DALL-E API connection error', [
                 'exception' => $e->getMessage(),
             ]);
@@ -555,7 +568,7 @@ final class DallEImageService
                 'image',
                 ['provider' => 'dall-e'],
                 0,
-                $e
+                $e,
             );
         }
     }

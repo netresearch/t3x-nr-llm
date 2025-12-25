@@ -14,7 +14,7 @@ interface ProviderInterface
     public function getIdentifier(): string;
 
     /**
-     * Configure the provider with API key and other settings
+     * Configure the provider with API key and other settings.
      *
      * @param array<string, mixed> $config
      */
@@ -26,7 +26,7 @@ interface ProviderInterface
 
     /**
      * @param array<int, array{role: string, content: string}> $messages
-     * @param array<string, mixed> $options
+     * @param array<string, mixed>                             $options
      */
     public function chatCompletion(array $messages, array $options = []): CompletionResponse;
 
@@ -37,7 +37,7 @@ interface ProviderInterface
 
     /**
      * @param string|array<int, string> $input
-     * @param array<string, mixed> $options
+     * @param array<string, mixed>      $options
      */
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse;
 

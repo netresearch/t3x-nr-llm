@@ -7,12 +7,12 @@ namespace Netresearch\NrLlm\Security;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Context\Context;
-use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\SingletonInterface;
+use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * Access control for LLM features with TYPO3 permission integration
+ * Access control for LLM features with TYPO3 permission integration.
  *
  * Permission Levels:
  * - use_llm: Basic usage (generate content, send prompts)
@@ -46,17 +46,18 @@ class AccessControl implements SingletonInterface
 
     public function __construct(
         ?Context $context = null,
-        ?AuditLogger $auditLogger = null
+        ?AuditLogger $auditLogger = null,
     ) {
         $this->context = $context ?? GeneralUtility::makeInstance(Context::class);
         $this->auditLogger = $auditLogger ?? GeneralUtility::makeInstance(AuditLogger::class);
     }
 
     /**
-     * Check if current user has specific permission
+     * Check if current user has specific permission.
      *
-     * @param string $permission Permission constant
-     * @param Site|null $site Optional site context
+     * @param string    $permission Permission constant
+     * @param Site|null $site       Optional site context
+     *
      * @return bool True if user has permission
      */
     public function hasPermission(string $permission, ?Site $site = null): bool
@@ -90,7 +91,7 @@ class AccessControl implements SingletonInterface
             $this->auditLogger->logAccessDenied(
                 $permission,
                 $user->user['uid'],
-                $site ? "Site: {$site->getIdentifier()}" : 'Global'
+                $site ? "Site: {$site->getIdentifier()}" : 'Global',
             );
         }
 
@@ -98,9 +99,10 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Check if user can use LLM features
+     * Check if user can use LLM features.
      *
      * @param Site|null $site Site context
+     *
      * @return bool True if user can use LLM
      */
     public function canUseLlm(?Site $site = null): bool
@@ -109,9 +111,10 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Check if user can configure prompts
+     * Check if user can configure prompts.
      *
      * @param Site|null $site Site context
+     *
      * @return bool True if user can configure prompts
      */
     public function canConfigurePrompts(?Site $site = null): bool
@@ -120,9 +123,10 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Check if user can manage API keys
+     * Check if user can manage API keys.
      *
      * @param Site|null $site Site context
+     *
      * @return bool True if user can manage keys
      */
     public function canManageKeys(?Site $site = null): bool
@@ -131,9 +135,10 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Check if user can view reports
+     * Check if user can view reports.
      *
      * @param Site|null $site Site context
+     *
      * @return bool True if user can view reports
      */
     public function canViewReports(?Site $site = null): bool
@@ -142,10 +147,11 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Enforce permission check (throws exception if denied)
+     * Enforce permission check (throws exception if denied).
      *
-     * @param string $permission Permission to check
-     * @param Site|null $site Site context
+     * @param string    $permission Permission to check
+     * @param Site|null $site       Site context
+     *
      * @throws AccessDeniedException
      */
     public function requirePermission(string $permission, ?Site $site = null): void
@@ -156,15 +162,16 @@ class AccessControl implements SingletonInterface
 
             throw new AccessDeniedException(
                 "Access denied: User {$userId} lacks permission '{$permission}'",
-                1703002000
+                1703002000,
             );
         }
     }
 
     /**
-     * Check if user can access a specific site
+     * Check if user can access a specific site.
      *
      * @param Site $site Site to check
+     *
      * @return bool True if user has access to site
      */
     public function canAccessSite(Site $site): bool
@@ -179,7 +186,7 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Get list of sites user can access
+     * Get list of sites user can access.
      *
      * @return array<Site> Array of accessible sites
      */
@@ -212,10 +219,11 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Check quota for user (rate limiting)
+     * Check quota for user (rate limiting).
      *
      * @param string $quotaType Type of quota (e.g., 'requests_per_hour')
-     * @param int $limit Limit value
+     * @param int    $limit     Limit value
+     *
      * @return bool True if within quota
      */
     public function checkQuota(string $quotaType, int $limit): bool
@@ -239,7 +247,7 @@ class AccessControl implements SingletonInterface
                 $user->user['uid'],
                 $quotaType,
                 $usage,
-                $limit
+                $limit,
             );
             return false;
         }
@@ -248,10 +256,10 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Record quota usage for a user
+     * Record quota usage for a user.
      *
      * @param string $quotaType Type of quota
-     * @param int $amount Amount to record (default 1)
+     * @param int    $amount    Amount to record (default 1)
      */
     public function recordQuotaUsage(string $quotaType, int $amount = 1): void
     {
@@ -274,10 +282,11 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Get current quota usage for a user
+     * Get current quota usage for a user.
      *
-     * @param int $userId User ID
+     * @param int    $userId    User ID
      * @param string $quotaType Type of quota
+     *
      * @return int Current usage
      */
     private function getQuotaUsage(int $userId, string $quotaType): int
@@ -285,14 +294,15 @@ class AccessControl implements SingletonInterface
         $cacheIdentifier = $this->getQuotaCacheIdentifier($userId, $quotaType);
         $cache = $this->getQuotaCache();
 
-        return (int) ($cache->get($cacheIdentifier) ?? 0);
+        return (int)($cache->get($cacheIdentifier) ?? 0);
     }
 
     /**
-     * Check user-specific permission flag
+     * Check user-specific permission flag.
      *
-     * @param BackendUserAuthentication $user Backend user
-     * @param string $permission Permission name
+     * @param BackendUserAuthentication $user       Backend user
+     * @param string                    $permission Permission name
+     *
      * @return bool True if user has permission
      */
     private function checkUserPermission(BackendUserAuthentication $user, string $permission): bool
@@ -302,7 +312,7 @@ class AccessControl implements SingletonInterface
         $permissions = $tsConfig['tx_nrllm.']['permissions.'] ?? [];
 
         // Permission explicitly granted
-        if (isset($permissions[$permission]) && (int) $permissions[$permission] === 1) {
+        if (isset($permissions[$permission]) && (int)$permissions[$permission] === 1) {
             return true;
         }
 
@@ -311,10 +321,11 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Check if any of user's groups have permission
+     * Check if any of user's groups have permission.
      *
-     * @param BackendUserAuthentication $user Backend user
-     * @param string $permission Permission name
+     * @param BackendUserAuthentication $user       Backend user
+     * @param string                    $permission Permission name
+     *
      * @return bool True if any group has permission
      */
     private function checkGroupPermission(BackendUserAuthentication $user, string $permission): bool
@@ -329,7 +340,7 @@ class AccessControl implements SingletonInterface
             $groupTsConfig = BackendUtility::getPagesTSconfig($group['uid']);
             $permissions = $groupTsConfig['tx_nrllm.']['permissions.'] ?? [];
 
-            if (isset($permissions[$permission]) && (int) $permissions[$permission] === 1) {
+            if (isset($permissions[$permission]) && (int)$permissions[$permission] === 1) {
                 return true;
             }
         }
@@ -338,10 +349,11 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Check if user has access to specific site
+     * Check if user has access to specific site.
      *
      * @param BackendUserAuthentication $user Backend user
-     * @param Site $site Site to check
+     * @param Site                      $site Site to check
+     *
      * @return bool True if user has site access
      */
     private function checkSiteAccess(BackendUserAuthentication $user, Site $site): bool
@@ -358,10 +370,11 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Get cache identifier for quota tracking
+     * Get cache identifier for quota tracking.
      *
-     * @param int $userId User ID
+     * @param int    $userId    User ID
      * @param string $quotaType Quota type
+     *
      * @return string Cache identifier
      */
     private function getQuotaCacheIdentifier(int $userId, string $quotaType): string
@@ -370,9 +383,10 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Get quota lifetime in seconds based on type
+     * Get quota lifetime in seconds based on type.
      *
      * @param string $quotaType Quota type
+     *
      * @return int Lifetime in seconds
      */
     private function getQuotaLifetime(string $quotaType): int
@@ -388,9 +402,7 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Get quota cache instance
-     *
-     * @return \TYPO3\CMS\Core\Cache\Frontend\FrontendInterface
+     * Get quota cache instance.
      */
     private function getQuotaCache(): \TYPO3\CMS\Core\Cache\Frontend\FrontendInterface
     {
@@ -399,9 +411,7 @@ class AccessControl implements SingletonInterface
     }
 
     /**
-     * Get current backend user
-     *
-     * @return BackendUserAuthentication|null
+     * Get current backend user.
      */
     private function getBackendUser(): ?BackendUserAuthentication
     {

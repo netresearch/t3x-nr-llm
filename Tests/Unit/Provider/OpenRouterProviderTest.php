@@ -46,19 +46,19 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     #[Test]
     public function getNameReturnsOpenRouter(): void
     {
-        $this->assertEquals('OpenRouter', $this->subject->getName());
+        self::assertEquals('OpenRouter', $this->subject->getName());
     }
 
     #[Test]
     public function getIdentifierReturnsOpenrouter(): void
     {
-        $this->assertEquals('openrouter', $this->subject->getIdentifier());
+        self::assertEquals('openrouter', $this->subject->getIdentifier());
     }
 
     #[Test]
     public function isAvailableReturnsTrueWhenApiKeyConfigured(): void
     {
-        $this->assertTrue($this->subject->isAvailable());
+        self::assertTrue($this->subject->isAvailable());
     }
 
     #[Test]
@@ -95,9 +95,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
 
         $result = $this->subject->chatCompletion($messages);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertEquals('OpenRouter response', $result->content);
-        $this->assertEquals('anthropic/claude-3.5-sonnet', $result->model);
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('OpenRouter response', $result->content);
+        self::assertEquals('anthropic/claude-3.5-sonnet', $result->model);
     }
 
     #[Test]
@@ -105,13 +105,13 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         $models = $this->subject->getAvailableModels();
 
-        $this->assertIsArray($models);
-        $this->assertNotEmpty($models);
+        self::assertIsArray($models);
+        self::assertNotEmpty($models);
         // OpenRouter models have provider prefixes in keys (e.g., "anthropic/claude-3.5-sonnet")
         $modelKeys = array_keys($models);
-        $this->assertTrue(
+        self::assertTrue(
             count(array_filter($modelKeys, fn($m) => str_contains($m, '/'))) > 0,
-            'OpenRouter models should have provider prefixes in keys'
+            'OpenRouter models should have provider prefixes in keys',
         );
     }
 
@@ -134,7 +134,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         ]);
 
         // Just verify the provider can be instantiated with each strategy
-        $this->assertTrue($provider->isAvailable());
+        self::assertTrue($provider->isAvailable());
     }
 
     public static function routingStrategyProvider(): array
@@ -173,30 +173,30 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturnOnConsecutiveCalls(
                 $this->createJsonResponseMock($errorResponse, 503),
-                $this->createJsonResponseMock($successResponse)
+                $this->createJsonResponseMock($successResponse),
             );
 
         // When autoFallback is enabled, it should try another model
         // This test verifies the fallback mechanism exists
-        $this->assertTrue($this->subject->isAvailable());
+        self::assertTrue($this->subject->isAvailable());
     }
 
     #[Test]
     public function supportsVisionReturnsTrue(): void
     {
-        $this->assertTrue($this->subject->supportsVision());
+        self::assertTrue($this->subject->supportsVision());
     }
 
     #[Test]
     public function supportsStreamingReturnsTrue(): void
     {
-        $this->assertTrue($this->subject->supportsStreaming());
+        self::assertTrue($this->subject->supportsStreaming());
     }
 
     #[Test]
     public function supportsToolsReturnsTrue(): void
     {
-        $this->assertTrue($this->subject->supportsTools());
+        self::assertTrue($this->subject->supportsTools());
     }
 
     #[Test]
@@ -218,7 +218,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $result = $this->subject->chatCompletion($messages);
 
         // Verify request was made (headers are added internally)
-        $this->assertInstanceOf(CompletionResponse::class, $result);
+        self::assertInstanceOf(CompletionResponse::class, $result);
     }
 
     #[Test]
@@ -244,6 +244,6 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
 
         $result = $this->subject->chatCompletion($messages);
 
-        $this->assertEquals(150, $result->usage->totalTokens);
+        self::assertEquals(150, $result->usage->totalTokens);
     }
 }

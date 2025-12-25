@@ -10,7 +10,7 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 
 /**
- * High-level service for text completion
+ * High-level service for text completion.
  *
  * Provides simple text generation with configurable creativity,
  * format control, and token management.
@@ -22,9 +22,10 @@ class CompletionService
     ) {}
 
     /**
-     * Generate text completion
+     * Generate text completion.
      *
      * @param string $prompt The user prompt
+     *
      * @throws InvalidArgumentException
      */
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
@@ -51,10 +52,10 @@ class CompletionService
         // Handle response format
         if (isset($optionsArray['response_format'])) {
             $normalizedFormat = $this->normalizeResponseFormat(
-                $optionsArray['response_format']
+                $optionsArray['response_format'],
             );
             $options = $options->withResponseFormat(
-                is_string($normalizedFormat) ? $normalizedFormat : 'json'
+                is_string($normalizedFormat) ? $normalizedFormat : 'json',
             );
         }
 
@@ -73,7 +74,7 @@ class CompletionService
                 presencePenalty: $options->getPresencePenalty(),
                 responseFormat: $options->getResponseFormat(),
                 provider: $options->getProvider(),
-                model: $options->getModel()
+                model: $options->getModel(),
             );
             return $this->llmManager->chat($messages, $tempOptions);
         }
@@ -82,11 +83,13 @@ class CompletionService
     }
 
     /**
-     * Generate JSON-formatted completion
+     * Generate JSON-formatted completion.
      *
      * @param string $prompt The user prompt
-     * @return array<string, mixed> Parsed JSON response
+     *
      * @throws InvalidArgumentException
+     *
+     * @return array<string, mixed> Parsed JSON response
      */
     public function completeJson(string $prompt, ?ChatOptions $options = null): array
     {
@@ -99,7 +102,7 @@ class CompletionService
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new InvalidArgumentException(
-                'Failed to decode JSON response: ' . json_last_error_msg()
+                'Failed to decode JSON response: ' . json_last_error_msg(),
             );
         }
 
@@ -107,9 +110,10 @@ class CompletionService
     }
 
     /**
-     * Generate markdown-formatted completion
+     * Generate markdown-formatted completion.
      *
      * @param string $prompt The user prompt
+     *
      * @return string Markdown-formatted text
      */
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
@@ -127,7 +131,7 @@ class CompletionService
     }
 
     /**
-     * Generate completion with low creativity (factual, consistent)
+     * Generate completion with low creativity (factual, consistent).
      *
      * @param string $prompt The user prompt
      */
@@ -146,7 +150,7 @@ class CompletionService
     }
 
     /**
-     * Generate completion with high creativity (diverse, creative)
+     * Generate completion with high creativity (diverse, creative).
      *
      * @param string $prompt The user prompt
      */
@@ -168,9 +172,10 @@ class CompletionService
     }
 
     /**
-     * Validate completion options
+     * Validate completion options.
      *
      * @param array<string, mixed> $options
+     *
      * @throws InvalidArgumentException
      */
     private function validateOptions(array $options): void
@@ -179,7 +184,7 @@ class CompletionService
             $temp = $options['temperature'];
             if (!is_numeric($temp) || $temp < 0 || $temp > 2) {
                 throw new InvalidArgumentException(
-                    'Temperature must be between 0.0 and 2.0'
+                    'Temperature must be between 0.0 and 2.0',
                 );
             }
         }
@@ -188,7 +193,7 @@ class CompletionService
             $maxTokens = $options['max_tokens'];
             if (!is_int($maxTokens) || $maxTokens < 1) {
                 throw new InvalidArgumentException(
-                    'max_tokens must be a positive integer'
+                    'max_tokens must be a positive integer',
                 );
             }
         }
@@ -197,7 +202,7 @@ class CompletionService
             $topP = $options['top_p'];
             if (!is_numeric($topP) || $topP < 0 || $topP > 1) {
                 throw new InvalidArgumentException(
-                    'top_p must be between 0.0 and 1.0'
+                    'top_p must be between 0.0 and 1.0',
                 );
             }
         }
@@ -206,14 +211,14 @@ class CompletionService
             $format = $options['response_format'];
             if (!in_array($format, ['text', 'json', 'markdown'], true)) {
                 throw new InvalidArgumentException(
-                    'response_format must be "text", "json", or "markdown"'
+                    'response_format must be "text", "json", or "markdown"',
                 );
             }
         }
     }
 
     /**
-     * Normalize response format for provider compatibility
+     * Normalize response format for provider compatibility.
      *
      * @return array<string, string>|string
      */

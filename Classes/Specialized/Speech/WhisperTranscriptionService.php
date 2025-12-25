@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Speech;
 
+use Exception;
 use Netresearch\NrLlm\Service\UsageTrackerService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -13,6 +14,7 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
+use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
@@ -35,16 +37,12 @@ final class WhisperTranscriptionService
     private const DEFAULT_MODEL = 'whisper-1';
     private const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
 
-    /**
-     * Supported input audio formats.
-     */
+    /** Supported input audio formats. */
     private const SUPPORTED_FORMATS = [
         'flac', 'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'webm',
     ];
 
-    /**
-     * Supported output response formats.
-     */
+    /** Supported output response formats. */
     private const RESPONSE_FORMATS = [
         'json', 'text', 'srt', 'vtt', 'verbose_json',
     ];
@@ -76,15 +74,17 @@ final class WhisperTranscriptionService
     /**
      * Transcribe audio file to text.
      *
-     * @param string $audioPath Path to audio file
-     * @param TranscriptionOptions|array<string, mixed> $options Transcription options
-     * @return TranscriptionResult Transcription result
+     * @param string                                    $audioPath Path to audio file
+     * @param TranscriptionOptions|array<string, mixed> $options   Transcription options
+     *
      * @throws ServiceUnavailableException
      * @throws UnsupportedFormatException
+     *
+     * @return TranscriptionResult Transcription result
      */
     public function transcribe(
         string $audioPath,
-        TranscriptionOptions|array $options = []
+        TranscriptionOptions|array $options = [],
     ): TranscriptionResult {
         $this->ensureAvailable();
 
@@ -105,15 +105,16 @@ final class WhisperTranscriptionService
     /**
      * Transcribe audio from binary content.
      *
-     * @param string $audioContent Binary audio content
-     * @param string $filename Original filename (for format detection)
-     * @param TranscriptionOptions|array<string, mixed> $options Transcription options
+     * @param string                                    $audioContent Binary audio content
+     * @param string                                    $filename     Original filename (for format detection)
+     * @param TranscriptionOptions|array<string, mixed> $options      Transcription options
+     *
      * @return TranscriptionResult Transcription result
      */
     public function transcribeFromContent(
         string $audioContent,
         string $filename,
-        TranscriptionOptions|array $options = []
+        TranscriptionOptions|array $options = [],
     ): TranscriptionResult {
         $this->ensureAvailable();
 
@@ -125,7 +126,7 @@ final class WhisperTranscriptionService
         if (strlen($audioContent) > self::MAX_FILE_SIZE) {
             throw new UnsupportedFormatException(
                 sprintf('Audio content exceeds maximum size of %d MB', self::MAX_FILE_SIZE / 1024 / 1024),
-                'speech'
+                'speech',
             );
         }
 
@@ -147,13 +148,14 @@ final class WhisperTranscriptionService
      * Uses OpenAI's translation endpoint to transcribe and translate
      * non-English audio directly to English text.
      *
-     * @param string $audioPath Path to audio file
-     * @param TranscriptionOptions|array<string, mixed> $options Transcription options
+     * @param string                                    $audioPath Path to audio file
+     * @param TranscriptionOptions|array<string, mixed> $options   Transcription options
+     *
      * @return TranscriptionResult Transcription result (always in English)
      */
     public function translateToEnglish(
         string $audioPath,
-        TranscriptionOptions|array $options = []
+        TranscriptionOptions|array $options = [],
     ): TranscriptionResult {
         $this->ensureAvailable();
 
@@ -204,10 +206,10 @@ final class WhisperTranscriptionService
             $config = $this->extensionConfiguration->get('nr_llm');
 
             // Use OpenAI API key for Whisper
-            $this->apiKey = (string) ($config['providers']['openai']['apiKey'] ?? '');
-            $this->baseUrl = (string) ($config['speech']['whisper']['baseUrl'] ?? self::API_URL);
-            $this->timeout = (int) ($config['speech']['whisper']['timeout'] ?? 120);
-        } catch (\Exception $e) {
+            $this->apiKey = (string)($config['providers']['openai']['apiKey'] ?? '');
+            $this->baseUrl = (string)($config['speech']['whisper']['baseUrl'] ?? self::API_URL);
+            $this->timeout = (int)($config['speech']['whisper']['timeout'] ?? 120);
+        } catch (Exception $e) {
             $this->logger->warning('Failed to load Whisper configuration', [
                 'exception' => $e->getMessage(),
             ]);
@@ -236,7 +238,7 @@ final class WhisperTranscriptionService
         if (!file_exists($path)) {
             throw new UnsupportedFormatException(
                 sprintf('Audio file not found: %s', $path),
-                'speech'
+                'speech',
             );
         }
 
@@ -244,7 +246,7 @@ final class WhisperTranscriptionService
         if ($fileSize === false || $fileSize > self::MAX_FILE_SIZE) {
             throw new UnsupportedFormatException(
                 sprintf('Audio file exceeds maximum size of %d MB', self::MAX_FILE_SIZE / 1024 / 1024),
-                'speech'
+                'speech',
             );
         }
 
@@ -261,7 +263,7 @@ final class WhisperTranscriptionService
      */
     private function sendTranscriptionRequest(
         string $audioPath,
-        TranscriptionOptions $options
+        TranscriptionOptions $options,
     ): array|string {
         $url = rtrim($this->baseUrl, '/') . '/transcriptions';
 
@@ -279,7 +281,7 @@ final class WhisperTranscriptionService
     private function sendTranscriptionRequestFromContent(
         string $audioContent,
         string $filename,
-        TranscriptionOptions $options
+        TranscriptionOptions $options,
     ): array|string {
         $url = rtrim($this->baseUrl, '/') . '/transcriptions';
 
@@ -296,7 +298,7 @@ final class WhisperTranscriptionService
      */
     private function sendTranslationRequest(
         string $audioPath,
-        TranscriptionOptions $options
+        TranscriptionOptions $options,
     ): array|string {
         $url = rtrim($this->baseUrl, '/') . '/translations';
 
@@ -312,7 +314,7 @@ final class WhisperTranscriptionService
     private function buildMultipartBody(
         string $audioPath,
         TranscriptionOptions $options,
-        string $boundary
+        string $boundary,
     ): string {
         $optionsArray = $options->toArray();
         $body = '';
@@ -368,7 +370,7 @@ final class WhisperTranscriptionService
         string $audioContent,
         string $filename,
         TranscriptionOptions $options,
-        string $boundary
+        string $boundary,
     ): string {
         $optionsArray = $options->toArray();
         $body = '';
@@ -418,14 +420,15 @@ final class WhisperTranscriptionService
     /**
      * Send multipart request.
      *
-     * @return array<string, mixed>|string Response data
      * @throws ServiceUnavailableException
+     *
+     * @return array<string, mixed>|string Response data
      */
     private function sendMultipartRequest(
         string $url,
         string $body,
         string $boundary,
-        TranscriptionOptions $options
+        TranscriptionOptions $options,
     ): array|string {
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Authorization', 'Bearer ' . $this->apiKey)
@@ -436,7 +439,7 @@ final class WhisperTranscriptionService
         try {
             $response = $this->httpClient->sendRequest($request);
             $statusCode = $response->getStatusCode();
-            $responseBody = (string) $response->getBody();
+            $responseBody = (string)$response->getBody();
 
             if ($statusCode >= 200 && $statusCode < 300) {
                 // Track usage for successful requests
@@ -466,7 +469,7 @@ final class WhisperTranscriptionService
             };
         } catch (ServiceUnavailableException|ServiceConfigurationException $e) {
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->error('Whisper API connection error', [
                 'exception' => $e->getMessage(),
             ]);
@@ -476,7 +479,7 @@ final class WhisperTranscriptionService
                 'speech',
                 ['provider' => 'whisper'],
                 0,
-                $e
+                $e,
             );
         }
     }
@@ -488,7 +491,7 @@ final class WhisperTranscriptionService
      */
     private function parseTranscriptionResponse(
         array|string $response,
-        TranscriptionOptions $options
+        TranscriptionOptions $options,
     ): TranscriptionResult {
         $format = $options->format ?? 'json';
 
@@ -497,21 +500,21 @@ final class WhisperTranscriptionService
             return new TranscriptionResult(
                 text: $response,
                 language: $options->language ?? 'en',
-                metadata: ['format' => $format]
+                metadata: ['format' => $format],
             );
         }
 
         // Handle JSON formats
         $text = $response['text'] ?? '';
         $language = $response['language'] ?? $options->language ?? 'en';
-        $duration = isset($response['duration']) ? (float) $response['duration'] : null;
+        $duration = isset($response['duration']) ? (float)$response['duration'] : null;
 
         // Parse segments for verbose_json
         $segments = null;
         if ($format === 'verbose_json' && isset($response['segments'])) {
             $segments = array_map(
                 fn(array $s) => Segment::fromWhisperResponse($s),
-                $response['segments']
+                $response['segments'],
             );
         }
 
@@ -523,7 +526,7 @@ final class WhisperTranscriptionService
             metadata: [
                 'format' => $format,
                 'task' => $response['task'] ?? 'transcribe',
-            ]
+            ],
         );
     }
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 /**
- * Vision/Image analysis response
+ * Vision/Image analysis response.
  *
  * @api This class is part of the public API
  */
@@ -19,18 +19,18 @@ class VisionResponse extends LlmResponse
         string $content = '',
         ?TokenUsage $usage = null,
         ?array $metadata = null,
-        ?string $finishReason = null
+        ?string $finishReason = null,
     ) {
         parent::__construct(
             $content ?: $description,
             $usage,
             $metadata,
-            $finishReason
+            $finishReason,
         );
     }
 
     /**
-     * Get image description
+     * Get image description.
      */
     public function getDescription(): string
     {
@@ -38,7 +38,7 @@ class VisionResponse extends LlmResponse
     }
 
     /**
-     * Get detected objects
+     * Get detected objects.
      *
      * @return array List of detected objects
      */
@@ -48,7 +48,7 @@ class VisionResponse extends LlmResponse
     }
 
     /**
-     * Get scene information
+     * Get scene information.
      *
      * @return array Scene metadata (type, setting, timeOfDay, etc.)
      */
@@ -58,7 +58,7 @@ class VisionResponse extends LlmResponse
     }
 
     /**
-     * Get confidence score (0.0-1.0)
+     * Get confidence score (0.0-1.0).
      */
     public function getConfidence(): ?float
     {
@@ -66,7 +66,7 @@ class VisionResponse extends LlmResponse
     }
 
     /**
-     * Convert to array
+     * Convert to array.
      */
     public function toArray(): array
     {

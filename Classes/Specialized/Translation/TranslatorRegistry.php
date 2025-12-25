@@ -28,7 +28,7 @@ final class TranslatorRegistry implements SingletonInterface
      */
     public function __construct(
         #[TaggedIterator('nr_llm.translator')]
-        iterable $translators
+        iterable $translators,
     ) {
         foreach ($translators as $translator) {
             $this->translators[$translator->getIdentifier()] = $translator;
@@ -39,7 +39,7 @@ final class TranslatorRegistry implements SingletonInterface
      * Get translator by identifier.
      *
      * @param string $identifier Translator identifier (e.g., 'deepl', 'llm')
-     * @return TranslatorInterface
+     *
      * @throws ServiceUnavailableException If translator not found or not available
      */
     public function get(string $identifier): TranslatorInterface
@@ -77,7 +77,7 @@ final class TranslatorRegistry implements SingletonInterface
     {
         return array_filter(
             $this->translators,
-            static fn(TranslatorInterface $t) => $t->isAvailable()
+            static fn(TranslatorInterface $t) => $t->isAvailable(),
         );
     }
 
@@ -116,6 +116,7 @@ final class TranslatorRegistry implements SingletonInterface
      *
      * @param string $sourceLanguage Source language code
      * @param string $targetLanguage Target language code
+     *
      * @return TranslatorInterface|null Best available translator or null
      */
     public function findBestTranslator(string $sourceLanguage, string $targetLanguage): ?TranslatorInterface

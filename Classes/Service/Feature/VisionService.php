@@ -10,7 +10,7 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 
 /**
- * High-level service for image analysis and vision tasks
+ * High-level service for image analysis and vision tasks.
  *
  * Provides specialized image analysis with accessibility,
  * SEO, and descriptive prompts.
@@ -26,12 +26,13 @@ class VisionService
     ) {}
 
     /**
-     * Generate accessibility-focused alt text for image
+     * Generate accessibility-focused alt text for image.
      *
      * Optimized for screen readers and WCAG 2.1 Level AA compliance.
      * Output is concise (under 125 characters) and focuses on essential information.
      *
      * @param string|array<int, string> $imageUrl Single URL or array of URLs
+     *
      * @return string|array<int, string> Alt text(s)
      */
     public function generateAltText(string|array $imageUrl, ?VisionOptions $options = null): string|array
@@ -52,12 +53,13 @@ class VisionService
     }
 
     /**
-     * Generate SEO-optimized title for image
+     * Generate SEO-optimized title for image.
      *
      * Creates compelling, keyword-rich titles under 60 characters
      * for improved search rankings.
      *
      * @param string|array<int, string> $imageUrl Single URL or array of URLs
+     *
      * @return string|array<int, string> Title(s)
      */
     public function generateTitle(string|array $imageUrl, ?VisionOptions $options = null): string|array
@@ -78,12 +80,13 @@ class VisionService
     }
 
     /**
-     * Generate detailed description of image
+     * Generate detailed description of image.
      *
      * Provides comprehensive analysis including subjects, setting,
      * colors, mood, composition, and notable details.
      *
      * @param string|array<int, string> $imageUrl Single URL or array of URLs
+     *
      * @return string|array<int, string> Description(s)
      */
     public function generateDescription(string|array $imageUrl, ?VisionOptions $options = null): string|array
@@ -104,18 +107,19 @@ class VisionService
     }
 
     /**
-     * Analyze image with custom prompt
+     * Analyze image with custom prompt.
      *
      * Allows arbitrary image analysis queries with user-defined prompts.
      *
-     * @param string|array<int, string> $imageUrl Single URL or array of URLs
-     * @param string $customPrompt Custom analysis prompt
+     * @param string|array<int, string> $imageUrl     Single URL or array of URLs
+     * @param string                    $customPrompt Custom analysis prompt
+     *
      * @return string|array<int, string> Analysis result(s)
      */
     public function analyzeImage(
         string|array $imageUrl,
         string $customPrompt,
-        ?VisionOptions $options = null
+        ?VisionOptions $options = null,
     ): string|array {
         $options ??= new VisionOptions();
 
@@ -127,17 +131,17 @@ class VisionService
     }
 
     /**
-     * Analyze image with full response object
+     * Analyze image with full response object.
      *
      * Returns complete VisionResponse with metadata and usage statistics.
      *
      * @param string $imageUrl Image URL
-     * @param string $prompt Analysis prompt
+     * @param string $prompt   Analysis prompt
      */
     public function analyzeImageFull(
         string $imageUrl,
         string $prompt,
-        ?VisionOptions $options = null
+        ?VisionOptions $options = null,
     ): VisionResponse {
         $options ??= new VisionOptions();
         $optionsArray = $options->toArray();
@@ -162,34 +166,35 @@ class VisionService
             maxTokens: $options->getMaxTokens(),
             temperature: $options->getTemperature(),
             provider: $options->getProvider(),
-            model: $options->getModel()
+            model: $options->getModel(),
         );
 
         return $this->llmManager->vision($content, $visionOptions);
     }
 
     /**
-     * Process single image with prompt
+     * Process single image with prompt.
      */
     private function processImage(
         string $imageUrl,
         string $prompt,
-        VisionOptions $options
+        VisionOptions $options,
     ): string {
         $response = $this->analyzeImageFull($imageUrl, $prompt, $options);
         return $response->description;
     }
 
     /**
-     * Process batch of images with prompt
+     * Process batch of images with prompt.
      *
      * @param array<int, string> $imageUrls
+     *
      * @return array<int, string>
      */
     private function processBatch(
         array $imageUrls,
         string $prompt,
-        VisionOptions $options
+        VisionOptions $options,
     ): array {
         $results = [];
 
@@ -201,7 +206,7 @@ class VisionService
     }
 
     /**
-     * Validate image URL
+     * Validate image URL.
      *
      * @throws InvalidArgumentException
      */
@@ -212,7 +217,7 @@ class VisionService
             // Check for base64 data URI
             if (!preg_match('/^data:image\/(png|jpeg|jpg|gif|webp);base64,/', $imageUrl)) {
                 throw new InvalidArgumentException(
-                    'Invalid image URL or base64 data URI'
+                    'Invalid image URL or base64 data URI',
                 );
             }
         }

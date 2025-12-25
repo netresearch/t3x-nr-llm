@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrTextdb\Service;
 
-use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Exception\LlmException;
 use Netresearch\NrLlm\Exception\QuotaExceededException;
+use Netresearch\NrLlm\Service\LlmServiceManager;
 use Psr\Log\LoggerInterface;
 
 /**
- * TextDB AI Translation Service Integration Example
+ * TextDB AI Translation Service Integration Example.
  *
  * Shows how textdb extension uses LlmServiceManager for:
  * - Quick translation suggestions
@@ -21,23 +21,24 @@ class TranslationAiService
 {
     public function __construct(
         private readonly LlmServiceManager $llm,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
     ) {}
 
     /**
-     * Generate translation suggestion for single text
+     * Generate translation suggestion for single text.
      *
-     * @param string $sourceText Source text to translate
-     * @param string $targetLanguage Target language code (ISO 639-1)
+     * @param string      $sourceText     Source text to translate
+     * @param string      $targetLanguage Target language code (ISO 639-1)
      * @param string|null $sourceLanguage Source language code
-     * @param array $context Additional context (component, type, etc.)
+     * @param array       $context        Additional context (component, type, etc.)
+     *
      * @return array Translation data with alternatives
      */
     public function suggestTranslation(
         string $sourceText,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        array $context = []
+        array $context = [],
     ): array {
         try {
             $response = $this->llm
@@ -78,17 +79,18 @@ class TranslationAiService
     }
 
     /**
-     * Bulk translate missing translations for a language
+     * Bulk translate missing translations for a language.
      *
-     * @param string $targetLanguage Target language code
-     * @param array $untranslatedTexts Array of untranslated texts
-     * @param string|null $component Component identifier for context
+     * @param string      $targetLanguage    Target language code
+     * @param array       $untranslatedTexts Array of untranslated texts
+     * @param string|null $component         Component identifier for context
+     *
      * @return array Batch translation results
      */
     public function bulkTranslate(
         string $targetLanguage,
         array $untranslatedTexts,
-        ?string $component = null
+        ?string $component = null,
     ): array {
         $results = [];
         $totalCost = 0.0;
@@ -145,10 +147,11 @@ class TranslationAiService
     }
 
     /**
-     * Check translation quality
+     * Check translation quality.
      *
-     * @param string $translation Translation to check
+     * @param string $translation    Translation to check
      * @param string $targetLanguage Target language
+     *
      * @return array Quality report
      */
     public function checkQuality(string $translation, string $targetLanguage): array

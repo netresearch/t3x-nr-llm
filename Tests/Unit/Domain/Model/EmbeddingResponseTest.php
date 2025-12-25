@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Domain\Model;
 
+use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -31,10 +32,10 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
             provider: 'openai',
         );
 
-        $this->assertEquals($embeddings, $response->embeddings);
-        $this->assertEquals('text-embedding-3-small', $response->model);
-        $this->assertSame($usage, $response->usage);
-        $this->assertEquals('openai', $response->provider);
+        self::assertEquals($embeddings, $response->embeddings);
+        self::assertEquals('text-embedding-3-small', $response->model);
+        self::assertSame($usage, $response->usage);
+        self::assertEquals('openai', $response->provider);
     }
 
     #[Test]
@@ -46,7 +47,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
             usage: new UsageStatistics(5, 0, 5),
         );
 
-        $this->assertEquals('', $response->provider);
+        self::assertEquals('', $response->provider);
     }
 
     #[Test]
@@ -61,7 +62,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
             usage: new UsageStatistics(10, 0, 10),
         );
 
-        $this->assertEquals($vector1, $response->getVector());
+        self::assertEquals($vector1, $response->getVector());
     }
 
     #[Test]
@@ -73,7 +74,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
             usage: new UsageStatistics(0, 0, 0),
         );
 
-        $this->assertEquals([], $response->getVector());
+        self::assertEquals([], $response->getVector());
     }
 
     #[Test]
@@ -91,8 +92,8 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
             usage: new UsageStatistics(30, 0, 30),
         );
 
-        $this->assertEquals($embeddings, $response->getEmbeddings());
-        $this->assertCount(3, $response->getEmbeddings());
+        self::assertEquals($embeddings, $response->getEmbeddings());
+        self::assertCount(3, $response->getEmbeddings());
     }
 
     #[Test]
@@ -106,7 +107,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
             usage: new UsageStatistics(10, 0, 10),
         );
 
-        $this->assertEquals(1536, $response->getDimensions());
+        self::assertEquals(1536, $response->getDimensions());
     }
 
     #[Test]
@@ -118,7 +119,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
             usage: new UsageStatistics(0, 0, 0),
         );
 
-        $this->assertEquals(0, $response->getDimensions());
+        self::assertEquals(0, $response->getDimensions());
     }
 
     #[Test]
@@ -137,7 +138,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
             usage: new UsageStatistics(40, 0, 40),
         );
 
-        $this->assertEquals(4, $response->getCount());
+        self::assertEquals(4, $response->getCount());
     }
 
     #[Test]
@@ -154,12 +155,12 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
         $normalized = $response->normalizeVector($vector);
 
         // Should be [0.6, 0.8] with magnitude 1
-        $this->assertEqualsWithDelta(0.6, $normalized[0], 0.0001);
-        $this->assertEqualsWithDelta(0.8, $normalized[1], 0.0001);
+        self::assertEqualsWithDelta(0.6, $normalized[0], 0.0001);
+        self::assertEqualsWithDelta(0.8, $normalized[1], 0.0001);
 
         // Verify magnitude is 1
         $magnitude = sqrt(array_sum(array_map(fn($x) => $x * $x, $normalized)));
-        $this->assertEqualsWithDelta(1.0, $magnitude, 0.0001);
+        self::assertEqualsWithDelta(1.0, $magnitude, 0.0001);
     }
 
     #[Test]
@@ -175,7 +176,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
 
         $normalized = $response->normalizeVector($zeroVector);
 
-        $this->assertEquals($zeroVector, $normalized);
+        self::assertEquals($zeroVector, $normalized);
     }
 
     #[Test]
@@ -185,7 +186,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
 
         $similarity = EmbeddingResponse::cosineSimilarity($vector, $vector);
 
-        $this->assertEqualsWithDelta(1.0, $similarity, 0.0001);
+        self::assertEqualsWithDelta(1.0, $similarity, 0.0001);
     }
 
     #[Test]
@@ -196,7 +197,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
 
         $similarity = EmbeddingResponse::cosineSimilarity($vectorA, $vectorB);
 
-        $this->assertEqualsWithDelta(-1.0, $similarity, 0.0001);
+        self::assertEqualsWithDelta(-1.0, $similarity, 0.0001);
     }
 
     #[Test]
@@ -207,7 +208,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
 
         $similarity = EmbeddingResponse::cosineSimilarity($vectorA, $vectorB);
 
-        $this->assertEqualsWithDelta(0.0, $similarity, 0.0001);
+        self::assertEqualsWithDelta(0.0, $similarity, 0.0001);
     }
 
     #[Test]
@@ -216,7 +217,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
         $vectorA = [0.1, 0.2, 0.3];
         $vectorB = [0.1, 0.2];
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Vectors must have the same dimensions');
 
         EmbeddingResponse::cosineSimilarity($vectorA, $vectorB);
@@ -230,7 +231,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
 
         $similarity = EmbeddingResponse::cosineSimilarity($zeroVector, $vector);
 
-        $this->assertEquals(0.0, $similarity);
+        self::assertEquals(0.0, $similarity);
     }
 
     #[Test]
@@ -248,7 +249,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
 
         $similarity = EmbeddingResponse::cosineSimilarity($vectorA, $vectorB);
 
-        $this->assertEqualsWithDelta(0.9746, $similarity, 0.0001);
+        self::assertEqualsWithDelta(0.9746, $similarity, 0.0001);
     }
 
     #[Test]
@@ -263,8 +264,8 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
             usage: new UsageStatistics(100, 0, 100),
         );
 
-        $this->assertEquals($dimensions, $response->getDimensions());
-        $this->assertCount($dimensions, $response->getVector());
+        self::assertEquals($dimensions, $response->getDimensions());
+        self::assertCount($dimensions, $response->getVector());
     }
 
     #[Test]
@@ -279,7 +280,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
             usage: new UsageStatistics(50, 0, 50),
         );
 
-        $this->assertEquals(5, $response->getCount());
-        $this->assertEquals(256, $response->getDimensions());
+        self::assertEquals(5, $response->getCount());
+        self::assertEquals(256, $response->getDimensions());
     }
 }

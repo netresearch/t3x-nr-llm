@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Netresearch\AiBase\Service\Provider;
 
-use Netresearch\AiBase\Domain\Model\AiResponse;
+use Exception;
 use Netresearch\AiBase\Domain\Model\CompletionResponse;
 use Netresearch\AiBase\Domain\Model\EmbeddingResponse;
-use Netresearch\AiBase\Domain\Model\VisionResponse;
 use Netresearch\AiBase\Domain\Model\TranslationResponse;
-use Netresearch\AiBase\Exception\ProviderException;
+use Netresearch\AiBase\Domain\Model\VisionResponse;
 use Netresearch\AiBase\Exception\ConfigurationException;
-use TYPO3\CMS\Core\Http\RequestFactory;
+use Netresearch\AiBase\Exception\ProviderException;
 use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Core\Http\RequestFactory;
 
 /**
- * Google Gemini Provider
+ * Google Gemini Provider.
  *
  * Implements Google's Generative Language API with native multimodal support.
  *
@@ -36,9 +36,7 @@ class GeminiProvider extends AbstractProvider
     private const DEFAULT_MODEL = 'gemini-1.5-flash';
     private const DEFAULT_EMBEDDING_MODEL = 'text-embedding-004';
 
-    /**
-     * Safety category thresholds
-     */
+    /** Safety category thresholds */
     private const HARM_CATEGORIES = [
         'HARM_CATEGORY_HARASSMENT',
         'HARM_CATEGORY_HATE_SPEECH',
@@ -53,9 +51,7 @@ class GeminiProvider extends AbstractProvider
         'BLOCK_LOW_AND_ABOVE',
     ];
 
-    /**
-     * Model pricing per 1M tokens (as of Dec 2024)
-     */
+    /** Model pricing per 1M tokens (as of Dec 2024) */
     private const MODEL_PRICING = [
         'gemini-2.0-flash-exp' => ['input' => 0.0, 'output' => 0.0], // Free tier
         'gemini-1.5-pro' => [
@@ -83,7 +79,7 @@ class GeminiProvider extends AbstractProvider
     public function __construct(
         array $configuration,
         RequestFactory $requestFactory,
-        LoggerInterface $logger
+        LoggerInterface $logger,
     ) {
         parent::__construct($configuration);
 
@@ -98,9 +94,6 @@ class GeminiProvider extends AbstractProvider
         $this->logger = $logger;
     }
 
-    /**
-     * @inheritDoc
-     */
     public function complete(string $prompt, array $options = []): CompletionResponse
     {
         $model = $options['model'] ?? $this->model;
@@ -113,9 +106,6 @@ class GeminiProvider extends AbstractProvider
         return $this->parseCompletionResponse($response);
     }
 
-    /**
-     * @inheritDoc
-     */
     public function stream(string $prompt, callable $callback, array $options = []): void
     {
         $model = $options['model'] ?? $this->model;
@@ -126,9 +116,6 @@ class GeminiProvider extends AbstractProvider
         $this->makeStreamingRequest($endpoint, $requestBody, $callback);
     }
 
-    /**
-     * @inheritDoc
-     */
     public function embed(string|array $text, array $options = []): EmbeddingResponse
     {
         $model = $options['model'] ?? self::DEFAULT_EMBEDDING_MODEL;
@@ -136,7 +123,7 @@ class GeminiProvider extends AbstractProvider
             '%s/%s/models/%s:embedContent',
             self::API_BASE_URL,
             self::API_VERSION,
-            $model
+            $model,
         );
 
         $texts = is_array($text) ? $text : [$text];
@@ -160,13 +147,10 @@ class GeminiProvider extends AbstractProvider
             model: $model,
             tokenUsage: [
                 'total_tokens' => count($texts) * 100, // Approximate
-            ]
+            ],
         );
     }
 
-    /**
-     * @inheritDoc
-     */
     public function analyzeImage(string $imageUrl, string $prompt, array $options = []): VisionResponse
     {
         $model = $options['model'] ?? $this->model;
@@ -196,18 +180,15 @@ class GeminiProvider extends AbstractProvider
                 'safety_ratings' => $response['candidates'][0]['safetyRatings'] ?? [],
                 'finish_reason' => $response['candidates'][0]['finishReason'] ?? 'UNKNOWN',
             ],
-            tokenUsage: $this->extractTokenUsage($response)
+            tokenUsage: $this->extractTokenUsage($response),
         );
     }
 
-    /**
-     * @inheritDoc
-     */
     public function translate(
         string $text,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        array $options = []
+        array $options = [],
     ): TranslationResponse {
         // Gemini uses completion API for translation
         $prompt = $this->buildTranslationPrompt($text, $targetLanguage, $sourceLanguage);
@@ -223,13 +204,10 @@ class GeminiProvider extends AbstractProvider
             targetLanguage: $targetLanguage,
             confidence: 0.95, // Gemini doesn't provide confidence for translation
             alternatives: [],
-            tokenUsage: $response->getTokenUsage()
+            tokenUsage: $response->getTokenUsage(),
         );
     }
 
-    /**
-     * @inheritDoc
-     */
     public function getCapabilities(): array
     {
         return [
@@ -246,9 +224,6 @@ class GeminiProvider extends AbstractProvider
         ];
     }
 
-    /**
-     * @inheritDoc
-     */
     public function estimateCost(int $inputTokens, int $outputTokens, ?string $model = null): float
     {
         $model ??= $this->model;
@@ -277,21 +252,18 @@ class GeminiProvider extends AbstractProvider
         return $inputCost + $outputCost;
     }
 
-    /**
-     * @inheritDoc
-     */
     public function isAvailable(): bool
     {
         try {
             $endpoint = sprintf(
                 '%s/%s/models',
                 self::API_BASE_URL,
-                self::API_VERSION
+                self::API_VERSION,
             );
 
             $this->makeRequest('GET', $endpoint);
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('Gemini availability check failed', [
                 'error' => $e->getMessage(),
             ]);
@@ -300,7 +272,7 @@ class GeminiProvider extends AbstractProvider
     }
 
     /**
-     * Build API endpoint URL
+     * Build API endpoint URL.
      */
     private function buildEndpoint(string $model, string $operation): string
     {
@@ -309,12 +281,12 @@ class GeminiProvider extends AbstractProvider
             self::API_BASE_URL,
             self::API_VERSION,
             $model,
-            $operation
+            $operation,
         );
     }
 
     /**
-     * Build completion request body
+     * Build completion request body.
      */
     private function buildCompletionRequest(string $prompt, array $options): array
     {
@@ -342,7 +314,7 @@ class GeminiProvider extends AbstractProvider
     }
 
     /**
-     * Build generation configuration
+     * Build generation configuration.
      */
     private function buildGenerationConfig(array $options): array
     {
@@ -366,7 +338,7 @@ class GeminiProvider extends AbstractProvider
     }
 
     /**
-     * Build safety settings
+     * Build safety settings.
      */
     private function buildSafetySettings(array $options = []): array
     {
@@ -384,7 +356,7 @@ class GeminiProvider extends AbstractProvider
     }
 
     /**
-     * Prepare image part for multimodal request
+     * Prepare image part for multimodal request.
      */
     private function prepareImagePart(string $imageUrl, array $options): array
     {
@@ -409,7 +381,7 @@ class GeminiProvider extends AbstractProvider
     }
 
     /**
-     * Parse completion response
+     * Parse completion response.
      */
     private function parseCompletionResponse(array $response): CompletionResponse
     {
@@ -434,12 +406,12 @@ class GeminiProvider extends AbstractProvider
             tokenUsage: $this->extractTokenUsage($response),
             metadata: [
                 'safety_ratings' => $candidate['safetyRatings'] ?? [],
-            ]
+            ],
         );
     }
 
     /**
-     * Extract text from response
+     * Extract text from response.
      */
     private function extractText(array $response): string
     {
@@ -451,7 +423,7 @@ class GeminiProvider extends AbstractProvider
     }
 
     /**
-     * Extract token usage
+     * Extract token usage.
      */
     private function extractTokenUsage(array $response): array
     {
@@ -465,7 +437,7 @@ class GeminiProvider extends AbstractProvider
     }
 
     /**
-     * Extract confidence from safety ratings
+     * Extract confidence from safety ratings.
      */
     private function extractConfidence(array $response): float
     {
@@ -484,7 +456,7 @@ class GeminiProvider extends AbstractProvider
     }
 
     /**
-     * Get max context for current model
+     * Get max context for current model.
      */
     private function getMaxContext(): int
     {
@@ -496,12 +468,12 @@ class GeminiProvider extends AbstractProvider
     }
 
     /**
-     * Build translation prompt
+     * Build translation prompt.
      */
     private function buildTranslationPrompt(
         string $text,
         string $targetLanguage,
-        ?string $sourceLanguage
+        ?string $sourceLanguage,
     ): string {
         $prompt = "Translate the following text to {$targetLanguage}";
 
@@ -515,7 +487,7 @@ class GeminiProvider extends AbstractProvider
     }
 
     /**
-     * Detect MIME type from URL
+     * Detect MIME type from URL.
      */
     private function detectMimeType(string $url): string
     {
@@ -531,7 +503,7 @@ class GeminiProvider extends AbstractProvider
     }
 
     /**
-     * Make HTTP request to Gemini API
+     * Make HTTP request to Gemini API.
      */
     private function makeRequest(string $method, string $endpoint, ?array $body = null): array
     {
@@ -560,7 +532,7 @@ class GeminiProvider extends AbstractProvider
     }
 
     /**
-     * Make streaming request
+     * Make streaming request.
      */
     private function makeStreamingRequest(string $endpoint, array $body, callable $callback): void
     {
@@ -593,7 +565,7 @@ class GeminiProvider extends AbstractProvider
     }
 
     /**
-     * Handle API errors
+     * Handle API errors.
      */
     private function handleError(int $statusCode, array $response): void
     {
@@ -603,12 +575,12 @@ class GeminiProvider extends AbstractProvider
 
         throw new ProviderException(
             "Gemini API error ({$code}): {$message}",
-            ['status_code' => $statusCode, 'response' => $response]
+            ['status_code' => $statusCode, 'response' => $response],
         );
     }
 
     /**
-     * Read line from stream
+     * Read line from stream.
      */
     private function readLine($stream): string
     {

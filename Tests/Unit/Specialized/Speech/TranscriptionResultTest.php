@@ -32,12 +32,12 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             metadata: $metadata,
         );
 
-        $this->assertEquals('Hello World', $result->text);
-        $this->assertEquals('en', $result->language);
-        $this->assertEquals(5.0, $result->duration);
-        $this->assertEquals($segments, $result->segments);
-        $this->assertEquals(0.95, $result->confidence);
-        $this->assertEquals($metadata, $result->metadata);
+        self::assertEquals('Hello World', $result->text);
+        self::assertEquals('en', $result->language);
+        self::assertEquals(5.0, $result->duration);
+        self::assertEquals($segments, $result->segments);
+        self::assertEquals(0.95, $result->confidence);
+        self::assertEquals($metadata, $result->metadata);
     }
 
     #[Test]
@@ -48,12 +48,12 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             language: 'de',
         );
 
-        $this->assertEquals('Test transcription', $result->text);
-        $this->assertEquals('de', $result->language);
-        $this->assertNull($result->duration);
-        $this->assertNull($result->segments);
-        $this->assertNull($result->confidence);
-        $this->assertNull($result->metadata);
+        self::assertEquals('Test transcription', $result->text);
+        self::assertEquals('de', $result->language);
+        self::assertNull($result->duration);
+        self::assertNull($result->segments);
+        self::assertNull($result->confidence);
+        self::assertNull($result->metadata);
     }
 
     #[Test]
@@ -65,7 +65,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             segments: [new Segment('Hello', 0.0, 1.0)],
         );
 
-        $this->assertTrue($result->hasSegments());
+        self::assertTrue($result->hasSegments());
     }
 
     #[Test]
@@ -77,7 +77,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             segments: null,
         );
 
-        $this->assertFalse($result->hasSegments());
+        self::assertFalse($result->hasSegments());
     }
 
     #[Test]
@@ -89,7 +89,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             segments: [],
         );
 
-        $this->assertFalse($result->hasSegments());
+        self::assertFalse($result->hasSegments());
     }
 
     #[Test]
@@ -102,7 +102,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             duration: $duration,
         );
 
-        $this->assertEquals($expected, $result->getFormattedDuration());
+        self::assertEquals($expected, $result->getFormattedDuration());
     }
 
     public static function durationFormattingProvider(): array
@@ -125,7 +125,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             duration: null,
         );
 
-        $this->assertNull($result->getFormattedDuration());
+        self::assertNull($result->getFormattedDuration());
     }
 
     #[Test]
@@ -138,7 +138,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             confidence: $confidence,
         );
 
-        $this->assertEquals($expected, $result->getConfidencePercent());
+        self::assertEquals($expected, $result->getConfidencePercent());
     }
 
     public static function confidencePercentProvider(): array
@@ -162,7 +162,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             confidence: null,
         );
 
-        $this->assertNull($result->getConfidencePercent());
+        self::assertNull($result->getConfidencePercent());
     }
 
     #[Test]
@@ -173,7 +173,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             language: 'en',
         );
 
-        $this->assertEquals(9, $result->getWordCount());
+        self::assertEquals(9, $result->getWordCount());
     }
 
     #[Test]
@@ -184,7 +184,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             language: 'en',
         );
 
-        $this->assertEquals(0, $result->getWordCount());
+        self::assertEquals(0, $result->getWordCount());
     }
 
     #[Test]
@@ -196,7 +196,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             segments: null,
         );
 
-        $this->assertNull($result->toSrt());
+        self::assertNull($result->toSrt());
     }
 
     #[Test]
@@ -208,7 +208,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             segments: [],
         );
 
-        $this->assertNull($result->toSrt());
+        self::assertNull($result->toSrt());
     }
 
     #[Test]
@@ -227,12 +227,12 @@ class TranscriptionResultTest extends AbstractUnitTestCase
 
         $srt = $result->toSrt();
 
-        $this->assertStringContainsString('1', $srt);
-        $this->assertStringContainsString('00:00:00,000 --> 00:00:02,500', $srt);
-        $this->assertStringContainsString('Hello', $srt);
-        $this->assertStringContainsString('2', $srt);
-        $this->assertStringContainsString('00:00:02,500 --> 00:00:05,123', $srt);
-        $this->assertStringContainsString('World', $srt);
+        self::assertStringContainsString('1', $srt);
+        self::assertStringContainsString('00:00:00,000 --> 00:00:02,500', $srt);
+        self::assertStringContainsString('Hello', $srt);
+        self::assertStringContainsString('2', $srt);
+        self::assertStringContainsString('00:00:02,500 --> 00:00:05,123', $srt);
+        self::assertStringContainsString('World', $srt);
     }
 
     #[Test]
@@ -244,7 +244,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             segments: null,
         );
 
-        $this->assertNull($result->toVtt());
+        self::assertNull($result->toVtt());
     }
 
     #[Test]
@@ -260,7 +260,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
 
         $vtt = $result->toVtt();
 
-        $this->assertStringStartsWith('WEBVTT', $vtt);
+        self::assertStringStartsWith('WEBVTT', $vtt);
     }
 
     #[Test]
@@ -277,7 +277,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
         $vtt = $result->toVtt();
 
         // VTT uses dots instead of commas for milliseconds
-        $this->assertStringContainsString('00:00:00.000 --> 00:00:02.500', $vtt);
+        self::assertStringContainsString('00:00:00.000 --> 00:00:02.500', $vtt);
     }
 
     #[Test]
@@ -295,7 +295,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
 
         $srt = $result->toSrt();
 
-        $this->assertStringContainsString('01:01:05,123 --> 01:01:10,456', $srt);
+        self::assertStringContainsString('01:01:05,123 --> 01:01:10,456', $srt);
     }
 
     #[Test]
@@ -317,8 +317,8 @@ class TranscriptionResultTest extends AbstractUnitTestCase
         $lines = explode("\n", $srt);
 
         // Check segment numbers appear at start of blocks
-        $this->assertEquals('1', $lines[0]);
-        $this->assertEquals('2', $lines[4]);
-        $this->assertEquals('3', $lines[8]);
+        self::assertEquals('1', $lines[0]);
+        self::assertEquals('2', $lines[4]);
+        self::assertEquals('3', $lines[8]);
     }
 }

@@ -17,7 +17,7 @@ use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
- * Integration tests for LlmServiceManager
+ * Integration tests for LlmServiceManager.
  *
  * Tests full service coordination with multiple providers.
  */
@@ -50,7 +50,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 
         $this->subject = new LlmServiceManager(
             $this->extensionConfigMock,
-            new NullLogger()
+            new NullLogger(),
         );
     }
 
@@ -62,7 +62,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
             $httpClient,
             $this->requestFactory,
             $this->streamFactory,
-            $this->createNullLogger()
+            $this->createNullLogger(),
         );
     }
 
@@ -74,7 +74,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
             $httpClient,
             $this->requestFactory,
             $this->streamFactory,
-            $this->createNullLogger()
+            $this->createNullLogger(),
         );
     }
 
@@ -86,7 +86,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         $this->subject->registerProvider($provider);
 
         $retrievedProvider = $this->subject->getProvider('openai');
-        $this->assertSame($provider, $retrievedProvider);
+        self::assertSame($provider, $retrievedProvider);
     }
 
     #[Test]
@@ -98,8 +98,8 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         $this->subject->registerProvider($openAiProvider);
         $this->subject->registerProvider($claudeProvider);
 
-        $this->assertSame($openAiProvider, $this->subject->getProvider('openai'));
-        $this->assertSame($claudeProvider, $this->subject->getProvider('claude'));
+        self::assertSame($openAiProvider, $this->subject->getProvider('openai'));
+        self::assertSame($claudeProvider, $this->subject->getProvider('claude'));
     }
 
     #[Test]
@@ -118,8 +118,8 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
             ['role' => 'user', 'content' => 'Hello'],
         ]);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertEquals('OpenAI response', $result->content);
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('OpenAI response', $result->content);
     }
 
     #[Test]
@@ -142,10 +142,10 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         // Request Claude specifically
         $result = $this->subject->chat(
             [['role' => 'user', 'content' => 'Hello']],
-            ['provider' => 'claude']
+            ['provider' => 'claude'],
         );
 
-        $this->assertEquals('Claude response', $result->content);
+        self::assertEquals('Claude response', $result->content);
     }
 
     #[Test]
@@ -159,7 +159,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
             $this->createHttpClientWithResponses([]),
             $this->requestFactory,
             $this->streamFactory,
-            $this->createNullLogger()
+            $this->createNullLogger(),
         );
         // Don't configure it, so it's not available
 
@@ -167,8 +167,8 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 
         $available = $this->subject->getAvailableProviders();
 
-        $this->assertCount(1, $available);
-        $this->assertArrayHasKey('openai', $available);
+        self::assertCount(1, $available);
+        self::assertArrayHasKey('openai', $available);
     }
 
     #[Test]
@@ -182,10 +182,10 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 
         $list = $this->subject->getProviderList();
 
-        $this->assertArrayHasKey('openai', $list);
-        $this->assertArrayHasKey('claude', $list);
-        $this->assertEquals('OpenAI', $list['openai']);
-        $this->assertEquals('Anthropic Claude', $list['claude']);
+        self::assertArrayHasKey('openai', $list);
+        self::assertArrayHasKey('claude', $list);
+        self::assertEquals('OpenAI', $list['openai']);
+        self::assertEquals('Anthropic Claude', $list['claude']);
     }
 
     #[Test]
@@ -220,14 +220,14 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         $responseData = $this->getOpenAiChatResponse();
 
         $clientSetup = $this->createRequestCapturingClient(
-            $this->createSuccessResponse($responseData)
+            $this->createSuccessResponse($responseData),
         );
 
         $provider = new OpenAiProvider(
             $clientSetup['client'],
             $this->requestFactory,
             $this->streamFactory,
-            $this->createNullLogger()
+            $this->createNullLogger(),
         );
         $provider->configure([
             'apiKey' => 'sk-test',
@@ -239,14 +239,14 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 
         $this->subject->chat(
             [['role' => 'user', 'content' => 'Hello']],
-            ['temperature' => 0.5, 'max_tokens' => 100]
+            ['temperature' => 0.5, 'max_tokens' => 100],
         );
 
-        $this->assertCount(1, $clientSetup['requests']);
-        $body = json_decode((string) $clientSetup['requests'][0]->getBody(), true);
+        self::assertCount(1, $clientSetup['requests']);
+        $body = json_decode((string)$clientSetup['requests'][0]->getBody(), true);
 
-        $this->assertEquals(0.5, $body['temperature']);
-        $this->assertEquals(100, $body['max_tokens']);
+        self::assertEquals(0.5, $body['temperature']);
+        self::assertEquals(100, $body['max_tokens']);
     }
 
     #[Test]
@@ -255,15 +255,15 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         $provider = $this->createConfiguredOpenAiProvider([]);
         $this->subject->registerProvider($provider);
 
-        $this->assertTrue($this->subject->supportsFeature('vision', 'openai'));
-        $this->assertTrue($this->subject->supportsFeature('streaming', 'openai'));
-        $this->assertTrue($this->subject->supportsFeature('tools', 'openai'));
+        self::assertTrue($this->subject->supportsFeature('vision', 'openai'));
+        self::assertTrue($this->subject->supportsFeature('streaming', 'openai'));
+        self::assertTrue($this->subject->supportsFeature('tools', 'openai'));
     }
 
     #[Test]
     public function supportsFeatureReturnsFalseForUnknownProvider(): void
     {
-        $this->assertFalse($this->subject->supportsFeature('vision', 'unknown'));
+        self::assertFalse($this->subject->supportsFeature('vision', 'unknown'));
     }
 
     #[Test]
@@ -280,6 +280,6 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 
         $result = $this->subject->complete('Tell me a joke');
 
-        $this->assertEquals('Completed prompt', $result->content);
+        self::assertEquals('Completed prompt', $result->content);
     }
 }

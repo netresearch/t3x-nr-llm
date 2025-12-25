@@ -6,22 +6,19 @@ namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
-use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Psr\Http\Message\ResponseInterface;
+use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Http\RedirectResponse;
-use TYPO3\CMS\Core\Messaging\FlashMessage;
-use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 
 /**
- * Backend controller for LLM configuration management
+ * Backend controller for LLM configuration management.
  */
 #[AsController]
 final class ConfigurationController extends ActionController
@@ -34,7 +31,7 @@ final class ConfigurationController extends ActionController
     ) {}
 
     /**
-     * List all LLM configurations
+     * List all LLM configurations.
      */
     public function listAction(): ResponseInterface
     {
@@ -51,7 +48,7 @@ final class ConfigurationController extends ActionController
     }
 
     /**
-     * Show edit form for new or existing configuration
+     * Show edit form for new or existing configuration.
      */
     public function editAction(?int $uid = null): ResponseInterface
     {
@@ -64,10 +61,10 @@ final class ConfigurationController extends ActionController
                 $this->addFlashMessage(
                     'Configuration not found',
                     'Error',
-                    ContextualFeedbackSeverity::ERROR
+                    ContextualFeedbackSeverity::ERROR,
                 );
                 return new RedirectResponse(
-                    $this->uriBuilder->reset()->uriFor('list')
+                    $this->uriBuilder->reset()->uriFor('list'),
                 );
             }
         }
@@ -82,7 +79,7 @@ final class ConfigurationController extends ActionController
     }
 
     /**
-     * Create new configuration
+     * Create new configuration.
      */
     public function createAction(): ResponseInterface
     {
@@ -97,10 +94,10 @@ final class ConfigurationController extends ActionController
             $this->addFlashMessage(
                 sprintf('Identifier "%s" is already in use', $configuration->getIdentifier()),
                 'Validation Error',
-                ContextualFeedbackSeverity::ERROR
+                ContextualFeedbackSeverity::ERROR,
             );
             return new RedirectResponse(
-                $this->uriBuilder->reset()->uriFor('edit')
+                $this->uriBuilder->reset()->uriFor('edit'),
             );
         }
 
@@ -109,23 +106,23 @@ final class ConfigurationController extends ActionController
             $this->addFlashMessage(
                 sprintf('Configuration "%s" created successfully', $configuration->getName()),
                 'Success',
-                ContextualFeedbackSeverity::OK
+                ContextualFeedbackSeverity::OK,
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->addFlashMessage(
                 'Error creating configuration: ' . $e->getMessage(),
                 'Error',
-                ContextualFeedbackSeverity::ERROR
+                ContextualFeedbackSeverity::ERROR,
             );
         }
 
         return new RedirectResponse(
-            $this->uriBuilder->reset()->uriFor('list')
+            $this->uriBuilder->reset()->uriFor('list'),
         );
     }
 
     /**
-     * Update existing configuration
+     * Update existing configuration.
      */
     public function updateAction(int $uid): ResponseInterface
     {
@@ -135,10 +132,10 @@ final class ConfigurationController extends ActionController
             $this->addFlashMessage(
                 'Configuration not found',
                 'Error',
-                ContextualFeedbackSeverity::ERROR
+                ContextualFeedbackSeverity::ERROR,
             );
             return new RedirectResponse(
-                $this->uriBuilder->reset()->uriFor('list')
+                $this->uriBuilder->reset()->uriFor('list'),
             );
         }
 
@@ -153,10 +150,10 @@ final class ConfigurationController extends ActionController
             $this->addFlashMessage(
                 sprintf('Identifier "%s" is already in use', $newIdentifier),
                 'Validation Error',
-                ContextualFeedbackSeverity::ERROR
+                ContextualFeedbackSeverity::ERROR,
             );
             return new RedirectResponse(
-                $this->uriBuilder->reset()->uriFor('edit', ['uid' => $uid])
+                $this->uriBuilder->reset()->uriFor('edit', ['uid' => $uid]),
             );
         }
 
@@ -167,23 +164,23 @@ final class ConfigurationController extends ActionController
             $this->addFlashMessage(
                 sprintf('Configuration "%s" updated successfully', $configuration->getName()),
                 'Success',
-                ContextualFeedbackSeverity::OK
+                ContextualFeedbackSeverity::OK,
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->addFlashMessage(
                 'Error updating configuration: ' . $e->getMessage(),
                 'Error',
-                ContextualFeedbackSeverity::ERROR
+                ContextualFeedbackSeverity::ERROR,
             );
         }
 
         return new RedirectResponse(
-            $this->uriBuilder->reset()->uriFor('list')
+            $this->uriBuilder->reset()->uriFor('list'),
         );
     }
 
     /**
-     * Delete configuration
+     * Delete configuration.
      */
     public function deleteAction(int $uid): ResponseInterface
     {
@@ -193,10 +190,10 @@ final class ConfigurationController extends ActionController
             $this->addFlashMessage(
                 'Configuration not found',
                 'Error',
-                ContextualFeedbackSeverity::ERROR
+                ContextualFeedbackSeverity::ERROR,
             );
             return new RedirectResponse(
-                $this->uriBuilder->reset()->uriFor('list')
+                $this->uriBuilder->reset()->uriFor('list'),
             );
         }
 
@@ -206,28 +203,28 @@ final class ConfigurationController extends ActionController
             $this->addFlashMessage(
                 sprintf('Configuration "%s" deleted successfully', $name),
                 'Success',
-                ContextualFeedbackSeverity::OK
+                ContextualFeedbackSeverity::OK,
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->addFlashMessage(
                 'Error deleting configuration: ' . $e->getMessage(),
                 'Error',
-                ContextualFeedbackSeverity::ERROR
+                ContextualFeedbackSeverity::ERROR,
             );
         }
 
         return new RedirectResponse(
-            $this->uriBuilder->reset()->uriFor('list')
+            $this->uriBuilder->reset()->uriFor('list'),
         );
     }
 
     /**
-     * AJAX: Toggle active status
+     * AJAX: Toggle active status.
      */
     public function toggleActiveAction(): ResponseInterface
     {
         $body = $this->request->getParsedBody();
-        $uid = (int) ($body['uid'] ?? 0);
+        $uid = (int)($body['uid'] ?? 0);
 
         if ($uid === 0) {
             return new JsonResponse(['error' => 'No configuration UID specified'], 400);
@@ -244,18 +241,18 @@ final class ConfigurationController extends ActionController
                 'success' => true,
                 'isActive' => $configuration->isActive(),
             ]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
     /**
-     * AJAX: Set configuration as default
+     * AJAX: Set configuration as default.
      */
     public function setDefaultAction(): ResponseInterface
     {
         $body = $this->request->getParsedBody();
-        $uid = (int) ($body['uid'] ?? 0);
+        $uid = (int)($body['uid'] ?? 0);
 
         if ($uid === 0) {
             return new JsonResponse(['error' => 'No configuration UID specified'], 400);
@@ -269,13 +266,13 @@ final class ConfigurationController extends ActionController
         try {
             $this->configurationService->setAsDefault($configuration);
             return new JsonResponse(['success' => true]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
     /**
-     * AJAX: Get available models for a provider
+     * AJAX: Get available models for a provider.
      */
     public function getModelsAction(): ResponseInterface
     {
@@ -300,18 +297,18 @@ final class ConfigurationController extends ActionController
                 'models' => $models,
                 'defaultModel' => $defaultModel,
             ]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
     /**
-     * AJAX: Test configuration
+     * AJAX: Test configuration.
      */
     public function testConfigurationAction(): ResponseInterface
     {
         $body = $this->request->getParsedBody();
-        $uid = (int) ($body['uid'] ?? 0);
+        $uid = (int)($body['uid'] ?? 0);
 
         if ($uid === 0) {
             return new JsonResponse(['error' => 'No configuration UID specified'], 400);
@@ -326,7 +323,7 @@ final class ConfigurationController extends ActionController
             $chatOptions = $configuration->toChatOptions();
             $response = $this->llmServiceManager->complete(
                 'Hello, please respond with a brief greeting.',
-                $chatOptions
+                $chatOptions,
             );
 
             return new JsonResponse([
@@ -339,7 +336,7 @@ final class ConfigurationController extends ActionController
                     'totalTokens' => $response->usage->totalTokens,
                 ],
             ]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return new JsonResponse([
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -348,7 +345,7 @@ final class ConfigurationController extends ActionController
     }
 
     /**
-     * Get provider options for select field
+     * Get provider options for select field.
      *
      * @return array<string, string>
      */
@@ -367,62 +364,62 @@ final class ConfigurationController extends ActionController
     }
 
     /**
-     * Map form data to configuration entity
+     * Map form data to configuration entity.
      *
      * @param array<string, mixed> $data
      */
     private function mapDataToConfiguration(LlmConfiguration $configuration, array $data): void
     {
         if (isset($data['identifier'])) {
-            $configuration->setIdentifier((string) $data['identifier']);
+            $configuration->setIdentifier((string)$data['identifier']);
         }
         if (isset($data['name'])) {
-            $configuration->setName((string) $data['name']);
+            $configuration->setName((string)$data['name']);
         }
         if (isset($data['description'])) {
-            $configuration->setDescription((string) $data['description']);
+            $configuration->setDescription((string)$data['description']);
         }
         if (isset($data['provider'])) {
-            $configuration->setProvider((string) $data['provider']);
+            $configuration->setProvider((string)$data['provider']);
         }
         if (isset($data['model'])) {
-            $configuration->setModel((string) $data['model']);
+            $configuration->setModel((string)$data['model']);
         }
         if (isset($data['systemPrompt'])) {
-            $configuration->setSystemPrompt((string) $data['systemPrompt']);
+            $configuration->setSystemPrompt((string)$data['systemPrompt']);
         }
         if (isset($data['temperature'])) {
-            $configuration->setTemperature((float) $data['temperature']);
+            $configuration->setTemperature((float)$data['temperature']);
         }
         if (isset($data['maxTokens'])) {
-            $configuration->setMaxTokens((int) $data['maxTokens']);
+            $configuration->setMaxTokens((int)$data['maxTokens']);
         }
         if (isset($data['topP'])) {
-            $configuration->setTopP((float) $data['topP']);
+            $configuration->setTopP((float)$data['topP']);
         }
         if (isset($data['frequencyPenalty'])) {
-            $configuration->setFrequencyPenalty((float) $data['frequencyPenalty']);
+            $configuration->setFrequencyPenalty((float)$data['frequencyPenalty']);
         }
         if (isset($data['presencePenalty'])) {
-            $configuration->setPresencePenalty((float) $data['presencePenalty']);
+            $configuration->setPresencePenalty((float)$data['presencePenalty']);
         }
         if (isset($data['options'])) {
-            $configuration->setOptions((string) $data['options']);
+            $configuration->setOptions((string)$data['options']);
         }
         if (isset($data['maxRequestsPerDay'])) {
-            $configuration->setMaxRequestsPerDay((int) $data['maxRequestsPerDay']);
+            $configuration->setMaxRequestsPerDay((int)$data['maxRequestsPerDay']);
         }
         if (isset($data['maxTokensPerDay'])) {
-            $configuration->setMaxTokensPerDay((int) $data['maxTokensPerDay']);
+            $configuration->setMaxTokensPerDay((int)$data['maxTokensPerDay']);
         }
         if (isset($data['maxCostPerDay'])) {
-            $configuration->setMaxCostPerDay((float) $data['maxCostPerDay']);
+            $configuration->setMaxCostPerDay((float)$data['maxCostPerDay']);
         }
         if (isset($data['isActive'])) {
-            $configuration->setIsActive((bool) $data['isActive']);
+            $configuration->setIsActive((bool)$data['isActive']);
         }
         if (isset($data['isDefault'])) {
-            $configuration->setIsDefault((bool) $data['isDefault']);
+            $configuration->setIsDefault((bool)$data['isDefault']);
         }
     }
 }

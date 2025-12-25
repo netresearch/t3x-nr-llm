@@ -4,19 +4,20 @@ declare(strict_types=1);
 
 namespace Netresearch\AiBase\Service\Provider;
 
+use Exception;
 use Netresearch\AiBase\Domain\Model\CompletionResponse;
 use Netresearch\AiBase\Domain\Model\EmbeddingResponse;
-use Netresearch\AiBase\Domain\Model\VisionResponse;
 use Netresearch\AiBase\Domain\Model\TranslationResponse;
-use Netresearch\AiBase\Exception\ProviderException;
+use Netresearch\AiBase\Domain\Model\VisionResponse;
 use Netresearch\AiBase\Exception\ConfigurationException;
+use Netresearch\AiBase\Exception\ProviderException;
 use Netresearch\AiBase\Exception\QuotaExceededException;
-use TYPO3\CMS\Core\Http\RequestFactory;
-use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
+use TYPO3\CMS\Core\Http\RequestFactory;
 
 /**
- * OpenRouter Provider
+ * OpenRouter Provider.
  *
  * Gateway to 100+ AI models from multiple providers via a single API.
  * OpenRouter provides OpenAI-compatible API with automatic fallback,
@@ -47,9 +48,7 @@ class OpenRouterProvider extends AbstractProvider
     private const MODELS_CACHE_KEY = 'openrouter_models';
     private const MODELS_CACHE_TTL = 86400; // 24 hours
 
-    /**
-     * Routing strategies
-     */
+    /** Routing strategies */
     private const ROUTING_STRATEGIES = [
         'cost_optimized' => 'Choose cheapest model that meets requirements',
         'performance' => 'Choose fastest model',
@@ -73,7 +72,7 @@ class OpenRouterProvider extends AbstractProvider
         array $configuration,
         RequestFactory $requestFactory,
         FrontendInterface $cache,
-        LoggerInterface $logger
+        LoggerInterface $logger,
     ) {
         parent::__construct($configuration);
 
@@ -86,7 +85,7 @@ class OpenRouterProvider extends AbstractProvider
         $this->autoFallback = $configuration['autoFallback'] ?? true;
         $this->fallbackModels = $this->parseFallbackModels($configuration['fallbackModels'] ?? '');
         $this->routingStrategy = $configuration['routingStrategy'] ?? 'balanced';
-        $this->budgetLimit = (float) ($configuration['budgetLimit'] ?? 100.0);
+        $this->budgetLimit = (float)($configuration['budgetLimit'] ?? 100.0);
         $this->siteUrl = $configuration['siteUrl'] ?? 'https://localhost';
         $this->appName = $configuration['appName'] ?? 'TYPO3 AI Base';
         $this->requestFactory = $requestFactory;
@@ -94,9 +93,6 @@ class OpenRouterProvider extends AbstractProvider
         $this->logger = $logger;
     }
 
-    /**
-     * @inheritDoc
-     */
     public function complete(string $prompt, array $options = []): CompletionResponse
     {
         $model = $this->selectModel($options);
@@ -126,9 +122,6 @@ class OpenRouterProvider extends AbstractProvider
         return $this->parseCompletionResponse($response);
     }
 
-    /**
-     * @inheritDoc
-     */
     public function stream(string $prompt, callable $callback, array $options = []): void
     {
         $model = $this->selectModel($options);
@@ -149,9 +142,6 @@ class OpenRouterProvider extends AbstractProvider
         $this->makeStreamingRequest('/chat/completions', $requestBody, $callback);
     }
 
-    /**
-     * @inheritDoc
-     */
     public function embed(string|array $text, array $options = []): EmbeddingResponse
     {
         // Select embedding model
@@ -169,20 +159,17 @@ class OpenRouterProvider extends AbstractProvider
         return new EmbeddingResponse(
             embeddings: array_map(
                 fn($item) => $item['embedding'],
-                $response['data']
+                $response['data'],
             ),
             model: $model,
             tokenUsage: [
                 'prompt_tokens' => $response['usage']['prompt_tokens'] ?? 0,
                 'total_tokens' => $response['usage']['total_tokens'] ?? 0,
             ],
-            cost: $response['total_cost'] ?? 0.0
+            cost: $response['total_cost'] ?? 0.0,
         );
     }
 
-    /**
-     * @inheritDoc
-     */
     public function analyzeImage(string $imageUrl, string $prompt, array $options = []): VisionResponse
     {
         // Select vision-capable model
@@ -214,18 +201,15 @@ class OpenRouterProvider extends AbstractProvider
                 'provider' => $response['provider'] ?? 'unknown',
             ],
             tokenUsage: $this->extractTokenUsage($response),
-            cost: $response['total_cost'] ?? 0.0
+            cost: $response['total_cost'] ?? 0.0,
         );
     }
 
-    /**
-     * @inheritDoc
-     */
     public function translate(
         string $text,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        array $options = []
+        array $options = [],
     ): TranslationResponse {
         $prompt = $this->buildTranslationPrompt($text, $targetLanguage, $sourceLanguage);
 
@@ -241,14 +225,15 @@ class OpenRouterProvider extends AbstractProvider
             confidence: 0.9,
             alternatives: [],
             tokenUsage: $response->getTokenUsage(),
-            cost: $response->getCost()
+            cost: $response->getCost(),
         );
     }
 
     /**
-     * Get available models from OpenRouter
+     * Get available models from OpenRouter.
      *
      * @param bool $refresh Force refresh cache
+     *
      * @return array List of available models with metadata
      */
     public function getAvailableModels(bool $refresh = false): array
@@ -285,7 +270,7 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Get usage credits information
+     * Get usage credits information.
      *
      * @return array Credits information
      */
@@ -301,9 +286,6 @@ class OpenRouterProvider extends AbstractProvider
         ];
     }
 
-    /**
-     * @inheritDoc
-     */
     public function getCapabilities(): array
     {
         return [
@@ -346,15 +328,12 @@ class OpenRouterProvider extends AbstractProvider
         return $inputCost + $outputCost;
     }
 
-    /**
-     * @inheritDoc
-     */
     public function isAvailable(): bool
     {
         try {
             $this->getCredits();
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('OpenRouter availability check failed', [
                 'error' => $e->getMessage(),
             ]);
@@ -363,7 +342,7 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Select best model based on routing strategy
+     * Select best model based on routing strategy.
      */
     private function selectModel(array $options): string
     {
@@ -396,7 +375,7 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Filter models by requirements
+     * Filter models by requirements.
      */
     private function filterModelsByRequirements(array $models, array $options): array
     {
@@ -406,7 +385,7 @@ class OpenRouterProvider extends AbstractProvider
         if (!empty($options['min_context'])) {
             $filtered = array_filter(
                 $filtered,
-                fn($model) => $model['context_length'] >= $options['min_context']
+                fn($model) => $model['context_length'] >= $options['min_context'],
             );
         }
 
@@ -414,7 +393,7 @@ class OpenRouterProvider extends AbstractProvider
         if (!empty($options['vision_required'])) {
             $filtered = array_filter(
                 $filtered,
-                fn($model) => $model['capabilities']['vision'] ?? false
+                fn($model) => $model['capabilities']['vision'] ?? false,
             );
         }
 
@@ -422,7 +401,7 @@ class OpenRouterProvider extends AbstractProvider
         if (!empty($options['function_calling'])) {
             $filtered = array_filter(
                 $filtered,
-                fn($model) => $model['capabilities']['function_calling'] ?? false
+                fn($model) => $model['capabilities']['function_calling'] ?? false,
             );
         }
 
@@ -430,7 +409,7 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Select cheapest model from candidates
+     * Select cheapest model from candidates.
      */
     private function selectCheapestModel(array $candidates): string
     {
@@ -449,7 +428,7 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Select fastest model (heuristic: smallest models are usually fastest)
+     * Select fastest model (heuristic: smallest models are usually fastest).
      */
     private function selectFastestModel(array $candidates): string
     {
@@ -468,7 +447,7 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Select balanced model (mid-tier pricing and performance)
+     * Select balanced model (mid-tier pricing and performance).
      */
     private function selectBalancedModel(array $candidates): string
     {
@@ -487,7 +466,7 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Select vision-capable model
+     * Select vision-capable model.
      */
     private function selectVisionModel(): string
     {
@@ -515,7 +494,7 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Build messages array from prompt
+     * Build messages array from prompt.
      */
     private function buildMessages(string $prompt, array $options): array
     {
@@ -537,12 +516,12 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Build translation prompt
+     * Build translation prompt.
      */
     private function buildTranslationPrompt(
         string $text,
         string $targetLanguage,
-        ?string $sourceLanguage
+        ?string $sourceLanguage,
     ): string {
         $prompt = "Translate the following text to {$targetLanguage}";
 
@@ -556,7 +535,7 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Parse completion response
+     * Parse completion response.
      */
     private function parseCompletionResponse(array $response): CompletionResponse
     {
@@ -578,12 +557,12 @@ class OpenRouterProvider extends AbstractProvider
                     'prompt' => $response['native_tokens_prompt'] ?? 0,
                     'completion' => $response['native_tokens_completion'] ?? 0,
                 ],
-            ]
+            ],
         );
     }
 
     /**
-     * Extract token usage from response
+     * Extract token usage from response.
      */
     private function extractTokenUsage(array $response): array
     {
@@ -597,7 +576,7 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Parse fallback models configuration
+     * Parse fallback models configuration.
      */
     private function parseFallbackModels(string $fallbackModelsStr): array
     {
@@ -609,7 +588,7 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Extract provider name from model ID
+     * Extract provider name from model ID.
      */
     private function extractProviderFromModelId(string $modelId): string
     {
@@ -621,7 +600,7 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Make HTTP request to OpenRouter API
+     * Make HTTP request to OpenRouter API.
      */
     private function makeRequest(string $method, string $endpoint, ?array $body = null): array
     {
@@ -658,7 +637,7 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Make streaming request
+     * Make streaming request.
      */
     private function makeStreamingRequest(string $endpoint, array $body, callable $callback): void
     {
@@ -700,20 +679,20 @@ class OpenRouterProvider extends AbstractProvider
     }
 
     /**
-     * Check budget and throw exception if exceeded
+     * Check budget and throw exception if exceeded.
      */
     private function checkBudget(float $cost): void
     {
         // This is a simple check - in production, track cumulative monthly spend
         if ($cost > $this->budgetLimit) {
             throw new QuotaExceededException(
-                "Single request cost ({$cost}) exceeds budget limit ({$this->budgetLimit})"
+                "Single request cost ({$cost}) exceeds budget limit ({$this->budgetLimit})",
             );
         }
     }
 
     /**
-     * Handle API errors
+     * Handle API errors.
      */
     private function handleError(int $statusCode, ?array $response): void
     {
@@ -740,12 +719,12 @@ class OpenRouterProvider extends AbstractProvider
                 'status_code' => $statusCode,
                 'response' => $response,
                 'provider' => 'openrouter',
-            ]
+            ],
         );
     }
 
     /**
-     * Read line from stream
+     * Read line from stream.
      */
     private function readLine($stream): string
     {

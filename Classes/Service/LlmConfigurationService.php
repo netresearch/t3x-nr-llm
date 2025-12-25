@@ -13,7 +13,7 @@ use TYPO3\CMS\Core\SingletonInterface;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 /**
- * Service for managing LLM configurations
+ * Service for managing LLM configurations.
  *
  * Provides access control enforcement, usage limit checking,
  * and configuration resolution for LLM operations.
@@ -26,7 +26,7 @@ class LlmConfigurationService implements SingletonInterface
     ) {}
 
     /**
-     * Get configuration by identifier with access check
+     * Get configuration by identifier with access check.
      *
      * @throws ConfigurationNotFoundException
      * @throws AccessDeniedException
@@ -37,13 +37,13 @@ class LlmConfigurationService implements SingletonInterface
 
         if ($configuration === null) {
             throw new ConfigurationNotFoundException(
-                sprintf('LLM configuration "%s" not found', $identifier)
+                sprintf('LLM configuration "%s" not found', $identifier),
             );
         }
 
         if (!$configuration->isActive()) {
             throw new ConfigurationNotFoundException(
-                sprintf('LLM configuration "%s" is not active', $identifier)
+                sprintf('LLM configuration "%s" is not active', $identifier),
             );
         }
 
@@ -53,7 +53,7 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Get default configuration
+     * Get default configuration.
      *
      * @throws ConfigurationNotFoundException
      * @throws AccessDeniedException
@@ -72,7 +72,7 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Get all configurations accessible to current user
+     * Get all configurations accessible to current user.
      *
      * @return array<LlmConfiguration>
      */
@@ -92,7 +92,7 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Get configurations by provider
+     * Get configurations by provider.
      *
      * @return array<LlmConfiguration>
      */
@@ -105,7 +105,7 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Check access to configuration
+     * Check access to configuration.
      *
      * @throws AccessDeniedException
      */
@@ -113,13 +113,13 @@ class LlmConfigurationService implements SingletonInterface
     {
         if (!$this->hasAccess($configuration)) {
             throw new AccessDeniedException(
-                sprintf('Access denied to LLM configuration "%s"', $configuration->getIdentifier())
+                sprintf('Access denied to LLM configuration "%s"', $configuration->getIdentifier()),
             );
         }
     }
 
     /**
-     * Check if current user has access to configuration
+     * Check if current user has access to configuration.
      */
     public function hasAccess(LlmConfiguration $configuration): bool
     {
@@ -149,7 +149,7 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Set a configuration as default
+     * Set a configuration as default.
      */
     public function setAsDefault(LlmConfiguration $configuration): void
     {
@@ -163,7 +163,7 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Toggle active status
+     * Toggle active status.
      */
     public function toggleActive(LlmConfiguration $configuration): void
     {
@@ -173,7 +173,7 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Create new configuration
+     * Create new configuration.
      */
     public function create(LlmConfiguration $configuration): void
     {
@@ -182,7 +182,7 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Update configuration
+     * Update configuration.
      */
     public function update(LlmConfiguration $configuration): void
     {
@@ -191,7 +191,7 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Delete configuration
+     * Delete configuration.
      */
     public function delete(LlmConfiguration $configuration): void
     {
@@ -200,7 +200,7 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Validate identifier uniqueness
+     * Validate identifier uniqueness.
      */
     public function isIdentifierAvailable(string $identifier, ?int $excludeUid = null): bool
     {
@@ -208,7 +208,7 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Get current backend user
+     * Get current backend user.
      */
     private function getBackendUser(): ?BackendUserAuthentication
     {
@@ -216,7 +216,7 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Get current user's group IDs
+     * Get current user's group IDs.
      *
      * @return array<int>
      */
@@ -237,7 +237,7 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Get allowed group IDs for a configuration
+     * Get allowed group IDs for a configuration.
      *
      * @return array<int>
      */

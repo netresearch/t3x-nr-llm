@@ -8,7 +8,6 @@ use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 
@@ -22,9 +21,9 @@ class CacheManagerTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->cacheFrontendStub = $this->createStub(FrontendInterface::class);
+        $this->cacheFrontendStub = self::createStub(FrontendInterface::class);
 
-        $typo3CacheManagerStub = $this->createStub(Typo3CacheManager::class);
+        $typo3CacheManagerStub = self::createStub(Typo3CacheManager::class);
         $typo3CacheManagerStub
             ->method('getCache')
             ->willReturn($this->cacheFrontendStub);
@@ -38,7 +37,7 @@ class CacheManagerTest extends AbstractUnitTestCase
     private function createSubjectWithMockFrontend(): array
     {
         $cacheFrontendMock = $this->createMock(FrontendInterface::class);
-        $typo3CacheManagerStub = $this->createStub(Typo3CacheManager::class);
+        $typo3CacheManagerStub = self::createStub(Typo3CacheManager::class);
         $typo3CacheManagerStub->method('getCache')->willReturn($cacheFrontendMock);
 
         return [
@@ -55,7 +54,7 @@ class CacheManagerTest extends AbstractUnitTestCase
         $key1 = $this->subject->generateCacheKey('openai', 'completion', $params);
         $key2 = $this->subject->generateCacheKey('openai', 'completion', $params);
 
-        $this->assertEquals($key1, $key2);
+        self::assertEquals($key1, $key2);
     }
 
     #[Test]
@@ -66,7 +65,7 @@ class CacheManagerTest extends AbstractUnitTestCase
         $key1 = $this->subject->generateCacheKey('openai', 'completion', $params);
         $key2 = $this->subject->generateCacheKey('claude', 'completion', $params);
 
-        $this->assertNotEquals($key1, $key2);
+        self::assertNotEquals($key1, $key2);
     }
 
     #[Test]
@@ -77,7 +76,7 @@ class CacheManagerTest extends AbstractUnitTestCase
         $key1 = $this->subject->generateCacheKey('openai', 'completion', $params);
         $key2 = $this->subject->generateCacheKey('openai', 'embeddings', $params);
 
-        $this->assertNotEquals($key1, $key2);
+        self::assertNotEquals($key1, $key2);
     }
 
     #[Test]
@@ -89,7 +88,7 @@ class CacheManagerTest extends AbstractUnitTestCase
         $key1 = $this->subject->generateCacheKey('openai', 'completion', $params1);
         $key2 = $this->subject->generateCacheKey('openai', 'completion', $params2);
 
-        $this->assertEquals($key1, $key2);
+        self::assertEquals($key1, $key2);
     }
 
     #[Test]
@@ -101,7 +100,7 @@ class CacheManagerTest extends AbstractUnitTestCase
         $key1 = $this->subject->generateCacheKey('openai', 'completion', $params1);
         $key2 = $this->subject->generateCacheKey('openai', 'completion', $params2);
 
-        $this->assertEquals($key1, $key2);
+        self::assertEquals($key1, $key2);
     }
 
     #[Test]
@@ -110,14 +109,14 @@ class CacheManagerTest extends AbstractUnitTestCase
         ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
 
         $cacheFrontendMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('has')
             ->with('test_key')
             ->willReturn(false);
 
         $result = $subject->get('test_key');
 
-        $this->assertNull($result);
+        self::assertNull($result);
     }
 
     #[Test]
@@ -135,7 +134,7 @@ class CacheManagerTest extends AbstractUnitTestCase
 
         $result = $this->subject->get('test_key');
 
-        $this->assertEquals($cachedData, $result);
+        self::assertEquals($cachedData, $result);
     }
 
     #[Test]
@@ -146,17 +145,17 @@ class CacheManagerTest extends AbstractUnitTestCase
         $data = ['content' => 'test'];
 
         $cacheFrontendMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
                 'test_key',
                 $data,
-                $this->callback(
+                self::callback(
                     fn(array $tags)
                     => in_array('nrllm', $tags, true)
-                    && in_array('nrllm_response', $tags, true)
+                    && in_array('nrllm_response', $tags, true),
                 ),
-                3600
+                3600,
             );
 
         $subject->set('test_key', $data, 3600);
@@ -171,18 +170,18 @@ class CacheManagerTest extends AbstractUnitTestCase
         $customTags = ['custom_tag'];
 
         $cacheFrontendMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
                 'test_key',
                 $data,
-                $this->callback(
+                self::callback(
                     fn(array $tags)
                     => in_array('nrllm', $tags, true)
                     && in_array('nrllm_response', $tags, true)
-                    && in_array('custom_tag', $tags, true)
+                    && in_array('custom_tag', $tags, true),
                 ),
-                3600
+                3600,
             );
 
         $subject->set('test_key', $data, 3600, $customTags);
@@ -194,12 +193,12 @@ class CacheManagerTest extends AbstractUnitTestCase
         ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
 
         $cacheFrontendMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('has')
             ->with('test_key')
             ->willReturn(true);
 
-        $this->assertTrue($subject->has('test_key'));
+        self::assertTrue($subject->has('test_key'));
     }
 
     #[Test]
@@ -208,7 +207,7 @@ class CacheManagerTest extends AbstractUnitTestCase
         ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
 
         $cacheFrontendMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('remove')
             ->with('test_key');
 
@@ -221,7 +220,7 @@ class CacheManagerTest extends AbstractUnitTestCase
         ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
 
         $cacheFrontendMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('flush');
 
         $subject->flush();
@@ -233,7 +232,7 @@ class CacheManagerTest extends AbstractUnitTestCase
         ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
 
         $cacheFrontendMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('flushByTag')
             ->with('test_tag');
 
@@ -246,7 +245,7 @@ class CacheManagerTest extends AbstractUnitTestCase
         ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
 
         $cacheFrontendMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('flushByTag')
             ->with('nrllm_provider_openai');
 
@@ -263,22 +262,22 @@ class CacheManagerTest extends AbstractUnitTestCase
         $response = ['content' => 'Hi there'];
 
         $cacheFrontendMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
-                $this->isString(),
+                self::isString(),
                 $response,
-                $this->callback(
+                self::callback(
                     fn(array $tags)
                     => in_array('nrllm_completion', $tags, true)
-                    && in_array('nrllm_provider_openai', $tags, true)
+                    && in_array('nrllm_provider_openai', $tags, true),
                 ),
-                3600
+                3600,
             );
 
         $cacheKey = $subject->cacheCompletion('openai', $messages, $options, $response);
 
-        $this->assertStringStartsWith('openai_completion_', $cacheKey);
+        self::assertStringStartsWith('openai_completion_', $cacheKey);
     }
 
     #[Test]
@@ -291,16 +290,16 @@ class CacheManagerTest extends AbstractUnitTestCase
         $response = ['content' => 'Hi'];
 
         $cacheFrontendMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->callback(
+                self::anything(),
+                self::anything(),
+                self::callback(
                     fn(array $tags)
-                    => in_array('nrllm_model_gpt_4o', $tags, true)
+                    => in_array('nrllm_model_gpt_4o', $tags, true),
                 ),
-                $this->anything()
+                self::anything(),
             );
 
         $subject->cacheCompletion('openai', $messages, $options, $response);
@@ -318,7 +317,7 @@ class CacheManagerTest extends AbstractUnitTestCase
 
         $result = $this->subject->getCachedCompletion('openai', $messages, $options);
 
-        $this->assertNull($result);
+        self::assertNull($result);
     }
 
     #[Test]
@@ -338,7 +337,7 @@ class CacheManagerTest extends AbstractUnitTestCase
 
         $result = $this->subject->getCachedCompletion('openai', $messages, $options);
 
-        $this->assertEquals($cachedResponse, $result);
+        self::assertEquals($cachedResponse, $result);
     }
 
     #[Test]
@@ -351,13 +350,13 @@ class CacheManagerTest extends AbstractUnitTestCase
         $response = ['embeddings' => [[0.1, 0.2, 0.3]]];
 
         $cacheFrontendMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->anything(),
-                86400 // 24 hours
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                86400, // 24 hours
             );
 
         $subject->cacheEmbeddings('openai', $input, $options, $response);
@@ -375,6 +374,6 @@ class CacheManagerTest extends AbstractUnitTestCase
 
         $result = $this->subject->getCachedEmbeddings('openai', $input, $options);
 
-        $this->assertNull($result);
+        self::assertNull($result);
     }
 }

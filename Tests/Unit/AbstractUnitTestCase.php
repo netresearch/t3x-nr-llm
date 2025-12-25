@@ -38,7 +38,7 @@ abstract class AbstractUnitTestCase extends TestCase
      */
     protected function createHttpClientMock(): ClientInterface
     {
-        return $this->createStub(ClientInterface::class);
+        return self::createStub(ClientInterface::class);
     }
 
     /**
@@ -57,11 +57,9 @@ abstract class AbstractUnitTestCase extends TestCase
      */
     protected function createRequestFactoryMock(): RequestFactoryInterface
     {
-        $stub = $this->createStub(RequestFactoryInterface::class);
+        $stub = self::createStub(RequestFactoryInterface::class);
         $stub->method('createRequest')
-            ->willReturnCallback(function (string $method, string $uri): RequestInterface {
-                return $this->createRequestMock($method, $uri);
-            });
+            ->willReturnCallback(fn(string $method, string $uri): RequestInterface => $this->createRequestMock($method, $uri));
         return $stub;
     }
 
@@ -70,13 +68,13 @@ abstract class AbstractUnitTestCase extends TestCase
      */
     protected function createRequestMock(string $method = 'GET', string $uri = 'https://example.com'): RequestInterface
     {
-        $uriStub = $this->createStub(UriInterface::class);
+        $uriStub = self::createStub(UriInterface::class);
         $uriStub->method('__toString')->willReturn($uri);
         $uriStub->method('getHost')->willReturn(parse_url($uri, PHP_URL_HOST) ?? '');
         $uriStub->method('getPath')->willReturn(parse_url($uri, PHP_URL_PATH) ?? '');
 
         // Create a stub with explicit return callback for proper type handling
-        $request = $this->createStub(RequestInterface::class);
+        $request = self::createStub(RequestInterface::class);
 
         // Use callback to return the same stub for chaining methods
         $request->method('withHeader')->willReturnCallback(fn() => $request);
@@ -93,7 +91,7 @@ abstract class AbstractUnitTestCase extends TestCase
      */
     protected function createStreamFactoryMock(): StreamFactoryInterface
     {
-        $stub = $this->createStub(StreamFactoryInterface::class);
+        $stub = self::createStub(StreamFactoryInterface::class);
         $stub->method('createStream')
             ->willReturnCallback(function (string $content) {
                 $stream = $this->createStub(StreamInterface::class);
@@ -109,7 +107,7 @@ abstract class AbstractUnitTestCase extends TestCase
      */
     protected function createExtensionConfigurationMock(array $config = []): ExtensionConfiguration
     {
-        $stub = $this->createStub(ExtensionConfiguration::class);
+        $stub = self::createStub(ExtensionConfiguration::class);
         $stub->method('get')
             ->willReturn($config);
         return $stub;
@@ -120,7 +118,7 @@ abstract class AbstractUnitTestCase extends TestCase
      */
     protected function createLoggerMock(): LoggerInterface
     {
-        return $this->createStub(LoggerInterface::class);
+        return self::createStub(LoggerInterface::class);
     }
 
     /**
@@ -129,20 +127,20 @@ abstract class AbstractUnitTestCase extends TestCase
     protected function createHttpResponseMock(
         int $statusCode,
         string $body,
-        array $headers = []
+        array $headers = [],
     ): ResponseInterface {
-        $stream = $this->createStub(StreamInterface::class);
+        $stream = self::createStub(StreamInterface::class);
         $stream->method('__toString')->willReturn($body);
         $stream->method('getContents')->willReturn($body);
 
-        $response = $this->createStub(ResponseInterface::class);
+        $response = self::createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn($statusCode);
         $response->method('getBody')->willReturn($stream);
         $response->method('getHeader')->willReturnCallback(
-            fn(string $name) => $headers[$name] ?? []
+            fn(string $name) => $headers[$name] ?? [],
         );
         $response->method('hasHeader')->willReturnCallback(
-            fn(string $name) => isset($headers[$name])
+            fn(string $name) => isset($headers[$name]),
         );
 
         return $response;
@@ -156,7 +154,7 @@ abstract class AbstractUnitTestCase extends TestCase
         return $this->createHttpResponseMock(
             $statusCode,
             json_encode($data, JSON_THROW_ON_ERROR),
-            ['Content-Type' => ['application/json']]
+            ['Content-Type' => ['application/json']],
         );
     }
 
@@ -166,7 +164,7 @@ abstract class AbstractUnitTestCase extends TestCase
     protected function createErrorResponseMock(
         int $statusCode,
         string $message,
-        string $type = 'error'
+        string $type = 'error',
     ): ResponseInterface {
         return $this->createJsonResponseMock([
             'error' => [

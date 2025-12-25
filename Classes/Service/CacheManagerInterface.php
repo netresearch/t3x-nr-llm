@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service;
 
 /**
- * Interface for cache management operations
+ * Interface for cache management operations.
  *
  * Extracted from CacheManager to enable testing with mocks.
  */
@@ -23,7 +23,7 @@ interface CacheManagerInterface
 
     /**
      * @param array<string, mixed> $data
-     * @param array<string> $tags
+     * @param array<string>        $tags
      */
     public function set(string $cacheKey, array $data, int $lifetime = 3600, array $tags = []): void;
 
@@ -39,40 +39,42 @@ interface CacheManagerInterface
 
     /**
      * @param array<int, array{role: string, content: string}> $messages
-     * @param array<string, mixed> $options
-     * @param array<string, mixed> $response
+     * @param array<string, mixed>                             $options
+     * @param array<string, mixed>                             $response
      */
     public function cacheCompletion(
         string $provider,
         array $messages,
         array $options,
         array $response,
-        int $lifetime = 3600
+        int $lifetime = 3600,
     ): string;
 
     /**
      * @param array<int, array{role: string, content: string}> $messages
-     * @param array<string, mixed> $options
+     * @param array<string, mixed>                             $options
+     *
      * @return array<string, mixed>|null
      */
     public function getCachedCompletion(string $provider, array $messages, array $options): ?array;
 
     /**
      * @param string|array<int, string> $input
-     * @param array<string, mixed> $options
-     * @param array<string, mixed> $response
+     * @param array<string, mixed>      $options
+     * @param array<string, mixed>      $response
      */
     public function cacheEmbeddings(
         string $provider,
         string|array $input,
         array $options,
         array $response,
-        int $lifetime = 86400
+        int $lifetime = 86400,
     ): string;
 
     /**
      * @param string|array<int, string> $input
-     * @param array<string, mixed> $options
+     * @param array<string, mixed>      $options
+     *
      * @return array<string, mixed>|null
      */
     public function getCachedEmbeddings(string $provider, string|array $input, array $options): ?array;

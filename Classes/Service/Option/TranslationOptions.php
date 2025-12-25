@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Option;
 
 /**
- * Options for translation requests
+ * Options for translation requests.
  *
  * @phpstan-consistent-constructor
  */
@@ -34,7 +34,7 @@ class TranslationOptions extends AbstractOptions
     // ========================================
 
     /**
-     * Create options for formal business translation
+     * Create options for formal business translation.
      */
     public static function formal(): static
     {
@@ -46,7 +46,7 @@ class TranslationOptions extends AbstractOptions
     }
 
     /**
-     * Create options for informal/casual translation
+     * Create options for informal/casual translation.
      */
     public static function informal(): static
     {
@@ -58,7 +58,7 @@ class TranslationOptions extends AbstractOptions
     }
 
     /**
-     * Create options for technical documentation
+     * Create options for technical documentation.
      */
     public static function technical(): static
     {
@@ -71,7 +71,7 @@ class TranslationOptions extends AbstractOptions
     }
 
     /**
-     * Create options for marketing content
+     * Create options for marketing content.
      */
     public static function marketing(): static
     {
@@ -83,7 +83,7 @@ class TranslationOptions extends AbstractOptions
     }
 
     /**
-     * Create options for medical/scientific translation
+     * Create options for medical/scientific translation.
      */
     public static function medical(): static
     {
@@ -96,7 +96,7 @@ class TranslationOptions extends AbstractOptions
     }
 
     /**
-     * Create options for legal translation
+     * Create options for legal translation.
      */
     public static function legal(): static
     {

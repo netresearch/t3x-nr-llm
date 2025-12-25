@@ -1,7 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 /**
- * Cost Calculator & Notification Services
+ * Cost Calculator & Notification Services.
  *
  * Part 2: Pricing management, cost calculation, and notification system
  *
@@ -10,18 +12,20 @@
 
 namespace Netresearch\NrLlm\Service;
 
+use Exception;
+use PDO;
+use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Mail\MailMessage;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use Psr\Log\LoggerInterface;
 
 // ============================================================================
 // COST CALCULATOR SERVICE
 // ============================================================================
 
 /**
- * AI Cost Calculator with Provider Pricing Management
+ * AI Cost Calculator with Provider Pricing Management.
  *
  * Features:
  * - Multi-provider pricing tables
@@ -38,17 +42,18 @@ class CostCalculator
         private readonly FrontendInterface $cache,
         private readonly ConnectionPool $connectionPool,
         private readonly LoggerInterface $logger,
-        private readonly array $configuration
+        private readonly array $configuration,
     ) {}
 
     /**
-     * Calculate cost for AI request
+     * Calculate cost for AI request.
      *
-     * @param string $provider Provider name
-     * @param string $model Model name
-     * @param int $promptTokens Input tokens
-     * @param int $completionTokens Output tokens
-     * @param array $additionalCosts Additional costs (e.g., images)
+     * @param string $provider         Provider name
+     * @param string $model            Model name
+     * @param int    $promptTokens     Input tokens
+     * @param int    $completionTokens Output tokens
+     * @param array  $additionalCosts  Additional costs (e.g., images)
+     *
      * @return array Cost breakdown
      */
     public function calculateCost(
@@ -56,7 +61,7 @@ class CostCalculator
         string $model,
         int $promptTokens,
         int $completionTokens,
-        array $additionalCosts = []
+        array $additionalCosts = [],
     ): array {
         $pricing = $this->getCurrentPricing($provider, $model);
 
@@ -103,7 +108,7 @@ class CostCalculator
     }
 
     /**
-     * Get current pricing for provider/model
+     * Get current pricing for provider/model.
      */
     private function getCurrentPricing(string $provider, string $model): ?array
     {
@@ -122,7 +127,7 @@ class CostCalculator
             ->where(
                 $queryBuilder->expr()->eq('provider', $queryBuilder->createNamedParameter($provider)),
                 $queryBuilder->expr()->eq('model', $queryBuilder->createNamedParameter($model)),
-                $queryBuilder->expr()->eq('effective_until', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT))
+                $queryBuilder->expr()->eq('effective_until', $queryBuilder->createNamedParameter(0, PDO::PARAM_INT)),
             )
             ->executeQuery()
             ->fetchAssociative();
@@ -134,7 +139,7 @@ class CostCalculator
                 ->from(self::TABLE_PRICING)
                 ->where(
                     $queryBuilder->expr()->eq('provider', $queryBuilder->createNamedParameter($provider)),
-                    $queryBuilder->expr()->eq('model', $queryBuilder->createNamedParameter($model))
+                    $queryBuilder->expr()->eq('model', $queryBuilder->createNamedParameter($model)),
                 )
                 ->orderBy('effective_from', 'DESC')
                 ->setMaxResults(1)
@@ -150,7 +155,7 @@ class CostCalculator
     }
 
     /**
-     * Calculate additional costs (images, audio, etc.)
+     * Calculate additional costs (images, audio, etc.).
      */
     private function calculateAdditionalCost(string $provider, string $model, string $type, int $count): float
     {
@@ -185,14 +190,15 @@ class CostCalculator
     }
 
     /**
-     * Update pricing for provider/model
+     * Update pricing for provider/model.
      *
-     * @param string $provider Provider name
-     * @param string $model Model name
-     * @param float $inputCostPer1M Input cost per 1M tokens
-     * @param float $outputCostPer1M Output cost per 1M tokens
-     * @param string $currency Currency code
-     * @param string $source Source URL for pricing
+     * @param string $provider        Provider name
+     * @param string $model           Model name
+     * @param float  $inputCostPer1M  Input cost per 1M tokens
+     * @param float  $outputCostPer1M Output cost per 1M tokens
+     * @param string $currency        Currency code
+     * @param string $source          Source URL for pricing
+     *
      * @return int New pricing version
      */
     public function updatePricing(
@@ -201,18 +207,18 @@ class CostCalculator
         float $inputCostPer1M,
         float $outputCostPer1M,
         string $currency = 'USD',
-        string $source = ''
+        string $source = '',
     ): int {
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE_PRICING);
 
         // Get current version
         $queryBuilder = $connection->createQueryBuilder();
-        $currentVersion = (int) $queryBuilder
+        $currentVersion = (int)$queryBuilder
             ->select('MAX(version) as max_version')
             ->from(self::TABLE_PRICING)
             ->where(
                 $queryBuilder->expr()->eq('provider', $queryBuilder->createNamedParameter($provider)),
-                $queryBuilder->expr()->eq('model', $queryBuilder->createNamedParameter($model))
+                $queryBuilder->expr()->eq('model', $queryBuilder->createNamedParameter($model)),
             )
             ->executeQuery()
             ->fetchOne();
@@ -230,7 +236,7 @@ class CostCalculator
                 'provider' => $provider,
                 'model' => $model,
                 'effective_until' => 0,
-            ]
+            ],
         );
 
         // Insert new pricing
@@ -248,7 +254,7 @@ class CostCalculator
                 'source' => $source,
                 'tstamp' => time(),
                 'crdate' => time(),
-            ]
+            ],
         );
 
         // Clear cache
@@ -260,7 +266,7 @@ class CostCalculator
     }
 
     /**
-     * Import initial pricing data
+     * Import initial pricing data.
      */
     public function importInitialPricing(): void
     {
@@ -278,7 +284,7 @@ class CostCalculator
                         inputCostPer1M: $pricing['input_per_1m'],
                         outputCostPer1M: $pricing['output_per_1m'],
                         currency: 'USD',
-                        source: $pricing['source'] ?? ''
+                        source: $pricing['source'] ?? '',
                     );
                 }
             }
@@ -286,7 +292,7 @@ class CostCalculator
     }
 
     /**
-     * Get initial pricing data (as of 2024)
+     * Get initial pricing data (as of 2024).
      */
     private function getInitialPricingData(): array
     {
@@ -358,7 +364,7 @@ class CostCalculator
     }
 
     /**
-     * Convert cost to different currency
+     * Convert cost to different currency.
      */
     public function convertCurrency(float $amount, string $fromCurrency, string $toCurrency): float
     {
@@ -379,7 +385,7 @@ class CostCalculator
     }
 
     /**
-     * Fetch current exchange rate from API
+     * Fetch current exchange rate from API.
      */
     private function fetchExchangeRate(string $fromCurrency, string $toCurrency): float
     {
@@ -396,34 +402,34 @@ class CostCalculator
             $data = json_decode($response, true);
 
             return $data['rates'][$toCurrency] ?? 1.0;
-        } catch (\Exception $e) {
-            $this->logger->error("Failed to fetch exchange rate: " . $e->getMessage());
+        } catch (Exception $e) {
+            $this->logger->error('Failed to fetch exchange rate: ' . $e->getMessage());
             return 1.0;
         }
     }
 
     /**
-     * Estimate cost for prompt before execution
+     * Estimate cost for prompt before execution.
      */
     public function estimateCost(
         string $provider,
         string $model,
         string $prompt,
-        int $maxOutputTokens = 1000
+        int $maxOutputTokens = 1000,
     ): array {
         // Estimate token count (rough approximation: 1 token ≈ 4 characters)
-        $estimatedPromptTokens = (int) (strlen($prompt) / 4);
+        $estimatedPromptTokens = (int)(strlen($prompt) / 4);
 
         return $this->calculateCost(
             provider: $provider,
             model: $model,
             promptTokens: $estimatedPromptTokens,
-            completionTokens: $maxOutputTokens
+            completionTokens: $maxOutputTokens,
         );
     }
 
     /**
-     * Get pricing history for provider/model
+     * Get pricing history for provider/model.
      */
     public function getPricingHistory(string $provider, string $model): array
     {
@@ -434,7 +440,7 @@ class CostCalculator
             ->from(self::TABLE_PRICING)
             ->where(
                 $queryBuilder->expr()->eq('provider', $queryBuilder->createNamedParameter($provider)),
-                $queryBuilder->expr()->eq('model', $queryBuilder->createNamedParameter($model))
+                $queryBuilder->expr()->eq('model', $queryBuilder->createNamedParameter($model)),
             )
             ->orderBy('version', 'DESC')
             ->executeQuery()
@@ -442,7 +448,7 @@ class CostCalculator
     }
 
     /**
-     * Get all current pricing (for admin UI)
+     * Get all current pricing (for admin UI).
      */
     public function getAllCurrentPricing(): array
     {
@@ -452,7 +458,7 @@ class CostCalculator
             ->select('*')
             ->from(self::TABLE_PRICING)
             ->where(
-                $queryBuilder->expr()->eq('effective_until', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT))
+                $queryBuilder->expr()->eq('effective_until', $queryBuilder->createNamedParameter(0, PDO::PARAM_INT)),
             )
             ->orderBy('provider')
             ->addOrderBy('model')
@@ -466,7 +472,7 @@ class CostCalculator
 // ============================================================================
 
 /**
- * User and Admin Notification System
+ * User and Admin Notification System.
  *
  * Features:
  * - Quota warning/alert/exceeded notifications
@@ -493,13 +499,13 @@ class NotificationService
     public function __construct(
         private readonly ConnectionPool $connectionPool,
         private readonly LoggerInterface $logger,
-        private readonly array $configuration
+        private readonly array $configuration,
     ) {}
 
     /**
-     * Send quota warning notification
+     * Send quota warning notification.
      *
-     * @param array $quota Quota record
+     * @param array  $quota Quota record
      * @param string $level 'warning' or 'alert'
      */
     public function sendQuotaWarning(array $quota, string $level = 'warning'): void
@@ -510,7 +516,7 @@ class NotificationService
         $subject = sprintf(
             'AI Quota %s: %d%% Used',
             ucfirst($level),
-            (int) $percentUsed
+            (int)$percentUsed,
         );
 
         $message = $this->buildQuotaWarningMessage($quota, $percentUsed);
@@ -533,18 +539,18 @@ class NotificationService
                 'quota_uid' => $quota['uid'],
                 'percent_used' => $percentUsed,
                 'level' => $level,
-            ]
+            ],
         );
     }
 
     /**
-     * Send quota exceeded notification
+     * Send quota exceeded notification.
      */
     public function sendQuotaExceeded(array $quota): void
     {
         $subject = sprintf(
             'AI Quota Exceeded: %s',
-            ucfirst($quota['quota_type'])
+            ucfirst($quota['quota_type']),
         );
 
         $message = $this->buildQuotaExceededMessage($quota);
@@ -557,7 +563,7 @@ class NotificationService
             recipientId: $quota['scope_id'],
             subject: $subject,
             message: $message,
-            data: ['quota_uid' => $quota['uid']]
+            data: ['quota_uid' => $quota['uid']],
         );
 
         // Also notify admin
@@ -568,19 +574,19 @@ class NotificationService
             recipientId: 0,
             subject: "User Quota Exceeded: {$quota['scope']} {$quota['scope_id']}",
             message: $message,
-            data: ['quota_uid' => $quota['uid']]
+            data: ['quota_uid' => $quota['uid']],
         );
     }
 
     /**
-     * Send rate limit notification
+     * Send rate limit notification.
      */
     public function sendRateLimitNotification(
         int $userId,
         string $scope,
         int $currentUsage,
         int $limit,
-        int $retryAfter
+        int $retryAfter,
     ): void {
         $subject = 'AI Request Rate Limit Reached';
 
@@ -589,12 +595,12 @@ class NotificationService
             . "Usage: %d / %d requests\n"
             . "Scope: %s\n"
             . "Please wait %d seconds before trying again.\n\n"
-            . "Your quota will reset at: %s",
+            . 'Your quota will reset at: %s',
             $currentUsage,
             $limit,
             $scope,
             $retryAfter,
-            date('Y-m-d H:i:s', time() + $retryAfter)
+            date('Y-m-d H:i:s', time() + $retryAfter),
         );
 
         $this->sendNotification(
@@ -609,12 +615,12 @@ class NotificationService
                 'current_usage' => $currentUsage,
                 'limit' => $limit,
                 'retry_after' => $retryAfter,
-            ]
+            ],
         );
     }
 
     /**
-     * Send admin alert
+     * Send admin alert.
      */
     public function sendAdminAlert(string $subject, string $message, array $data = []): void
     {
@@ -625,12 +631,12 @@ class NotificationService
             recipientId: 0,
             subject: $subject,
             message: $message,
-            data: $data
+            data: $data,
         );
     }
 
     /**
-     * Core notification sending method
+     * Core notification sending method.
      */
     private function sendNotification(
         string $type,
@@ -639,7 +645,7 @@ class NotificationService
         int $recipientId,
         string $subject,
         string $message,
-        array $data = []
+        array $data = [],
     ): void {
         // Store notification in database
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE_NOTIFICATIONS);
@@ -658,10 +664,10 @@ class NotificationService
                 'quota_uid' => $data['quota_uid'] ?? 0,
                 'tstamp' => time(),
                 'crdate' => time(),
-            ]
+            ],
         );
 
-        $notificationUid = (int) $connection->lastInsertId();
+        $notificationUid = (int)$connection->lastInsertId();
 
         // Send email if configured
         if ($this->shouldSendEmail($type, $severity)) {
@@ -674,12 +680,12 @@ class NotificationService
                     'sent' => 1,
                     'sent_at' => time(),
                 ],
-                ['uid' => $notificationUid]
+                ['uid' => $notificationUid],
             );
         }
 
         // Log notification
-        $this->logger->info("Notification sent", [
+        $this->logger->info('Notification sent', [
             'type' => $type,
             'severity' => $severity,
             'recipient' => "$recipientType:$recipientId",
@@ -687,7 +693,7 @@ class NotificationService
     }
 
     /**
-     * Check if email should be sent for notification type
+     * Check if email should be sent for notification type.
      */
     private function shouldSendEmail(string $type, string $severity): bool
     {
@@ -703,7 +709,7 @@ class NotificationService
     }
 
     /**
-     * Send email notification
+     * Send email notification.
      */
     private function sendEmail(string $recipientType, int $recipientId, string $subject, string $message): void
     {
@@ -722,13 +728,13 @@ class NotificationService
                 ->text($message)
                 ->send();
 
-        } catch (\Exception $e) {
-            $this->logger->error("Failed to send email: " . $e->getMessage());
+        } catch (Exception $e) {
+            $this->logger->error('Failed to send email: ' . $e->getMessage());
         }
     }
 
     /**
-     * Get recipient email address
+     * Get recipient email address.
      */
     private function getRecipientEmail(string $recipientType, int $recipientId): ?string
     {
@@ -743,14 +749,14 @@ class NotificationService
             ->select('email')
             ->from('be_users')
             ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($recipientId, \PDO::PARAM_INT))
+                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($recipientId, PDO::PARAM_INT)),
             )
             ->executeQuery()
             ->fetchOne() ?: null;
     }
 
     /**
-     * Build quota warning message
+     * Build quota warning message.
      */
     private function buildQuotaWarningMessage(array $quota, float $percentUsed): string
     {
@@ -763,18 +769,18 @@ class NotificationService
             . "- Used: %s / %s\n"
             . "- Period: %s\n"
             . "- Resets: %s\n\n"
-            . "Consider reducing usage or contact your administrator to increase your quota.",
-            (int) $percentUsed,
+            . 'Consider reducing usage or contact your administrator to increase your quota.',
+            (int)$percentUsed,
             ucfirst($quota['quota_type']),
             $this->formatQuotaValue($quota['quota_used'], $quota['quota_type']),
             $this->formatQuotaValue($quota['quota_limit'], $quota['quota_type']),
             ucfirst($quota['quota_period']),
-            $resetTime
+            $resetTime,
         );
     }
 
     /**
-     * Build quota exceeded message
+     * Build quota exceeded message.
      */
     private function buildQuotaExceededMessage(array $quota): string
     {
@@ -788,17 +794,17 @@ class NotificationService
             . "- Period: %s\n"
             . "- Resets: %s\n\n"
             . "Your AI features are temporarily disabled until the quota resets.\n"
-            . "Contact your administrator if you need to increase your quota.",
+            . 'Contact your administrator if you need to increase your quota.',
             ucfirst($quota['quota_type']),
             $this->formatQuotaValue($quota['quota_used'], $quota['quota_type']),
             $this->formatQuotaValue($quota['quota_limit'], $quota['quota_type']),
             ucfirst($quota['quota_period']),
-            $resetTime
+            $resetTime,
         );
     }
 
     /**
-     * Format quota value for display
+     * Format quota value for display.
      */
     private function formatQuotaValue(float $value, string $quotaType): string
     {
@@ -806,12 +812,12 @@ class NotificationService
             'requests' => number_format($value, 0) . ' requests',
             'tokens' => number_format($value, 0) . ' tokens',
             'cost' => '$' . number_format($value, 2),
-            default => (string) $value,
+            default => (string)$value,
         };
     }
 
     /**
-     * Get group admin ID
+     * Get group admin ID.
      */
     private function getGroupAdminId(int $groupId): int
     {
@@ -821,18 +827,18 @@ class NotificationService
     }
 
     /**
-     * Get site admin ID
+     * Get site admin ID.
      */
     private function getSiteAdminId(): int
     {
         // Get first admin user
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('be_users');
 
-        return (int) $queryBuilder
+        return (int)$queryBuilder
             ->select('uid')
             ->from('be_users')
             ->where(
-                $queryBuilder->expr()->eq('admin', $queryBuilder->createNamedParameter(1, \PDO::PARAM_INT))
+                $queryBuilder->expr()->eq('admin', $queryBuilder->createNamedParameter(1, PDO::PARAM_INT)),
             )
             ->setMaxResults(1)
             ->executeQuery()
@@ -840,7 +846,7 @@ class NotificationService
     }
 
     /**
-     * Get notification history
+     * Get notification history.
      */
     public function getNotificationHistory(array $filters = []): array
     {
@@ -852,19 +858,19 @@ class NotificationService
 
         if (isset($filters['recipient_type'])) {
             $query->andWhere(
-                $queryBuilder->expr()->eq('recipient_type', $queryBuilder->createNamedParameter($filters['recipient_type']))
+                $queryBuilder->expr()->eq('recipient_type', $queryBuilder->createNamedParameter($filters['recipient_type'])),
             );
         }
 
         if (isset($filters['recipient_id'])) {
             $query->andWhere(
-                $queryBuilder->expr()->eq('recipient_id', $queryBuilder->createNamedParameter($filters['recipient_id'], \PDO::PARAM_INT))
+                $queryBuilder->expr()->eq('recipient_id', $queryBuilder->createNamedParameter($filters['recipient_id'], PDO::PARAM_INT)),
             );
         }
 
         if (isset($filters['type'])) {
             $query->andWhere(
-                $queryBuilder->expr()->eq('notification_type', $queryBuilder->createNamedParameter($filters['type']))
+                $queryBuilder->expr()->eq('notification_type', $queryBuilder->createNamedParameter($filters['type'])),
             );
         }
 
@@ -878,7 +884,7 @@ class NotificationService
 // EXCEPTION CLASSES
 // ============================================================================
 
-class RateLimitExceededException extends \Exception
+class RateLimitExceededException extends Exception
 {
     public function __construct(
         public readonly int $currentUsage,
@@ -888,7 +894,7 @@ class RateLimitExceededException extends \Exception
     ) {
         parent::__construct(
             "Rate limit exceeded. Used $currentUsage/$limit. Retry after $retryAfter seconds.",
-            429
+            429,
         );
     }
 
@@ -906,7 +912,7 @@ class RateLimitExceededException extends \Exception
     }
 }
 
-class QuotaExceededException extends \Exception
+class QuotaExceededException extends Exception
 {
     public function __construct(
         public readonly string $quotaType,
@@ -916,7 +922,7 @@ class QuotaExceededException extends \Exception
     ) {
         parent::__construct(
             "Quota exceeded for $quotaType. Used $used/$limit. Resets at " . date('Y-m-d H:i:s', $resetAt),
-            402
+            402,
         );
     }
 

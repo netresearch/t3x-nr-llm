@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 /**
- * Response object for text completion requests
+ * Response object for text completion requests.
  */
 final class CompletionResponse
 {
     /**
      * @param array<int, array<string, mixed>>|null $toolCalls
-     * @param array<string, mixed>|null $metadata
+     * @param array<string, mixed>|null             $metadata
      */
     public function __construct(
         public readonly string $content,
@@ -24,7 +24,7 @@ final class CompletionResponse
     ) {}
 
     /**
-     * Check if the completion was truncated due to length
+     * Check if the completion was truncated due to length.
      */
     public function wasTruncated(): bool
     {
@@ -32,7 +32,7 @@ final class CompletionResponse
     }
 
     /**
-     * Check if content was filtered
+     * Check if content was filtered.
      */
     public function wasFiltered(): bool
     {
@@ -40,7 +40,7 @@ final class CompletionResponse
     }
 
     /**
-     * Check if completion finished normally
+     * Check if completion finished normally.
      */
     public function isComplete(): bool
     {
@@ -48,7 +48,7 @@ final class CompletionResponse
     }
 
     /**
-     * Check if the response contains tool calls
+     * Check if the response contains tool calls.
      */
     public function hasToolCalls(): bool
     {
@@ -56,7 +56,7 @@ final class CompletionResponse
     }
 
     /**
-     * Get the text content (alias for content property)
+     * Get the text content (alias for content property).
      */
     public function getText(): string
     {

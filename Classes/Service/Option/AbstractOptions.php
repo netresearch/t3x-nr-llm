@@ -7,7 +7,7 @@ namespace Netresearch\NrLlm\Service\Option;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
 /**
- * Base class for typed option objects
+ * Base class for typed option objects.
  *
  * Provides common functionality for all option classes including
  * array conversion, merging, and validation helpers.
@@ -15,14 +15,14 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
 abstract class AbstractOptions
 {
     /**
-     * Convert options to array format for providers
+     * Convert options to array format for providers.
      *
      * @return array<string, mixed>
      */
     abstract public function toArray(): array;
 
     /**
-     * Validate value is within numeric range
+     * Validate value is within numeric range.
      *
      * @throws InvalidArgumentException
      */
@@ -30,32 +30,33 @@ abstract class AbstractOptions
         float|int $value,
         float|int $min,
         float|int $max,
-        string $name
+        string $name,
     ): void {
         if ($value < $min || $value > $max) {
             throw new InvalidArgumentException(
-                sprintf('%s must be between %s and %s, got %s', $name, $min, $max, $value)
+                sprintf('%s must be between %s and %s, got %s', $name, $min, $max, $value),
             );
         }
     }
 
     /**
-     * Validate value is one of allowed options
+     * Validate value is one of allowed options.
      *
      * @param array<int, string> $allowed
+     *
      * @throws InvalidArgumentException
      */
     protected static function validateEnum(string $value, array $allowed, string $name): void
     {
         if (!in_array($value, $allowed, true)) {
             throw new InvalidArgumentException(
-                sprintf('%s must be one of: %s, got "%s"', $name, implode(', ', $allowed), $value)
+                sprintf('%s must be one of: %s, got "%s"', $name, implode(', ', $allowed), $value),
             );
         }
     }
 
     /**
-     * Validate value is positive integer
+     * Validate value is positive integer.
      *
      * @throws InvalidArgumentException
      */
@@ -63,15 +64,16 @@ abstract class AbstractOptions
     {
         if ($value < 1) {
             throw new InvalidArgumentException(
-                sprintf('%s must be a positive integer, got %d', $name, $value)
+                sprintf('%s must be a positive integer, got %d', $name, $value),
             );
         }
     }
 
     /**
-     * Filter null values from array
+     * Filter null values from array.
      *
      * @param array<string, mixed> $array
+     *
      * @return array<string, mixed>
      */
     protected function filterNull(array $array): array

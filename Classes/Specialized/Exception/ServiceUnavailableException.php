@@ -18,7 +18,7 @@ final class ServiceUnavailableException extends SpecializedServiceException
     /**
      * Create exception for unconfigured service.
      *
-     * @param string $service The service identifier
+     * @param string $service  The service identifier
      * @param string $provider The provider name (e.g., 'deepl', 'whisper')
      */
     public static function notConfigured(string $service, string $provider): self
@@ -29,21 +29,21 @@ final class ServiceUnavailableException extends SpecializedServiceException
             [
                 'reason' => 'not_configured',
                 'provider' => $provider,
-            ]
+            ],
         );
     }
 
     /**
      * Create exception for service being down.
      *
-     * @param string $service The service identifier
-     * @param string $provider The provider name
+     * @param string   $service    The service identifier
+     * @param string   $provider   The provider name
      * @param int|null $httpStatus The HTTP status code if available
      */
     public static function serviceDown(
         string $service,
         string $provider,
-        ?int $httpStatus = null
+        ?int $httpStatus = null,
     ): self {
         $message = sprintf('%s service is currently unavailable', ucfirst($provider));
 
@@ -58,7 +58,7 @@ final class ServiceUnavailableException extends SpecializedServiceException
                 'reason' => 'service_down',
                 'provider' => $provider,
                 'http_status' => $httpStatus,
-            ]
+            ],
         );
     }
 
@@ -75,7 +75,7 @@ final class ServiceUnavailableException extends SpecializedServiceException
             [
                 'reason' => 'not_found',
                 'identifier' => $identifier,
-            ]
+            ],
         );
     }
 }

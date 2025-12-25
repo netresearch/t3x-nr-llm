@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Exception;
 
 /**
- * Local quota exceeded exception
+ * Local quota exceeded exception.
  *
  * @api This class is part of the public API
  */

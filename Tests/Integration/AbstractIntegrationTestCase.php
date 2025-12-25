@@ -16,7 +16,7 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\NullLogger;
 
 /**
- * Base class for integration tests
+ * Base class for integration tests.
  *
  * Provides utilities for testing provider API interactions
  * with realistic HTTP responses.
@@ -34,7 +34,7 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Create an HTTP client mock that returns sequential responses
+     * Create an HTTP client mock that returns sequential responses.
      *
      * @param array<ResponseInterface> $responses
      */
@@ -48,7 +48,7 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Create a successful JSON response
+     * Create a successful JSON response.
      *
      * @param array<string, mixed> $body
      */
@@ -57,12 +57,12 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
         return new Response(
             status: $statusCode,
             headers: ['Content-Type' => 'application/json'],
-            body: json_encode($body, JSON_THROW_ON_ERROR)
+            body: json_encode($body, JSON_THROW_ON_ERROR),
         );
     }
 
     /**
-     * Create an error response
+     * Create an error response.
      *
      * @param array<string, mixed> $body
      */
@@ -71,14 +71,13 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
         return new Response(
             status: $statusCode,
             headers: ['Content-Type' => 'application/json'],
-            body: json_encode($body, JSON_THROW_ON_ERROR)
+            body: json_encode($body, JSON_THROW_ON_ERROR),
         );
     }
 
     /**
-     * Create a mock HTTP client that captures request bodies
+     * Create a mock HTTP client that captures request bodies.
      *
-     * @param ResponseInterface $response
      * @return array{client: ClientInterface&MockObject, requests: array<RequestInterface>}
      */
     protected function createRequestCapturingClient(ResponseInterface $response): array
@@ -95,12 +94,12 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Get standard OpenAI-style chat completion response
+     * Get standard OpenAI-style chat completion response.
      */
     protected function getOpenAiChatResponse(
         string $content = 'Test response',
         string $model = 'gpt-4o',
-        string $finishReason = 'stop'
+        string $finishReason = 'stop',
     ): array {
         return [
             'id' => 'chatcmpl-' . $this->faker->uuid(),
@@ -126,12 +125,12 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Get standard Claude-style chat completion response
+     * Get standard Claude-style chat completion response.
      */
     protected function getClaudeChatResponse(
         string $content = 'Test response',
         string $model = 'claude-sonnet-4-20250514',
-        string $stopReason = 'end_turn'
+        string $stopReason = 'end_turn',
     ): array {
         return [
             'id' => 'msg_' . $this->faker->uuid(),
@@ -153,11 +152,11 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Get standard Gemini-style chat completion response
+     * Get standard Gemini-style chat completion response.
      */
     protected function getGeminiChatResponse(
         string $content = 'Test response',
-        string $model = 'gemini-1.5-pro'
+        string $model = 'gemini-1.5-pro',
     ): array {
         return [
             'candidates' => [
@@ -182,7 +181,7 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Get standard OpenAI-style embedding response
+     * Get standard OpenAI-style embedding response.
      */
     protected function getOpenAiEmbeddingResponse(int $dimensions = 1536): array
     {
@@ -194,7 +193,7 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
                     'index' => 0,
                     'embedding' => array_map(
                         fn() => $this->faker->randomFloat(8, -1, 1),
-                        range(1, $dimensions)
+                        range(1, $dimensions),
                     ),
                 ],
             ],
@@ -207,7 +206,7 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Get standard error response
+     * Get standard error response.
      */
     protected function getErrorResponse(string $message, string $type = 'invalid_request_error'): array
     {

@@ -9,11 +9,10 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
 
 /**
- * Functional tests for LlmConfigurationRepository
+ * Functional tests for LlmConfigurationRepository.
  *
  * Tests database queries and persistence operations.
  */
@@ -38,7 +37,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->findAll();
 
-        $this->assertCount(6, $result);
+        self::assertCount(6, $result);
     }
 
     #[Test]
@@ -46,11 +45,11 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->findByIdentifier('default-config');
 
-        $this->assertInstanceOf(LlmConfiguration::class, $result);
-        $this->assertEquals('default-config', $result->getIdentifier());
-        $this->assertEquals('Default Configuration', $result->getName());
-        $this->assertEquals('openai', $result->getProvider());
-        $this->assertEquals('gpt-4o', $result->getModel());
+        self::assertInstanceOf(LlmConfiguration::class, $result);
+        self::assertEquals('default-config', $result->getIdentifier());
+        self::assertEquals('Default Configuration', $result->getName());
+        self::assertEquals('openai', $result->getProvider());
+        self::assertEquals('gpt-4o', $result->getModel());
     }
 
     #[Test]
@@ -58,7 +57,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->findByIdentifier('non-existent');
 
-        $this->assertNull($result);
+        self::assertNull($result);
     }
 
     #[Test]
@@ -66,10 +65,10 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->findActive();
 
-        $this->assertCount(5, $result);
+        self::assertCount(5, $result);
 
         foreach ($result as $config) {
-            $this->assertTrue($config->isActive());
+            self::assertTrue($config->isActive());
         }
     }
 
@@ -78,9 +77,9 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->findDefault();
 
-        $this->assertInstanceOf(LlmConfiguration::class, $result);
-        $this->assertTrue($result->isDefault());
-        $this->assertEquals('default-config', $result->getIdentifier());
+        self::assertInstanceOf(LlmConfiguration::class, $result);
+        self::assertTrue($result->isDefault());
+        self::assertEquals('default-config', $result->getIdentifier());
     }
 
     #[Test]
@@ -88,11 +87,11 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->findByProvider('openai');
 
-        $this->assertCount(4, $result);
+        self::assertCount(4, $result);
 
         foreach ($result as $config) {
-            $this->assertEquals('openai', $config->getProvider());
-            $this->assertTrue($config->isActive());
+            self::assertEquals('openai', $config->getProvider());
+            self::assertTrue($config->isActive());
         }
     }
 
@@ -101,7 +100,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->findByProvider('unknown-provider');
 
-        $this->assertCount(0, $result);
+        self::assertCount(0, $result);
     }
 
     #[Test]
@@ -111,8 +110,8 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
 
         // Should return configurations without access restrictions (allowedGroups = 0)
         foreach ($result as $config) {
-            $this->assertEquals(0, $config->getAllowedGroups());
-            $this->assertTrue($config->isActive());
+            self::assertEquals(0, $config->getAllowedGroups());
+            self::assertTrue($config->isActive());
         }
     }
 
@@ -121,7 +120,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->isIdentifierUnique('brand-new-identifier');
 
-        $this->assertTrue($result);
+        self::assertTrue($result);
     }
 
     #[Test]
@@ -129,7 +128,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->isIdentifierUnique('default-config');
 
-        $this->assertFalse($result);
+        self::assertFalse($result);
     }
 
     #[Test]
@@ -137,7 +136,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->isIdentifierUnique('default-config', 1);
 
-        $this->assertTrue($result);
+        self::assertTrue($result);
     }
 
     #[Test]
@@ -159,17 +158,17 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         // Verify it was persisted
         $retrieved = $this->subject->findByIdentifier('new-test-config');
 
-        $this->assertInstanceOf(LlmConfiguration::class, $retrieved);
-        $this->assertEquals('New Test Configuration', $retrieved->getName());
-        $this->assertEquals('claude', $retrieved->getProvider());
-        $this->assertEquals(0.8, $retrieved->getTemperature());
+        self::assertInstanceOf(LlmConfiguration::class, $retrieved);
+        self::assertEquals('New Test Configuration', $retrieved->getName());
+        self::assertEquals('claude', $retrieved->getProvider());
+        self::assertEquals(0.8, $retrieved->getTemperature());
     }
 
     #[Test]
     public function configurationCanBeUpdated(): void
     {
         $configuration = $this->subject->findByIdentifier('creative-config');
-        $this->assertNotNull($configuration);
+        self::assertNotNull($configuration);
 
         $configuration->setName('Updated Creative Config');
         $configuration->setTemperature(0.95);
@@ -181,8 +180,8 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         $this->persistenceManager->clearState();
 
         $retrieved = $this->subject->findByIdentifier('creative-config');
-        $this->assertEquals('Updated Creative Config', $retrieved->getName());
-        $this->assertEquals(0.95, $retrieved->getTemperature());
+        self::assertEquals('Updated Creative Config', $retrieved->getName());
+        self::assertEquals(0.95, $retrieved->getTemperature());
     }
 
     #[Test]
@@ -190,7 +189,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         // Verify there is a default
         $defaultBefore = $this->subject->findDefault();
-        $this->assertNotNull($defaultBefore);
+        self::assertNotNull($defaultBefore);
 
         $this->subject->unsetAllDefaults();
         $this->persistenceManager->persistAll();
@@ -198,107 +197,107 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
 
         // After clearing, no default should exist
         $defaultAfter = $this->subject->findDefault();
-        $this->assertNull($defaultAfter);
+        self::assertNull($defaultAfter);
     }
 
     #[Test]
     public function configurationWithUsageLimitsIsDetected(): void
     {
         $config = $this->subject->findByIdentifier('creative-config');
-        $this->assertNotNull($config);
+        self::assertNotNull($config);
 
-        $this->assertTrue($config->hasUsageLimits());
-        $this->assertEquals(100, $config->getMaxRequestsPerDay());
-        $this->assertEquals(50000, $config->getMaxTokensPerDay());
-        $this->assertEquals(5.00, $config->getMaxCostPerDay());
+        self::assertTrue($config->hasUsageLimits());
+        self::assertEquals(100, $config->getMaxRequestsPerDay());
+        self::assertEquals(50000, $config->getMaxTokensPerDay());
+        self::assertEquals(5.00, $config->getMaxCostPerDay());
     }
 
     #[Test]
     public function configurationWithoutUsageLimitsIsDetected(): void
     {
         $config = $this->subject->findByIdentifier('default-config');
-        $this->assertNotNull($config);
+        self::assertNotNull($config);
 
-        $this->assertFalse($config->hasUsageLimits());
+        self::assertFalse($config->hasUsageLimits());
     }
 
     #[Test]
     public function configurationWithAccessRestrictionsIsDetected(): void
     {
         $config = $this->subject->findByIdentifier('restricted-config');
-        $this->assertNotNull($config);
+        self::assertNotNull($config);
 
-        $this->assertTrue($config->hasAccessRestrictions());
-        $this->assertEquals(1, $config->getAllowedGroups());
+        self::assertTrue($config->hasAccessRestrictions());
+        self::assertEquals(1, $config->getAllowedGroups());
     }
 
     #[Test]
     public function configurationToChatOptionsConversion(): void
     {
         $config = $this->subject->findByIdentifier('creative-config');
-        $this->assertNotNull($config);
+        self::assertNotNull($config);
 
         $chatOptions = $config->toChatOptions();
 
-        $this->assertEquals(0.90, $chatOptions->temperature);
-        $this->assertEquals(2000, $chatOptions->maxTokens);
-        $this->assertEquals(0.95, $chatOptions->topP);
-        $this->assertEquals(0.50, $chatOptions->frequencyPenalty);
-        $this->assertEquals(0.50, $chatOptions->presencePenalty);
-        $this->assertEquals('claude', $chatOptions->provider);
-        $this->assertEquals('claude-sonnet-4-20250514', $chatOptions->model);
+        self::assertEquals(0.90, $chatOptions->temperature);
+        self::assertEquals(2000, $chatOptions->maxTokens);
+        self::assertEquals(0.95, $chatOptions->topP);
+        self::assertEquals(0.50, $chatOptions->frequencyPenalty);
+        self::assertEquals(0.50, $chatOptions->presencePenalty);
+        self::assertEquals('claude', $chatOptions->provider);
+        self::assertEquals('claude-sonnet-4-20250514', $chatOptions->model);
     }
 
     #[Test]
     public function configurationToOptionsArrayConversion(): void
     {
         $config = $this->subject->findByIdentifier('code-review');
-        $this->assertNotNull($config);
+        self::assertNotNull($config);
 
         $options = $config->toOptionsArray();
 
-        $this->assertArrayHasKey('temperature', $options);
-        $this->assertArrayHasKey('max_tokens', $options);
-        $this->assertArrayHasKey('provider', $options);
-        $this->assertArrayHasKey('model', $options);
-        $this->assertArrayHasKey('system_prompt', $options);
+        self::assertArrayHasKey('temperature', $options);
+        self::assertArrayHasKey('max_tokens', $options);
+        self::assertArrayHasKey('provider', $options);
+        self::assertArrayHasKey('model', $options);
+        self::assertArrayHasKey('system_prompt', $options);
 
-        $this->assertEquals(0.30, $options['temperature']);
-        $this->assertEquals(4000, $options['max_tokens']);
-        $this->assertEquals('openai', $options['provider']);
+        self::assertEquals(0.30, $options['temperature']);
+        self::assertEquals(4000, $options['max_tokens']);
+        self::assertEquals('openai', $options['provider']);
     }
 
     #[Test]
     public function translatorConfigurationIsLoaded(): void
     {
         $config = $this->subject->findByIdentifier('translation-de');
-        $this->assertNotNull($config);
+        self::assertNotNull($config);
 
-        $this->assertEquals('deepl', $config->getTranslator());
+        self::assertEquals('deepl', $config->getTranslator());
 
         $options = $config->toOptionsArray();
-        $this->assertEquals('deepl', $options['translator']);
+        self::assertEquals('deepl', $options['translator']);
     }
 
     #[Test]
     public function systemPromptIsLoaded(): void
     {
         $config = $this->subject->findByIdentifier('default-config');
-        $this->assertNotNull($config);
+        self::assertNotNull($config);
 
-        $this->assertEquals('You are a helpful assistant.', $config->getSystemPrompt());
+        self::assertEquals('You are a helpful assistant.', $config->getSystemPrompt());
     }
 
     #[Test]
     public function jsonOptionsAreParsed(): void
     {
         $config = $this->subject->findByIdentifier('code-review');
-        $this->assertNotNull($config);
+        self::assertNotNull($config);
 
         $optionsArray = $config->getOptionsArray();
-        $this->assertIsArray($optionsArray);
-        $this->assertArrayHasKey('response_format', $optionsArray);
-        $this->assertEquals('json', $optionsArray['response_format']);
+        self::assertIsArray($optionsArray);
+        self::assertArrayHasKey('response_format', $optionsArray);
+        self::assertEquals('json', $optionsArray['response_format']);
     }
 
     #[Test]
@@ -308,7 +307,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         $configuration = new LlmConfiguration();
         $configuration->setOptions('');
 
-        $this->assertEquals([], $configuration->getOptionsArray());
+        self::assertEquals([], $configuration->getOptionsArray());
     }
 
     #[Test]
@@ -317,10 +316,10 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         $configuration = new LlmConfiguration();
 
         $configuration->setTemperature(3.0);
-        $this->assertEquals(2.0, $configuration->getTemperature());
+        self::assertEquals(2.0, $configuration->getTemperature());
 
         $configuration->setTemperature(-1.0);
-        $this->assertEquals(0.0, $configuration->getTemperature());
+        self::assertEquals(0.0, $configuration->getTemperature());
     }
 
     #[Test]
@@ -329,10 +328,10 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         $configuration = new LlmConfiguration();
 
         $configuration->setTopP(1.5);
-        $this->assertEquals(1.0, $configuration->getTopP());
+        self::assertEquals(1.0, $configuration->getTopP());
 
         $configuration->setTopP(-0.5);
-        $this->assertEquals(0.0, $configuration->getTopP());
+        self::assertEquals(0.0, $configuration->getTopP());
     }
 
     #[Test]
@@ -341,10 +340,10 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         $configuration = new LlmConfiguration();
 
         $configuration->setFrequencyPenalty(3.0);
-        $this->assertEquals(2.0, $configuration->getFrequencyPenalty());
+        self::assertEquals(2.0, $configuration->getFrequencyPenalty());
 
         $configuration->setFrequencyPenalty(-3.0);
-        $this->assertEquals(-2.0, $configuration->getFrequencyPenalty());
+        self::assertEquals(-2.0, $configuration->getFrequencyPenalty());
     }
 
     #[Test]
@@ -353,9 +352,9 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         $configuration = new LlmConfiguration();
 
         $configuration->setMaxTokens(0);
-        $this->assertEquals(1, $configuration->getMaxTokens());
+        self::assertEquals(1, $configuration->getMaxTokens());
 
         $configuration->setMaxTokens(-100);
-        $this->assertEquals(1, $configuration->getMaxTokens());
+        self::assertEquals(1, $configuration->getMaxTokens());
     }
 }

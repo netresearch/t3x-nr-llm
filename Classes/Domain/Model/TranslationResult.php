@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 /**
- * Result object for translation requests
+ * Result object for translation requests.
  */
 final class TranslationResult
 {
     /**
-     * @param array<int, string>|null $alternatives
+     * @param array<int, string>|null   $alternatives
      * @param array<string, mixed>|null $metadata
      */
     public function __construct(
@@ -24,7 +24,7 @@ final class TranslationResult
     ) {}
 
     /**
-     * Get the translated text
+     * Get the translated text.
      */
     public function getText(): string
     {
@@ -32,7 +32,7 @@ final class TranslationResult
     }
 
     /**
-     * Check if confidence score meets threshold
+     * Check if confidence score meets threshold.
      */
     public function isConfident(float $threshold = 0.7): bool
     {
@@ -40,7 +40,7 @@ final class TranslationResult
     }
 
     /**
-     * Get alternative translations if available
+     * Get alternative translations if available.
      *
      * @return array<int, string>
      */
@@ -50,7 +50,7 @@ final class TranslationResult
     }
 
     /**
-     * Check if alternative translations were provided
+     * Check if alternative translations were provided.
      */
     public function hasAlternatives(): bool
     {

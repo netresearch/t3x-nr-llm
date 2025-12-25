@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Option;
 
 /**
- * Options for vision/image analysis requests
+ * Options for vision/image analysis requests.
  *
  * @phpstan-consistent-constructor
  */
@@ -28,7 +28,7 @@ class VisionOptions extends AbstractOptions
     // ========================================
 
     /**
-     * Create options for alt text generation (short, concise)
+     * Create options for alt text generation (short, concise).
      */
     public static function altText(): static
     {
@@ -40,7 +40,7 @@ class VisionOptions extends AbstractOptions
     }
 
     /**
-     * Create options for detailed image description
+     * Create options for detailed image description.
      */
     public static function detailed(): static
     {
@@ -52,7 +52,7 @@ class VisionOptions extends AbstractOptions
     }
 
     /**
-     * Create options for quick analysis (cost-optimized)
+     * Create options for quick analysis (cost-optimized).
      */
     public static function quick(): static
     {
@@ -64,7 +64,7 @@ class VisionOptions extends AbstractOptions
     }
 
     /**
-     * Create options for comprehensive analysis
+     * Create options for comprehensive analysis.
      */
     public static function comprehensive(): static
     {

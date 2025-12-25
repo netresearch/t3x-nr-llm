@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
+use Exception;
+use Generator;
+use JsonException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
@@ -13,7 +16,7 @@ use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 
 /**
- * OpenRouter Provider
+ * OpenRouter Provider.
  *
  * Gateway to 100+ AI models from multiple providers via a single OpenAI-compatible API.
  * OpenRouter provides automatic fallback, competitive pricing, and unified billing.
@@ -51,35 +54,27 @@ final class OpenRouterProvider extends AbstractProvider implements
         'explicit',
     ];
 
-    /**
-     * Site URL for OpenRouter attribution (HTTP-Referer header)
-     */
+    /** Site URL for OpenRouter attribution (HTTP-Referer header) */
     private string $siteUrl = '';
 
-    /**
-     * App name for OpenRouter attribution (X-Title header)
-     */
+    /** App name for OpenRouter attribution (X-Title header) */
     private string $appName = 'TYPO3 NR-LLM';
 
-    /**
-     * Routing strategy for model selection
-     */
+    /** Routing strategy for model selection */
     private string $routingStrategy = 'balanced';
 
-    /**
-     * Enable automatic fallback to alternative models
-     */
+    /** Enable automatic fallback to alternative models */
     private bool $autoFallback = true;
 
     /**
-     * Comma-separated fallback model IDs
+     * Comma-separated fallback model IDs.
      *
      * @var array<int, string>
      */
     private array $fallbackModels = [];
 
     /**
-     * Cached models list
+     * Cached models list.
      *
      * @var array<string, array<string, mixed>>|null
      */
@@ -106,7 +101,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     }
 
     /**
-     * Configure provider with additional OpenRouter-specific options
+     * Configure provider with additional OpenRouter-specific options.
      */
     public function configure(array $config): void
     {
@@ -125,18 +120,18 @@ final class OpenRouterProvider extends AbstractProvider implements
         }
 
         if (isset($config['autoFallback'])) {
-            $this->autoFallback = (bool) $config['autoFallback'];
+            $this->autoFallback = (bool)$config['autoFallback'];
         }
 
         if (isset($config['fallbackModels']) && is_string($config['fallbackModels'])) {
             $this->fallbackModels = array_filter(
-                array_map('trim', explode(',', $config['fallbackModels']))
+                array_map('trim', explode(',', $config['fallbackModels'])),
             );
         }
     }
 
     /**
-     * Get available models from OpenRouter API with caching
+     * Get available models from OpenRouter API with caching.
      *
      * Returns a curated static list with common models.
      * For dynamic list, use fetchAvailableModels().
@@ -169,9 +164,10 @@ final class OpenRouterProvider extends AbstractProvider implements
     }
 
     /**
-     * Fetch live model list from OpenRouter API
+     * Fetch live model list from OpenRouter API.
      *
      * @param bool $forceRefresh Bypass cache and fetch fresh data
+     *
      * @return array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}>
      */
     public function fetchAvailableModels(bool $forceRefresh = false): array
@@ -189,8 +185,8 @@ final class OpenRouterProvider extends AbstractProvider implements
                     'name' => $model['name'] ?? $model['id'],
                     'context_length' => $model['context_length'] ?? 0,
                     'pricing' => [
-                        'prompt' => (float) ($model['pricing']['prompt'] ?? 0),
-                        'completion' => (float) ($model['pricing']['completion'] ?? 0),
+                        'prompt' => (float)($model['pricing']['prompt'] ?? 0),
+                        'completion' => (float)($model['pricing']['completion'] ?? 0),
                     ],
                     'capabilities' => [
                         'vision' => ($model['architecture']['modality'] ?? '') === 'multimodal',
@@ -202,14 +198,14 @@ final class OpenRouterProvider extends AbstractProvider implements
 
             $this->cachedModels = $models;
             return $models;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Return empty array on failure, static list still available via getAvailableModels()
             return [];
         }
     }
 
     /**
-     * Get OpenRouter credits/balance information
+     * Get OpenRouter credits/balance information.
      *
      * @return array{balance: float, usage: float, is_free_tier: bool, rate_limit: array<string, mixed>}
      */
@@ -218,9 +214,9 @@ final class OpenRouterProvider extends AbstractProvider implements
         $response = $this->sendRequest('auth/key', [], 'GET');
 
         return [
-            'balance' => (float) ($response['data']['limit'] ?? 0),
-            'usage' => (float) ($response['data']['usage'] ?? 0),
-            'is_free_tier' => (bool) ($response['data']['is_free_tier'] ?? false),
+            'balance' => (float)($response['data']['limit'] ?? 0),
+            'usage' => (float)($response['data']['usage'] ?? 0),
+            'is_free_tier' => (bool)($response['data']['is_free_tier'] ?? false),
             'rate_limit' => $response['data']['rate_limit'] ?? [],
         ];
     }
@@ -276,7 +272,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             model: $response['model'] ?? $payload['model'],
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: $usage['completion_tokens'] ?? 0
+                completionTokens: $usage['completion_tokens'] ?? 0,
             ),
             finishReason: $choice['finish_reason'] ?? 'stop',
             provider: $this->getIdentifier(),
@@ -287,7 +283,7 @@ final class OpenRouterProvider extends AbstractProvider implements
                     'prompt' => $response['native_tokens_prompt'] ?? null,
                     'completion' => $response['native_tokens_completion'] ?? null,
                 ],
-            ]
+            ],
         );
     }
 
@@ -338,7 +334,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             model: $response['model'] ?? $payload['model'],
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: $usage['completion_tokens'] ?? 0
+                completionTokens: $usage['completion_tokens'] ?? 0,
             ),
             finishReason: $choice['finish_reason'] ?? 'stop',
             provider: $this->getIdentifier(),
@@ -346,7 +342,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             metadata: [
                 'actual_provider' => $response['provider'] ?? 'unknown',
                 'cost' => $response['total_cost'] ?? null,
-            ]
+            ],
         );
     }
 
@@ -372,7 +368,7 @@ final class OpenRouterProvider extends AbstractProvider implements
 
         $embeddings = array_map(
             static fn($item) => $item['embedding'],
-            $response['data'] ?? []
+            $response['data'] ?? [],
         );
 
         $usage = $response['usage'] ?? [];
@@ -382,8 +378,8 @@ final class OpenRouterProvider extends AbstractProvider implements
             model: $response['model'] ?? $payload['model'],
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: 0
-            )
+                completionTokens: 0,
+            ),
         );
     }
 
@@ -427,13 +423,13 @@ final class OpenRouterProvider extends AbstractProvider implements
             model: $response['model'] ?? $payload['model'],
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: $usage['completion_tokens'] ?? 0
+                completionTokens: $usage['completion_tokens'] ?? 0,
             ),
             provider: $this->getIdentifier(),
             metadata: [
                 'actual_provider' => $response['provider'] ?? 'unknown',
                 'cost' => $response['total_cost'] ?? null,
-            ]
+            ],
         );
     }
 
@@ -452,7 +448,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         return 20 * 1024 * 1024; // 20 MB
     }
 
-    public function streamChatCompletion(array $messages, array $options = []): \Generator
+    public function streamChatCompletion(array $messages, array $options = []): Generator
     {
         $model = $this->selectModel($options);
 
@@ -515,7 +511,7 @@ final class OpenRouterProvider extends AbstractProvider implements
                         if ($content !== '') {
                             yield $content;
                         }
-                    } catch (\JsonException) {
+                    } catch (JsonException) {
                         // Skip malformed JSON
                     }
                 }
@@ -529,7 +525,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     }
 
     /**
-     * Select model based on routing strategy
+     * Select model based on routing strategy.
      *
      * @param array<string, mixed> $options
      */
@@ -566,10 +562,11 @@ final class OpenRouterProvider extends AbstractProvider implements
     }
 
     /**
-     * Filter models by requirements from options
+     * Filter models by requirements from options.
      *
      * @param array<string, array<string, mixed>> $models
-     * @param array<string, mixed> $options
+     * @param array<string, mixed>                $options
+     *
      * @return array<string, array<string, mixed>>
      */
     private function filterModelsByRequirements(array $models, array $options): array
@@ -580,7 +577,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         if (!empty($options['min_context'])) {
             $filtered = array_filter(
                 $filtered,
-                static fn($model) => ($model['context_length'] ?? 0) >= $options['min_context']
+                static fn($model) => ($model['context_length'] ?? 0) >= $options['min_context'],
             );
         }
 
@@ -588,7 +585,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         if (!empty($options['vision_required'])) {
             $filtered = array_filter(
                 $filtered,
-                static fn($model) => $model['capabilities']['vision'] ?? false
+                static fn($model) => $model['capabilities']['vision'] ?? false,
             );
         }
 
@@ -596,7 +593,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         if (!empty($options['function_calling'])) {
             $filtered = array_filter(
                 $filtered,
-                static fn($model) => $model['capabilities']['function_calling'] ?? false
+                static fn($model) => $model['capabilities']['function_calling'] ?? false,
             );
         }
 
@@ -604,7 +601,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     }
 
     /**
-     * Select cheapest model from candidates
+     * Select cheapest model from candidates.
      *
      * @param array<string, array<string, mixed>> $candidates
      */
@@ -625,7 +622,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     }
 
     /**
-     * Select fastest model (heuristic: flash/haiku/turbo models)
+     * Select fastest model (heuristic: flash/haiku/turbo models).
      *
      * @param array<string, array<string, mixed>> $candidates
      */
@@ -645,7 +642,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     }
 
     /**
-     * Select balanced model (mid-tier quality and speed)
+     * Select balanced model (mid-tier quality and speed).
      *
      * @param array<string, array<string, mixed>> $candidates
      */
@@ -665,7 +662,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     }
 
     /**
-     * Select vision-capable model
+     * Select vision-capable model.
      */
     private function selectVisionModel(): string
     {
@@ -697,7 +694,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     }
 
     /**
-     * Extract provider name from model ID (e.g., "anthropic/claude-3" → "anthropic")
+     * Extract provider name from model ID (e.g., "anthropic/claude-3" → "anthropic").
      */
     private function extractProviderFromModelId(string $modelId): string
     {
@@ -709,9 +706,10 @@ final class OpenRouterProvider extends AbstractProvider implements
     }
 
     /**
-     * Send request to OpenRouter API with custom headers
+     * Send request to OpenRouter API with custom headers.
      *
      * @param array<string, mixed> $payload
+     *
      * @return array<string, mixed>
      */
     private function sendOpenRouterRequest(string $endpoint, array $payload): array
@@ -745,7 +743,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     }
 
     /**
-     * Handle OpenRouter-specific errors
+     * Handle OpenRouter-specific errors.
      */
     private function handleOpenRouterError(int $statusCode, string $responseBody): never
     {

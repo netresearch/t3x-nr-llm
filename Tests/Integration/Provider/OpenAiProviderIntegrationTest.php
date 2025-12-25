@@ -14,7 +14,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * Integration tests for OpenAI provider
+ * Integration tests for OpenAI provider.
  *
  * Tests realistic API interactions with mocked HTTP responses.
  */
@@ -36,7 +36,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
             $httpClient,
             $this->requestFactory,
             $this->streamFactory,
-            $this->createNullLogger()
+            $this->createNullLogger(),
         );
 
         $provider->configure([
@@ -55,7 +55,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
         $responseData = $this->getOpenAiChatResponse(
             content: 'The capital of France is Paris.',
             model: 'gpt-4o',
-            finishReason: 'stop'
+            finishReason: 'stop',
         );
 
         $provider = $this->createProvider([
@@ -66,19 +66,19 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
             ['role' => 'user', 'content' => 'What is the capital of France?'],
         ]);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertEquals('The capital of France is Paris.', $result->content);
-        $this->assertEquals('gpt-4o', $result->model);
-        $this->assertEquals('stop', $result->finishReason);
-        $this->assertTrue($result->isComplete());
-        $this->assertFalse($result->wasTruncated());
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('The capital of France is Paris.', $result->content);
+        self::assertEquals('gpt-4o', $result->model);
+        self::assertEquals('stop', $result->finishReason);
+        self::assertTrue($result->isComplete());
+        self::assertFalse($result->wasTruncated());
     }
 
     #[Test]
     public function chatCompletionWithSystemPrompt(): void
     {
         $responseData = $this->getOpenAiChatResponse(
-            content: 'Bonjour! Comment allez-vous?'
+            content: 'Bonjour! Comment allez-vous?',
         );
 
         $provider = $this->createProvider([
@@ -90,8 +90,8 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
             ['role' => 'user', 'content' => 'Say hello'],
         ]);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertStringContainsString('Bonjour', $result->content);
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertStringContainsString('Bonjour', $result->content);
     }
 
     #[Test]
@@ -99,7 +99,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
     {
         $responseData = $this->getOpenAiChatResponse(
             content: 'This response was truncated because it reached the maximum',
-            finishReason: 'length'
+            finishReason: 'length',
         );
 
         $provider = $this->createProvider([
@@ -108,11 +108,11 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
 
         $result = $provider->chatCompletion(
             [['role' => 'user', 'content' => 'Write a very long story']],
-            ['max_tokens' => 50]
+            ['max_tokens' => 50],
         );
 
-        $this->assertTrue($result->wasTruncated());
-        $this->assertFalse($result->isComplete());
+        self::assertTrue($result->wasTruncated());
+        self::assertFalse($result->isComplete());
     }
 
     #[Test]
@@ -145,9 +145,9 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
             ['role' => 'user', 'content' => 'Hello'],
         ]);
 
-        $this->assertEquals(100, $result->usage->promptTokens);
-        $this->assertEquals(50, $result->usage->completionTokens);
-        $this->assertEquals(150, $result->usage->totalTokens);
+        self::assertEquals(100, $result->usage->promptTokens);
+        self::assertEquals(50, $result->usage->completionTokens);
+        self::assertEquals(150, $result->usage->totalTokens);
     }
 
     #[Test]
@@ -161,10 +161,10 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
 
         $result = $provider->embeddings('Test text for embedding');
 
-        $this->assertInstanceOf(EmbeddingResponse::class, $result);
-        $this->assertCount(1, $result->embeddings);
-        $this->assertCount(1536, $result->embeddings[0]);
-        $this->assertEquals('text-embedding-3-small', $result->model);
+        self::assertInstanceOf(EmbeddingResponse::class, $result);
+        self::assertCount(1, $result->embeddings);
+        self::assertCount(1536, $result->embeddings[0]);
+        self::assertEquals('text-embedding-3-small', $result->model);
     }
 
     #[Test]
@@ -247,7 +247,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
     public function multipleMessagesInConversation(): void
     {
         $responseData = $this->getOpenAiChatResponse(
-            content: 'That is correct! Paris has been the capital of France for centuries.'
+            content: 'That is correct! Paris has been the capital of France for centuries.',
         );
 
         $provider = $this->createProvider([
@@ -260,8 +260,8 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
             ['role' => 'user', 'content' => 'Is that correct?'],
         ]);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertStringContainsString('Paris', $result->content);
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertStringContainsString('Paris', $result->content);
     }
 
     #[Test]
@@ -270,14 +270,14 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
         $responseData = $this->getOpenAiChatResponse();
 
         $clientSetup = $this->createRequestCapturingClient(
-            $this->createSuccessResponse($responseData)
+            $this->createSuccessResponse($responseData),
         );
 
         $provider = new OpenAiProvider(
             $clientSetup['client'],
             $this->requestFactory,
             $this->streamFactory,
-            $this->createNullLogger()
+            $this->createNullLogger(),
         );
 
         $provider->configure([
@@ -288,34 +288,34 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
 
         $provider->chatCompletion(
             [['role' => 'user', 'content' => 'Hello']],
-            ['temperature' => 0.2]
+            ['temperature' => 0.2],
         );
 
-        $this->assertCount(1, $clientSetup['requests']);
+        self::assertCount(1, $clientSetup['requests']);
         $request = $clientSetup['requests'][0];
-        $body = json_decode((string) $request->getBody(), true);
+        $body = json_decode((string)$request->getBody(), true);
 
-        $this->assertEquals(0.2, $body['temperature']);
+        self::assertEquals(0.2, $body['temperature']);
     }
 
     #[Test]
     public function supportsVisionFeature(): void
     {
         $provider = $this->createProvider([]);
-        $this->assertTrue($provider->supportsVision());
+        self::assertTrue($provider->supportsVision());
     }
 
     #[Test]
     public function supportsStreamingFeature(): void
     {
         $provider = $this->createProvider([]);
-        $this->assertTrue($provider->supportsStreaming());
+        self::assertTrue($provider->supportsStreaming());
     }
 
     #[Test]
     public function supportsToolsFeature(): void
     {
         $provider = $this->createProvider([]);
-        $this->assertTrue($provider->supportsTools());
+        self::assertTrue($provider->supportsTools());
     }
 }

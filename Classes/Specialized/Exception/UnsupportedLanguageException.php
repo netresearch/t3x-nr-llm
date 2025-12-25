@@ -15,16 +15,16 @@ final class UnsupportedLanguageException extends SpecializedServiceException
     /**
      * Create exception for an unsupported language.
      *
-     * @param string $language The unsupported language code
-     * @param string $service The service identifier
-     * @param string $direction Either 'source' or 'target'
+     * @param string                  $language           The unsupported language code
+     * @param string                  $service            The service identifier
+     * @param string                  $direction          Either 'source' or 'target'
      * @param array<int, string>|null $supportedLanguages List of supported language codes
      */
     public static function forLanguage(
         string $language,
         string $service,
         string $direction = 'target',
-        ?array $supportedLanguages = null
+        ?array $supportedLanguages = null,
     ): self {
         $context = [
             'language' => $language,
@@ -38,7 +38,7 @@ final class UnsupportedLanguageException extends SpecializedServiceException
         return new self(
             sprintf('Language "%s" is not supported as %s language', $language, $direction),
             $service,
-            $context
+            $context,
         );
     }
 }

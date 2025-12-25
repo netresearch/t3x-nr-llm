@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 /**
- * Single streaming chunk
+ * Single streaming chunk.
  *
  * @api This class is part of the public API
  */
@@ -14,11 +14,11 @@ class StreamChunk
     public function __construct(
         private string $content,
         private bool $isComplete = false,
-        private ?string $finishReason = null
+        private ?string $finishReason = null,
     ) {}
 
     /**
-     * Get chunk content
+     * Get chunk content.
      */
     public function getContent(): string
     {
@@ -26,7 +26,7 @@ class StreamChunk
     }
 
     /**
-     * Check if stream is complete
+     * Check if stream is complete.
      */
     public function isComplete(): bool
     {
@@ -34,7 +34,7 @@ class StreamChunk
     }
 
     /**
-     * Get finish reason
+     * Get finish reason.
      */
     public function getFinishReason(): ?string
     {

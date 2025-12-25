@@ -11,7 +11,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * Property-based tests for UsageStatistics
+ * Property-based tests for UsageStatistics.
  */
 #[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
 class UsageStatisticsFuzzyTest extends AbstractFuzzyTestCase
@@ -22,14 +22,14 @@ class UsageStatisticsFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(
                 Generator\choose(0, 100000),
-                Generator\choose(0, 100000)
+                Generator\choose(0, 100000),
             )
-            ->then(function (int $promptTokens, int $completionTokens) {
+            ->then(function (int $promptTokens, int $completionTokens): void {
                 $totalTokens = $promptTokens + $completionTokens;
                 $usage = new UsageStatistics(
                     promptTokens: $promptTokens,
                     completionTokens: $completionTokens,
-                    totalTokens: $totalTokens
+                    totalTokens: $totalTokens,
                 );
 
                 $this->assertEquals($promptTokens, $usage->promptTokens);
@@ -45,13 +45,13 @@ class UsageStatisticsFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 Generator\pos(),
                 Generator\pos(),
-                Generator\pos()
+                Generator\pos(),
             )
-            ->then(function (int $prompt, int $completion, int $total) {
+            ->then(function (int $prompt, int $completion, int $total): void {
                 $usage = new UsageStatistics(
                     promptTokens: $prompt,
                     completionTokens: $completion,
-                    totalTokens: $total
+                    totalTokens: $total,
                 );
 
                 $this->assertSame($prompt, $usage->promptTokens);
@@ -67,20 +67,20 @@ class UsageStatisticsFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 Generator\pos(),
                 Generator\pos(),
-                Generator\pos()
+                Generator\pos(),
             )
-            ->then(function (int $prompt, int $completion, int $total) {
+            ->then(function (int $prompt, int $completion, int $total): void {
                 $usage = new UsageStatistics(
                     promptTokens: $prompt,
                     completionTokens: $completion,
-                    totalTokens: $total
+                    totalTokens: $total,
                 );
 
                 // Create a second instance with same values
                 $usage2 = new UsageStatistics(
                     promptTokens: $prompt,
                     completionTokens: $completion,
-                    totalTokens: $total
+                    totalTokens: $total,
                 );
 
                 // Both should have identical values

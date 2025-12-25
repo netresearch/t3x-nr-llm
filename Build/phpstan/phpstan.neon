@@ -1,0 +1,30 @@
+# PHPStan Configuration - TYPO3 LLM Extension
+# Based on TYPO3 Best Practices: https://github.com/TYPO3BestPractices/tea
+#
+# This configuration enforces:
+# - Level 6 strict analysis
+# - PHP 8.5 compatibility
+
+includes:
+  - phpstan-baseline.neon
+
+parameters:
+  # PHP 8.5 (TYPO3 v14 minimum)
+  phpVersion: 80500
+
+  # Parallel execution (optimize for your CI environment)
+  parallel:
+    maximumNumberOfProcesses: 5
+
+  # Analysis level (0-10, higher is stricter)
+  level: 6
+
+  # Paths to analyze
+  paths:
+    - ../../Classes
+    - ../../Configuration
+    - ../../Tests
+    - ../../ext_localconf.php
+
+  # reportUnmatchedIgnoredErrors: false is needed when using baselines
+  reportUnmatchedIgnoredErrors: false

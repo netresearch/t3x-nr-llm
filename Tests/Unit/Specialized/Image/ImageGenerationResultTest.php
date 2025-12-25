@@ -27,14 +27,14 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             metadata: ['seed' => 12345],
         );
 
-        $this->assertEquals('https://example.com/image.png', $result->url);
-        $this->assertEquals('base64data', $result->base64);
-        $this->assertEquals('A cat', $result->prompt);
-        $this->assertEquals('A cute orange cat', $result->revisedPrompt);
-        $this->assertEquals('dall-e-3', $result->model);
-        $this->assertEquals('1024x1024', $result->size);
-        $this->assertEquals('dall-e', $result->provider);
-        $this->assertEquals(['seed' => 12345], $result->metadata);
+        self::assertEquals('https://example.com/image.png', $result->url);
+        self::assertEquals('base64data', $result->base64);
+        self::assertEquals('A cat', $result->prompt);
+        self::assertEquals('A cute orange cat', $result->revisedPrompt);
+        self::assertEquals('dall-e-3', $result->model);
+        self::assertEquals('1024x1024', $result->size);
+        self::assertEquals('dall-e', $result->provider);
+        self::assertEquals(['seed' => 12345], $result->metadata);
     }
 
     #[Test]
@@ -50,7 +50,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'dall-e',
         );
 
-        $this->assertTrue($result->hasBase64());
+        self::assertTrue($result->hasBase64());
     }
 
     #[Test]
@@ -66,7 +66,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'dall-e',
         );
 
-        $this->assertFalse($result->hasBase64());
+        self::assertFalse($result->hasBase64());
     }
 
     #[Test]
@@ -82,7 +82,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'dall-e',
         );
 
-        $this->assertFalse($result->hasBase64());
+        self::assertFalse($result->hasBase64());
     }
 
     #[Test]
@@ -101,8 +101,8 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
 
         $dimensions = $result->getDimensions();
 
-        $this->assertEquals($expectedWidth, $dimensions['width']);
-        $this->assertEquals($expectedHeight, $dimensions['height']);
+        self::assertEquals($expectedWidth, $dimensions['width']);
+        self::assertEquals($expectedHeight, $dimensions['height']);
     }
 
     public static function dimensionsProvider(): array
@@ -129,7 +129,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $this->assertEquals(1792, $result->getWidth());
+        self::assertEquals(1792, $result->getWidth());
     }
 
     #[Test]
@@ -145,7 +145,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $this->assertEquals(1792, $result->getHeight());
+        self::assertEquals(1792, $result->getHeight());
     }
 
     #[Test]
@@ -161,9 +161,9 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $this->assertTrue($result->isLandscape());
-        $this->assertFalse($result->isPortrait());
-        $this->assertFalse($result->isSquare());
+        self::assertTrue($result->isLandscape());
+        self::assertFalse($result->isPortrait());
+        self::assertFalse($result->isSquare());
     }
 
     #[Test]
@@ -179,9 +179,9 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $this->assertTrue($result->isPortrait());
-        $this->assertFalse($result->isLandscape());
-        $this->assertFalse($result->isSquare());
+        self::assertTrue($result->isPortrait());
+        self::assertFalse($result->isLandscape());
+        self::assertFalse($result->isSquare());
     }
 
     #[Test]
@@ -197,9 +197,9 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $this->assertTrue($result->isSquare());
-        $this->assertFalse($result->isLandscape());
-        $this->assertFalse($result->isPortrait());
+        self::assertTrue($result->isSquare());
+        self::assertFalse($result->isLandscape());
+        self::assertFalse($result->isPortrait());
     }
 
     #[Test]
@@ -215,7 +215,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $this->assertTrue($result->wasPromptRevised());
+        self::assertTrue($result->wasPromptRevised());
     }
 
     #[Test]
@@ -231,7 +231,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $this->assertFalse($result->wasPromptRevised());
+        self::assertFalse($result->wasPromptRevised());
     }
 
     #[Test]
@@ -247,7 +247,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $this->assertFalse($result->wasPromptRevised());
+        self::assertFalse($result->wasPromptRevised());
     }
 
     #[Test]
@@ -263,7 +263,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $this->assertEquals('A detailed cat', $result->getEffectivePrompt());
+        self::assertEquals('A detailed cat', $result->getEffectivePrompt());
     }
 
     #[Test]
@@ -279,7 +279,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $this->assertEquals('A cat', $result->getEffectivePrompt());
+        self::assertEquals('A cat', $result->getEffectivePrompt());
     }
 
     #[Test]
@@ -298,8 +298,8 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
 
         $dataUrl = $result->toDataUrl();
 
-        $this->assertStringStartsWith('data:image/png;base64,', $dataUrl);
-        $this->assertStringContainsString($base64, $dataUrl);
+        self::assertStringStartsWith('data:image/png;base64,', $dataUrl);
+        self::assertStringContainsString($base64, $dataUrl);
     }
 
     #[Test]
@@ -315,7 +315,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $this->assertNull($result->toDataUrl());
+        self::assertNull($result->toDataUrl());
     }
 
     #[Test]
@@ -334,7 +334,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $this->assertEquals($originalData, $result->getBinaryContent());
+        self::assertEquals($originalData, $result->getBinaryContent());
     }
 
     #[Test]
@@ -350,6 +350,6 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $this->assertNull($result->getBinaryContent());
+        self::assertNull($result->getBinaryContent());
     }
 }

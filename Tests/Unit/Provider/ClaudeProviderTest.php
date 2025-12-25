@@ -68,19 +68,19 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     #[Test]
     public function getNameReturnsAnthropicClaude(): void
     {
-        $this->assertEquals('Anthropic Claude', $this->subject->getName());
+        self::assertEquals('Anthropic Claude', $this->subject->getName());
     }
 
     #[Test]
     public function getIdentifierReturnsClaude(): void
     {
-        $this->assertEquals('claude', $this->subject->getIdentifier());
+        self::assertEquals('claude', $this->subject->getIdentifier());
     }
 
     #[Test]
     public function isAvailableReturnsTrueWhenApiKeyConfigured(): void
     {
-        $this->assertTrue($this->subject->isAvailable());
+        self::assertTrue($this->subject->isAvailable());
     }
 
     #[Test]
@@ -111,16 +111,16 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $httpClientMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
         $result = $subject->chatCompletion($messages);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertEquals('Claude response content', $result->content);
-        $this->assertEquals('claude-sonnet-4-20250514', $result->model);
-        $this->assertEquals('stop', $result->finishReason);
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('Claude response content', $result->content);
+        self::assertEquals('claude-sonnet-4-20250514', $result->model);
+        self::assertEquals('stop', $result->finishReason);
     }
 
     #[Test]
@@ -147,7 +147,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
 
         $result = $this->subject->chatCompletion($messages);
 
-        $this->assertEquals('Hi there', $result->content);
+        self::assertEquals('Hi there', $result->content);
     }
 
     #[Test]
@@ -195,28 +195,28 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     {
         $models = $this->subject->getAvailableModels();
 
-        $this->assertIsArray($models);
-        $this->assertNotEmpty($models);
+        self::assertIsArray($models);
+        self::assertNotEmpty($models);
         // Models are returned as key => label pairs
-        $this->assertArrayHasKey('claude-sonnet-4-20250514', $models);
+        self::assertArrayHasKey('claude-sonnet-4-20250514', $models);
     }
 
     #[Test]
     public function supportsVisionReturnsTrue(): void
     {
-        $this->assertTrue($this->subject->supportsVision());
+        self::assertTrue($this->subject->supportsVision());
     }
 
     #[Test]
     public function supportsStreamingReturnsTrue(): void
     {
-        $this->assertTrue($this->subject->supportsStreaming());
+        self::assertTrue($this->subject->supportsStreaming());
     }
 
     #[Test]
     public function supportsToolsReturnsTrue(): void
     {
-        $this->assertTrue($this->subject->supportsTools());
+        self::assertTrue($this->subject->supportsTools());
     }
 
     #[Test]
@@ -241,7 +241,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
 
         $result = $this->subject->chatCompletion([['role' => 'user', 'content' => 'test']]);
 
-        $this->assertEquals('First part. Second part.', $result->content);
+        self::assertEquals('First part. Second part.', $result->content);
     }
 
     #[Test]
@@ -263,6 +263,6 @@ class ClaudeProviderTest extends AbstractUnitTestCase
 
         $result = $this->subject->chatCompletion([['role' => 'user', 'content' => 'test']]);
 
-        $this->assertEquals('stop', $result->finishReason);
+        self::assertEquals('stop', $result->finishReason);
     }
 }

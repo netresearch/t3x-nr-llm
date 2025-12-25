@@ -29,11 +29,11 @@ class SegmentTest extends AbstractUnitTestCase
             words: $words,
         );
 
-        $this->assertEquals('Hello World', $segment->text);
-        $this->assertEquals(0.0, $segment->start);
-        $this->assertEquals(1.0, $segment->end);
-        $this->assertEquals(0.95, $segment->confidence);
-        $this->assertEquals($words, $segment->words);
+        self::assertEquals('Hello World', $segment->text);
+        self::assertEquals(0.0, $segment->start);
+        self::assertEquals(1.0, $segment->end);
+        self::assertEquals(0.95, $segment->confidence);
+        self::assertEquals($words, $segment->words);
     }
 
     #[Test]
@@ -45,8 +45,8 @@ class SegmentTest extends AbstractUnitTestCase
             end: 1.0,
         );
 
-        $this->assertNull($segment->confidence);
-        $this->assertNull($segment->words);
+        self::assertNull($segment->confidence);
+        self::assertNull($segment->words);
     }
 
     #[Test]
@@ -54,7 +54,7 @@ class SegmentTest extends AbstractUnitTestCase
     {
         $segment = new Segment('Test', 2.5, 5.0);
 
-        $this->assertEquals(2.5, $segment->getDuration());
+        self::assertEquals(2.5, $segment->getDuration());
     }
 
     #[Test]
@@ -62,7 +62,7 @@ class SegmentTest extends AbstractUnitTestCase
     {
         $segment = new Segment('Test', 1.0, 1.0);
 
-        $this->assertEquals(0.0, $segment->getDuration());
+        self::assertEquals(0.0, $segment->getDuration());
     }
 
     #[Test]
@@ -76,7 +76,7 @@ class SegmentTest extends AbstractUnitTestCase
             [new Word('Hello', 0.0, 1.0)],
         );
 
-        $this->assertTrue($segment->hasWords());
+        self::assertTrue($segment->hasWords());
     }
 
     #[Test]
@@ -84,7 +84,7 @@ class SegmentTest extends AbstractUnitTestCase
     {
         $segment = new Segment('Test', 0.0, 1.0);
 
-        $this->assertFalse($segment->hasWords());
+        self::assertFalse($segment->hasWords());
     }
 
     #[Test]
@@ -92,7 +92,7 @@ class SegmentTest extends AbstractUnitTestCase
     {
         $segment = new Segment('Test', 0.0, 1.0, null, []);
 
-        $this->assertFalse($segment->hasWords());
+        self::assertFalse($segment->hasWords());
     }
 
     #[Test]
@@ -107,10 +107,10 @@ class SegmentTest extends AbstractUnitTestCase
 
         $segment = Segment::fromWhisperResponse($data);
 
-        $this->assertEquals('Hello World', $segment->text);
-        $this->assertEquals(0.0, $segment->start);
-        $this->assertEquals(2.5, $segment->end);
-        $this->assertNotNull($segment->confidence);
+        self::assertEquals('Hello World', $segment->text);
+        self::assertEquals(0.0, $segment->start);
+        self::assertEquals(2.5, $segment->end);
+        self::assertNotNull($segment->confidence);
     }
 
     #[Test]
@@ -120,10 +120,10 @@ class SegmentTest extends AbstractUnitTestCase
 
         $segment = Segment::fromWhisperResponse($data);
 
-        $this->assertEquals('', $segment->text);
-        $this->assertEquals(0.0, $segment->start);
-        $this->assertEquals(0.0, $segment->end);
-        $this->assertNull($segment->confidence);
+        self::assertEquals('', $segment->text);
+        self::assertEquals(0.0, $segment->start);
+        self::assertEquals(0.0, $segment->end);
+        self::assertNull($segment->confidence);
     }
 
     #[Test]
@@ -141,8 +141,8 @@ class SegmentTest extends AbstractUnitTestCase
 
         $segment = Segment::fromWhisperResponse($data);
 
-        $this->assertTrue($segment->hasWords());
-        $this->assertCount(2, $segment->words);
+        self::assertTrue($segment->hasWords());
+        self::assertCount(2, $segment->words);
     }
 
     #[Test]
@@ -151,8 +151,8 @@ class SegmentTest extends AbstractUnitTestCase
         $segment = new Segment('Test', 0.0, 1.0);
 
         // Properties are readonly - verify they are accessible
-        $this->assertIsString($segment->text);
-        $this->assertIsFloat($segment->start);
-        $this->assertIsFloat($segment->end);
+        self::assertIsString($segment->text);
+        self::assertIsFloat($segment->start);
+        self::assertIsFloat($segment->end);
     }
 }

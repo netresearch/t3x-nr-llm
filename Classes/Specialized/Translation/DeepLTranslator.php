@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Translation;
 
+use Exception;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -12,6 +13,7 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
+use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
@@ -35,9 +37,7 @@ final class DeepLTranslator implements TranslatorInterface
     private const FREE_API_URL = 'https://api-free.deepl.com';
     private const PRO_API_URL = 'https://api.deepl.com';
 
-    /**
-     * DeepL supported source languages (ISO 639-1 codes).
-     */
+    /** DeepL supported source languages (ISO 639-1 codes). */
     private const SUPPORTED_SOURCE_LANGUAGES = [
         'bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'et', 'fi', 'fr',
         'hu', 'id', 'it', 'ja', 'ko', 'lt', 'lv', 'nb', 'nl', 'pl',
@@ -57,9 +57,7 @@ final class DeepLTranslator implements TranslatorInterface
         'ar', // Arabic added 2024
     ];
 
-    /**
-     * Languages that support formality control.
-     */
+    /** Languages that support formality control. */
     private const FORMALITY_SUPPORTED_LANGUAGES = [
         'de', 'fr', 'it', 'es', 'nl', 'pl', 'pt', 'pt-br', 'pt-pt', 'ru', 'ja',
     ];
@@ -99,7 +97,7 @@ final class DeepLTranslator implements TranslatorInterface
         string $text,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        array $options = []
+        array $options = [],
     ): TranslatorResult {
         $this->ensureAvailable();
 
@@ -121,7 +119,7 @@ final class DeepLTranslator implements TranslatorInterface
             throw new ServiceUnavailableException(
                 'DeepL returned empty translation response',
                 'translation',
-                ['provider' => 'deepl']
+                ['provider' => 'deepl'],
             );
         }
 
@@ -142,7 +140,7 @@ final class DeepLTranslator implements TranslatorInterface
             metadata: [
                 'detected_source_language' => $detectedSourceLanguage,
                 'billed_characters' => $this->countBilledCharacters($text),
-            ]
+            ],
         );
     }
 
@@ -150,7 +148,7 @@ final class DeepLTranslator implements TranslatorInterface
         array $texts,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        array $options = []
+        array $options = [],
     ): array {
         if (empty($texts)) {
             return [];
@@ -186,7 +184,7 @@ final class DeepLTranslator implements TranslatorInterface
                 metadata: [
                     'detected_source_language' => $detectedSourceLanguage,
                     'billed_characters' => $this->countBilledCharacters($texts[$index] ?? ''),
-                ]
+                ],
             );
         }
 
@@ -207,8 +205,8 @@ final class DeepLTranslator implements TranslatorInterface
             self::SUPPORTED_SOURCE_LANGUAGES,
             array_map(
                 fn(string $lang) => explode('-', $lang)[0], // Normalize to base codes
-                self::SUPPORTED_TARGET_LANGUAGES
-            )
+                self::SUPPORTED_TARGET_LANGUAGES,
+            ),
         )));
     }
 
@@ -295,16 +293,16 @@ final class DeepLTranslator implements TranslatorInterface
         try {
             $config = $this->extensionConfiguration->get('nr_llm');
 
-            $this->apiKey = (string) ($config['translators']['deepl']['apiKey'] ?? '');
-            $this->timeout = (int) ($config['translators']['deepl']['timeout'] ?? 30);
+            $this->apiKey = (string)($config['translators']['deepl']['apiKey'] ?? '');
+            $this->timeout = (int)($config['translators']['deepl']['timeout'] ?? 30);
 
             // Determine API URL based on API key type (free keys end with :fx)
             if ($this->apiKey !== '' && str_ends_with($this->apiKey, ':fx')) {
                 $this->baseUrl = self::FREE_API_URL;
             } else {
-                $this->baseUrl = (string) ($config['translators']['deepl']['baseUrl'] ?? self::PRO_API_URL);
+                $this->baseUrl = (string)($config['translators']['deepl']['baseUrl'] ?? self::PRO_API_URL);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->warning('Failed to load DeepL configuration', [
                 'exception' => $e->getMessage(),
             ]);
@@ -327,7 +325,8 @@ final class DeepLTranslator implements TranslatorInterface
      * Normalize language code for DeepL API.
      *
      * @param string $languageCode ISO 639-1 code
-     * @param bool $isSource Whether this is a source language
+     * @param bool   $isSource     Whether this is a source language
+     *
      * @return string DeepL-compatible language code
      */
     private function normalizeLanguageCode(string $languageCode, bool $isSource): string
@@ -347,13 +346,14 @@ final class DeepLTranslator implements TranslatorInterface
      * Build translate request payload.
      *
      * @param array<string, mixed> $options
+     *
      * @return array<string, mixed>
      */
     private function buildTranslatePayload(
         string $text,
         string $targetLanguage,
         ?string $sourceLanguage,
-        array $options
+        array $options,
     ): array {
         $payload = [
             'text' => [$text],
@@ -410,15 +410,16 @@ final class DeepLTranslator implements TranslatorInterface
     /**
      * Build batch translate request payload.
      *
-     * @param array<int, string> $texts
+     * @param array<int, string>   $texts
      * @param array<string, mixed> $options
+     *
      * @return array<string, mixed>
      */
     private function buildBatchPayload(
         array $texts,
         string $targetLanguage,
         ?string $sourceLanguage,
-        array $options
+        array $options,
     ): array {
         $payload = [
             'text' => array_values($texts),
@@ -482,11 +483,13 @@ final class DeepLTranslator implements TranslatorInterface
     /**
      * Send request to DeepL API.
      *
-     * @param string $endpoint API endpoint (without version prefix)
-     * @param array<string, mixed> $payload Request payload
-     * @param string $method HTTP method
-     * @return array<string, mixed> Response data
+     * @param string               $endpoint API endpoint (without version prefix)
+     * @param array<string, mixed> $payload  Request payload
+     * @param string               $method   HTTP method
+     *
      * @throws ServiceUnavailableException
+     *
+     * @return array<string, mixed> Response data
      */
     private function sendRequest(string $endpoint, array $payload, string $method = 'POST'): array
     {
@@ -505,7 +508,7 @@ final class DeepLTranslator implements TranslatorInterface
         try {
             $response = $this->httpClient->sendRequest($request);
             $statusCode = $response->getStatusCode();
-            $body = (string) $response->getBody();
+            $body = (string)$response->getBody();
 
             if ($statusCode >= 200 && $statusCode < 300) {
                 return json_decode($body, true, 512, JSON_THROW_ON_ERROR);
@@ -528,7 +531,7 @@ final class DeepLTranslator implements TranslatorInterface
             };
         } catch (ServiceUnavailableException|ServiceConfigurationException $e) {
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->error('DeepL API connection error', [
                 'exception' => $e->getMessage(),
                 'endpoint' => $endpoint,
@@ -539,7 +542,7 @@ final class DeepLTranslator implements TranslatorInterface
                 'translation',
                 ['endpoint' => $endpoint, 'exception' => $e->getMessage()],
                 0,
-                $e
+                $e,
             );
         }
     }

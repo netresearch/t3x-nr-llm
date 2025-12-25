@@ -26,12 +26,12 @@ class TranslatorResultTest extends AbstractUnitTestCase
             metadata: $metadata,
         );
 
-        $this->assertEquals('Hallo Welt', $result->translatedText);
-        $this->assertEquals('en', $result->sourceLanguage);
-        $this->assertEquals('de', $result->targetLanguage);
-        $this->assertEquals('deepl', $result->translator);
-        $this->assertEquals(0.95, $result->confidence);
-        $this->assertEquals($metadata, $result->metadata);
+        self::assertEquals('Hallo Welt', $result->translatedText);
+        self::assertEquals('en', $result->sourceLanguage);
+        self::assertEquals('de', $result->targetLanguage);
+        self::assertEquals('deepl', $result->translator);
+        self::assertEquals(0.95, $result->confidence);
+        self::assertEquals($metadata, $result->metadata);
     }
 
     #[Test]
@@ -44,8 +44,8 @@ class TranslatorResultTest extends AbstractUnitTestCase
             translator: 'llm',
         );
 
-        $this->assertNull($result->confidence);
-        $this->assertNull($result->metadata);
+        self::assertNull($result->confidence);
+        self::assertNull($result->metadata);
     }
 
     #[Test]
@@ -59,10 +59,10 @@ class TranslatorResultTest extends AbstractUnitTestCase
         );
 
         // Verify readonly properties are accessible
-        $this->assertIsString($result->translatedText);
-        $this->assertIsString($result->sourceLanguage);
-        $this->assertIsString($result->targetLanguage);
-        $this->assertIsString($result->translator);
+        self::assertIsString($result->translatedText);
+        self::assertIsString($result->sourceLanguage);
+        self::assertIsString($result->targetLanguage);
+        self::assertIsString($result->translator);
     }
 
     #[Test]
@@ -76,7 +76,7 @@ class TranslatorResultTest extends AbstractUnitTestCase
             confidence: 0.0,
         );
 
-        $this->assertEquals(0.0, $result->confidence);
+        self::assertEquals(0.0, $result->confidence);
     }
 
     #[Test]
@@ -90,7 +90,7 @@ class TranslatorResultTest extends AbstractUnitTestCase
             confidence: 1.0,
         );
 
-        $this->assertEquals(1.0, $result->confidence);
+        self::assertEquals(1.0, $result->confidence);
     }
 
     #[Test]
@@ -103,7 +103,7 @@ class TranslatorResultTest extends AbstractUnitTestCase
             translator: 'test',
         );
 
-        $this->assertEquals('', $result->translatedText);
+        self::assertEquals('', $result->translatedText);
     }
 
     #[Test]
@@ -125,6 +125,6 @@ class TranslatorResultTest extends AbstractUnitTestCase
             metadata: $metadata,
         );
 
-        $this->assertEquals($metadata, $result->metadata);
+        self::assertEquals($metadata, $result->metadata);
     }
 }

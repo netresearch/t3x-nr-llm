@@ -12,10 +12,9 @@ use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
- * Functional tests for LlmConfigurationService
+ * Functional tests for LlmConfigurationService.
  *
  * Tests access control, configuration resolution, and CRUD operations.
  */
@@ -59,8 +58,8 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
 
         $config = $this->subject->getConfiguration('default-config');
 
-        $this->assertInstanceOf(LlmConfiguration::class, $config);
-        $this->assertEquals('default-config', $config->getIdentifier());
+        self::assertInstanceOf(LlmConfiguration::class, $config);
+        self::assertEquals('default-config', $config->getIdentifier());
     }
 
     #[Test]
@@ -103,9 +102,9 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
 
         $config = $this->subject->getDefaultConfiguration();
 
-        $this->assertInstanceOf(LlmConfiguration::class, $config);
-        $this->assertTrue($config->isDefault());
-        $this->assertEquals('default-config', $config->getIdentifier());
+        self::assertInstanceOf(LlmConfiguration::class, $config);
+        self::assertTrue($config->isDefault());
+        self::assertEquals('default-config', $config->getIdentifier());
     }
 
     #[Test]
@@ -116,7 +115,7 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         $configs = $this->subject->getAccessibleConfigurations();
 
         // Should return all active configurations for admin
-        $this->assertCount(5, $configs);
+        self::assertCount(5, $configs);
     }
 
     #[Test]
@@ -129,7 +128,7 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         // Editor should get only unrestricted configurations
         // (those without allowed_groups set)
         foreach ($configs as $config) {
-            $this->assertEquals(0, $config->getAllowedGroups());
+            self::assertEquals(0, $config->getAllowedGroups());
         }
     }
 
@@ -140,9 +139,9 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
 
         $configs = $this->subject->getConfigurationsByProvider('openai');
 
-        $this->assertNotEmpty($configs);
+        self::assertNotEmpty($configs);
         foreach ($configs as $config) {
-            $this->assertEquals('openai', $config->getProvider());
+            self::assertEquals('openai', $config->getProvider());
         }
     }
 
@@ -152,9 +151,9 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         $this->setUpAdminUser();
 
         $config = $this->repository->findByIdentifier('restricted-config');
-        $this->assertNotNull($config);
+        self::assertNotNull($config);
 
-        $this->assertTrue($this->subject->hasAccess($config));
+        self::assertTrue($this->subject->hasAccess($config));
     }
 
     #[Test]
@@ -163,10 +162,10 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         $this->setUpEditorUser();
 
         $config = $this->repository->findByIdentifier('default-config');
-        $this->assertNotNull($config);
+        self::assertNotNull($config);
 
         // Default config has no restrictions
-        $this->assertTrue($this->subject->hasAccess($config));
+        self::assertTrue($this->subject->hasAccess($config));
     }
 
     #[Test]
@@ -175,9 +174,9 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         unset($GLOBALS['BE_USER']);
 
         $config = $this->repository->findByIdentifier('default-config');
-        $this->assertNotNull($config);
+        self::assertNotNull($config);
 
-        $this->assertFalse($this->subject->hasAccess($config));
+        self::assertFalse($this->subject->hasAccess($config));
     }
 
     #[Test]
@@ -187,18 +186,18 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
 
         // Get creative config and make it default
         $config = $this->repository->findByIdentifier('creative-config');
-        $this->assertNotNull($config);
-        $this->assertFalse($config->isDefault());
+        self::assertNotNull($config);
+        self::assertFalse($config->isDefault());
 
         $this->subject->setAsDefault($config);
 
         // Verify the change
         $newDefault = $this->subject->getDefaultConfiguration();
-        $this->assertEquals('creative-config', $newDefault->getIdentifier());
+        self::assertEquals('creative-config', $newDefault->getIdentifier());
 
         // Verify old default is no longer default
         $oldDefault = $this->repository->findByIdentifier('default-config');
-        $this->assertFalse($oldDefault->isDefault());
+        self::assertFalse($oldDefault->isDefault());
     }
 
     #[Test]
@@ -207,14 +206,14 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         $this->setUpAdminUser();
 
         $config = $this->repository->findByIdentifier('creative-config');
-        $this->assertNotNull($config);
-        $this->assertTrue($config->isActive());
+        self::assertNotNull($config);
+        self::assertTrue($config->isActive());
 
         $this->subject->toggleActive($config);
 
         // Reload to verify persistence
         $reloaded = $this->repository->findByIdentifier('creative-config');
-        $this->assertFalse($reloaded->isActive());
+        self::assertFalse($reloaded->isActive());
     }
 
     #[Test]
@@ -233,8 +232,8 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         $this->subject->create($config);
 
         $retrieved = $this->repository->findByIdentifier('new-service-config');
-        $this->assertNotNull($retrieved);
-        $this->assertEquals('New Service Configuration', $retrieved->getName());
+        self::assertNotNull($retrieved);
+        self::assertEquals('New Service Configuration', $retrieved->getName());
     }
 
     #[Test]
@@ -243,13 +242,13 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         $this->setUpAdminUser();
 
         $config = $this->repository->findByIdentifier('creative-config');
-        $this->assertNotNull($config);
+        self::assertNotNull($config);
 
         $config->setName('Updated via Service');
         $this->subject->update($config);
 
         $retrieved = $this->repository->findByIdentifier('creative-config');
-        $this->assertEquals('Updated via Service', $retrieved->getName());
+        self::assertEquals('Updated via Service', $retrieved->getName());
     }
 
     #[Test]
@@ -258,12 +257,12 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         $this->setUpAdminUser();
 
         $config = $this->repository->findByIdentifier('creative-config');
-        $this->assertNotNull($config);
+        self::assertNotNull($config);
 
         $this->subject->delete($config);
 
         $retrieved = $this->repository->findByIdentifier('creative-config');
-        $this->assertNull($retrieved);
+        self::assertNull($retrieved);
     }
 
     #[Test]
@@ -271,7 +270,7 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->isIdentifierAvailable('brand-new-identifier');
 
-        $this->assertTrue($result);
+        self::assertTrue($result);
     }
 
     #[Test]
@@ -279,7 +278,7 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->isIdentifierAvailable('default-config');
 
-        $this->assertFalse($result);
+        self::assertFalse($result);
     }
 
     #[Test]
@@ -288,6 +287,6 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         // When editing record with uid 1, its own identifier should be available
         $result = $this->subject->isIdentifierAvailable('default-config', 1);
 
-        $this->assertTrue($result);
+        self::assertTrue($result);
     }
 }

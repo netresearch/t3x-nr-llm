@@ -16,7 +16,7 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistry;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 
 /**
- * High-level service for text translation
+ * High-level service for text translation.
  *
  * Provides language translation with quality control,
  * glossary support, and context awareness.
@@ -37,17 +37,17 @@ class TranslationService
     ) {}
 
     /**
-     * Translate text to target language
+     * Translate text to target language.
      *
-     * @param string $text Text to translate
-     * @param string $targetLanguage Target language code (ISO 639-1)
+     * @param string      $text           Text to translate
+     * @param string      $targetLanguage Target language code (ISO 639-1)
      * @param string|null $sourceLanguage Source language code (auto-detected if null)
      */
     public function translate(
         string $text,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        ?TranslationOptions $options = null
+        ?TranslationOptions $options = null,
     ): TranslationResult {
         $options ??= new TranslationOptions();
         $optionsArray = $options->toArray();
@@ -73,7 +73,7 @@ class TranslationService
             $text,
             $sourceLanguage,
             $targetLanguage,
-            $optionsArray
+            $optionsArray,
         );
 
         // Execute translation
@@ -91,7 +91,7 @@ class TranslationService
         $chatOptions = new ChatOptions(
             temperature: $options->getTemperature() ?? 0.3,
             maxTokens: $options->getMaxTokens() ?? 2000,
-            provider: $options->getProvider()
+            provider: $options->getProvider(),
         );
 
         $response = $this->llmManager->chat($messages, $chatOptions);
@@ -101,23 +101,24 @@ class TranslationService
             sourceLanguage: $sourceLanguage,
             targetLanguage: $targetLanguage,
             confidence: $this->calculateConfidence($response->finishReason),
-            usage: $response->usage
+            usage: $response->usage,
         );
     }
 
     /**
-     * Translate multiple texts efficiently
+     * Translate multiple texts efficiently.
      *
-     * @param array<int, string> $texts Array of texts to translate
-     * @param string $targetLanguage Target language code
-     * @param string|null $sourceLanguage Source language code (auto-detected if null)
+     * @param array<int, string> $texts          Array of texts to translate
+     * @param string             $targetLanguage Target language code
+     * @param string|null        $sourceLanguage Source language code (auto-detected if null)
+     *
      * @return array<int, TranslationResult> Array of TranslationResult objects
      */
     public function translateBatch(
         array $texts,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        ?TranslationOptions $options = null
+        ?TranslationOptions $options = null,
     ): array {
         if (empty($texts)) {
             return [];
@@ -134,9 +135,10 @@ class TranslationService
     }
 
     /**
-     * Detect language of text
+     * Detect language of text.
      *
      * @param string $text Text to analyze
+     *
      * @return string Language code (ISO 639-1)
      */
     public function detectLanguage(string $text, ?TranslationOptions $options = null): string
@@ -156,7 +158,7 @@ class TranslationService
         $chatOptions = new ChatOptions(
             temperature: 0.1,
             maxTokens: 10,
-            provider: $options->getProvider()
+            provider: $options->getProvider(),
         );
 
         $response = $this->llmManager->chat($messages, $chatOptions);
@@ -173,20 +175,21 @@ class TranslationService
     }
 
     /**
-     * Score translation quality
+     * Score translation quality.
      *
      * Analyzes translation quality based on accuracy, fluency, and consistency.
      *
-     * @param string $sourceText Original text
+     * @param string $sourceText     Original text
      * @param string $translatedText Translated text
      * @param string $targetLanguage Target language code
+     *
      * @return float Quality score (0.0-1.0)
      */
     public function scoreTranslationQuality(
         string $sourceText,
         string $translatedText,
         string $targetLanguage,
-        ?TranslationOptions $options = null
+        ?TranslationOptions $options = null,
     ): float {
         $options ??= new TranslationOptions();
         $messages = [
@@ -200,7 +203,7 @@ class TranslationService
                     "Source text:\n%s\n\nTranslation to %s:\n%s\n\nQuality score:",
                     $sourceText,
                     $targetLanguage,
-                    $translatedText
+                    $translatedText,
                 ),
             ],
         ];
@@ -208,35 +211,36 @@ class TranslationService
         $chatOptions = new ChatOptions(
             temperature: 0.1,
             maxTokens: 10,
-            provider: $options->getProvider()
+            provider: $options->getProvider(),
         );
 
         $response = $this->llmManager->chat($messages, $chatOptions);
 
-        $score = (float) trim($response->content);
+        $score = (float)trim($response->content);
 
         // Clamp to 0.0-1.0 range
         return max(0.0, min(1.0, $score));
     }
 
     /**
-     * Translate using specialized translator or LLM
+     * Translate using specialized translator or LLM.
      *
      * Supports dual-path translation with priority routing:
      * 1. Explicit translator specified in options
      * 2. Translator from LlmConfiguration preset
      * 3. Default LLM-based translation
      *
-     * @param string $text Text to translate
-     * @param string $targetLanguage Target language code (ISO 639-1)
+     * @param string      $text           Text to translate
+     * @param string      $targetLanguage Target language code (ISO 639-1)
      * @param string|null $sourceLanguage Source language code (auto-detected if null)
+     *
      * @return TranslatorResult Translation result with metadata
      */
     public function translateWithTranslator(
         string $text,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        ?TranslationOptions $options = null
+        ?TranslationOptions $options = null,
     ): TranslatorResult {
         $options ??= new TranslationOptions();
         $optionsArray = $options->toArray();
@@ -258,18 +262,19 @@ class TranslationService
     }
 
     /**
-     * Translate batch using specialized translator or LLM
+     * Translate batch using specialized translator or LLM.
      *
-     * @param array<int, string> $texts Texts to translate
-     * @param string $targetLanguage Target language code
-     * @param string|null $sourceLanguage Source language code
+     * @param array<int, string> $texts          Texts to translate
+     * @param string             $targetLanguage Target language code
+     * @param string|null        $sourceLanguage Source language code
+     *
      * @return array<int, TranslatorResult> Translation results
      */
     public function translateBatchWithTranslator(
         array $texts,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        ?TranslationOptions $options = null
+        ?TranslationOptions $options = null,
     ): array {
         if (empty($texts)) {
             return [];
@@ -283,7 +288,7 @@ class TranslationService
     }
 
     /**
-     * Get available translators
+     * Get available translators.
      *
      * @return array<string, array{identifier: string, name: string, available: bool}>
      */
@@ -293,7 +298,7 @@ class TranslationService
     }
 
     /**
-     * Check if a specific translator is available
+     * Check if a specific translator is available.
      */
     public function hasTranslator(string $identifier): bool
     {
@@ -301,7 +306,7 @@ class TranslationService
     }
 
     /**
-     * Get translator by identifier
+     * Get translator by identifier.
      *
      * @throws \Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException
      */
@@ -311,7 +316,7 @@ class TranslationService
     }
 
     /**
-     * Find best translator for a language pair
+     * Find best translator for a language pair.
      */
     public function findBestTranslator(string $sourceLanguage, string $targetLanguage): ?TranslatorInterface
     {
@@ -319,7 +324,7 @@ class TranslationService
     }
 
     /**
-     * Resolve which translator to use based on options
+     * Resolve which translator to use based on options.
      *
      * @param array<string, mixed> $options
      */
@@ -347,7 +352,7 @@ class TranslationService
     }
 
     /**
-     * Convert TranslatorResult to legacy TranslationResult
+     * Convert TranslatorResult to legacy TranslationResult.
      *
      * For backwards compatibility with existing code.
      */
@@ -358,12 +363,12 @@ class TranslationService
             sourceLanguage: $result->sourceLanguage,
             targetLanguage: $result->targetLanguage,
             confidence: $result->confidence,
-            usage: $this->extractUsageFromMetadata($result->metadata)
+            usage: $this->extractUsageFromMetadata($result->metadata),
         );
     }
 
     /**
-     * Extract UsageStatistics from translator metadata
+     * Extract UsageStatistics from translator metadata.
      *
      * @param array<string, mixed> $metadata
      */
@@ -378,21 +383,22 @@ class TranslationService
         return new UsageStatistics(
             promptTokens: $usage['prompt_tokens'] ?? 0,
             completionTokens: $usage['completion_tokens'] ?? 0,
-            totalTokens: $usage['total_tokens'] ?? 0
+            totalTokens: $usage['total_tokens'] ?? 0,
         );
     }
 
     /**
-     * Build translation prompt with template
+     * Build translation prompt with template.
      *
      * @param array<string, mixed> $options
+     *
      * @return array{system: string, user: string}
      */
     private function buildTranslationPrompt(
         string $text,
         string $sourceLanguage,
         string $targetLanguage,
-        array $options
+        array $options,
     ): array {
         $formality = $options['formality'] ?? 'default';
         $domain = $options['domain'] ?? 'general';
@@ -405,7 +411,7 @@ class TranslationService
             "You are a professional %s translator. Translate the following text from %s to %s.\n",
             $domain,
             $this->getLanguageName($sourceLanguage),
-            $this->getLanguageName($targetLanguage)
+            $this->getLanguageName($targetLanguage),
         );
 
         // Add formality instruction
@@ -443,7 +449,7 @@ class TranslationService
     }
 
     /**
-     * Calculate confidence score from finish reason
+     * Calculate confidence score from finish reason.
      */
     private function calculateConfidence(string $finishReason): float
     {
@@ -455,7 +461,7 @@ class TranslationService
     }
 
     /**
-     * Validate language code format
+     * Validate language code format.
      *
      * @throws InvalidArgumentException
      */
@@ -463,15 +469,16 @@ class TranslationService
     {
         if (!preg_match('/^[a-z]{2}(-[A-Z]{2})?$/', $languageCode)) {
             throw new InvalidArgumentException(
-                'Invalid language code format. Expected ISO 639-1 (e.g., "en", "de-DE")'
+                'Invalid language code format. Expected ISO 639-1 (e.g., "en", "de-DE")',
             );
         }
     }
 
     /**
-     * Validate translation options
+     * Validate translation options.
      *
      * @param array<string, mixed> $options
+     *
      * @throws InvalidArgumentException
      */
     private function validateOptions(array $options): void
@@ -481,8 +488,8 @@ class TranslationService
                 throw new InvalidArgumentException(
                     sprintf(
                         'Invalid formality. Supported: %s',
-                        implode(', ', self::SUPPORTED_FORMALITIES)
-                    )
+                        implode(', ', self::SUPPORTED_FORMALITIES),
+                    ),
                 );
             }
         }
@@ -492,8 +499,8 @@ class TranslationService
                 throw new InvalidArgumentException(
                     sprintf(
                         'Invalid domain. Supported: %s',
-                        implode(', ', self::SUPPORTED_DOMAINS)
-                    )
+                        implode(', ', self::SUPPORTED_DOMAINS),
+                    ),
                 );
             }
         }
@@ -504,7 +511,7 @@ class TranslationService
     }
 
     /**
-     * Get human-readable language name
+     * Get human-readable language name.
      */
     private function getLanguageName(string $code): string
     {

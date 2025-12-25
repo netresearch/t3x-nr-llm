@@ -49,7 +49,7 @@ final class TranscriptionOptions extends AbstractOptions
             language: $options['language'] ?? null,
             format: $options['format'] ?? $options['response_format'] ?? null,
             prompt: $options['prompt'] ?? null,
-            temperature: isset($options['temperature']) ? (float) $options['temperature'] : null,
+            temperature: isset($options['temperature']) ? (float)$options['temperature'] : null,
         );
     }
 

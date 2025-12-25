@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Security;
 
 /**
- * Result object for sanitization operations
+ * Result object for sanitization operations.
  */
 class SanitizationResult
 {

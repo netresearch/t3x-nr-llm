@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Bootstrap for functional tests
+ * Bootstrap for functional tests.
  *
  * Sets up the TYPO3 testing environment with proper paths
  * and initializes the testing framework.
@@ -18,7 +18,7 @@ if (!getenv('TYPO3_PATH_WEB')) {
 require_once dirname(__DIR__) . '/.Build/vendor/autoload.php';
 
 // Initialize the testing framework
-(static function () {
+(static function (): void {
     $testbase = new \TYPO3\TestingFramework\Core\Testbase();
     $testbase->defineOriginalRootPath();
     $testbase->createDirectory(ORIGINAL_ROOT . 'typo3temp/var/tests');

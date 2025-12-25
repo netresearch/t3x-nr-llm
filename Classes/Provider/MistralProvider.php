@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
+use Generator;
+use JsonException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 
 /**
- * Mistral AI Provider
+ * Mistral AI Provider.
  *
  * EU-based AI company with GDPR compliance, offering competitive
  * performance/cost ratio via OpenAI-compatible API.
@@ -107,9 +109,9 @@ final class MistralProvider extends AbstractProvider implements
             model: $response['model'] ?? $payload['model'],
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: $usage['completion_tokens'] ?? 0
+                completionTokens: $usage['completion_tokens'] ?? 0,
             ),
-            finishReason: $choice['finish_reason'] ?? 'stop'
+            finishReason: $choice['finish_reason'] ?? 'stop',
         );
     }
 
@@ -150,11 +152,11 @@ final class MistralProvider extends AbstractProvider implements
             model: $response['model'] ?? $payload['model'],
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: $usage['completion_tokens'] ?? 0
+                completionTokens: $usage['completion_tokens'] ?? 0,
             ),
             finishReason: $choice['finish_reason'] ?? 'stop',
             provider: $this->getIdentifier(),
-            toolCalls: $toolCalls
+            toolCalls: $toolCalls,
         );
     }
 
@@ -181,7 +183,7 @@ final class MistralProvider extends AbstractProvider implements
 
         $embeddings = array_map(
             static fn($item) => $item['embedding'],
-            $response['data'] ?? []
+            $response['data'] ?? [],
         );
 
         $usage = $response['usage'] ?? [];
@@ -191,12 +193,12 @@ final class MistralProvider extends AbstractProvider implements
             model: $response['model'] ?? $payload['model'],
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: 0
-            )
+                completionTokens: 0,
+            ),
         );
     }
 
-    public function streamChatCompletion(array $messages, array $options = []): \Generator
+    public function streamChatCompletion(array $messages, array $options = []): Generator
     {
         $payload = [
             'model' => $options['model'] ?? $this->getDefaultModel(),
@@ -241,7 +243,7 @@ final class MistralProvider extends AbstractProvider implements
                         if ($content !== '') {
                             yield $content;
                         }
-                    } catch (\JsonException) {
+                    } catch (JsonException) {
                         // Skip malformed JSON
                     }
                 }

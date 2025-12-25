@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
+use DateTimeInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\SingletonInterface;
 
@@ -25,7 +26,7 @@ final class UsageTrackerService implements UsageTrackerServiceInterface, Singlet
      * Track service usage with daily aggregation.
      *
      * @param string $serviceType The service type (translation, speech, image)
-     * @param string $provider The provider name (deepl, whisper, dall-e, etc.)
+     * @param string $provider    The provider name (deepl, whisper, dall-e, etc.)
      * @param array{
      *     tokens?: int,
      *     characters?: int,
@@ -56,7 +57,7 @@ final class UsageTrackerService implements UsageTrackerServiceInterface, Singlet
                 $queryBuilder->expr()->eq('service_type', $queryBuilder->createNamedParameter($serviceType)),
                 $queryBuilder->expr()->eq('service_provider', $queryBuilder->createNamedParameter($provider)),
                 $queryBuilder->expr()->eq('be_user', $beUser),
-                $queryBuilder->expr()->eq('request_date', $today)
+                $queryBuilder->expr()->eq('request_date', $today),
             )
             ->executeQuery()
             ->fetchOne();
@@ -81,7 +82,7 @@ final class UsageTrackerService implements UsageTrackerServiceInterface, Singlet
                     'cost' => $metrics['cost'] ?? 0.0,
                     'tstamp' => $now,
                     'uid' => $existingUid,
-                ]
+                ],
             );
         } else {
             // Insert new record for today
@@ -107,9 +108,10 @@ final class UsageTrackerService implements UsageTrackerServiceInterface, Singlet
     /**
      * Get usage report for a service type within a date range.
      *
-     * @param string $serviceType The service type to report on
-     * @param \DateTimeInterface $from Start date
-     * @param \DateTimeInterface $to End date
+     * @param string            $serviceType The service type to report on
+     * @param DateTimeInterface $from        Start date
+     * @param DateTimeInterface $to          End date
+     *
      * @return array<int, array{
      *     service_provider: string,
      *     total_requests: int,
@@ -122,8 +124,8 @@ final class UsageTrackerService implements UsageTrackerServiceInterface, Singlet
      */
     public function getUsageReport(
         string $serviceType,
-        \DateTimeInterface $from,
-        \DateTimeInterface $to,
+        DateTimeInterface $from,
+        DateTimeInterface $to,
     ): array {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
 
@@ -139,7 +141,7 @@ final class UsageTrackerService implements UsageTrackerServiceInterface, Singlet
             ->where(
                 $queryBuilder->expr()->eq('service_type', $queryBuilder->createNamedParameter($serviceType)),
                 $queryBuilder->expr()->gte('request_date', $from->getTimestamp()),
-                $queryBuilder->expr()->lte('request_date', $to->getTimestamp())
+                $queryBuilder->expr()->lte('request_date', $to->getTimestamp()),
             )
             ->groupBy('service_provider')
             ->executeQuery()
@@ -149,9 +151,10 @@ final class UsageTrackerService implements UsageTrackerServiceInterface, Singlet
     /**
      * Get usage for a specific backend user.
      *
-     * @param int $beUserUid Backend user UID
-     * @param \DateTimeInterface $from Start date
-     * @param \DateTimeInterface $to End date
+     * @param int               $beUserUid Backend user UID
+     * @param DateTimeInterface $from      Start date
+     * @param DateTimeInterface $to        End date
+     *
      * @return array<int, array{
      *     service_type: string,
      *     service_provider: string,
@@ -161,8 +164,8 @@ final class UsageTrackerService implements UsageTrackerServiceInterface, Singlet
      */
     public function getUserUsage(
         int $beUserUid,
-        \DateTimeInterface $from,
-        \DateTimeInterface $to,
+        DateTimeInterface $from,
+        DateTimeInterface $to,
     ): array {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
 
@@ -174,7 +177,7 @@ final class UsageTrackerService implements UsageTrackerServiceInterface, Singlet
             ->where(
                 $queryBuilder->expr()->eq('be_user', $beUserUid),
                 $queryBuilder->expr()->gte('request_date', $from->getTimestamp()),
-                $queryBuilder->expr()->lte('request_date', $to->getTimestamp())
+                $queryBuilder->expr()->lte('request_date', $to->getTimestamp()),
             )
             ->groupBy('service_type', 'service_provider')
             ->executeQuery()
@@ -204,14 +207,14 @@ final class UsageTrackerService implements UsageTrackerServiceInterface, Singlet
                 'characters_used',
                 'audio_seconds_used',
                 'images_generated',
-                'estimated_cost'
+                'estimated_cost',
             )
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('service_type', $queryBuilder->createNamedParameter($serviceType)),
                 $queryBuilder->expr()->eq('service_provider', $queryBuilder->createNamedParameter($provider)),
                 $queryBuilder->expr()->eq('be_user', $this->getCurrentBackendUserId()),
-                $queryBuilder->expr()->eq('request_date', strtotime('today'))
+                $queryBuilder->expr()->eq('request_date', strtotime('today')),
             )
             ->executeQuery()
             ->fetchAssociative();
@@ -231,12 +234,12 @@ final class UsageTrackerService implements UsageTrackerServiceInterface, Singlet
             ->addSelectLiteral('SUM(estimated_cost) as total_cost')
             ->from(self::TABLE)
             ->where(
-                $queryBuilder->expr()->gte('request_date', $firstDayOfMonth)
+                $queryBuilder->expr()->gte('request_date', $firstDayOfMonth),
             )
             ->executeQuery()
             ->fetchOne();
 
-        return (float) ($result ?? 0);
+        return (float)($result ?? 0);
     }
 
     /**
@@ -244,6 +247,6 @@ final class UsageTrackerService implements UsageTrackerServiceInterface, Singlet
      */
     private function getCurrentBackendUserId(): int
     {
-        return (int) ($GLOBALS['BE_USER']->user['uid'] ?? 0);
+        return (int)($GLOBALS['BE_USER']->user['uid'] ?? 0);
     }
 }

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Caching and Performance Layer - Full PHP Implementation
+ * Caching and Performance Layer - Full PHP Implementation.
  *
  * This file contains all PHP classes for the AI Base caching system.
  * In production, these would be split into individual files under Classes/Service/Cache/
@@ -13,19 +13,21 @@ declare(strict_types=1);
 
 namespace Netresearch\AiBase\Service\Cache;
 
+use Exception;
+use Netresearch\AiBase\Domain\Model\AiRequest;
+use Netresearch\AiBase\Domain\Model\AiResponse;
+use Psr\Log\LoggerInterface;
+use RuntimeException;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\SingletonInterface;
-use Psr\Log\LoggerInterface;
-use Netresearch\AiBase\Domain\Model\AiRequest;
-use Netresearch\AiBase\Domain\Model\AiResponse;
 
 // ============================================================================
 // 1. CACHE SERVICE (Main Class)
 // ============================================================================
 
 /**
- * Main caching service for AI responses
+ * Main caching service for AI responses.
  *
  * Responsibilities:
  * - Generate deterministic cache keys
@@ -45,16 +47,16 @@ class CacheService implements SingletonInterface
         private readonly ExtensionConfiguration $extensionConfiguration,
         private readonly CacheMetricsService $metricsService,
         private readonly LoggerInterface $logger,
-        private readonly CacheKeyGenerator $keyGenerator
+        private readonly CacheKeyGenerator $keyGenerator,
     ) {}
 
     /**
-     * Get cached AI response or execute and cache
+     * Get cached AI response or execute and cache.
      */
     public function get(
         AiRequest $request,
         callable $provider,
-        ?int $ttl = null
+        ?int $ttl = null,
     ): AiResponse {
         $cacheKey = $this->generateCacheKey($request);
 
@@ -62,7 +64,7 @@ class CacheService implements SingletonInterface
         if ($this->cache->has($cacheKey)) {
             $this->metricsService->recordHit(
                 $request->getFeature(),
-                $request->getProvider()
+                $request->getProvider(),
             );
 
             $this->logger->debug('Cache hit', [
@@ -76,7 +78,7 @@ class CacheService implements SingletonInterface
         // Cache miss - execute provider
         $this->metricsService->recordMiss(
             $request->getFeature(),
-            $request->getProvider()
+            $request->getProvider(),
         );
 
         $this->logger->debug('Cache miss', [
@@ -94,7 +96,7 @@ class CacheService implements SingletonInterface
     }
 
     /**
-     * Store response in cache
+     * Store response in cache.
      */
     public function set(string $cacheKey, AiResponse $response, int $ttl): void
     {
@@ -104,7 +106,7 @@ class CacheService implements SingletonInterface
             $this->metricsService->recordWrite(
                 $response->getRequest()->getFeature(),
                 $response->getRequest()->getProvider(),
-                $this->estimateResponseSize($response)
+                $this->estimateResponseSize($response),
             );
 
             $this->logger->debug('Cache write', [
@@ -112,7 +114,7 @@ class CacheService implements SingletonInterface
                 'ttl' => $ttl,
                 'size' => $this->estimateResponseSize($response),
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('Cache write failed', [
                 'key' => $cacheKey,
                 'error' => $e->getMessage(),
@@ -121,7 +123,7 @@ class CacheService implements SingletonInterface
     }
 
     /**
-     * Check if cache entry exists
+     * Check if cache entry exists.
      */
     public function has(string $cacheKey): bool
     {
@@ -129,7 +131,7 @@ class CacheService implements SingletonInterface
     }
 
     /**
-     * Remove specific cache entry
+     * Remove specific cache entry.
      */
     public function remove(string $cacheKey): void
     {
@@ -141,7 +143,7 @@ class CacheService implements SingletonInterface
     }
 
     /**
-     * Clear cache by feature
+     * Clear cache by feature.
      */
     public function clearByFeature(string $feature): int
     {
@@ -162,7 +164,7 @@ class CacheService implements SingletonInterface
     }
 
     /**
-     * Clear cache by provider
+     * Clear cache by provider.
      */
     public function clearByProvider(string $provider): int
     {
@@ -182,7 +184,7 @@ class CacheService implements SingletonInterface
     }
 
     /**
-     * Flush entire AI cache
+     * Flush entire AI cache.
      */
     public function flush(): void
     {
@@ -192,7 +194,7 @@ class CacheService implements SingletonInterface
     }
 
     /**
-     * Generate deterministic cache key for request
+     * Generate deterministic cache key for request.
      */
     private function generateCacheKey(AiRequest $request): string
     {
@@ -200,7 +202,7 @@ class CacheService implements SingletonInterface
     }
 
     /**
-     * Get cache key pattern for feature
+     * Get cache key pattern for feature.
      */
     private function getCacheKeyPattern(string $feature): string
     {
@@ -208,7 +210,7 @@ class CacheService implements SingletonInterface
     }
 
     /**
-     * Get TTL for specific feature
+     * Get TTL for specific feature.
      */
     private function getTtlForFeature(string $feature): int
     {
@@ -226,9 +228,9 @@ class CacheService implements SingletonInterface
             $configKey = 'cache.ttl.' . $feature;
             $ttl = $this->extensionConfiguration->get('ai_base', $configKey);
             if ($ttl !== null) {
-                return (int) $ttl;
+                return (int)$ttl;
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Fallback to map
         }
 
@@ -236,7 +238,7 @@ class CacheService implements SingletonInterface
     }
 
     /**
-     * Estimate response size in bytes
+     * Estimate response size in bytes.
      */
     private function estimateResponseSize(AiResponse $response): int
     {
@@ -249,7 +251,7 @@ class CacheService implements SingletonInterface
 // ============================================================================
 
 /**
- * Generates deterministic, collision-resistant cache keys
+ * Generates deterministic, collision-resistant cache keys.
  *
  * Key Format: ai_v1_<feature>_<hash>
  * Hash Input: provider + model + normalized_prompt + options_fingerprint
@@ -263,11 +265,11 @@ class CacheKeyGenerator implements SingletonInterface
     private const HASH_ALGORITHM = 'sha256';
 
     public function __construct(
-        private readonly PromptNormalizer $normalizer
+        private readonly PromptNormalizer $normalizer,
     ) {}
 
     /**
-     * Generate cache key for AI request
+     * Generate cache key for AI request.
      */
     public function generate(AiRequest $request): string
     {
@@ -281,7 +283,7 @@ class CacheKeyGenerator implements SingletonInterface
 
         $hash = hash(
             self::HASH_ALGORITHM,
-            json_encode($components, JSON_THROW_ON_ERROR)
+            json_encode($components, JSON_THROW_ON_ERROR),
         );
 
         // Truncate hash for readability (still 128-bit security)
@@ -292,12 +294,12 @@ class CacheKeyGenerator implements SingletonInterface
             self::CACHE_KEY_PREFIX,
             self::CACHE_KEY_VERSION,
             $request->getFeature(),
-            $shortHash
+            $shortHash,
         );
     }
 
     /**
-     * Generate deterministic fingerprint for options array
+     * Generate deterministic fingerprint for options array.
      */
     private function generateOptionsFingerprint(array $options): string
     {
@@ -308,7 +310,7 @@ class CacheKeyGenerator implements SingletonInterface
         ksort($filteredOptions);
 
         // Recursively sort nested arrays
-        array_walk_recursive($filteredOptions, function (&$value) {
+        array_walk_recursive($filteredOptions, function (&$value): void {
             if (is_array($value)) {
                 ksort($value);
             }
@@ -318,7 +320,7 @@ class CacheKeyGenerator implements SingletonInterface
     }
 
     /**
-     * Filter out non-deterministic options
+     * Filter out non-deterministic options.
      */
     private function filterDeterministicOptions(array $options): array
     {
@@ -334,7 +336,7 @@ class CacheKeyGenerator implements SingletonInterface
         return array_filter(
             $options,
             fn($key) => !in_array($key, $nonDeterministicKeys, true),
-            ARRAY_FILTER_USE_KEY
+            ARRAY_FILTER_USE_KEY,
         );
     }
 }
@@ -344,7 +346,7 @@ class CacheKeyGenerator implements SingletonInterface
 // ============================================================================
 
 /**
- * Normalizes prompts for consistent cache key generation
+ * Normalizes prompts for consistent cache key generation.
  *
  * Rules:
  * - Trim leading/trailing whitespace
@@ -357,7 +359,7 @@ class CacheKeyGenerator implements SingletonInterface
 class PromptNormalizer implements SingletonInterface
 {
     /**
-     * Normalize prompt text
+     * Normalize prompt text.
      */
     public function normalize(string $prompt): string
     {
@@ -375,7 +377,7 @@ class PromptNormalizer implements SingletonInterface
     }
 
     /**
-     * Normalize for case-insensitive comparison (optional)
+     * Normalize for case-insensitive comparison (optional).
      */
     public function normalizeCaseInsensitive(string $prompt): string
     {
@@ -388,7 +390,7 @@ class PromptNormalizer implements SingletonInterface
 // ============================================================================
 
 /**
- * Tracks cache performance metrics
+ * Tracks cache performance metrics.
  *
  * Metrics:
  * - Hit/miss counts per feature
@@ -404,11 +406,11 @@ class CacheMetricsService implements SingletonInterface
 
     public function __construct(
         private readonly CacheMetricsRepository $repository,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
     ) {}
 
     /**
-     * Record cache hit
+     * Record cache hit.
      */
     public function recordHit(string $feature, string $provider): void
     {
@@ -416,7 +418,7 @@ class CacheMetricsService implements SingletonInterface
     }
 
     /**
-     * Record cache miss
+     * Record cache miss.
      */
     public function recordMiss(string $feature, string $provider): void
     {
@@ -424,7 +426,7 @@ class CacheMetricsService implements SingletonInterface
     }
 
     /**
-     * Record cache write
+     * Record cache write.
      */
     public function recordWrite(string $feature, string $provider, int $size): void
     {
@@ -433,7 +435,7 @@ class CacheMetricsService implements SingletonInterface
     }
 
     /**
-     * Get current session metrics
+     * Get current session metrics.
      */
     public function getSessionMetrics(): array
     {
@@ -441,7 +443,7 @@ class CacheMetricsService implements SingletonInterface
     }
 
     /**
-     * Calculate hit rate for feature
+     * Calculate hit rate for feature.
      */
     public function getHitRate(string $feature, string $provider): float
     {
@@ -453,7 +455,7 @@ class CacheMetricsService implements SingletonInterface
     }
 
     /**
-     * Persist session metrics to database
+     * Persist session metrics to database.
      */
     public function persistMetrics(): void
     {
@@ -466,7 +468,7 @@ class CacheMetricsService implements SingletonInterface
                 $metrics['hits'] ?? 0,
                 $metrics['misses'] ?? 0,
                 $metrics['writes'] ?? 0,
-                $metrics['storage_bytes'] ?? 0
+                $metrics['storage_bytes'] ?? 0,
             );
         }
 
@@ -474,7 +476,7 @@ class CacheMetricsService implements SingletonInterface
     }
 
     /**
-     * Generate cache efficiency report
+     * Generate cache efficiency report.
      */
     public function generateReport(int $periodStart, int $periodEnd): array
     {
@@ -505,7 +507,7 @@ class CacheMetricsService implements SingletonInterface
     }
 
     /**
-     * Increment metric counter
+     * Increment metric counter.
      */
     private function incrementMetric(string $feature, string $provider, string $metric): void
     {
@@ -523,7 +525,7 @@ class CacheMetricsService implements SingletonInterface
     }
 
     /**
-     * Add to metric value
+     * Add to metric value.
      */
     private function addToMetric(string $feature, string $provider, string $metric, int $value): void
     {
@@ -541,7 +543,7 @@ class CacheMetricsService implements SingletonInterface
     }
 
     /**
-     * Get metric value
+     * Get metric value.
      */
     private function getMetric(string $feature, string $provider, string $metric): int
     {
@@ -550,7 +552,7 @@ class CacheMetricsService implements SingletonInterface
     }
 
     /**
-     * Generate metric key
+     * Generate metric key.
      */
     private function getMetricKey(string $feature, string $provider): string
     {
@@ -558,7 +560,7 @@ class CacheMetricsService implements SingletonInterface
     }
 
     /**
-     * Aggregate metrics by feature
+     * Aggregate metrics by feature.
      */
     private function aggregateByFeature(array $metrics): array
     {
@@ -583,7 +585,7 @@ class CacheMetricsService implements SingletonInterface
             if ($aggregated[$feature]['requests'] > 0) {
                 $aggregated[$feature]['hit_rate'] = round(
                     $aggregated[$feature]['hits'] / $aggregated[$feature]['requests'],
-                    4
+                    4,
                 );
             }
         }
@@ -592,7 +594,7 @@ class CacheMetricsService implements SingletonInterface
     }
 
     /**
-     * Aggregate metrics by provider
+     * Aggregate metrics by provider.
      */
     private function aggregateByProvider(array $metrics): array
     {
@@ -617,7 +619,7 @@ class CacheMetricsService implements SingletonInterface
             if ($aggregated[$provider]['requests'] > 0) {
                 $aggregated[$provider]['hit_rate'] = round(
                     $aggregated[$provider]['hits'] / $aggregated[$provider]['requests'],
-                    4
+                    4,
                 );
             }
         }
@@ -631,7 +633,7 @@ class CacheMetricsService implements SingletonInterface
 // ============================================================================
 
 /**
- * Database persistence for cache metrics
+ * Database persistence for cache metrics.
  *
  * Table: tx_aibase_cache_metrics
  *
@@ -640,11 +642,11 @@ class CacheMetricsService implements SingletonInterface
 class CacheMetricsRepository
 {
     public function __construct(
-        private readonly \TYPO3\CMS\Core\Database\ConnectionPool $connectionPool
+        private readonly \TYPO3\CMS\Core\Database\ConnectionPool $connectionPool,
     ) {}
 
     /**
-     * Save metrics to database
+     * Save metrics to database.
      */
     public function saveMetrics(
         string $feature,
@@ -652,7 +654,7 @@ class CacheMetricsRepository
         int $hits,
         int $misses,
         int $writes,
-        int $storageBytes
+        int $storageBytes,
     ): void {
         $connection = $this->connectionPool->getConnectionForTable('tx_aibase_cache_metrics');
 
@@ -668,7 +670,7 @@ class CacheMetricsRepository
                 'provider' => $provider,
                 'period_start' => $periodStart,
                 'period_end' => $periodEnd,
-            ]
+            ],
         )->fetchAssociative();
 
         if ($existing) {
@@ -683,7 +685,7 @@ class CacheMetricsRepository
                     'total_requests' => $existing['cache_hits'] + $existing['cache_misses'] + $hits + $misses,
                     'tstamp' => time(),
                 ],
-                ['uid' => $existing['uid']]
+                ['uid' => $existing['uid']],
             );
         } else {
             // Insert new record
@@ -701,13 +703,13 @@ class CacheMetricsRepository
                     'period_end' => $periodEnd,
                     'tstamp' => time(),
                     'crdate' => time(),
-                ]
+                ],
             );
         }
     }
 
     /**
-     * Get metrics for time period
+     * Get metrics for time period.
      */
     public function getMetricsForPeriod(int $periodStart, int $periodEnd): array
     {
@@ -718,14 +720,14 @@ class CacheMetricsRepository
             ->from('tx_aibase_cache_metrics')
             ->where(
                 $queryBuilder->expr()->gte('period_start', $queryBuilder->createNamedParameter($periodStart)),
-                $queryBuilder->expr()->lte('period_end', $queryBuilder->createNamedParameter($periodEnd))
+                $queryBuilder->expr()->lte('period_end', $queryBuilder->createNamedParameter($periodEnd)),
             )
             ->executeQuery()
             ->fetchAllAssociative();
     }
 
     /**
-     * Get metrics by feature
+     * Get metrics by feature.
      */
     public function getMetricsByFeature(string $feature, int $days = 30): array
     {
@@ -737,7 +739,7 @@ class CacheMetricsRepository
             ->from('tx_aibase_cache_metrics')
             ->where(
                 $queryBuilder->expr()->eq('feature', $queryBuilder->createNamedParameter($feature)),
-                $queryBuilder->expr()->gte('period_start', $queryBuilder->createNamedParameter($periodStart))
+                $queryBuilder->expr()->gte('period_start', $queryBuilder->createNamedParameter($periodStart)),
             )
             ->orderBy('period_start', 'DESC')
             ->executeQuery()
@@ -750,7 +752,7 @@ class CacheMetricsRepository
 // ============================================================================
 
 /**
- * Pre-generates cache entries for common requests
+ * Pre-generates cache entries for common requests.
  *
  * Strategies:
  * - Process all images on upload
@@ -764,11 +766,11 @@ class CacheWarmingService
     public function __construct(
         private readonly CacheService $cacheService,
         private readonly \Netresearch\AiBase\Service\AiServiceManager $aiService,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
     ) {}
 
     /**
-     * Warm cache for image alt text
+     * Warm cache for image alt text.
      */
     public function warmImageAltText(array $imageUids): int
     {
@@ -789,7 +791,7 @@ class CacheWarmingService
                         'uid' => $uid,
                     ]);
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $this->logger->error('Cache warming failed for image', [
                     'uid' => $uid,
                     'error' => $e->getMessage(),
@@ -801,7 +803,7 @@ class CacheWarmingService
     }
 
     /**
-     * Warm cache for translations
+     * Warm cache for translations.
      */
     public function warmTranslations(array $texts, array $targetLanguages): int
     {
@@ -822,7 +824,7 @@ class CacheWarmingService
                             'text_length' => strlen($text),
                         ]);
                     }
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     $this->logger->error('Cache warming failed for translation', [
                         'language' => $language,
                         'error' => $e->getMessage(),
@@ -835,7 +837,7 @@ class CacheWarmingService
     }
 
     /**
-     * Warm cache for SEO meta
+     * Warm cache for SEO meta.
      */
     public function warmSeoMeta(array $pageUids): int
     {
@@ -854,7 +856,7 @@ class CacheWarmingService
                         'page_uid' => $uid,
                     ]);
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $this->logger->error('Cache warming failed for SEO meta', [
                     'page_uid' => $uid,
                     'error' => $e->getMessage(),
@@ -866,7 +868,7 @@ class CacheWarmingService
     }
 
     /**
-     * Build request object for cache key generation
+     * Build request object for cache key generation.
      */
     private function buildImageAltRequest(int $imageUid): AiRequest
     {
@@ -909,7 +911,7 @@ class CacheWarmingService
 // ============================================================================
 
 /**
- * Batches multiple AI requests into single API call
+ * Batches multiple AI requests into single API call.
  *
  * Benefits:
  * - Reduces API overhead (1 call instead of N)
@@ -930,11 +932,11 @@ class RequestBatchingService
     private array $pendingBatches = [];
 
     public function __construct(
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
     ) {}
 
     /**
-     * Add request to batch queue
+     * Add request to batch queue.
      */
     public function enqueue(AiRequest $request, callable $callback): void
     {
@@ -960,7 +962,7 @@ class RequestBatchingService
     }
 
     /**
-     * Flush all pending batches
+     * Flush all pending batches.
      */
     public function flushAll(): void
     {
@@ -970,7 +972,7 @@ class RequestBatchingService
     }
 
     /**
-     * Flush specific batch
+     * Flush specific batch.
      */
     private function flushBatch(string $batchKey): void
     {
@@ -1004,7 +1006,7 @@ class RequestBatchingService
                 'key' => $batchKey,
                 'size' => $requestCount,
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('Batch execution failed', [
                 'key' => $batchKey,
                 'size' => $requestCount,
@@ -1016,7 +1018,7 @@ class RequestBatchingService
                 try {
                     $response = $this->executeIndividual($request);
                     $batch['callbacks'][$index]($response);
-                } catch (\Exception $individualError) {
+                } catch (Exception $individualError) {
                     $this->logger->error('Individual fallback failed', [
                         'index' => $index,
                         'error' => $individualError->getMessage(),
@@ -1030,7 +1032,7 @@ class RequestBatchingService
     }
 
     /**
-     * Generate batch key (groups compatible requests)
+     * Generate batch key (groups compatible requests).
      */
     private function getBatchKey(AiRequest $request): string
     {
@@ -1038,12 +1040,12 @@ class RequestBatchingService
             '%s:%s:%s',
             $request->getProvider(),
             $request->getModel(),
-            $request->getFeature()
+            $request->getFeature(),
         );
     }
 
     /**
-     * Execute batch request (provider-specific)
+     * Execute batch request (provider-specific).
      */
     private function executeBatch(array $requests): array
     {
@@ -1053,17 +1055,17 @@ class RequestBatchingService
         // Placeholder implementation
         return array_map(
             fn($request) => $this->executeIndividual($request),
-            $requests
+            $requests,
         );
     }
 
     /**
-     * Execute individual request (fallback)
+     * Execute individual request (fallback).
      */
     private function executeIndividual(AiRequest $request): AiResponse
     {
         // Placeholder - would delegate to provider
-        throw new \RuntimeException('Individual execution not implemented');
+        throw new RuntimeException('Individual execution not implemented');
     }
 }
 
@@ -1072,17 +1074,17 @@ class RequestBatchingService
 // ============================================================================
 
 /**
- * Example: How to use the caching layer
+ * Example: How to use the caching layer.
  */
 class ExampleUsage
 {
     public function __construct(
         private readonly CacheService $cacheService,
-        private readonly \Netresearch\AiBase\Service\Provider\ProviderInterface $provider
+        private readonly \Netresearch\AiBase\Service\Provider\ProviderInterface $provider,
     ) {}
 
     /**
-     * Example 1: Simple cache usage
+     * Example 1: Simple cache usage.
      */
     public function translateWithCache(string $text, string $targetLanguage): string
     {
@@ -1098,14 +1100,14 @@ class ExampleUsage
         $response = $this->cacheService->get(
             $request,
             fn() => $this->provider->translate($text, $targetLanguage),
-            ttl: 2592000 // 30 days
+            ttl: 2592000, // 30 days
         );
 
         return $response->getContent();
     }
 
     /**
-     * Example 2: Manual cache check
+     * Example 2: Manual cache check.
      */
     public function checkCacheStatus(AiRequest $request): array
     {
@@ -1118,7 +1120,7 @@ class ExampleUsage
     }
 
     /**
-     * Example 3: Cache invalidation
+     * Example 3: Cache invalidation.
      */
     public function invalidateProviderCache(string $provider): int
     {

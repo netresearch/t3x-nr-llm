@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Response;
 
 use Netresearch\NrLlm\Domain\Model\LlmResponse;
-use Netresearch\NrLlm\Domain\Model\TokenUsage;
 use Netresearch\NrLlm\Domain\Model\StreamChunk;
+use Netresearch\NrLlm\Domain\Model\TokenUsage;
 use Netresearch\NrLlm\Exception\ProviderResponseException;
 
 /**
- * Response parser that normalizes different provider formats
+ * Response parser that normalizes different provider formats.
  *
  * Handles response parsing for:
  * - OpenAI (completions, chat, vision, embeddings)
@@ -21,16 +21,18 @@ use Netresearch\NrLlm\Exception\ProviderResponseException;
 class ResponseParser
 {
     /**
-     * Parse provider response to normalized LlmResponse
+     * Parse provider response to normalized LlmResponse.
      *
-     * @param array|object $rawResponse Raw provider response
-     * @param string $providerName Provider identifier
-     * @return LlmResponse Normalized response
+     * @param array|object $rawResponse  Raw provider response
+     * @param string       $providerName Provider identifier
+     *
      * @throws ProviderResponseException If response cannot be parsed
+     *
+     * @return LlmResponse Normalized response
      */
     public function parse(array|object $rawResponse, string $providerName): LlmResponse
     {
-        $response = is_object($rawResponse) ? (array) $rawResponse : $rawResponse;
+        $response = is_object($rawResponse) ? (array)$rawResponse : $rawResponse;
 
         return match ($providerName) {
             'openai' => $this->parseOpenAi($response),
@@ -43,10 +45,11 @@ class ResponseParser
     }
 
     /**
-     * Parse streaming chunk
+     * Parse streaming chunk.
      *
-     * @param string $chunk Raw SSE chunk
+     * @param string $chunk        Raw SSE chunk
      * @param string $providerName Provider identifier
+     *
      * @return StreamChunk|null Parsed chunk or null if not yet complete
      */
     public function parseStream(string $chunk, string $providerName): ?StreamChunk
@@ -60,7 +63,7 @@ class ResponseParser
     }
 
     /**
-     * Parse OpenAI response format
+     * Parse OpenAI response format.
      */
     private function parseOpenAi(array $response): LlmResponse
     {
@@ -76,7 +79,7 @@ class ResponseParser
         } else {
             throw new ProviderResponseException(
                 'Invalid OpenAI response format',
-                context: ['response' => $response]
+                context: ['response' => $response],
             );
         }
 
@@ -86,7 +89,7 @@ class ResponseParser
             $usage = new TokenUsage(
                 promptTokens: $response['usage']['prompt_tokens'] ?? 0,
                 completionTokens: $response['usage']['completion_tokens'] ?? 0,
-                totalTokens: $response['usage']['total_tokens'] ?? 0
+                totalTokens: $response['usage']['total_tokens'] ?? 0,
             );
         }
 
@@ -102,19 +105,19 @@ class ResponseParser
             content: $content,
             usage: $usage,
             metadata: $metadata,
-            finishReason: $finishReason
+            finishReason: $finishReason,
         );
     }
 
     /**
-     * Parse Anthropic response format
+     * Parse Anthropic response format.
      */
     private function parseAnthropic(array $response): LlmResponse
     {
         if (!isset($response['content'][0]['text'])) {
             throw new ProviderResponseException(
                 'Invalid Anthropic response format',
-                context: ['response' => $response]
+                context: ['response' => $response],
             );
         }
 
@@ -128,7 +131,7 @@ class ResponseParser
                 promptTokens: $response['usage']['input_tokens'] ?? 0,
                 completionTokens: $response['usage']['output_tokens'] ?? 0,
                 totalTokens: ($response['usage']['input_tokens'] ?? 0)
-                            + ($response['usage']['output_tokens'] ?? 0)
+                            + ($response['usage']['output_tokens'] ?? 0),
             );
         }
 
@@ -143,19 +146,19 @@ class ResponseParser
             content: $content,
             usage: $usage,
             metadata: $metadata,
-            finishReason: $finishReason
+            finishReason: $finishReason,
         );
     }
 
     /**
-     * Parse Google Gemini response format
+     * Parse Google Gemini response format.
      */
     private function parseGemini(array $response): LlmResponse
     {
         if (!isset($response['candidates'][0]['content']['parts'][0]['text'])) {
             throw new ProviderResponseException(
                 'Invalid Gemini response format',
-                context: ['response' => $response]
+                context: ['response' => $response],
             );
         }
 
@@ -168,7 +171,7 @@ class ResponseParser
             $usage = new TokenUsage(
                 promptTokens: $response['usageMetadata']['promptTokenCount'] ?? 0,
                 completionTokens: $response['usageMetadata']['candidatesTokenCount'] ?? 0,
-                totalTokens: $response['usageMetadata']['totalTokenCount'] ?? 0
+                totalTokens: $response['usageMetadata']['totalTokenCount'] ?? 0,
             );
         }
 
@@ -181,19 +184,19 @@ class ResponseParser
             content: $content,
             usage: $usage,
             metadata: $metadata,
-            finishReason: $finishReason
+            finishReason: $finishReason,
         );
     }
 
     /**
-     * Parse DeepL response format
+     * Parse DeepL response format.
      */
     private function parseDeepL(array $response): LlmResponse
     {
         if (!isset($response['translations'][0]['text'])) {
             throw new ProviderResponseException(
                 'Invalid DeepL response format',
-                context: ['response' => $response]
+                context: ['response' => $response],
             );
         }
 
@@ -208,19 +211,19 @@ class ResponseParser
             content: $content,
             usage: null,
             metadata: $metadata,
-            finishReason: 'complete'
+            finishReason: 'complete',
         );
     }
 
     /**
-     * Parse Ollama response format
+     * Parse Ollama response format.
      */
     private function parseOllama(array $response): LlmResponse
     {
         if (!isset($response['response'])) {
             throw new ProviderResponseException(
                 'Invalid Ollama response format',
-                context: ['response' => $response]
+                context: ['response' => $response],
             );
         }
 
@@ -233,7 +236,7 @@ class ResponseParser
             $usage = new TokenUsage(
                 promptTokens: $response['prompt_eval_count'],
                 completionTokens: $response['eval_count'],
-                totalTokens: $response['prompt_eval_count'] + $response['eval_count']
+                totalTokens: $response['prompt_eval_count'] + $response['eval_count'],
             );
         }
 
@@ -247,12 +250,12 @@ class ResponseParser
             content: $content,
             usage: $usage,
             metadata: $metadata,
-            finishReason: $finishReason
+            finishReason: $finishReason,
         );
     }
 
     /**
-     * Parse generic/unknown provider response
+     * Parse generic/unknown provider response.
      */
     private function parseGeneric(array $response): LlmResponse
     {
@@ -266,7 +269,7 @@ class ResponseParser
         if (empty($content)) {
             throw new ProviderResponseException(
                 'Cannot find content in response',
-                context: ['response' => $response]
+                context: ['response' => $response],
             );
         }
 
@@ -274,12 +277,12 @@ class ResponseParser
             content: $content,
             usage: null,
             metadata: ['provider' => 'generic'],
-            finishReason: null
+            finishReason: null,
         );
     }
 
     /**
-     * Parse OpenAI streaming chunk
+     * Parse OpenAI streaming chunk.
      */
     private function parseOpenAiStream(string $chunk): ?StreamChunk
     {
@@ -308,7 +311,7 @@ class ResponseParser
     }
 
     /**
-     * Parse Anthropic streaming chunk
+     * Parse Anthropic streaming chunk.
      */
     private function parseAnthropicStream(string $chunk): ?StreamChunk
     {
@@ -337,7 +340,7 @@ class ResponseParser
     }
 
     /**
-     * Parse Gemini streaming chunk
+     * Parse Gemini streaming chunk.
      */
     private function parseGeminiStream(string $chunk): ?StreamChunk
     {

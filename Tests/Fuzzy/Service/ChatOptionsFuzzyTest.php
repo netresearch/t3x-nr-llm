@@ -11,7 +11,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * Property-based tests for ChatOptions
+ * Property-based tests for ChatOptions.
  */
 #[CoversClass(ChatOptions::class)]
 class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
@@ -21,7 +21,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll($this->floatBetween(0.0, 2.0))
-            ->then(function (float $temperature) {
+            ->then(function (float $temperature): void {
                 $options = new ChatOptions(temperature: $temperature);
                 $array = $options->toArray();
 
@@ -36,7 +36,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(Generator\pos())
-            ->then(function (int $maxTokens) {
+            ->then(function (int $maxTokens): void {
                 $options = new ChatOptions(maxTokens: $maxTokens);
                 $array = $options->toArray();
 
@@ -50,7 +50,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll($this->floatBetween(0.0, 1.0))
-            ->then(function (float $topP) {
+            ->then(function (float $topP): void {
                 $options = new ChatOptions(topP: $topP);
                 $array = $options->toArray();
 
@@ -65,7 +65,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll($this->floatBetween(-2.0, 2.0))
-            ->then(function (float $penalty) {
+            ->then(function (float $penalty): void {
                 $options = new ChatOptions(presencePenalty: $penalty);
                 $array = $options->toArray();
 
@@ -80,7 +80,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll($this->floatBetween(-2.0, 2.0))
-            ->then(function (float $penalty) {
+            ->then(function (float $penalty): void {
                 $options = new ChatOptions(frequencyPenalty: $penalty);
                 $array = $options->toArray();
 
@@ -95,7 +95,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(Generator\elements(['factual', 'creative', 'balanced', 'json', 'code']))
-            ->then(function (string $preset) {
+            ->then(function (string $preset): void {
                 $options = match ($preset) {
                     'factual' => ChatOptions::factual(),
                     'creative' => ChatOptions::creative(),
@@ -119,12 +119,12 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(
                 $this->floatBetween(0.0, 2.0),
-                Generator\pos()
+                Generator\pos(),
             )
-            ->then(function (float $temperature, int $maxTokens) {
+            ->then(function (float $temperature, int $maxTokens): void {
                 $options = new ChatOptions(
                     temperature: $temperature,
-                    maxTokens: $maxTokens
+                    maxTokens: $maxTokens,
                 );
 
                 $overrides = ['model' => 'gpt-4'];
@@ -142,12 +142,12 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(
                 $this->floatBetween(0.0, 2.0),
-                Generator\choose(1, 10000)
+                Generator\choose(1, 10000),
             )
-            ->then(function (float $temp, int $maxTokens) {
+            ->then(function (float $temp, int $maxTokens): void {
                 $options = new ChatOptions(
                     temperature: $temp,
-                    maxTokens: $maxTokens
+                    maxTokens: $maxTokens,
                 );
 
                 $array1 = $options->toArray();
@@ -163,9 +163,9 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(
                 $this->floatBetween(0.0, 2.0),
-                $this->floatBetween(0.0, 2.0)
+                $this->floatBetween(0.0, 2.0),
             )
-            ->then(function (float $temp1, float $temp2) {
+            ->then(function (float $temp1, float $temp2): void {
                 $options1 = new ChatOptions(temperature: $temp1);
                 $options2 = $options1->withTemperature($temp2);
 

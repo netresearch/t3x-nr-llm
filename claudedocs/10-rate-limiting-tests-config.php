@@ -1,7 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 /**
- * Rate Limiting & Quota Management - Tests & Configuration
+ * Rate Limiting & Quota Management - Tests & Configuration.
  *
  * Comprehensive test suite and configuration examples
  *
@@ -10,13 +12,13 @@
 
 namespace Netresearch\NrLlm\Tests\Unit\Service;
 
-use Netresearch\NrLlm\Service\RateLimiterService;
-use Netresearch\NrLlm\Service\QuotaManager;
-use Netresearch\NrLlm\Service\UsageTracker;
 use Netresearch\NrLlm\Service\CostCalculator;
 use Netresearch\NrLlm\Service\NotificationService;
-use Netresearch\NrLlm\Service\RateLimitExceededException;
 use Netresearch\NrLlm\Service\QuotaExceededException;
+use Netresearch\NrLlm\Service\QuotaManager;
+use Netresearch\NrLlm\Service\RateLimiterService;
+use Netresearch\NrLlm\Service\RateLimitExceededException;
+use Netresearch\NrLlm\Service\UsageTracker;
 use TYPO3\TestingFramework\Core\Unit\UnitTestCase;
 
 // ============================================================================
@@ -52,7 +54,7 @@ class RateLimiterServiceTest extends UnitTestCase
             $this->cacheMock,
             $this->connectionPoolMock,
             $loggerMock,
-            $configuration
+            $configuration,
         );
     }
 
@@ -131,7 +133,7 @@ class RateLimiterServiceTest extends UnitTestCase
                 self::callback(function ($savedState) {
                     // After 1 hour, should refill to full capacity
                     return $savedState['tokens_available'] >= 99.0;
-                })
+                }),
             );
 
         $result = $this->subject->checkLimit('user', '123');
@@ -187,7 +189,7 @@ class RateLimiterServiceTest extends UnitTestCase
         // Mix of old (outside window) and new (inside window) timestamps
         $timestamps = array_merge(
             array_fill(0, 50, time() - 7200), // 2 hours ago (outside 1hr window)
-            array_fill(0, 40, time() - 1800)  // 30 min ago (inside window)
+            array_fill(0, 40, time() - 1800),  // 30 min ago (inside window)
         );
 
         $this->cacheMock
@@ -203,7 +205,7 @@ class RateLimiterServiceTest extends UnitTestCase
                 self::callback(function ($savedTimestamps) {
                     // Should only have 41 timestamps (40 old + 1 new)
                     return count($savedTimestamps) === 41;
-                })
+                }),
             );
 
         $result = $this->subject->checkLimit('user', '123', '', ['algorithm' => 'sliding_window']);
@@ -261,7 +263,7 @@ class RateLimiterServiceTest extends UnitTestCase
                 self::callback(function ($savedState) {
                     // Should deduct 2.5 tokens, leaving 7.5
                     return abs($savedState['tokens_available'] - 7.5) < 0.01;
-                })
+                }),
             );
 
         $result = $this->subject->checkLimit('user', '123', '', ['algorithm' => 'token_bucket', 'cost' => 2.5]);
@@ -306,7 +308,7 @@ class QuotaManagerTest extends UnitTestCase
             $this->connectionPoolMock,
             $this->notificationServiceMock,
             $loggerMock,
-            $configuration
+            $configuration,
         );
     }
 
@@ -419,10 +421,8 @@ class QuotaManagerTest extends UnitTestCase
             ->method('update')
             ->with(
                 'tx_nrllm_quotas',
-                self::callback(function ($data) {
-                    return $data['quota_used'] === 7.5 && $data['quota_reserved'] === 0.0;
-                }),
-                ['uid' => 1]
+                self::callback(fn($data) => $data['quota_used'] === 7.5 && $data['quota_reserved'] === 0.0),
+                ['uid' => 1],
             );
 
         $this->connectionPoolMock
@@ -475,7 +475,7 @@ class CostCalculatorTest extends UnitTestCase
             $this->cacheMock,
             $this->connectionPoolMock,
             $loggerMock,
-            []
+            [],
         );
     }
 
@@ -500,7 +500,7 @@ class CostCalculatorTest extends UnitTestCase
             provider: 'openai',
             model: 'gpt-4-turbo',
             promptTokens: 1000,
-            completionTokens: 500
+            completionTokens: 500,
         );
 
         // 1000 tokens input = 0.01 USD
@@ -544,7 +544,7 @@ class CostCalculatorTest extends UnitTestCase
             provider: 'unknown',
             model: 'unknown',
             promptTokens: 1000,
-            completionTokens: 500
+            completionTokens: 500,
         );
 
         self::assertEquals(0.0, $result['total']);
@@ -574,7 +574,7 @@ class CostCalculatorTest extends UnitTestCase
             provider: 'openai',
             model: 'gpt-4-turbo',
             prompt: $prompt,
-            maxOutputTokens: 500
+            maxOutputTokens: 500,
         );
 
         self::assertGreaterThan(0, $result['total']);
@@ -604,7 +604,7 @@ class UsageTrackerTest extends UnitTestCase
             $this->connectionPoolMock,
             $this->costCalculatorMock,
             $loggerMock,
-            ['usageTracking' => ['storeIpAddress' => false]]
+            ['usageTracking' => ['storeIpAddress' => false]],
         );
     }
 
@@ -629,11 +629,9 @@ class UsageTrackerTest extends UnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_usage',
-                self::callback(function ($data) {
-                    return $data['user_id'] === 123
+                self::callback(fn($data) => $data['user_id'] === 123
                         && $data['provider'] === 'openai'
-                        && $data['estimated_cost'] === 0.025;
-                })
+                        && $data['estimated_cost'] === 0.025),
             );
 
         $connectionMock
@@ -716,7 +714,7 @@ class RateLimitingIntegrationTest extends UnitTestCase
 // ============================================================================
 
 /**
- * Configuration/Services.yaml
+ * Configuration/Services.yaml.
  */
 $servicesYaml = <<<YAML
     services:
@@ -832,7 +830,7 @@ $servicesYaml = <<<YAML
     YAML;
 
 /**
- * ext_localconf.php - Cache configuration
+ * ext_localconf.php - Cache configuration.
  */
 $extLocalconf = <<<'PHP'
     <?php
@@ -873,7 +871,7 @@ $extLocalconf = <<<'PHP'
     PHP;
 
 /**
- * Scheduler Task for Cleanup
+ * Scheduler Task for Cleanup.
  */
 class CleanupUsageDataTask extends \TYPO3\CMS\Scheduler\Task\AbstractTask
 {
@@ -891,7 +889,7 @@ class CleanupUsageDataTask extends \TYPO3\CMS\Scheduler\Task\AbstractTask
 }
 
 /**
- * Scheduler Task for Pricing Updates
+ * Scheduler Task for Pricing Updates.
  */
 class UpdatePricingTask extends \TYPO3\CMS\Scheduler\Task\AbstractTask
 {

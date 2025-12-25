@@ -10,12 +10,12 @@ namespace Netresearch\NrLlm\Specialized\Speech;
 final readonly class SpeechSynthesisResult
 {
     /**
-     * @param string $audioContent Binary audio content
-     * @param string $format Audio format (mp3, opus, aac, flac, wav, pcm)
-     * @param string $model Model used for synthesis
-     * @param string $voice Voice used for synthesis
-     * @param int $characterCount Number of characters processed
-     * @param array<string, mixed>|null $metadata Additional metadata
+     * @param string                    $audioContent   Binary audio content
+     * @param string                    $format         Audio format (mp3, opus, aac, flac, wav, pcm)
+     * @param string                    $model          Model used for synthesis
+     * @param string                    $voice          Voice used for synthesis
+     * @param int                       $characterCount Number of characters processed
+     * @param array<string, mixed>|null $metadata       Additional metadata
      */
     public function __construct(
         public string $audioContent,
@@ -88,6 +88,7 @@ final readonly class SpeechSynthesisResult
      * Save audio content to file.
      *
      * @param string $path File path to save to
+     *
      * @return bool Success status
      */
     public function saveToFile(string $path): bool

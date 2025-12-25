@@ -16,7 +16,7 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\NullLogger;
 
 /**
- * Base class for End-to-End tests
+ * Base class for End-to-End tests.
  *
  * E2E tests verify complete workflows from service entry point
  * through to response handling, using mocked HTTP clients to
@@ -37,10 +37,9 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Create a mock HTTP client that returns sequential responses
+     * Create a mock HTTP client that returns sequential responses.
      *
      * @param ResponseInterface[] $responses
-     * @return ClientInterface&MockObject
      */
     protected function createMockHttpClient(array $responses): ClientInterface&MockObject
     {
@@ -52,9 +51,8 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Create a request-capturing HTTP client
+     * Create a request-capturing HTTP client.
      *
-     * @param ResponseInterface $response
      * @return array{client: ClientInterface&MockObject, requests: array<RequestInterface>}
      */
     protected function createCapturingHttpClient(ResponseInterface $response): array
@@ -71,7 +69,7 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Create a JSON success response
+     * Create a JSON success response.
      *
      * @param array<string, mixed> $data
      */
@@ -80,19 +78,19 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
         return new Response(
             status: $status,
             headers: ['Content-Type' => 'application/json'],
-            body: json_encode($data, JSON_THROW_ON_ERROR)
+            body: json_encode($data, JSON_THROW_ON_ERROR),
         );
     }
 
     /**
-     * Create OpenAI-style chat completion response
+     * Create OpenAI-style chat completion response.
      */
     protected function createOpenAiChatResponse(
         string $content,
         string $model = 'gpt-4o',
         string $finishReason = 'stop',
         int $promptTokens = 50,
-        int $completionTokens = 100
+        int $completionTokens = 100,
     ): array {
         return [
             'id' => 'chatcmpl-' . $this->faker->uuid(),
@@ -118,14 +116,14 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Create Claude-style chat completion response
+     * Create Claude-style chat completion response.
      */
     protected function createClaudeChatResponse(
         string $content,
         string $model = 'claude-sonnet-4-20250514',
         string $stopReason = 'end_turn',
         int $inputTokens = 50,
-        int $outputTokens = 100
+        int $outputTokens = 100,
     ): array {
         return [
             'id' => 'msg_' . $this->faker->uuid(),
@@ -144,7 +142,7 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Create OpenAI-style embedding response
+     * Create OpenAI-style embedding response.
      */
     protected function createOpenAiEmbeddingResponse(int $dimensions = 1536): array
     {
@@ -156,7 +154,7 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
                     'index' => 0,
                     'embedding' => array_map(
                         fn() => $this->faker->randomFloat(8, -1, 1),
-                        range(1, $dimensions)
+                        range(1, $dimensions),
                     ),
                 ],
             ],
@@ -169,12 +167,12 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Create translation API response
+     * Create translation API response.
      */
     protected function createTranslationResponse(
         string $translatedText,
         string $detectedLanguage = 'EN',
-        string $provider = 'deepl'
+        string $provider = 'deepl',
     ): array {
         if ($provider === 'deepl') {
             return [

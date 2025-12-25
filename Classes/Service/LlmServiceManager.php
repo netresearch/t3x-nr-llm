@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
+use Exception;
+use Generator;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
@@ -43,7 +45,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         try {
             $this->configuration = $this->extensionConfiguration->get('nr_llm');
             $this->defaultProvider = $this->configuration['defaultProvider'] ?? null;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->warning('Failed to load extension configuration', ['exception' => $e]);
             $this->configuration = [];
         }
@@ -85,12 +87,12 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     {
         return array_filter(
             $this->providers,
-            static fn(ProviderInterface $provider) => $provider->isAvailable()
+            static fn(ProviderInterface $provider) => $provider->isAvailable(),
         );
     }
 
     /**
-     * Check if at least one provider is available
+     * Check if at least one provider is available.
      */
     public function hasAvailableProvider(): bool
     {
@@ -123,7 +125,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Send a chat completion request
+     * Send a chat completion request.
      *
      * @param array<int, array{role: string, content: string}> $messages
      */
@@ -138,7 +140,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Send a simple completion request
+     * Send a simple completion request.
      */
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
@@ -151,7 +153,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Generate embeddings for text
+     * Generate embeddings for text.
      *
      * @param string|array<int, string> $input
      */
@@ -164,7 +166,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
         if (!$provider->supportsFeature('embeddings')) {
             throw new UnsupportedFeatureException(
-                sprintf('Provider "%s" does not support embeddings', $provider->getIdentifier())
+                sprintf('Provider "%s" does not support embeddings', $provider->getIdentifier()),
             );
         }
 
@@ -172,7 +174,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Analyze an image with vision capabilities
+     * Analyze an image with vision capabilities.
      *
      * @param array<int, array{type: string, image_url?: array{url: string}, text?: string}> $content
      */
@@ -185,7 +187,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
         if (!$provider instanceof VisionCapableInterface) {
             throw new UnsupportedFeatureException(
-                sprintf('Provider "%s" does not support vision', $provider->getIdentifier())
+                sprintf('Provider "%s" does not support vision', $provider->getIdentifier()),
             );
         }
 
@@ -193,12 +195,13 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Stream a chat completion response
+     * Stream a chat completion response.
      *
      * @param array<int, array{role: string, content: string}> $messages
-     * @return \Generator<int, string, mixed, void>
+     *
+     * @return Generator<int, string, mixed, void>
      */
-    public function streamChat(array $messages, ?ChatOptions $options = null): \Generator
+    public function streamChat(array $messages, ?ChatOptions $options = null): Generator
     {
         $options ??= new ChatOptions();
         $optionsArray = $options->toArray();
@@ -207,7 +210,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
         if (!$provider instanceof StreamingCapableInterface) {
             throw new UnsupportedFeatureException(
-                sprintf('Provider "%s" does not support streaming', $provider->getIdentifier())
+                sprintf('Provider "%s" does not support streaming', $provider->getIdentifier()),
             );
         }
 
@@ -215,9 +218,9 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Chat completion with tool calling
+     * Chat completion with tool calling.
      *
-     * @param array<int, array{role: string, content: string}> $messages
+     * @param array<int, array{role: string, content: string}>                                                                      $messages
      * @param array<int, array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> $tools
      */
     public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse
@@ -229,7 +232,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
         if (!$provider instanceof ToolCapableInterface) {
             throw new UnsupportedFeatureException(
-                sprintf('Provider "%s" does not support tool calling', $provider->getIdentifier())
+                sprintf('Provider "%s" does not support tool calling', $provider->getIdentifier()),
             );
         }
 
@@ -237,7 +240,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Check if a specific feature is supported by a provider
+     * Check if a specific feature is supported by a provider.
      */
     public function supportsFeature(string $feature, ?string $provider = null): bool
     {
@@ -250,7 +253,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Get configuration for a provider
+     * Get configuration for a provider.
      *
      * @return array<string, mixed>
      */
@@ -260,7 +263,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Dynamically configure a provider
+     * Dynamically configure a provider.
      *
      * @param array<string, mixed> $config
      */

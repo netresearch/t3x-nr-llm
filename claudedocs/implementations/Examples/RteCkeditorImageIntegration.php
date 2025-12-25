@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Netresearch\RteCkeditorImage\Service;
 
-use Netresearch\NrLlm\Service\LlmServiceManager;
+use Exception;
 use Netresearch\NrLlm\Exception\LlmException;
+use Netresearch\NrLlm\Service\LlmServiceManager;
 use Psr\Log\LoggerInterface;
 
 /**
- * RTE CKEditor Image AI Service Integration Example
+ * RTE CKEditor Image AI Service Integration Example.
  *
  * Shows how rte-ckeditor-image extension uses LlmServiceManager for:
  * - Automatic alt text generation
@@ -20,21 +21,22 @@ class ImageAiService
 {
     public function __construct(
         private readonly LlmServiceManager $llm,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
     ) {}
 
     /**
-     * Generate alt text for image
+     * Generate alt text for image.
      *
-     * @param string $imageUrl Image URL or path
-     * @param int $maxLength Maximum alt text length
-     * @param string $style 'brief'|'descriptive'|'seo-optimized'
+     * @param string $imageUrl  Image URL or path
+     * @param int    $maxLength Maximum alt text length
+     * @param string $style     'brief'|'descriptive'|'seo-optimized'
+     *
      * @return string Generated alt text
      */
     public function generateAltText(
         string $imageUrl,
         int $maxLength = 125,
-        string $style = 'descriptive'
+        string $style = 'descriptive',
     ): string {
         $styleInstructions = match ($style) {
             'brief' => 'Be concise and factual. Focus on key elements only.',
@@ -80,9 +82,10 @@ class ImageAiService
     }
 
     /**
-     * Generate full image analysis with metadata
+     * Generate full image analysis with metadata.
      *
      * @param string $imageUrl Image URL
+     *
      * @return array Complete image analysis
      */
     public function analyzeImage(string $imageUrl): array
@@ -142,15 +145,16 @@ class ImageAiService
     }
 
     /**
-     * Generate contextual alt text using page content
+     * Generate contextual alt text using page content.
      *
-     * @param string $imageUrl Image URL
+     * @param string $imageUrl    Image URL
      * @param string $pageContext Surrounding text content
+     *
      * @return string Context-aware alt text
      */
     public function generateContextualAltText(
         string $imageUrl,
-        string $pageContext
+        string $pageContext,
     ): string {
         $prompt = <<<PROMPT
             Generate alt text for this image considering the surrounding page content:
@@ -182,15 +186,16 @@ class ImageAiService
     }
 
     /**
-     * Batch process images for alt text
+     * Batch process images for alt text.
      *
-     * @param array $images Array of image URLs
+     * @param array    $images           Array of image URLs
      * @param callable $progressCallback Progress callback function
+     *
      * @return array Batch results
      */
     public function batchGenerateAltText(
         array $images,
-        ?callable $progressCallback = null
+        ?callable $progressCallback = null,
     ): array {
         $results = [];
         $total = count($images);
@@ -204,7 +209,7 @@ class ImageAiService
                     'success' => true,
                     'alt_text' => $altText,
                 ];
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $results[$imageUrl] = [
                     'success' => false,
                     'error' => $e->getMessage(),

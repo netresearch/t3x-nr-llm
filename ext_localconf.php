@@ -23,10 +23,10 @@ defined('TYPO3') or die();
 
     // Register TypoScript
     ExtensionManagementUtility::addTypoScriptSetup(
-        '@import "EXT:nr_llm/Configuration/TypoScript/setup.typoscript"'
+        '@import "EXT:nr_llm/Configuration/TypoScript/setup.typoscript"',
     );
 
     ExtensionManagementUtility::addTypoScriptConstants(
-        '@import "EXT:nr_llm/Configuration/TypoScript/constants.typoscript"'
+        '@import "EXT:nr_llm/Configuration/TypoScript/constants.typoscript"',
     );
 })();

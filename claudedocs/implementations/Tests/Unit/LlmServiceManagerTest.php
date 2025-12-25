@@ -4,25 +4,24 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service;
 
+use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\LlmResponse;
+use Netresearch\NrLlm\Domain\Model\TranslationResponse;
+use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Exception\QuotaExceededException;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Provider\ProviderFactory;
 use Netresearch\NrLlm\Service\Provider\ProviderInterface;
+use Netresearch\NrLlm\Service\RateLimit\RateLimiter;
 use Netresearch\NrLlm\Service\Request\RequestBuilder;
 use Netresearch\NrLlm\Service\Response\ResponseParser;
 use Netresearch\NrLlm\Service\Stream\StreamHandler;
-use Netresearch\NrLlm\Service\RateLimit\RateLimiter;
-use Netresearch\NrLlm\Domain\Model\LlmResponse;
-use Netresearch\NrLlm\Domain\Model\TokenUsage;
-use Netresearch\NrLlm\Domain\Model\TranslationResponse;
-use Netresearch\NrLlm\Domain\Model\VisionResponse;
-use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
-use Netresearch\NrLlm\Exception\QuotaExceededException;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\TestingFramework\Core\Unit\UnitTestCase;
 
 /**
- * Unit tests for LlmServiceManager
+ * Unit tests for LlmServiceManager.
  */
 class LlmServiceManagerTest extends UnitTestCase
 {
@@ -56,7 +55,7 @@ class LlmServiceManagerTest extends UnitTestCase
             new StreamHandler(),
             $this->mockCache,
             $this->mockRateLimiter,
-            $this->mockLogger
+            $this->mockLogger,
         );
     }
 
@@ -82,11 +81,11 @@ class LlmServiceManagerTest extends UnitTestCase
             ],
         ];
 
-        $this->mockProvider->expects($this->once())
+        $this->mockProvider->expects(self::once())
             ->method('complete')
             ->with(
-                $this->equalTo($prompt),
-                $this->arrayHasKey('temperature')
+                self::equalTo($prompt),
+                self::arrayHasKey('temperature'),
             )
             ->willReturn($expectedResponse);
 
@@ -94,11 +93,11 @@ class LlmServiceManagerTest extends UnitTestCase
 
         $result = $this->subject->complete($prompt, $options);
 
-        $this->assertInstanceOf(LlmResponse::class, $result);
-        $this->assertEquals('Test response', $result->getContent());
-        $this->assertEquals(10, $result->getPromptTokens());
-        $this->assertEquals(20, $result->getCompletionTokens());
-        $this->assertEquals(30, $result->getTotalTokens());
+        self::assertInstanceOf(LlmResponse::class, $result);
+        self::assertEquals('Test response', $result->getContent());
+        self::assertEquals(10, $result->getPromptTokens());
+        self::assertEquals(20, $result->getCompletionTokens());
+        self::assertEquals(30, $result->getTotalTokens());
     }
 
     /**
@@ -108,7 +107,7 @@ class LlmServiceManagerTest extends UnitTestCase
     {
         $result = $this->subject->setProvider('openai');
 
-        $this->assertSame($this->subject, $result);
+        self::assertSame($this->subject, $result);
     }
 
     /**
@@ -118,9 +117,9 @@ class LlmServiceManagerTest extends UnitTestCase
     {
         $result = $this->subject->withOptions(['temperature' => 0.5]);
 
-        $this->assertInstanceOf(LlmServiceManager::class, $result);
+        self::assertInstanceOf(LlmServiceManager::class, $result);
         // Should be a clone, not the same instance
-        $this->assertNotSame($this->subject, $result);
+        self::assertNotSame($this->subject, $result);
     }
 
     /**
@@ -130,8 +129,8 @@ class LlmServiceManagerTest extends UnitTestCase
     {
         $result = $this->subject->withCache(true, 7200);
 
-        $this->assertInstanceOf(LlmServiceManager::class, $result);
-        $this->assertNotSame($this->subject, $result);
+        self::assertInstanceOf(LlmServiceManager::class, $result);
+        self::assertNotSame($this->subject, $result);
     }
 
     /**
@@ -141,8 +140,8 @@ class LlmServiceManagerTest extends UnitTestCase
     {
         $result = $this->subject->withRateLimit(false);
 
-        $this->assertInstanceOf(LlmServiceManager::class, $result);
-        $this->assertNotSame($this->subject, $result);
+        self::assertInstanceOf(LlmServiceManager::class, $result);
+        self::assertNotSame($this->subject, $result);
     }
 
     /**
@@ -152,18 +151,18 @@ class LlmServiceManagerTest extends UnitTestCase
     {
         $cachedResponse = new LlmResponse('Cached content');
 
-        $this->mockCache->expects($this->once())
+        $this->mockCache->expects(self::once())
             ->method('get')
             ->willReturn($cachedResponse);
 
         // Provider should NOT be called
-        $this->mockProvider->expects($this->never())
+        $this->mockProvider->expects(self::never())
             ->method('complete');
 
         $result = $this->subject->complete('Test');
 
-        $this->assertSame($cachedResponse, $result);
-        $this->assertEquals('Cached content', $result->getContent());
+        self::assertSame($cachedResponse, $result);
+        self::assertEquals('Cached content', $result->getContent());
     }
 
     /**
@@ -180,13 +179,13 @@ class LlmServiceManagerTest extends UnitTestCase
         $this->mockProvider->method('complete')->willReturn($providerResponse);
 
         $this->mockCache->method('get')->willReturn(false);
-        $this->mockCache->expects($this->once())
+        $this->mockCache->expects(self::once())
             ->method('set')
             ->with(
-                $this->isType('string'),
-                $this->isInstanceOf(LlmResponse::class),
-                $this->equalTo([]),
-                $this->equalTo(3600)
+                self::isType('string'),
+                self::isInstanceOf(LlmResponse::class),
+                self::equalTo([]),
+                self::equalTo(3600),
             );
 
         $this->subject->complete('Test');
@@ -197,7 +196,7 @@ class LlmServiceManagerTest extends UnitTestCase
      */
     public function rateLimitIsCheckedWhenEnabled(): void
     {
-        $this->mockRateLimiter->expects($this->once())
+        $this->mockRateLimiter->expects(self::once())
             ->method('assertNotExceeded');
 
         $this->mockProvider->method('complete')->willReturn([
@@ -231,7 +230,7 @@ class LlmServiceManagerTest extends UnitTestCase
         $translationResponse = new TranslationResponse(
             'Bonjour',
             0.95,
-            ['Salut', 'Coucou']
+            ['Salut', 'Coucou'],
         );
 
         $this->mockProvider->method('translate')
@@ -242,10 +241,10 @@ class LlmServiceManagerTest extends UnitTestCase
 
         $result = $this->subject->translate('Hello', 'fr', 'en');
 
-        $this->assertInstanceOf(TranslationResponse::class, $result);
-        $this->assertEquals('Bonjour', $result->getTranslation());
-        $this->assertEquals(0.95, $result->getConfidence());
-        $this->assertCount(2, $result->getAlternatives());
+        self::assertInstanceOf(TranslationResponse::class, $result);
+        self::assertEquals('Bonjour', $result->getTranslation());
+        self::assertEquals(0.95, $result->getConfidence());
+        self::assertCount(2, $result->getAlternatives());
     }
 
     /**
@@ -257,7 +256,7 @@ class LlmServiceManagerTest extends UnitTestCase
             'A dog playing in a park',
             ['dog', 'park', 'grass'],
             ['type' => 'outdoor', 'setting' => 'park'],
-            0.92
+            0.92,
         );
 
         $this->mockProvider->method('analyzeImage')
@@ -268,11 +267,11 @@ class LlmServiceManagerTest extends UnitTestCase
 
         $result = $this->subject->analyzeImage('https://example.com/image.jpg', 'Describe this image');
 
-        $this->assertInstanceOf(VisionResponse::class, $result);
-        $this->assertEquals('A dog playing in a park', $result->getDescription());
-        $this->assertContains('dog', $result->getObjects());
-        $this->assertEquals('outdoor', $result->getScene()['type']);
-        $this->assertEquals(0.92, $result->getConfidence());
+        self::assertInstanceOf(VisionResponse::class, $result);
+        self::assertEquals('A dog playing in a park', $result->getDescription());
+        self::assertContains('dog', $result->getObjects());
+        self::assertEquals('outdoor', $result->getScene()['type']);
+        self::assertEquals(0.92, $result->getConfidence());
     }
 
     /**
@@ -295,10 +294,10 @@ class LlmServiceManagerTest extends UnitTestCase
 
         $result = $this->subject->embed(['Text 1', 'Text 2']);
 
-        $this->assertInstanceOf(EmbeddingResponse::class, $result);
-        $this->assertCount(2, $result->getEmbeddings());
-        $this->assertEquals(3, $result->getDimensions());
-        $this->assertEquals('text-embedding-ada-002', $result->getModel());
+        self::assertInstanceOf(EmbeddingResponse::class, $result);
+        self::assertCount(2, $result->getEmbeddings());
+        self::assertEquals(3, $result->getDimensions());
+        self::assertEquals('text-embedding-ada-002', $result->getModel());
     }
 
     /**
@@ -308,9 +307,9 @@ class LlmServiceManagerTest extends UnitTestCase
     {
         $providers = $this->subject->getAvailableProviders();
 
-        $this->assertIsArray($providers);
-        $this->assertContains('openai', $providers);
-        $this->assertContains('anthropic', $providers);
+        self::assertIsArray($providers);
+        self::assertContains('openai', $providers);
+        self::assertContains('anthropic', $providers);
     }
 
     /**
@@ -320,7 +319,7 @@ class LlmServiceManagerTest extends UnitTestCase
     {
         $default = $this->subject->getDefaultProvider();
 
-        $this->assertEquals('openai', $default);
+        self::assertEquals('openai', $default);
     }
 
     /**
@@ -330,7 +329,7 @@ class LlmServiceManagerTest extends UnitTestCase
     {
         $provider = $this->subject->getProvider();
 
-        $this->assertInstanceOf(ProviderInterface::class, $provider);
+        self::assertInstanceOf(ProviderInterface::class, $provider);
     }
 
     /**
@@ -345,7 +344,7 @@ class LlmServiceManagerTest extends UnitTestCase
         $this->mockCache->method('get')->willReturn(false);
 
         // Should NOT cache with high temperature
-        $this->mockCache->expects($this->never())->method('set');
+        $this->mockCache->expects(self::never())->method('set');
 
         $this->subject->complete('Test', ['temperature' => 1.5]);
     }
@@ -368,6 +367,6 @@ class LlmServiceManagerTest extends UnitTestCase
             ->withOptions(['temperature' => 0.8])
             ->complete('Test prompt');
 
-        $this->assertInstanceOf(LlmResponse::class, $result);
+        self::assertInstanceOf(LlmResponse::class, $result);
     }
 }

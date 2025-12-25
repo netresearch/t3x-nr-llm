@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 /**
- * Normalized LLM response
+ * Normalized LLM response.
  *
  * @api This class is part of the public API
  */
@@ -15,11 +15,11 @@ class LlmResponse
         private string $content,
         private ?TokenUsage $usage = null,
         private ?array $metadata = null,
-        private ?string $finishReason = null
+        private ?string $finishReason = null,
     ) {}
 
     /**
-     * Get response content
+     * Get response content.
      */
     public function getContent(): string
     {
@@ -27,7 +27,7 @@ class LlmResponse
     }
 
     /**
-     * Get token usage information
+     * Get token usage information.
      */
     public function getUsage(): ?TokenUsage
     {
@@ -35,7 +35,7 @@ class LlmResponse
     }
 
     /**
-     * Get metadata
+     * Get metadata.
      *
      * @param string|null $key Specific metadata key or null for all
      */
@@ -49,7 +49,7 @@ class LlmResponse
     }
 
     /**
-     * Get finish reason
+     * Get finish reason.
      */
     public function getFinishReason(): ?string
     {
@@ -57,7 +57,7 @@ class LlmResponse
     }
 
     /**
-     * Check if response is empty
+     * Check if response is empty.
      */
     public function isEmpty(): bool
     {
@@ -65,7 +65,7 @@ class LlmResponse
     }
 
     /**
-     * Check if usage data is available
+     * Check if usage data is available.
      */
     public function hasUsageData(): bool
     {
@@ -73,7 +73,7 @@ class LlmResponse
     }
 
     /**
-     * Get prompt tokens (convenience method)
+     * Get prompt tokens (convenience method).
      */
     public function getPromptTokens(): int
     {
@@ -81,7 +81,7 @@ class LlmResponse
     }
 
     /**
-     * Get completion tokens (convenience method)
+     * Get completion tokens (convenience method).
      */
     public function getCompletionTokens(): int
     {
@@ -89,7 +89,7 @@ class LlmResponse
     }
 
     /**
-     * Get total tokens (convenience method)
+     * Get total tokens (convenience method).
      */
     public function getTotalTokens(): int
     {
@@ -97,7 +97,7 @@ class LlmResponse
     }
 
     /**
-     * Estimate cost based on model pricing
+     * Estimate cost based on model pricing.
      *
      * @return float Estimated cost in USD
      */
@@ -135,7 +135,7 @@ class LlmResponse
     }
 
     /**
-     * Convert to array
+     * Convert to array.
      */
     public function toArray(): array
     {
@@ -148,7 +148,7 @@ class LlmResponse
     }
 
     /**
-     * Convert to JSON
+     * Convert to JSON.
      */
     public function toJson(): string
     {

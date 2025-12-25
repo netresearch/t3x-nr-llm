@@ -14,14 +14,14 @@ final class UnsupportedFormatException extends SpecializedServiceException
     /**
      * Create exception for an unsupported format.
      *
-     * @param string $format The unsupported format
-     * @param string $service The service identifier
+     * @param string                  $format           The unsupported format
+     * @param string                  $service          The service identifier
      * @param array<int, string>|null $supportedFormats List of supported formats
      */
     public static function forFormat(
         string $format,
         string $service,
-        ?array $supportedFormats = null
+        ?array $supportedFormats = null,
     ): self {
         $message = sprintf('Format "%s" is not supported', $format);
 
@@ -35,7 +35,7 @@ final class UnsupportedFormatException extends SpecializedServiceException
             [
                 'format' => $format,
                 'supported' => $supportedFormats,
-            ]
+            ],
         );
     }
 
@@ -52,7 +52,7 @@ final class UnsupportedFormatException extends SpecializedServiceException
             [
                 'format' => $format,
                 'type' => 'audio',
-            ]
+            ],
         );
     }
 
@@ -69,7 +69,7 @@ final class UnsupportedFormatException extends SpecializedServiceException
             [
                 'format' => $format,
                 'type' => 'image',
-            ]
+            ],
         );
     }
 }

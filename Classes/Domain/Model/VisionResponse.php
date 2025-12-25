@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 /**
- * Response object for vision/image analysis requests
+ * Response object for vision/image analysis requests.
  */
 final class VisionResponse
 {
     /**
      * @param array<int, array<string, mixed>>|null $detectedObjects
-     * @param array<string, mixed>|null $metadata
+     * @param array<string, mixed>|null             $metadata
      */
     public function __construct(
         public readonly string $description,
@@ -24,7 +24,7 @@ final class VisionResponse
     ) {}
 
     /**
-     * Get the analysis text
+     * Get the analysis text.
      */
     public function getText(): string
     {
@@ -32,7 +32,7 @@ final class VisionResponse
     }
 
     /**
-     * Alias for description property
+     * Alias for description property.
      */
     public function getDescription(): string
     {
@@ -40,7 +40,7 @@ final class VisionResponse
     }
 
     /**
-     * Check if confidence score meets threshold
+     * Check if confidence score meets threshold.
      */
     public function meetsConfidence(float $threshold): bool
     {

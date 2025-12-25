@@ -6,20 +6,16 @@ namespace Netresearch\NrLlm\Tests\E2E;
 
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
+use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Feature\EmbeddingService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
-use Netresearch\NrLlm\Service\CacheManager;
-use Netresearch\NrLlm\Service\CacheManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\NullLogger;
-use TYPO3\CMS\Core\Cache\CacheManager as CoreCacheManager;
-use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
- * E2E tests for complete embedding workflows
+ * E2E tests for complete embedding workflows.
  *
  * Tests the full path from EmbeddingService through to provider
  * with caching integration.
@@ -41,7 +37,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             $httpClient,
             $this->requestFactory,
             $this->streamFactory,
-            $this->logger
+            $this->logger,
         );
         $provider->configure([
             'apiKey' => 'sk-test-key',
@@ -70,10 +66,10 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $result = $embeddingService->embedFull('Test text for embedding');
 
         // Assert
-        $this->assertInstanceOf(EmbeddingResponse::class, $result);
-        $this->assertCount(1, $result->embeddings);
-        $this->assertCount(1536, $result->embeddings[0]);
-        $this->assertEquals('text-embedding-3-small', $result->model);
+        self::assertInstanceOf(EmbeddingResponse::class, $result);
+        self::assertCount(1, $result->embeddings);
+        self::assertCount(1536, $result->embeddings[0]);
+        self::assertEquals('text-embedding-3-small', $result->model);
     }
 
     #[Test]
@@ -110,9 +106,9 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $result = $embeddingService->embedFull('Cached text');
 
         // Assert
-        $this->assertInstanceOf(EmbeddingResponse::class, $result);
-        $this->assertCount(1, $result->embeddings);
-        $this->assertCount(1536, $result->embeddings[0]);
+        self::assertInstanceOf(EmbeddingResponse::class, $result);
+        self::assertCount(1, $result->embeddings);
+        self::assertCount(1536, $result->embeddings[0]);
     }
 
     #[Test]
@@ -127,7 +123,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
                     'index' => 0,
                     'embedding' => array_map(
                         fn() => $this->faker->randomFloat(8, -1, 1),
-                        range(1, 1536)
+                        range(1, 1536),
                     ),
                 ],
                 [
@@ -135,7 +131,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
                     'index' => 1,
                     'embedding' => array_map(
                         fn() => $this->faker->randomFloat(8, -1, 1),
-                        range(1, 1536)
+                        range(1, 1536),
                     ),
                 ],
                 [
@@ -143,7 +139,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
                     'index' => 2,
                     'embedding' => array_map(
                         fn() => $this->faker->randomFloat(8, -1, 1),
-                        range(1, 1536)
+                        range(1, 1536),
                     ),
                 ],
             ],
@@ -159,7 +155,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             $httpClient,
             $this->requestFactory,
             $this->streamFactory,
-            $this->logger
+            $this->logger,
         );
         $provider->configure([
             'apiKey' => 'sk-test-key',
@@ -191,10 +187,10 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         // Assert: embedBatch returns array of vectors directly
-        $this->assertIsArray($result);
-        $this->assertCount(3, $result);
+        self::assertIsArray($result);
+        self::assertCount(3, $result);
         foreach ($result as $embedding) {
-            $this->assertCount(1536, $embedding);
+            self::assertCount(1536, $embedding);
         }
     }
 
@@ -228,7 +224,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             $httpClient,
             $this->requestFactory,
             $this->streamFactory,
-            $this->logger
+            $this->logger,
         );
         $provider->configure([
             'apiKey' => 'sk-test-key',
@@ -257,13 +253,13 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $vector2 = $embeddingService->embed('Hello world!');
 
         // Assert: Both should return valid embedding vectors
-        $this->assertCount(1536, $vector1);
-        $this->assertCount(1536, $vector2);
+        self::assertCount(1536, $vector1);
+        self::assertCount(1536, $vector2);
 
         // Calculate cosine similarity using service method
         $similarity = $embeddingService->cosineSimilarity($vector1, $vector2);
 
         // Similar texts should have similarity > 0.5
-        $this->assertGreaterThan(0.5, $similarity);
+        self::assertGreaterThan(0.5, $similarity);
     }
 }

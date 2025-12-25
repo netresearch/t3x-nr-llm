@@ -7,7 +7,7 @@ namespace Netresearch\NrLlm\Tests\Functional;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 /**
- * Base class for functional tests
+ * Base class for functional tests.
  *
  * Sets up the nr_llm extension and common test utilities
  * for testing TYPO3 database operations and services.
@@ -26,7 +26,7 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 abstract class AbstractFunctionalTestCase extends FunctionalTestCase
 {
     /**
-     * Extensions to load for functional tests
+     * Extensions to load for functional tests.
      *
      * @var non-empty-string[]
      */
@@ -35,7 +35,7 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
     ];
 
     /**
-     * Core extensions required for testing
+     * Core extensions required for testing.
      *
      * @var non-empty-string[]
      */
@@ -44,9 +44,7 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
         'fluid',
     ];
 
-    /**
-     * Initialize the test database with schema
-     */
+    /** Initialize the test database with schema */
     protected bool $initializeDatabase = true;
 
     private bool $skipped = false;
@@ -56,9 +54,9 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
         // Check if we can run functional tests
         if (!$this->canRunFunctionalTests()) {
             $this->skipped = true;
-            $this->markTestSkipped(
+            self::markTestSkipped(
                 'Functional tests require database configuration. '
-                . 'Set typo3DatabaseDriver environment variable (e.g., pdo_sqlite) to enable.'
+                . 'Set typo3DatabaseDriver environment variable (e.g., pdo_sqlite) to enable.',
             );
         }
 
@@ -74,7 +72,7 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
     }
 
     /**
-     * Check if functional tests can run
+     * Check if functional tests can run.
      *
      * Functional tests require either:
      * - Environment variables for database configuration
@@ -97,7 +95,7 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
     }
 
     /**
-     * Import a CSV dataset from the Fixtures directory
+     * Import a CSV dataset from the Fixtures directory.
      */
     protected function importFixture(string $filename): void
     {
@@ -105,7 +103,7 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
     }
 
     /**
-     * Get the connection pool for direct database queries
+     * Get the connection pool for direct database queries.
      */
     protected function getConnection(): \TYPO3\CMS\Core\Database\Connection
     {

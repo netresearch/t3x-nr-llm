@@ -9,7 +9,7 @@ use Eris\TestTrait;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 
 /**
- * Base class for fuzzy/property-based tests
+ * Base class for fuzzy/property-based tests.
  *
  * Uses Eris for property-based testing with random inputs.
  */
@@ -18,7 +18,7 @@ abstract class AbstractFuzzyTestCase extends AbstractUnitTestCase
     use TestTrait;
 
     /**
-     * Generate random float between min and max
+     * Generate random float between min and max.
      *
      * Uses integer division to avoid floating point precision issues
      */
@@ -32,25 +32,26 @@ abstract class AbstractFuzzyTestCase extends AbstractUnitTestCase
                 // Clamp to ensure we stay in bounds
                 return max($min, min($max, $value));
             },
-            Generator\int()
+            Generator\int(),
         );
     }
 
     /**
-     * Generate random embedding vector of given dimension
+     * Generate random embedding vector of given dimension.
      *
      * @param int $dimensions Number of dimensions
+     *
      * @return Generator<array<float>>
      */
     protected function embeddingVector(int $dimensions = 1536): Generator
     {
         return Generator\tuple(
-            ...array_fill(0, min($dimensions, 100), $this->floatBetween(-1.0, 1.0))
+            ...array_fill(0, min($dimensions, 100), $this->floatBetween(-1.0, 1.0)),
         );
     }
 
     /**
-     * Generate non-empty string
+     * Generate non-empty string.
      *
      * @return Generator<string>
      */
@@ -58,12 +59,12 @@ abstract class AbstractFuzzyTestCase extends AbstractUnitTestCase
     {
         return Generator\filter(
             static fn(string $s) => strlen(trim($s)) > 0,
-            Generator\string()
+            Generator\string(),
         );
     }
 
     /**
-     * Generate positive integer
+     * Generate positive integer.
      *
      * @return Generator<int>
      */
@@ -73,7 +74,7 @@ abstract class AbstractFuzzyTestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Generate temperature value (0.0 to 2.0)
+     * Generate temperature value (0.0 to 2.0).
      *
      * @return Generator<float>
      */
@@ -83,7 +84,7 @@ abstract class AbstractFuzzyTestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Generate top_p value (0.0 to 1.0)
+     * Generate top_p value (0.0 to 1.0).
      *
      * @return Generator<float>
      */
@@ -93,7 +94,7 @@ abstract class AbstractFuzzyTestCase extends AbstractUnitTestCase
     }
 
     /**
-     * Generate penalty value (-2.0 to 2.0)
+     * Generate penalty value (-2.0 to 2.0).
      *
      * @return Generator<float>
      */

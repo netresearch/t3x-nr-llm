@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 /**
- * Token usage statistics from LLM requests
+ * Token usage statistics from LLM requests.
  */
 final class UsageStatistics
 {
@@ -17,7 +17,7 @@ final class UsageStatistics
     ) {}
 
     /**
-     * Get total token count
+     * Get total token count.
      */
     public function getTotal(): int
     {
@@ -25,7 +25,7 @@ final class UsageStatistics
     }
 
     /**
-     * Get cost estimate if available
+     * Get cost estimate if available.
      */
     public function getCost(): ?float
     {
@@ -33,18 +33,18 @@ final class UsageStatistics
     }
 
     /**
-     * Create from token counts
+     * Create from token counts.
      */
     public static function fromTokens(
         int $promptTokens,
         int $completionTokens,
-        ?float $estimatedCost = null
+        ?float $estimatedCost = null,
     ): self {
         return new self(
             $promptTokens,
             $completionTokens,
             $promptTokens + $completionTokens,
-            $estimatedCost
+            $estimatedCost,
         );
     }
 }

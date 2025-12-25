@@ -39,6 +39,8 @@
         "infection/infection": "^0.31.9",
         "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^12.0",
+        "rector/rector": "^2.0",
+        "ssch/typo3-rector": "^3.0",
         "typo3/testing-framework": "^9.0"
     },
     "autoload": {
@@ -68,11 +70,19 @@
         }
     },
     "scripts": {
-        "test": "phpunit -c Tests/phpunit.xml",
-        "test:unit": "phpunit -c Tests/phpunit.xml --testsuite unit",
-        "test:functional": "phpunit -c Tests/phpunit.xml --testsuite functional",
+        "test": "phpunit -c phpunit.xml",
+        "test:unit": "phpunit -c phpunit.xml --testsuite unit",
+        "test:functional": "phpunit -c phpunit.xml --testsuite functional",
         "lint": "php-cs-fixer fix --dry-run --diff",
         "lint:fix": "php-cs-fixer fix",
-        "phpstan": "phpstan analyse"
+        "phpstan": "phpstan analyse -c Build/phpstan/phpstan.neon",
+        "phpstan:baseline": "phpstan analyse -c Build/phpstan/phpstan.neon --generate-baseline Build/phpstan/phpstan-baseline.neon",
+        "rector": "rector process --config Build/rector/rector.php",
+        "rector:dry": "rector process --config Build/rector/rector.php --dry-run",
+        "ci": [
+            "@lint",
+            "@phpstan",
+            "@test"
+        ]
     }
 }

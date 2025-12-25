@@ -27,7 +27,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Generate a cache key for LLM requests
+     * Generate a cache key for LLM requests.
      *
      * @param array<string, mixed> $params
      */
@@ -39,7 +39,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Get cached response if available
+     * Get cached response if available.
      *
      * @return array<string, mixed>|null
      */
@@ -56,10 +56,10 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Store response in cache
+     * Store response in cache.
      *
      * @param array<string, mixed> $data
-     * @param array<string> $tags
+     * @param array<string>        $tags
      */
     public function set(string $cacheKey, array $data, int $lifetime = 3600, array $tags = []): void
     {
@@ -70,7 +70,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Check if a cache entry exists
+     * Check if a cache entry exists.
      */
     public function has(string $cacheKey): bool
     {
@@ -78,7 +78,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Remove a specific cache entry
+     * Remove a specific cache entry.
      */
     public function remove(string $cacheKey): void
     {
@@ -86,7 +86,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Flush all LLM caches
+     * Flush all LLM caches.
      */
     public function flush(): void
     {
@@ -94,7 +94,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Flush cache entries by tag
+     * Flush cache entries by tag.
      */
     public function flushByTag(string $tag): void
     {
@@ -102,7 +102,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Flush cache entries by provider
+     * Flush cache entries by provider.
      */
     public function flushByProvider(string $provider): void
     {
@@ -110,18 +110,18 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Cache a completion response
+     * Cache a completion response.
      *
      * @param array<int, array{role: string, content: string}> $messages
-     * @param array<string, mixed> $options
-     * @param array<string, mixed> $response
+     * @param array<string, mixed>                             $options
+     * @param array<string, mixed>                             $response
      */
     public function cacheCompletion(
         string $provider,
         array $messages,
         array $options,
         array $response,
-        int $lifetime = 3600
+        int $lifetime = 3600,
     ): string {
         $cacheKey = $this->generateCacheKey($provider, 'completion', [
             'messages' => $messages,
@@ -143,10 +143,11 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Get cached completion if available
+     * Get cached completion if available.
      *
      * @param array<int, array{role: string, content: string}> $messages
-     * @param array<string, mixed> $options
+     * @param array<string, mixed>                             $options
+     *
      * @return array<string, mixed>|null
      */
     public function getCachedCompletion(string $provider, array $messages, array $options): ?array
@@ -160,18 +161,18 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Cache embeddings response
+     * Cache embeddings response.
      *
      * @param string|array<int, string> $input
-     * @param array<string, mixed> $options
-     * @param array<string, mixed> $response
+     * @param array<string, mixed>      $options
+     * @param array<string, mixed>      $response
      */
     public function cacheEmbeddings(
         string $provider,
         string|array $input,
         array $options,
         array $response,
-        int $lifetime = 86400 // 24 hours for embeddings
+        int $lifetime = 86400, // 24 hours for embeddings
     ): string {
         $cacheKey = $this->generateCacheKey($provider, 'embeddings', [
             'input' => $input,
@@ -189,10 +190,11 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Get cached embeddings if available
+     * Get cached embeddings if available.
      *
      * @param string|array<int, string> $input
-     * @param array<string, mixed> $options
+     * @param array<string, mixed>      $options
+     *
      * @return array<string, mixed>|null
      */
     public function getCachedEmbeddings(string $provider, string|array $input, array $options): ?array
@@ -206,9 +208,10 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Normalize parameters for consistent cache keys
+     * Normalize parameters for consistent cache keys.
      *
      * @param array<string, mixed> $params
+     *
      * @return array<string, mixed>
      */
     private function normalizeParams(array $params): array
@@ -224,7 +227,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Sort array recursively for consistent hashing
+     * Sort array recursively for consistent hashing.
      *
      * @param array<string, mixed> $array
      */

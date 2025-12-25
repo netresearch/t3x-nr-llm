@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Security;
 
+use InvalidArgumentException;
 use TYPO3\CMS\Core\SingletonInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * Input sanitization for LLM prompts
+ * Input sanitization for LLM prompts.
  *
  * Security Features:
  * - Prompt injection detection and prevention
@@ -84,10 +85,11 @@ class InputSanitizer implements SingletonInterface
     }
 
     /**
-     * Sanitize user prompt before sending to LLM
+     * Sanitize user prompt before sending to LLM.
      *
-     * @param string $prompt User prompt
-     * @param array $options Sanitization options
+     * @param string $prompt  User prompt
+     * @param array  $options Sanitization options
+     *
      * @return SanitizationResult Result with sanitized prompt and warnings
      */
     public function sanitizePrompt(string $prompt, array $options = []): SanitizationResult
@@ -98,7 +100,7 @@ class InputSanitizer implements SingletonInterface
         if (strlen($prompt) > $this->config['maxPromptLength']) {
             $result->addWarning(
                 'prompt_too_long',
-                "Prompt exceeds maximum length of {$this->config['maxPromptLength']} characters"
+                "Prompt exceeds maximum length of {$this->config['maxPromptLength']} characters",
             );
 
             if ($options['truncate'] ?? false) {
@@ -118,7 +120,7 @@ class InputSanitizer implements SingletonInterface
                 $result->addWarning(
                     'prompt_injection_detected',
                     'Potential prompt injection detected',
-                    $injectionDetected
+                    $injectionDetected,
                 );
 
                 if ($this->config['blockOnInjectionDetection']) {
@@ -131,7 +133,7 @@ class InputSanitizer implements SingletonInterface
                             [
                                 'patterns_matched' => $injectionDetected,
                                 'prompt_length' => strlen($prompt),
-                            ]
+                            ],
                         );
                     }
 
@@ -148,7 +150,7 @@ class InputSanitizer implements SingletonInterface
                 $result->addWarning(
                     'pii_detected',
                     'Personally identifiable information detected',
-                    $piiDetected
+                    $piiDetected,
                 );
 
                 if ($options['maskPii'] ?? false) {
@@ -156,7 +158,7 @@ class InputSanitizer implements SingletonInterface
                     $result->setSanitizedPrompt($prompt);
                     $result->addWarning(
                         'pii_masked',
-                        'PII has been masked in the prompt'
+                        'PII has been masked in the prompt',
                     );
                 }
             }
@@ -170,9 +172,10 @@ class InputSanitizer implements SingletonInterface
     }
 
     /**
-     * Sanitize system prompt (stricter validation)
+     * Sanitize system prompt (stricter validation).
      *
      * @param string $systemPrompt System prompt
+     *
      * @return SanitizationResult Result with sanitized system prompt
      */
     public function sanitizeSystemPrompt(string $systemPrompt): SanitizationResult
@@ -189,7 +192,7 @@ class InputSanitizer implements SingletonInterface
             if (preg_match($pattern, $systemPrompt)) {
                 $result->addWarning(
                     'dangerous_delimiter',
-                    'System prompt contains potentially dangerous delimiters'
+                    'System prompt contains potentially dangerous delimiters',
                 );
                 $result->setBlocked(true);
                 return $result;
@@ -204,9 +207,10 @@ class InputSanitizer implements SingletonInterface
     }
 
     /**
-     * Detect prompt injection attempts
+     * Detect prompt injection attempts.
      *
      * @param string $prompt Prompt to analyze
+     *
      * @return array Array of matched patterns
      */
     private function detectPromptInjection(string $prompt): array
@@ -258,9 +262,10 @@ class InputSanitizer implements SingletonInterface
     }
 
     /**
-     * Detect PII in prompt
+     * Detect PII in prompt.
      *
      * @param string $prompt Prompt to analyze
+     *
      * @return array Detected PII types and locations
      */
     private function detectPii(string $prompt): array
@@ -277,10 +282,11 @@ class InputSanitizer implements SingletonInterface
     }
 
     /**
-     * Mask PII in prompt
+     * Mask PII in prompt.
      *
-     * @param string $prompt Prompt containing PII
-     * @param array $piiDetected Detected PII from detectPii()
+     * @param string $prompt      Prompt containing PII
+     * @param array  $piiDetected Detected PII from detectPii()
+     *
      * @return string Prompt with masked PII
      */
     private function maskPii(string $prompt, array $piiDetected): string
@@ -305,9 +311,10 @@ class InputSanitizer implements SingletonInterface
     }
 
     /**
-     * Strip potentially dangerous content
+     * Strip potentially dangerous content.
      *
      * @param string $content Content to sanitize
+     *
      * @return string Sanitized content
      */
     private function stripDangerousContent(string $content): string
@@ -328,10 +335,11 @@ class InputSanitizer implements SingletonInterface
     }
 
     /**
-     * Validate user input length for specific field types
+     * Validate user input length for specific field types.
      *
-     * @param string $input User input
+     * @param string $input     User input
      * @param string $fieldType Field type (e.g., 'model_name', 'temperature')
+     *
      * @return bool True if valid
      */
     public function validateInputLength(string $input, string $fieldType): bool
@@ -350,11 +358,13 @@ class InputSanitizer implements SingletonInterface
     }
 
     /**
-     * Sanitize model configuration parameters
+     * Sanitize model configuration parameters.
      *
      * @param array $config Model configuration
+     *
+     * @throws InvalidArgumentException
+     *
      * @return array Sanitized configuration
-     * @throws \InvalidArgumentException
      */
     public function sanitizeModelConfig(array $config): array
     {
@@ -362,45 +372,45 @@ class InputSanitizer implements SingletonInterface
 
         // Validate temperature (0.0 - 2.0)
         if (isset($config['temperature'])) {
-            $temp = (float) $config['temperature'];
+            $temp = (float)$config['temperature'];
             if ($temp < 0 || $temp > 2.0) {
-                throw new \InvalidArgumentException('Temperature must be between 0 and 2.0', 1703003000);
+                throw new InvalidArgumentException('Temperature must be between 0 and 2.0', 1703003000);
             }
             $sanitized['temperature'] = $temp;
         }
 
         // Validate max_tokens (positive integer, reasonable limit)
         if (isset($config['max_tokens'])) {
-            $tokens = (int) $config['max_tokens'];
+            $tokens = (int)$config['max_tokens'];
             if ($tokens < 1 || $tokens > 200000) {
-                throw new \InvalidArgumentException('max_tokens must be between 1 and 200000', 1703003001);
+                throw new InvalidArgumentException('max_tokens must be between 1 and 200000', 1703003001);
             }
             $sanitized['max_tokens'] = $tokens;
         }
 
         // Validate top_p (0.0 - 1.0)
         if (isset($config['top_p'])) {
-            $topP = (float) $config['top_p'];
+            $topP = (float)$config['top_p'];
             if ($topP < 0 || $topP > 1.0) {
-                throw new \InvalidArgumentException('top_p must be between 0 and 1.0', 1703003002);
+                throw new InvalidArgumentException('top_p must be between 0 and 1.0', 1703003002);
             }
             $sanitized['top_p'] = $topP;
         }
 
         // Validate frequency_penalty (-2.0 - 2.0)
         if (isset($config['frequency_penalty'])) {
-            $penalty = (float) $config['frequency_penalty'];
+            $penalty = (float)$config['frequency_penalty'];
             if ($penalty < -2.0 || $penalty > 2.0) {
-                throw new \InvalidArgumentException('frequency_penalty must be between -2.0 and 2.0', 1703003003);
+                throw new InvalidArgumentException('frequency_penalty must be between -2.0 and 2.0', 1703003003);
             }
             $sanitized['frequency_penalty'] = $penalty;
         }
 
         // Validate presence_penalty (-2.0 - 2.0)
         if (isset($config['presence_penalty'])) {
-            $penalty = (float) $config['presence_penalty'];
+            $penalty = (float)$config['presence_penalty'];
             if ($penalty < -2.0 || $penalty > 2.0) {
-                throw new \InvalidArgumentException('presence_penalty must be between -2.0 and 2.0', 1703003004);
+                throw new InvalidArgumentException('presence_penalty must be between -2.0 and 2.0', 1703003004);
             }
             $sanitized['presence_penalty'] = $penalty;
         }
@@ -409,7 +419,7 @@ class InputSanitizer implements SingletonInterface
         $stringFields = ['model', 'provider', 'user_identifier'];
         foreach ($stringFields as $field) {
             if (isset($config[$field])) {
-                $sanitized[$field] = strip_tags((string) $config[$field]);
+                $sanitized[$field] = strip_tags((string)$config[$field]);
             }
         }
 

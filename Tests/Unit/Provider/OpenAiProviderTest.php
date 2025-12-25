@@ -71,19 +71,19 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     #[Test]
     public function getNameReturnsOpenAI(): void
     {
-        $this->assertEquals('OpenAI', $this->subject->getName());
+        self::assertEquals('OpenAI', $this->subject->getName());
     }
 
     #[Test]
     public function getIdentifierReturnsOpenai(): void
     {
-        $this->assertEquals('openai', $this->subject->getIdentifier());
+        self::assertEquals('openai', $this->subject->getIdentifier());
     }
 
     #[Test]
     public function isAvailableReturnsTrueWhenApiKeyConfigured(): void
     {
-        $this->assertTrue($this->subject->isAvailable());
+        self::assertTrue($this->subject->isAvailable());
     }
 
     #[Test]
@@ -97,7 +97,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         );
 
         // Without calling configure(), provider has no API key
-        $this->assertFalse($provider->isAvailable());
+        self::assertFalse($provider->isAvailable());
     }
 
     #[Test]
@@ -132,17 +132,17 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         ];
 
         $httpClientMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
         $result = $subject->chatCompletion($messages);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertEquals('Test response content', $result->content);
-        $this->assertEquals('gpt-4o', $result->model);
-        $this->assertEquals('stop', $result->finishReason);
-        $this->assertEquals(30, $result->usage->totalTokens);
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('Test response content', $result->content);
+        self::assertEquals('gpt-4o', $result->model);
+        self::assertEquals('stop', $result->finishReason);
+        self::assertEquals(30, $result->usage->totalTokens);
     }
 
     #[Test]
@@ -166,7 +166,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $result = $this->subject->chatCompletion($messages);
 
-        $this->assertEquals('Hi', $result->content);
+        self::assertEquals('Hi', $result->content);
     }
 
     #[Test]
@@ -230,15 +230,15 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         ];
 
         $httpClientMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
         $result = $subject->embeddings($text);
 
-        $this->assertInstanceOf(EmbeddingResponse::class, $result);
-        $this->assertCount(1536, $result->embeddings[0]);
-        $this->assertEquals('text-embedding-3-small', $result->model);
+        self::assertInstanceOf(EmbeddingResponse::class, $result);
+        self::assertCount(1536, $result->embeddings[0]);
+        self::assertEquals('text-embedding-3-small', $result->model);
     }
 
     #[Test]
@@ -262,7 +262,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $result = $this->subject->embeddings($texts);
 
-        $this->assertCount(2, $result->embeddings);
+        self::assertCount(2, $result->embeddings);
     }
 
     #[Test]
@@ -270,29 +270,29 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         $models = $this->subject->getAvailableModels();
 
-        $this->assertIsArray($models);
-        $this->assertNotEmpty($models);
+        self::assertIsArray($models);
+        self::assertNotEmpty($models);
         // Models are returned as key => label pairs
-        $this->assertArrayHasKey('gpt-5.2', $models);
-        $this->assertArrayHasKey('gpt-5.2-pro', $models);
+        self::assertArrayHasKey('gpt-5.2', $models);
+        self::assertArrayHasKey('gpt-5.2-pro', $models);
     }
 
     #[Test]
     public function supportsVisionReturnsTrue(): void
     {
-        $this->assertTrue($this->subject->supportsVision());
+        self::assertTrue($this->subject->supportsVision());
     }
 
     #[Test]
     public function supportsStreamingReturnsTrue(): void
     {
-        $this->assertTrue($this->subject->supportsStreaming());
+        self::assertTrue($this->subject->supportsStreaming());
     }
 
     #[Test]
     public function supportsToolsReturnsTrue(): void
     {
-        $this->assertTrue($this->subject->supportsTools());
+        self::assertTrue($this->subject->supportsTools());
     }
 
     #[Test]
@@ -311,10 +311,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $result = $this->subject->chatCompletion(
             [['role' => 'user', 'content' => 'test']],
-            ['temperature' => $temperature]
+            ['temperature' => $temperature],
         );
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
+        self::assertInstanceOf(CompletionResponse::class, $result);
     }
 
     public static function temperatureValidationProvider(): array
@@ -343,7 +343,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         // Provider returns empty content when no choices available
         $result = $this->subject->chatCompletion([['role' => 'user', 'content' => 'test']]);
 
-        $this->assertEquals('', $result->content);
+        self::assertEquals('', $result->content);
     }
 
     #[Test]
@@ -364,9 +364,9 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $result = $this->subject->chatCompletion(
             [['role' => 'user', 'content' => 'test']],
-            ['model' => $customModel]
+            ['model' => $customModel],
         );
 
-        $this->assertEquals($customModel, $result->model);
+        self::assertEquals($customModel, $result->model);
     }
 }

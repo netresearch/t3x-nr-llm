@@ -13,7 +13,6 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
 
 #[CoversClass(DeepLTranslator::class)]
@@ -29,7 +28,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         parent::setUp();
 
         $this->httpClientStub = $this->createHttpClientMock();
-        $this->usageTrackerStub = $this->createStub(UsageTrackerServiceInterface::class);
+        $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
 
         $this->defaultConfig = [
             'translators' => [
@@ -53,19 +52,19 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     #[Test]
     public function getIdentifierReturnsDeepL(): void
     {
-        $this->assertEquals('deepl', $this->subject->getIdentifier());
+        self::assertEquals('deepl', $this->subject->getIdentifier());
     }
 
     #[Test]
     public function getNameReturnsDeepLTranslation(): void
     {
-        $this->assertEquals('DeepL Translation', $this->subject->getName());
+        self::assertEquals('DeepL Translation', $this->subject->getName());
     }
 
     #[Test]
     public function isAvailableReturnsTrueWhenApiKeyConfigured(): void
     {
-        $this->assertTrue($this->subject->isAvailable());
+        self::assertTrue($this->subject->isAvailable());
     }
 
     #[Test]
@@ -88,7 +87,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
         );
 
-        $this->assertFalse($translator->isAvailable());
+        self::assertFalse($translator->isAvailable());
     }
 
     #[Test]
@@ -105,7 +104,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
         $httpClientMock = $this->createMock(ClientInterface::class);
         $httpClientMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
@@ -120,11 +119,11 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
         $result = $subject->translate('Hello World', 'de');
 
-        $this->assertInstanceOf(TranslatorResult::class, $result);
-        $this->assertEquals('Hallo Welt', $result->translatedText);
-        $this->assertEquals('en', $result->sourceLanguage);
-        $this->assertEquals('de', $result->targetLanguage);
-        $this->assertEquals('deepl', $result->translator);
+        self::assertInstanceOf(TranslatorResult::class, $result);
+        self::assertEquals('Hallo Welt', $result->translatedText);
+        self::assertEquals('en', $result->sourceLanguage);
+        self::assertEquals('de', $result->targetLanguage);
+        self::assertEquals('deepl', $result->translator);
     }
 
     #[Test]
@@ -141,7 +140,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
         $httpClientMock = $this->createMock(ClientInterface::class);
         $httpClientMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
@@ -156,8 +155,8 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
         $result = $subject->translate('Hello World', 'fr', 'en');
 
-        $this->assertEquals('Bonjour le monde', $result->translatedText);
-        $this->assertEquals('fr', $result->targetLanguage);
+        self::assertEquals('Bonjour le monde', $result->translatedText);
+        self::assertEquals('fr', $result->targetLanguage);
     }
 
     #[Test]
@@ -171,19 +170,19 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ],
         ];
 
-        $httpClientStub = $this->createStub(ClientInterface::class);
+        $httpClientStub = self::createStub(ClientInterface::class);
         $httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
         $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
         $usageTrackerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('trackUsage')
             ->with(
                 'translation',
                 'deepl',
-                $this->callback(fn(array $data) => $data['characters'] === mb_strlen($text))
+                self::callback(fn(array $data) => $data['characters'] === mb_strlen($text)),
             );
 
         $subject = new DeepLTranslator(
@@ -229,7 +228,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
         $httpClientMock = $this->createMock(ClientInterface::class);
         $httpClientMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
@@ -244,9 +243,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
         $results = $subject->translateBatch(['Hello', 'World'], 'de');
 
-        $this->assertCount(2, $results);
-        $this->assertEquals('Hallo', $results[0]->translatedText);
-        $this->assertEquals('Welt', $results[1]->translatedText);
+        self::assertCount(2, $results);
+        self::assertEquals('Hallo', $results[0]->translatedText);
+        self::assertEquals('Welt', $results[1]->translatedText);
     }
 
     #[Test]
@@ -254,7 +253,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     {
         $results = $this->subject->translateBatch([], 'de');
 
-        $this->assertEmpty($results);
+        self::assertEmpty($results);
     }
 
     #[Test]
@@ -262,11 +261,11 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     {
         $languages = $this->subject->getSupportedLanguages();
 
-        $this->assertIsArray($languages);
-        $this->assertNotEmpty($languages);
-        $this->assertContains('en', $languages);
-        $this->assertContains('de', $languages);
-        $this->assertContains('fr', $languages);
+        self::assertIsArray($languages);
+        self::assertNotEmpty($languages);
+        self::assertContains('en', $languages);
+        self::assertContains('de', $languages);
+        self::assertContains('fr', $languages);
     }
 
     #[Test]
@@ -284,7 +283,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
         $detected = $this->subject->detectLanguage('Hallo Welt, wie geht es dir?');
 
-        $this->assertEquals('de', $detected);
+        self::assertEquals('de', $detected);
     }
 
     #[Test]
@@ -292,11 +291,11 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     public function supportsLanguagePairValidatesCorrectly(
         string $source,
         string $target,
-        bool $expected
+        bool $expected,
     ): void {
         $result = $this->subject->supportsLanguagePair($source, $target);
 
-        $this->assertEquals($expected, $result);
+        self::assertEquals($expected, $result);
     }
 
     public static function languagePairProvider(): array
@@ -316,7 +315,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     {
         $result = $this->subject->supportsFormality($language);
 
-        $this->assertEquals($expected, $result);
+        self::assertEquals($expected, $result);
     }
 
     public static function formalityLanguageProvider(): array
@@ -345,8 +344,8 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
         $usage = $this->subject->getUsage();
 
-        $this->assertEquals(50000, $usage['character_count']);
-        $this->assertEquals(500000, $usage['character_limit']);
+        self::assertEquals(50000, $usage['character_count']);
+        self::assertEquals(500000, $usage['character_limit']);
     }
 
     #[Test]
@@ -369,8 +368,8 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
         $glossaries = $this->subject->getGlossaries();
 
-        $this->assertCount(1, $glossaries);
-        $this->assertEquals('gls_123', $glossaries[0]['glossary_id']);
+        self::assertCount(1, $glossaries);
+        self::assertEquals('gls_123', $glossaries[0]['glossary_id']);
     }
 
     #[Test]
@@ -441,8 +440,8 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
         $result = $this->subject->translate('Hello', 'de');
 
-        $this->assertArrayHasKey('detected_source_language', $result->metadata);
-        $this->assertArrayHasKey('billed_characters', $result->metadata);
+        self::assertArrayHasKey('detected_source_language', $result->metadata);
+        self::assertArrayHasKey('billed_characters', $result->metadata);
     }
 
     #[Test]
@@ -460,6 +459,6 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
         $result = $this->subject->translate('Hello', 'de');
 
-        $this->assertEquals(0.95, $result->confidence);
+        self::assertEquals(0.95, $result->confidence);
     }
 }

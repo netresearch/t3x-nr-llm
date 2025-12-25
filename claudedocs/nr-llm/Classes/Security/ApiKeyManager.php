@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Security;
 
 use Doctrine\DBAL\Exception;
+use InvalidArgumentException;
+use RuntimeException;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
-use TYPO3\CMS\Core\Crypto\PasswordHashing\InvalidPasswordHashException;
-use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\SingletonInterface;
+use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * Secure API key storage and retrieval with AES-256-GCM encryption
+ * Secure API key storage and retrieval with AES-256-GCM encryption.
  *
  * Security Features:
  * - AES-256-GCM authenticated encryption
@@ -37,7 +38,7 @@ class ApiKeyManager implements SingletonInterface
 
     public function __construct(
         ?ConnectionPool $connectionPool = null,
-        ?AuditLogger $auditLogger = null
+        ?AuditLogger $auditLogger = null,
     ) {
         $this->connectionPool = $connectionPool ?? GeneralUtility::makeInstance(ConnectionPool::class);
         $this->auditLogger = $auditLogger ?? GeneralUtility::makeInstance(AuditLogger::class);
@@ -46,38 +47,39 @@ class ApiKeyManager implements SingletonInterface
         $this->pepper = $GLOBALS['TYPO3_CONF_VARS']['SYS']['nrllm_encryption_pepper'] ?? '';
 
         if (empty($this->pepper)) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'Missing encryption pepper. Set $GLOBALS[\'TYPO3_CONF_VARS\'][\'SYS\'][\'nrllm_encryption_pepper\']',
-                1703001000
+                1703001000,
             );
         }
     }
 
     /**
-     * Store an API key securely with encryption
+     * Store an API key securely with encryption.
      *
      * @param string $provider Provider identifier (e.g., 'openai', 'anthropic')
-     * @param string $key Plain text API key
-     * @param string $scope Scope identifier ('global', site identifier, or user ID)
-     * @param array $metadata Additional metadata (e.g., environment, description)
+     * @param string $key      Plain text API key
+     * @param string $scope    Scope identifier ('global', site identifier, or user ID)
+     * @param array  $metadata Additional metadata (e.g., environment, description)
+     *
      * @throws Exception
-     * @throws \RuntimeException
+     * @throws RuntimeException
      */
     public function store(
         string $provider,
         string $key,
         string $scope = 'global',
-        array $metadata = []
+        array $metadata = [],
     ): void {
         if (empty($provider) || empty($key)) {
-            throw new \InvalidArgumentException('Provider and key must not be empty', 1703001001);
+            throw new InvalidArgumentException('Provider and key must not be empty', 1703001001);
         }
 
         // Validate key format before encryption
         if (!$this->validateKeyFormat($provider, $key)) {
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 "Invalid API key format for provider: {$provider}",
-                1703001002
+                1703001002,
             );
         }
 
@@ -105,7 +107,7 @@ class ApiKeyManager implements SingletonInterface
             $connection->update(
                 self::TABLE_NAME,
                 $data,
-                ['uid' => $existing['uid']]
+                ['uid' => $existing['uid']],
             );
 
             $this->auditLogger->logKeyRotation($provider, $scope, $existing['uid']);
@@ -114,17 +116,19 @@ class ApiKeyManager implements SingletonInterface
             $data['crdate'] = time();
             $connection->insert(self::TABLE_NAME, $data);
 
-            $this->auditLogger->logKeyCreation($provider, $scope, (int) $connection->lastInsertId());
+            $this->auditLogger->logKeyCreation($provider, $scope, (int)$connection->lastInsertId());
         }
     }
 
     /**
-     * Retrieve and decrypt an API key
+     * Retrieve and decrypt an API key.
      *
      * @param string $provider Provider identifier
-     * @param string $scope Scope identifier
-     * @return string|null Decrypted API key or null if not found
+     * @param string $scope    Scope identifier
+     *
      * @throws Exception
+     *
+     * @return string|null Decrypted API key or null if not found
      */
     public function retrieve(string $provider, string $scope = 'global'): ?string
     {
@@ -140,29 +144,30 @@ class ApiKeyManager implements SingletonInterface
                 $record['encrypted_key'],
                 $record['encryption_iv'],
                 $record['encryption_tag'],
-                $this->buildContext($provider, $scope)
+                $this->buildContext($provider, $scope),
             );
 
             $this->auditLogger->logKeyAccess($provider, $scope, $record['uid']);
 
             return $decrypted;
-        } catch (\RuntimeException $e) {
+        } catch (RuntimeException $e) {
             $this->auditLogger->logKeyAccessAttempt(
                 $provider,
                 $scope,
                 false,
-                'Decryption failed: ' . $e->getMessage()
+                'Decryption failed: ' . $e->getMessage(),
             );
             throw $e;
         }
     }
 
     /**
-     * Rotate an existing API key
+     * Rotate an existing API key.
      *
      * @param string $provider Provider identifier
-     * @param string $newKey New API key
-     * @param string $scope Scope identifier
+     * @param string $newKey   New API key
+     * @param string $scope    Scope identifier
+     *
      * @throws Exception
      */
     public function rotate(string $provider, string $newKey, string $scope = 'global'): void
@@ -170,7 +175,7 @@ class ApiKeyManager implements SingletonInterface
         $existing = $this->findKey($provider, $scope);
 
         if (!$existing) {
-            throw new \RuntimeException("Cannot rotate: Key not found for {$provider}/{$scope}", 1703001003);
+            throw new RuntimeException("Cannot rotate: Key not found for {$provider}/{$scope}", 1703001003);
         }
 
         // Store with updated timestamp
@@ -181,10 +186,11 @@ class ApiKeyManager implements SingletonInterface
     }
 
     /**
-     * Validate API key format for a provider
+     * Validate API key format for a provider.
      *
      * @param string $provider Provider identifier
-     * @param string $key API key to validate
+     * @param string $key      API key to validate
+     *
      * @return bool True if valid format
      */
     public function validate(string $provider, string $key): bool
@@ -193,10 +199,11 @@ class ApiKeyManager implements SingletonInterface
     }
 
     /**
-     * Delete an API key
+     * Delete an API key.
      *
      * @param string $provider Provider identifier
-     * @param string $scope Scope identifier
+     * @param string $scope    Scope identifier
+     *
      * @throws Exception
      */
     public function delete(string $provider, string $scope = 'global'): void
@@ -207,7 +214,7 @@ class ApiKeyManager implements SingletonInterface
             $connection = $this->connectionPool->getConnectionForTable(self::TABLE_NAME);
             $connection->delete(
                 self::TABLE_NAME,
-                ['uid' => $record['uid']]
+                ['uid' => $record['uid']],
             );
 
             $this->auditLogger->logKeyDeletion($provider, $scope, $record['uid']);
@@ -215,9 +222,10 @@ class ApiKeyManager implements SingletonInterface
     }
 
     /**
-     * List all stored API keys (without decrypting)
+     * List all stored API keys (without decrypting).
      *
      * @param string|null $scope Filter by scope
+     *
      * @return array Array of key metadata
      */
     public function listKeys(?string $scope = null): array
@@ -231,7 +239,7 @@ class ApiKeyManager implements SingletonInterface
 
         if ($scope !== null) {
             $queryBuilder->where(
-                $queryBuilder->expr()->eq('scope', $queryBuilder->createNamedParameter($scope))
+                $queryBuilder->expr()->eq('scope', $queryBuilder->createNamedParameter($scope)),
             );
         }
 
@@ -239,10 +247,11 @@ class ApiKeyManager implements SingletonInterface
     }
 
     /**
-     * Check if a key exists for provider/scope
+     * Check if a key exists for provider/scope.
      *
      * @param string $provider Provider identifier
-     * @param string $scope Scope identifier
+     * @param string $scope    Scope identifier
+     *
      * @return bool True if key exists
      */
     public function hasKey(string $provider, string $scope = 'global'): bool
@@ -251,12 +260,14 @@ class ApiKeyManager implements SingletonInterface
     }
 
     /**
-     * Encrypt data with AES-256-GCM
+     * Encrypt data with AES-256-GCM.
      *
      * @param string $plaintext Data to encrypt
-     * @param string $context Additional authenticated data (AAD)
+     * @param string $context   Additional authenticated data (AAD)
+     *
+     * @throws RuntimeException
+     *
      * @return array ['ciphertext', 'iv', 'tag']
-     * @throws \RuntimeException
      */
     private function encrypt(string $plaintext, string $context): array
     {
@@ -272,11 +283,11 @@ class ApiKeyManager implements SingletonInterface
             $iv,
             $tag,
             $context, // Additional authenticated data
-            self::TAG_LENGTH
+            self::TAG_LENGTH,
         );
 
         if ($ciphertext === false) {
-            throw new \RuntimeException('Encryption failed: ' . openssl_error_string(), 1703001004);
+            throw new RuntimeException('Encryption failed: ' . openssl_error_string(), 1703001004);
         }
 
         // Securely wipe key from memory
@@ -290,14 +301,16 @@ class ApiKeyManager implements SingletonInterface
     }
 
     /**
-     * Decrypt data with AES-256-GCM
+     * Decrypt data with AES-256-GCM.
      *
      * @param string $ciphertext Base64-encoded ciphertext
-     * @param string $iv Base64-encoded initialization vector
-     * @param string $tag Base64-encoded authentication tag
-     * @param string $context Additional authenticated data (AAD)
+     * @param string $iv         Base64-encoded initialization vector
+     * @param string $tag        Base64-encoded authentication tag
+     * @param string $context    Additional authenticated data (AAD)
+     *
+     * @throws RuntimeException
+     *
      * @return string Decrypted plaintext
-     * @throws \RuntimeException
      */
     private function decrypt(string $ciphertext, string $iv, string $tag, string $context): string
     {
@@ -310,16 +323,16 @@ class ApiKeyManager implements SingletonInterface
             OPENSSL_RAW_DATA,
             base64_decode($iv),
             base64_decode($tag),
-            $context // Additional authenticated data
+            $context, // Additional authenticated data
         );
 
         // Securely wipe key from memory
         sodium_memzero($key);
 
         if ($plaintext === false) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'Decryption failed: Invalid ciphertext or authentication tag',
-                1703001005
+                1703001005,
             );
         }
 
@@ -327,11 +340,13 @@ class ApiKeyManager implements SingletonInterface
     }
 
     /**
-     * Derive encryption key from TYPO3 encryptionKey using PBKDF2
+     * Derive encryption key from TYPO3 encryptionKey using PBKDF2.
      *
      * @param string $context Context for key derivation (provider + scope)
+     *
+     * @throws RuntimeException
+     *
      * @return string Derived key
-     * @throws \RuntimeException
      */
     private function getDerivedKey(string $context): string
     {
@@ -339,11 +354,11 @@ class ApiKeyManager implements SingletonInterface
             $this->encryptionKey = $GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'] ?? '';
 
             if (empty($this->encryptionKey)) {
-                throw new \RuntimeException('TYPO3 encryptionKey is not configured', 1703001006);
+                throw new RuntimeException('TYPO3 encryptionKey is not configured', 1703001006);
             }
 
             if (strlen($this->encryptionKey) < 96) {
-                throw new \RuntimeException('TYPO3 encryptionKey is too short (min 96 chars)', 1703001007);
+                throw new RuntimeException('TYPO3 encryptionKey is too short (min 96 chars)', 1703001007);
             }
         }
 
@@ -356,15 +371,16 @@ class ApiKeyManager implements SingletonInterface
             $salt,
             self::PBKDF2_ITERATIONS,
             self::KEY_LENGTH,
-            true
+            true,
         );
     }
 
     /**
-     * Build encryption context from provider and scope
+     * Build encryption context from provider and scope.
      *
      * @param string $provider Provider identifier
-     * @param string $scope Scope identifier
+     * @param string $scope    Scope identifier
+     *
      * @return string Context string for authenticated encryption
      */
     private function buildContext(string $provider, string $scope): string
@@ -373,10 +389,11 @@ class ApiKeyManager implements SingletonInterface
     }
 
     /**
-     * Find a stored key by provider and scope
+     * Find a stored key by provider and scope.
      *
      * @param string $provider Provider identifier
-     * @param string $scope Scope identifier
+     * @param string $scope    Scope identifier
+     *
      * @return array|null Key record or null
      */
     private function findKey(string $provider, string $scope): ?array
@@ -388,7 +405,7 @@ class ApiKeyManager implements SingletonInterface
             ->from(self::TABLE_NAME)
             ->where(
                 $queryBuilder->expr()->eq('provider', $queryBuilder->createNamedParameter($provider)),
-                $queryBuilder->expr()->eq('scope', $queryBuilder->createNamedParameter($scope))
+                $queryBuilder->expr()->eq('scope', $queryBuilder->createNamedParameter($scope)),
             )
             ->setMaxResults(1)
             ->executeQuery()
@@ -398,10 +415,11 @@ class ApiKeyManager implements SingletonInterface
     }
 
     /**
-     * Validate API key format for specific providers
+     * Validate API key format for specific providers.
      *
      * @param string $provider Provider identifier
-     * @param string $key API key to validate
+     * @param string $key      API key to validate
+     *
      * @return bool True if format is valid
      */
     private function validateKeyFormat(string $provider, string $key): bool
@@ -424,9 +442,7 @@ class ApiKeyManager implements SingletonInterface
     }
 
     /**
-     * Get a fresh query builder instance
-     *
-     * @return QueryBuilder
+     * Get a fresh query builder instance.
      */
     private function getQueryBuilder(): QueryBuilder
     {
@@ -434,7 +450,7 @@ class ApiKeyManager implements SingletonInterface
     }
 
     /**
-     * Cleanup method to ensure sensitive data is wiped from memory
+     * Cleanup method to ensure sensitive data is wiped from memory.
      */
     public function __destruct()
     {

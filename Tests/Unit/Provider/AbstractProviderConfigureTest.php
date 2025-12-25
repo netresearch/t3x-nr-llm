@@ -10,6 +10,7 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionClass;
 
 /**
  * Tests for AbstractProvider::configure() method to kill escaped mutants.
@@ -32,10 +33,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
         ]);
 
         // Access the timeout via reflection to verify default
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $timeout = $reflection->getProperty('timeout');
 
-        $this->assertEquals(30, $timeout->getValue($provider));
+        self::assertEquals(30, $timeout->getValue($provider));
     }
 
     #[Test]
@@ -52,10 +53,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             'apiKey' => $this->randomApiKey(),
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $maxRetries = $reflection->getProperty('maxRetries');
 
-        $this->assertEquals(3, $maxRetries->getValue($provider));
+        self::assertEquals(3, $maxRetries->getValue($provider));
     }
 
     #[Test]
@@ -73,10 +74,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             'timeout' => 60,
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $timeout = $reflection->getProperty('timeout');
 
-        $this->assertEquals(60, $timeout->getValue($provider));
+        self::assertEquals(60, $timeout->getValue($provider));
     }
 
     #[Test]
@@ -94,10 +95,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             'maxRetries' => 5,
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $maxRetries = $reflection->getProperty('maxRetries');
 
-        $this->assertEquals(5, $maxRetries->getValue($provider));
+        self::assertEquals(5, $maxRetries->getValue($provider));
     }
 
     #[Test]
@@ -132,10 +133,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             'baseUrl' => $customBaseUrl,
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');
 
-        $this->assertEquals($customBaseUrl, $baseUrl->getValue($provider));
+        self::assertEquals($customBaseUrl, $baseUrl->getValue($provider));
     }
 
     #[Test]
@@ -152,12 +153,12 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             'apiKey' => $this->randomApiKey(),
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');
 
         // GeminiProvider has a specific default base URL
-        $this->assertNotEmpty($baseUrl->getValue($provider));
-        $this->assertStringContainsString('generativelanguage.googleapis.com', $baseUrl->getValue($provider));
+        self::assertNotEmpty($baseUrl->getValue($provider));
+        self::assertStringContainsString('generativelanguage.googleapis.com', $baseUrl->getValue($provider));
     }
 
     #[Test]
@@ -176,7 +177,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             'defaultModel' => $customModel,
         ]);
 
-        $this->assertEquals($customModel, $provider->getDefaultModel());
+        self::assertEquals($customModel, $provider->getDefaultModel());
     }
 
     #[Test]
@@ -194,7 +195,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
         ]);
 
         // Should use provider's default model
-        $this->assertNotEmpty($provider->getDefaultModel());
+        self::assertNotEmpty($provider->getDefaultModel());
     }
 
     #[Test]
@@ -213,10 +214,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             'timeout' => $timeout,
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $timeoutProp = $reflection->getProperty('timeout');
 
-        $this->assertEquals($timeout, $timeoutProp->getValue($provider));
+        self::assertEquals($timeout, $timeoutProp->getValue($provider));
     }
 
     public static function timeoutValuesProvider(): array
@@ -246,10 +247,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             'maxRetries' => $maxRetries,
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $maxRetriesProp = $reflection->getProperty('maxRetries');
 
-        $this->assertEquals($maxRetries, $maxRetriesProp->getValue($provider));
+        self::assertEquals($maxRetries, $maxRetriesProp->getValue($provider));
     }
 
     public static function maxRetriesValuesProvider(): array

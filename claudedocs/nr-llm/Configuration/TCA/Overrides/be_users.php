@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Add LLM permissions to backend users
+ * Add LLM permissions to backend users.
  */
 
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
@@ -40,5 +40,5 @@ ExtensionManagementUtility::addToAllTCAtypes(
     'be_users',
     '--div--;LLM,tx_nrllm_permissions,tx_nrllm_quota_override',
     '',
-    'after:TSconfig'
+    'after:TSconfig',
 );

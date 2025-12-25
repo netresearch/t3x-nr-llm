@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 /**
- * Token usage information
+ * Token usage information.
  *
  * @api This class is part of the public API
  */
@@ -14,11 +14,11 @@ class TokenUsage
     public function __construct(
         private int $promptTokens,
         private int $completionTokens,
-        private int $totalTokens
+        private int $totalTokens,
     ) {}
 
     /**
-     * Get prompt tokens
+     * Get prompt tokens.
      */
     public function getPromptTokens(): int
     {
@@ -26,7 +26,7 @@ class TokenUsage
     }
 
     /**
-     * Get completion tokens
+     * Get completion tokens.
      */
     public function getCompletionTokens(): int
     {
@@ -34,7 +34,7 @@ class TokenUsage
     }
 
     /**
-     * Get total tokens
+     * Get total tokens.
      */
     public function getTotalTokens(): int
     {
@@ -42,7 +42,7 @@ class TokenUsage
     }
 
     /**
-     * Convert to array
+     * Convert to array.
      */
     public function toArray(): array
     {

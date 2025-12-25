@@ -25,11 +25,11 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
             format: 'b64_json',
         );
 
-        $this->assertEquals('dall-e-3', $options->model);
-        $this->assertEquals('1024x1024', $options->size);
-        $this->assertEquals('hd', $options->quality);
-        $this->assertEquals('vivid', $options->style);
-        $this->assertEquals('b64_json', $options->format);
+        self::assertEquals('dall-e-3', $options->model);
+        self::assertEquals('1024x1024', $options->size);
+        self::assertEquals('hd', $options->quality);
+        self::assertEquals('vivid', $options->style);
+        self::assertEquals('b64_json', $options->format);
     }
 
     #[Test]
@@ -37,11 +37,11 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = new ImageGenerationOptions();
 
-        $this->assertEquals('dall-e-3', $options->model);
-        $this->assertEquals('1024x1024', $options->size);
-        $this->assertEquals('standard', $options->quality);
-        $this->assertEquals('vivid', $options->style);
-        $this->assertEquals('url', $options->format);
+        self::assertEquals('dall-e-3', $options->model);
+        self::assertEquals('1024x1024', $options->size);
+        self::assertEquals('standard', $options->quality);
+        self::assertEquals('vivid', $options->style);
+        self::assertEquals('url', $options->format);
     }
 
     #[Test]
@@ -50,7 +50,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = new ImageGenerationOptions(model: 'dall-e-3', size: $size);
 
-        $this->assertEquals($size, $options->size);
+        self::assertEquals($size, $options->size);
     }
 
     public static function validDalle3SizeProvider(): array
@@ -68,7 +68,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = new ImageGenerationOptions(model: 'dall-e-2', size: $size);
 
-        $this->assertEquals($size, $options->size);
+        self::assertEquals($size, $options->size);
     }
 
     public static function validDalle2SizeProvider(): array
@@ -104,7 +104,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = new ImageGenerationOptions(quality: $quality);
 
-        $this->assertEquals($quality, $options->quality);
+        self::assertEquals($quality, $options->quality);
     }
 
     public static function validQualityProvider(): array
@@ -130,7 +130,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = new ImageGenerationOptions(style: $style);
 
-        $this->assertEquals($style, $options->style);
+        self::assertEquals($style, $options->style);
     }
 
     public static function validStyleProvider(): array
@@ -156,7 +156,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = new ImageGenerationOptions(format: $format);
 
-        $this->assertEquals($format, $options->format);
+        self::assertEquals($format, $options->format);
     }
 
     public static function validFormatProvider(): array
@@ -182,7 +182,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = new ImageGenerationOptions(model: $model);
 
-        $this->assertEquals($model, $options->model);
+        self::assertEquals($model, $options->model);
     }
 
     public static function validModelProvider(): array
@@ -215,11 +215,11 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
 
         $array = $options->toArray();
 
-        $this->assertEquals('dall-e-3', $array['model']);
-        $this->assertEquals('1792x1024', $array['size']);
-        $this->assertEquals('hd', $array['quality']);
-        $this->assertEquals('natural', $array['style']);
-        $this->assertEquals('b64_json', $array['response_format']);
+        self::assertEquals('dall-e-3', $array['model']);
+        self::assertEquals('1792x1024', $array['size']);
+        self::assertEquals('hd', $array['quality']);
+        self::assertEquals('natural', $array['style']);
+        self::assertEquals('b64_json', $array['response_format']);
     }
 
     #[Test]
@@ -235,11 +235,11 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
 
         $options = ImageGenerationOptions::fromArray($array);
 
-        $this->assertEquals('dall-e-3', $options->model);
-        $this->assertEquals('1024x1792', $options->size);
-        $this->assertEquals('hd', $options->quality);
-        $this->assertEquals('natural', $options->style);
-        $this->assertEquals('b64_json', $options->format);
+        self::assertEquals('dall-e-3', $options->model);
+        self::assertEquals('1024x1792', $options->size);
+        self::assertEquals('hd', $options->quality);
+        self::assertEquals('natural', $options->style);
+        self::assertEquals('b64_json', $options->format);
     }
 
     #[Test]
@@ -251,7 +251,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
 
         $options = ImageGenerationOptions::fromArray($array);
 
-        $this->assertEquals('b64_json', $options->format);
+        self::assertEquals('b64_json', $options->format);
     }
 
     #[Test]
@@ -259,7 +259,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = ImageGenerationOptions::landscape();
 
-        $this->assertEquals('1792x1024', $options->size);
+        self::assertEquals('1792x1024', $options->size);
     }
 
     #[Test]
@@ -267,7 +267,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = ImageGenerationOptions::portrait();
 
-        $this->assertEquals('1024x1792', $options->size);
+        self::assertEquals('1024x1792', $options->size);
     }
 
     #[Test]
@@ -275,7 +275,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = ImageGenerationOptions::hd();
 
-        $this->assertEquals('hd', $options->quality);
+        self::assertEquals('hd', $options->quality);
     }
 
     #[Test]
@@ -283,8 +283,8 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = ImageGenerationOptions::hd('1792x1024');
 
-        $this->assertEquals('hd', $options->quality);
-        $this->assertEquals('1792x1024', $options->size);
+        self::assertEquals('hd', $options->quality);
+        self::assertEquals('1792x1024', $options->size);
     }
 
     #[Test]
@@ -292,7 +292,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $options = ImageGenerationOptions::natural();
 
-        $this->assertEquals('natural', $options->style);
+        self::assertEquals('natural', $options->style);
     }
 
     #[Test]
@@ -300,10 +300,10 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $sizes = ImageGenerationOptions::getValidSizes('dall-e-3');
 
-        $this->assertContains('1024x1024', $sizes);
-        $this->assertContains('1792x1024', $sizes);
-        $this->assertContains('1024x1792', $sizes);
-        $this->assertNotContains('256x256', $sizes);
+        self::assertContains('1024x1024', $sizes);
+        self::assertContains('1792x1024', $sizes);
+        self::assertContains('1024x1792', $sizes);
+        self::assertNotContains('256x256', $sizes);
     }
 
     #[Test]
@@ -311,10 +311,10 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $sizes = ImageGenerationOptions::getValidSizes('dall-e-2');
 
-        $this->assertContains('256x256', $sizes);
-        $this->assertContains('512x512', $sizes);
-        $this->assertContains('1024x1024', $sizes);
-        $this->assertNotContains('1792x1024', $sizes);
+        self::assertContains('256x256', $sizes);
+        self::assertContains('512x512', $sizes);
+        self::assertContains('1024x1024', $sizes);
+        self::assertNotContains('1792x1024', $sizes);
     }
 
     #[Test]
@@ -322,7 +322,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         $sizes = ImageGenerationOptions::getValidSizes();
 
-        $this->assertContains('1792x1024', $sizes);
+        self::assertContains('1792x1024', $sizes);
     }
 
     #[Test]
@@ -331,10 +331,10 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         $options = new ImageGenerationOptions();
 
         // Verify readonly properties are accessible
-        $this->assertIsString($options->model);
-        $this->assertIsString($options->size);
-        $this->assertIsString($options->quality);
-        $this->assertIsString($options->style);
-        $this->assertIsString($options->format);
+        self::assertIsString($options->model);
+        self::assertIsString($options->size);
+        self::assertIsString($options->quality);
+        self::assertIsString($options->style);
+        self::assertIsString($options->format);
     }
 }

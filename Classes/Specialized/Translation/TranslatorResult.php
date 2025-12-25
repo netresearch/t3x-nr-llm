@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized\Translation;
 
 /**
- * Result from specialized translators (DeepL, Google, etc.)
+ * Result from specialized translators (DeepL, Google, etc.).
  *
  * Note: This is separate from Domain\Model\TranslationResult which is
  * used by LLM-based translation and includes UsageStatistics.
@@ -13,7 +13,7 @@ namespace Netresearch\NrLlm\Specialized\Translation;
 final readonly class TranslatorResult
 {
     /**
-     * @param array<int, string>|null $alternatives
+     * @param array<int, string>|null   $alternatives
      * @param array<string, mixed>|null $metadata
      */
     public function __construct(

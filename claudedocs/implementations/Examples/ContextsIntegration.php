@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Netresearch\Contexts\Service;
 
-use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Exception\LlmException;
+use Netresearch\NrLlm\Service\LlmServiceManager;
 use Psr\Log\LoggerInterface;
 
 /**
- * Contexts Extension AI Service Integration Example
+ * Contexts Extension AI Service Integration Example.
  *
  * Shows how contexts extension uses LlmServiceManager for:
  * - Natural language rule generation
@@ -20,13 +20,14 @@ class ContextAiService
 {
     public function __construct(
         private readonly LlmServiceManager $llm,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
     ) {}
 
     /**
-     * Generate context rules from natural language
+     * Generate context rules from natural language.
      *
      * @param string $naturalLanguageDescription User's natural language input
+     *
      * @return array Generated rule configuration
      */
     public function generateRule(string $naturalLanguageDescription): array
@@ -66,10 +67,11 @@ class ContextAiService
     }
 
     /**
-     * Validate context rule and detect conflicts
+     * Validate context rule and detect conflicts.
      *
      * @param string $ruleExpression Rule expression to validate
-     * @param array $existingRules Existing rules in system
+     * @param array  $existingRules  Existing rules in system
+     *
      * @return array Validation report
      */
     public function validateRule(string $ruleExpression, array $existingRules = []): array
@@ -121,10 +123,11 @@ class ContextAiService
     }
 
     /**
-     * Suggest contexts based on page content
+     * Suggest contexts based on page content.
      *
-     * @param int $pageUid Page UID
+     * @param int    $pageUid     Page UID
      * @param string $pageContent Page content for analysis
+     *
      * @return array Context suggestions
      */
     public function suggestContexts(int $pageUid, string $pageContent): array
@@ -186,15 +189,16 @@ class ContextAiService
     }
 
     /**
-     * Generate human-readable documentation for complex rules
+     * Generate human-readable documentation for complex rules.
      *
-     * @param string $ruleExpression Rule expression
-     * @param array $contextDefinitions Context definitions
+     * @param string $ruleExpression     Rule expression
+     * @param array  $contextDefinitions Context definitions
+     *
      * @return string Human-readable documentation
      */
     public function generateDocumentation(
         string $ruleExpression,
-        array $contextDefinitions
+        array $contextDefinitions,
     ): string {
         $prompt = <<<PROMPT
             Generate clear, non-technical documentation for this TYPO3 contexts rule:
@@ -230,7 +234,7 @@ class ContextAiService
     }
 
     /**
-     * Build rule generation prompt with context
+     * Build rule generation prompt with context.
      */
     private function buildRuleGenerationPrompt(string $description): string
     {
@@ -267,7 +271,7 @@ class ContextAiService
     }
 
     /**
-     * Format existing rules for prompt
+     * Format existing rules for prompt.
      */
     private function formatExistingRules(array $rules): string
     {
@@ -284,7 +288,7 @@ class ContextAiService
     }
 
     /**
-     * Format context definitions for prompt
+     * Format context definitions for prompt.
      */
     private function formatContextDefinitions(array $definitions): string
     {

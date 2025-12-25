@@ -27,13 +27,13 @@ class DeepLOptionsTest extends AbstractUnitTestCase
             nonSplittingTags: ['span'],
         );
 
-        $this->assertEquals('more', $options->formality);
-        $this->assertEquals('gls_123', $options->glossaryId);
-        $this->assertTrue($options->preserveFormatting);
-        $this->assertFalse($options->splitSentences);
-        $this->assertEquals('html', $options->tagHandling);
-        $this->assertEquals(['code', 'pre'], $options->ignoreTags);
-        $this->assertEquals(['span'], $options->nonSplittingTags);
+        self::assertEquals('more', $options->formality);
+        self::assertEquals('gls_123', $options->glossaryId);
+        self::assertTrue($options->preserveFormatting);
+        self::assertFalse($options->splitSentences);
+        self::assertEquals('html', $options->tagHandling);
+        self::assertEquals(['code', 'pre'], $options->ignoreTags);
+        self::assertEquals(['span'], $options->nonSplittingTags);
     }
 
     #[Test]
@@ -41,7 +41,7 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     {
         $options = new DeepLOptions();
 
-        $this->assertEquals('default', $options->formality);
+        self::assertEquals('default', $options->formality);
     }
 
     #[Test]
@@ -50,7 +50,7 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     {
         $options = new DeepLOptions(formality: $formality);
 
-        $this->assertEquals($formality, $options->formality);
+        self::assertEquals($formality, $options->formality);
     }
 
     public static function validFormalityProvider(): array
@@ -79,7 +79,7 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     {
         $options = new DeepLOptions(tagHandling: $tagHandling);
 
-        $this->assertEquals($tagHandling, $options->tagHandling);
+        self::assertEquals($tagHandling, $options->tagHandling);
     }
 
     public static function validTagHandlingProvider(): array
@@ -106,9 +106,9 @@ class DeepLOptionsTest extends AbstractUnitTestCase
 
         $array = $options->toArray();
 
-        $this->assertArrayHasKey('formality', $array);
-        $this->assertArrayNotHasKey('glossary_id', $array);
-        $this->assertArrayNotHasKey('preserve_formatting', $array);
+        self::assertArrayHasKey('formality', $array);
+        self::assertArrayNotHasKey('glossary_id', $array);
+        self::assertArrayNotHasKey('preserve_formatting', $array);
     }
 
     #[Test]
@@ -125,12 +125,12 @@ class DeepLOptionsTest extends AbstractUnitTestCase
 
         $array = $options->toArray();
 
-        $this->assertArrayHasKey('glossary_id', $array);
-        $this->assertArrayHasKey('preserve_formatting', $array);
-        $this->assertArrayHasKey('split_sentences', $array);
-        $this->assertArrayHasKey('tag_handling', $array);
-        $this->assertArrayHasKey('ignore_tags', $array);
-        $this->assertArrayHasKey('non_splitting_tags', $array);
+        self::assertArrayHasKey('glossary_id', $array);
+        self::assertArrayHasKey('preserve_formatting', $array);
+        self::assertArrayHasKey('split_sentences', $array);
+        self::assertArrayHasKey('tag_handling', $array);
+        self::assertArrayHasKey('ignore_tags', $array);
+        self::assertArrayHasKey('non_splitting_tags', $array);
     }
 
     #[Test]
@@ -148,13 +148,13 @@ class DeepLOptionsTest extends AbstractUnitTestCase
 
         $options = DeepLOptions::fromArray($array);
 
-        $this->assertEquals('less', $options->formality);
-        $this->assertEquals('gls_456', $options->glossaryId);
-        $this->assertTrue($options->preserveFormatting);
-        $this->assertFalse($options->splitSentences);
-        $this->assertEquals('xml', $options->tagHandling);
-        $this->assertEquals(['code'], $options->ignoreTags);
-        $this->assertEquals(['em'], $options->nonSplittingTags);
+        self::assertEquals('less', $options->formality);
+        self::assertEquals('gls_456', $options->glossaryId);
+        self::assertTrue($options->preserveFormatting);
+        self::assertFalse($options->splitSentences);
+        self::assertEquals('xml', $options->tagHandling);
+        self::assertEquals(['code'], $options->ignoreTags);
+        self::assertEquals(['em'], $options->nonSplittingTags);
     }
 
     #[Test]
@@ -171,9 +171,9 @@ class DeepLOptionsTest extends AbstractUnitTestCase
 
         $options = DeepLOptions::fromArray($array);
 
-        $this->assertEquals('gls_789', $options->glossaryId);
-        $this->assertFalse($options->preserveFormatting);
-        $this->assertTrue($options->splitSentences);
+        self::assertEquals('gls_789', $options->glossaryId);
+        self::assertFalse($options->preserveFormatting);
+        self::assertTrue($options->splitSentences);
     }
 
     #[Test]
@@ -181,7 +181,7 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     {
         $options = DeepLOptions::formal();
 
-        $this->assertEquals('more', $options->formality);
+        self::assertEquals('more', $options->formality);
     }
 
     #[Test]
@@ -189,7 +189,7 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     {
         $options = DeepLOptions::informal();
 
-        $this->assertEquals('less', $options->formality);
+        self::assertEquals('less', $options->formality);
     }
 
     #[Test]
@@ -197,8 +197,8 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     {
         $options = DeepLOptions::html();
 
-        $this->assertEquals('html', $options->tagHandling);
-        $this->assertTrue($options->preserveFormatting);
+        self::assertEquals('html', $options->tagHandling);
+        self::assertTrue($options->preserveFormatting);
     }
 
     #[Test]
@@ -206,8 +206,8 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     {
         $options = DeepLOptions::xml();
 
-        $this->assertEquals('xml', $options->tagHandling);
-        $this->assertTrue($options->preserveFormatting);
+        self::assertEquals('xml', $options->tagHandling);
+        self::assertTrue($options->preserveFormatting);
     }
 
     #[Test]
@@ -215,7 +215,7 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     {
         $options = DeepLOptions::withGlossary('gls_abc123');
 
-        $this->assertEquals('gls_abc123', $options->glossaryId);
+        self::assertEquals('gls_abc123', $options->glossaryId);
     }
 
     #[Test]
@@ -223,7 +223,7 @@ class DeepLOptionsTest extends AbstractUnitTestCase
     {
         $options = new DeepLOptions(formality: null);
 
-        $this->assertNull($options->formality);
+        self::assertNull($options->formality);
     }
 
     #[Test]
@@ -232,6 +232,6 @@ class DeepLOptionsTest extends AbstractUnitTestCase
         $options = new DeepLOptions(formality: 'more');
 
         // Verify readonly property is accessible
-        $this->assertEquals('more', $options->formality);
+        self::assertEquals('more', $options->formality);
     }
 }

@@ -23,7 +23,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
 {
     private function createMockResponse(
         string $content,
-        string $finishReason = 'stop'
+        string $finishReason = 'stop',
     ): CompletionResponse {
         return new CompletionResponse(
             content: $content,
@@ -39,14 +39,14 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->willReturn($this->createMockResponse('Response'));
 
         $service = new CompletionService($llmManagerMock);
         $result = $service->complete('Test prompt', null);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
+        self::assertInstanceOf(CompletionResponse::class, $result);
     }
 
     #[Test]
@@ -54,11 +54,11 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->anything(),
-                $this->callback(fn(ChatOptions $opts) => $opts->getTemperature() === 0.2)
+                self::anything(),
+                self::callback(fn(ChatOptions $opts) => $opts->getTemperature() === 0.2),
             )
             ->willReturn($this->createMockResponse('Factual response'));
 
@@ -71,11 +71,11 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->anything(),
-                $this->callback(fn(ChatOptions $opts) => $opts->getTopP() === 0.9)
+                self::anything(),
+                self::callback(fn(ChatOptions $opts) => $opts->getTopP() === 0.9),
             )
             ->willReturn($this->createMockResponse('Factual response'));
 
@@ -88,11 +88,11 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->anything(),
-                $this->callback(fn(ChatOptions $opts) => $opts->getTemperature() === 0.5)
+                self::anything(),
+                self::callback(fn(ChatOptions $opts) => $opts->getTemperature() === 0.5),
             )
             ->willReturn($this->createMockResponse('Response'));
 
@@ -106,11 +106,11 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->anything(),
-                $this->callback(fn(ChatOptions $opts) => $opts->getTemperature() === 1.2)
+                self::anything(),
+                self::callback(fn(ChatOptions $opts) => $opts->getTemperature() === 1.2),
             )
             ->willReturn($this->createMockResponse('Creative response'));
 
@@ -123,11 +123,11 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->anything(),
-                $this->callback(fn(ChatOptions $opts) => $opts->getTopP() === 1.0)
+                self::anything(),
+                self::callback(fn(ChatOptions $opts) => $opts->getTopP() === 1.0),
             )
             ->willReturn($this->createMockResponse('Creative response'));
 
@@ -140,11 +140,11 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->anything(),
-                $this->callback(fn(ChatOptions $opts) => $opts->getPresencePenalty() === 0.6)
+                self::anything(),
+                self::callback(fn(ChatOptions $opts) => $opts->getPresencePenalty() === 0.6),
             )
             ->willReturn($this->createMockResponse('Creative response'));
 
@@ -157,11 +157,11 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->anything(),
-                $this->callback(fn(ChatOptions $opts) => $opts->getPresencePenalty() === 0.3)
+                self::anything(),
+                self::callback(fn(ChatOptions $opts) => $opts->getPresencePenalty() === 0.3),
             )
             ->willReturn($this->createMockResponse('Response'));
 
@@ -175,14 +175,14 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->willReturn($this->createMockResponse('{"key": "value"}'));
 
         $service = new CompletionService($llmManagerMock);
         $result = $service->completeJson('Generate JSON', null);
 
-        $this->assertEquals(['key' => 'value'], $result);
+        self::assertEquals(['key' => 'value'], $result);
     }
 
     #[Test]
@@ -190,14 +190,14 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->willReturn($this->createMockResponse('# Heading'));
 
         $service = new CompletionService($llmManagerMock);
         $result = $service->completeMarkdown('Generate markdown', null);
 
-        $this->assertEquals('# Heading', $result);
+        self::assertEquals('# Heading', $result);
     }
 
     #[Test]
@@ -205,16 +205,16 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->callback(function (array $messages) {
+                self::callback(function (array $messages) {
                     $systemMessage = $messages[0] ?? null;
                     return $systemMessage !== null
                         && $systemMessage['role'] === 'system'
                         && str_contains($systemMessage['content'], 'Markdown');
                 }),
-                $this->anything()
+                self::anything(),
             )
             ->willReturn($this->createMockResponse('# Result'));
 
@@ -237,7 +237,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
 
         $result = $service->complete('Test', $options);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
+        self::assertInstanceOf(CompletionResponse::class, $result);
     }
 
     public static function validTemperatureProvider(): array
@@ -254,7 +254,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     #[DataProvider('invalidTemperatureProvider')]
     public function validateOptionsRejectsInvalidTemperature(float $temperature): void
     {
-        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
         $service = new CompletionService($llmManagerStub);
 
         $this->expectException(InvalidArgumentException::class);
@@ -286,7 +286,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
 
         $result = $service->complete('Test', $options);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
+        self::assertInstanceOf(CompletionResponse::class, $result);
     }
 
     public static function validTopPProvider(): array
@@ -302,7 +302,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     #[DataProvider('invalidTopPProvider')]
     public function validateOptionsRejectsInvalidTopP(float $topP): void
     {
-        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
         $service = new CompletionService($llmManagerStub);
 
         $this->expectException(InvalidArgumentException::class);
@@ -332,7 +332,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
 
         $result = $service->complete('Test', $options);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
+        self::assertInstanceOf(CompletionResponse::class, $result);
     }
 
     #[Test]
@@ -340,7 +340,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->willReturn($this->createMockResponse('Response'));
 
@@ -355,7 +355,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->willReturn($this->createMockResponse('{"result": true}'));
 
@@ -364,6 +364,6 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
 
         $result = $service->complete('Test', $options);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
+        self::assertInstanceOf(CompletionResponse::class, $result);
     }
 }

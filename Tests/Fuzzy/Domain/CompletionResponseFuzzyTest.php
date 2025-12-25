@@ -12,7 +12,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * Property-based tests for CompletionResponse
+ * Property-based tests for CompletionResponse.
  */
 #[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
 class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
@@ -22,14 +22,14 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(Generator\string())
-            ->then(function (string $content) {
+            ->then(function (string $content): void {
                 $usage = new UsageStatistics(10, 20, 30);
                 $response = new CompletionResponse(
                     content: $content,
                     model: 'gpt-4o',
                     finishReason: 'stop',
                     usage: $usage,
-                    provider: 'openai'
+                    provider: 'openai',
                 );
 
                 $this->assertSame($content, $response->content);
@@ -41,14 +41,14 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(Generator\string())
-            ->then(function (string $content) {
+            ->then(function (string $content): void {
                 $usage = new UsageStatistics(10, 20, 30);
                 $response = new CompletionResponse(
                     content: $content,
                     model: 'test-model',
                     finishReason: 'stop',
                     usage: $usage,
-                    provider: 'test'
+                    provider: 'test',
                 );
 
                 $this->assertTrue($response->isComplete());
@@ -60,14 +60,14 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(Generator\string())
-            ->then(function (string $content) {
+            ->then(function (string $content): void {
                 $usage = new UsageStatistics(10, 20, 30);
                 $response = new CompletionResponse(
                     content: $content,
                     model: 'test-model',
                     finishReason: 'length',
                     usage: $usage,
-                    provider: 'test'
+                    provider: 'test',
                 );
 
                 $this->assertTrue($response->wasTruncated());
@@ -82,21 +82,21 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 Generator\suchThat(
                     static fn(string $s) => strlen(trim($s)) > 0 && strlen($s) < 50,
-                    Generator\string()
+                    Generator\string(),
                 ),
                 Generator\suchThat(
                     static fn(string $s) => strlen(trim($s)) > 0 && strlen($s) < 50,
-                    Generator\string()
-                )
+                    Generator\string(),
+                ),
             )
-            ->then(function (string $model, string $provider) {
+            ->then(function (string $model, string $provider): void {
                 $usage = new UsageStatistics(10, 20, 30);
                 $response = new CompletionResponse(
                     content: 'test content',
                     model: $model,
                     finishReason: 'stop',
                     usage: $usage,
-                    provider: $provider
+                    provider: $provider,
                 );
 
                 $this->assertSame($model, $response->model);
@@ -110,9 +110,9 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(
                 Generator\choose(0, 100000),
-                Generator\choose(0, 100000)
+                Generator\choose(0, 100000),
             )
-            ->then(function (int $promptTokens, int $completionTokens) {
+            ->then(function (int $promptTokens, int $completionTokens): void {
                 $totalTokens = $promptTokens + $completionTokens;
                 $usage = new UsageStatistics($promptTokens, $completionTokens, $totalTokens);
 
@@ -121,7 +121,7 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
                     model: 'test-model',
                     finishReason: 'stop',
                     usage: $usage,
-                    provider: 'test'
+                    provider: 'test',
                 );
 
                 $this->assertEquals($promptTokens, $response->usage->promptTokens);
@@ -135,16 +135,16 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
-                Generator\elements(['stop', 'length', 'tool_calls', 'content_filter'])
+                Generator\elements(['stop', 'length', 'tool_calls', 'content_filter']),
             )
-            ->then(function (string $finishReason) {
+            ->then(function (string $finishReason): void {
                 $usage = new UsageStatistics(10, 20, 30);
                 $response = new CompletionResponse(
                     content: 'test',
                     model: 'test-model',
                     finishReason: $finishReason,
                     usage: $usage,
-                    provider: 'test'
+                    provider: 'test',
                 );
 
                 // Only 'stop' returns true for isComplete

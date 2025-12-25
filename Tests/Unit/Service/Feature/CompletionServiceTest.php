@@ -24,7 +24,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
+        $this->llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
         $this->subject = new CompletionService($this->llmManagerStub);
     }
 
@@ -53,22 +53,20 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $mockResponse = $this->createMockResponse($expectedResponse);
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->callback(function (array $messages) use ($prompt) {
-                    return $messages[0]['role'] === 'user'
-                        && $messages[0]['content'] === $prompt;
-                }),
-                $this->anything()
+                self::callback(fn(array $messages) => $messages[0]['role'] === 'user'
+                        && $messages[0]['content'] === $prompt),
+                self::anything(),
             )
             ->willReturn($mockResponse);
 
         $result = $subject->complete($prompt);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertEquals($expectedResponse, $result->content);
-        $this->assertEquals('stop', $result->finishReason);
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals($expectedResponse, $result->content);
+        self::assertEquals('stop', $result->finishReason);
     }
 
     #[Test]
@@ -82,17 +80,15 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $mockResponse = $this->createMockResponse('Response');
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->callback(function (array $messages) use ($systemPrompt, $prompt) {
-                    return count($messages) === 2
+                self::callback(fn(array $messages) => count($messages) === 2
                         && $messages[0]['role'] === 'system'
                         && $messages[0]['content'] === $systemPrompt
                         && $messages[1]['role'] === 'user'
-                        && $messages[1]['content'] === $prompt;
-                }),
-                $this->anything()
+                        && $messages[1]['content'] === $prompt),
+                self::anything(),
             )
             ->willReturn($mockResponse);
 
@@ -108,15 +104,15 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $mockResponse = $this->createMockResponse($jsonResponse);
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->willReturn($mockResponse);
 
         $result = $subject->completeJson('Generate JSON');
 
-        $this->assertIsArray($result);
-        $this->assertEquals('value', $result['key']);
-        $this->assertEquals(42, $result['number']);
+        self::assertIsArray($result);
+        self::assertEquals('value', $result['key']);
+        self::assertEquals(42, $result['number']);
     }
 
     #[Test]
@@ -127,7 +123,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $mockResponse = $this->createMockResponse('Not valid JSON');
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->willReturn($mockResponse);
 
@@ -145,13 +141,13 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $mockResponse = $this->createMockResponse('# Markdown');
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->willReturn($mockResponse);
 
         $result = $subject->completeMarkdown('Test');
 
-        $this->assertEquals('# Markdown', $result);
+        self::assertEquals('# Markdown', $result);
     }
 
     #[Test]
@@ -162,14 +158,12 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $mockResponse = $this->createMockResponse('Factual response');
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->anything(),
-                $this->callback(function (ChatOptions $options) {
-                    return $options->getTemperature() === 0.2
-                        && $options->getTopP() === 0.9;
-                })
+                self::anything(),
+                self::callback(fn(ChatOptions $options) => $options->getTemperature() === 0.2
+                        && $options->getTopP() === 0.9),
             )
             ->willReturn($mockResponse);
 
@@ -184,14 +178,12 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $mockResponse = $this->createMockResponse('Creative response');
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->anything(),
-                $this->callback(function (ChatOptions $options) {
-                    return $options->getTemperature() === 1.2
-                        && $options->getPresencePenalty() === 0.6;
-                })
+                self::anything(),
+                self::callback(fn(ChatOptions $options) => $options->getTemperature() === 1.2
+                        && $options->getPresencePenalty() === 0.6),
             )
             ->willReturn($mockResponse);
 
@@ -233,22 +225,22 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $mockResponse = $this->createMockResponse('Truncated', 'length');
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->willReturn($mockResponse);
 
         $result = $subject->complete('Test');
 
-        $this->assertTrue($result->wasTruncated());
-        $this->assertFalse($result->isComplete());
+        self::assertTrue($result->wasTruncated());
+        self::assertFalse($result->isComplete());
     }
 
     /**
-     * Create mock CompletionResponse
+     * Create mock CompletionResponse.
      */
     private function createMockResponse(
         string $content,
-        string $finishReason = 'stop'
+        string $finishReason = 'stop',
     ): CompletionResponse {
         return new CompletionResponse(
             content: $content,
@@ -256,7 +248,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             usage: new UsageStatistics(
                 promptTokens: 10,
                 completionTokens: 20,
-                totalTokens: 30
+                totalTokens: 30,
             ),
             finishReason: $finishReason,
             provider: 'test',

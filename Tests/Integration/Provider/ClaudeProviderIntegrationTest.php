@@ -13,7 +13,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * Integration tests for Claude provider
+ * Integration tests for Claude provider.
  *
  * Tests realistic API interactions with mocked HTTP responses.
  */
@@ -33,7 +33,7 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
             $httpClient,
             $this->requestFactory,
             $this->streamFactory,
-            $this->createNullLogger()
+            $this->createNullLogger(),
         );
 
         $provider->configure([
@@ -51,7 +51,7 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
         $responseData = $this->getClaudeChatResponse(
             content: 'The capital of France is Paris.',
             model: 'claude-sonnet-4-20250514',
-            stopReason: 'end_turn'
+            stopReason: 'end_turn',
         );
 
         $provider = $this->createProvider([
@@ -62,17 +62,17 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
             ['role' => 'user', 'content' => 'What is the capital of France?'],
         ]);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertEquals('The capital of France is Paris.', $result->content);
-        $this->assertEquals('claude-sonnet-4-20250514', $result->model);
-        $this->assertEquals('stop', $result->finishReason);
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('The capital of France is Paris.', $result->content);
+        self::assertEquals('claude-sonnet-4-20250514', $result->model);
+        self::assertEquals('stop', $result->finishReason);
     }
 
     #[Test]
     public function chatCompletionWithSystemPrompt(): void
     {
         $responseData = $this->getClaudeChatResponse(
-            content: 'Bonjour! Je suis ravi de vous aider avec le français.'
+            content: 'Bonjour! Je suis ravi de vous aider avec le français.',
         );
 
         $provider = $this->createProvider([
@@ -84,8 +84,8 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
             ['role' => 'user', 'content' => 'Hello, can you help me learn French?'],
         ]);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertStringContainsString('Bonjour', $result->content);
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertStringContainsString('Bonjour', $result->content);
     }
 
     #[Test]
@@ -115,9 +115,9 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
             ['role' => 'user', 'content' => 'Tell me something'],
         ]);
 
-        $this->assertEquals(
+        self::assertEquals(
             'First part of the response. Second part of the response.',
-            $result->content
+            $result->content,
         );
     }
 
@@ -126,7 +126,7 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
     {
         $responseData = $this->getClaudeChatResponse(
             content: 'This response was truncated',
-            stopReason: 'max_tokens'
+            stopReason: 'max_tokens',
         );
 
         $provider = $this->createProvider([
@@ -135,11 +135,11 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
 
         $result = $provider->chatCompletion(
             [['role' => 'user', 'content' => 'Write a long essay']],
-            ['max_tokens' => 50]
+            ['max_tokens' => 50],
         );
 
-        $this->assertTrue($result->wasTruncated());
-        $this->assertFalse($result->isComplete());
+        self::assertTrue($result->wasTruncated());
+        self::assertFalse($result->isComplete());
     }
 
     #[Test]
@@ -166,9 +166,9 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
             ['role' => 'user', 'content' => 'Hello'],
         ]);
 
-        $this->assertEquals(100, $result->usage->promptTokens);
-        $this->assertEquals(50, $result->usage->completionTokens);
-        $this->assertEquals(150, $result->usage->totalTokens);
+        self::assertEquals(100, $result->usage->promptTokens);
+        self::assertEquals(50, $result->usage->completionTokens);
+        self::assertEquals(150, $result->usage->totalTokens);
     }
 
     #[Test]
@@ -246,7 +246,7 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
     public function multipleMessagesInConversation(): void
     {
         $responseData = $this->getClaudeChatResponse(
-            content: 'Yes, Paris has been the capital of France since...'
+            content: 'Yes, Paris has been the capital of France since...',
         );
 
         $provider = $this->createProvider([
@@ -259,8 +259,8 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
             ['role' => 'user', 'content' => 'Is that correct?'],
         ]);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertStringContainsString('Paris', $result->content);
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertStringContainsString('Paris', $result->content);
     }
 
     #[Test]
@@ -276,7 +276,7 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
             ['role' => 'user', 'content' => 'Hello'],
         ]);
 
-        $this->assertEquals('stop', $result->finishReason);
+        self::assertEquals('stop', $result->finishReason);
     }
 
     #[Test]
@@ -292,27 +292,27 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
             ['role' => 'user', 'content' => 'Hello'],
         ]);
 
-        $this->assertEquals('length', $result->finishReason);
+        self::assertEquals('length', $result->finishReason);
     }
 
     #[Test]
     public function supportsVisionFeature(): void
     {
         $provider = $this->createProvider([]);
-        $this->assertTrue($provider->supportsVision());
+        self::assertTrue($provider->supportsVision());
     }
 
     #[Test]
     public function supportsStreamingFeature(): void
     {
         $provider = $this->createProvider([]);
-        $this->assertTrue($provider->supportsStreaming());
+        self::assertTrue($provider->supportsStreaming());
     }
 
     #[Test]
     public function supportsToolsFeature(): void
     {
         $provider = $this->createProvider([]);
-        $this->assertTrue($provider->supportsTools());
+        self::assertTrue($provider->supportsTools());
     }
 }

@@ -7,7 +7,7 @@ namespace Netresearch\NrLlm\Service\Request;
 use Netresearch\NrLlm\Exception\ValidationException;
 
 /**
- * Fluent request builder with validation
+ * Fluent request builder with validation.
  *
  * Provides a fluent interface for building LLM requests with
  * automatic validation and parameter normalization.
@@ -25,7 +25,7 @@ class RequestBuilder
     private array $customParams = [];
 
     /**
-     * Set the user prompt
+     * Set the user prompt.
      */
     public function prompt(string $prompt): self
     {
@@ -34,7 +34,7 @@ class RequestBuilder
     }
 
     /**
-     * Set the system prompt (context)
+     * Set the system prompt (context).
      */
     public function systemPrompt(string $systemPrompt): self
     {
@@ -43,7 +43,7 @@ class RequestBuilder
     }
 
     /**
-     * Set the model name
+     * Set the model name.
      */
     public function model(string $model): self
     {
@@ -52,7 +52,7 @@ class RequestBuilder
     }
 
     /**
-     * Set temperature (0.0-2.0)
+     * Set temperature (0.0-2.0).
      */
     public function temperature(float $temp): self
     {
@@ -61,7 +61,7 @@ class RequestBuilder
     }
 
     /**
-     * Set maximum tokens to generate
+     * Set maximum tokens to generate.
      */
     public function maxTokens(int $tokens): self
     {
@@ -70,7 +70,7 @@ class RequestBuilder
     }
 
     /**
-     * Set stop sequences
+     * Set stop sequences.
      */
     public function stopSequences(array $sequences): self
     {
@@ -79,7 +79,7 @@ class RequestBuilder
     }
 
     /**
-     * Set response format ('text', 'json', 'markdown')
+     * Set response format ('text', 'json', 'markdown').
      */
     public function responseFormat(string $format): self
     {
@@ -88,7 +88,7 @@ class RequestBuilder
     }
 
     /**
-     * Set images for vision requests
+     * Set images for vision requests.
      */
     public function images(array $images): self
     {
@@ -97,7 +97,7 @@ class RequestBuilder
     }
 
     /**
-     * Set custom provider-specific parameter
+     * Set custom provider-specific parameter.
      */
     public function setCustomParam(string $key, mixed $value): self
     {
@@ -106,7 +106,7 @@ class RequestBuilder
     }
 
     /**
-     * Build from array of options
+     * Build from array of options.
      */
     public function fromArray(array $options): self
     {
@@ -115,8 +115,8 @@ class RequestBuilder
                 'prompt' => $this->prompt($value),
                 'system_prompt' => $this->systemPrompt($value),
                 'model' => $this->model($value),
-                'temperature' => $this->temperature((float) $value),
-                'max_tokens' => $this->maxTokens((int) $value),
+                'temperature' => $this->temperature((float)$value),
+                'max_tokens' => $this->maxTokens((int)$value),
                 'stop_sequences' => $this->stopSequences($value),
                 'response_format' => $this->responseFormat($value),
                 'images' => $this->images($value),
@@ -127,10 +127,11 @@ class RequestBuilder
     }
 
     /**
-     * Build the request array
+     * Build the request array.
+     *
+     * @throws ValidationException If validation fails
      *
      * @return array Validated request parameters
-     * @throws ValidationException If validation fails
      */
     public function build(): array
     {
@@ -152,10 +153,11 @@ class RequestBuilder
     }
 
     /**
-     * Validate request parameters
+     * Validate request parameters.
+     *
+     * @throws ValidationException If validation fails
      *
      * @return bool Always true (throws on failure)
-     * @throws ValidationException If validation fails
      */
     public function validate(): bool
     {
@@ -172,7 +174,7 @@ class RequestBuilder
         if ($this->temperature < 0 || $this->temperature > 2) {
             throw new ValidationException(
                 'Temperature must be between 0.0 and 2.0',
-                suggestion: 'Use 0.0 for deterministic, 0.7 for balanced, 1.0+ for creative'
+                suggestion: 'Use 0.0 for deterministic, 0.7 for balanced, 1.0+ for creative',
             );
         }
 
@@ -184,7 +186,7 @@ class RequestBuilder
         if ($this->maxTokens !== null && $this->maxTokens > 128000) {
             throw new ValidationException(
                 'Max tokens exceeds maximum of 128,000',
-                suggestion: 'Most models support 4,000-32,000 tokens'
+                suggestion: 'Most models support 4,000-32,000 tokens',
             );
         }
 
@@ -192,7 +194,7 @@ class RequestBuilder
         if (!in_array($this->responseFormat, ['text', 'json', 'markdown'])) {
             throw new ValidationException(
                 "Invalid response format: {$this->responseFormat}",
-                suggestion: "Must be 'text', 'json', or 'markdown'"
+                suggestion: "Must be 'text', 'json', or 'markdown'",
             );
         }
 
@@ -205,7 +207,7 @@ class RequestBuilder
             if (!$this->isValidImageUrl($image)) {
                 throw new ValidationException(
                     "Invalid image URL: {$image}",
-                    suggestion: 'Must be a valid HTTP(S) URL or data URI'
+                    suggestion: 'Must be a valid HTTP(S) URL or data URI',
                 );
             }
         }
@@ -214,7 +216,7 @@ class RequestBuilder
     }
 
     /**
-     * Reset builder to initial state
+     * Reset builder to initial state.
      */
     public function reset(): self
     {
@@ -232,7 +234,7 @@ class RequestBuilder
     }
 
     /**
-     * Validate image URL or data URI
+     * Validate image URL or data URI.
      */
     private function isValidImageUrl(string $url): bool
     {

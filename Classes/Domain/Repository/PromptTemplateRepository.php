@@ -10,7 +10,7 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 use TYPO3\CMS\Extbase\Persistence\Repository;
 
 /**
- * Repository for PromptTemplate domain model
+ * Repository for PromptTemplate domain model.
  *
  * @extends Repository<PromptTemplate>
  */
@@ -21,13 +21,13 @@ class PromptTemplateRepository extends Repository
     ];
 
     /**
-     * Find prompt template by identifier string
+     * Find prompt template by identifier string.
      */
     public function findOneByIdentifier(string $identifier): ?PromptTemplate
     {
         $query = $this->createQuery();
         $query->matching(
-            $query->equals('identifier', $identifier)
+            $query->equals('identifier', $identifier),
         );
         /** @var PromptTemplate|null $result */
         $result = $query->execute()->getFirst();
@@ -35,7 +35,7 @@ class PromptTemplateRepository extends Repository
     }
 
     /**
-     * Find all active templates
+     * Find all active templates.
      *
      * @return QueryResultInterface<int, PromptTemplate>
      */
@@ -43,13 +43,13 @@ class PromptTemplateRepository extends Repository
     {
         $query = $this->createQuery();
         $query->matching(
-            $query->equals('isActive', true)
+            $query->equals('isActive', true),
         );
         return $query->execute();
     }
 
     /**
-     * Find templates by category
+     * Find templates by category.
      *
      * @return QueryResultInterface<int, PromptTemplate>
      */
@@ -59,14 +59,14 @@ class PromptTemplateRepository extends Repository
         $query->matching(
             $query->logicalAnd(
                 $query->equals('isActive', true),
-                $query->equals('category', $category)
-            )
+                $query->equals('category', $category),
+            ),
         );
         return $query->execute();
     }
 
     /**
-     * Find templates by feature
+     * Find templates by feature.
      *
      * @return QueryResultInterface<int, PromptTemplate>
      */
@@ -76,14 +76,14 @@ class PromptTemplateRepository extends Repository
         $query->matching(
             $query->logicalAnd(
                 $query->equals('isActive', true),
-                $query->equals('feature', $feature)
-            )
+                $query->equals('feature', $feature),
+            ),
         );
         return $query->execute();
     }
 
     /**
-     * Find a variant template by parent identifier and variant name
+     * Find a variant template by parent identifier and variant name.
      */
     public function findVariant(string $parentIdentifier, string $variantName): ?PromptTemplate
     {
@@ -91,8 +91,8 @@ class PromptTemplateRepository extends Repository
         $query->matching(
             $query->logicalAnd(
                 $query->equals('parentIdentifier', $parentIdentifier),
-                $query->equals('variantName', $variantName)
-            )
+                $query->equals('variantName', $variantName),
+            ),
         );
         /** @var PromptTemplate|null $result */
         $result = $query->execute()->getFirst();
@@ -100,7 +100,7 @@ class PromptTemplateRepository extends Repository
     }
 
     /**
-     * Save a prompt template
+     * Save a prompt template.
      */
     public function save(PromptTemplate $template): void
     {

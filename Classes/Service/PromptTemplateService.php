@@ -7,11 +7,11 @@ namespace Netresearch\NrLlm\Service;
 use Netresearch\NrLlm\Domain\Model\PromptTemplate;
 use Netresearch\NrLlm\Domain\Model\RenderedPrompt;
 use Netresearch\NrLlm\Domain\Repository\PromptTemplateRepository;
-use Netresearch\NrLlm\Exception\PromptTemplateNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Exception\PromptTemplateNotFoundException;
 
 /**
- * Service for managing and rendering prompt templates
+ * Service for managing and rendering prompt templates.
  *
  * Handles template loading, variable substitution, versioning,
  * and performance tracking.
@@ -23,10 +23,10 @@ class PromptTemplateService
     ) {}
 
     /**
-     * Get active prompt template by identifier
+     * Get active prompt template by identifier.
      *
      * @param string $identifier Unique prompt identifier
-     * @return PromptTemplate
+     *
      * @throws PromptTemplateNotFoundException
      */
     public function getPrompt(string $identifier): PromptTemplate
@@ -35,7 +35,7 @@ class PromptTemplateService
 
         if ($template === null) {
             throw new PromptTemplateNotFoundException(
-                sprintf('Prompt template "%s" not found', $identifier)
+                sprintf('Prompt template "%s" not found', $identifier),
             );
         }
 
@@ -43,19 +43,19 @@ class PromptTemplateService
     }
 
     /**
-     * Render prompt with variables
+     * Render prompt with variables.
      *
-     * @param string $identifier Prompt template identifier
-     * @param array<string, mixed> $variables Template variables
-     * @param array<string, mixed> $options Rendering options
-     * @return RenderedPrompt
+     * @param string               $identifier Prompt template identifier
+     * @param array<string, mixed> $variables  Template variables
+     * @param array<string, mixed> $options    Rendering options
+     *
      * @throws PromptTemplateNotFoundException
      * @throws InvalidArgumentException
      */
     public function render(
         string $identifier,
         array $variables = [],
-        array $options = []
+        array $options = [],
     ): RenderedPrompt {
         $template = $this->getPrompt($identifier);
 
@@ -65,13 +65,13 @@ class PromptTemplateService
         // Render system prompt
         $systemPrompt = $this->substitute(
             $template->getSystemPrompt() ?? '',
-            $variables
+            $variables,
         );
 
         // Render user prompt
         $userPrompt = $this->substitute(
             $template->getUserPromptTemplate() ?? '',
-            $variables
+            $variables,
         );
 
         return new RenderedPrompt(
@@ -85,16 +85,16 @@ class PromptTemplateService
                 'template_id' => $template->getUid(),
                 'template_identifier' => $identifier,
                 'version' => $template->getVersion(),
-            ]
+            ],
         );
     }
 
     /**
-     * Create new version of existing template
+     * Create new version of existing template.
      *
-     * @param string $identifier Base template identifier
-     * @param array<string, mixed> $updates Fields to update
-     * @return PromptTemplate
+     * @param string               $identifier Base template identifier
+     * @param array<string, mixed> $updates    Fields to update
+     *
      * @throws PromptTemplateNotFoundException
      */
     public function createVersion(string $identifier, array $updates): PromptTemplate
@@ -119,11 +119,11 @@ class PromptTemplateService
     }
 
     /**
-     * Get A/B test variant
+     * Get A/B test variant.
      *
-     * @param string $identifier Base template identifier
+     * @param string $identifier  Base template identifier
      * @param string $variantName Variant name/tag
-     * @return PromptTemplate
+     *
      * @throws PromptTemplateNotFoundException
      */
     public function getVariant(string $identifier, string $variantName): PromptTemplate
@@ -135,8 +135,8 @@ class PromptTemplateService
                 sprintf(
                     'Variant "%s" of template "%s" not found',
                     $variantName,
-                    $identifier
-                )
+                    $identifier,
+                ),
             );
         }
 
@@ -144,19 +144,18 @@ class PromptTemplateService
     }
 
     /**
-     * Record usage statistics for prompt
+     * Record usage statistics for prompt.
      *
-     * @param string $identifier Prompt template identifier
-     * @param int $responseTime Response time in milliseconds
-     * @param int $tokensUsed Total tokens used
-     * @param float $qualityScore Quality score (0.0-1.0)
-     * @return void
+     * @param string $identifier   Prompt template identifier
+     * @param int    $responseTime Response time in milliseconds
+     * @param int    $tokensUsed   Total tokens used
+     * @param float  $qualityScore Quality score (0.0-1.0)
      */
     public function recordUsage(
         string $identifier,
         int $responseTime,
         int $tokensUsed,
-        float $qualityScore
+        float $qualityScore,
     ): void {
         $template = $this->getPrompt($identifier);
 
@@ -164,17 +163,17 @@ class PromptTemplateService
         $usageCount = $template->getUsageCount();
         $newCount = $usageCount + 1;
 
-        $avgResponseTime = (int) round(
-            (($template->getAvgResponseTime() * $usageCount) + $responseTime) / $newCount
+        $avgResponseTime = (int)round(
+            (($template->getAvgResponseTime() * $usageCount) + $responseTime) / $newCount,
         );
 
-        $avgTokens = (int) round(
-            (($template->getAvgTokensUsed() * $usageCount) + $tokensUsed) / $newCount
+        $avgTokens = (int)round(
+            (($template->getAvgTokensUsed() * $usageCount) + $tokensUsed) / $newCount,
         );
 
         $avgQuality = round(
             (($template->getQualityScore() * $usageCount) + $qualityScore) / $newCount,
-            2
+            2,
         );
 
         $template->setUsageCount($newCount);
@@ -186,9 +185,10 @@ class PromptTemplateService
     }
 
     /**
-     * Get all templates for a feature
+     * Get all templates for a feature.
      *
      * @param string $feature Feature identifier
+     *
      * @return array<int, PromptTemplate>
      */
     public function getTemplatesForFeature(string $feature): array
@@ -197,15 +197,16 @@ class PromptTemplateService
     }
 
     /**
-     * Substitute variables in template
+     * Substitute variables in template.
      *
      * Supports:
      * - Simple substitution: {{variable}}
      * - Conditional sections: {{#if variable}}...{{/if}}
      * - Loops: {{#each items}}...{{/each}}
      *
-     * @param string $template Template string
+     * @param string               $template  Template string
      * @param array<string, mixed> $variables Variables to substitute
+     *
      * @return string Rendered template
      */
     private function substitute(string $template, array $variables): string
@@ -217,7 +218,7 @@ class PromptTemplateService
                 $key = $matches[1];
                 return $variables[$key] ?? '';
             },
-            $template
+            $template,
         );
 
         // Conditional sections: {{#if variable}}...{{/if}}
@@ -228,7 +229,7 @@ class PromptTemplateService
                 $content = $matches[2];
                 return !empty($variables[$key]) ? $content : '';
             },
-            $result
+            $result,
         );
 
         // Conditional else: {{#if variable}}...{{else}}...{{/if}}
@@ -240,7 +241,7 @@ class PromptTemplateService
                 $elseContent = $matches[3];
                 return !empty($variables[$key]) ? $ifContent : $elseContent;
             },
-            $result
+            $result,
         );
 
         // Loop: {{#each items}}{{this}}{{/each}}
@@ -257,23 +258,23 @@ class PromptTemplateService
 
                 $output = '';
                 foreach ($items as $item) {
-                    $itemStr = is_array($item) ? json_encode($item) : (string) $item;
+                    $itemStr = is_array($item) ? json_encode($item) : (string)$item;
                     $output .= str_replace('{{this}}', $itemStr, $template);
                 }
 
                 return $output;
             },
-            $result
+            $result,
         );
 
         return $result;
     }
 
     /**
-     * Validate required variables are provided
+     * Validate required variables are provided.
      *
-     * @param PromptTemplate $template
      * @param array<string, mixed> $variables
+     *
      * @throws InvalidArgumentException
      */
     private function validateVariables(PromptTemplate $template, array $variables): void
@@ -291,8 +292,8 @@ class PromptTemplateService
                 sprintf(
                     'Missing required variables for template "%s": %s',
                     $template->getIdentifier(),
-                    implode(', ', $missing)
-                )
+                    implode(', ', $missing),
+                ),
             );
         }
     }

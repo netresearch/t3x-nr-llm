@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 namespace Netresearch\AiBase\Service\Provider;
 
-use Netresearch\AiBase\Domain\Model\TranslationResponse;
+use Exception;
 use Netresearch\AiBase\Domain\Model\CompletionResponse;
 use Netresearch\AiBase\Domain\Model\EmbeddingResponse;
+use Netresearch\AiBase\Domain\Model\TranslationResponse;
 use Netresearch\AiBase\Domain\Model\VisionResponse;
-use Netresearch\AiBase\Exception\ProviderException;
 use Netresearch\AiBase\Exception\ConfigurationException;
 use Netresearch\AiBase\Exception\NotSupportedException;
-use TYPO3\CMS\Core\Http\RequestFactory;
+use Netresearch\AiBase\Exception\ProviderException;
 use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Core\Http\RequestFactory;
 
 /**
- * DeepL Translation Provider
+ * DeepL Translation Provider.
  *
  * Specialized translation-only provider using DeepL API.
  * This provider ONLY supports translation and throws NotSupportedException
@@ -42,9 +43,7 @@ class DeepLProvider extends AbstractProvider
     private const API_BASE_URL_FREE = 'https://api-free.deepl.com/v2';
     private const API_BASE_URL_PRO = 'https://api.deepl.com/v2';
 
-    /**
-     * Supported languages (source and target)
-     */
+    /** Supported languages (source and target) */
     private const LANGUAGES = [
         'BG' => 'Bulgarian',
         'CS' => 'Czech',
@@ -77,9 +76,7 @@ class DeepLProvider extends AbstractProvider
         'ZH' => 'Chinese',
     ];
 
-    /**
-     * Target-only language variants
-     */
+    /** Target-only language variants */
     private const TARGET_VARIANTS = [
         'EN-GB' => 'English (British)',
         'EN-US' => 'English (American)',
@@ -87,9 +84,7 @@ class DeepLProvider extends AbstractProvider
         'PT-PT' => 'Portuguese (European)',
     ];
 
-    /**
-     * Formality options
-     */
+    /** Formality options */
     private const FORMALITY_OPTIONS = [
         'default',
         'more',      // More formal
@@ -98,9 +93,7 @@ class DeepLProvider extends AbstractProvider
         'prefer_less',
     ];
 
-    /**
-     * Split sentence options
-     */
+    /** Split sentence options */
     private const SPLIT_SENTENCES = [
         '0' => 'No splitting',
         '1' => 'Split on punctuation and newlines',
@@ -118,7 +111,7 @@ class DeepLProvider extends AbstractProvider
     public function __construct(
         array $configuration,
         RequestFactory $requestFactory,
-        LoggerInterface $logger
+        LoggerInterface $logger,
     ) {
         parent::__construct($configuration);
 
@@ -138,50 +131,46 @@ class DeepLProvider extends AbstractProvider
     }
 
     /**
-     * @inheritDoc
      * @throws NotSupportedException DeepL only supports translation
      */
     public function complete(string $prompt, array $options = []): CompletionResponse
     {
         throw new NotSupportedException(
             'DeepL provider does not support completion. Use translate() instead, '
-            . 'or switch to an LLM provider (OpenAI, Anthropic, Gemini).'
+            . 'or switch to an LLM provider (OpenAI, Anthropic, Gemini).',
         );
     }
 
     /**
-     * @inheritDoc
      * @throws NotSupportedException DeepL only supports translation
      */
     public function stream(string $prompt, callable $callback, array $options = []): void
     {
         throw new NotSupportedException(
             'DeepL provider does not support streaming. '
-            . 'Use an LLM provider (OpenAI, Anthropic, Gemini) for streaming.'
+            . 'Use an LLM provider (OpenAI, Anthropic, Gemini) for streaming.',
         );
     }
 
     /**
-     * @inheritDoc
      * @throws NotSupportedException DeepL only supports translation
      */
     public function embed(string|array $text, array $options = []): EmbeddingResponse
     {
         throw new NotSupportedException(
             'DeepL provider does not support embeddings. '
-            . 'Use OpenAI or Gemini for embedding generation.'
+            . 'Use OpenAI or Gemini for embedding generation.',
         );
     }
 
     /**
-     * @inheritDoc
      * @throws NotSupportedException DeepL only supports translation
      */
     public function analyzeImage(string $imageUrl, string $prompt, array $options = []): VisionResponse
     {
         throw new NotSupportedException(
             'DeepL provider does not support vision/image analysis. '
-            . 'Use OpenAI GPT-4V, Gemini, or Anthropic Claude for vision tasks.'
+            . 'Use OpenAI GPT-4V, Gemini, or Anthropic Claude for vision tasks.',
         );
     }
 
@@ -195,14 +184,14 @@ class DeepLProvider extends AbstractProvider
         string $text,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        array $options = []
+        array $options = [],
     ): TranslationResponse {
         // Validate target language
         $targetLanguage = strtoupper($targetLanguage);
         if (!$this->isLanguageSupported($targetLanguage, 'target')) {
             throw new ProviderException(
                 "Unsupported target language: {$targetLanguage}",
-                ['supported_languages' => array_keys(self::LANGUAGES + self::TARGET_VARIANTS)]
+                ['supported_languages' => array_keys(self::LANGUAGES + self::TARGET_VARIANTS)],
             );
         }
 
@@ -212,7 +201,7 @@ class DeepLProvider extends AbstractProvider
             if (!$this->isLanguageSupported($sourceLanguage, 'source')) {
                 throw new ProviderException(
                     "Unsupported source language: {$sourceLanguage}",
-                    ['supported_languages' => array_keys(self::LANGUAGES)]
+                    ['supported_languages' => array_keys(self::LANGUAGES)],
                 );
             }
         }
@@ -222,7 +211,7 @@ class DeepLProvider extends AbstractProvider
             $text,
             $targetLanguage,
             $sourceLanguage,
-            $options
+            $options,
         );
 
         // Make API request
@@ -232,19 +221,20 @@ class DeepLProvider extends AbstractProvider
     }
 
     /**
-     * Translate multiple texts in a single request (batch translation)
+     * Translate multiple texts in a single request (batch translation).
      *
-     * @param array $texts Array of texts to translate
-     * @param string $targetLanguage Target language code
+     * @param array       $texts          Array of texts to translate
+     * @param string      $targetLanguage Target language code
      * @param string|null $sourceLanguage Source language code (null = auto-detect)
-     * @param array $options Additional options
+     * @param array       $options        Additional options
+     *
      * @return array Array of TranslationResponse objects
      */
     public function translateBatch(
         array $texts,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        array $options = []
+        array $options = [],
     ): array {
         $targetLanguage = strtoupper($targetLanguage);
 
@@ -252,7 +242,7 @@ class DeepLProvider extends AbstractProvider
             $texts,
             $targetLanguage,
             $sourceLanguage,
-            $options
+            $options,
         );
 
         $response = $this->makeRequest('POST', '/translate', $requestBody);
@@ -268,7 +258,7 @@ class DeepLProvider extends AbstractProvider
                 metadata: [
                     'provider' => 'deepl',
                     'detected_source' => $translation['detected_source_language'] ?? null,
-                ]
+                ],
             );
         }
 
@@ -276,7 +266,7 @@ class DeepLProvider extends AbstractProvider
     }
 
     /**
-     * Get usage statistics (characters used vs limit)
+     * Get usage statistics (characters used vs limit).
      *
      * @return array Usage information
      */
@@ -289,15 +279,16 @@ class DeepLProvider extends AbstractProvider
             'character_limit' => $response['character_limit'] ?? 0,
             'usage_percent' => $this->calculateUsagePercent(
                 $response['character_count'] ?? 0,
-                $response['character_limit'] ?? 0
+                $response['character_limit'] ?? 0,
             ),
         ];
     }
 
     /**
-     * Get list of supported languages
+     * Get list of supported languages.
      *
      * @param string $type 'source' or 'target'
+     *
      * @return array Language codes and names
      */
     public function getSupportedLanguages(string $type = 'target'): array
@@ -312,9 +303,6 @@ class DeepLProvider extends AbstractProvider
         return $languages;
     }
 
-    /**
-     * @inheritDoc
-     */
     public function getCapabilities(): array
     {
         return [
@@ -333,9 +321,6 @@ class DeepLProvider extends AbstractProvider
         ];
     }
 
-    /**
-     * @inheritDoc
-     */
     public function estimateCost(int $inputTokens, int $outputTokens, ?string $model = null): float
     {
         // DeepL charges per character, not tokens
@@ -352,15 +337,12 @@ class DeepLProvider extends AbstractProvider
         return ($characters / 1_000_000) * $pricePerMillionChars;
     }
 
-    /**
-     * @inheritDoc
-     */
     public function isAvailable(): bool
     {
         try {
             $this->getUsage();
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('DeepL availability check failed', [
                 'error' => $e->getMessage(),
             ]);
@@ -369,13 +351,13 @@ class DeepLProvider extends AbstractProvider
     }
 
     /**
-     * Build translation request body
+     * Build translation request body.
      */
     private function buildTranslationRequest(
         string|array $text,
         string $targetLanguage,
         ?string $sourceLanguage,
-        array $options
+        array $options,
     ): array {
         $body = [
             'text' => is_array($text) ? $text : [$text],
@@ -416,7 +398,7 @@ class DeepLProvider extends AbstractProvider
     }
 
     /**
-     * Parse translation response
+     * Parse translation response.
      */
     private function parseTranslationResponse(array $response, string $targetLanguage): TranslationResponse
     {
@@ -435,12 +417,12 @@ class DeepLProvider extends AbstractProvider
             metadata: [
                 'provider' => 'deepl',
                 'detected_source' => $translation['detected_source_language'] ?? null,
-            ]
+            ],
         );
     }
 
     /**
-     * Check if language is supported
+     * Check if language is supported.
      */
     private function isLanguageSupported(string $language, string $type): bool
     {
@@ -452,7 +434,7 @@ class DeepLProvider extends AbstractProvider
     }
 
     /**
-     * Check if language supports formality control
+     * Check if language supports formality control.
      */
     private function supportsFormality(string $language): bool
     {
@@ -463,7 +445,7 @@ class DeepLProvider extends AbstractProvider
     }
 
     /**
-     * Calculate usage percentage
+     * Calculate usage percentage.
      */
     private function calculateUsagePercent(int $used, int $limit): float
     {
@@ -475,7 +457,7 @@ class DeepLProvider extends AbstractProvider
     }
 
     /**
-     * Make HTTP request to DeepL API
+     * Make HTTP request to DeepL API.
      */
     private function makeRequest(string $method, string $endpoint, array $params = []): array
     {
@@ -507,7 +489,7 @@ class DeepLProvider extends AbstractProvider
     }
 
     /**
-     * Handle API errors
+     * Handle API errors.
      */
     private function handleError(int $statusCode, ?array $response): void
     {
@@ -532,7 +514,7 @@ class DeepLProvider extends AbstractProvider
                 'status_code' => $statusCode,
                 'response' => $response,
                 'provider' => 'deepl',
-            ]
+            ],
         );
     }
 }

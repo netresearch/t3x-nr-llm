@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Exception;
 
 /**
- * Provider authentication exception (invalid API key)
+ * Provider authentication exception (invalid API key).
  *
  * @api This class is part of the public API
  */

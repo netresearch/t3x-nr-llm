@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Option;
 
 /**
- * Options for embedding requests
+ * Options for embedding requests.
  *
  * Embeddings are deterministic, so caching is enabled by default.
  *
@@ -29,7 +29,7 @@ class EmbeddingOptions extends AbstractOptions
     // ========================================
 
     /**
-     * Create options for standard embeddings with caching
+     * Create options for standard embeddings with caching.
      */
     public static function standard(): static
     {
@@ -39,7 +39,7 @@ class EmbeddingOptions extends AbstractOptions
     }
 
     /**
-     * Create options with no caching (for ephemeral content)
+     * Create options with no caching (for ephemeral content).
      */
     public static function noCache(): static
     {
@@ -49,7 +49,7 @@ class EmbeddingOptions extends AbstractOptions
     }
 
     /**
-     * Create options with compact dimensions (for storage efficiency)
+     * Create options with compact dimensions (for storage efficiency).
      */
     public static function compact(): static
     {
@@ -60,7 +60,7 @@ class EmbeddingOptions extends AbstractOptions
     }
 
     /**
-     * Create options with high dimensions (for maximum precision)
+     * Create options with high dimensions (for maximum precision).
      */
     public static function highPrecision(): static
     {

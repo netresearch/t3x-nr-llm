@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Image;
 
+use Exception;
 use Netresearch\NrLlm\Service\UsageTrackerService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -11,6 +12,7 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
+use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
@@ -33,9 +35,7 @@ final class FalImageService
     private const API_URL = 'https://fal.run';
     private const QUEUE_API_URL = 'https://queue.fal.run';
 
-    /**
-     * Default model endpoints.
-     */
+    /** Default model endpoints. */
     private const MODELS = [
         'flux-pro' => 'fal-ai/flux-pro',
         'flux-dev' => 'fal-ai/flux/dev',
@@ -45,9 +45,7 @@ final class FalImageService
         'playground' => 'fal-ai/playground-v25',
     ];
 
-    /**
-     * Standard aspect ratios.
-     */
+    /** Standard aspect ratios. */
     private const ASPECT_RATIOS = [
         'square' => '1:1',
         'landscape' => '16:9',
@@ -84,23 +82,25 @@ final class FalImageService
     /**
      * Generate an image using specified model.
      *
-     * @param string $prompt Text description of desired image
-     * @param string $model Model identifier (flux-pro, flux-dev, flux-schnell, sdxl, sd3, playground)
+     * @param string               $prompt  Text description of desired image
+     * @param string               $model   Model identifier (flux-pro, flux-dev, flux-schnell, sdxl, sd3, playground)
      * @param array<string, mixed> $options Generation options:
-     *   - image_size: string Size specification (e.g., "1024x1024", "landscape_16_9")
-     *   - num_images: int Number of images (1-4)
-     *   - guidance_scale: float CFG scale (1-20)
-     *   - num_inference_steps: int Steps (1-50)
-     *   - seed: int Random seed for reproducibility
-     *   - negative_prompt: string Things to avoid
-     *   - enable_safety_checker: bool Safety filter
-     * @return ImageGenerationResult Generation result
+     *                                      - image_size: string Size specification (e.g., "1024x1024", "landscape_16_9")
+     *                                      - num_images: int Number of images (1-4)
+     *                                      - guidance_scale: float CFG scale (1-20)
+     *                                      - num_inference_steps: int Steps (1-50)
+     *                                      - seed: int Random seed for reproducibility
+     *                                      - negative_prompt: string Things to avoid
+     *                                      - enable_safety_checker: bool Safety filter
+     *
      * @throws ServiceUnavailableException
+     *
+     * @return ImageGenerationResult Generation result
      */
     public function generate(
         string $prompt,
         string $model = 'flux-schnell',
-        array $options = []
+        array $options = [],
     ): ImageGenerationResult {
         $this->ensureAvailable();
 
@@ -136,24 +136,25 @@ final class FalImageService
                 'seed' => $response['seed'] ?? $image['seed'] ?? null,
                 'has_nsfw_concepts' => $response['has_nsfw_concepts'] ?? null,
                 'timings' => $response['timings'] ?? null,
-            ]
+            ],
         );
     }
 
     /**
      * Generate multiple images.
      *
-     * @param string $prompt Text description
-     * @param int $count Number of images (1-4)
-     * @param string $model Model identifier
+     * @param string               $prompt  Text description
+     * @param int                  $count   Number of images (1-4)
+     * @param string               $model   Model identifier
      * @param array<string, mixed> $options Generation options
+     *
      * @return array<int, ImageGenerationResult> Results
      */
     public function generateMultiple(
         string $prompt,
         int $count = 1,
         string $model = 'flux-schnell',
-        array $options = []
+        array $options = [],
     ): array {
         $this->ensureAvailable();
 
@@ -180,7 +181,7 @@ final class FalImageService
                 provider: 'fal',
                 metadata: [
                     'seed' => $image['seed'] ?? null,
-                ]
+                ],
             );
         }
 
@@ -194,17 +195,18 @@ final class FalImageService
     /**
      * Generate image-to-image transformation.
      *
-     * @param string $imageUrl URL of source image
-     * @param string $prompt Transformation prompt
-     * @param string $model Model identifier
-     * @param array<string, mixed> $options Options including strength (0.0-1.0)
+     * @param string               $imageUrl URL of source image
+     * @param string               $prompt   Transformation prompt
+     * @param string               $model    Model identifier
+     * @param array<string, mixed> $options  Options including strength (0.0-1.0)
+     *
      * @return ImageGenerationResult Result
      */
     public function imageToImage(
         string $imageUrl,
         string $prompt,
         string $model = 'flux-dev',
-        array $options = []
+        array $options = [],
     ): ImageGenerationResult {
         $this->ensureAvailable();
 
@@ -242,11 +244,11 @@ final class FalImageService
         try {
             $config = $this->extensionConfiguration->get('nr_llm');
 
-            $this->apiKey = (string) ($config['image']['fal']['apiKey'] ?? '');
-            $this->baseUrl = (string) ($config['image']['fal']['baseUrl'] ?? self::API_URL);
-            $this->timeout = (int) ($config['image']['fal']['timeout'] ?? 120);
-            $this->pollInterval = (int) ($config['image']['fal']['pollInterval'] ?? 1000);
-        } catch (\Exception $e) {
+            $this->apiKey = (string)($config['image']['fal']['apiKey'] ?? '');
+            $this->baseUrl = (string)($config['image']['fal']['baseUrl'] ?? self::API_URL);
+            $this->timeout = (int)($config['image']['fal']['timeout'] ?? 120);
+            $this->pollInterval = (int)($config['image']['fal']['pollInterval'] ?? 1000);
+        } catch (Exception $e) {
             $this->logger->warning('Failed to load FAL configuration', [
                 'exception' => $e->getMessage(),
             ]);
@@ -299,6 +301,7 @@ final class FalImageService
      * Build generation payload.
      *
      * @param array<string, mixed> $options
+     *
      * @return array<string, mixed>
      */
     private function buildGeneratePayload(string $prompt, array $options): array
@@ -312,8 +315,8 @@ final class FalImageService
             $payload['image_size'] = $options['image_size'];
         } elseif (isset($options['width']) && isset($options['height'])) {
             $payload['image_size'] = [
-                'width' => (int) $options['width'],
-                'height' => (int) $options['height'],
+                'width' => (int)$options['width'],
+                'height' => (int)$options['height'],
             ];
         } else {
             $payload['image_size'] = 'square_hd';
@@ -321,22 +324,22 @@ final class FalImageService
 
         // Number of images
         if (isset($options['num_images'])) {
-            $payload['num_images'] = min((int) $options['num_images'], 4);
+            $payload['num_images'] = min((int)$options['num_images'], 4);
         }
 
         // Guidance scale
         if (isset($options['guidance_scale'])) {
-            $payload['guidance_scale'] = (float) $options['guidance_scale'];
+            $payload['guidance_scale'] = (float)$options['guidance_scale'];
         }
 
         // Inference steps
         if (isset($options['num_inference_steps'])) {
-            $payload['num_inference_steps'] = (int) $options['num_inference_steps'];
+            $payload['num_inference_steps'] = (int)$options['num_inference_steps'];
         }
 
         // Seed
         if (isset($options['seed'])) {
-            $payload['seed'] = (int) $options['seed'];
+            $payload['seed'] = (int)$options['seed'];
         }
 
         // Negative prompt
@@ -346,14 +349,14 @@ final class FalImageService
 
         // Safety checker
         if (isset($options['enable_safety_checker'])) {
-            $payload['enable_safety_checker'] = (bool) $options['enable_safety_checker'];
+            $payload['enable_safety_checker'] = (bool)$options['enable_safety_checker'];
         }
 
         // Image-to-image
         if (isset($options['image_url'])) {
             $payload['image_url'] = $options['image_url'];
             if (isset($options['strength'])) {
-                $payload['strength'] = (float) $options['strength'];
+                $payload['strength'] = (float)$options['strength'];
             }
         }
 
@@ -378,8 +381,10 @@ final class FalImageService
      * Send synchronous request.
      *
      * @param array<string, mixed> $payload
-     * @return array<string, mixed>
+     *
      * @throws ServiceUnavailableException
+     *
+     * @return array<string, mixed>
      */
     private function sendRequest(string $endpoint, array $payload): array
     {
@@ -399,8 +404,10 @@ final class FalImageService
      * Send queue-based request with polling.
      *
      * @param array<string, mixed> $payload
-     * @return array<string, mixed>
+     *
      * @throws ServiceUnavailableException
+     *
+     * @return array<string, mixed>
      */
     private function sendQueueRequest(string $endpoint, array $payload): array
     {
@@ -421,7 +428,7 @@ final class FalImageService
             throw new ServiceUnavailableException(
                 'FAL queue submission failed: no request_id',
                 'image',
-                ['provider' => 'fal']
+                ['provider' => 'fal'],
             );
         }
 
@@ -432,13 +439,14 @@ final class FalImageService
     /**
      * Poll for queue result.
      *
-     * @return array<string, mixed>
      * @throws ServiceUnavailableException
+     *
+     * @return array<string, mixed>
      */
     private function pollForResult(string $endpoint, string $requestId): array
     {
         $statusUrl = rtrim(self::QUEUE_API_URL, '/') . '/' . ltrim($endpoint, '/') . '/requests/' . $requestId . '/status';
-        $maxAttempts = (int) ceil(($this->timeout * 1000) / $this->pollInterval);
+        $maxAttempts = (int)ceil(($this->timeout * 1000) / $this->pollInterval);
 
         for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
             $request = $this->requestFactory->createRequest('GET', $statusUrl)
@@ -460,7 +468,7 @@ final class FalImageService
                 throw new ServiceUnavailableException(
                     'FAL generation failed: ' . ($response['error'] ?? 'Unknown error'),
                     'image',
-                    ['provider' => 'fal', 'request_id' => $requestId]
+                    ['provider' => 'fal', 'request_id' => $requestId],
                 );
             }
 
@@ -471,22 +479,23 @@ final class FalImageService
         throw new ServiceUnavailableException(
             'FAL generation timed out',
             'image',
-            ['provider' => 'fal', 'request_id' => $requestId]
+            ['provider' => 'fal', 'request_id' => $requestId],
         );
     }
 
     /**
      * Execute HTTP request.
      *
-     * @return array<string, mixed>
      * @throws ServiceUnavailableException
+     *
+     * @return array<string, mixed>
      */
     private function executeRequest(\Psr\Http\Message\RequestInterface $request): array
     {
         try {
             $response = $this->httpClient->sendRequest($request);
             $statusCode = $response->getStatusCode();
-            $responseBody = (string) $response->getBody();
+            $responseBody = (string)$response->getBody();
 
             if ($statusCode >= 200 && $statusCode < 300) {
                 return json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
@@ -508,7 +517,7 @@ final class FalImageService
             };
         } catch (ServiceUnavailableException|ServiceConfigurationException $e) {
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->error('FAL API connection error', [
                 'exception' => $e->getMessage(),
             ]);
@@ -518,7 +527,7 @@ final class FalImageService
                 'image',
                 ['provider' => 'fal'],
                 0,
-                $e
+                $e,
             );
         }
     }

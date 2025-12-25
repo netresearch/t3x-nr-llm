@@ -14,12 +14,12 @@ final class ServiceQuotaExceededException extends SpecializedServiceException
     /**
      * Create exception for rate limit exceeded.
      *
-     * @param string $service The service identifier
+     * @param string   $service           The service identifier
      * @param int|null $retryAfterSeconds Seconds until the limit resets
      */
     public static function rateLimitExceeded(
         string $service,
-        ?int $retryAfterSeconds = null
+        ?int $retryAfterSeconds = null,
     ): self {
         $message = 'Rate limit exceeded';
 
@@ -33,23 +33,23 @@ final class ServiceQuotaExceededException extends SpecializedServiceException
             [
                 'type' => 'rate_limit',
                 'retry_after' => $retryAfterSeconds,
-            ]
+            ],
         );
     }
 
     /**
      * Create exception for usage quota exceeded.
      *
-     * @param string $service The service identifier
-     * @param string $quotaType The type of quota (e.g., 'characters', 'requests', 'tokens')
-     * @param int|float|null $limit The quota limit
-     * @param int|float|null $used The amount used
+     * @param string         $service   The service identifier
+     * @param string         $quotaType The type of quota (e.g., 'characters', 'requests', 'tokens')
+     * @param int|float|null $limit     The quota limit
+     * @param int|float|null $used      The amount used
      */
     public static function quotaExceeded(
         string $service,
         string $quotaType,
         int|float|null $limit = null,
-        int|float|null $used = null
+        int|float|null $used = null,
     ): self {
         $message = sprintf('%s quota exceeded', ucfirst($quotaType));
 
@@ -65,7 +65,7 @@ final class ServiceQuotaExceededException extends SpecializedServiceException
                 'quota_type' => $quotaType,
                 'limit' => $limit,
                 'used' => $used,
-            ]
+            ],
         );
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
+use DateTimeInterface;
+
 /**
  * Interface for usage tracking services.
  *
@@ -15,7 +17,7 @@ interface UsageTrackerServiceInterface
      * Track service usage with daily aggregation.
      *
      * @param string $serviceType The service type (translation, speech, image)
-     * @param string $provider The provider name (deepl, whisper, dall-e, etc.)
+     * @param string $provider    The provider name (deepl, whisper, dall-e, etc.)
      * @param array{
      *     tokens?: int,
      *     characters?: int,
@@ -35,9 +37,10 @@ interface UsageTrackerServiceInterface
     /**
      * Get usage report for a service type within a date range.
      *
-     * @param string $serviceType The service type to report on
-     * @param \DateTimeInterface $from Start date
-     * @param \DateTimeInterface $to End date
+     * @param string            $serviceType The service type to report on
+     * @param DateTimeInterface $from        Start date
+     * @param DateTimeInterface $to          End date
+     *
      * @return array<int, array{
      *     service_provider: string,
      *     total_requests: int,
@@ -50,16 +53,17 @@ interface UsageTrackerServiceInterface
      */
     public function getUsageReport(
         string $serviceType,
-        \DateTimeInterface $from,
-        \DateTimeInterface $to,
+        DateTimeInterface $from,
+        DateTimeInterface $to,
     ): array;
 
     /**
      * Get usage for a specific backend user.
      *
-     * @param int $beUserUid Backend user UID
-     * @param \DateTimeInterface $from Start date
-     * @param \DateTimeInterface $to End date
+     * @param int               $beUserUid Backend user UID
+     * @param DateTimeInterface $from      Start date
+     * @param DateTimeInterface $to        End date
+     *
      * @return array<int, array{
      *     service_type: string,
      *     service_provider: string,
@@ -69,8 +73,8 @@ interface UsageTrackerServiceInterface
      */
     public function getUserUsage(
         int $beUserUid,
-        \DateTimeInterface $from,
-        \DateTimeInterface $to,
+        DateTimeInterface $from,
+        DateTimeInterface $to,
     ): array;
 
     /**

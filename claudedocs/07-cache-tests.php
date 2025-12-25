@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Unit Tests for Caching and Performance Layer
+ * Unit Tests for Caching and Performance Layer.
  *
  * Test Coverage:
  * - Cache key generation (determinism, collision resistance)
@@ -18,13 +18,14 @@ declare(strict_types=1);
 
 namespace Netresearch\AiBase\Tests\Unit\Service\Cache;
 
-use TYPO3\TestingFramework\Core\Unit\UnitTestCase;
-use Netresearch\AiBase\Service\Cache\CacheKeyGenerator;
-use Netresearch\AiBase\Service\Cache\PromptNormalizer;
-use Netresearch\AiBase\Service\Cache\CacheService;
-use Netresearch\AiBase\Service\Cache\CacheMetricsService;
+use Exception;
 use Netresearch\AiBase\Domain\Model\AiRequest;
 use Netresearch\AiBase\Domain\Model\AiResponse;
+use Netresearch\AiBase\Service\Cache\CacheKeyGenerator;
+use Netresearch\AiBase\Service\Cache\CacheMetricsService;
+use Netresearch\AiBase\Service\Cache\CacheService;
+use Netresearch\AiBase\Service\Cache\PromptNormalizer;
+use TYPO3\TestingFramework\Core\Unit\UnitTestCase;
 
 // ============================================================================
 // 1. CACHE KEY GENERATOR TESTS
@@ -180,7 +181,7 @@ class CacheKeyGeneratorTest extends UnitTestCase
         self::assertMatchesRegularExpression(
             '/^ai_v1_[a-z_]+_[a-f0-9]{32}$/',
             $key,
-            'Cache key should match expected format'
+            'Cache key should match expected format',
         );
     }
 
@@ -197,7 +198,7 @@ class CacheKeyGeneratorTest extends UnitTestCase
                 'openai',
                 'gpt-4',
                 'Test prompt ' . $i,
-                ['temperature' => 0.7 + ($i / 10000)]
+                ['temperature' => 0.7 + ($i / 10000)],
             );
             $keys[] = $this->subject->generate($request);
         }
@@ -207,7 +208,7 @@ class CacheKeyGeneratorTest extends UnitTestCase
         self::assertCount(
             $iterations,
             $uniqueKeys,
-            'All keys should be unique (no collisions)'
+            'All keys should be unique (no collisions)',
         );
     }
 
@@ -216,7 +217,7 @@ class CacheKeyGeneratorTest extends UnitTestCase
         string $model,
         string $prompt,
         array $options,
-        string $feature = 'translation'
+        string $feature = 'translation',
     ): AiRequest {
         return new AiRequest([
             'provider' => $provider,
@@ -389,7 +390,7 @@ class CacheServiceTest extends UnitTestCase
             $configMock,
             $this->metricsMock,
             $this->loggerMock,
-            $keyGenerator
+            $keyGenerator,
         );
     }
 
@@ -415,7 +416,7 @@ class CacheServiceTest extends UnitTestCase
             ->expects(self::once())
             ->method('recordHit');
 
-        $result = $this->subject->get($request, fn() => throw new \Exception('Should not execute'));
+        $result = $this->subject->get($request, fn() => throw new Exception('Should not execute'));
 
         self::assertSame($expectedResponse, $result);
     }
@@ -469,7 +470,7 @@ class CacheServiceTest extends UnitTestCase
                 self::anything(),
                 $response,
                 [],
-                self::greaterThan(0)
+                self::greaterThan(0),
             );
 
         $this->subject->get($request, fn() => $response);
@@ -490,7 +491,7 @@ class CacheServiceTest extends UnitTestCase
                 self::anything(),
                 $response,
                 [],
-                $ttl
+                $ttl,
             );
 
         $this->subject->set('test_key', $response, $ttl);
@@ -590,7 +591,7 @@ class CacheMetricsServiceTest extends UnitTestCase
 
         $this->subject = new CacheMetricsService(
             $this->repositoryMock,
-            $this->loggerMock
+            $this->loggerMock,
         );
     }
 
@@ -671,7 +672,7 @@ class CacheMetricsServiceTest extends UnitTestCase
                 1,  // hits
                 1,  // misses
                 1,  // writes
-                1024 // storage_bytes
+                1024, // storage_bytes
             );
 
         $this->subject->persistMetrics();
@@ -724,7 +725,7 @@ class CachePerformanceTest extends UnitTestCase
         self::assertLessThan(
             1.0,
             $avgDuration,
-            sprintf('Cache key generation took %.3fms (expected <1ms)', $avgDuration)
+            sprintf('Cache key generation took %.3fms (expected <1ms)', $avgDuration),
         );
     }
 
@@ -749,7 +750,7 @@ class CachePerformanceTest extends UnitTestCase
         self::assertLessThan(
             100.0,
             $avgDuration,
-            sprintf('Prompt normalization took %.1fμs (expected <100μs)', $avgDuration)
+            sprintf('Prompt normalization took %.1fμs (expected <100μs)', $avgDuration),
         );
     }
 
@@ -772,6 +773,7 @@ class CacheTtlStrategyTest extends UnitTestCase
 {
     /**
      * @test
+     *
      * @dataProvider featureTtlProvider
      */
     public function getTtlForFeatureReturnsCorrectValue(string $feature, int $expectedTtl): void
@@ -789,7 +791,7 @@ class CacheTtlStrategyTest extends UnitTestCase
         self::assertEquals($expectedTtl, $ttlMap[$feature]);
     }
 
-    public function featureTtlProvider(): array
+    public static function featureTtlProvider(): array
     {
         return [
             'translation' => ['translation', 2592000],
@@ -807,7 +809,7 @@ class CacheTtlStrategyTest extends UnitTestCase
 // ============================================================================
 
 /**
- * Integration test demonstrating full cache lifecycle
+ * Integration test demonstrating full cache lifecycle.
  *
  * Note: This requires actual TYPO3 testing framework and database
  */

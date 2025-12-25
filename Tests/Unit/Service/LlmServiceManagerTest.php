@@ -8,7 +8,6 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Provider\AbstractProvider;
-use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -30,7 +29,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->extensionConfigStub = $this->createStub(ExtensionConfiguration::class);
+        $this->extensionConfigStub = self::createStub(ExtensionConfiguration::class);
         $this->extensionConfigStub
             ->method('get')
             ->willReturn([
@@ -38,7 +37,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
                 'providers' => [],
             ]);
 
-        $this->loggerStub = $this->createStub(LoggerInterface::class);
+        $this->loggerStub = self::createStub(LoggerInterface::class);
 
         $this->subject = new LlmServiceManager(
             $this->extensionConfigStub,
@@ -55,8 +54,8 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     {
         $providers = $this->subject->getProviderList();
 
-        $this->assertArrayHasKey('openai', $providers);
-        $this->assertEquals('OpenAI', $providers['openai']);
+        self::assertArrayHasKey('openai', $providers);
+        self::assertEquals('OpenAI', $providers['openai']);
     }
 
     #[Test]
@@ -64,7 +63,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     {
         $provider = $this->subject->getProvider('openai');
 
-        $this->assertSame($this->provider, $provider);
+        self::assertSame($this->provider, $provider);
     }
 
     #[Test]
@@ -72,7 +71,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     {
         $provider = $this->subject->getProvider();
 
-        $this->assertSame($this->provider, $provider);
+        self::assertSame($this->provider, $provider);
     }
 
     #[Test]
@@ -88,7 +87,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     public function getProviderThrowsWhenNoDefaultConfigured(): void
     {
         // Create manager without default provider
-        $extensionConfigStub = $this->createStub(ExtensionConfiguration::class);
+        $extensionConfigStub = self::createStub(ExtensionConfiguration::class);
         $extensionConfigStub
             ->method('get')
             ->willReturn(['providers' => []]);
@@ -115,8 +114,8 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $result = $this->subject->chat($messages);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertEquals('Hi there', $result->content);
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('Hi there', $result->content);
     }
 
     #[Test]
@@ -133,8 +132,8 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $result = $this->subject->complete($prompt);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
-        $this->assertEquals('I am fine, thank you!', $result->content);
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('I am fine, thank you!', $result->content);
     }
 
     #[Test]
@@ -152,8 +151,8 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $result = $this->subject->embed($text);
 
-        $this->assertInstanceOf(EmbeddingResponse::class, $result);
-        $this->assertCount(1536, $result->embeddings[0]);
+        self::assertInstanceOf(EmbeddingResponse::class, $result);
+        self::assertCount(1536, $result->embeddings[0]);
     }
 
     #[Test]
@@ -165,8 +164,8 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $result = $this->subject->getAvailableProviders();
 
-        $this->assertArrayHasKey('openai', $result);
-        $this->assertArrayNotHasKey('claude', $result);
+        self::assertArrayHasKey('openai', $result);
+        self::assertArrayNotHasKey('claude', $result);
     }
 
     #[Test]
@@ -177,9 +176,9 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $result = $this->subject->getProviderList();
 
-        $this->assertCount(2, $result);
-        $this->assertEquals('OpenAI', $result['openai']);
-        $this->assertEquals('Claude', $result['claude']);
+        self::assertCount(2, $result);
+        self::assertEquals('OpenAI', $result['openai']);
+        self::assertEquals('Claude', $result['claude']);
     }
 
     #[Test]
@@ -189,7 +188,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $this->subject->registerProvider($claudeProvider);
         $this->subject->setDefaultProvider('claude');
 
-        $this->assertEquals('claude', $this->subject->getDefaultProvider());
+        self::assertEquals('claude', $this->subject->getDefaultProvider());
     }
 
     #[Test]
@@ -204,19 +203,19 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function supportsFeatureReturnsTrueWhenSupported(): void
     {
-        $this->assertTrue($this->subject->supportsFeature('chat', 'openai'));
+        self::assertTrue($this->subject->supportsFeature('chat', 'openai'));
     }
 
     #[Test]
     public function supportsFeatureReturnsFalseWhenNotSupported(): void
     {
-        $this->assertFalse($this->subject->supportsFeature('unknown_feature', 'openai'));
+        self::assertFalse($this->subject->supportsFeature('unknown_feature', 'openai'));
     }
 
     #[Test]
     public function supportsFeatureReturnsFalseForNonexistentProvider(): void
     {
-        $this->assertFalse($this->subject->supportsFeature('chat', 'nonexistent'));
+        self::assertFalse($this->subject->supportsFeature('chat', 'nonexistent'));
     }
 
     #[Test]
@@ -240,15 +239,15 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $this->subject->chat($messages, $options);
 
         $passedOptions = $this->provider->getLastOptions();
-        $this->assertEquals(0.7, $passedOptions['temperature']);
-        $this->assertEquals(1000, $passedOptions['max_tokens']);
-        $this->assertEquals('gpt-4-turbo', $passedOptions['model']);
+        self::assertEquals(0.7, $passedOptions['temperature']);
+        self::assertEquals(1000, $passedOptions['max_tokens']);
+        self::assertEquals('gpt-4-turbo', $passedOptions['model']);
     }
 
     #[Test]
     public function getProviderConfigurationReturnsConfig(): void
     {
-        $extensionConfigStub = $this->createStub(ExtensionConfiguration::class);
+        $extensionConfigStub = self::createStub(ExtensionConfiguration::class);
         $extensionConfigStub
             ->method('get')
             ->willReturn([
@@ -264,8 +263,8 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager = new LlmServiceManager($extensionConfigStub, $this->loggerStub);
         $config = $manager->getProviderConfiguration('openai');
 
-        $this->assertArrayHasKey('apiKey', $config);
-        $this->assertArrayHasKey('defaultModel', $config);
+        self::assertArrayHasKey('apiKey', $config);
+        self::assertArrayHasKey('defaultModel', $config);
     }
 
     #[Test]
@@ -273,7 +272,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     {
         $config = $this->subject->getProviderConfiguration('nonexistent');
 
-        $this->assertEmpty($config);
+        self::assertEmpty($config);
     }
 
     #[Test]
@@ -283,7 +282,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $this->subject->configureProvider('openai', $newConfig);
 
-        $this->assertEquals($newConfig, $this->provider->getLastConfiguration());
+        self::assertEquals($newConfig, $this->provider->getLastConfiguration());
     }
 
     #[Test]

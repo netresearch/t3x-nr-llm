@@ -24,7 +24,7 @@ class VisionServiceTest extends AbstractUnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
+        $this->llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
         $this->subject = new VisionService($this->llmManagerStub);
     }
 
@@ -51,13 +51,13 @@ class VisionServiceTest extends AbstractUnitTestCase
         $expectedAltText = 'A red barn in a green field';
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->willReturn($this->createMockVisionResponse($expectedAltText));
 
         $result = $subject->generateAltText($imageUrl);
 
-        $this->assertEquals($expectedAltText, $result);
+        self::assertEquals($expectedAltText, $result);
     }
 
     #[Test]
@@ -71,17 +71,17 @@ class VisionServiceTest extends AbstractUnitTestCase
         ];
 
         $llmManagerMock
-            ->expects($this->exactly(2))
+            ->expects(self::exactly(2))
             ->method('vision')
             ->willReturnOnConsecutiveCalls(
                 $this->createMockVisionResponse('Alt text 1'),
-                $this->createMockVisionResponse('Alt text 2')
+                $this->createMockVisionResponse('Alt text 2'),
             );
 
         $results = $subject->generateAltText($imageUrls);
 
-        $this->assertIsArray($results);
-        $this->assertCount(2, $results);
+        self::assertIsArray($results);
+        self::assertCount(2, $results);
     }
 
     #[Test]
@@ -93,13 +93,13 @@ class VisionServiceTest extends AbstractUnitTestCase
         $expectedTitle = 'SEO optimized title';
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->willReturn($this->createMockVisionResponse($expectedTitle));
 
         $result = $subject->generateTitle($imageUrl);
 
-        $this->assertEquals($expectedTitle, $result);
+        self::assertEquals($expectedTitle, $result);
     }
 
     #[Test]
@@ -111,13 +111,13 @@ class VisionServiceTest extends AbstractUnitTestCase
         $expectedDescription = 'Detailed description of the image';
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->willReturn($this->createMockVisionResponse($expectedDescription));
 
         $result = $subject->generateDescription($imageUrl);
 
-        $this->assertEquals($expectedDescription, $result);
+        self::assertEquals($expectedDescription, $result);
     }
 
     #[Test]
@@ -130,21 +130,19 @@ class VisionServiceTest extends AbstractUnitTestCase
         $expectedAnalysis = 'The chart shows upward trends';
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->callback(function (array $content) use ($customPrompt) {
-                    return $content[0]['type'] === 'text'
+                self::callback(fn(array $content) => $content[0]['type'] === 'text'
                         && $content[0]['text'] === $customPrompt
-                        && $content[1]['type'] === 'image_url';
-                }),
-                $this->anything()
+                        && $content[1]['type'] === 'image_url'),
+                self::anything(),
             )
             ->willReturn($this->createMockVisionResponse($expectedAnalysis));
 
         $result = $subject->analyzeImage($imageUrl, $customPrompt);
 
-        $this->assertEquals($expectedAnalysis, $result);
+        self::assertEquals($expectedAnalysis, $result);
     }
 
     #[Test]
@@ -156,14 +154,14 @@ class VisionServiceTest extends AbstractUnitTestCase
         $analysis = 'Detailed analysis';
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->willReturn($this->createMockVisionResponse($analysis));
 
         $result = $subject->analyzeImageFull($imageUrl, 'Describe this image');
 
-        $this->assertInstanceOf(VisionResponse::class, $result);
-        $this->assertEquals($analysis, $result->description);
+        self::assertInstanceOf(VisionResponse::class, $result);
+        self::assertEquals($analysis, $result->description);
     }
 
     #[Test]
@@ -185,13 +183,13 @@ class VisionServiceTest extends AbstractUnitTestCase
         $base64Uri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
         $result = $subject->generateAltText($base64Uri);
 
-        $this->assertIsString($result);
+        self::assertIsString($result);
     }
 
     #[Test]
@@ -202,13 +200,11 @@ class VisionServiceTest extends AbstractUnitTestCase
         $imageUrl = 'https://example.com/image.jpg';
 
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->callback(function (array $content) {
-                    return $content[1]['image_url']['detail'] === 'high';
-                }),
-                $this->anything()
+                self::callback(fn(array $content) => $content[1]['image_url']['detail'] === 'high'),
+                self::anything(),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -216,7 +212,7 @@ class VisionServiceTest extends AbstractUnitTestCase
     }
 
     /**
-     * Create mock VisionResponse
+     * Create mock VisionResponse.
      */
     private function createMockVisionResponse(string $description): VisionResponse
     {
@@ -226,7 +222,7 @@ class VisionServiceTest extends AbstractUnitTestCase
             usage: new UsageStatistics(
                 promptTokens: 100,
                 completionTokens: 50,
-                totalTokens: 150
+                totalTokens: 150,
             ),
             provider: 'openai',
         );

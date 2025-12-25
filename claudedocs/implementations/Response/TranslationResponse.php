@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 /**
- * Translation-specific response
+ * Translation-specific response.
  *
  * @api This class is part of the public API
  */
@@ -18,18 +18,18 @@ class TranslationResponse extends LlmResponse
         string $content = '',
         ?TokenUsage $usage = null,
         ?array $metadata = null,
-        ?string $finishReason = null
+        ?string $finishReason = null,
     ) {
         parent::__construct(
             $content ?: $translation,
             $usage,
             $metadata,
-            $finishReason
+            $finishReason,
         );
     }
 
     /**
-     * Get translation text
+     * Get translation text.
      */
     public function getTranslation(): string
     {
@@ -37,7 +37,7 @@ class TranslationResponse extends LlmResponse
     }
 
     /**
-     * Get confidence score (0.0-1.0)
+     * Get confidence score (0.0-1.0).
      */
     public function getConfidence(): ?float
     {
@@ -45,7 +45,7 @@ class TranslationResponse extends LlmResponse
     }
 
     /**
-     * Get alternative translations
+     * Get alternative translations.
      *
      * @return array Array of alternative translations with scores
      */
@@ -55,7 +55,7 @@ class TranslationResponse extends LlmResponse
     }
 
     /**
-     * Check if alternatives are available
+     * Check if alternatives are available.
      */
     public function hasAlternatives(): bool
     {
@@ -63,7 +63,7 @@ class TranslationResponse extends LlmResponse
     }
 
     /**
-     * Convert to array
+     * Convert to array.
      */
     public function toArray(): array
     {

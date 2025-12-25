@@ -9,7 +9,7 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
 /**
- * Domain model for LLM configuration presets
+ * Domain model for LLM configuration presets.
  *
  * Represents a named LLM configuration that administrators can create
  * and manage via backend module. Includes provider settings, model parameters,
@@ -41,7 +41,7 @@ class LlmConfiguration extends AbstractEntity
     protected int $cruserId = 0;
 
     /**
-     * Allowed backend groups (MM relation)
+     * Allowed backend groups (MM relation).
      *
      * @var ObjectStorage<\TYPO3\CMS\Extbase\DomainObject\AbstractEntity>|null
      */
@@ -122,7 +122,7 @@ class LlmConfiguration extends AbstractEntity
     }
 
     /**
-     * Get parsed options array
+     * Get parsed options array.
      *
      * @return array<string, mixed>
      */
@@ -268,7 +268,7 @@ class LlmConfiguration extends AbstractEntity
     }
 
     /**
-     * Set options from array
+     * Set options from array.
      *
      * @param array<string, mixed> $options
      */
@@ -320,7 +320,7 @@ class LlmConfiguration extends AbstractEntity
     // ========================================
 
     /**
-     * Check if this configuration has usage limits enabled
+     * Check if this configuration has usage limits enabled.
      */
     public function hasUsageLimits(): bool
     {
@@ -330,7 +330,7 @@ class LlmConfiguration extends AbstractEntity
     }
 
     /**
-     * Check if configuration has access restrictions
+     * Check if configuration has access restrictions.
      */
     public function hasAccessRestrictions(): bool
     {
@@ -339,7 +339,7 @@ class LlmConfiguration extends AbstractEntity
     }
 
     /**
-     * Convert configuration to ChatOptions object
+     * Convert configuration to ChatOptions object.
      */
     public function toChatOptions(): ChatOptions
     {
@@ -356,7 +356,7 @@ class LlmConfiguration extends AbstractEntity
     }
 
     /**
-     * Convert configuration to options array
+     * Convert configuration to options array.
      *
      * @return array<string, mixed>
      */

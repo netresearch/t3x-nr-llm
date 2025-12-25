@@ -31,13 +31,13 @@ class CompletionResponseTest extends AbstractUnitTestCase
             metadata: $metadata,
         );
 
-        $this->assertEquals('Hello, world!', $response->content);
-        $this->assertEquals('gpt-4o', $response->model);
-        $this->assertSame($usage, $response->usage);
-        $this->assertEquals('stop', $response->finishReason);
-        $this->assertEquals('openai', $response->provider);
-        $this->assertEquals($toolCalls, $response->toolCalls);
-        $this->assertEquals($metadata, $response->metadata);
+        self::assertEquals('Hello, world!', $response->content);
+        self::assertEquals('gpt-4o', $response->model);
+        self::assertSame($usage, $response->usage);
+        self::assertEquals('stop', $response->finishReason);
+        self::assertEquals('openai', $response->provider);
+        self::assertEquals($toolCalls, $response->toolCalls);
+        self::assertEquals($metadata, $response->metadata);
     }
 
     #[Test]
@@ -51,10 +51,10 @@ class CompletionResponseTest extends AbstractUnitTestCase
             usage: $usage,
         );
 
-        $this->assertEquals('stop', $response->finishReason);
-        $this->assertEquals('', $response->provider);
-        $this->assertNull($response->toolCalls);
-        $this->assertNull($response->metadata);
+        self::assertEquals('stop', $response->finishReason);
+        self::assertEquals('', $response->provider);
+        self::assertNull($response->toolCalls);
+        self::assertNull($response->metadata);
     }
 
     #[Test]
@@ -67,7 +67,7 @@ class CompletionResponseTest extends AbstractUnitTestCase
             finishReason: 'length',
         );
 
-        $this->assertTrue($response->wasTruncated());
+        self::assertTrue($response->wasTruncated());
     }
 
     #[Test]
@@ -80,7 +80,7 @@ class CompletionResponseTest extends AbstractUnitTestCase
             finishReason: 'stop',
         );
 
-        $this->assertFalse($response->wasTruncated());
+        self::assertFalse($response->wasTruncated());
     }
 
     #[Test]
@@ -93,7 +93,7 @@ class CompletionResponseTest extends AbstractUnitTestCase
             finishReason: 'content_filter',
         );
 
-        $this->assertTrue($response->wasFiltered());
+        self::assertTrue($response->wasFiltered());
     }
 
     #[Test]
@@ -106,7 +106,7 @@ class CompletionResponseTest extends AbstractUnitTestCase
             finishReason: 'stop',
         );
 
-        $this->assertFalse($response->wasFiltered());
+        self::assertFalse($response->wasFiltered());
     }
 
     #[Test]
@@ -120,7 +120,7 @@ class CompletionResponseTest extends AbstractUnitTestCase
             finishReason: $finishReason,
         );
 
-        $this->assertEquals($expected, $response->isComplete());
+        self::assertEquals($expected, $response->isComplete());
     }
 
     public static function completeFinishReasonProvider(): array
@@ -150,7 +150,7 @@ class CompletionResponseTest extends AbstractUnitTestCase
             ],
         );
 
-        $this->assertTrue($response->hasToolCalls());
+        self::assertTrue($response->hasToolCalls());
     }
 
     #[Test]
@@ -163,7 +163,7 @@ class CompletionResponseTest extends AbstractUnitTestCase
             toolCalls: null,
         );
 
-        $this->assertFalse($response->hasToolCalls());
+        self::assertFalse($response->hasToolCalls());
     }
 
     #[Test]
@@ -176,7 +176,7 @@ class CompletionResponseTest extends AbstractUnitTestCase
             toolCalls: [],
         );
 
-        $this->assertFalse($response->hasToolCalls());
+        self::assertFalse($response->hasToolCalls());
     }
 
     #[Test]
@@ -190,8 +190,8 @@ class CompletionResponseTest extends AbstractUnitTestCase
             usage: new UsageStatistics(10, 20, 30),
         );
 
-        $this->assertEquals($content, $response->getText());
-        $this->assertEquals($response->content, $response->getText());
+        self::assertEquals($content, $response->getText());
+        self::assertEquals($response->content, $response->getText());
     }
 
     #[Test]
@@ -204,7 +204,7 @@ class CompletionResponseTest extends AbstractUnitTestCase
         );
 
         // Properties are readonly, so this should work without modification
-        $this->assertEquals('original', $response->content);
+        self::assertEquals('original', $response->content);
     }
 
     #[Test]
@@ -224,7 +224,7 @@ class CompletionResponseTest extends AbstractUnitTestCase
             toolCalls: $toolCalls,
         );
 
-        $this->assertCount(3, $response->toolCalls);
-        $this->assertEquals('call_2', $response->toolCalls[1]['id']);
+        self::assertCount(3, $response->toolCalls);
+        self::assertEquals('call_2', $response->toolCalls[1]['id']);
     }
 }

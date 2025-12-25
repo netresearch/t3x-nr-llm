@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
+use Generator;
+use JsonException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
@@ -94,7 +96,7 @@ final class GeminiProvider extends AbstractProvider implements
 
         $response = $this->sendRequest(
             "models/{$model}:generateContent?key=" . $this->apiKey,
-            $payload
+            $payload,
         );
 
         $candidate = $response['candidates'][0] ?? [];
@@ -106,9 +108,9 @@ final class GeminiProvider extends AbstractProvider implements
             model: $model,
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['promptTokenCount'] ?? 0,
-                completionTokens: $usage['candidatesTokenCount'] ?? 0
+                completionTokens: $usage['candidatesTokenCount'] ?? 0,
             ),
-            finishReason: $this->mapFinishReason($candidate['finishReason'] ?? 'STOP')
+            finishReason: $this->mapFinishReason($candidate['finishReason'] ?? 'STOP'),
         );
     }
 
@@ -141,7 +143,7 @@ final class GeminiProvider extends AbstractProvider implements
 
         $response = $this->sendRequest(
             "models/{$model}:generateContent?key=" . $this->apiKey,
-            $payload
+            $payload,
         );
 
         $candidate = $response['candidates'][0] ?? [];
@@ -172,11 +174,11 @@ final class GeminiProvider extends AbstractProvider implements
             model: $model,
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['promptTokenCount'] ?? 0,
-                completionTokens: $usage['candidatesTokenCount'] ?? 0
+                completionTokens: $usage['candidatesTokenCount'] ?? 0,
             ),
             finishReason: $this->mapFinishReason($candidate['finishReason'] ?? 'STOP'),
             provider: $this->getIdentifier(),
-            toolCalls: $toolCalls !== [] ? $toolCalls : null
+            toolCalls: $toolCalls !== [] ? $toolCalls : null,
         );
     }
 
@@ -203,7 +205,7 @@ final class GeminiProvider extends AbstractProvider implements
 
             $response = $this->sendRequest(
                 "models/{$model}:embedContent?key=" . $this->apiKey,
-                $payload
+                $payload,
             );
 
             $embeddings[] = $response['embedding']['values'] ?? [];
@@ -214,9 +216,9 @@ final class GeminiProvider extends AbstractProvider implements
             embeddings: $embeddings,
             model: $model,
             usage: $this->createUsageStatistics(
-                promptTokens: (int) $totalTokens,
-                completionTokens: 0
-            )
+                promptTokens: (int)$totalTokens,
+                completionTokens: 0,
+            ),
         );
     }
 
@@ -270,7 +272,7 @@ final class GeminiProvider extends AbstractProvider implements
 
         $response = $this->sendRequest(
             "models/{$model}:generateContent?key=" . $this->apiKey,
-            $payload
+            $payload,
         );
 
         $candidate = $response['candidates'][0] ?? [];
@@ -282,9 +284,9 @@ final class GeminiProvider extends AbstractProvider implements
             model: $model,
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['promptTokenCount'] ?? 0,
-                completionTokens: $usage['candidatesTokenCount'] ?? 0
+                completionTokens: $usage['candidatesTokenCount'] ?? 0,
             ),
-            provider: $this->getIdentifier()
+            provider: $this->getIdentifier(),
         );
     }
 
@@ -303,7 +305,7 @@ final class GeminiProvider extends AbstractProvider implements
         return 20 * 1024 * 1024; // 20 MB
     }
 
-    public function streamChatCompletion(array $messages, array $options = []): \Generator
+    public function streamChatCompletion(array $messages, array $options = []): Generator
     {
         $model = $options['model'] ?? $this->getDefaultModel();
         $geminiContents = $this->convertToGeminiFormat($messages);
@@ -350,7 +352,7 @@ final class GeminiProvider extends AbstractProvider implements
                         if ($text !== '') {
                             yield $text;
                         }
-                    } catch (\JsonException) {
+                    } catch (JsonException) {
                         // Skip malformed JSON
                     }
                 }
@@ -371,6 +373,7 @@ final class GeminiProvider extends AbstractProvider implements
 
     /**
      * @param array<int, array{role: string, content: string}> $messages
+     *
      * @return array{contents: array<int, array<string, mixed>>, systemInstruction?: array<string, mixed>}
      */
     private function convertToGeminiFormat(array $messages): array

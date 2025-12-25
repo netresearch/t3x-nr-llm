@@ -54,7 +54,7 @@ final class SpeechSynthesisOptions extends AbstractOptions
             model: $options['model'] ?? null,
             voice: $options['voice'] ?? null,
             format: $options['format'] ?? $options['response_format'] ?? null,
-            speed: isset($options['speed']) ? (float) $options['speed'] : null,
+            speed: isset($options['speed']) ? (float)$options['speed'] : null,
         );
     }
 

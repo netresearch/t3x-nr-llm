@@ -10,14 +10,14 @@ namespace Netresearch\NrLlm\Specialized\Image;
 final readonly class ImageGenerationResult
 {
     /**
-     * @param string $url URL to the generated image (temporary, typically expires in 1 hour)
-     * @param string|null $base64 Base64-encoded image data (if requested)
-     * @param string $prompt The prompt used for generation
-     * @param string|null $revisedPrompt The revised/enhanced prompt (DALL-E 3)
-     * @param string $model Model used for generation
-     * @param string $size Image dimensions (e.g., "1024x1024")
-     * @param string $provider Provider identifier (dall-e, fal)
-     * @param array<string, mixed>|null $metadata Additional metadata
+     * @param string                    $url           URL to the generated image (temporary, typically expires in 1 hour)
+     * @param string|null               $base64        Base64-encoded image data (if requested)
+     * @param string                    $prompt        The prompt used for generation
+     * @param string|null               $revisedPrompt The revised/enhanced prompt (DALL-E 3)
+     * @param string                    $model         Model used for generation
+     * @param string                    $size          Image dimensions (e.g., "1024x1024")
+     * @param string                    $provider      Provider identifier (dall-e, fal)
+     * @param array<string, mixed>|null $metadata      Additional metadata
      */
     public function __construct(
         public string $url,
@@ -56,6 +56,7 @@ final readonly class ImageGenerationResult
      * Get image as data URL for inline use.
      *
      * @param string $mimeType MIME type (default: image/png)
+     *
      * @return string|null Data URL or null if no base64
      */
     public function toDataUrl(string $mimeType = 'image/png'): ?string
@@ -71,6 +72,7 @@ final readonly class ImageGenerationResult
      * Save image to file.
      *
      * @param string $path File path to save to
+     *
      * @return bool Success status
      */
     public function saveToFile(string $path): bool
@@ -113,8 +115,8 @@ final readonly class ImageGenerationResult
         $height = $parts[1] ?? $width;
 
         return [
-            'width' => (int) $width,
-            'height' => (int) $height,
+            'width' => (int)$width,
+            'height' => (int)$height,
         ];
     }
 

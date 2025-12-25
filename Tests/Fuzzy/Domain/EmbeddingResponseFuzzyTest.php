@@ -12,7 +12,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * Property-based tests for EmbeddingResponse
+ * Property-based tests for EmbeddingResponse.
  */
 #[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
 class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
@@ -22,7 +22,7 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll($this->embeddingVector(50))
-            ->then(function (array $vector) {
+            ->then(function (array $vector): void {
                 // Normalize to avoid floating point issues with very small values
                 $normalizedVector = $this->normalizeVector($vector);
                 $similarity = EmbeddingResponse::cosineSimilarity($normalizedVector, $normalizedVector);
@@ -36,9 +36,9 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(
                 $this->embeddingVector(50),
-                $this->embeddingVector(50)
+                $this->embeddingVector(50),
             )
-            ->then(function (array $vectorA, array $vectorB) {
+            ->then(function (array $vectorA, array $vectorB): void {
                 $similarityAB = EmbeddingResponse::cosineSimilarity($vectorA, $vectorB);
                 $similarityBA = EmbeddingResponse::cosineSimilarity($vectorB, $vectorA);
                 $this->assertEqualsWithDelta($similarityAB, $similarityBA, 0.0001);
@@ -51,9 +51,9 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(
                 $this->embeddingVector(50),
-                $this->embeddingVector(50)
+                $this->embeddingVector(50),
             )
-            ->then(function (array $vectorA, array $vectorB) {
+            ->then(function (array $vectorA, array $vectorB): void {
                 $similarity = EmbeddingResponse::cosineSimilarity($vectorA, $vectorB);
                 $this->assertGreaterThanOrEqual(-1.0, $similarity);
                 $this->assertLessThanOrEqual(1.0, $similarity);
@@ -68,23 +68,23 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
                 $this->embeddingVector(50),
                 Generator\suchThat(
                     static fn(string $s) => strlen(trim($s)) > 0 && strlen($s) < 100,
-                    Generator\string()
+                    Generator\string(),
                 ),
                 Generator\pos(),
-                Generator\pos()
+                Generator\pos(),
             )
-            ->then(function (array $embedding, string $model, int $promptTokens, int $totalTokens) {
+            ->then(function (array $embedding, string $model, int $promptTokens, int $totalTokens): void {
                 $usage = new UsageStatistics(
                     promptTokens: $promptTokens,
                     completionTokens: 0,
-                    totalTokens: $totalTokens
+                    totalTokens: $totalTokens,
                 );
 
                 $response = new EmbeddingResponse(
                     embeddings: [$embedding],
                     model: $model,
                     usage: $usage,
-                    provider: 'test'
+                    provider: 'test',
                 );
 
                 $this->assertCount(1, $response->embeddings);
@@ -100,15 +100,15 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(
                 $this->embeddingVector(50),
-                $this->embeddingVector(50)
+                $this->embeddingVector(50),
             )
-            ->then(function (array $embedding1, array $embedding2) {
+            ->then(function (array $embedding1, array $embedding2): void {
                 $usage = new UsageStatistics(10, 0, 10);
                 $response = new EmbeddingResponse(
                     embeddings: [$embedding1, $embedding2],
                     model: 'test-model',
                     usage: $usage,
-                    provider: 'test'
+                    provider: 'test',
                 );
 
                 // getVector should always return the first embedding
@@ -123,15 +123,15 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
             ->forAll(
                 $this->embeddingVector(25),
                 $this->embeddingVector(25),
-                $this->embeddingVector(25)
+                $this->embeddingVector(25),
             )
-            ->then(function (array $emb1, array $emb2, array $emb3) {
+            ->then(function (array $emb1, array $emb2, array $emb3): void {
                 $usage = new UsageStatistics(10, 0, 10);
                 $response = new EmbeddingResponse(
                     embeddings: [$emb1, $emb2, $emb3],
                     model: 'test-model',
                     usage: $usage,
-                    provider: 'test'
+                    provider: 'test',
                 );
 
                 $this->assertCount(3, $response->embeddings);
@@ -146,7 +146,7 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll($this->embeddingVector(50))
-            ->then(function (array $vector) {
+            ->then(function (array $vector): void {
                 // Normalize vector
                 $normalizedVector = $this->normalizeVector($vector);
                 // Create opposite vector (negate all elements)
@@ -158,9 +158,10 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
     }
 
     /**
-     * Normalize vector to unit length
+     * Normalize vector to unit length.
      *
      * @param array<float> $vector
+     *
      * @return array<float>
      */
     private function normalizeVector(array $vector): array

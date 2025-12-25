@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Security;
 
+use DOMDocument;
+use DOMXPath;
 use TYPO3\CMS\Core\Html\HtmlParser;
 use TYPO3\CMS\Core\SingletonInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * Output sanitization for LLM responses
+ * Output sanitization for LLM responses.
  *
  * Security Features:
  * - XSS prevention in LLM-generated content
@@ -67,10 +69,11 @@ class OutputSanitizer implements SingletonInterface
     }
 
     /**
-     * Sanitize LLM response for safe rendering
+     * Sanitize LLM response for safe rendering.
      *
      * @param string $response LLM response
-     * @param string $format Response format ('html', 'markdown', 'text')
+     * @param string $format   Response format ('html', 'markdown', 'text')
+     *
      * @return string Sanitized response
      */
     public function sanitizeResponse(string $response, string $format = 'text'): string
@@ -89,9 +92,10 @@ class OutputSanitizer implements SingletonInterface
     }
 
     /**
-     * Sanitize HTML content
+     * Sanitize HTML content.
      *
      * @param string $html HTML content
+     *
      * @return string Sanitized HTML
      */
     public function sanitizeHtml(string $html): string
@@ -122,9 +126,10 @@ class OutputSanitizer implements SingletonInterface
     }
 
     /**
-     * Sanitize Markdown content
+     * Sanitize Markdown content.
      *
      * @param string $markdown Markdown content
+     *
      * @return string Sanitized Markdown
      */
     public function sanitizeMarkdown(string $markdown): string
@@ -150,9 +155,10 @@ class OutputSanitizer implements SingletonInterface
     }
 
     /**
-     * Sanitize plain text content
+     * Sanitize plain text content.
      *
      * @param string $text Plain text content
+     *
      * @return string Sanitized text
      */
     public function sanitizeText(string $text): string
@@ -162,9 +168,10 @@ class OutputSanitizer implements SingletonInterface
     }
 
     /**
-     * Strip script tags and event handlers
+     * Strip script tags and event handlers.
      *
      * @param string $html HTML content
+     *
      * @return string HTML without scripts
      */
     private function stripScripts(string $html): string
@@ -188,9 +195,10 @@ class OutputSanitizer implements SingletonInterface
     }
 
     /**
-     * Filter HTML to only allowed tags and attributes
+     * Filter HTML to only allowed tags and attributes.
      *
      * @param string $html HTML content
+     *
      * @return string Filtered HTML
      */
     private function filterAllowedTags(string $html): string
@@ -206,14 +214,14 @@ class OutputSanitizer implements SingletonInterface
             return '';
         }
 
-        $dom = new \DOMDocument();
+        $dom = new DOMDocument();
         $dom->encoding = 'UTF-8';
 
         // Suppress warnings for malformed HTML
         libxml_use_internal_errors(true);
         $dom->loadHTML(
             '<?xml encoding="UTF-8">' . $html,
-            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD,
         );
         libxml_clear_errors();
 
@@ -231,13 +239,13 @@ class OutputSanitizer implements SingletonInterface
     }
 
     /**
-     * Filter attributes on DOM elements
+     * Filter attributes on DOM elements.
      *
-     * @param \DOMDocument $dom DOM document
+     * @param DOMDocument $dom DOM document
      */
-    private function filterAttributes(\DOMDocument $dom): void
+    private function filterAttributes(DOMDocument $dom): void
     {
-        $xpath = new \DOMXPath($dom);
+        $xpath = new DOMXPath($dom);
 
         foreach (self::ALLOWED_ATTRIBUTES as $tag => $allowedAttrs) {
             $elements = $xpath->query("//{$tag}");
@@ -278,9 +286,10 @@ class OutputSanitizer implements SingletonInterface
     }
 
     /**
-     * Sanitize links in HTML
+     * Sanitize links in HTML.
      *
      * @param string $html HTML content
+     *
      * @return string HTML with sanitized links
      */
     private function sanitizeLinks(string $html): string
@@ -292,7 +301,7 @@ class OutputSanitizer implements SingletonInterface
         }
 
         // Validate URLs using DOMDocument
-        $dom = new \DOMDocument();
+        $dom = new DOMDocument();
         libxml_use_internal_errors(true);
         $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
         libxml_clear_errors();
@@ -326,9 +335,10 @@ class OutputSanitizer implements SingletonInterface
     }
 
     /**
-     * Sanitize links in Markdown
+     * Sanitize links in Markdown.
      *
      * @param string $markdown Markdown content
+     *
      * @return string Markdown with sanitized links
      */
     private function sanitizeMarkdownLinks(string $markdown): string
@@ -347,16 +357,17 @@ class OutputSanitizer implements SingletonInterface
 
                 return "[{$text}]({$url})";
             },
-            $markdown
+            $markdown,
         );
 
         return $markdown;
     }
 
     /**
-     * Validate URL
+     * Validate URL.
      *
      * @param string $url URL to validate
+     *
      * @return bool True if URL is valid and safe
      */
     private function isValidUrl(string $url): bool
@@ -387,9 +398,10 @@ class OutputSanitizer implements SingletonInterface
     }
 
     /**
-     * Check if URL is external
+     * Check if URL is external.
      *
      * @param string $url URL to check
+     *
      * @return bool True if URL is external
      */
     private function isExternalUrl(string $url): bool
@@ -406,9 +418,10 @@ class OutputSanitizer implements SingletonInterface
     }
 
     /**
-     * Isolate code blocks to prevent execution
+     * Isolate code blocks to prevent execution.
      *
      * @param string $html HTML content
+     *
      * @return string HTML with isolated code blocks
      */
     private function isolateCodeBlocks(string $html): string
@@ -417,16 +430,17 @@ class OutputSanitizer implements SingletonInterface
         $html = preg_replace(
             '/<(code|pre)\b([^>]*)>(.*?)<\/\1>/is',
             '<div class="llm-code-block"><$1$2>$3</$1></div>',
-            $html
+            $html,
         );
 
         return $html;
     }
 
     /**
-     * Escape dangerous markdown patterns
+     * Escape dangerous markdown patterns.
      *
      * @param string $markdown Markdown content
+     *
      * @return string Escaped markdown
      */
     private function escapeDangerousMarkdown(string $markdown): string
@@ -440,14 +454,15 @@ class OutputSanitizer implements SingletonInterface
     }
 
     /**
-     * Sanitize JSON output (for API responses)
+     * Sanitize JSON output (for API responses).
      *
      * @param array $data Data to sanitize
+     *
      * @return array Sanitized data
      */
     public function sanitizeJsonOutput(array $data): array
     {
-        array_walk_recursive($data, function (&$value) {
+        array_walk_recursive($data, function (&$value): void {
             if (is_string($value)) {
                 // Ensure proper UTF-8 encoding
                 $value = mb_convert_encoding($value, 'UTF-8', 'UTF-8');

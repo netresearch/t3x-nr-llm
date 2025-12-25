@@ -7,7 +7,7 @@ namespace Netresearch\NrLlm\Domain\Model;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
 /**
- * Domain model for prompt templates
+ * Domain model for prompt templates.
  *
  * Represents a reusable prompt template with versioning,
  * configuration, and performance tracking.
@@ -307,7 +307,7 @@ class PromptTemplate extends AbstractEntity
     }
 
     /**
-     * Get required variables from template
+     * Get required variables from template.
      *
      * Extracts all {{variable}} placeholders from prompts
      *
@@ -337,9 +337,7 @@ class PromptTemplate extends AbstractEntity
     }
 
     /**
-     * Check if template has performance data
-     *
-     * @return bool
+     * Check if template has performance data.
      */
     public function hasPerformanceData(): bool
     {

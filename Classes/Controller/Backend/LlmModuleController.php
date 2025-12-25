@@ -7,7 +7,7 @@ namespace Netresearch\NrLlm\Controller\Backend;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
+use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
@@ -62,7 +62,7 @@ final class LlmModuleController extends ActionController
         $moduleTemplate->assignMultiple([
             'providers' => array_map(
                 fn($p) => ['identifier' => $p->getIdentifier(), 'name' => $p->getName()],
-                $providers
+                $providers,
             ),
         ]);
 
@@ -93,7 +93,7 @@ final class LlmModuleController extends ActionController
                     'totalTokens' => $response->usage->totalTokens,
                 ],
             ]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return new JsonResponse([
                 'success' => false,
                 'error' => $e->getMessage(),

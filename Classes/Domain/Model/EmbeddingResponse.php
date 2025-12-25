@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use InvalidArgumentException;
+
 /**
- * Response object for embedding requests
+ * Response object for embedding requests.
  */
 final class EmbeddingResponse
 {
     /**
      * @param array<int, array<int, float>> $embeddings Array of embedding vectors
-     * @param string $model Model used for embeddings
-     * @param UsageStatistics $usage Token usage statistics
-     * @param string $provider Provider identifier
+     * @param string                        $model      Model used for embeddings
+     * @param UsageStatistics               $usage      Token usage statistics
+     * @param string                        $provider   Provider identifier
      */
     public function __construct(
         public readonly array $embeddings,
@@ -23,7 +25,7 @@ final class EmbeddingResponse
     ) {}
 
     /**
-     * Get the first embedding vector (for single input)
+     * Get the first embedding vector (for single input).
      *
      * @return array<int, float>
      */
@@ -33,7 +35,7 @@ final class EmbeddingResponse
     }
 
     /**
-     * Get all embedding vectors
+     * Get all embedding vectors.
      *
      * @return array<int, array<int, float>>
      */
@@ -43,7 +45,7 @@ final class EmbeddingResponse
     }
 
     /**
-     * Get vector dimension count
+     * Get vector dimension count.
      */
     public function getDimensions(): int
     {
@@ -52,7 +54,7 @@ final class EmbeddingResponse
     }
 
     /**
-     * Get number of embeddings
+     * Get number of embeddings.
      */
     public function getCount(): int
     {
@@ -60,9 +62,10 @@ final class EmbeddingResponse
     }
 
     /**
-     * Normalize a vector to unit length
+     * Normalize a vector to unit length.
      *
      * @param array<int, float> $vector
+     *
      * @return array<int, float>
      */
     public function normalizeVector(array $vector): array
@@ -77,7 +80,7 @@ final class EmbeddingResponse
     }
 
     /**
-     * Calculate cosine similarity between two embedding vectors
+     * Calculate cosine similarity between two embedding vectors.
      *
      * @param array<int, float> $vectorA
      * @param array<int, float> $vectorB
@@ -85,7 +88,7 @@ final class EmbeddingResponse
     public static function cosineSimilarity(array $vectorA, array $vectorB): float
     {
         if (count($vectorA) !== count($vectorB)) {
-            throw new \InvalidArgumentException('Vectors must have the same dimensions');
+            throw new InvalidArgumentException('Vectors must have the same dimensions');
         }
 
         $dotProduct = 0.0;

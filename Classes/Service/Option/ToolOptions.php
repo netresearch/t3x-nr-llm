@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Option;
 
 /**
- * Options for tool/function calling requests
+ * Options for tool/function calling requests.
  *
  * Extends ChatOptions with tool-specific configuration.
  *
@@ -52,7 +52,7 @@ class ToolOptions extends ChatOptions
     // ========================================
 
     /**
-     * Create options that let the model decide when to use tools
+     * Create options that let the model decide when to use tools.
      */
     public static function auto(): static
     {
@@ -63,7 +63,7 @@ class ToolOptions extends ChatOptions
     }
 
     /**
-     * Create options that require the model to use a tool
+     * Create options that require the model to use a tool.
      */
     public static function required(): static
     {
@@ -74,7 +74,7 @@ class ToolOptions extends ChatOptions
     }
 
     /**
-     * Create options that prevent tool usage
+     * Create options that prevent tool usage.
      */
     public static function noTools(): static
     {
@@ -85,7 +85,7 @@ class ToolOptions extends ChatOptions
     }
 
     /**
-     * Create options for parallel tool calls (multiple tools at once)
+     * Create options for parallel tool calls (multiple tools at once).
      */
     public static function parallel(): static
     {
@@ -140,7 +140,7 @@ class ToolOptions extends ChatOptions
             $this->filterNull([
                 'tool_choice' => $this->toolChoice,
                 'parallel_tool_calls' => $this->parallelToolCalls,
-            ])
+            ]),
         );
     }
 

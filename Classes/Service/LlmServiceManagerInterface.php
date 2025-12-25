@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
+use Generator;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
@@ -14,7 +15,7 @@ use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 
 /**
- * Interface for LLM service management
+ * Interface for LLM service management.
  *
  * Extracted from LlmServiceManager to enable testing with mocks.
  */
@@ -57,12 +58,13 @@ interface LlmServiceManagerInterface
 
     /**
      * @param array<int, array{role: string, content: string}> $messages
-     * @return \Generator<int, string, mixed, void>
+     *
+     * @return Generator<int, string, mixed, void>
      */
-    public function streamChat(array $messages, ?ChatOptions $options = null): \Generator;
+    public function streamChat(array $messages, ?ChatOptions $options = null): Generator;
 
     /**
-     * @param array<int, array{role: string, content: string}> $messages
+     * @param array<int, array{role: string, content: string}>                                                                      $messages
      * @param array<int, array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> $tools
      */
     public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse;

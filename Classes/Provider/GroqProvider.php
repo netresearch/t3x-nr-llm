@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
+use BadMethodCallException;
+use Generator;
+use JsonException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 
 /**
- * Groq Provider
+ * Groq Provider.
  *
  * Ultra-fast inference using custom LPU (Language Processing Unit) hardware.
  * Offers OpenAI-compatible API with significantly lower latency.
@@ -120,9 +123,9 @@ final class GroqProvider extends AbstractProvider implements
             model: $response['model'] ?? $payload['model'],
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: $usage['completion_tokens'] ?? 0
+                completionTokens: $usage['completion_tokens'] ?? 0,
             ),
-            finishReason: $choice['finish_reason'] ?? 'stop'
+            finishReason: $choice['finish_reason'] ?? 'stop',
         );
     }
 
@@ -168,11 +171,11 @@ final class GroqProvider extends AbstractProvider implements
             model: $response['model'] ?? $payload['model'],
             usage: $this->createUsageStatistics(
                 promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: $usage['completion_tokens'] ?? 0
+                completionTokens: $usage['completion_tokens'] ?? 0,
             ),
             finishReason: $choice['finish_reason'] ?? 'stop',
             provider: $this->getIdentifier(),
-            toolCalls: $toolCalls
+            toolCalls: $toolCalls,
         );
     }
 
@@ -181,7 +184,7 @@ final class GroqProvider extends AbstractProvider implements
         return true;
     }
 
-    public function streamChatCompletion(array $messages, array $options = []): \Generator
+    public function streamChatCompletion(array $messages, array $options = []): Generator
     {
         $payload = [
             'model' => $options['model'] ?? $this->getDefaultModel(),
@@ -226,7 +229,7 @@ final class GroqProvider extends AbstractProvider implements
                         if ($content !== '') {
                             yield $content;
                         }
-                    } catch (\JsonException) {
+                    } catch (JsonException) {
                         // Skip malformed JSON
                     }
                 }
@@ -268,6 +271,6 @@ final class GroqProvider extends AbstractProvider implements
      */
     public function embeddings(string|array $input, array $options = []): never
     {
-        throw new \BadMethodCallException('Groq does not support embeddings. Use OpenAI or Mistral for embeddings.');
+        throw new BadMethodCallException('Groq does not support embeddings. Use OpenAI or Mistral for embeddings.');
     }
 }

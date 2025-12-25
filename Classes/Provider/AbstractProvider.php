@@ -15,6 +15,7 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 abstract class AbstractProvider implements ProviderInterface
 {
@@ -50,11 +51,11 @@ abstract class AbstractProvider implements ProviderInterface
      */
     public function configure(array $config): void
     {
-        $this->apiKey = (string) ($config['apiKey'] ?? '');
-        $this->baseUrl = (string) ($config['baseUrl'] ?? $this->getDefaultBaseUrl());
-        $this->defaultModel = (string) ($config['defaultModel'] ?? $this->getDefaultModel());
-        $this->timeout = (int) ($config['timeout'] ?? 30);
-        $this->maxRetries = (int) ($config['maxRetries'] ?? 3);
+        $this->apiKey = (string)($config['apiKey'] ?? '');
+        $this->baseUrl = (string)($config['baseUrl'] ?? $this->getDefaultBaseUrl());
+        $this->defaultModel = (string)($config['defaultModel'] ?? $this->getDefaultModel());
+        $this->timeout = (int)($config['timeout'] ?? 30);
+        $this->maxRetries = (int)($config['maxRetries'] ?? 3);
 
         $this->validateConfiguration();
     }
@@ -85,6 +86,7 @@ abstract class AbstractProvider implements ProviderInterface
 
     /**
      * @param array<string, mixed> $payload
+     *
      * @return array<string, mixed>
      */
     protected function sendRequest(string $endpoint, array $payload, string $method = 'POST'): array
@@ -111,31 +113,31 @@ abstract class AbstractProvider implements ProviderInterface
                 $statusCode = $response->getStatusCode();
 
                 if ($statusCode >= 200 && $statusCode < 300) {
-                    $body = (string) $response->getBody();
+                    $body = (string)$response->getBody();
                     return json_decode($body, true, 512, JSON_THROW_ON_ERROR);
                 }
 
                 if ($statusCode >= 400 && $statusCode < 500) {
-                    $body = (string) $response->getBody();
+                    $body = (string)$response->getBody();
                     $error = json_decode($body, true) ?? ['error' => ['message' => 'Unknown error']];
                     throw new ProviderResponseException(
                         $this->extractErrorMessage($error),
-                        $statusCode
+                        $statusCode,
                     );
                 }
 
                 throw new ProviderConnectionException(
                     sprintf('Server returned status %d', $statusCode),
-                    $statusCode
+                    $statusCode,
                 );
             } catch (ProviderResponseException $e) {
                 throw $e;
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $lastException = $e;
                 $attempt++;
 
                 if ($attempt < $this->maxRetries) {
-                    usleep((int) (100000 * (2 ** $attempt)));
+                    usleep((int)(100000 * (2 ** $attempt)));
                 }
             }
         }
@@ -144,14 +146,10 @@ abstract class AbstractProvider implements ProviderInterface
             'Failed to connect to provider after ' . $this->maxRetries . ' attempts: '
             . ($lastException?->getMessage() ?? 'Unknown error'),
             0,
-            $lastException
+            $lastException,
         );
     }
 
-    /**
-     * @param \Psr\Http\Message\RequestInterface $request
-     * @return \Psr\Http\Message\RequestInterface
-     */
     protected function addProviderSpecificHeaders(\Psr\Http\Message\RequestInterface $request): \Psr\Http\Message\RequestInterface
     {
         return $request;
@@ -172,7 +170,7 @@ abstract class AbstractProvider implements ProviderInterface
     {
         if ($this->apiKey === '') {
             throw new ProviderConfigurationException(
-                sprintf('API key is required for provider %s', $this->getName())
+                sprintf('API key is required for provider %s', $this->getName()),
             );
         }
     }
@@ -182,7 +180,7 @@ abstract class AbstractProvider implements ProviderInterface
         return new UsageStatistics(
             promptTokens: $promptTokens,
             completionTokens: $completionTokens,
-            totalTokens: $promptTokens + $completionTokens
+            totalTokens: $promptTokens + $completionTokens,
         );
     }
 
@@ -190,14 +188,14 @@ abstract class AbstractProvider implements ProviderInterface
         string $content,
         string $model,
         UsageStatistics $usage,
-        ?string $finishReason = null
+        ?string $finishReason = null,
     ): CompletionResponse {
         return new CompletionResponse(
             content: $content,
             model: $model,
             usage: $usage,
             finishReason: $finishReason ?? 'stop',
-            provider: $this->getIdentifier()
+            provider: $this->getIdentifier(),
         );
     }
 
@@ -207,13 +205,13 @@ abstract class AbstractProvider implements ProviderInterface
     protected function createEmbeddingResponse(
         array $embeddings,
         string $model,
-        UsageStatistics $usage
+        UsageStatistics $usage,
     ): EmbeddingResponse {
         return new EmbeddingResponse(
             embeddings: $embeddings,
             model: $model,
             usage: $usage,
-            provider: $this->getIdentifier()
+            provider: $this->getIdentifier(),
         );
     }
 }

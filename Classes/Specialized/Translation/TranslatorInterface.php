@@ -32,33 +32,35 @@ interface TranslatorInterface
     /**
      * Translate a single text.
      *
-     * @param string $text Text to translate
-     * @param string $targetLanguage Target language code (ISO 639-1)
-     * @param string|null $sourceLanguage Source language code (auto-detect if null)
-     * @param array<string, mixed> $options Translator-specific options
+     * @param string               $text           Text to translate
+     * @param string               $targetLanguage Target language code (ISO 639-1)
+     * @param string|null          $sourceLanguage Source language code (auto-detect if null)
+     * @param array<string, mixed> $options        Translator-specific options
+     *
      * @return TranslatorResult Translation result
      */
     public function translate(
         string $text,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        array $options = []
+        array $options = [],
     ): TranslatorResult;
 
     /**
      * Translate multiple texts efficiently.
      *
-     * @param array<int, string> $texts Texts to translate
-     * @param string $targetLanguage Target language code
-     * @param string|null $sourceLanguage Source language code
-     * @param array<string, mixed> $options Translator-specific options
+     * @param array<int, string>   $texts          Texts to translate
+     * @param string               $targetLanguage Target language code
+     * @param string|null          $sourceLanguage Source language code
+     * @param array<string, mixed> $options        Translator-specific options
+     *
      * @return array<int, TranslatorResult> Translation results
      */
     public function translateBatch(
         array $texts,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        array $options = []
+        array $options = [],
     ): array;
 
     /**
@@ -72,6 +74,7 @@ interface TranslatorInterface
      * Detect language of text.
      *
      * @param string $text Text to analyze
+     *
      * @return string Detected language code (ISO 639-1)
      */
     public function detectLanguage(string $text): string;

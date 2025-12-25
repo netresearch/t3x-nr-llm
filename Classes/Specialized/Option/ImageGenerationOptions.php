@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Option;
 
+use InvalidArgumentException;
 use Netresearch\NrLlm\Service\Option\AbstractOptions;
 
 /**
@@ -51,13 +52,13 @@ final class ImageGenerationOptions extends AbstractOptions
             : self::VALID_SIZES_DALLE3;
 
         if (!in_array($this->size, $validSizes, true)) {
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 sprintf(
                     'Invalid size "%s" for model %s. Valid sizes: %s',
                     $this->size,
                     $this->model,
-                    implode(', ', $validSizes)
-                )
+                    implode(', ', $validSizes),
+                ),
             );
         }
     }

@@ -11,7 +11,7 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 
 /**
- * High-level service for text embeddings and similarity calculations
+ * High-level service for text embeddings and similarity calculations.
  *
  * Provides text-to-vector conversion with caching and
  * similarity calculation utilities.
@@ -26,11 +26,12 @@ class EmbeddingService
     ) {}
 
     /**
-     * Generate embedding vector for text
+     * Generate embedding vector for text.
      *
      * Embeddings are deterministic and aggressively cached.
      *
      * @param string $text Text to embed
+     *
      * @return array<int, float> Embedding vector
      */
     public function embed(string $text, ?EmbeddingOptions $options = null): array
@@ -40,7 +41,7 @@ class EmbeddingService
     }
 
     /**
-     * Generate embedding with full response object
+     * Generate embedding with full response object.
      *
      * @param string $text Text to embed
      */
@@ -67,9 +68,9 @@ class EmbeddingService
                 usage: new \Netresearch\NrLlm\Domain\Model\UsageStatistics(
                     promptTokens: $cached['usage']['promptTokens'] ?? 0,
                     completionTokens: 0,
-                    totalTokens: $cached['usage']['totalTokens'] ?? 0
+                    totalTokens: $cached['usage']['totalTokens'] ?? 0,
                 ),
-                provider: $provider
+                provider: $provider,
             );
         }
 
@@ -89,16 +90,17 @@ class EmbeddingService
                     'totalTokens' => $response->usage->totalTokens,
                 ],
             ],
-            $cacheTtl
+            $cacheTtl,
         );
 
         return $response;
     }
 
     /**
-     * Generate embeddings for multiple texts efficiently
+     * Generate embeddings for multiple texts efficiently.
      *
      * @param array<int, string> $texts Array of texts to embed
+     *
      * @return array<int, array<int, float>> Array of embedding vectors
      */
     public function embedBatch(array $texts, ?EmbeddingOptions $options = null): array
@@ -113,7 +115,7 @@ class EmbeddingService
     }
 
     /**
-     * Calculate cosine similarity between two vectors
+     * Calculate cosine similarity between two vectors.
      *
      * Returns a value between -1 and 1, where:
      * - 1 means identical vectors
@@ -122,8 +124,10 @@ class EmbeddingService
      *
      * @param array<int, float> $vectorA First vector
      * @param array<int, float> $vectorB Second vector
-     * @return float Similarity score
+     *
      * @throws InvalidArgumentException
+     *
+     * @return float Similarity score
      */
     public function cosineSimilarity(array $vectorA, array $vectorB): float
     {
@@ -131,17 +135,18 @@ class EmbeddingService
     }
 
     /**
-     * Find most similar vectors to query vector
+     * Find most similar vectors to query vector.
      *
-     * @param array<int, float> $queryVector Query vector
+     * @param array<int, float>             $queryVector      Query vector
      * @param array<int, array<int, float>> $candidateVectors Array of candidate vectors
-     * @param int $topK Number of results to return
+     * @param int                           $topK             Number of results to return
+     *
      * @return array<int, array{index: int, similarity: float}> Results sorted by similarity
      */
     public function findMostSimilar(
         array $queryVector,
         array $candidateVectors,
-        int $topK = 5
+        int $topK = 5,
     ): array {
         if (empty($candidateVectors)) {
             return [];
@@ -165,9 +170,10 @@ class EmbeddingService
     }
 
     /**
-     * Calculate pairwise similarities between all vectors
+     * Calculate pairwise similarities between all vectors.
      *
      * @param array<int, array<int, float>> $vectors Array of vectors
+     *
      * @return array<int, array<int, float>> 2D array of similarity scores
      */
     public function pairwiseSimilarities(array $vectors): array
@@ -183,7 +189,7 @@ class EmbeddingService
                 } else {
                     $similarities[$i][$j] = $this->cosineSimilarity(
                         $vectors[$i],
-                        $vectors[$j]
+                        $vectors[$j],
                     );
                 }
             }
@@ -193,9 +199,10 @@ class EmbeddingService
     }
 
     /**
-     * Normalize vector to unit length
+     * Normalize vector to unit length.
      *
      * @param array<int, float> $vector
+     *
      * @return array<int, float> Normalized vector
      */
     public function normalize(array $vector): array
@@ -210,7 +217,7 @@ class EmbeddingService
     }
 
     /**
-     * Generate cache key for embedding
+     * Generate cache key for embedding.
      */
     private function getCacheKey(string $text, string $model, string $provider): string
     {

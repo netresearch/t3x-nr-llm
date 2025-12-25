@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use RuntimeException;
+
 /**
- * Embedding response
+ * Embedding response.
  *
  * @api This class is part of the public API
  */
@@ -15,18 +17,18 @@ class EmbeddingResponse extends LlmResponse
         private array $embeddings,
         private ?string $model = null,
         ?TokenUsage $usage = null,
-        ?array $metadata = null
+        ?array $metadata = null,
     ) {
         parent::__construct(
             '',  // Embeddings have no text content
             $usage,
             $metadata,
-            'complete'
+            'complete',
         );
     }
 
     /**
-     * Get all embeddings
+     * Get all embeddings.
      *
      * @return array Array of embedding vectors
      */
@@ -36,16 +38,17 @@ class EmbeddingResponse extends LlmResponse
     }
 
     /**
-     * Get single embedding (if only one input)
+     * Get single embedding (if only one input).
+     *
+     * @throws RuntimeException If multiple embeddings exist
      *
      * @return array Single embedding vector
-     * @throws \RuntimeException If multiple embeddings exist
      */
     public function getEmbedding(): array
     {
         if (count($this->embeddings) !== 1) {
-            throw new \RuntimeException(
-                'Multiple embeddings exist, use getEmbeddings() instead'
+            throw new RuntimeException(
+                'Multiple embeddings exist, use getEmbeddings() instead',
             );
         }
 
@@ -53,7 +56,7 @@ class EmbeddingResponse extends LlmResponse
     }
 
     /**
-     * Get embedding dimensions
+     * Get embedding dimensions.
      */
     public function getDimensions(): int
     {
@@ -65,7 +68,7 @@ class EmbeddingResponse extends LlmResponse
     }
 
     /**
-     * Get model used for embeddings
+     * Get model used for embeddings.
      */
     public function getModel(): ?string
     {
@@ -73,7 +76,7 @@ class EmbeddingResponse extends LlmResponse
     }
 
     /**
-     * Convert to array
+     * Convert to array.
      */
     public function toArray(): array
     {

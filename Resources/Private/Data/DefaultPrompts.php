@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Default prompt templates for nr-llm feature services
+ * Default prompt templates for nr-llm feature services.
  *
  * These templates provide domain expertise and optimized prompts
  * for common AI tasks. Can be imported into database on installation.

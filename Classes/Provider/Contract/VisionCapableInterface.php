@@ -10,7 +10,7 @@ interface VisionCapableInterface
 {
     /**
      * @param array<int, array{type: string, image_url?: array{url: string}, text?: string}> $content
-     * @param array<string, mixed> $options
+     * @param array<string, mixed>                                                           $options
      */
     public function analyzeImage(array $content, array $options = []): VisionResponse;
 

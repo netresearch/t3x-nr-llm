@@ -10,12 +10,12 @@ namespace Netresearch\NrLlm\Specialized\Speech;
 final readonly class TranscriptionResult
 {
     /**
-     * @param string $text The transcribed text
-     * @param string $language Detected or specified language code
-     * @param float|null $duration Audio duration in seconds
-     * @param array<int, Segment>|null $segments Word/segment-level timestamps (verbose mode)
-     * @param float|null $confidence Overall transcription confidence (0.0-1.0)
-     * @param array<string, mixed>|null $metadata Additional metadata
+     * @param string                    $text       The transcribed text
+     * @param string                    $language   Detected or specified language code
+     * @param float|null                $duration   Audio duration in seconds
+     * @param array<int, Segment>|null  $segments   Word/segment-level timestamps (verbose mode)
+     * @param float|null                $confidence Overall transcription confidence (0.0-1.0)
+     * @param array<string, mixed>|null $metadata   Additional metadata
      */
     public function __construct(
         public string $text,
@@ -46,7 +46,7 @@ final readonly class TranscriptionResult
         $minutes = floor($this->duration / 60);
         $seconds = $this->duration % 60;
 
-        return sprintf('%d:%02d', (int) $minutes, (int) $seconds);
+        return sprintf('%d:%02d', (int)$minutes, (int)$seconds);
     }
 
     /**
@@ -89,7 +89,7 @@ final readonly class TranscriptionResult
                 $index++,
                 $this->formatSrtTime($segment->start),
                 $this->formatSrtTime($segment->end),
-                $segment->text
+                $segment->text,
             );
         }
 
@@ -114,7 +114,7 @@ final readonly class TranscriptionResult
                 "%s --> %s\n%s\n\n",
                 $this->formatVttTime($segment->start),
                 $this->formatVttTime($segment->end),
-                $segment->text
+                $segment->text,
             );
         }
 
@@ -126,11 +126,11 @@ final readonly class TranscriptionResult
      */
     private function formatSrtTime(float $seconds): string
     {
-        $totalSeconds = (int) floor($seconds);
+        $totalSeconds = (int)floor($seconds);
         $hours = intdiv($totalSeconds, 3600);
         $minutes = intdiv($totalSeconds % 3600, 60);
         $secs = $totalSeconds % 60;
-        $ms = (int) round(($seconds - floor($seconds)) * 1000);
+        $ms = (int)round(($seconds - floor($seconds)) * 1000);
 
         return sprintf('%02d:%02d:%02d,%03d', $hours, $minutes, $secs, $ms);
     }
@@ -140,11 +140,11 @@ final readonly class TranscriptionResult
      */
     private function formatVttTime(float $seconds): string
     {
-        $totalSeconds = (int) floor($seconds);
+        $totalSeconds = (int)floor($seconds);
         $hours = intdiv($totalSeconds, 3600);
         $minutes = intdiv($totalSeconds % 3600, 60);
         $secs = $totalSeconds % 60;
-        $ms = (int) round(($seconds - floor($seconds)) * 1000);
+        $ms = (int)round(($seconds - floor($seconds)) * 1000);
 
         return sprintf('%02d:%02d:%02d.%03d', $hours, $minutes, $secs, $ms);
     }

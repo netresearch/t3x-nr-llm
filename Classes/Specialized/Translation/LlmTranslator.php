@@ -62,7 +62,7 @@ final class LlmTranslator implements TranslatorInterface
         string $text,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        array $options = []
+        array $options = [],
     ): TranslatorResult {
         // Detect source language if not provided
         if ($sourceLanguage === null) {
@@ -77,7 +77,7 @@ final class LlmTranslator implements TranslatorInterface
             temperature: $options['temperature'] ?? 0.3,
             maxTokens: $options['max_tokens'] ?? 2000,
             provider: $options['provider'] ?? null,
-            model: $options['model'] ?? null
+            model: $options['model'] ?? null,
         );
 
         $response = $this->llmManager->chat($prompt['messages'], $chatOptions);
@@ -109,7 +109,7 @@ final class LlmTranslator implements TranslatorInterface
                     'completion_tokens' => $response->usage->completionTokens,
                     'total_tokens' => $response->usage->totalTokens,
                 ],
-            ]
+            ],
         );
     }
 
@@ -117,7 +117,7 @@ final class LlmTranslator implements TranslatorInterface
         array $texts,
         string $targetLanguage,
         ?string $sourceLanguage = null,
-        array $options = []
+        array $options = [],
     ): array {
         if (empty($texts)) {
             return [];
@@ -152,7 +152,7 @@ final class LlmTranslator implements TranslatorInterface
 
         $chatOptions = new ChatOptions(
             temperature: 0.1,
-            maxTokens: 10
+            maxTokens: 10,
         );
 
         $response = $this->llmManager->chat($messages, $chatOptions);
@@ -177,13 +177,14 @@ final class LlmTranslator implements TranslatorInterface
      * Build translation prompt.
      *
      * @param array<string, mixed> $options
+     *
      * @return array{messages: array<int, array{role: string, content: string}>}
      */
     private function buildPrompt(
         string $text,
         string $sourceLanguage,
         string $targetLanguage,
-        array $options
+        array $options,
     ): array {
         $formality = $options['formality'] ?? 'default';
         $domain = $options['domain'] ?? 'general';
@@ -196,7 +197,7 @@ final class LlmTranslator implements TranslatorInterface
             "You are a professional %s translator. Translate the following text from %s to %s.\n",
             $domain,
             self::LANGUAGE_NAMES[$sourceLanguage] ?? $sourceLanguage,
-            self::LANGUAGE_NAMES[$targetLanguage] ?? $targetLanguage
+            self::LANGUAGE_NAMES[$targetLanguage] ?? $targetLanguage,
         );
 
         if ($formality !== 'default') {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 /**
- * Rendered prompt with variables substituted
+ * Rendered prompt with variables substituted.
  *
  * Immutable value object representing a fully rendered prompt
  * ready for execution.
@@ -64,7 +64,7 @@ final class RenderedPrompt
     }
 
     /**
-     * Get combined prompt length estimate
+     * Get combined prompt length estimate.
      *
      * @return int Approximate character count
      */
@@ -74,17 +74,17 @@ final class RenderedPrompt
     }
 
     /**
-     * Get approximate token count (rough estimate: 4 chars = 1 token)
+     * Get approximate token count (rough estimate: 4 chars = 1 token).
      *
      * @return int Estimated tokens
      */
     public function estimateTokens(): int
     {
-        return (int) ceil($this->estimateLength() / 4);
+        return (int)ceil($this->estimateLength() / 4);
     }
 
     /**
-     * Convert to messages array format
+     * Convert to messages array format.
      *
      * @return array<int, array{role: string, content: string}>
      */

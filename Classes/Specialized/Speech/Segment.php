@@ -12,11 +12,11 @@ namespace Netresearch\NrLlm\Specialized\Speech;
 final readonly class Segment
 {
     /**
-     * @param string $text The segment text
-     * @param float $start Start time in seconds
-     * @param float $end End time in seconds
-     * @param float|null $confidence Segment confidence score (0.0-1.0)
-     * @param array<int, Word>|null $words Word-level details (if available)
+     * @param string                $text       The segment text
+     * @param float                 $start      Start time in seconds
+     * @param float                 $end        End time in seconds
+     * @param float|null            $confidence Segment confidence score (0.0-1.0)
+     * @param array<int, Word>|null $words      Word-level details (if available)
      */
     public function __construct(
         public string $text,
@@ -53,15 +53,15 @@ final readonly class Segment
         if (isset($data['words']) && is_array($data['words'])) {
             $words = array_map(
                 fn(array $w) => Word::fromWhisperResponse($w),
-                $data['words']
+                $data['words'],
             );
         }
 
         return new self(
             text: $data['text'] ?? '',
-            start: (float) ($data['start'] ?? 0.0),
-            end: (float) ($data['end'] ?? 0.0),
-            confidence: isset($data['avg_logprob']) ? exp((float) $data['avg_logprob']) : null,
+            start: (float)($data['start'] ?? 0.0),
+            end: (float)($data['end'] ?? 0.0),
+            confidence: isset($data['avg_logprob']) ? exp((float)$data['avg_logprob']) : null,
             words: $words,
         );
     }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Option;
 
 /**
- * Options for chat completion requests
+ * Options for chat completion requests.
  *
  * Provides typed, validated options with fluent setters and factory presets
  * for common use cases like factual, creative, and code generation.
@@ -37,7 +37,7 @@ class ChatOptions extends AbstractOptions
     // ========================================
 
     /**
-     * Create options optimized for factual, consistent output
+     * Create options optimized for factual, consistent output.
      *
      * Low temperature (0.2) and top_p (0.9) for deterministic responses.
      */
@@ -50,7 +50,7 @@ class ChatOptions extends AbstractOptions
     }
 
     /**
-     * Create options optimized for creative, diverse output
+     * Create options optimized for creative, diverse output.
      *
      * High temperature (1.2) and presence penalty (0.6) for originality.
      */
@@ -64,7 +64,7 @@ class ChatOptions extends AbstractOptions
     }
 
     /**
-     * Create balanced options for general use
+     * Create balanced options for general use.
      *
      * Default temperature (0.7) for balanced creativity and consistency.
      */
@@ -77,7 +77,7 @@ class ChatOptions extends AbstractOptions
     }
 
     /**
-     * Create options for JSON output
+     * Create options for JSON output.
      */
     public static function json(): static
     {
@@ -88,7 +88,7 @@ class ChatOptions extends AbstractOptions
     }
 
     /**
-     * Create options optimized for code generation
+     * Create options optimized for code generation.
      *
      * Low temperature (0.2) for precision, no frequency penalty to allow
      * repetitive code patterns.
@@ -264,12 +264,13 @@ class ChatOptions extends AbstractOptions
     }
 
     /**
-     * Merge current options with overrides
+     * Merge current options with overrides.
      *
      * Returns an array with current options merged with the provided overrides.
      * Overrides take precedence over current values.
      *
      * @param array<string, mixed> $overrides Values to override
+     *
      * @return array<string, mixed> Merged options array
      */
     public function merge(array $overrides): array

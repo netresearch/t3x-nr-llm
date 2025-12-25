@@ -32,8 +32,8 @@ final readonly class Word
     {
         return new self(
             word: $data['word'] ?? '',
-            start: (float) ($data['start'] ?? 0.0),
-            end: (float) ($data['end'] ?? 0.0),
+            start: (float)($data['start'] ?? 0.0),
+            end: (float)($data['end'] ?? 0.0),
         );
     }
 }

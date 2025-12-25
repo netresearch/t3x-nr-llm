@@ -10,7 +10,7 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 use TYPO3\CMS\Extbase\Persistence\Repository;
 
 /**
- * Repository for LlmConfiguration domain model
+ * Repository for LlmConfiguration domain model.
  *
  * @extends Repository<LlmConfiguration>
  */
@@ -22,13 +22,13 @@ class LlmConfigurationRepository extends Repository
     ];
 
     /**
-     * Find configuration by identifier string
+     * Find configuration by identifier string.
      */
     public function findOneByIdentifier(string $identifier): ?LlmConfiguration
     {
         $query = $this->createQuery();
         $query->matching(
-            $query->equals('identifier', $identifier)
+            $query->equals('identifier', $identifier),
         );
         /** @var LlmConfiguration|null $result */
         $result = $query->execute()->getFirst();
@@ -36,7 +36,7 @@ class LlmConfigurationRepository extends Repository
     }
 
     /**
-     * Find all active configurations
+     * Find all active configurations.
      *
      * @return QueryResultInterface<int, LlmConfiguration>
      */
@@ -44,13 +44,13 @@ class LlmConfigurationRepository extends Repository
     {
         $query = $this->createQuery();
         $query->matching(
-            $query->equals('isActive', true)
+            $query->equals('isActive', true),
         );
         return $query->execute();
     }
 
     /**
-     * Find default configuration
+     * Find default configuration.
      */
     public function findDefault(): ?LlmConfiguration
     {
@@ -58,8 +58,8 @@ class LlmConfigurationRepository extends Repository
         $query->matching(
             $query->logicalAnd(
                 $query->equals('isActive', true),
-                $query->equals('isDefault', true)
-            )
+                $query->equals('isDefault', true),
+            ),
         );
         /** @var LlmConfiguration|null $result */
         $result = $query->execute()->getFirst();
@@ -67,7 +67,7 @@ class LlmConfigurationRepository extends Repository
     }
 
     /**
-     * Find configurations by provider
+     * Find configurations by provider.
      *
      * @return QueryResultInterface<int, LlmConfiguration>
      */
@@ -77,16 +77,17 @@ class LlmConfigurationRepository extends Repository
         $query->matching(
             $query->logicalAnd(
                 $query->equals('isActive', true),
-                $query->equals('provider', $provider)
-            )
+                $query->equals('provider', $provider),
+            ),
         );
         return $query->execute();
     }
 
     /**
-     * Find configurations accessible to specific backend user groups
+     * Find configurations accessible to specific backend user groups.
      *
      * @param array<int> $groupUids
+     *
      * @return QueryResultInterface<int, LlmConfiguration>
      */
     public function findAccessibleForGroups(array $groupUids): QueryResultInterface
@@ -98,8 +99,8 @@ class LlmConfigurationRepository extends Repository
             $query->matching(
                 $query->logicalAnd(
                     $query->equals('isActive', true),
-                    $query->equals('allowedGroups', 0)
-                )
+                    $query->equals('allowedGroups', 0),
+                ),
             );
         } else {
             // Return configurations without restrictions OR with matching groups
@@ -108,9 +109,9 @@ class LlmConfigurationRepository extends Repository
                     $query->equals('isActive', true),
                     $query->logicalOr(
                         $query->equals('allowedGroups', 0),
-                        $query->in('beGroups.uid', $groupUids)
-                    )
-                )
+                        $query->in('beGroups.uid', $groupUids),
+                    ),
+                ),
             );
         }
 
@@ -118,7 +119,7 @@ class LlmConfigurationRepository extends Repository
     }
 
     /**
-     * Check if identifier is unique (for validation)
+     * Check if identifier is unique (for validation).
      */
     public function isIdentifierUnique(string $identifier, ?int $excludeUid = null): bool
     {
@@ -131,7 +132,7 @@ class LlmConfigurationRepository extends Repository
 
         if ($excludeUid !== null) {
             $constraints[] = $query->logicalNot(
-                $query->equals('uid', $excludeUid)
+                $query->equals('uid', $excludeUid),
             );
         }
 
@@ -141,7 +142,7 @@ class LlmConfigurationRepository extends Repository
     }
 
     /**
-     * Unset all defaults (used before setting a new default)
+     * Unset all defaults (used before setting a new default).
      */
     public function unsetAllDefaults(): void
     {

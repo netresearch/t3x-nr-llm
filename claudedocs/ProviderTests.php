@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace Netresearch\AiBase\Tests\Unit\Provider;
 
-use Netresearch\AiBase\Service\Provider\GeminiProvider;
-use Netresearch\AiBase\Service\Provider\DeepLProvider;
-use Netresearch\AiBase\Service\Provider\OpenRouterProvider;
-use Netresearch\AiBase\Exception\NotSupportedException;
 use Netresearch\AiBase\Exception\ConfigurationException;
+use Netresearch\AiBase\Exception\NotSupportedException;
 use Netresearch\AiBase\Exception\ProviderException;
-use TYPO3\TestingFramework\Core\Unit\UnitTestCase;
-use TYPO3\CMS\Core\Http\RequestFactory;
-use Psr\Log\LoggerInterface;
+use Netresearch\AiBase\Service\Provider\DeepLProvider;
+use Netresearch\AiBase\Service\Provider\GeminiProvider;
+use Netresearch\AiBase\Service\Provider\OpenRouterProvider;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
+use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Core\Http\RequestFactory;
+use TYPO3\TestingFramework\Core\Unit\UnitTestCase;
 
 /**
- * Unit Tests for Secondary Providers
+ * Unit Tests for Secondary Providers.
  */
 
 // =============================================================================
@@ -44,7 +44,7 @@ class GeminiProviderTest extends UnitTestCase
                 'safetyLevel' => 'BLOCK_MEDIUM_AND_ABOVE',
             ],
             $this->requestFactory,
-            $this->logger
+            $this->logger,
         );
     }
 
@@ -58,7 +58,7 @@ class GeminiProviderTest extends UnitTestCase
         new GeminiProvider(
             ['model' => 'gemini-1.5-flash'],
             $this->requestFactory,
-            $this->logger
+            $this->logger,
         );
     }
 
@@ -87,14 +87,14 @@ class GeminiProviderTest extends UnitTestCase
         ]);
 
         $this->requestFactory
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('request')
             ->willReturn($mockResponse);
 
         $response = $this->provider->complete('Test prompt');
 
-        $this->assertEquals('Generated response', $response->getContent());
-        $this->assertEquals(30, $response->getTokenUsage()['total_tokens']);
+        self::assertEquals('Generated response', $response->getContent());
+        self::assertEquals(30, $response->getTokenUsage()['total_tokens']);
     }
 
     /**
@@ -120,14 +120,14 @@ class GeminiProviderTest extends UnitTestCase
         ]);
 
         $this->requestFactory
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('request')
             ->willReturn($mockResponse);
 
         $response = $this->provider->analyzeImage('https://example.com/cat.jpg', 'Describe this image');
 
-        $this->assertEquals('This image shows a cat', $response->getDescription());
-        $this->assertGreaterThan(0.9, $response->getConfidence());
+        self::assertEquals('This image shows a cat', $response->getDescription());
+        self::assertGreaterThan(0.9, $response->getConfidence());
     }
 
     /**
@@ -147,7 +147,7 @@ class GeminiProviderTest extends UnitTestCase
         ]);
 
         $this->requestFactory
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('request')
             ->willReturn($mockResponse);
 
@@ -169,14 +169,14 @@ class GeminiProviderTest extends UnitTestCase
         ]);
 
         $this->requestFactory
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('request')
             ->willReturn($mockResponse);
 
         $response = $this->provider->embed('Test text');
 
-        $this->assertCount(1, $response->getEmbeddings());
-        $this->assertCount(768, $response->getEmbeddings()[0]);
+        self::assertCount(1, $response->getEmbeddings());
+        self::assertCount(768, $response->getEmbeddings()[0]);
     }
 
     /**
@@ -189,7 +189,7 @@ class GeminiProviderTest extends UnitTestCase
 
         $expectedCost = (100000 / 1_000_000) * 0.075 + (50000 / 1_000_000) * 0.30;
 
-        $this->assertEquals($expectedCost, $cost, '', 0.0001);
+        self::assertEquals($expectedCost, $cost, '', 0.0001);
     }
 
     /**
@@ -199,12 +199,12 @@ class GeminiProviderTest extends UnitTestCase
     {
         $capabilities = $this->provider->getCapabilities();
 
-        $this->assertTrue($capabilities['completion']);
-        $this->assertTrue($capabilities['streaming']);
-        $this->assertTrue($capabilities['vision']);
-        $this->assertTrue($capabilities['embeddings']);
-        $this->assertTrue($capabilities['multimodal']);
-        $this->assertTrue($capabilities['safety_filtering']);
+        self::assertTrue($capabilities['completion']);
+        self::assertTrue($capabilities['streaming']);
+        self::assertTrue($capabilities['vision']);
+        self::assertTrue($capabilities['embeddings']);
+        self::assertTrue($capabilities['multimodal']);
+        self::assertTrue($capabilities['safety_filtering']);
     }
 
     private function createMockResponse(array $data): ResponseInterface
@@ -244,7 +244,7 @@ class DeepLProviderTest extends UnitTestCase
                 'formality' => 'default',
             ],
             $this->requestFactory,
-            $this->logger
+            $this->logger,
         );
     }
 
@@ -258,7 +258,7 @@ class DeepLProviderTest extends UnitTestCase
         new DeepLProvider(
             ['tier' => 'free'],
             $this->requestFactory,
-            $this->logger
+            $this->logger,
         );
     }
 
@@ -277,15 +277,15 @@ class DeepLProviderTest extends UnitTestCase
         ]);
 
         $this->requestFactory
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('request')
             ->willReturn($mockResponse);
 
         $response = $this->provider->translate('Hello world', 'DE');
 
-        $this->assertEquals('Hallo Welt', $response->getTranslation());
-        $this->assertEquals('EN', $response->getSourceLanguage());
-        $this->assertEquals('DE', $response->getTargetLanguage());
+        self::assertEquals('Hallo Welt', $response->getTranslation());
+        self::assertEquals('EN', $response->getSourceLanguage());
+        self::assertEquals('DE', $response->getTargetLanguage());
     }
 
     /**
@@ -301,15 +301,15 @@ class DeepLProviderTest extends UnitTestCase
         ]);
 
         $this->requestFactory
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('request')
             ->willReturn($mockResponse);
 
         $responses = $this->provider->translateBatch(['Hello', 'World'], 'DE');
 
-        $this->assertCount(2, $responses);
-        $this->assertEquals('Hallo', $responses[0]->getTranslation());
-        $this->assertEquals('Welt', $responses[1]->getTranslation());
+        self::assertCount(2, $responses);
+        self::assertEquals('Hallo', $responses[0]->getTranslation());
+        self::assertEquals('Welt', $responses[1]->getTranslation());
     }
 
     /**
@@ -378,15 +378,15 @@ class DeepLProviderTest extends UnitTestCase
         ]);
 
         $this->requestFactory
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('request')
             ->willReturn($mockResponse);
 
         $usage = $this->provider->getUsage();
 
-        $this->assertEquals(123456, $usage['character_count']);
-        $this->assertEquals(500000, $usage['character_limit']);
-        $this->assertEquals(24.69, $usage['usage_percent'], '', 0.01);
+        self::assertEquals(123456, $usage['character_count']);
+        self::assertEquals(500000, $usage['character_limit']);
+        self::assertEquals(24.69, $usage['usage_percent'], '', 0.01);
     }
 
     /**
@@ -396,13 +396,13 @@ class DeepLProviderTest extends UnitTestCase
     {
         $capabilities = $this->provider->getCapabilities();
 
-        $this->assertFalse($capabilities['completion']);
-        $this->assertFalse($capabilities['streaming']);
-        $this->assertFalse($capabilities['vision']);
-        $this->assertFalse($capabilities['embeddings']);
-        $this->assertTrue($capabilities['translation']); // ONLY translation
-        $this->assertTrue($capabilities['formality_control']);
-        $this->assertTrue($capabilities['glossary_support']);
+        self::assertFalse($capabilities['completion']);
+        self::assertFalse($capabilities['streaming']);
+        self::assertFalse($capabilities['vision']);
+        self::assertFalse($capabilities['embeddings']);
+        self::assertTrue($capabilities['translation']); // ONLY translation
+        self::assertTrue($capabilities['formality_control']);
+        self::assertTrue($capabilities['glossary_support']);
     }
 
     private function createMockResponse(array $data): ResponseInterface
@@ -448,7 +448,7 @@ class OpenRouterProviderTest extends UnitTestCase
             ],
             $this->requestFactory,
             $this->cache,
-            $this->logger
+            $this->logger,
         );
     }
 
@@ -463,7 +463,7 @@ class OpenRouterProviderTest extends UnitTestCase
             ['model' => 'test-model'],
             $this->requestFactory,
             $this->cache,
-            $this->logger
+            $this->logger,
         );
     }
 
@@ -491,15 +491,15 @@ class OpenRouterProviderTest extends UnitTestCase
         ]);
 
         $this->requestFactory
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('request')
             ->willReturn($mockResponse);
 
         $response = $this->provider->complete('Test prompt');
 
-        $this->assertEquals('Generated response', $response->getContent());
-        $this->assertEquals(0.0005, $response->getCost());
-        $this->assertEquals('Anthropic', $response->getMetadata()['provider']);
+        self::assertEquals('Generated response', $response->getContent());
+        self::assertEquals(0.0005, $response->getCost());
+        self::assertEquals('Anthropic', $response->getMetadata()['provider']);
     }
 
     /**
@@ -510,7 +510,7 @@ class OpenRouterProviderTest extends UnitTestCase
         $requestBody = null;
 
         $this->requestFactory
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('request')
             ->willReturnCallback(function ($url, $method, $options) use (&$requestBody) {
                 $requestBody = json_decode($options['body'], true);
@@ -525,9 +525,9 @@ class OpenRouterProviderTest extends UnitTestCase
 
         $this->provider->complete('Test prompt');
 
-        $this->assertEquals('fallback', $requestBody['route']);
-        $this->assertContains('anthropic/claude-3-sonnet', $requestBody['models']);
-        $this->assertContains('anthropic/claude-3-haiku', $requestBody['models']);
+        self::assertEquals('fallback', $requestBody['route']);
+        self::assertContains('anthropic/claude-3-sonnet', $requestBody['models']);
+        self::assertContains('anthropic/claude-3-haiku', $requestBody['models']);
     }
 
     /**
@@ -554,18 +554,18 @@ class OpenRouterProviderTest extends UnitTestCase
         ]);
 
         $this->cache->method('get')->willReturn(false);
-        $this->cache->expects($this->once())->method('set');
+        $this->cache->expects(self::once())->method('set');
 
         $this->requestFactory
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('request')
             ->willReturn($mockResponse);
 
         $models = $this->provider->getAvailableModels();
 
-        $this->assertArrayHasKey('anthropic/claude-3-opus', $models);
-        $this->assertArrayHasKey('openai/gpt-4-turbo', $models);
-        $this->assertEquals(200000, $models['anthropic/claude-3-opus']['context_length']);
+        self::assertArrayHasKey('anthropic/claude-3-opus', $models);
+        self::assertArrayHasKey('openai/gpt-4-turbo', $models);
+        self::assertEquals(200000, $models['anthropic/claude-3-opus']['context_length']);
     }
 
     /**
@@ -586,7 +586,7 @@ class OpenRouterProviderTest extends UnitTestCase
 
         $expectedCost = (100000 * 0.000003) + (50000 * 0.000015);
 
-        $this->assertEquals($expectedCost, $cost, '', 0.0001);
+        self::assertEquals($expectedCost, $cost, '', 0.0001);
     }
 
     /**
@@ -609,13 +609,13 @@ class OpenRouterProviderTest extends UnitTestCase
         ]);
 
         $this->requestFactory
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('request')
             ->willReturn($mockResponse);
 
         $response = $this->provider->analyzeImage('https://example.com/image.jpg', 'Describe');
 
-        $this->assertEquals('Image description', $response->getDescription());
+        self::assertEquals('Image description', $response->getDescription());
     }
 
     /**
@@ -627,14 +627,14 @@ class OpenRouterProviderTest extends UnitTestCase
 
         $capabilities = $this->provider->getCapabilities();
 
-        $this->assertTrue($capabilities['completion']);
-        $this->assertTrue($capabilities['streaming']);
-        $this->assertTrue($capabilities['vision']);
-        $this->assertTrue($capabilities['embeddings']);
-        $this->assertTrue($capabilities['translation']);
-        $this->assertTrue($capabilities['multi_provider']);
-        $this->assertTrue($capabilities['automatic_fallback']);
-        $this->assertTrue($capabilities['exact_cost_tracking']);
+        self::assertTrue($capabilities['completion']);
+        self::assertTrue($capabilities['streaming']);
+        self::assertTrue($capabilities['vision']);
+        self::assertTrue($capabilities['embeddings']);
+        self::assertTrue($capabilities['translation']);
+        self::assertTrue($capabilities['multi_provider']);
+        self::assertTrue($capabilities['automatic_fallback']);
+        self::assertTrue($capabilities['exact_cost_tracking']);
     }
 
     private function createMockResponse(array $data): ResponseInterface
@@ -662,7 +662,7 @@ class ProviderIntegrationTest extends UnitTestCase
     public function deeplFallsBackToLlmProviderWhenUnavailable(): void
     {
         // This would be tested in integration with AiServiceManager
-        $this->markTestIncomplete('Integration test with AiServiceManager');
+        self::markTestIncomplete('Integration test with AiServiceManager');
     }
 
     /**
@@ -671,7 +671,7 @@ class ProviderIntegrationTest extends UnitTestCase
     public function openRouterFallsBackToSecondaryModel(): void
     {
         // Test that OpenRouter's fallback mechanism works
-        $this->markTestIncomplete('Integration test with model fallback');
+        self::markTestIncomplete('Integration test with model fallback');
     }
 
     /**
@@ -680,6 +680,6 @@ class ProviderIntegrationTest extends UnitTestCase
     public function costTrackingWorksAcrossProviders(): void
     {
         // Test cost tracking and quota enforcement
-        $this->markTestIncomplete('Integration test with UsageRepository');
+        self::markTestIncomplete('Integration test with UsageRepository');
     }
 }
