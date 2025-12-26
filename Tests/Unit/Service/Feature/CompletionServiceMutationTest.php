@@ -374,7 +374,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->willReturn($this->createMockResponse('Plain text response'));
 
@@ -383,7 +383,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
 
         $result = $service->complete('Test', $options);
 
-        $this->assertEquals('Plain text response', $result->content);
+        self::assertEquals('Plain text response', $result->content);
     }
 
     #[Test]
@@ -391,7 +391,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->willReturn($this->createMockResponse('# Markdown'));
 
@@ -400,7 +400,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
 
         $result = $service->complete('Test', $options);
 
-        $this->assertEquals('# Markdown', $result->content);
+        self::assertEquals('# Markdown', $result->content);
     }
 
     #[Test]
@@ -424,16 +424,17 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->callback(function (array $messages) {
+                self::callback(
                     // Should have system message when markdown format
-                    return isset($messages[0]['role'])
-                        && $messages[0]['role'] === 'system'
-                        && str_contains($messages[0]['content'], 'Markdown');
-                }),
-                $this->anything()
+
+                    fn(array $messages) => isset($messages[0]['role'])
+                    && $messages[0]['role'] === 'system'
+                    && str_contains((string)$messages[0]['content'], 'Markdown'),
+                ),
+                self::anything(),
             )
             ->willReturn($this->createMockResponse('# Response'));
 
@@ -447,16 +448,14 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->callback(function (array $messages) {
-                    return count($messages) === 2
+                self::callback(fn(array $messages) => count($messages) === 2
                         && $messages[0]['role'] === 'system'
                         && $messages[0]['content'] === 'Be helpful'
-                        && $messages[1]['role'] === 'user';
-                }),
-                $this->anything()
+                        && $messages[1]['role'] === 'user'),
+                self::anything(),
             )
             ->willReturn($this->createMockResponse('Response'));
 
@@ -471,15 +470,13 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->callback(function (array $messages) {
-                    return count($messages) === 1
+                self::callback(fn(array $messages) => count($messages) === 1
                         && $messages[0]['role'] === 'user'
-                        && $messages[0]['content'] === 'User prompt';
-                }),
-                $this->anything()
+                        && $messages[0]['content'] === 'User prompt'),
+                self::anything(),
             )
             ->willReturn($this->createMockResponse('Response'));
 
@@ -491,7 +488,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     #[Test]
     public function validateOptionsRejectsZeroMaxTokens(): void
     {
-        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
         $service = new CompletionService($llmManagerStub);
 
         $this->expectException(InvalidArgumentException::class);
@@ -512,7 +509,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
         $service = new CompletionService($llmManagerMock);
         $result = $service->completeFactual('Question', null);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
+        self::assertInstanceOf(CompletionResponse::class, $result);
     }
 
     #[Test]
@@ -526,7 +523,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
         $service = new CompletionService($llmManagerMock);
         $result = $service->completeCreative('Prompt', null);
 
-        $this->assertInstanceOf(CompletionResponse::class, $result);
+        self::assertInstanceOf(CompletionResponse::class, $result);
     }
 
     #[Test]
@@ -534,11 +531,11 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('chat')
             ->with(
-                $this->anything(),
-                $this->callback(fn(ChatOptions $opts) => $opts->getResponseFormat() === 'json')
+                self::anything(),
+                self::callback(fn(ChatOptions $opts) => $opts->getResponseFormat() === 'json'),
             )
             ->willReturn($this->createMockResponse('{"key": "value"}'));
 

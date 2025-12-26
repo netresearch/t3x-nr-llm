@@ -22,7 +22,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         $result = new TranscriptionResult('Test', 'en', segments: null);
 
-        $this->assertFalse($result->hasSegments());
+        self::assertFalse($result->hasSegments());
     }
 
     #[Test]
@@ -30,7 +30,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         $result = new TranscriptionResult('Test', 'en', segments: []);
 
-        $this->assertFalse($result->hasSegments());
+        self::assertFalse($result->hasSegments());
     }
 
     #[Test]
@@ -39,7 +39,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
         $segment = new Segment('Hello', 0.0, 1.0);
         $result = new TranscriptionResult('Test', 'en', segments: [$segment]);
 
-        $this->assertTrue($result->hasSegments());
+        self::assertTrue($result->hasSegments());
     }
 
     #[Test]
@@ -47,7 +47,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         $result = new TranscriptionResult('Test', 'en', duration: null);
 
-        $this->assertNull($result->getFormattedDuration());
+        self::assertNull($result->getFormattedDuration());
     }
 
     #[Test]
@@ -56,7 +56,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         $result = new TranscriptionResult('Test', 'en', duration: $duration);
 
-        $this->assertEquals($expected, $result->getFormattedDuration());
+        self::assertEquals($expected, $result->getFormattedDuration());
     }
 
     public static function durationFormattingProvider(): array
@@ -79,7 +79,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         $result = new TranscriptionResult('Test', 'en', confidence: null);
 
-        $this->assertNull($result->getConfidencePercent());
+        self::assertNull($result->getConfidencePercent());
     }
 
     #[Test]
@@ -88,7 +88,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         $result = new TranscriptionResult('Test', 'en', confidence: $confidence);
 
-        $this->assertEquals($expected, $result->getConfidencePercent());
+        self::assertEquals($expected, $result->getConfidencePercent());
     }
 
     public static function confidenceFormattingProvider(): array
@@ -108,7 +108,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         $result = new TranscriptionResult($text, 'en');
 
-        $this->assertEquals($expected, $result->getWordCount());
+        self::assertEquals($expected, $result->getWordCount());
     }
 
     public static function wordCountProvider(): array
@@ -127,7 +127,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         $result = new TranscriptionResult('Test', 'en', segments: null);
 
-        $this->assertNull($result->toSrt());
+        self::assertNull($result->toSrt());
     }
 
     #[Test]
@@ -135,7 +135,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         $result = new TranscriptionResult('Test', 'en', segments: []);
 
-        $this->assertNull($result->toSrt());
+        self::assertNull($result->toSrt());
     }
 
     #[Test]
@@ -149,13 +149,13 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
 
         $srt = $result->toSrt();
 
-        $this->assertNotNull($srt);
-        $this->assertStringContainsString("1\n", $srt);
-        $this->assertStringContainsString("2\n", $srt);
-        $this->assertStringContainsString('00:00:00,000 --> 00:00:02,500', $srt);
-        $this->assertStringContainsString('00:00:02,500 --> 00:00:05,000', $srt);
-        $this->assertStringContainsString('First segment', $srt);
-        $this->assertStringContainsString('Second segment', $srt);
+        self::assertNotNull($srt);
+        self::assertStringContainsString("1\n", $srt);
+        self::assertStringContainsString("2\n", $srt);
+        self::assertStringContainsString('00:00:00,000 --> 00:00:02,500', $srt);
+        self::assertStringContainsString('00:00:02,500 --> 00:00:05,000', $srt);
+        self::assertStringContainsString('First segment', $srt);
+        self::assertStringContainsString('Second segment', $srt);
     }
 
     #[Test]
@@ -167,8 +167,8 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
 
         $srt = $result->toSrt();
 
-        $this->assertNotNull($srt);
-        $this->assertStringContainsString($expectedStart . ' --> ' . $expectedEnd, $srt);
+        self::assertNotNull($srt);
+        self::assertStringContainsString($expectedStart . ' --> ' . $expectedEnd, $srt);
     }
 
     public static function srtTimeFormattingProvider(): array
@@ -188,7 +188,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         $result = new TranscriptionResult('Test', 'en', segments: null);
 
-        $this->assertNull($result->toVtt());
+        self::assertNull($result->toVtt());
     }
 
     #[Test]
@@ -196,7 +196,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         $result = new TranscriptionResult('Test', 'en', segments: []);
 
-        $this->assertNull($result->toVtt());
+        self::assertNull($result->toVtt());
     }
 
     #[Test]
@@ -207,8 +207,8 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
 
         $vtt = $result->toVtt();
 
-        $this->assertNotNull($vtt);
-        $this->assertStringStartsWith("WEBVTT\n\n", $vtt);
+        self::assertNotNull($vtt);
+        self::assertStringStartsWith("WEBVTT\n\n", $vtt);
     }
 
     #[Test]
@@ -222,11 +222,11 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
 
         $vtt = $result->toVtt();
 
-        $this->assertNotNull($vtt);
-        $this->assertStringContainsString('00:00:00.000 --> 00:00:01.000', $vtt);
-        $this->assertStringContainsString('00:00:01.000 --> 00:00:02.000', $vtt);
-        $this->assertStringContainsString('First', $vtt);
-        $this->assertStringContainsString('Second', $vtt);
+        self::assertNotNull($vtt);
+        self::assertStringContainsString('00:00:00.000 --> 00:00:01.000', $vtt);
+        self::assertStringContainsString('00:00:01.000 --> 00:00:02.000', $vtt);
+        self::assertStringContainsString('First', $vtt);
+        self::assertStringContainsString('Second', $vtt);
     }
 
     #[Test]
@@ -238,8 +238,8 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
 
         $vtt = $result->toVtt();
 
-        $this->assertNotNull($vtt);
-        $this->assertStringContainsString($expectedStart . ' --> ' . $expectedEnd, $vtt);
+        self::assertNotNull($vtt);
+        self::assertStringContainsString($expectedStart . ' --> ' . $expectedEnd, $vtt);
     }
 
     public static function vttTimeFormattingProvider(): array
@@ -263,12 +263,12 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
         $srt = $result->toSrt();
         $vtt = $result->toVtt();
 
-        $this->assertNotNull($srt);
-        $this->assertNotNull($vtt);
+        self::assertNotNull($srt);
+        self::assertNotNull($vtt);
         // SRT uses comma for milliseconds
-        $this->assertStringContainsString(',500', $srt);
+        self::assertStringContainsString(',500', $srt);
         // VTT uses period for milliseconds
-        $this->assertStringContainsString('.500', $vtt);
+        self::assertStringContainsString('.500', $vtt);
     }
 
     #[Test]
@@ -283,16 +283,16 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
 
         $srt = $result->toSrt();
 
-        $this->assertNotNull($srt);
+        self::assertNotNull($srt);
         $lines = explode("\n", $srt);
 
         // Find index lines (first line of each subtitle block)
-        $indices = array_filter($lines, fn($line) => preg_match('/^\d+$/', $line));
+        $indices = array_filter($lines, fn($line) => preg_match('/^\d+$/', (string)$line));
         $indices = array_values($indices);
 
-        $this->assertEquals('1', $indices[0]);
-        $this->assertEquals('2', $indices[1]);
-        $this->assertEquals('3', $indices[2]);
+        self::assertEquals('1', $indices[0]);
+        self::assertEquals('2', $indices[1]);
+        self::assertEquals('3', $indices[2]);
     }
 
     #[Test]
@@ -300,15 +300,15 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     {
         // Test exact minute boundary (60 seconds)
         $result = new TranscriptionResult('Test', 'en', duration: 60.0);
-        $this->assertEquals('1:00', $result->getFormattedDuration());
+        self::assertEquals('1:00', $result->getFormattedDuration());
 
         // Test just under minute boundary
         $result = new TranscriptionResult('Test', 'en', duration: 59.0);
-        $this->assertEquals('0:59', $result->getFormattedDuration());
+        self::assertEquals('0:59', $result->getFormattedDuration());
 
         // Test just over minute boundary
         $result = new TranscriptionResult('Test', 'en', duration: 61.0);
-        $this->assertEquals('1:01', $result->getFormattedDuration());
+        self::assertEquals('1:01', $result->getFormattedDuration());
     }
 
     #[Test]
@@ -320,8 +320,8 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
 
         $srt = $result->toSrt();
 
-        $this->assertNotNull($srt);
-        $this->assertStringContainsString('01:00:00,000', $srt);
+        self::assertNotNull($srt);
+        self::assertStringContainsString('01:00:00,000', $srt);
     }
 
     #[Test]
@@ -333,8 +333,8 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
 
         $srt = $result->toSrt();
 
-        $this->assertNotNull($srt);
-        $this->assertStringContainsString('01:01:01,000', $srt);
+        self::assertNotNull($srt);
+        self::assertStringContainsString('01:01:01,000', $srt);
     }
 
     #[Test]
@@ -346,8 +346,8 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
 
         $vtt = $result->toVtt();
 
-        $this->assertNotNull($vtt);
-        $this->assertStringContainsString('01:01:01.000', $vtt);
+        self::assertNotNull($vtt);
+        self::assertStringContainsString('01:01:01.000', $vtt);
     }
 
     #[Test]
@@ -356,7 +356,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
         // Specifically test the multiplication by 100
         $result = new TranscriptionResult('Test', 'en', confidence: 0.123);
 
-        $this->assertEquals('12.3%', $result->getConfidencePercent());
+        self::assertEquals('12.3%', $result->getConfidencePercent());
     }
 
     #[Test]
@@ -366,6 +366,6 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
         // 125 seconds = 2 minutes, 5 seconds
         $result = new TranscriptionResult('Test', 'en', duration: 125.0);
 
-        $this->assertEquals('2:05', $result->getFormattedDuration());
+        self::assertEquals('2:05', $result->getFormattedDuration());
     }
 }

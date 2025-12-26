@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionClass;
 
 /**
  * Mutation-killing tests for ClaudeProvider.
@@ -31,7 +32,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertEquals('Anthropic Claude', $provider->getName());
+        self::assertEquals('Anthropic Claude', $provider->getName());
     }
 
     #[Test]
@@ -39,7 +40,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertEquals('claude', $provider->getIdentifier());
+        self::assertEquals('claude', $provider->getIdentifier());
     }
 
     #[Test]
@@ -48,7 +49,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure(['apiKey' => $this->randomApiKey()]);
 
-        $this->assertEquals('claude-sonnet-4-5-20250929', $provider->getDefaultModel());
+        self::assertEquals('claude-sonnet-4-5-20250929', $provider->getDefaultModel());
     }
 
     #[Test]
@@ -60,7 +61,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
             'defaultModel' => 'claude-opus-4-5-20251124',
         ]);
 
-        $this->assertEquals('claude-opus-4-5-20251124', $provider->getDefaultModel());
+        self::assertEquals('claude-opus-4-5-20251124', $provider->getDefaultModel());
     }
 
     #[Test]
@@ -73,7 +74,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
         ]);
 
         // Should return default when empty string is configured
-        $this->assertEquals('claude-sonnet-4-5-20250929', $provider->getDefaultModel());
+        self::assertEquals('claude-sonnet-4-5-20250929', $provider->getDefaultModel());
     }
 
     #[Test]
@@ -84,10 +85,10 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
 
         $models = $provider->getAvailableModels();
 
-        $this->assertIsArray($models);
-        $this->assertNotEmpty($models);
-        $this->assertArrayHasKey('claude-opus-4-5-20251124', $models);
-        $this->assertArrayHasKey('claude-sonnet-4-5-20250929', $models);
+        self::assertIsArray($models);
+        self::assertNotEmpty($models);
+        self::assertArrayHasKey('claude-opus-4-5-20251124', $models);
+        self::assertArrayHasKey('claude-sonnet-4-5-20250929', $models);
     }
 
     #[Test]
@@ -95,7 +96,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsVision());
+        self::assertTrue($provider->supportsVision());
     }
 
     #[Test]
@@ -103,7 +104,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsStreaming());
+        self::assertTrue($provider->supportsStreaming());
     }
 
     #[Test]
@@ -111,7 +112,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsTools());
+        self::assertTrue($provider->supportsTools());
     }
 
     #[Test]
@@ -121,11 +122,11 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
 
         $formats = $provider->getSupportedImageFormats();
 
-        $this->assertContains('png', $formats);
-        $this->assertContains('jpeg', $formats);
-        $this->assertContains('jpg', $formats);
-        $this->assertContains('gif', $formats);
-        $this->assertContains('webp', $formats);
+        self::assertContains('png', $formats);
+        self::assertContains('jpeg', $formats);
+        self::assertContains('jpg', $formats);
+        self::assertContains('gif', $formats);
+        self::assertContains('webp', $formats);
     }
 
     #[Test]
@@ -135,7 +136,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
 
         $maxSize = $provider->getMaxImageSize();
 
-        $this->assertEquals(20 * 1024 * 1024, $maxSize);
+        self::assertEquals(20 * 1024 * 1024, $maxSize);
     }
 
     #[Test]
@@ -143,7 +144,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('chat'));
+        self::assertTrue($provider->supportsFeature('chat'));
     }
 
     #[Test]
@@ -152,7 +153,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
 
         // Claude does not support embeddings
-        $this->assertFalse($provider->supportsFeature('embeddings'));
+        self::assertFalse($provider->supportsFeature('embeddings'));
     }
 
     #[Test]
@@ -160,7 +161,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('vision'));
+        self::assertTrue($provider->supportsFeature('vision'));
     }
 
     #[Test]
@@ -168,7 +169,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('streaming'));
+        self::assertTrue($provider->supportsFeature('streaming'));
     }
 
     #[Test]
@@ -176,7 +177,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('tools'));
+        self::assertTrue($provider->supportsFeature('tools'));
     }
 
     #[Test]
@@ -184,7 +185,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertFalse($provider->supportsFeature('unknown_feature'));
+        self::assertFalse($provider->supportsFeature('unknown_feature'));
     }
 
     #[Test]
@@ -193,7 +194,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure(['apiKey' => $this->randomApiKey()]);
 
-        $this->assertTrue($provider->isAvailable());
+        self::assertTrue($provider->isAvailable());
     }
 
     #[Test]
@@ -202,10 +203,10 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure(['apiKey' => $this->randomApiKey()]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');
 
-        $this->assertStringContainsString('api.anthropic.com', $baseUrl->getValue($provider));
+        self::assertStringContainsString('api.anthropic.com', $baseUrl->getValue($provider));
     }
 
     #[Test]
@@ -213,7 +214,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('completion'));
+        self::assertTrue($provider->supportsFeature('completion'));
     }
 
     #[Test]
@@ -238,15 +239,15 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
 
         // Verify model descriptions are strings
         foreach ($models as $modelId => $description) {
-            $this->assertIsString($modelId);
-            $this->assertIsString($description);
-            $this->assertNotEmpty($modelId);
-            $this->assertNotEmpty($description);
+            self::assertIsString($modelId);
+            self::assertIsString($description);
+            self::assertNotEmpty($modelId);
+            self::assertNotEmpty($description);
         }
 
         // Verify specific expected models exist
-        $this->assertArrayHasKey('claude-opus-4-1-20250805', $models);
-        $this->assertArrayHasKey('claude-3-5-sonnet-20241022', $models);
+        self::assertArrayHasKey('claude-opus-4-1-20250805', $models);
+        self::assertArrayHasKey('claude-3-5-sonnet-20241022', $models);
     }
 
     #[Test]
@@ -258,10 +259,10 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
             'baseUrl' => 'https://custom-api.example.com/v1',
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');
 
-        $this->assertEquals('https://custom-api.example.com/v1', $baseUrl->getValue($provider));
+        self::assertEquals('https://custom-api.example.com/v1', $baseUrl->getValue($provider));
     }
 
     #[Test]
@@ -271,7 +272,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
 
         $formats = $provider->getSupportedImageFormats();
 
-        $this->assertCount(5, $formats);
+        self::assertCount(5, $formats);
     }
 
     #[Test]
@@ -283,6 +284,6 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
         $models = $provider->getAvailableModels();
 
         // Claude should have at least 5 models available
-        $this->assertGreaterThanOrEqual(5, count($models));
+        self::assertGreaterThanOrEqual(5, count($models));
     }
 }

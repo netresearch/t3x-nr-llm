@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionClass;
 
 /**
  * Mutation-killing tests for OpenRouterProvider.
@@ -31,7 +32,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertEquals('OpenRouter', $provider->getName());
+        self::assertEquals('OpenRouter', $provider->getName());
     }
 
     #[Test]
@@ -39,7 +40,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertEquals('openrouter', $provider->getIdentifier());
+        self::assertEquals('openrouter', $provider->getIdentifier());
     }
 
     #[Test]
@@ -48,7 +49,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure(['apiKey' => $this->randomApiKey()]);
 
-        $this->assertEquals('anthropic/claude-sonnet-4-5', $provider->getDefaultModel());
+        self::assertEquals('anthropic/claude-sonnet-4-5', $provider->getDefaultModel());
     }
 
     #[Test]
@@ -60,7 +61,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
             'defaultModel' => 'openai/gpt-5.2',
         ]);
 
-        $this->assertEquals('openai/gpt-5.2', $provider->getDefaultModel());
+        self::assertEquals('openai/gpt-5.2', $provider->getDefaultModel());
     }
 
     #[Test]
@@ -72,10 +73,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
             'siteUrl' => 'https://example.com',
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $siteUrl = $reflection->getProperty('siteUrl');
 
-        $this->assertEquals('https://example.com', $siteUrl->getValue($provider));
+        self::assertEquals('https://example.com', $siteUrl->getValue($provider));
     }
 
     #[Test]
@@ -87,10 +88,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
             'appName' => 'My Custom App',
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $appName = $reflection->getProperty('appName');
 
-        $this->assertEquals('My Custom App', $appName->getValue($provider));
+        self::assertEquals('My Custom App', $appName->getValue($provider));
     }
 
     #[Test]
@@ -103,10 +104,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
             'routingStrategy' => $strategy,
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $routingStrategy = $reflection->getProperty('routingStrategy');
 
-        $this->assertEquals($strategy, $routingStrategy->getValue($provider));
+        self::assertEquals($strategy, $routingStrategy->getValue($provider));
     }
 
     public static function validRoutingStrategyProvider(): array
@@ -128,11 +129,11 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
             'routingStrategy' => 'invalid_strategy',
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $routingStrategy = $reflection->getProperty('routingStrategy');
 
         // Should remain at default 'balanced'
-        $this->assertEquals('balanced', $routingStrategy->getValue($provider));
+        self::assertEquals('balanced', $routingStrategy->getValue($provider));
     }
 
     #[Test]
@@ -144,10 +145,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
             'autoFallback' => true,
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $autoFallback = $reflection->getProperty('autoFallback');
 
-        $this->assertTrue($autoFallback->getValue($provider));
+        self::assertTrue($autoFallback->getValue($provider));
     }
 
     #[Test]
@@ -159,10 +160,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
             'autoFallback' => false,
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $autoFallback = $reflection->getProperty('autoFallback');
 
-        $this->assertFalse($autoFallback->getValue($provider));
+        self::assertFalse($autoFallback->getValue($provider));
     }
 
     #[Test]
@@ -174,10 +175,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
             'autoFallback' => 'yes', // truthy string
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $autoFallback = $reflection->getProperty('autoFallback');
 
-        $this->assertTrue($autoFallback->getValue($provider));
+        self::assertTrue($autoFallback->getValue($provider));
     }
 
     #[Test]
@@ -189,11 +190,11 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
             'fallbackModels' => 'openai/gpt-5.2, anthropic/claude-sonnet-4-5, google/gemini-3-flash',
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $fallbackModels = $reflection->getProperty('fallbackModels');
 
         $expected = ['openai/gpt-5.2', 'anthropic/claude-sonnet-4-5', 'google/gemini-3-flash'];
-        $this->assertEquals($expected, $fallbackModels->getValue($provider));
+        self::assertEquals($expected, $fallbackModels->getValue($provider));
     }
 
     #[Test]
@@ -205,11 +206,11 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
             'fallbackModels' => ['array', 'of', 'models'], // Not a string
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $fallbackModels = $reflection->getProperty('fallbackModels');
 
         // Should remain empty array
-        $this->assertEmpty($fallbackModels->getValue($provider));
+        self::assertEmpty($fallbackModels->getValue($provider));
     }
 
     #[Test]
@@ -220,10 +221,10 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
 
         $models = $provider->getAvailableModels();
 
-        $this->assertIsArray($models);
-        $this->assertNotEmpty($models);
-        $this->assertArrayHasKey('anthropic/claude-sonnet-4-5', $models);
-        $this->assertArrayHasKey('openai/gpt-5.2', $models);
+        self::assertIsArray($models);
+        self::assertNotEmpty($models);
+        self::assertArrayHasKey('anthropic/claude-sonnet-4-5', $models);
+        self::assertArrayHasKey('openai/gpt-5.2', $models);
     }
 
     #[Test]
@@ -231,7 +232,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsVision());
+        self::assertTrue($provider->supportsVision());
     }
 
     #[Test]
@@ -239,7 +240,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsStreaming());
+        self::assertTrue($provider->supportsStreaming());
     }
 
     #[Test]
@@ -247,7 +248,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsTools());
+        self::assertTrue($provider->supportsTools());
     }
 
     #[Test]
@@ -257,11 +258,11 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
 
         $formats = $provider->getSupportedImageFormats();
 
-        $this->assertContains('png', $formats);
-        $this->assertContains('jpeg', $formats);
-        $this->assertContains('jpg', $formats);
-        $this->assertContains('gif', $formats);
-        $this->assertContains('webp', $formats);
+        self::assertContains('png', $formats);
+        self::assertContains('jpeg', $formats);
+        self::assertContains('jpg', $formats);
+        self::assertContains('gif', $formats);
+        self::assertContains('webp', $formats);
     }
 
     #[Test]
@@ -271,7 +272,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
 
         $maxSize = $provider->getMaxImageSize();
 
-        $this->assertEquals(20 * 1024 * 1024, $maxSize);
+        self::assertEquals(20 * 1024 * 1024, $maxSize);
     }
 
     #[Test]
@@ -279,7 +280,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('chat'));
+        self::assertTrue($provider->supportsFeature('chat'));
     }
 
     #[Test]
@@ -287,7 +288,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('embeddings'));
+        self::assertTrue($provider->supportsFeature('embeddings'));
     }
 
     #[Test]
@@ -295,7 +296,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('vision'));
+        self::assertTrue($provider->supportsFeature('vision'));
     }
 
     #[Test]
@@ -303,7 +304,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('streaming'));
+        self::assertTrue($provider->supportsFeature('streaming'));
     }
 
     #[Test]
@@ -311,7 +312,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('tools'));
+        self::assertTrue($provider->supportsFeature('tools'));
     }
 
     #[Test]
@@ -319,7 +320,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertFalse($provider->supportsFeature('unknown_feature'));
+        self::assertFalse($provider->supportsFeature('unknown_feature'));
     }
 
     #[Test]
@@ -331,13 +332,13 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
             'fallbackModels' => 'model1, , model2, , model3', // Some empty strings
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $fallbackModels = $reflection->getProperty('fallbackModels');
         $models = $fallbackModels->getValue($provider);
 
         // Should have filtered out empty strings
-        $this->assertCount(3, $models);
-        $this->assertEquals(['model1', 'model2', 'model3'], array_values($models));
+        self::assertCount(3, $models);
+        self::assertEquals(['model1', 'model2', 'model3'], array_values($models));
     }
 
     #[Test]
@@ -349,13 +350,13 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
             'fallbackModels' => '  model1  ,  model2  ', // Whitespace around
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $fallbackModels = $reflection->getProperty('fallbackModels');
         $models = $fallbackModels->getValue($provider);
 
-        $this->assertContains('model1', $models);
-        $this->assertContains('model2', $models);
-        $this->assertNotContains('  model1  ', $models);
+        self::assertContains('model1', $models);
+        self::assertContains('model2', $models);
+        self::assertNotContains('  model1  ', $models);
     }
 
     #[Test]
@@ -364,7 +365,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure(['apiKey' => $this->randomApiKey()]);
 
-        $this->assertTrue($provider->isAvailable());
+        self::assertTrue($provider->isAvailable());
     }
 
     #[Test]
@@ -373,9 +374,9 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure(['apiKey' => $this->randomApiKey()]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');
 
-        $this->assertStringContainsString('openrouter.ai/api/v1', $baseUrl->getValue($provider));
+        self::assertStringContainsString('openrouter.ai/api/v1', $baseUrl->getValue($provider));
     }
 }

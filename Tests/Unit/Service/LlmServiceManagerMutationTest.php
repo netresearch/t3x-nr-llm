@@ -50,7 +50,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $manager->registerProvider($provider);
 
-        $this->assertSame($provider, $manager->getProvider('test'));
+        self::assertSame($provider, $manager->getProvider('test'));
     }
 
     #[Test]
@@ -84,7 +84,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $result = $manager->getProvider(null);
 
-        $this->assertSame($provider, $result);
+        self::assertSame($provider, $result);
     }
 
     #[Test]
@@ -105,8 +105,8 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $result = $manager->getAvailableProviders();
 
-        $this->assertArrayHasKey('available', $result);
-        $this->assertArrayNotHasKey('unavailable', $result);
+        self::assertArrayHasKey('available', $result);
+        self::assertArrayNotHasKey('unavailable', $result);
     }
 
     #[Test]
@@ -114,7 +114,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     {
         $manager = $this->createManager();
 
-        $this->assertFalse($manager->hasAvailableProvider());
+        self::assertFalse($manager->hasAvailableProvider());
     }
 
     #[Test]
@@ -124,7 +124,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
         $provider = $this->createProviderMock('test');
         $manager->registerProvider($provider);
 
-        $this->assertTrue($manager->hasAvailableProvider());
+        self::assertTrue($manager->hasAvailableProvider());
     }
 
     #[Test]
@@ -139,7 +139,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $result = $manager->getProviderList();
 
-        $this->assertEquals([
+        self::assertEquals([
             'openai' => 'OpenAI',
             'claude' => 'Anthropic Claude',
         ], $result);
@@ -165,7 +165,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $manager->setDefaultProvider('test');
 
-        $this->assertEquals('test', $manager->getDefaultProvider());
+        self::assertEquals('test', $manager->getDefaultProvider());
     }
 
     #[Test]
@@ -173,7 +173,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     {
         $manager = $this->createManager();
 
-        $this->assertNull($manager->getDefaultProvider());
+        self::assertNull($manager->getDefaultProvider());
     }
 
     #[Test]
@@ -181,7 +181,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     {
         $manager = $this->createManager(['defaultProvider' => 'configured']);
 
-        $this->assertEquals('configured', $manager->getDefaultProvider());
+        self::assertEquals('configured', $manager->getDefaultProvider());
     }
 
     #[Test]
@@ -191,7 +191,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $result = $manager->getProviderConfiguration('unknown');
 
-        $this->assertEquals([], $result);
+        self::assertEquals([], $result);
     }
 
     #[Test]
@@ -209,7 +209,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $result = $manager->getProviderConfiguration('openai');
 
-        $this->assertEquals(['apiKey' => 'test-key', 'model' => 'gpt-5.2'], $result);
+        self::assertEquals(['apiKey' => 'test-key', 'model' => 'gpt-5.2'], $result);
     }
 
     #[Test]
@@ -230,7 +230,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $provider = $this->createMock(ProviderInterface::class);
         $provider->method('getIdentifier')->willReturn('test');
-        $provider->expects($this->atLeastOnce())
+        $provider->expects(self::atLeastOnce())
             ->method('configure')
             ->with(['apiKey' => 'new-key']);
 
@@ -250,7 +250,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $provider = $this->createMock(ProviderInterface::class);
         $provider->method('getIdentifier')->willReturn('test');
-        $provider->expects($this->once())
+        $provider->expects(self::once())
             ->method('configure')
             ->with(['apiKey' => 'configured-key']);
 
@@ -264,7 +264,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $provider = $this->createMock(ProviderInterface::class);
         $provider->method('getIdentifier')->willReturn('test');
-        $provider->expects($this->never())
+        $provider->expects(self::never())
             ->method('configure');
 
         $manager->registerProvider($provider);
@@ -277,7 +277,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $result = $manager->supportsFeature('chat', 'unknown');
 
-        $this->assertFalse($result);
+        self::assertFalse($result);
     }
 
     #[Test]
@@ -295,6 +295,6 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $result = $manager->supportsFeature('chat');
 
-        $this->assertTrue($result);
+        self::assertTrue($result);
     }
 }

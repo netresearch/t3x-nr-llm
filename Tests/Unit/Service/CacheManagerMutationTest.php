@@ -42,7 +42,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
 
         $result = $cacheManager->get('test_key');
 
-        $this->assertNull($result);
+        self::assertNull($result);
     }
 
     #[Test]
@@ -64,7 +64,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
 
         $result = $cacheManager->get('test_key');
 
-        $this->assertEquals($expectedData, $result);
+        self::assertEquals($expectedData, $result);
     }
 
     #[Test]
@@ -82,7 +82,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
 
         $result = $cacheManager->get('test_key');
 
-        $this->assertNull($result);
+        self::assertNull($result);
     }
 
     #[Test]
@@ -90,13 +90,13 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
                 'test_key',
                 ['data' => 'value'],
-                $this->anything(),
-                3600
+                self::anything(),
+                3600,
             );
 
         $cacheManager = $this->createCacheManager($cacheFrontend);
@@ -109,16 +109,14 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->callback(function (array $tags) {
-                    return in_array('nrllm', $tags, true)
-                        && in_array('nrllm_response', $tags, true);
-                }),
-                $this->anything()
+                self::anything(),
+                self::anything(),
+                self::callback(fn(array $tags) => in_array('nrllm', $tags, true)
+                        && in_array('nrllm_response', $tags, true)),
+                self::anything(),
             );
 
         $cacheManager = $this->createCacheManager($cacheFrontend);
@@ -131,17 +129,15 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->callback(function (array $tags) {
-                    return in_array('nrllm', $tags, true)
+                self::anything(),
+                self::anything(),
+                self::callback(fn(array $tags) => in_array('nrllm', $tags, true)
                         && in_array('nrllm_response', $tags, true)
-                        && in_array('custom_tag', $tags, true);
-                }),
-                $this->anything()
+                        && in_array('custom_tag', $tags, true)),
+                self::anything(),
             );
 
         $cacheManager = $this->createCacheManager($cacheFrontend);
@@ -154,16 +150,17 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->callback(function (array $tags) {
+                self::anything(),
+                self::anything(),
+                self::callback(
                     // 'nrllm' should appear only once even if passed as custom tag
-                    return count(array_keys($tags, 'nrllm', true)) === 1;
-                }),
-                $this->anything()
+
+                    fn(array $tags) => count(array_keys($tags, 'nrllm', true)) === 1,
+                ),
+                self::anything(),
             );
 
         $cacheManager = $this->createCacheManager($cacheFrontend);
@@ -179,7 +176,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
 
         $key = $cacheManager->generateCacheKey('openai', 'completion', ['prompt' => 'test']);
 
-        $this->assertStringStartsWith('openai_completion_', $key);
+        self::assertStringStartsWith('openai_completion_', $key);
     }
 
     #[Test]
@@ -191,7 +188,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
         $key1 = $cacheManager->generateCacheKey('openai', 'completion', ['prompt' => 'test1']);
         $key2 = $cacheManager->generateCacheKey('openai', 'completion', ['prompt' => 'test2']);
 
-        $this->assertNotEquals($key1, $key2);
+        self::assertNotEquals($key1, $key2);
     }
 
     #[Test]
@@ -203,7 +200,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
         $key1 = $cacheManager->generateCacheKey('openai', 'completion', ['a' => 1, 'b' => 2]);
         $key2 = $cacheManager->generateCacheKey('openai', 'completion', ['b' => 2, 'a' => 1]);
 
-        $this->assertEquals($key1, $key2);
+        self::assertEquals($key1, $key2);
     }
 
     #[Test]
@@ -220,7 +217,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
         $key1 = $cacheManager->cacheCompletion('openai', $messages1, [], ['response' => 'data']);
         $key2 = $cacheManager->cacheCompletion('openai', $messages2, [], ['response' => 'data']);
 
-        $this->assertNotEquals($key1, $key2);
+        self::assertNotEquals($key1, $key2);
     }
 
     #[Test]
@@ -236,7 +233,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
         $key1 = $cacheManager->cacheCompletion('openai', $messages, ['temperature' => 0.5], ['response' => 'data']);
         $key2 = $cacheManager->cacheCompletion('openai', $messages, ['temperature' => 1.0], ['response' => 'data']);
 
-        $this->assertNotEquals($key1, $key2);
+        self::assertNotEquals($key1, $key2);
     }
 
     #[Test]
@@ -244,16 +241,17 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->callback(function (array $tags) {
+                self::anything(),
+                self::anything(),
+                self::callback(
                     // Model 'gpt-4.0-turbo' should become 'nrllm_model_gpt_4_0_turbo'
-                    return in_array('nrllm_model_gpt_4_0_turbo', $tags, true);
-                }),
-                $this->anything()
+
+                    fn(array $tags) => in_array('nrllm_model_gpt_4_0_turbo', $tags, true),
+                ),
+                self::anything(),
             );
 
         $cacheManager = $this->createCacheManager($cacheFrontend);
@@ -267,12 +265,12 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->callback(function (array $tags) {
+                self::anything(),
+                self::anything(),
+                self::callback(function (array $tags) {
                     // Both dots and dashes should be replaced with underscores
                     foreach ($tags as $tag) {
                         if (str_starts_with($tag, 'nrllm_model_')) {
@@ -281,7 +279,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
                     }
                     return false;
                 }),
-                $this->anything()
+                self::anything(),
             );
 
         $cacheManager = $this->createCacheManager($cacheFrontend);
@@ -312,7 +310,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
 
         $result = $cacheManager->getCachedCompletion('openai', $messages, []);
 
-        $this->assertEquals($expectedData, $result);
+        self::assertEquals($expectedData, $result);
     }
 
     #[Test]
@@ -328,10 +326,10 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
         $result = $cacheManager->getCachedCompletion(
             'openai',
             [['role' => 'user', 'content' => 'Different message']],
-            []
+            [],
         );
 
-        $this->assertNull($result);
+        self::assertNull($result);
     }
 
     #[Test]
@@ -345,7 +343,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
         $key1 = $cacheManager->cacheEmbeddings('openai', 'text1', [], ['embeddings' => [[0.1]]]);
         $key2 = $cacheManager->cacheEmbeddings('openai', 'text2', [], ['embeddings' => [[0.2]]]);
 
-        $this->assertNotEquals($key1, $key2);
+        self::assertNotEquals($key1, $key2);
     }
 
     #[Test]
@@ -353,13 +351,13 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->anything(),
-                86400
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                86400,
             );
 
         $cacheManager = $this->createCacheManager($cacheFrontend);
@@ -379,7 +377,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
 
         $result = $cacheManager->getCachedEmbeddings('openai', 'different text', []);
 
-        $this->assertNull($result);
+        self::assertNull($result);
     }
 
     #[Test]
@@ -387,7 +385,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('flushByTag')
             ->with('nrllm_provider_openai');
 
@@ -401,14 +399,14 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('has')
             ->with('test_key')
             ->willReturn(true);
 
         $cacheManager = $this->createCacheManager($cacheFrontend);
 
-        $this->assertTrue($cacheManager->has('test_key'));
+        self::assertTrue($cacheManager->has('test_key'));
     }
 
     #[Test]
@@ -416,14 +414,14 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('has')
             ->with('test_key')
             ->willReturn(false);
 
         $cacheManager = $this->createCacheManager($cacheFrontend);
 
-        $this->assertFalse($cacheManager->has('test_key'));
+        self::assertFalse($cacheManager->has('test_key'));
     }
 
     #[Test]
@@ -431,7 +429,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('remove')
             ->with('test_key');
 
@@ -445,7 +443,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('flush');
 
         $cacheManager = $this->createCacheManager($cacheFrontend);
@@ -458,7 +456,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('flushByTag')
             ->with('custom_tag');
 
@@ -472,15 +470,13 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->callback(function (array $tags) {
-                    return in_array('nrllm_provider_claude', $tags, true);
-                }),
-                $this->anything()
+                self::anything(),
+                self::anything(),
+                self::callback(fn(array $tags) => in_array('nrllm_provider_claude', $tags, true)),
+                self::anything(),
             );
 
         $cacheManager = $this->createCacheManager($cacheFrontend);
@@ -494,15 +490,13 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->callback(function (array $tags) {
-                    return in_array('nrllm_provider_openai', $tags, true);
-                }),
-                $this->anything()
+                self::anything(),
+                self::anything(),
+                self::callback(fn(array $tags) => in_array('nrllm_provider_openai', $tags, true)),
+                self::anything(),
             );
 
         $cacheManager = $this->createCacheManager($cacheFrontend);
@@ -515,15 +509,13 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->callback(function (array $tags) {
-                    return in_array('nrllm_embeddings', $tags, true);
-                }),
-                $this->anything()
+                self::anything(),
+                self::anything(),
+                self::callback(fn(array $tags) => in_array('nrllm_embeddings', $tags, true)),
+                self::anything(),
             );
 
         $cacheManager = $this->createCacheManager($cacheFrontend);
@@ -536,15 +528,13 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('set')
             ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->callback(function (array $tags) {
-                    return in_array('nrllm_completion', $tags, true);
-                }),
-                $this->anything()
+                self::anything(),
+                self::anything(),
+                self::callback(fn(array $tags) => in_array('nrllm_completion', $tags, true)),
+                self::anything(),
             );
 
         $cacheManager = $this->createCacheManager($cacheFrontend);

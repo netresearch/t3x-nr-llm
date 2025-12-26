@@ -38,11 +38,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->anything(),
-                $this->callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 100)
+                self::anything(),
+                self::callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 100),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -55,11 +55,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->anything(),
-                $this->callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 200)
+                self::anything(),
+                self::callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 200),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -73,11 +73,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->anything(),
-                $this->callback(fn(VisionOptions $opts) => $opts->getTemperature() === 0.5)
+                self::anything(),
+                self::callback(fn(VisionOptions $opts) => $opts->getTemperature() === 0.5),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -90,11 +90,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->anything(),
-                $this->callback(fn(VisionOptions $opts) => $opts->getTemperature() === 0.8)
+                self::anything(),
+                self::callback(fn(VisionOptions $opts) => $opts->getTemperature() === 0.8),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -108,11 +108,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->anything(),
-                $this->callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 50)
+                self::anything(),
+                self::callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 50),
             )
             ->willReturn($this->createMockVisionResponse('Title'));
 
@@ -125,11 +125,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->anything(),
-                $this->callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 75)
+                self::anything(),
+                self::callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 75),
             )
             ->willReturn($this->createMockVisionResponse('Title'));
 
@@ -143,11 +143,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->anything(),
-                $this->callback(fn(VisionOptions $opts) => $opts->getTemperature() === 0.7)
+                self::anything(),
+                self::callback(fn(VisionOptions $opts) => $opts->getTemperature() === 0.7),
             )
             ->willReturn($this->createMockVisionResponse('Title'));
 
@@ -160,11 +160,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->anything(),
-                $this->callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 500)
+                self::anything(),
+                self::callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 500),
             )
             ->willReturn($this->createMockVisionResponse('Description'));
 
@@ -177,11 +177,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->anything(),
-                $this->callback(fn(VisionOptions $opts) => $opts->getTemperature() === 0.7)
+                self::anything(),
+                self::callback(fn(VisionOptions $opts) => $opts->getTemperature() === 0.7),
             )
             ->willReturn($this->createMockVisionResponse('Description'));
 
@@ -194,12 +194,12 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->exactly(3))
+            ->expects(self::exactly(3))
             ->method('vision')
             ->willReturnOnConsecutiveCalls(
                 $this->createMockVisionResponse('Alt 1'),
                 $this->createMockVisionResponse('Alt 2'),
-                $this->createMockVisionResponse('Alt 3')
+                $this->createMockVisionResponse('Alt 3'),
             );
 
         $service = new VisionService($llmManagerMock);
@@ -209,11 +209,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             'https://example.com/image3.jpg',
         ]);
 
-        $this->assertIsArray($results);
-        $this->assertCount(3, $results);
-        $this->assertEquals('Alt 1', $results[0]);
-        $this->assertEquals('Alt 2', $results[1]);
-        $this->assertEquals('Alt 3', $results[2]);
+        self::assertIsArray($results);
+        self::assertCount(3, $results);
+        self::assertEquals('Alt 1', $results[0]);
+        self::assertEquals('Alt 2', $results[1]);
+        self::assertEquals('Alt 3', $results[2]);
     }
 
     #[Test]
@@ -221,11 +221,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->exactly(2))
+            ->expects(self::exactly(2))
             ->method('vision')
             ->willReturnOnConsecutiveCalls(
                 $this->createMockVisionResponse('Title 1'),
-                $this->createMockVisionResponse('Title 2')
+                $this->createMockVisionResponse('Title 2'),
             );
 
         $service = new VisionService($llmManagerMock);
@@ -234,8 +234,8 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             'https://example.com/image2.jpg',
         ]);
 
-        $this->assertIsArray($results);
-        $this->assertCount(2, $results);
+        self::assertIsArray($results);
+        self::assertCount(2, $results);
     }
 
     #[Test]
@@ -243,11 +243,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->exactly(2))
+            ->expects(self::exactly(2))
             ->method('vision')
             ->willReturnOnConsecutiveCalls(
                 $this->createMockVisionResponse('Desc 1'),
-                $this->createMockVisionResponse('Desc 2')
+                $this->createMockVisionResponse('Desc 2'),
             );
 
         $service = new VisionService($llmManagerMock);
@@ -256,8 +256,8 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             'https://example.com/image2.jpg',
         ]);
 
-        $this->assertIsArray($results);
-        $this->assertCount(2, $results);
+        self::assertIsArray($results);
+        self::assertCount(2, $results);
     }
 
     #[Test]
@@ -267,20 +267,18 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->callback(function (array $content) use ($customPrompt) {
-                    return $content[0]['text'] === $customPrompt;
-                }),
-                $this->anything()
+                self::callback(fn(array $content) => $content[0]['text'] === $customPrompt),
+                self::anything(),
             )
             ->willReturn($this->createMockVisionResponse('3 cats'));
 
         $service = new VisionService($llmManagerMock);
         $result = $service->analyzeImage('https://example.com/cats.jpg', $customPrompt);
 
-        $this->assertEquals('3 cats', $result);
+        self::assertEquals('3 cats', $result);
     }
 
     #[Test]
@@ -288,21 +286,21 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->exactly(2))
+            ->expects(self::exactly(2))
             ->method('vision')
             ->willReturnOnConsecutiveCalls(
                 $this->createMockVisionResponse('Result 1'),
-                $this->createMockVisionResponse('Result 2')
+                $this->createMockVisionResponse('Result 2'),
             );
 
         $service = new VisionService($llmManagerMock);
         $results = $service->analyzeImage(
             ['https://example.com/1.jpg', 'https://example.com/2.jpg'],
-            'Describe this'
+            'Describe this',
         );
 
-        $this->assertIsArray($results);
-        $this->assertCount(2, $results);
+        self::assertIsArray($results);
+        self::assertCount(2, $results);
     }
 
     #[Test]
@@ -312,15 +310,15 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->willReturn($expectedResponse);
 
         $service = new VisionService($llmManagerMock);
         $result = $service->analyzeImageFull('https://example.com/image.jpg', 'Analyze this');
 
-        $this->assertInstanceOf(VisionResponse::class, $result);
-        $this->assertEquals('Full analysis', $result->description);
+        self::assertInstanceOf(VisionResponse::class, $result);
+        self::assertEquals('Full analysis', $result->description);
     }
 
     #[Test]
@@ -331,16 +329,14 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->callback(function (array $content) use ($imageUrl, $prompt) {
-                    return $content[0]['type'] === 'text'
+                self::callback(fn(array $content) => $content[0]['type'] === 'text'
                         && $content[0]['text'] === $prompt
                         && $content[1]['type'] === 'image_url'
-                        && $content[1]['image_url']['url'] === $imageUrl;
-                }),
-                $this->anything()
+                        && $content[1]['image_url']['url'] === $imageUrl),
+                self::anything(),
             )
             ->willReturn($this->createMockVisionResponse('Result'));
 
@@ -373,7 +369,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         // Should not throw
         $result = $service->analyzeImageFull('http://example.com/image.jpg', 'Test');
 
-        $this->assertInstanceOf(VisionResponse::class, $result);
+        self::assertInstanceOf(VisionResponse::class, $result);
     }
 
     #[Test]
@@ -389,7 +385,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         // Should not throw
         $result = $service->analyzeImageFull('https://example.com/image.jpg', 'Test');
 
-        $this->assertInstanceOf(VisionResponse::class, $result);
+        self::assertInstanceOf(VisionResponse::class, $result);
     }
 
     #[Test]
@@ -406,7 +402,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         // Should not throw
         $result = $service->analyzeImageFull($dataUri, 'Test');
 
-        $this->assertInstanceOf(VisionResponse::class, $result);
+        self::assertInstanceOf(VisionResponse::class, $result);
     }
 
     public static function validBase64DataUriProvider(): array
@@ -425,13 +421,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->callback(function (array $content) {
-                    return $content[1]['image_url']['detail'] === 'high';
-                }),
-                $this->anything()
+                self::callback(fn(array $content) => $content[1]['image_url']['detail'] === 'high'),
+                self::anything(),
             )
             ->willReturn($this->createMockVisionResponse('Result'));
 
@@ -445,13 +439,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->with(
-                $this->callback(function (array $content) {
-                    return $content[1]['image_url']['detail'] === 'auto';
-                }),
-                $this->anything()
+                self::callback(fn(array $content) => $content[1]['image_url']['detail'] === 'auto'),
+                self::anything(),
             )
             ->willReturn($this->createMockVisionResponse('Result'));
 
@@ -464,7 +456,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -473,7 +465,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         // Pass null explicitly
         $result = $service->generateAltText('https://example.com/image.jpg', null);
 
-        $this->assertEquals('Alt text', $result);
+        self::assertEquals('Alt text', $result);
     }
 
     #[Test]
@@ -481,7 +473,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->willReturn($this->createMockVisionResponse('Title'));
 
@@ -490,7 +482,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         // Pass null explicitly
         $result = $service->generateTitle('https://example.com/image.jpg', null);
 
-        $this->assertEquals('Title', $result);
+        self::assertEquals('Title', $result);
     }
 
     #[Test]
@@ -498,7 +490,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->willReturn($this->createMockVisionResponse('Description'));
 
@@ -507,7 +499,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         // Pass null explicitly
         $result = $service->generateDescription('https://example.com/image.jpg', null);
 
-        $this->assertEquals('Description', $result);
+        self::assertEquals('Description', $result);
     }
 
     #[Test]
@@ -515,7 +507,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->willReturn($this->createMockVisionResponse('Analysis'));
 
@@ -524,7 +516,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         // Pass null explicitly
         $result = $service->analyzeImage('https://example.com/image.jpg', 'Prompt', null);
 
-        $this->assertEquals('Analysis', $result);
+        self::assertEquals('Analysis', $result);
     }
 
     #[Test]
@@ -532,7 +524,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     {
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('vision')
             ->willReturn($this->createMockVisionResponse('Analysis'));
 
@@ -541,6 +533,6 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         // Pass null explicitly
         $result = $service->analyzeImageFull('https://example.com/image.jpg', 'Prompt', null);
 
-        $this->assertInstanceOf(VisionResponse::class, $result);
+        self::assertInstanceOf(VisionResponse::class, $result);
     }
 }

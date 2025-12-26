@@ -22,7 +22,7 @@ class SegmentMutationTest extends AbstractUnitTestCase
     {
         $segment = new Segment('Test', 1.5, 4.5);
 
-        $this->assertEquals(3.0, $segment->getDuration());
+        self::assertEquals(3.0, $segment->getDuration());
     }
 
     #[Test]
@@ -30,7 +30,7 @@ class SegmentMutationTest extends AbstractUnitTestCase
     {
         $segment = new Segment('Test', 2.0, 2.0);
 
-        $this->assertEquals(0.0, $segment->getDuration());
+        self::assertEquals(0.0, $segment->getDuration());
     }
 
     #[Test]
@@ -38,7 +38,7 @@ class SegmentMutationTest extends AbstractUnitTestCase
     {
         $segment = new Segment('Test', 0.0, 1.0, words: null);
 
-        $this->assertFalse($segment->hasWords());
+        self::assertFalse($segment->hasWords());
     }
 
     #[Test]
@@ -46,7 +46,7 @@ class SegmentMutationTest extends AbstractUnitTestCase
     {
         $segment = new Segment('Test', 0.0, 1.0, words: []);
 
-        $this->assertFalse($segment->hasWords());
+        self::assertFalse($segment->hasWords());
     }
 
     #[Test]
@@ -55,7 +55,7 @@ class SegmentMutationTest extends AbstractUnitTestCase
         $word = new Word('Test', 0.0, 0.5);
         $segment = new Segment('Test', 0.0, 1.0, words: [$word]);
 
-        $this->assertTrue($segment->hasWords());
+        self::assertTrue($segment->hasWords());
     }
 
     #[Test]
@@ -69,9 +69,9 @@ class SegmentMutationTest extends AbstractUnitTestCase
 
         $segment = Segment::fromWhisperResponse($data);
 
-        $this->assertEquals('Hello world', $segment->text);
-        $this->assertEquals(0.5, $segment->start);
-        $this->assertEquals(2.5, $segment->end);
+        self::assertEquals('Hello world', $segment->text);
+        self::assertEquals(0.5, $segment->start);
+        self::assertEquals(2.5, $segment->end);
     }
 
     #[Test]
@@ -81,11 +81,11 @@ class SegmentMutationTest extends AbstractUnitTestCase
 
         $segment = Segment::fromWhisperResponse($data);
 
-        $this->assertEquals('', $segment->text);
-        $this->assertEquals(0.0, $segment->start);
-        $this->assertEquals(0.0, $segment->end);
-        $this->assertNull($segment->confidence);
-        $this->assertNull($segment->words);
+        self::assertEquals('', $segment->text);
+        self::assertEquals(0.0, $segment->start);
+        self::assertEquals(0.0, $segment->end);
+        self::assertNull($segment->confidence);
+        self::assertNull($segment->words);
     }
 
     #[Test]
@@ -102,8 +102,8 @@ class SegmentMutationTest extends AbstractUnitTestCase
 
         $segment = Segment::fromWhisperResponse($data);
 
-        $this->assertTrue($segment->hasWords());
-        $this->assertCount(1, $segment->words);
+        self::assertTrue($segment->hasWords());
+        self::assertCount(1, $segment->words);
     }
 
     #[Test]
@@ -119,8 +119,8 @@ class SegmentMutationTest extends AbstractUnitTestCase
         $segment = Segment::fromWhisperResponse($data);
 
         // exp(-0.5) ≈ 0.6065
-        $this->assertNotNull($segment->confidence);
-        $this->assertEqualsWithDelta(0.6065, $segment->confidence, 0.001);
+        self::assertNotNull($segment->confidence);
+        self::assertEqualsWithDelta(0.6065, $segment->confidence, 0.001);
     }
 
     #[Test]
@@ -129,7 +129,7 @@ class SegmentMutationTest extends AbstractUnitTestCase
     {
         $segment = new Segment('Test', $start, $end);
 
-        $this->assertEquals($expected, $segment->getDuration());
+        self::assertEquals($expected, $segment->getDuration());
     }
 
     public static function durationProvider(): array

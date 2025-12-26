@@ -21,7 +21,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = ChatOptions::factual();
 
-        $this->assertEquals(0.2, $options->getTemperature());
+        self::assertEquals(0.2, $options->getTemperature());
     }
 
     #[Test]
@@ -29,7 +29,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = ChatOptions::factual();
 
-        $this->assertEquals(0.9, $options->getTopP());
+        self::assertEquals(0.9, $options->getTopP());
     }
 
     #[Test]
@@ -37,7 +37,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = ChatOptions::creative();
 
-        $this->assertEquals(1.2, $options->getTemperature());
+        self::assertEquals(1.2, $options->getTemperature());
     }
 
     #[Test]
@@ -45,7 +45,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = ChatOptions::creative();
 
-        $this->assertEquals(1.0, $options->getTopP());
+        self::assertEquals(1.0, $options->getTopP());
     }
 
     #[Test]
@@ -53,7 +53,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = ChatOptions::creative();
 
-        $this->assertEquals(0.6, $options->getPresencePenalty());
+        self::assertEquals(0.6, $options->getPresencePenalty());
     }
 
     #[Test]
@@ -61,7 +61,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = ChatOptions::balanced();
 
-        $this->assertEquals(0.7, $options->getTemperature());
+        self::assertEquals(0.7, $options->getTemperature());
     }
 
     #[Test]
@@ -69,7 +69,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = ChatOptions::balanced();
 
-        $this->assertEquals(4096, $options->getMaxTokens());
+        self::assertEquals(4096, $options->getMaxTokens());
     }
 
     #[Test]
@@ -77,7 +77,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = ChatOptions::json();
 
-        $this->assertEquals(0.3, $options->getTemperature());
+        self::assertEquals(0.3, $options->getTemperature());
     }
 
     #[Test]
@@ -85,7 +85,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = ChatOptions::json();
 
-        $this->assertEquals('json', $options->getResponseFormat());
+        self::assertEquals('json', $options->getResponseFormat());
     }
 
     #[Test]
@@ -93,7 +93,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = ChatOptions::code();
 
-        $this->assertEquals(0.2, $options->getTemperature());
+        self::assertEquals(0.2, $options->getTemperature());
     }
 
     #[Test]
@@ -101,7 +101,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = ChatOptions::code();
 
-        $this->assertEquals(8192, $options->getMaxTokens());
+        self::assertEquals(8192, $options->getMaxTokens());
     }
 
     #[Test]
@@ -109,7 +109,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = ChatOptions::code();
 
-        $this->assertEquals(0.95, $options->getTopP());
+        self::assertEquals(0.95, $options->getTopP());
     }
 
     #[Test]
@@ -117,7 +117,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         $options = ChatOptions::code();
 
-        $this->assertEquals(0.0, $options->getFrequencyPenalty());
+        self::assertEquals(0.0, $options->getFrequencyPenalty());
     }
 
     #[Test]
@@ -126,9 +126,9 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
         $options = new ChatOptions();
         $newOptions = $options->withTemperature(0.5);
 
-        $this->assertNotSame($options, $newOptions);
-        $this->assertNull($options->getTemperature());
-        $this->assertEquals(0.5, $newOptions->getTemperature());
+        self::assertNotSame($options, $newOptions);
+        self::assertNull($options->getTemperature());
+        self::assertEquals(0.5, $newOptions->getTemperature());
     }
 
     #[Test]
@@ -137,9 +137,9 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
         $options = new ChatOptions();
         $newOptions = $options->withMaxTokens(2048);
 
-        $this->assertNotSame($options, $newOptions);
-        $this->assertNull($options->getMaxTokens());
-        $this->assertEquals(2048, $newOptions->getMaxTokens());
+        self::assertNotSame($options, $newOptions);
+        self::assertNull($options->getMaxTokens());
+        self::assertEquals(2048, $newOptions->getMaxTokens());
     }
 
     #[Test]
@@ -149,9 +149,9 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
 
         $array = $options->toArray();
 
-        $this->assertArrayHasKey('temperature', $array);
-        $this->assertArrayNotHasKey('max_tokens', $array);
-        $this->assertArrayNotHasKey('top_p', $array);
+        self::assertArrayHasKey('temperature', $array);
+        self::assertArrayNotHasKey('max_tokens', $array);
+        self::assertArrayNotHasKey('top_p', $array);
     }
 
     #[Test]
@@ -172,16 +172,16 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
 
         $array = $options->toArray();
 
-        $this->assertEquals(0.5, $array['temperature']);
-        $this->assertEquals(1024, $array['max_tokens']);
-        $this->assertEquals(0.9, $array['top_p']);
-        $this->assertEquals(0.1, $array['frequency_penalty']);
-        $this->assertEquals(0.2, $array['presence_penalty']);
-        $this->assertEquals('json', $array['response_format']);
-        $this->assertEquals('Be helpful', $array['system_prompt']);
-        $this->assertEquals(['END'], $array['stop_sequences']);
-        $this->assertEquals('openai', $array['provider']);
-        $this->assertEquals('gpt-5.2', $array['model']);
+        self::assertEquals(0.5, $array['temperature']);
+        self::assertEquals(1024, $array['max_tokens']);
+        self::assertEquals(0.9, $array['top_p']);
+        self::assertEquals(0.1, $array['frequency_penalty']);
+        self::assertEquals(0.2, $array['presence_penalty']);
+        self::assertEquals('json', $array['response_format']);
+        self::assertEquals('Be helpful', $array['system_prompt']);
+        self::assertEquals(['END'], $array['stop_sequences']);
+        self::assertEquals('openai', $array['provider']);
+        self::assertEquals('gpt-5.2', $array['model']);
     }
 
     #[Test]
@@ -191,9 +191,9 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
 
         $merged = $options->merge(['temperature' => 0.8, 'new_key' => 'value']);
 
-        $this->assertEquals(0.8, $merged['temperature']);
-        $this->assertEquals(1024, $merged['max_tokens']);
-        $this->assertEquals('value', $merged['new_key']);
+        self::assertEquals(0.8, $merged['temperature']);
+        self::assertEquals(1024, $merged['max_tokens']);
+        self::assertEquals('value', $merged['new_key']);
     }
 
     #[Test]
@@ -238,7 +238,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
         $options = new ChatOptions();
         $newOptions = $options->withSystemPrompt('You are helpful');
 
-        $this->assertEquals('You are helpful', $newOptions->getSystemPrompt());
+        self::assertEquals('You are helpful', $newOptions->getSystemPrompt());
     }
 
     #[Test]
@@ -247,7 +247,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
         $options = new ChatOptions();
         $newOptions = $options->withStopSequences(['STOP', 'END']);
 
-        $this->assertEquals(['STOP', 'END'], $newOptions->getStopSequences());
+        self::assertEquals(['STOP', 'END'], $newOptions->getStopSequences());
     }
 
     #[Test]
@@ -256,7 +256,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
         $options = new ChatOptions();
         $newOptions = $options->withProvider('claude');
 
-        $this->assertEquals('claude', $newOptions->getProvider());
+        self::assertEquals('claude', $newOptions->getProvider());
     }
 
     #[Test]
@@ -265,7 +265,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
         $options = new ChatOptions();
         $newOptions = $options->withModel('gpt-5.2');
 
-        $this->assertEquals('gpt-5.2', $newOptions->getModel());
+        self::assertEquals('gpt-5.2', $newOptions->getModel());
     }
 
     #[Test]
@@ -273,10 +273,10 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         // Should not throw
         $options = new ChatOptions(frequencyPenalty: -2.0);
-        $this->assertEquals(-2.0, $options->getFrequencyPenalty());
+        self::assertEquals(-2.0, $options->getFrequencyPenalty());
 
         $options = new ChatOptions(frequencyPenalty: 2.0);
-        $this->assertEquals(2.0, $options->getFrequencyPenalty());
+        self::assertEquals(2.0, $options->getFrequencyPenalty());
     }
 
     #[Test]
@@ -284,10 +284,10 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         // Should not throw
         $options = new ChatOptions(presencePenalty: -2.0);
-        $this->assertEquals(-2.0, $options->getPresencePenalty());
+        self::assertEquals(-2.0, $options->getPresencePenalty());
 
         $options = new ChatOptions(presencePenalty: 2.0);
-        $this->assertEquals(2.0, $options->getPresencePenalty());
+        self::assertEquals(2.0, $options->getPresencePenalty());
     }
 
     #[Test]
@@ -295,12 +295,12 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     {
         // All valid formats should work
         $textOptions = new ChatOptions(responseFormat: 'text');
-        $this->assertEquals('text', $textOptions->getResponseFormat());
+        self::assertEquals('text', $textOptions->getResponseFormat());
 
         $jsonOptions = new ChatOptions(responseFormat: 'json');
-        $this->assertEquals('json', $jsonOptions->getResponseFormat());
+        self::assertEquals('json', $jsonOptions->getResponseFormat());
 
         $mdOptions = new ChatOptions(responseFormat: 'markdown');
-        $this->assertEquals('markdown', $mdOptions->getResponseFormat());
+        self::assertEquals('markdown', $mdOptions->getResponseFormat());
     }
 }

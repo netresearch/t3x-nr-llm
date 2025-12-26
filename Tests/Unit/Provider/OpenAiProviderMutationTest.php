@@ -8,6 +8,7 @@ use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionClass;
 
 /**
  * Mutation-killing tests for OpenAiProvider.
@@ -30,7 +31,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertEquals('OpenAI', $provider->getName());
+        self::assertEquals('OpenAI', $provider->getName());
     }
 
     #[Test]
@@ -38,7 +39,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertEquals('openai', $provider->getIdentifier());
+        self::assertEquals('openai', $provider->getIdentifier());
     }
 
     #[Test]
@@ -47,7 +48,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure(['apiKey' => $this->randomApiKey()]);
 
-        $this->assertEquals('gpt-5.2', $provider->getDefaultModel());
+        self::assertEquals('gpt-5.2', $provider->getDefaultModel());
     }
 
     #[Test]
@@ -59,7 +60,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
             'defaultModel' => 'gpt-5.2-pro',
         ]);
 
-        $this->assertEquals('gpt-5.2-pro', $provider->getDefaultModel());
+        self::assertEquals('gpt-5.2-pro', $provider->getDefaultModel());
     }
 
     #[Test]
@@ -72,7 +73,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
         ]);
 
         // Should return default when empty string is configured
-        $this->assertEquals('gpt-5.2', $provider->getDefaultModel());
+        self::assertEquals('gpt-5.2', $provider->getDefaultModel());
     }
 
     #[Test]
@@ -83,12 +84,12 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
 
         $models = $provider->getAvailableModels();
 
-        $this->assertIsArray($models);
-        $this->assertNotEmpty($models);
-        $this->assertArrayHasKey('gpt-5.2', $models);
-        $this->assertArrayHasKey('gpt-5.2-pro', $models);
-        $this->assertArrayHasKey('gpt-5.2-instant', $models);
-        $this->assertArrayHasKey('o3', $models);
+        self::assertIsArray($models);
+        self::assertNotEmpty($models);
+        self::assertArrayHasKey('gpt-5.2', $models);
+        self::assertArrayHasKey('gpt-5.2-pro', $models);
+        self::assertArrayHasKey('gpt-5.2-instant', $models);
+        self::assertArrayHasKey('o3', $models);
     }
 
     #[Test]
@@ -96,7 +97,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsVision());
+        self::assertTrue($provider->supportsVision());
     }
 
     #[Test]
@@ -104,7 +105,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsStreaming());
+        self::assertTrue($provider->supportsStreaming());
     }
 
     #[Test]
@@ -112,7 +113,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsTools());
+        self::assertTrue($provider->supportsTools());
     }
 
     #[Test]
@@ -122,11 +123,11 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
 
         $formats = $provider->getSupportedImageFormats();
 
-        $this->assertContains('png', $formats);
-        $this->assertContains('jpeg', $formats);
-        $this->assertContains('jpg', $formats);
-        $this->assertContains('gif', $formats);
-        $this->assertContains('webp', $formats);
+        self::assertContains('png', $formats);
+        self::assertContains('jpeg', $formats);
+        self::assertContains('jpg', $formats);
+        self::assertContains('gif', $formats);
+        self::assertContains('webp', $formats);
     }
 
     #[Test]
@@ -136,7 +137,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
 
         $maxSize = $provider->getMaxImageSize();
 
-        $this->assertEquals(20 * 1024 * 1024, $maxSize);
+        self::assertEquals(20 * 1024 * 1024, $maxSize);
     }
 
     #[Test]
@@ -144,7 +145,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('chat'));
+        self::assertTrue($provider->supportsFeature('chat'));
     }
 
     #[Test]
@@ -152,7 +153,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('embeddings'));
+        self::assertTrue($provider->supportsFeature('embeddings'));
     }
 
     #[Test]
@@ -160,7 +161,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('vision'));
+        self::assertTrue($provider->supportsFeature('vision'));
     }
 
     #[Test]
@@ -168,7 +169,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('streaming'));
+        self::assertTrue($provider->supportsFeature('streaming'));
     }
 
     #[Test]
@@ -176,7 +177,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('tools'));
+        self::assertTrue($provider->supportsFeature('tools'));
     }
 
     #[Test]
@@ -184,7 +185,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertFalse($provider->supportsFeature('unknown_feature'));
+        self::assertFalse($provider->supportsFeature('unknown_feature'));
     }
 
     #[Test]
@@ -193,7 +194,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure(['apiKey' => $this->randomApiKey()]);
 
-        $this->assertTrue($provider->isAvailable());
+        self::assertTrue($provider->isAvailable());
     }
 
     #[Test]
@@ -202,10 +203,10 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure(['apiKey' => $this->randomApiKey()]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');
 
-        $this->assertStringContainsString('api.openai.com', $baseUrl->getValue($provider));
+        self::assertStringContainsString('api.openai.com', $baseUrl->getValue($provider));
     }
 
     #[Test]
@@ -213,7 +214,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $this->assertTrue($provider->supportsFeature('completion'));
+        self::assertTrue($provider->supportsFeature('completion'));
     }
 
     #[Test]
@@ -226,10 +227,10 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
 
         // Verify model descriptions are strings
         foreach ($models as $modelId => $description) {
-            $this->assertIsString($modelId);
-            $this->assertIsString($description);
-            $this->assertNotEmpty($modelId);
-            $this->assertNotEmpty($description);
+            self::assertIsString($modelId);
+            self::assertIsString($description);
+            self::assertNotEmpty($modelId);
+            self::assertNotEmpty($description);
         }
     }
 
@@ -242,9 +243,9 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
             'baseUrl' => 'https://custom-api.example.com/v1',
         ]);
 
-        $reflection = new \ReflectionClass($provider);
+        $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');
 
-        $this->assertEquals('https://custom-api.example.com/v1', $baseUrl->getValue($provider));
+        self::assertEquals('https://custom-api.example.com/v1', $baseUrl->getValue($provider));
     }
 }

@@ -349,8 +349,8 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     #[Test]
     public function findMostSimilarUsesDefaultTopKOfFive(): void
     {
-        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
-        $cacheStub = $this->createStub(CacheManagerInterface::class);
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $cacheStub = self::createStub(CacheManagerInterface::class);
         $service = new EmbeddingService($llmManagerStub, $cacheStub);
 
         $queryVector = [1.0, 0.0];
@@ -367,14 +367,14 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
         // Without topK parameter, should return 5 by default
         $result = $service->findMostSimilar($queryVector, $candidates);
 
-        $this->assertCount(5, $result);
+        self::assertCount(5, $result);
     }
 
     #[Test]
     public function findMostSimilarReturnsAllWhenCandidatesLessThanTopK(): void
     {
-        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
-        $cacheStub = $this->createStub(CacheManagerInterface::class);
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $cacheStub = self::createStub(CacheManagerInterface::class);
         $service = new EmbeddingService($llmManagerStub, $cacheStub);
 
         $queryVector = [1.0, 0.0];
@@ -386,14 +386,14 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
         // Only 2 candidates, ask for 5
         $result = $service->findMostSimilar($queryVector, $candidates, 5);
 
-        $this->assertCount(2, $result);
+        self::assertCount(2, $result);
     }
 
     #[Test]
     public function findMostSimilarReturnsCorrectIndices(): void
     {
-        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
-        $cacheStub = $this->createStub(CacheManagerInterface::class);
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $cacheStub = self::createStub(CacheManagerInterface::class);
         $service = new EmbeddingService($llmManagerStub, $cacheStub);
 
         $queryVector = [1.0, 0.0];
@@ -406,29 +406,29 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
         $result = $service->findMostSimilar($queryVector, $candidates, 3);
 
         // First result should be index 1 (identical)
-        $this->assertEquals(1, $result[0]['index']);
+        self::assertEquals(1, $result[0]['index']);
     }
 
     #[Test]
     public function normalizePreservesDirection(): void
     {
-        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
-        $cacheStub = $this->createStub(CacheManagerInterface::class);
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $cacheStub = self::createStub(CacheManagerInterface::class);
         $service = new EmbeddingService($llmManagerStub, $cacheStub);
 
         $vector = [3.0, 4.0];
         $result = $service->normalize($vector);
 
         // Normalized vector should have same direction (same ratio)
-        $this->assertEqualsWithDelta(3 / 5, $result[0], 0.0001);
-        $this->assertEqualsWithDelta(4 / 5, $result[1], 0.0001);
+        self::assertEqualsWithDelta(3 / 5, $result[0], 0.0001);
+        self::assertEqualsWithDelta(4 / 5, $result[1], 0.0001);
     }
 
     #[Test]
     public function normalizeHandlesNegativeValues(): void
     {
-        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
-        $cacheStub = $this->createStub(CacheManagerInterface::class);
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $cacheStub = self::createStub(CacheManagerInterface::class);
         $service = new EmbeddingService($llmManagerStub, $cacheStub);
 
         $vector = [-3.0, 4.0];
@@ -436,53 +436,53 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
 
         // Magnitude of result should still be 1.0
         $magnitude = sqrt(array_sum(array_map(fn($x) => $x * $x, $result)));
-        $this->assertEqualsWithDelta(1.0, $magnitude, 0.0001);
+        self::assertEqualsWithDelta(1.0, $magnitude, 0.0001);
 
         // Signs should be preserved
-        $this->assertLessThan(0, $result[0]);
-        $this->assertGreaterThan(0, $result[1]);
+        self::assertLessThan(0, $result[0]);
+        self::assertGreaterThan(0, $result[1]);
     }
 
     #[Test]
     public function pairwiseSimilaritiesReturnsEmptyForEmptyInput(): void
     {
-        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
-        $cacheStub = $this->createStub(CacheManagerInterface::class);
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $cacheStub = self::createStub(CacheManagerInterface::class);
         $service = new EmbeddingService($llmManagerStub, $cacheStub);
 
         $result = $service->pairwiseSimilarities([]);
 
-        $this->assertIsArray($result);
-        $this->assertEmpty($result);
+        self::assertIsArray($result);
+        self::assertEmpty($result);
     }
 
     #[Test]
     public function pairwiseSimilaritiesHandlesSingleVector(): void
     {
-        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
-        $cacheStub = $this->createStub(CacheManagerInterface::class);
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $cacheStub = self::createStub(CacheManagerInterface::class);
         $service = new EmbeddingService($llmManagerStub, $cacheStub);
 
         $vectors = [[1.0, 0.0, 0.0]];
 
         $result = $service->pairwiseSimilarities($vectors);
 
-        $this->assertCount(1, $result);
-        $this->assertCount(1, $result[0]);
-        $this->assertEquals(1.0, $result[0][0]);
+        self::assertCount(1, $result);
+        self::assertCount(1, $result[0]);
+        self::assertEquals(1.0, $result[0][0]);
     }
 
     #[Test]
     public function embedBatchReturnsEmptyArrayForEmptyInput(): void
     {
-        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
-        $cacheStub = $this->createStub(CacheManagerInterface::class);
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $cacheStub = self::createStub(CacheManagerInterface::class);
         $service = new EmbeddingService($llmManagerStub, $cacheStub);
 
         $result = $service->embedBatch([]);
 
-        $this->assertIsArray($result);
-        $this->assertEmpty($result);
+        self::assertIsArray($result);
+        self::assertEmpty($result);
     }
 
     #[Test]
@@ -497,7 +497,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
 
         $cacheMock = $this->createMock(CacheManagerInterface::class);
         $cacheMock
-            ->expects($this->once())
+            ->expects(self::once())
             ->method('getCachedEmbeddings')
             ->willReturn($cachedData);
 
@@ -507,15 +507,15 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
         $result = $service->embedFull('test text');
 
         // Should default to 0 when not in cache
-        $this->assertEquals(0, $result->usage->promptTokens);
-        $this->assertEquals(0, $result->usage->totalTokens);
+        self::assertEquals(0, $result->usage->promptTokens);
+        self::assertEquals(0, $result->usage->totalTokens);
     }
 
     #[Test]
     public function pairwiseSimilaritiesOffDiagonalCalculatesCorrectly(): void
     {
-        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
-        $cacheStub = $this->createStub(CacheManagerInterface::class);
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $cacheStub = self::createStub(CacheManagerInterface::class);
         $service = new EmbeddingService($llmManagerStub, $cacheStub);
 
         // Orthogonal unit vectors
@@ -527,15 +527,15 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
         $result = $service->pairwiseSimilarities($vectors);
 
         // Off-diagonal elements should be 0 for orthogonal vectors
-        $this->assertEqualsWithDelta(0.0, $result[0][1], 0.0001);
-        $this->assertEqualsWithDelta(0.0, $result[1][0], 0.0001);
+        self::assertEqualsWithDelta(0.0, $result[0][1], 0.0001);
+        self::assertEqualsWithDelta(0.0, $result[1][0], 0.0001);
     }
 
     #[Test]
     public function findMostSimilarWithTopKOfOne(): void
     {
-        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
-        $cacheStub = $this->createStub(CacheManagerInterface::class);
+        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $cacheStub = self::createStub(CacheManagerInterface::class);
         $service = new EmbeddingService($llmManagerStub, $cacheStub);
 
         $queryVector = [1.0, 0.0];
@@ -547,7 +547,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
 
         $result = $service->findMostSimilar($queryVector, $candidates, 1);
 
-        $this->assertCount(1, $result);
-        $this->assertEquals(1, $result[0]['index']); // Most similar is index 1
+        self::assertCount(1, $result);
+        self::assertEquals(1, $result[0]['index']); // Most similar is index 1
     }
 }

@@ -325,14 +325,14 @@ parameters:
 			path: ../../Tests/Unit/Provider/AbstractProviderTest.php
 
 		-
-			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, string\> will always evaluate to true\.$#'
-			identifier: method.alreadyNarrowedType
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, string\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
 			count: 1
 			path: ../../Tests/Unit/Provider/ClaudeProviderMutationTest.php
 
 		-
-			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
-			identifier: method.alreadyNarrowedType
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
 			count: 2
 			path: ../../Tests/Unit/Provider/ClaudeProviderMutationTest.php
 
@@ -349,14 +349,14 @@ parameters:
 			path: ../../Tests/Unit/Provider/ClaudeProviderTest.php
 
 		-
-			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, string\> will always evaluate to true\.$#'
-			identifier: method.alreadyNarrowedType
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, string\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
 			count: 1
 			path: ../../Tests/Unit/Provider/OpenAiProviderMutationTest.php
 
 		-
-			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
-			identifier: method.alreadyNarrowedType
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
 			count: 2
 			path: ../../Tests/Unit/Provider/OpenAiProviderMutationTest.php
 
@@ -379,8 +379,8 @@ parameters:
 			path: ../../Tests/Unit/Provider/OpenAiProviderTest.php
 
 		-
-			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, string\> will always evaluate to true\.$#'
-			identifier: method.alreadyNarrowedType
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, string\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
 			count: 1
 			path: ../../Tests/Unit/Provider/OpenRouterProviderMutationTest.php
 
@@ -451,8 +451,8 @@ parameters:
 			path: ../../Tests/Unit/Service/Feature/CompletionServiceTest.php
 
 		-
-			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\<int, float\>\> will always evaluate to true\.$#'
-			identifier: method.alreadyNarrowedType
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\<int, float\>\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
 			count: 2
 			path: ../../Tests/Unit/Service/Feature/EmbeddingServiceMutationTest.php
 
