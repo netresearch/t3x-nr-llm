@@ -42,16 +42,7 @@
         </exclude>
     </source>
 
-    <coverage includeUncoveredFiles="true"
-              pathCoverage="false"
-              ignoreDeprecatedCodeUnits="true"
-              disableCodeCoverageIgnore="false">
-        <report>
-            <clover outputFile=".Build/logs/clover.xml"/>
-            <html outputDirectory=".Build/logs/coverage"/>
-            <text outputFile="php://stdout" showOnlySummary="true"/>
-        </report>
-    </coverage>
+    <!-- Coverage reports: use 'phpunit' with coverage options when a driver is available -->
 
     <php>
         <ini name="display_errors" value="1"/>
