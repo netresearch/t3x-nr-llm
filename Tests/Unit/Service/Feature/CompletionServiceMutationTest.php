@@ -366,4 +366,181 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
 
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
+
+    #[Test]
+    public function completeWithTextResponseFormat(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->willReturn($this->createMockResponse('Plain text response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $options = new ChatOptions(responseFormat: 'text');
+
+        $result = $service->complete('Test', $options);
+
+        $this->assertEquals('Plain text response', $result->content);
+    }
+
+    #[Test]
+    public function completeWithMarkdownResponseFormat(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->willReturn($this->createMockResponse('# Markdown'));
+
+        $service = new CompletionService($llmManagerMock);
+        $options = new ChatOptions(responseFormat: 'markdown');
+
+        $result = $service->complete('Test', $options);
+
+        $this->assertEquals('# Markdown', $result->content);
+    }
+
+    #[Test]
+    public function completeJsonThrowsOnInvalidJson(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->method('chat')
+            ->willReturn($this->createMockResponse('not valid json'));
+
+        $service = new CompletionService($llmManagerMock);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Failed to decode JSON response');
+
+        $service->completeJson('Generate JSON');
+    }
+
+    #[Test]
+    public function completeMarkdownWithNoExistingSystemPrompt(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->with(
+                $this->callback(function (array $messages) {
+                    // Should have system message when markdown format
+                    return isset($messages[0]['role'])
+                        && $messages[0]['role'] === 'system'
+                        && str_contains($messages[0]['content'], 'Markdown');
+                }),
+                $this->anything()
+            )
+            ->willReturn($this->createMockResponse('# Response'));
+
+        $service = new CompletionService($llmManagerMock);
+        // No system prompt in options
+        $service->completeMarkdown('Generate markdown');
+    }
+
+    #[Test]
+    public function completeWithSystemPromptAddsSystemMessage(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->with(
+                $this->callback(function (array $messages) {
+                    return count($messages) === 2
+                        && $messages[0]['role'] === 'system'
+                        && $messages[0]['content'] === 'Be helpful'
+                        && $messages[1]['role'] === 'user';
+                }),
+                $this->anything()
+            )
+            ->willReturn($this->createMockResponse('Response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $options = new ChatOptions(systemPrompt: 'Be helpful');
+
+        $service->complete('User prompt', $options);
+    }
+
+    #[Test]
+    public function completeWithoutSystemPromptOnlyHasUserMessage(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->with(
+                $this->callback(function (array $messages) {
+                    return count($messages) === 1
+                        && $messages[0]['role'] === 'user'
+                        && $messages[0]['content'] === 'User prompt';
+                }),
+                $this->anything()
+            )
+            ->willReturn($this->createMockResponse('Response'));
+
+        $service = new CompletionService($llmManagerMock);
+
+        $service->complete('User prompt');
+    }
+
+    #[Test]
+    public function validateOptionsRejectsZeroMaxTokens(): void
+    {
+        $llmManagerStub = $this->createStub(LlmServiceManagerInterface::class);
+        $service = new CompletionService($llmManagerStub);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('max_tokens');
+
+        $options = new ChatOptions(maxTokens: 0);
+        $service->complete('Test', $options);
+    }
+
+    #[Test]
+    public function completeFactualWithNullOptionsCreatesDefaults(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->method('chat')
+            ->willReturn($this->createMockResponse('Response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $result = $service->completeFactual('Question', null);
+
+        $this->assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function completeCreativeWithNullOptionsCreatesDefaults(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->method('chat')
+            ->willReturn($this->createMockResponse('Response'));
+
+        $service = new CompletionService($llmManagerMock);
+        $result = $service->completeCreative('Prompt', null);
+
+        $this->assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function completeJsonSetsJsonResponseFormat(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects($this->once())
+            ->method('chat')
+            ->with(
+                $this->anything(),
+                $this->callback(fn(ChatOptions $opts) => $opts->getResponseFormat() === 'json')
+            )
+            ->willReturn($this->createMockResponse('{"key": "value"}'));
+
+        $service = new CompletionService($llmManagerMock);
+        $service->completeJson('Generate JSON');
+    }
 }
