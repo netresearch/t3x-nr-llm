@@ -8,6 +8,7 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
@@ -16,6 +17,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 /**
  * Mutation-killing tests for LlmServiceManager.
  */
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(LlmServiceManager::class)]
 class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 {

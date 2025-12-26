@@ -11,6 +11,7 @@ use Netresearch\NrLlm\Service\Feature\CompletionService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,6 +19,7 @@ use PHPUnit\Framework\Attributes\Test;
 /**
  * Additional mutation-killing tests for CompletionService.
  */
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(CompletionService::class)]
 class CompletionServiceMutationTest extends AbstractUnitTestCase
 {

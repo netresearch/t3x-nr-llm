@@ -43,10 +43,11 @@ final readonly class TranscriptionResult
             return null;
         }
 
-        $minutes = floor($this->duration / 60);
-        $seconds = $this->duration % 60;
+        $totalSeconds = (int)$this->duration;
+        $minutes = intdiv($totalSeconds, 60);
+        $seconds = $totalSeconds % 60;
 
-        return sprintf('%d:%02d', (int)$minutes, (int)$seconds);
+        return sprintf('%d:%02d', $minutes, $seconds);
     }
 
     /**

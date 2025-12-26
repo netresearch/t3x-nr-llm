@@ -6,6 +6,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service;
 
 use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
@@ -14,6 +15,7 @@ use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 /**
  * Mutation-killing tests for CacheManager.
  */
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(CacheManager::class)]
 class CacheManagerMutationTest extends AbstractUnitTestCase
 {
