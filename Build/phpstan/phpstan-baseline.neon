@@ -325,6 +325,18 @@ parameters:
 			path: ../../Tests/Unit/Provider/AbstractProviderTest.php
 
 		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, string\> will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: ../../Tests/Unit/Provider/ClaudeProviderMutationTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 2
+			path: ../../Tests/Unit/Provider/ClaudeProviderMutationTest.php
+
+		-
 			message: '#^Call to an undefined method Psr\\Http\\Client\\ClientInterface\:\:method\(\)\.$#'
 			identifier: method.notFound
 			count: 5
@@ -335,6 +347,18 @@ parameters:
 			identifier: staticMethod.alreadyNarrowedType
 			count: 1
 			path: ../../Tests/Unit/Provider/ClaudeProviderTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, string\> will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: ../../Tests/Unit/Provider/OpenAiProviderMutationTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 2
+			path: ../../Tests/Unit/Provider/OpenAiProviderMutationTest.php
 
 		-
 			message: '#^Call to an undefined method Psr\\Http\\Client\\ClientInterface\:\:method\(\)\.$#'
@@ -353,6 +377,18 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: ../../Tests/Unit/Provider/OpenAiProviderTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, string\> will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: ../../Tests/Unit/Provider/OpenRouterProviderMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Provider\\OpenRouterProviderMutationTest\:\:validRoutingStrategyProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Provider/OpenRouterProviderMutationTest.php
 
 		-
 			message: '#^Call to an undefined method Psr\\Http\\Client\\ClientInterface\:\:method\(\)\.$#'
@@ -415,6 +451,12 @@ parameters:
 			path: ../../Tests/Unit/Service/Feature/CompletionServiceTest.php
 
 		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\<int, float\>\> will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 2
+			path: ../../Tests/Unit/Service/Feature/EmbeddingServiceMutationTest.php
+
+		-
 			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{index\: int, similarity\: float\}\> will always evaluate to true\.$#'
 			identifier: staticMethod.alreadyNarrowedType
 			count: 1
@@ -455,6 +497,18 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: ../../Tests/Unit/Service/Feature/EmbeddingServiceTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Service\\Feature\\VisionServiceMutationTest\:\:validBase64DataUriProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Service/Feature/VisionServiceMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Service\\LlmServiceManagerMutationTest\:\:createManager\(\) has parameter \$config with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Service/LlmServiceManagerMutationTest.php
 
 		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Service\\TestableProvider\:\:getLastConfiguration\(\) return type has no value type specified in iterable type array\.$#'
@@ -559,6 +613,12 @@ parameters:
 			path: ../../Tests/Unit/Specialized/Option/ImageGenerationOptionsTest.php
 
 		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Speech\\SegmentMutationTest\:\:durationProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Specialized/Speech/SegmentMutationTest.php
+
+		-
 			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsFloat\(\) with float will always evaluate to true\.$#'
 			identifier: staticMethod.alreadyNarrowedType
 			count: 2
@@ -569,6 +629,36 @@ parameters:
 			identifier: staticMethod.alreadyNarrowedType
 			count: 1
 			path: ../../Tests/Unit/Specialized/Speech/SegmentTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Speech\\TranscriptionResultMutationTest\:\:confidenceFormattingProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Specialized/Speech/TranscriptionResultMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Speech\\TranscriptionResultMutationTest\:\:durationFormattingProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Specialized/Speech/TranscriptionResultMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Speech\\TranscriptionResultMutationTest\:\:srtTimeFormattingProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Specialized/Speech/TranscriptionResultMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Speech\\TranscriptionResultMutationTest\:\:vttTimeFormattingProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Specialized/Speech/TranscriptionResultMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Speech\\TranscriptionResultMutationTest\:\:wordCountProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Specialized/Speech/TranscriptionResultMutationTest.php
 
 		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Speech\\TranscriptionResultTest\:\:confidencePercentProvider\(\) return type has no value type specified in iterable type array\.$#'
