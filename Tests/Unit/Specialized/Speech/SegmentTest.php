@@ -142,6 +142,7 @@ class SegmentTest extends AbstractUnitTestCase
         $segment = Segment::fromWhisperResponse($data);
 
         self::assertTrue($segment->hasWords());
+        self::assertNotNull($segment->words);
         self::assertCount(2, $segment->words);
     }
 

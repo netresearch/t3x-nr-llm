@@ -173,7 +173,10 @@ class PromptTemplate extends AbstractEntity
     // Setters
     public function setUid(?int $uid): void
     {
-        $this->uid = $uid;
+        // Parent class expects int<1, max>|null, so only set positive values
+        if ($uid === null || $uid >= 1) {
+            $this->uid = $uid;
+        }
     }
 
     #[Override]

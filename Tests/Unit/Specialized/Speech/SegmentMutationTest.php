@@ -103,6 +103,7 @@ class SegmentMutationTest extends AbstractUnitTestCase
         $segment = Segment::fromWhisperResponse($data);
 
         self::assertTrue($segment->hasWords());
+        self::assertNotNull($segment->words);
         self::assertCount(1, $segment->words);
     }
 

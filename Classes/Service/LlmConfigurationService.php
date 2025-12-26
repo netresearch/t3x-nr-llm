@@ -8,7 +8,8 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
-use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
 use TYPO3\CMS\Core\SingletonInterface;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
@@ -23,6 +24,7 @@ class LlmConfigurationService implements SingletonInterface
     public function __construct(
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly PersistenceManagerInterface $persistenceManager,
+        private readonly Context $context,
     ) {}
 
     /**
@@ -80,10 +82,8 @@ class LlmConfigurationService implements SingletonInterface
      */
     public function getAccessibleConfigurations(): array
     {
-        $backendUser = $this->getBackendUser();
-
         // Admin users can access all configurations
-        if ($backendUser !== null && $backendUser->isAdmin()) {
+        if ($this->isCurrentUserAdmin()) {
             return $this->configurationRepository->findActive()->toArray();
         }
 
@@ -126,15 +126,13 @@ class LlmConfigurationService implements SingletonInterface
      */
     public function hasAccess(LlmConfiguration $configuration): bool
     {
-        $backendUser = $this->getBackendUser();
-
         // No backend user context: no access
-        if ($backendUser === null) {
+        if (!$this->isBackendUserLoggedIn()) {
             return false;
         }
 
         // Admin users can access all configurations
-        if ($backendUser->isAdmin()) {
+        if ($this->isCurrentUserAdmin()) {
             return true;
         }
 
@@ -211,32 +209,43 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Get current backend user.
+     * Check if a backend user is logged in.
      */
-    private function getBackendUser(): ?BackendUserAuthentication
+    private function isBackendUserLoggedIn(): bool
     {
-        return $GLOBALS['BE_USER'] ?? null;
+        try {
+            return (bool)$this->context->getAspect('backend.user')->get('isLoggedIn');
+        } catch (AspectNotFoundException) {
+            return false;
+        }
     }
 
     /**
-     * Get current user's group IDs.
+     * Check if current backend user is admin.
+     */
+    private function isCurrentUserAdmin(): bool
+    {
+        try {
+            return (bool)$this->context->getAspect('backend.user')->get('isAdmin');
+        } catch (AspectNotFoundException) {
+            return false;
+        }
+    }
+
+    /**
+     * Get current user's group IDs via Context API.
      *
      * @return array<int>
      */
     private function getCurrentUserGroupIds(): array
     {
-        $backendUser = $this->getBackendUser();
-
-        if ($backendUser === null) {
+        try {
+            /** @var array<int> $groupIds */
+            $groupIds = $this->context->getAspect('backend.user')->get('groupIds');
+            return $groupIds;
+        } catch (AspectNotFoundException) {
             return [];
         }
-
-        $groupList = $backendUser->groupList ?? '';
-        if ($groupList === '') {
-            return [];
-        }
-
-        return array_map(intval(...), explode(',', (string)$groupList));
     }
 
     /**
@@ -253,7 +262,10 @@ class LlmConfigurationService implements SingletonInterface
 
         $groupIds = [];
         foreach ($beGroups as $group) {
-            $groupIds[] = $group->getUid();
+            $uid = $group->getUid();
+            if ($uid !== null) {
+                $groupIds[] = $uid;
+            }
         }
 
         return $groupIds;

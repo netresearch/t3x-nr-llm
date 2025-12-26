@@ -21,6 +21,7 @@ final class ClaudeProvider extends AbstractProvider implements
     StreamingCapableInterface,
     ToolCapableInterface
 {
+    /** @var array<string> */
     protected array $supportedFeatures = [
         self::FEATURE_CHAT,
         self::FEATURE_COMPLETION,
@@ -53,6 +54,9 @@ final class ClaudeProvider extends AbstractProvider implements
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_MODEL;
     }
 
+    /**
+     * @return array<string, string>
+     */
     public function getAvailableModels(): array
     {
         return [
@@ -79,23 +83,31 @@ final class ClaudeProvider extends AbstractProvider implements
             ->withoutHeader('Authorization');
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $messages
+     * @param array<string, mixed>             $options
+     */
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
         $systemMessage = null;
         $filteredMessages = [];
 
         foreach ($messages as $message) {
-            if ($message['role'] === 'system') {
-                $systemMessage = $message['content'];
+            $msgArray = $this->asArray($message);
+            $role = $this->getString($msgArray, 'role');
+            if ($role === 'system') {
+                $systemMessage = $this->getString($msgArray, 'content');
             } else {
                 $filteredMessages[] = $message;
             }
         }
 
+        $model = $this->getString($options, 'model', $this->getDefaultModel());
+
         $payload = [
-            'model' => $options['model'] ?? $this->getDefaultModel(),
+            'model' => $model,
             'messages' => $filteredMessages,
-            'max_tokens' => $options['max_tokens'] ?? 4096,
+            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         if ($systemMessage !== null) {
@@ -103,11 +115,11 @@ final class ClaudeProvider extends AbstractProvider implements
         }
 
         if (isset($options['temperature'])) {
-            $payload['temperature'] = $options['temperature'];
+            $payload['temperature'] = $this->getFloat($options, 'temperature');
         }
 
         if (isset($options['top_p'])) {
-            $payload['top_p'] = $options['top_p'];
+            $payload['top_p'] = $this->getFloat($options, 'top_p');
         }
 
         if (isset($options['stop_sequences'])) {
@@ -117,50 +129,66 @@ final class ClaudeProvider extends AbstractProvider implements
         $response = $this->sendRequest('messages', $payload);
 
         $content = '';
-        foreach ($response['content'] ?? [] as $block) {
-            if ($block['type'] === 'text') {
-                $content .= $block['text'];
+        $contentBlocks = $this->getList($response, 'content');
+        foreach ($contentBlocks as $block) {
+            $blockArray = $this->asArray($block);
+            if ($this->getString($blockArray, 'type') === 'text') {
+                $content .= $this->getString($blockArray, 'text');
             }
         }
 
-        $usage = $response['usage'] ?? [];
+        $usage = $this->getArray($response, 'usage');
 
         return $this->createCompletionResponse(
             content: $content,
-            model: $response['model'] ?? $payload['model'],
+            model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
-                promptTokens: $usage['input_tokens'] ?? 0,
-                completionTokens: $usage['output_tokens'] ?? 0,
+                promptTokens: $this->getInt($usage, 'input_tokens'),
+                completionTokens: $this->getInt($usage, 'output_tokens'),
             ),
-            finishReason: $this->mapStopReason($response['stop_reason'] ?? 'end_turn'),
+            finishReason: $this->mapStopReason($this->getString($response, 'stop_reason', 'end_turn')),
         );
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $messages
+     * @param array<int, array<string, mixed>> $tools
+     * @param array<string, mixed>             $options
+     */
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
         $systemMessage = null;
         $filteredMessages = [];
 
         foreach ($messages as $message) {
-            if ($message['role'] === 'system') {
-                $systemMessage = $message['content'];
+            $msgArray = $this->asArray($message);
+            $role = $this->getString($msgArray, 'role');
+            if ($role === 'system') {
+                $systemMessage = $this->getString($msgArray, 'content');
             } else {
                 $filteredMessages[] = $message;
             }
         }
 
         // Convert OpenAI tool format to Claude format
-        $claudeTools = array_map(static fn(array $tool): array => [
-            'name' => $tool['function']['name'],
-            'description' => $tool['function']['description'],
-            'input_schema' => $tool['function']['parameters'],
-        ], $tools);
+        $claudeTools = [];
+        foreach ($tools as $tool) {
+            $toolArray = $this->asArray($tool);
+            $function = $this->getArray($toolArray, 'function');
+            $claudeTools[] = [
+                'name' => $this->getString($function, 'name'),
+                'description' => $this->getString($function, 'description'),
+                'input_schema' => $this->getArray($function, 'parameters'),
+            ];
+        }
+
+        $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
-            'model' => $options['model'] ?? $this->getDefaultModel(),
+            'model' => $model,
             'messages' => $filteredMessages,
             'tools' => $claudeTools,
-            'max_tokens' => $options['max_tokens'] ?? 4096,
+            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         if ($systemMessage !== null) {
@@ -176,31 +204,34 @@ final class ClaudeProvider extends AbstractProvider implements
         $content = '';
         $toolCalls = [];
 
-        foreach ($response['content'] ?? [] as $block) {
-            if ($block['type'] === 'text') {
-                $content .= $block['text'];
-            } elseif ($block['type'] === 'tool_use') {
+        $contentBlocks = $this->getList($response, 'content');
+        foreach ($contentBlocks as $block) {
+            $blockArray = $this->asArray($block);
+            $blockType = $this->getString($blockArray, 'type');
+            if ($blockType === 'text') {
+                $content .= $this->getString($blockArray, 'text');
+            } elseif ($blockType === 'tool_use') {
                 $toolCalls[] = [
-                    'id' => $block['id'],
+                    'id' => $this->getString($blockArray, 'id'),
                     'type' => 'function',
                     'function' => [
-                        'name' => $block['name'],
-                        'arguments' => $block['input'],
+                        'name' => $this->getString($blockArray, 'name'),
+                        'arguments' => $this->getArray($blockArray, 'input'),
                     ],
                 ];
             }
         }
 
-        $usage = $response['usage'] ?? [];
+        $usage = $this->getArray($response, 'usage');
 
         return new CompletionResponse(
             content: $content,
-            model: $response['model'] ?? $payload['model'],
+            model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
-                promptTokens: $usage['input_tokens'] ?? 0,
-                completionTokens: $usage['output_tokens'] ?? 0,
+                promptTokens: $this->getInt($usage, 'input_tokens'),
+                completionTokens: $this->getInt($usage, 'output_tokens'),
             ),
-            finishReason: $this->mapStopReason($response['stop_reason'] ?? 'end_turn'),
+            finishReason: $this->mapStopReason($this->getString($response, 'stop_reason', 'end_turn')),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls !== [] ? $toolCalls : null,
         );
@@ -211,6 +242,10 @@ final class ClaudeProvider extends AbstractProvider implements
         return true;
     }
 
+    /**
+     * @param string|array<int, string> $input
+     * @param array<string, mixed>      $options
+     */
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
         throw new UnsupportedFeatureException(
@@ -219,19 +254,26 @@ final class ClaudeProvider extends AbstractProvider implements
         );
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $content
+     * @param array<string, mixed>             $options
+     */
     public function analyzeImage(array $content, array $options = []): VisionResponse
     {
         // Convert content array to Claude's vision format
         $claudeContent = [];
 
         foreach ($content as $item) {
-            if ($item['type'] === 'text') {
+            $itemArray = $this->asArray($item);
+            $itemType = $this->getString($itemArray, 'type');
+
+            if ($itemType === 'text') {
                 $claudeContent[] = [
                     'type' => 'text',
-                    'text' => $item['text'],
+                    'text' => $this->getString($itemArray, 'text'),
                 ];
-            } elseif ($item['type'] === 'image_url') {
-                $imageUrl = $item['image_url']['url'];
+            } elseif ($itemType === 'image_url') {
+                $imageUrl = $this->getNestedString($itemArray, 'image_url.url');
 
                 // Handle base64 data URLs
                 if (str_starts_with($imageUrl, 'data:')) {
@@ -264,33 +306,38 @@ final class ClaudeProvider extends AbstractProvider implements
             ],
         ];
 
+        $model = $this->getString($options, 'model', 'claude-sonnet-4-5-20250929');
+
         $payload = [
-            'model' => $options['model'] ?? 'claude-sonnet-4-5-20250929',
+            'model' => $model,
             'messages' => $messages,
-            'max_tokens' => $options['max_tokens'] ?? 4096,
+            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
-        if (isset($options['system_prompt'])) {
-            $payload['system'] = $options['system_prompt'];
+        $systemPrompt = $this->getNullableString($options, 'system_prompt');
+        if ($systemPrompt !== null) {
+            $payload['system'] = $systemPrompt;
         }
 
         $response = $this->sendRequest('messages', $payload);
 
         $description = '';
-        foreach ($response['content'] ?? [] as $block) {
-            if ($block['type'] === 'text') {
-                $description .= $block['text'];
+        $contentBlocks = $this->getList($response, 'content');
+        foreach ($contentBlocks as $block) {
+            $blockArray = $this->asArray($block);
+            if ($this->getString($blockArray, 'type') === 'text') {
+                $description .= $this->getString($blockArray, 'text');
             }
         }
 
-        $usage = $response['usage'] ?? [];
+        $usage = $this->getArray($response, 'usage');
 
         return new VisionResponse(
             description: $description,
-            model: $response['model'] ?? $payload['model'],
+            model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
-                promptTokens: $usage['input_tokens'] ?? 0,
-                completionTokens: $usage['output_tokens'] ?? 0,
+                promptTokens: $this->getInt($usage, 'input_tokens'),
+                completionTokens: $this->getInt($usage, 'output_tokens'),
             ),
             provider: $this->getIdentifier(),
         );
@@ -301,6 +348,9 @@ final class ClaudeProvider extends AbstractProvider implements
         return true;
     }
 
+    /**
+     * @return array<string>
+     */
     public function getSupportedImageFormats(): array
     {
         return ['png', 'jpeg', 'jpg', 'gif', 'webp'];
@@ -311,23 +361,31 @@ final class ClaudeProvider extends AbstractProvider implements
         return 20 * 1024 * 1024; // 20 MB
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $messages
+     * @param array<string, mixed>             $options
+     *
+     * @return Generator<int, string, mixed, void>
+     */
     public function streamChatCompletion(array $messages, array $options = []): Generator
     {
         $systemMessage = null;
         $filteredMessages = [];
 
         foreach ($messages as $message) {
-            if ($message['role'] === 'system') {
-                $systemMessage = $message['content'];
+            $msgArray = $this->asArray($message);
+            $role = $this->getString($msgArray, 'role');
+            if ($role === 'system') {
+                $systemMessage = $this->getString($msgArray, 'content');
             } else {
                 $filteredMessages[] = $message;
             }
         }
 
         $payload = [
-            'model' => $options['model'] ?? $this->getDefaultModel(),
+            'model' => $this->getString($options, 'model', $this->getDefaultModel()),
             'messages' => $filteredMessages,
-            'max_tokens' => $options['max_tokens'] ?? 4096,
+            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
             'stream' => true,
         ];
 
@@ -362,15 +420,18 @@ final class ClaudeProvider extends AbstractProvider implements
                     $data = substr($line, 6);
 
                     try {
-                        $json = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
-
-                        if ($json['type'] === 'content_block_delta') {
-                            $delta = $json['delta'] ?? [];
-                            if ($delta['type'] === 'text_delta') {
-                                yield $delta['text'] ?? '';
+                        $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
+                        if (is_array($decoded)) {
+                            $json = $this->asArray($decoded);
+                            $type = $this->getString($json, 'type');
+                            if ($type === 'content_block_delta') {
+                                $delta = $this->getArray($json, 'delta');
+                                if ($this->getString($delta, 'type') === 'text_delta') {
+                                    yield $this->getString($delta, 'text');
+                                }
+                            } elseif ($type === 'message_stop') {
+                                return;
                             }
-                        } elseif ($json['type'] === 'message_stop') {
-                            return;
                         }
                     } catch (JsonException) {
                         // Skip malformed JSON
@@ -410,6 +471,11 @@ final class ClaudeProvider extends AbstractProvider implements
             };
         }
 
-        return is_array($choice) ? $choice : ['type' => 'auto'];
+        if (is_array($choice)) {
+            /** @var array<string, string> $choice */
+            return $choice;
+        }
+
+        return ['type' => 'auto'];
     }
 }

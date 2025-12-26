@@ -36,6 +36,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     StreamingCapableInterface,
     ToolCapableInterface
 {
+    /** @var array<string> */
     protected array $supportedFeatures = [
         self::FEATURE_CHAT,
         self::FEATURE_COMPLETION,
@@ -48,6 +49,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     private const string DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4-5';
     private const string DEFAULT_EMBEDDING_MODEL = 'openai/text-embedding-3-small';
 
+    /** @var array<int, string> */
     private const array ROUTING_STRATEGIES = [
         'cost_optimized',
         'performance',
@@ -77,7 +79,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     /**
      * Cached models list.
      *
-     * @var array<string, array<string, mixed>>|null
+     * @var array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}>|null
      */
     private ?array $cachedModels = null;
 
@@ -104,31 +106,28 @@ final class OpenRouterProvider extends AbstractProvider implements
 
     /**
      * Configure provider with additional OpenRouter-specific options.
+     *
+     * @param array<string, mixed> $config
      */
     #[Override]
     public function configure(array $config): void
     {
         parent::configure($config);
 
-        if (isset($config['siteUrl'])) {
-            $this->siteUrl = $config['siteUrl'];
+        $this->siteUrl = $this->getString($config, 'siteUrl');
+        $this->appName = $this->getString($config, 'appName', 'TYPO3 NR-LLM');
+
+        $routingStrategy = $this->getString($config, 'routingStrategy', 'balanced');
+        if (in_array($routingStrategy, self::ROUTING_STRATEGIES, true)) {
+            $this->routingStrategy = $routingStrategy;
         }
 
-        if (isset($config['appName'])) {
-            $this->appName = $config['appName'];
-        }
+        $this->autoFallback = $this->getBool($config, 'autoFallback', true);
 
-        if (isset($config['routingStrategy']) && in_array($config['routingStrategy'], self::ROUTING_STRATEGIES, true)) {
-            $this->routingStrategy = $config['routingStrategy'];
-        }
-
-        if (isset($config['autoFallback'])) {
-            $this->autoFallback = (bool)$config['autoFallback'];
-        }
-
-        if (isset($config['fallbackModels']) && is_string($config['fallbackModels'])) {
+        $fallbackModelsString = $this->getString($config, 'fallbackModels');
+        if ($fallbackModelsString !== '') {
             $this->fallbackModels = array_filter(
-                array_map(trim(...), explode(',', $config['fallbackModels'])),
+                array_map(trim(...), explode(',', $fallbackModelsString)),
             );
         }
     }
@@ -138,6 +137,8 @@ final class OpenRouterProvider extends AbstractProvider implements
      *
      * Returns a curated static list with common models.
      * For dynamic list, use fetchAvailableModels().
+     *
+     * @return array<string, string>
      */
     public function getAvailableModels(): array
     {
@@ -183,22 +184,29 @@ final class OpenRouterProvider extends AbstractProvider implements
             $response = $this->sendRequest('models', [], 'GET');
 
             $models = [];
-            foreach ($response['data'] ?? [] as $model) {
-                $models[$model['id']] = [
-                    'name' => $model['name'] ?? $model['id'],
-                    'context_length' => $model['context_length'] ?? 0,
+            $data = $this->getList($response, 'data');
+            foreach ($data as $model) {
+                $modelArray = $this->asArray($model);
+                $modelId = $this->getString($modelArray, 'id');
+                $architecture = $this->getArray($modelArray, 'architecture');
+                $pricing = $this->getArray($modelArray, 'pricing');
+
+                $models[$modelId] = [
+                    'name' => $this->getString($modelArray, 'name', $modelId),
+                    'context_length' => $this->getInt($modelArray, 'context_length'),
                     'pricing' => [
-                        'prompt' => (float)($model['pricing']['prompt'] ?? 0),
-                        'completion' => (float)($model['pricing']['completion'] ?? 0),
+                        'prompt' => $this->asFloat($pricing['prompt'] ?? 0),
+                        'completion' => $this->asFloat($pricing['completion'] ?? 0),
                     ],
                     'capabilities' => [
-                        'vision' => ($model['architecture']['modality'] ?? '') === 'multimodal',
-                        'function_calling' => $model['supports_function_calling'] ?? false,
+                        'vision' => $this->getString($architecture, 'modality') === 'multimodal',
+                        'function_calling' => $this->getBool($modelArray, 'supports_function_calling'),
                     ],
-                    'provider' => $this->extractProviderFromModelId($model['id']),
+                    'provider' => $this->extractProviderFromModelId($modelId),
                 ];
             }
 
+            /** @var array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}> $models */
             $this->cachedModels = $models;
             return $models;
         } catch (Exception) {
@@ -215,15 +223,20 @@ final class OpenRouterProvider extends AbstractProvider implements
     public function getCredits(): array
     {
         $response = $this->sendRequest('auth/key', [], 'GET');
+        $data = $this->getArray($response, 'data');
 
         return [
-            'balance' => (float)($response['data']['limit'] ?? 0),
-            'usage' => (float)($response['data']['usage'] ?? 0),
-            'is_free_tier' => (bool)($response['data']['is_free_tier'] ?? false),
-            'rate_limit' => $response['data']['rate_limit'] ?? [],
+            'balance' => $this->asFloat($data['limit'] ?? 0),
+            'usage' => $this->asFloat($data['usage'] ?? 0),
+            'is_free_tier' => $this->getBool($data, 'is_free_tier'),
+            'rate_limit' => $this->getArray($data, 'rate_limit'),
         ];
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $messages
+     * @param array<string, mixed>             $options
+     */
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
         $model = $this->selectModel($options);
@@ -231,21 +244,21 @@ final class OpenRouterProvider extends AbstractProvider implements
         $payload = [
             'model' => $model,
             'messages' => $messages,
-            'temperature' => $options['temperature'] ?? 0.7,
-            'max_tokens' => $options['max_tokens'] ?? 4096,
+            'temperature' => $this->getFloat($options, 'temperature', 0.7),
+            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         // Optional parameters
         if (isset($options['top_p'])) {
-            $payload['top_p'] = $options['top_p'];
+            $payload['top_p'] = $this->getFloat($options, 'top_p');
         }
 
         if (isset($options['frequency_penalty'])) {
-            $payload['frequency_penalty'] = $options['frequency_penalty'];
+            $payload['frequency_penalty'] = $this->getFloat($options, 'frequency_penalty');
         }
 
         if (isset($options['presence_penalty'])) {
-            $payload['presence_penalty'] = $options['presence_penalty'];
+            $payload['presence_penalty'] = $this->getFloat($options, 'presence_penalty');
         }
 
         if (isset($options['stop'])) {
@@ -255,32 +268,35 @@ final class OpenRouterProvider extends AbstractProvider implements
         // OpenRouter-specific: automatic fallback
         if ($this->autoFallback) {
             $payload['route'] = 'fallback';
-            if (!empty($this->fallbackModels)) {
+            if ($this->fallbackModels !== []) {
                 $payload['models'] = array_merge([$model], $this->fallbackModels);
             }
         }
 
         // OpenRouter-specific: transforms (e.g., middle-out compression)
-        if (!empty($options['transforms'])) {
-            $payload['transforms'] = $options['transforms'];
+        $transforms = $this->getArray($options, 'transforms');
+        if ($transforms !== []) {
+            $payload['transforms'] = $transforms;
         }
 
         $response = $this->sendOpenRouterRequest('chat/completions', $payload);
 
-        $choice = $response['choices'][0] ?? [];
-        $usage = $response['usage'] ?? [];
+        $choices = $this->getList($response, 'choices');
+        $choice = $this->asArray($choices[0] ?? []);
+        $message = $this->getArray($choice, 'message');
+        $usage = $this->getArray($response, 'usage');
 
         return new CompletionResponse(
-            content: $choice['message']['content'] ?? '',
-            model: $response['model'] ?? $payload['model'],
+            content: $this->getString($message, 'content'),
+            model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
-                promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: $usage['completion_tokens'] ?? 0,
+                promptTokens: $this->getInt($usage, 'prompt_tokens'),
+                completionTokens: $this->getInt($usage, 'completion_tokens'),
             ),
-            finishReason: $choice['finish_reason'] ?? 'stop',
+            finishReason: $this->getString($choice, 'finish_reason', 'stop'),
             provider: $this->getIdentifier(),
             metadata: [
-                'actual_provider' => $response['provider'] ?? 'unknown',
+                'actual_provider' => $this->getString($response, 'provider', 'unknown'),
                 'cost' => $response['total_cost'] ?? null,
                 'native_tokens' => [
                     'prompt' => $response['native_tokens_prompt'] ?? null,
@@ -290,6 +306,11 @@ final class OpenRouterProvider extends AbstractProvider implements
         );
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $messages
+     * @param array<int, array<string, mixed>> $tools
+     * @param array<string, mixed>             $options
+     */
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
         $model = $this->selectModel($options);
@@ -298,8 +319,8 @@ final class OpenRouterProvider extends AbstractProvider implements
             'model' => $model,
             'messages' => $messages,
             'tools' => $tools,
-            'temperature' => $options['temperature'] ?? 0.7,
-            'max_tokens' => $options['max_tokens'] ?? 4096,
+            'temperature' => $this->getFloat($options, 'temperature', 0.7),
+            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         if (isset($options['tool_choice'])) {
@@ -309,41 +330,51 @@ final class OpenRouterProvider extends AbstractProvider implements
         // OpenRouter-specific: automatic fallback
         if ($this->autoFallback) {
             $payload['route'] = 'fallback';
-            if (!empty($this->fallbackModels)) {
+            if ($this->fallbackModels !== []) {
                 $payload['models'] = array_merge([$model], $this->fallbackModels);
             }
         }
 
         $response = $this->sendOpenRouterRequest('chat/completions', $payload);
 
-        $choice = $response['choices'][0] ?? [];
-        $message = $choice['message'] ?? [];
-        $usage = $response['usage'] ?? [];
+        $choices = $this->getList($response, 'choices');
+        $choice = $this->asArray($choices[0] ?? []);
+        $message = $this->getArray($choice, 'message');
+        $usage = $this->getArray($response, 'usage');
 
         $toolCalls = null;
-        if (isset($message['tool_calls']) && is_array($message['tool_calls'])) {
-            $toolCalls = array_map(static fn($tc) => [
-                'id' => $tc['id'],
-                'type' => $tc['type'],
-                'function' => [
-                    'name' => $tc['function']['name'],
-                    'arguments' => json_decode((string)$tc['function']['arguments'], true),
-                ],
-            ], $message['tool_calls']);
+        $rawToolCalls = $this->getArray($message, 'tool_calls');
+        if ($rawToolCalls !== []) {
+            $toolCalls = [];
+            foreach ($rawToolCalls as $tc) {
+                $tcArray = $this->asArray($tc);
+                $function = $this->getArray($tcArray, 'function');
+                $arguments = $this->getString($function, 'arguments');
+                $decodedArgs = json_decode($arguments, true);
+
+                $toolCalls[] = [
+                    'id' => $this->getString($tcArray, 'id'),
+                    'type' => $this->getString($tcArray, 'type'),
+                    'function' => [
+                        'name' => $this->getString($function, 'name'),
+                        'arguments' => is_array($decodedArgs) ? $decodedArgs : [],
+                    ],
+                ];
+            }
         }
 
         return new CompletionResponse(
-            content: $message['content'] ?? '',
-            model: $response['model'] ?? $payload['model'],
+            content: $this->getString($message, 'content'),
+            model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
-                promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: $usage['completion_tokens'] ?? 0,
+                promptTokens: $this->getInt($usage, 'prompt_tokens'),
+                completionTokens: $this->getInt($usage, 'completion_tokens'),
             ),
-            finishReason: $choice['finish_reason'] ?? 'stop',
+            finishReason: $this->getString($choice, 'finish_reason', 'stop'),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls,
             metadata: [
-                'actual_provider' => $response['provider'] ?? 'unknown',
+                'actual_provider' => $this->getString($response, 'provider', 'unknown'),
                 'cost' => $response['total_cost'] ?? null,
             ],
         );
@@ -354,42 +385,57 @@ final class OpenRouterProvider extends AbstractProvider implements
         return true;
     }
 
+    /**
+     * @param string|array<int, string> $input
+     * @param array<string, mixed>      $options
+     */
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
         $inputs = is_array($input) ? $input : [$input];
+        $model = $this->getString($options, 'model', self::DEFAULT_EMBEDDING_MODEL);
 
         $payload = [
-            'model' => $options['model'] ?? self::DEFAULT_EMBEDDING_MODEL,
+            'model' => $model,
             'input' => $inputs,
         ];
 
         if (isset($options['dimensions'])) {
-            $payload['dimensions'] = $options['dimensions'];
+            $payload['dimensions'] = $this->getInt($options, 'dimensions');
         }
 
         $response = $this->sendOpenRouterRequest('embeddings', $payload);
 
-        $embeddings = array_map(
-            static fn($item) => $item['embedding'],
-            $response['data'] ?? [],
-        );
+        $data = $this->getList($response, 'data');
+        /** @var array<int, array<int, float>> $embeddings */
+        $embeddings = [];
+        foreach ($data as $item) {
+            $itemArray = $this->asArray($item);
+            $embedding = $this->getArray($itemArray, 'embedding');
+            /** @var array<int, float> $floatEmbedding */
+            $floatEmbedding = array_map(fn($v): float => $this->asFloat($v), $embedding);
+            $embeddings[] = $floatEmbedding;
+        }
 
-        $usage = $response['usage'] ?? [];
+        $usage = $this->getArray($response, 'usage');
 
         return $this->createEmbeddingResponse(
             embeddings: $embeddings,
-            model: $response['model'] ?? $payload['model'],
+            model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
-                promptTokens: $usage['prompt_tokens'] ?? 0,
+                promptTokens: $this->getInt($usage, 'prompt_tokens'),
                 completionTokens: 0,
             ),
         );
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $content
+     * @param array<string, mixed>             $options
+     */
     public function analyzeImage(array $content, array $options = []): VisionResponse
     {
         // Select vision-capable model
-        $model = $options['model'] ?? $this->selectVisionModel();
+        $model = $this->getString($options, 'model', $this->selectVisionModel());
 
         $messages = [
             [
@@ -398,17 +444,18 @@ final class OpenRouterProvider extends AbstractProvider implements
             ],
         ];
 
-        if (isset($options['system_prompt'])) {
+        $systemPrompt = $this->getNullableString($options, 'system_prompt');
+        if ($systemPrompt !== null) {
             array_unshift($messages, [
                 'role' => 'system',
-                'content' => $options['system_prompt'],
+                'content' => $systemPrompt,
             ]);
         }
 
         $payload = [
             'model' => $model,
             'messages' => $messages,
-            'max_tokens' => $options['max_tokens'] ?? 4096,
+            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         // OpenRouter-specific: automatic fallback for vision
@@ -418,19 +465,21 @@ final class OpenRouterProvider extends AbstractProvider implements
 
         $response = $this->sendOpenRouterRequest('chat/completions', $payload);
 
-        $choice = $response['choices'][0] ?? [];
-        $usage = $response['usage'] ?? [];
+        $choices = $this->getList($response, 'choices');
+        $choice = $this->asArray($choices[0] ?? []);
+        $message = $this->getArray($choice, 'message');
+        $usage = $this->getArray($response, 'usage');
 
         return new VisionResponse(
-            description: $choice['message']['content'] ?? '',
-            model: $response['model'] ?? $payload['model'],
+            description: $this->getString($message, 'content'),
+            model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
-                promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: $usage['completion_tokens'] ?? 0,
+                promptTokens: $this->getInt($usage, 'prompt_tokens'),
+                completionTokens: $this->getInt($usage, 'completion_tokens'),
             ),
             provider: $this->getIdentifier(),
             metadata: [
-                'actual_provider' => $response['provider'] ?? 'unknown',
+                'actual_provider' => $this->getString($response, 'provider', 'unknown'),
                 'cost' => $response['total_cost'] ?? null,
             ],
         );
@@ -441,6 +490,9 @@ final class OpenRouterProvider extends AbstractProvider implements
         return true;
     }
 
+    /**
+     * @return array<string>
+     */
     public function getSupportedImageFormats(): array
     {
         return ['png', 'jpeg', 'jpg', 'gif', 'webp'];
@@ -451,6 +503,12 @@ final class OpenRouterProvider extends AbstractProvider implements
         return 20 * 1024 * 1024; // 20 MB
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $messages
+     * @param array<string, mixed>             $options
+     *
+     * @return Generator<int, string, mixed, void>
+     */
     public function streamChatCompletion(array $messages, array $options = []): Generator
     {
         $model = $this->selectModel($options);
@@ -458,15 +516,15 @@ final class OpenRouterProvider extends AbstractProvider implements
         $payload = [
             'model' => $model,
             'messages' => $messages,
-            'temperature' => $options['temperature'] ?? 0.7,
-            'max_tokens' => $options['max_tokens'] ?? 4096,
+            'temperature' => $this->getFloat($options, 'temperature', 0.7),
+            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
             'stream' => true,
         ];
 
         // OpenRouter-specific: automatic fallback
         if ($this->autoFallback) {
             $payload['route'] = 'fallback';
-            if (!empty($this->fallbackModels)) {
+            if ($this->fallbackModels !== []) {
                 $payload['models'] = array_merge([$model], $this->fallbackModels);
             }
         }
@@ -509,10 +567,16 @@ final class OpenRouterProvider extends AbstractProvider implements
                     }
 
                     try {
-                        $json = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
-                        $content = $json['choices'][0]['delta']['content'] ?? '';
-                        if ($content !== '') {
-                            yield $content;
+                        $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
+                        if (is_array($decoded)) {
+                            $json = $this->asArray($decoded);
+                            $choices = $this->getList($json, 'choices');
+                            $firstChoice = $this->asArray($choices[0] ?? []);
+                            $delta = $this->getArray($firstChoice, 'delta');
+                            $content = $this->getString($delta, 'content');
+                            if ($content !== '') {
+                                yield $content;
+                            }
                         }
                     } catch (JsonException) {
                         // Skip malformed JSON
@@ -535,8 +599,9 @@ final class OpenRouterProvider extends AbstractProvider implements
     private function selectModel(array $options): string
     {
         // Explicit model specified in options
-        if (!empty($options['model'])) {
-            return $options['model'];
+        $model = $this->getString($options, 'model');
+        if ($model !== '') {
+            return $model;
         }
 
         // Explicit strategy: use default model
@@ -546,13 +611,13 @@ final class OpenRouterProvider extends AbstractProvider implements
 
         // Try to fetch available models for smart routing
         $models = $this->fetchAvailableModels();
-        if (empty($models)) {
+        if ($models === []) {
             return $this->getDefaultModel();
         }
 
         // Filter models by requirements
         $candidates = $this->filterModelsByRequirements($models, $options);
-        if (empty($candidates)) {
+        if ($candidates === []) {
             return $this->getDefaultModel();
         }
 
@@ -567,25 +632,26 @@ final class OpenRouterProvider extends AbstractProvider implements
     /**
      * Filter models by requirements from options.
      *
-     * @param array<string, array<string, mixed>> $models
-     * @param array<string, mixed>                $options
+     * @param array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}> $models
+     * @param array<string, mixed>                                                                                                                        $options
      *
-     * @return array<string, array<string, mixed>>
+     * @return array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}>
      */
     private function filterModelsByRequirements(array $models, array $options): array
     {
         $filtered = $models;
 
         // Context length requirement
-        if (!empty($options['min_context'])) {
+        $minContext = $this->getInt($options, 'min_context');
+        if ($minContext > 0) {
             $filtered = array_filter(
                 $filtered,
-                static fn($model) => ($model['context_length'] ?? 0) >= $options['min_context'],
+                static fn($model) => ($model['context_length'] ?? 0) >= $minContext,
             );
         }
 
         // Vision capability
-        if (!empty($options['vision_required'])) {
+        if ($this->getBool($options, 'vision_required')) {
             $filtered = array_filter(
                 $filtered,
                 static fn($model) => $model['capabilities']['vision'] ?? false,
@@ -593,7 +659,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         }
 
         // Function calling
-        if (!empty($options['function_calling'])) {
+        if ($this->getBool($options, 'function_calling')) {
             $filtered = array_filter(
                 $filtered,
                 static fn($model) => $model['capabilities']['function_calling'] ?? false,
@@ -606,7 +672,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     /**
      * Select cheapest model from candidates.
      *
-     * @param array<string, array<string, mixed>> $candidates
+     * @param array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}> $candidates
      */
     private function selectCheapestModel(array $candidates): string
     {
@@ -627,7 +693,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     /**
      * Select fastest model (heuristic: flash/haiku/turbo models).
      *
-     * @param array<string, array<string, mixed>> $candidates
+     * @param array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}> $candidates
      */
     private function selectFastestModel(array $candidates): string
     {
@@ -647,7 +713,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     /**
      * Select balanced model (mid-tier quality and speed).
      *
-     * @param array<string, array<string, mixed>> $candidates
+     * @param array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}> $candidates
      */
     private function selectBalancedModel(array $candidates): string
     {
@@ -688,7 +754,7 @@ final class OpenRouterProvider extends AbstractProvider implements
 
         // Find first available vision model
         foreach ($visionModels as $model) {
-            if (isset($models[$model]) || empty($models)) {
+            if (isset($models[$model]) || $models === []) {
                 return $model;
             }
         }
@@ -742,7 +808,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             $this->handleOpenRouterError($statusCode, $responseBody);
         }
 
-        return json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
+        return $this->decodeJsonResponse($responseBody);
     }
 
     /**
@@ -751,8 +817,9 @@ final class OpenRouterProvider extends AbstractProvider implements
     private function handleOpenRouterError(int $statusCode, string $responseBody): never
     {
         $decoded = json_decode($responseBody, true);
-        $error = $decoded['error'] ?? [];
-        $message = $error['message'] ?? 'Unknown OpenRouter API error';
+        $decodedArray = is_array($decoded) ? $decoded : [];
+        $error = $this->getArray($decodedArray, 'error');
+        $message = $this->getString($error, 'message', 'Unknown OpenRouter API error');
 
         $errorMessage = match ($statusCode) {
             400 => "Bad request: {$message}",

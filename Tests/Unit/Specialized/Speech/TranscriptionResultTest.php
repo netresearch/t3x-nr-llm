@@ -227,6 +227,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
 
         $srt = $result->toSrt();
 
+        self::assertNotNull($srt);
         self::assertStringContainsString('1', $srt);
         self::assertStringContainsString('00:00:00,000 --> 00:00:02,500', $srt);
         self::assertStringContainsString('Hello', $srt);
@@ -260,6 +261,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
 
         $vtt = $result->toVtt();
 
+        self::assertNotNull($vtt);
         self::assertStringStartsWith('WEBVTT', $vtt);
     }
 
@@ -277,6 +279,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
         $vtt = $result->toVtt();
 
         // VTT uses dots instead of commas for milliseconds
+        self::assertNotNull($vtt);
         self::assertStringContainsString('00:00:00.000 --> 00:00:02.500', $vtt);
     }
 
@@ -295,6 +298,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
 
         $srt = $result->toSrt();
 
+        self::assertNotNull($srt);
         self::assertStringContainsString('01:01:05,123 --> 01:01:10,456', $srt);
     }
 

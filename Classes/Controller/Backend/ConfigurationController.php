@@ -84,7 +84,7 @@ final class ConfigurationController extends ActionController
     public function createAction(): ResponseInterface
     {
         $body = $this->request->getParsedBody();
-        $data = $body['configuration'] ?? [];
+        $data = $this->extractConfigurationData($body);
 
         $configuration = new LlmConfiguration();
         $this->mapDataToConfiguration($configuration, $data);
@@ -140,11 +140,11 @@ final class ConfigurationController extends ActionController
         }
 
         $body = $this->request->getParsedBody();
-        $data = $body['configuration'] ?? [];
+        $data = $this->extractConfigurationData($body);
 
         // Validate identifier uniqueness (excluding current record)
         $newIdentifier = $data['identifier'] ?? '';
-        if ($newIdentifier !== $configuration->getIdentifier()
+        if (is_string($newIdentifier) && $newIdentifier !== $configuration->getIdentifier()
             && !$this->configurationService->isIdentifierAvailable($newIdentifier, $uid)
         ) {
             $this->addFlashMessage(
@@ -224,7 +224,7 @@ final class ConfigurationController extends ActionController
     public function toggleActiveAction(): ResponseInterface
     {
         $body = $this->request->getParsedBody();
-        $uid = (int)($body['uid'] ?? 0);
+        $uid = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
             return new JsonResponse(['error' => 'No configuration UID specified'], 400);
@@ -252,7 +252,7 @@ final class ConfigurationController extends ActionController
     public function setDefaultAction(): ResponseInterface
     {
         $body = $this->request->getParsedBody();
-        $uid = (int)($body['uid'] ?? 0);
+        $uid = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
             return new JsonResponse(['error' => 'No configuration UID specified'], 400);
@@ -277,20 +277,21 @@ final class ConfigurationController extends ActionController
     public function getModelsAction(): ResponseInterface
     {
         $body = $this->request->getParsedBody();
-        $provider = $body['provider'] ?? null;
+        $providerKey = $this->extractStringFromBody($body, 'provider');
 
-        if (!$provider) {
+        if ($providerKey === '') {
             return new JsonResponse(['error' => 'No provider specified'], 400);
         }
 
         try {
             $providers = $this->llmServiceManager->getAvailableProviders();
-            if (!isset($providers[$provider])) {
+            if (!isset($providers[$providerKey])) {
                 return new JsonResponse(['error' => 'Provider not available'], 404);
             }
 
-            $models = $providers[$provider]->getAvailableModels();
-            $defaultModel = $providers[$provider]->getDefaultModel();
+            $provider = $providers[$providerKey];
+            $models = $provider->getAvailableModels();
+            $defaultModel = $provider->getDefaultModel();
 
             return new JsonResponse([
                 'success' => true,
@@ -308,7 +309,7 @@ final class ConfigurationController extends ActionController
     public function testConfigurationAction(): ResponseInterface
     {
         $body = $this->request->getParsedBody();
-        $uid = (int)($body['uid'] ?? 0);
+        $uid = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
             return new JsonResponse(['error' => 'No configuration UID specified'], 400);
@@ -364,55 +365,106 @@ final class ConfigurationController extends ActionController
     }
 
     /**
+     * Extract configuration data from request body.
+     *
+     * @return array<string, mixed>
+     */
+    private function extractConfigurationData(mixed $body): array
+    {
+        if (!is_array($body)) {
+            return [];
+        }
+
+        $configuration = $body['configuration'] ?? [];
+
+        if (!is_array($configuration)) {
+            return [];
+        }
+
+        /** @var array<string, mixed> $result */
+        $result = $configuration;
+
+        return $result;
+    }
+
+    /**
+     * Extract integer value from request body.
+     */
+    private function extractIntFromBody(mixed $body, string $key): int
+    {
+        if (!is_array($body)) {
+            return 0;
+        }
+
+        $value = $body[$key] ?? 0;
+
+        return is_numeric($value) ? (int)$value : 0;
+    }
+
+    /**
+     * Extract string value from request body.
+     */
+    private function extractStringFromBody(mixed $body, string $key): string
+    {
+        if (!is_array($body)) {
+            return '';
+        }
+
+        $value = $body[$key] ?? '';
+
+        return is_string($value) || is_numeric($value) ? (string)$value : '';
+    }
+
+    /**
      * Map form data to configuration entity.
      *
      * @param array<string, mixed> $data
      */
     private function mapDataToConfiguration(LlmConfiguration $configuration, array $data): void
     {
-        if (isset($data['identifier'])) {
+        if (isset($data['identifier']) && is_scalar($data['identifier'])) {
             $configuration->setIdentifier((string)$data['identifier']);
         }
-        if (isset($data['name'])) {
+        if (isset($data['name']) && is_scalar($data['name'])) {
             $configuration->setName((string)$data['name']);
         }
-        if (isset($data['description'])) {
+        if (isset($data['description']) && is_scalar($data['description'])) {
             $configuration->setDescription((string)$data['description']);
         }
-        if (isset($data['provider'])) {
+        if (isset($data['provider']) && is_scalar($data['provider'])) {
             $configuration->setProvider((string)$data['provider']);
         }
-        if (isset($data['model'])) {
+        if (isset($data['model']) && is_scalar($data['model'])) {
             $configuration->setModel((string)$data['model']);
         }
-        if (isset($data['systemPrompt'])) {
+        if (isset($data['systemPrompt']) && is_scalar($data['systemPrompt'])) {
             $configuration->setSystemPrompt((string)$data['systemPrompt']);
         }
-        if (isset($data['temperature'])) {
+        if (isset($data['temperature']) && is_numeric($data['temperature'])) {
             $configuration->setTemperature((float)$data['temperature']);
         }
-        if (isset($data['maxTokens'])) {
+        if (isset($data['maxTokens']) && is_numeric($data['maxTokens'])) {
             $configuration->setMaxTokens((int)$data['maxTokens']);
         }
-        if (isset($data['topP'])) {
+        if (isset($data['topP']) && is_numeric($data['topP'])) {
             $configuration->setTopP((float)$data['topP']);
         }
-        if (isset($data['frequencyPenalty'])) {
+        if (isset($data['frequencyPenalty']) && is_numeric($data['frequencyPenalty'])) {
             $configuration->setFrequencyPenalty((float)$data['frequencyPenalty']);
         }
-        if (isset($data['presencePenalty'])) {
+        if (isset($data['presencePenalty']) && is_numeric($data['presencePenalty'])) {
             $configuration->setPresencePenalty((float)$data['presencePenalty']);
         }
-        if (isset($data['options'])) {
+        if (isset($data['options']) && is_scalar($data['options'])) {
             $configuration->setOptions((string)$data['options']);
         }
-        if (isset($data['maxRequestsPerDay'])) {
+        if (isset($data['maxRequestsPerDay']) && is_numeric($data['maxRequestsPerDay'])) {
             $configuration->setMaxRequestsPerDay((int)$data['maxRequestsPerDay']);
         }
-        if (isset($data['maxTokensPerDay'])) {
+        if (isset($data['maxTokensPerDay']) && is_numeric($data['maxTokensPerDay'])) {
             $configuration->setMaxTokensPerDay((int)$data['maxTokensPerDay']);
         }
-        if (isset($data['maxCostPerDay'])) {
+        if (isset($data['maxCostPerDay']) && is_numeric($data['maxCostPerDay'])) {
             $configuration->setMaxCostPerDay((float)$data['maxCostPerDay']);
         }
         if (isset($data['isActive'])) {

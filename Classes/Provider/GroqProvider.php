@@ -30,6 +30,7 @@ final class GroqProvider extends AbstractProvider implements
     StreamingCapableInterface,
     ToolCapableInterface
 {
+    /** @var array<string> */
     protected array $supportedFeatures = [
         self::FEATURE_CHAT,
         self::FEATURE_COMPLETION,
@@ -39,6 +40,7 @@ final class GroqProvider extends AbstractProvider implements
 
     private const string DEFAULT_CHAT_MODEL = 'llama-3.3-70b-versatile';
 
+    /** @var array<string, string> */
     private const array MODELS = [
         // Llama 3.3
         'llama-3.3-70b-versatile' => 'Llama 3.3 70B Versatile',
@@ -81,30 +83,39 @@ final class GroqProvider extends AbstractProvider implements
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_CHAT_MODEL;
     }
 
+    /**
+     * @return array<string, string>
+     */
     public function getAvailableModels(): array
     {
         return self::MODELS;
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $messages
+     * @param array<string, mixed>             $options
+     */
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
+        $model = $this->getString($options, 'model', $this->getDefaultModel());
+
         $payload = [
-            'model' => $options['model'] ?? $this->getDefaultModel(),
+            'model' => $model,
             'messages' => $messages,
-            'temperature' => $options['temperature'] ?? 0.7,
-            'max_tokens' => $options['max_tokens'] ?? 4096,
+            'temperature' => $this->getFloat($options, 'temperature', 0.7),
+            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         if (isset($options['top_p'])) {
-            $payload['top_p'] = $options['top_p'];
+            $payload['top_p'] = $this->getFloat($options, 'top_p');
         }
 
         if (isset($options['frequency_penalty'])) {
-            $payload['frequency_penalty'] = $options['frequency_penalty'];
+            $payload['frequency_penalty'] = $this->getFloat($options, 'frequency_penalty');
         }
 
         if (isset($options['presence_penalty'])) {
-            $payload['presence_penalty'] = $options['presence_penalty'];
+            $payload['presence_penalty'] = $this->getFloat($options, 'presence_penalty');
         }
 
         if (isset($options['stop'])) {
@@ -112,33 +123,42 @@ final class GroqProvider extends AbstractProvider implements
         }
 
         if (isset($options['seed'])) {
-            $payload['seed'] = $options['seed'];
+            $payload['seed'] = $this->getInt($options, 'seed');
         }
 
         $response = $this->sendRequest('chat/completions', $payload);
 
-        $choice = $response['choices'][0] ?? [];
-        $usage = $response['usage'] ?? [];
+        $choices = $this->getList($response, 'choices');
+        $choice = $this->asArray($choices[0] ?? []);
+        $message = $this->getArray($choice, 'message');
+        $usage = $this->getArray($response, 'usage');
 
         return $this->createCompletionResponse(
-            content: $choice['message']['content'] ?? '',
-            model: $response['model'] ?? $payload['model'],
+            content: $this->getString($message, 'content'),
+            model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
-                promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: $usage['completion_tokens'] ?? 0,
+                promptTokens: $this->getInt($usage, 'prompt_tokens'),
+                completionTokens: $this->getInt($usage, 'completion_tokens'),
             ),
-            finishReason: $choice['finish_reason'] ?? 'stop',
+            finishReason: $this->getString($choice, 'finish_reason', 'stop'),
         );
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $messages
+     * @param array<int, array<string, mixed>> $tools
+     * @param array<string, mixed>             $options
+     */
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
+        $model = $this->getString($options, 'model', $this->getDefaultModel());
+
         $payload = [
-            'model' => $options['model'] ?? $this->getDefaultModel(),
+            'model' => $model,
             'messages' => $messages,
             'tools' => $tools,
-            'temperature' => $options['temperature'] ?? 0.7,
-            'max_tokens' => $options['max_tokens'] ?? 4096,
+            'temperature' => $this->getFloat($options, 'temperature', 0.7),
+            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         if (isset($options['tool_choice'])) {
@@ -147,35 +167,45 @@ final class GroqProvider extends AbstractProvider implements
 
         // Groq supports parallel_tool_calls
         if (isset($options['parallel_tool_calls'])) {
-            $payload['parallel_tool_calls'] = $options['parallel_tool_calls'];
+            $payload['parallel_tool_calls'] = $this->getBool($options, 'parallel_tool_calls');
         }
 
         $response = $this->sendRequest('chat/completions', $payload);
 
-        $choice = $response['choices'][0] ?? [];
-        $message = $choice['message'] ?? [];
-        $usage = $response['usage'] ?? [];
+        $choices = $this->getList($response, 'choices');
+        $choice = $this->asArray($choices[0] ?? []);
+        $message = $this->getArray($choice, 'message');
+        $usage = $this->getArray($response, 'usage');
 
         $toolCalls = null;
-        if (isset($message['tool_calls']) && is_array($message['tool_calls'])) {
-            $toolCalls = array_map(static fn($tc) => [
-                'id' => $tc['id'],
-                'type' => $tc['type'],
-                'function' => [
-                    'name' => $tc['function']['name'],
-                    'arguments' => json_decode((string)$tc['function']['arguments'], true),
-                ],
-            ], $message['tool_calls']);
+        $rawToolCalls = $this->getArray($message, 'tool_calls');
+        if ($rawToolCalls !== []) {
+            $toolCalls = [];
+            foreach ($rawToolCalls as $tc) {
+                $tcArray = $this->asArray($tc);
+                $function = $this->getArray($tcArray, 'function');
+                $arguments = $this->getString($function, 'arguments');
+                $decodedArgs = json_decode($arguments, true);
+
+                $toolCalls[] = [
+                    'id' => $this->getString($tcArray, 'id'),
+                    'type' => $this->getString($tcArray, 'type'),
+                    'function' => [
+                        'name' => $this->getString($function, 'name'),
+                        'arguments' => is_array($decodedArgs) ? $decodedArgs : [],
+                    ],
+                ];
+            }
         }
 
         return new CompletionResponse(
-            content: $message['content'] ?? '',
-            model: $response['model'] ?? $payload['model'],
+            content: $this->getString($message, 'content'),
+            model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
-                promptTokens: $usage['prompt_tokens'] ?? 0,
-                completionTokens: $usage['completion_tokens'] ?? 0,
+                promptTokens: $this->getInt($usage, 'prompt_tokens'),
+                completionTokens: $this->getInt($usage, 'completion_tokens'),
             ),
-            finishReason: $choice['finish_reason'] ?? 'stop',
+            finishReason: $this->getString($choice, 'finish_reason', 'stop'),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls,
         );
@@ -186,13 +216,19 @@ final class GroqProvider extends AbstractProvider implements
         return true;
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $messages
+     * @param array<string, mixed>             $options
+     *
+     * @return Generator<int, string, mixed, void>
+     */
     public function streamChatCompletion(array $messages, array $options = []): Generator
     {
         $payload = [
-            'model' => $options['model'] ?? $this->getDefaultModel(),
+            'model' => $this->getString($options, 'model', $this->getDefaultModel()),
             'messages' => $messages,
-            'temperature' => $options['temperature'] ?? 0.7,
-            'max_tokens' => $options['max_tokens'] ?? 4096,
+            'temperature' => $this->getFloat($options, 'temperature', 0.7),
+            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
             'stream' => true,
         ];
 
@@ -226,10 +262,16 @@ final class GroqProvider extends AbstractProvider implements
                     }
 
                     try {
-                        $json = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
-                        $content = $json['choices'][0]['delta']['content'] ?? '';
-                        if ($content !== '') {
-                            yield $content;
+                        $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
+                        if (is_array($decoded)) {
+                            $json = $this->asArray($decoded);
+                            $choices = $this->getList($json, 'choices');
+                            $firstChoice = $this->asArray($choices[0] ?? []);
+                            $delta = $this->getArray($firstChoice, 'delta');
+                            $content = $this->getString($delta, 'content');
+                            if ($content !== '') {
+                                yield $content;
+                            }
                         }
                     } catch (JsonException) {
                         // Skip malformed JSON
@@ -270,6 +312,9 @@ final class GroqProvider extends AbstractProvider implements
 
     /**
      * Groq does not support embeddings - returns empty array.
+     *
+     * @param string|array<int, string> $input
+     * @param array<string, mixed>      $options
      */
     public function embeddings(string|array $input, array $options = []): never
     {

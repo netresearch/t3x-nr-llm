@@ -360,12 +360,15 @@ class TranslationService
      */
     public function convertToLegacyResult(TranslatorResult $result): TranslationResult
     {
+        $metadata = $result->metadata ?? [];
+        $usage = $this->extractUsageFromMetadata($metadata);
+
         return new TranslationResult(
             translation: $result->translatedText,
             sourceLanguage: $result->sourceLanguage,
             targetLanguage: $result->targetLanguage,
-            confidence: $result->confidence,
-            usage: $this->extractUsageFromMetadata($result->metadata),
+            confidence: $result->confidence ?? 1.0,
+            usage: $usage ?? new UsageStatistics(0, 0, 0),
         );
     }
 

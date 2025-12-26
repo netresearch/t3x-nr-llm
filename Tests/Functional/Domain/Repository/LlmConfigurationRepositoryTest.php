@@ -43,9 +43,9 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function findByIdentifierReturnsMatchingConfiguration(): void
+    public function findOneByIdentifierReturnsMatchingConfiguration(): void
     {
-        $result = $this->subject->findByIdentifier('default-config');
+        $result = $this->subject->findOneByIdentifier('default-config');
 
         self::assertInstanceOf(LlmConfiguration::class, $result);
         self::assertEquals('default-config', $result->getIdentifier());
@@ -55,9 +55,9 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function findByIdentifierReturnsNullForNonExistentIdentifier(): void
+    public function findOneByIdentifierReturnsNullForNonExistentIdentifier(): void
     {
-        $result = $this->subject->findByIdentifier('non-existent');
+        $result = $this->subject->findOneByIdentifier('non-existent');
 
         self::assertNull($result);
     }
@@ -158,7 +158,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         $this->persistenceManager->persistAll();
 
         // Verify it was persisted
-        $retrieved = $this->subject->findByIdentifier('new-test-config');
+        $retrieved = $this->subject->findOneByIdentifier('new-test-config');
 
         self::assertInstanceOf(LlmConfiguration::class, $retrieved);
         self::assertEquals('New Test Configuration', $retrieved->getName());
@@ -169,7 +169,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function configurationCanBeUpdated(): void
     {
-        $configuration = $this->subject->findByIdentifier('creative-config');
+        $configuration = $this->subject->findOneByIdentifier('creative-config');
         self::assertNotNull($configuration);
 
         $configuration->setName('Updated Creative Config');
@@ -181,7 +181,8 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         // Clear identity map to force reload
         $this->persistenceManager->clearState();
 
-        $retrieved = $this->subject->findByIdentifier('creative-config');
+        $retrieved = $this->subject->findOneByIdentifier('creative-config');
+        self::assertNotNull($retrieved);
         self::assertEquals('Updated Creative Config', $retrieved->getName());
         self::assertEquals(0.95, $retrieved->getTemperature());
     }
@@ -205,7 +206,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function configurationWithUsageLimitsIsDetected(): void
     {
-        $config = $this->subject->findByIdentifier('creative-config');
+        $config = $this->subject->findOneByIdentifier('creative-config');
         self::assertNotNull($config);
 
         self::assertTrue($config->hasUsageLimits());
@@ -217,7 +218,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function configurationWithoutUsageLimitsIsDetected(): void
     {
-        $config = $this->subject->findByIdentifier('default-config');
+        $config = $this->subject->findOneByIdentifier('default-config');
         self::assertNotNull($config);
 
         self::assertFalse($config->hasUsageLimits());
@@ -226,7 +227,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function configurationWithAccessRestrictionsIsDetected(): void
     {
-        $config = $this->subject->findByIdentifier('restricted-config');
+        $config = $this->subject->findOneByIdentifier('restricted-config');
         self::assertNotNull($config);
 
         self::assertTrue($config->hasAccessRestrictions());
@@ -236,24 +237,24 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function configurationToChatOptionsConversion(): void
     {
-        $config = $this->subject->findByIdentifier('creative-config');
+        $config = $this->subject->findOneByIdentifier('creative-config');
         self::assertNotNull($config);
 
         $chatOptions = $config->toChatOptions();
 
-        self::assertEquals(0.90, $chatOptions->temperature);
-        self::assertEquals(2000, $chatOptions->maxTokens);
-        self::assertEquals(0.95, $chatOptions->topP);
-        self::assertEquals(0.50, $chatOptions->frequencyPenalty);
-        self::assertEquals(0.50, $chatOptions->presencePenalty);
-        self::assertEquals('claude', $chatOptions->provider);
-        self::assertEquals('claude-sonnet-4-20250514', $chatOptions->model);
+        self::assertEquals(0.90, $chatOptions->getTemperature());
+        self::assertEquals(2000, $chatOptions->getMaxTokens());
+        self::assertEquals(0.95, $chatOptions->getTopP());
+        self::assertEquals(0.50, $chatOptions->getFrequencyPenalty());
+        self::assertEquals(0.50, $chatOptions->getPresencePenalty());
+        self::assertEquals('claude', $chatOptions->getProvider());
+        self::assertEquals('claude-sonnet-4-20250514', $chatOptions->getModel());
     }
 
     #[Test]
     public function configurationToOptionsArrayConversion(): void
     {
-        $config = $this->subject->findByIdentifier('code-review');
+        $config = $this->subject->findOneByIdentifier('code-review');
         self::assertNotNull($config);
 
         $options = $config->toOptionsArray();
@@ -272,7 +273,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function translatorConfigurationIsLoaded(): void
     {
-        $config = $this->subject->findByIdentifier('translation-de');
+        $config = $this->subject->findOneByIdentifier('translation-de');
         self::assertNotNull($config);
 
         self::assertEquals('deepl', $config->getTranslator());
@@ -284,7 +285,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function systemPromptIsLoaded(): void
     {
-        $config = $this->subject->findByIdentifier('default-config');
+        $config = $this->subject->findOneByIdentifier('default-config');
         self::assertNotNull($config);
 
         self::assertEquals('You are a helpful assistant.', $config->getSystemPrompt());
@@ -293,7 +294,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function jsonOptionsAreParsed(): void
     {
-        $config = $this->subject->findByIdentifier('code-review');
+        $config = $this->subject->findOneByIdentifier('code-review');
         self::assertNotNull($config);
 
         $optionsArray = $config->getOptionsArray();

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service;
 
 use DateTimeInterface;
+use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\SingletonInterface;
 
@@ -20,6 +22,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private Context $context,
     ) {}
 
     /**
@@ -129,7 +132,8 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
     ): array {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
 
-        return $queryBuilder
+        /** @var array<int, array{service_provider: string, total_requests: int, total_tokens: int, total_characters: int, total_audio_seconds: int, total_images: int, total_cost: float}> $result */
+        $result = $queryBuilder
             ->select('service_provider')
             ->addSelectLiteral('SUM(request_count) as total_requests')
             ->addSelectLiteral('SUM(tokens_used) as total_tokens')
@@ -146,6 +150,8 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
             ->groupBy('service_provider')
             ->executeQuery()
             ->fetchAllAssociative();
+
+        return $result;
     }
 
     /**
@@ -169,7 +175,8 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
     ): array {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
 
-        return $queryBuilder
+        /** @var array<int, array{service_type: string, service_provider: string, total_requests: int, total_cost: float}> $result */
+        $result = $queryBuilder
             ->select('service_type', 'service_provider')
             ->addSelectLiteral('SUM(request_count) as total_requests')
             ->addSelectLiteral('SUM(estimated_cost) as total_cost')
@@ -182,6 +189,8 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
             ->groupBy('service_type', 'service_provider')
             ->executeQuery()
             ->fetchAllAssociative();
+
+        return $result;
     }
 
     /**
@@ -200,7 +209,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
 
-        $result = $queryBuilder
+        $row = $queryBuilder
             ->select(
                 'request_count',
                 'tokens_used',
@@ -219,7 +228,14 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
             ->executeQuery()
             ->fetchAssociative();
 
-        return $result !== false ? $result : null;
+        if ($row === false) {
+            return null;
+        }
+
+        /** @var array{request_count: int, tokens_used: int, characters_used: int, audio_seconds_used: int, images_generated: int, estimated_cost: float} $result */
+        $result = $row;
+
+        return $result;
     }
 
     /**
@@ -243,10 +259,14 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
     }
 
     /**
-     * Get current backend user ID.
+     * Get current backend user ID via Context API.
      */
     private function getCurrentBackendUserId(): int
     {
-        return (int)($GLOBALS['BE_USER']->user['uid'] ?? 0);
+        try {
+            return (int)$this->context->getAspect('backend.user')->get('id');
+        } catch (AspectNotFoundException) {
+            return 0;
+        }
     }
 }

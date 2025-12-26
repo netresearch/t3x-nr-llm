@@ -104,7 +104,10 @@ class PromptTemplateService
 
         $newTemplate = clone $baseTemplate;
         $newTemplate->setVersion($baseTemplate->getVersion() + 1);
-        $newTemplate->setParentUid($baseTemplate->getUid());
+        $parentUid = $baseTemplate->getUid();
+        if ($parentUid !== null) {
+            $newTemplate->setParentUid($parentUid);
+        }
 
         // Apply updates
         foreach ($updates as $field => $value) {
@@ -260,7 +263,7 @@ class PromptTemplateService
 
                 $output = '';
                 foreach ($items as $item) {
-                    $itemStr = is_array($item) ? json_encode($item) : (string)$item;
+                    $itemStr = is_array($item) ? (json_encode($item) ?: '') : (string)$item;
                     $output .= str_replace('{{this}}', $itemStr, $template);
                 }
 
@@ -269,7 +272,7 @@ class PromptTemplateService
             (string)$result,
         );
 
-        return $result;
+        return (string)$result;
     }
 
     /**

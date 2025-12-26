@@ -84,7 +84,7 @@ final readonly class TranscriptionResult
         $srt = '';
         $index = 1;
 
-        foreach ($this->segments as $segment) {
+        foreach ($this->segments ?? [] as $segment) {
             $srt .= sprintf(
                 "%d\n%s --> %s\n%s\n\n",
                 $index++,
@@ -110,7 +110,7 @@ final readonly class TranscriptionResult
 
         $vtt = "WEBVTT\n\n";
 
-        foreach ($this->segments as $segment) {
+        foreach ($this->segments ?? [] as $segment) {
             $vtt .= sprintf(
                 "%s --> %s\n%s\n\n",
                 $this->formatVttTime($segment->start),

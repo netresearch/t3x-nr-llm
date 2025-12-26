@@ -132,7 +132,11 @@ class LlmConfiguration extends AbstractEntity
             return [];
         }
         $decoded = json_decode($this->options, true);
-        return is_array($decoded) ? $decoded : [];
+        if (!is_array($decoded)) {
+            return [];
+        }
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
     }
 
     public function getMaxRequestsPerDay(): int

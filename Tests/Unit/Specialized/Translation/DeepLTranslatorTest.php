@@ -442,6 +442,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
         $result = $this->subject->translate('Hello', 'de');
 
+        self::assertNotNull($result->metadata);
         self::assertArrayHasKey('detected_source_language', $result->metadata);
         self::assertArrayHasKey('billed_characters', $result->metadata);
     }

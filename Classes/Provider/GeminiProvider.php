@@ -20,6 +20,7 @@ final class GeminiProvider extends AbstractProvider implements
     StreamingCapableInterface,
     ToolCapableInterface
 {
+    /** @var array<string> */
     protected array $supportedFeatures = [
         self::FEATURE_CHAT,
         self::FEATURE_COMPLETION,
@@ -53,6 +54,9 @@ final class GeminiProvider extends AbstractProvider implements
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_MODEL;
     }
 
+    /**
+     * @return array<string, string>
+     */
     public function getAvailableModels(): array
     {
         return [
@@ -68,16 +72,20 @@ final class GeminiProvider extends AbstractProvider implements
         ];
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $messages
+     * @param array<string, mixed>             $options
+     */
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
-        $model = $options['model'] ?? $this->getDefaultModel();
+        $model = $this->getString($options, 'model', $this->getDefaultModel());
         $geminiContents = $this->convertToGeminiFormat($messages);
 
         $payload = [
             'contents' => $geminiContents['contents'],
             'generationConfig' => [
-                'temperature' => $options['temperature'] ?? 0.7,
-                'maxOutputTokens' => $options['max_tokens'] ?? 4096,
+                'temperature' => $this->getFloat($options, 'temperature', 0.7),
+                'maxOutputTokens' => $this->getInt($options, 'max_tokens', 4096),
             ],
         ];
 
@@ -86,11 +94,11 @@ final class GeminiProvider extends AbstractProvider implements
         }
 
         if (isset($options['top_p'])) {
-            $payload['generationConfig']['topP'] = $options['top_p'];
+            $payload['generationConfig']['topP'] = $this->getFloat($options, 'top_p');
         }
 
         if (isset($options['top_k'])) {
-            $payload['generationConfig']['topK'] = $options['top_k'];
+            $payload['generationConfig']['topK'] = $this->getInt($options, 'top_k');
         }
 
         if (isset($options['stop_sequences'])) {
@@ -102,41 +110,54 @@ final class GeminiProvider extends AbstractProvider implements
             $payload,
         );
 
-        $candidate = $response['candidates'][0] ?? [];
-        $content = $candidate['content']['parts'][0]['text'] ?? '';
-        $usage = $response['usageMetadata'] ?? [];
+        $candidates = $this->getList($response, 'candidates');
+        $candidate = $this->asArray($candidates[0] ?? []);
+        $contentObj = $this->getArray($candidate, 'content');
+        $parts = $this->getList($contentObj, 'parts');
+        $firstPart = $this->asArray($parts[0] ?? []);
+        $content = $this->getString($firstPart, 'text');
+        $usage = $this->getArray($response, 'usageMetadata');
 
         return $this->createCompletionResponse(
             content: $content,
             model: $model,
             usage: $this->createUsageStatistics(
-                promptTokens: $usage['promptTokenCount'] ?? 0,
-                completionTokens: $usage['candidatesTokenCount'] ?? 0,
+                promptTokens: $this->getInt($usage, 'promptTokenCount'),
+                completionTokens: $this->getInt($usage, 'candidatesTokenCount'),
             ),
-            finishReason: $this->mapFinishReason($candidate['finishReason'] ?? 'STOP'),
+            finishReason: $this->mapFinishReason($this->getString($candidate, 'finishReason', 'STOP')),
         );
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $messages
+     * @param array<int, array<string, mixed>> $tools
+     * @param array<string, mixed>             $options
+     */
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
-        $model = $options['model'] ?? $this->getDefaultModel();
+        $model = $this->getString($options, 'model', $this->getDefaultModel());
         $geminiContents = $this->convertToGeminiFormat($messages);
 
         // Convert OpenAI tool format to Gemini format
         $geminiTools = [
-            'functionDeclarations' => array_map(static fn(array $tool): array => [
-                'name' => $tool['function']['name'],
-                'description' => $tool['function']['description'],
-                'parameters' => $tool['function']['parameters'],
-            ], $tools),
+            'functionDeclarations' => array_map(function (array $tool): array {
+                $toolArray = $this->asArray($tool);
+                $function = $this->getArray($toolArray, 'function');
+                return [
+                    'name' => $this->getString($function, 'name'),
+                    'description' => $this->getString($function, 'description'),
+                    'parameters' => $this->getArray($function, 'parameters'),
+                ];
+            }, $tools),
         ];
 
         $payload = [
             'contents' => $geminiContents['contents'],
             'tools' => [$geminiTools],
             'generationConfig' => [
-                'temperature' => $options['temperature'] ?? 0.7,
-                'maxOutputTokens' => $options['max_tokens'] ?? 4096,
+                'temperature' => $this->getFloat($options, 'temperature', 0.7),
+                'maxOutputTokens' => $this->getInt($options, 'max_tokens', 4096),
             ],
         ];
 
@@ -149,37 +170,44 @@ final class GeminiProvider extends AbstractProvider implements
             $payload,
         );
 
-        $candidate = $response['candidates'][0] ?? [];
-        $parts = $candidate['content']['parts'] ?? [];
+        $candidates = $this->getList($response, 'candidates');
+        $candidate = $this->asArray($candidates[0] ?? []);
+        $contentObj = $this->getArray($candidate, 'content');
+        $parts = $this->getList($contentObj, 'parts');
 
         $content = '';
         $toolCalls = [];
 
         foreach ($parts as $part) {
-            if (isset($part['text'])) {
-                $content .= $part['text'];
-            } elseif (isset($part['functionCall'])) {
+            $partArray = $this->asArray($part);
+            $text = $this->getNullableString($partArray, 'text');
+            if ($text !== null) {
+                $content .= $text;
+            }
+
+            $functionCall = $this->getArray($partArray, 'functionCall');
+            if ($functionCall !== []) {
                 $toolCalls[] = [
                     'id' => 'call_' . uniqid(),
                     'type' => 'function',
                     'function' => [
-                        'name' => $part['functionCall']['name'],
-                        'arguments' => $part['functionCall']['args'] ?? [],
+                        'name' => $this->getString($functionCall, 'name'),
+                        'arguments' => $this->getArray($functionCall, 'args'),
                     ],
                 ];
             }
         }
 
-        $usage = $response['usageMetadata'] ?? [];
+        $usage = $this->getArray($response, 'usageMetadata');
 
         return new CompletionResponse(
             content: $content,
             model: $model,
             usage: $this->createUsageStatistics(
-                promptTokens: $usage['promptTokenCount'] ?? 0,
-                completionTokens: $usage['candidatesTokenCount'] ?? 0,
+                promptTokens: $this->getInt($usage, 'promptTokenCount'),
+                completionTokens: $this->getInt($usage, 'candidatesTokenCount'),
             ),
-            finishReason: $this->mapFinishReason($candidate['finishReason'] ?? 'STOP'),
+            finishReason: $this->mapFinishReason($this->getString($candidate, 'finishReason', 'STOP')),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls !== [] ? $toolCalls : null,
         );
@@ -190,19 +218,25 @@ final class GeminiProvider extends AbstractProvider implements
         return true;
     }
 
+    /**
+     * @param string|array<int, string> $input
+     * @param array<string, mixed>      $options
+     */
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
         $inputs = is_array($input) ? $input : [$input];
-        $model = $options['model'] ?? self::EMBEDDING_MODEL;
+        $model = $this->getString($options, 'model', self::EMBEDDING_MODEL);
 
+        /** @var array<int, array<int, float>> $embeddings */
         $embeddings = [];
-        $totalTokens = 0;
+        $totalTokens = 0.0;
 
         foreach ($inputs as $text) {
+            $textString = $this->asString($text);
             $payload = [
                 'model' => "models/{$model}",
                 'content' => [
-                    'parts' => [['text' => $text]],
+                    'parts' => [['text' => $textString]],
                 ],
             ];
 
@@ -211,8 +245,12 @@ final class GeminiProvider extends AbstractProvider implements
                 $payload,
             );
 
-            $embeddings[] = $response['embedding']['values'] ?? [];
-            $totalTokens += strlen($text) / 4; // Rough token estimate
+            $embeddingData = $this->getArray($response, 'embedding');
+            $values = $this->getArray($embeddingData, 'values');
+            /** @var array<int, float> $floatValues */
+            $floatValues = array_map(fn($v): float => $this->asFloat($v), $values);
+            $embeddings[] = $floatValues;
+            $totalTokens += strlen($textString) / 4; // Rough token estimate
         }
 
         return $this->createEmbeddingResponse(
@@ -225,16 +263,26 @@ final class GeminiProvider extends AbstractProvider implements
         );
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $content
+     * @param array<string, mixed>             $options
+     */
     public function analyzeImage(array $content, array $options = []): VisionResponse
     {
-        $model = $options['model'] ?? 'gemini-3-flash-preview';
+        $model = $this->getString($options, 'model', 'gemini-3-flash-preview');
 
         $parts = [];
         foreach ($content as $item) {
-            if ($item['type'] === 'text') {
-                $parts[] = ['text' => $item['text']];
-            } elseif ($item['type'] === 'image_url') {
-                $imageUrl = $item['image_url']['url'];
+            $itemArray = $this->asArray($item);
+            $itemType = $this->getString($itemArray, 'type');
+
+            if ($itemType === 'text') {
+                $text = $this->getString($itemArray, 'text');
+                if ($text !== '') {
+                    $parts[] = ['text' => $text];
+                }
+            } elseif ($itemType === 'image_url') {
+                $imageUrl = $this->getNestedString($itemArray, 'image_url.url');
 
                 if (str_starts_with($imageUrl, 'data:')) {
                     preg_match('/^data:(image\/\w+);base64,(.+)$/', $imageUrl, $matches);
@@ -263,13 +311,14 @@ final class GeminiProvider extends AbstractProvider implements
                 ],
             ],
             'generationConfig' => [
-                'maxOutputTokens' => $options['max_tokens'] ?? 4096,
+                'maxOutputTokens' => $this->getInt($options, 'max_tokens', 4096),
             ],
         ];
 
-        if (isset($options['system_prompt'])) {
+        $systemPrompt = $this->getNullableString($options, 'system_prompt');
+        if ($systemPrompt !== null) {
             $payload['systemInstruction'] = [
-                'parts' => [['text' => $options['system_prompt']]],
+                'parts' => [['text' => $systemPrompt]],
             ];
         }
 
@@ -278,16 +327,20 @@ final class GeminiProvider extends AbstractProvider implements
             $payload,
         );
 
-        $candidate = $response['candidates'][0] ?? [];
-        $description = $candidate['content']['parts'][0]['text'] ?? '';
-        $usage = $response['usageMetadata'] ?? [];
+        $candidates = $this->getList($response, 'candidates');
+        $candidate = $this->asArray($candidates[0] ?? []);
+        $contentObj = $this->getArray($candidate, 'content');
+        $responseParts = $this->getList($contentObj, 'parts');
+        $firstPart = $this->asArray($responseParts[0] ?? []);
+        $description = $this->getString($firstPart, 'text');
+        $usage = $this->getArray($response, 'usageMetadata');
 
         return new VisionResponse(
             description: $description,
             model: $model,
             usage: $this->createUsageStatistics(
-                promptTokens: $usage['promptTokenCount'] ?? 0,
-                completionTokens: $usage['candidatesTokenCount'] ?? 0,
+                promptTokens: $this->getInt($usage, 'promptTokenCount'),
+                completionTokens: $this->getInt($usage, 'candidatesTokenCount'),
             ),
             provider: $this->getIdentifier(),
         );
@@ -298,6 +351,9 @@ final class GeminiProvider extends AbstractProvider implements
         return true;
     }
 
+    /**
+     * @return array<string>
+     */
     public function getSupportedImageFormats(): array
     {
         return ['png', 'jpeg', 'jpg', 'gif', 'webp', 'heic', 'heif'];
@@ -308,16 +364,22 @@ final class GeminiProvider extends AbstractProvider implements
         return 20 * 1024 * 1024; // 20 MB
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $messages
+     * @param array<string, mixed>             $options
+     *
+     * @return Generator<int, string, mixed, void>
+     */
     public function streamChatCompletion(array $messages, array $options = []): Generator
     {
-        $model = $options['model'] ?? $this->getDefaultModel();
+        $model = $this->getString($options, 'model', $this->getDefaultModel());
         $geminiContents = $this->convertToGeminiFormat($messages);
 
         $payload = [
             'contents' => $geminiContents['contents'],
             'generationConfig' => [
-                'temperature' => $options['temperature'] ?? 0.7,
-                'maxOutputTokens' => $options['max_tokens'] ?? 4096,
+                'temperature' => $this->getFloat($options, 'temperature', 0.7),
+                'maxOutputTokens' => $this->getInt($options, 'max_tokens', 4096),
             ],
         ];
 
@@ -350,10 +412,18 @@ final class GeminiProvider extends AbstractProvider implements
                     $data = substr($line, 6);
 
                     try {
-                        $json = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
-                        $text = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
-                        if ($text !== '') {
-                            yield $text;
+                        $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
+                        if (is_array($decoded)) {
+                            $json = $this->asArray($decoded);
+                            $candidates = $this->getList($json, 'candidates');
+                            $candidate = $this->asArray($candidates[0] ?? []);
+                            $contentObj = $this->getArray($candidate, 'content');
+                            $parts = $this->getList($contentObj, 'parts');
+                            $firstPart = $this->asArray($parts[0] ?? []);
+                            $text = $this->getString($firstPart, 'text');
+                            if ($text !== '') {
+                                yield $text;
+                            }
                         }
                     } catch (JsonException) {
                         // Skip malformed JSON
@@ -376,7 +446,7 @@ final class GeminiProvider extends AbstractProvider implements
     }
 
     /**
-     * @param array<int, array{role: string, content: string}> $messages
+     * @param array<int, array<string, mixed>> $messages
      *
      * @return array{contents: array<int, array<string, mixed>>, systemInstruction?: array<string, mixed>}
      */
@@ -386,8 +456,9 @@ final class GeminiProvider extends AbstractProvider implements
         $systemInstruction = null;
 
         foreach ($messages as $message) {
-            $role = $message['role'];
-            $content = $message['content'];
+            $msgArray = $this->asArray($message);
+            $role = $this->getString($msgArray, 'role');
+            $content = $this->getString($msgArray, 'content');
 
             if ($role === 'system') {
                 $systemInstruction = [

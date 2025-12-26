@@ -309,6 +309,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $translator = $this->createTranslatorWithMockClient($httpClientMock);
         $result = $translator->translate($text, 'de');
 
+        self::assertNotNull($result->metadata);
         self::assertArrayHasKey('billed_characters', $result->metadata);
         self::assertEquals(mb_strlen($text), $result->metadata['billed_characters']);
     }

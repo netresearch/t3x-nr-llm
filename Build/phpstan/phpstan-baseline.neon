@@ -1,6 +1,1164 @@
 parameters:
 	ignoreErrors:
 		-
+			message: '#^Cannot access offset ''priority'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/DependencyInjection/ProviderCompilerPass.php
+
+		-
+			message: '#^Offset ''context_length'' on array\{name\: string, context_length\: int, pricing\: array\<string, float\>, capabilities\: array\<string, bool\>, provider\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: ../../Classes/Provider/OpenRouterProvider.php
+
+		-
+			message: '#^PHPDoc tag @var with type array\<string, array\{name\: string, context_length\: int, pricing\: array\<string, float\>, capabilities\: array\<string, bool\>, provider\: string\}\> is not subtype of native type array\<string, array\{name\: string, context_length\: int, pricing\: array\{prompt\: float, completion\: float\}, capabilities\: array\{vision\: bool, function_calling\: bool\}, provider\: string\}\>\.$#'
+			identifier: varTag.nativeType
+			count: 1
+			path: ../../Classes/Provider/OpenRouterProvider.php
+
+		-
+			message: '#^Parameter \#1 \$data of method Netresearch\\NrLlm\\Provider\\AbstractProvider\:\:getArray\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Provider/OpenRouterProvider.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Service\\CacheManager\:\:get\(\) should return array\<string, mixed\>\|null but returns array\<mixed, mixed\>\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Classes/Service/CacheManager.php
+
+		-
+			message: '#^Parameter \#1 \$array of method Netresearch\\NrLlm\\Service\\CacheManager\:\:sortRecursive\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/CacheManager.php
+
+		-
+			message: '#^Parameter \#3 \$subject of function str_replace expects array\<string\>\|string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/CacheManager.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Service\\Feature\\CompletionService\:\:completeJson\(\) should return array\<string, mixed\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Classes/Service/Feature/CompletionService.php
+
+		-
+			message: '#^Parameter \#1 \$format of method Netresearch\\NrLlm\\Service\\Feature\\CompletionService\:\:normalizeResponseFormat\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/CompletionService.php
+
+		-
+			message: '#^Parameter \#1 \$messages of method Netresearch\\NrLlm\\Service\\LlmServiceManagerInterface\:\:chat\(\) expects array\<int, array\{role\: string, content\: string\}\>, array\{array\{role\: ''system'', content\: mixed\}, array\{role\: ''user'', content\: string\}\}\|array\{array\{role\: ''user'', content\: string\}\} given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Classes/Service/Feature/CompletionService.php
+
+		-
+			message: '#^Cannot access offset ''promptTokens'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Service/Feature/EmbeddingService.php
+
+		-
+			message: '#^Cannot access offset ''totalTokens'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Service/Feature/EmbeddingService.php
+
+		-
+			message: '#^Parameter \#1 \$provider of method Netresearch\\NrLlm\\Service\\CacheManagerInterface\:\:cacheEmbeddings\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/EmbeddingService.php
+
+		-
+			message: '#^Parameter \#1 \$provider of method Netresearch\\NrLlm\\Service\\CacheManagerInterface\:\:getCachedEmbeddings\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/EmbeddingService.php
+
+		-
+			message: '#^Parameter \#2 \$model of method Netresearch\\NrLlm\\Service\\Feature\\EmbeddingService\:\:getCacheKey\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/EmbeddingService.php
+
+		-
+			message: '#^Parameter \#3 \$provider of method Netresearch\\NrLlm\\Service\\Feature\\EmbeddingService\:\:getCacheKey\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/EmbeddingService.php
+
+		-
+			message: '#^Parameter \#5 \$lifetime of method Netresearch\\NrLlm\\Service\\CacheManagerInterface\:\:cacheEmbeddings\(\) expects int, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/EmbeddingService.php
+
+		-
+			message: '#^Parameter \$embeddings of class Netresearch\\NrLlm\\Domain\\Model\\EmbeddingResponse constructor expects array\<int, array\<int, float\>\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/EmbeddingService.php
+
+		-
+			message: '#^Parameter \$model of class Netresearch\\NrLlm\\Domain\\Model\\EmbeddingResponse constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/EmbeddingService.php
+
+		-
+			message: '#^Parameter \$promptTokens of class Netresearch\\NrLlm\\Domain\\Model\\UsageStatistics constructor expects int, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/EmbeddingService.php
+
+		-
+			message: '#^Parameter \$provider of class Netresearch\\NrLlm\\Domain\\Model\\EmbeddingResponse constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/EmbeddingService.php
+
+		-
+			message: '#^Parameter \$totalTokens of class Netresearch\\NrLlm\\Domain\\Model\\UsageStatistics constructor expects int, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/EmbeddingService.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: ../../Classes/Service/Feature/TranslationService.php
+
+		-
+			message: '#^Cannot access offset ''completion_tokens'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Service/Feature/TranslationService.php
+
+		-
+			message: '#^Cannot access offset ''prompt_tokens'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Service/Feature/TranslationService.php
+
+		-
+			message: '#^Cannot access offset ''total_tokens'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Service/Feature/TranslationService.php
+
+		-
+			message: '#^Parameter \#1 \$identifier of method Netresearch\\NrLlm\\Service\\LlmConfigurationService\:\:getConfiguration\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/TranslationService.php
+
+		-
+			message: '#^Parameter \#1 \$identifier of method Netresearch\\NrLlm\\Specialized\\Translation\\TranslatorRegistry\:\:get\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/TranslationService.php
+
+		-
+			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 4
+			path: ../../Classes/Service/Feature/TranslationService.php
+
+		-
+			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/TranslationService.php
+
+		-
+			message: '#^Parameter \$completionTokens of class Netresearch\\NrLlm\\Domain\\Model\\UsageStatistics constructor expects int, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/TranslationService.php
+
+		-
+			message: '#^Parameter \$promptTokens of class Netresearch\\NrLlm\\Domain\\Model\\UsageStatistics constructor expects int, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/TranslationService.php
+
+		-
+			message: '#^Parameter \$totalTokens of class Netresearch\\NrLlm\\Domain\\Model\\UsageStatistics constructor expects int, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/Feature/TranslationService.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: ../../Classes/Service/LlmConfigurationService.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Service\\LlmConfigurationService\:\:getBackendUser\(\) should return TYPO3\\CMS\\Core\\Authentication\\BackendUserAuthentication\|null but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Classes/Service/LlmConfigurationService.php
+
+		-
+			message: '#^Cannot access offset string on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/Service/LlmServiceManager.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Service\\LlmServiceManager\:\:getProviderConfiguration\(\) should return array\<string, mixed\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Classes/Service/LlmServiceManager.php
+
+		-
+			message: '#^Parameter \#1 \$config of method Netresearch\\NrLlm\\Provider\\Contract\\ProviderInterface\:\:configure\(\) expects array\<string, mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/LlmServiceManager.php
+
+		-
+			message: '#^Parameter \#1 \$identifier of method Netresearch\\NrLlm\\Service\\LlmServiceManager\:\:getProvider\(\) expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 6
+			path: ../../Classes/Service/LlmServiceManager.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Service\\LlmServiceManager\:\:\$configuration \(array\<string, mixed\>\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: ../../Classes/Service/LlmServiceManager.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Service\\LlmServiceManager\:\:\$defaultProvider \(string\|null\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: ../../Classes/Service/LlmServiceManager.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: ../../Classes/Service/PromptTemplateService.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function preg_replace_callback expects callable\(array\<string\>\)\: string, Closure\(mixed\)\: mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/PromptTemplateService.php
+
+		-
+			message: '#^Parameter \$maxTokens of class Netresearch\\NrLlm\\Domain\\Model\\RenderedPrompt constructor expects int, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/PromptTemplateService.php
+
+		-
+			message: '#^Parameter \$model of class Netresearch\\NrLlm\\Domain\\Model\\RenderedPrompt constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/PromptTemplateService.php
+
+		-
+			message: '#^Parameter \$temperature of class Netresearch\\NrLlm\\Domain\\Model\\RenderedPrompt constructor expects float, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/PromptTemplateService.php
+
+		-
+			message: '#^Parameter \$topP of class Netresearch\\NrLlm\\Domain\\Model\\RenderedPrompt constructor expects float, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Service/PromptTemplateService.php
+
+		-
+			message: '#^Cannot access offset ''uid'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Service/UsageTrackerService.php
+
+		-
+			message: '#^Cannot access property \$user on mixed\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: ../../Classes/Service/UsageTrackerService.php
+
+		-
+			message: '#^Cannot cast mixed to float\.$#'
+			identifier: cast.double
+			count: 1
+			path: ../../Classes/Service/UsageTrackerService.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: ../../Classes/Service/UsageTrackerService.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 2
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Binary operation "\." between ''DALL\-E API error\: '' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 2
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Binary operation "\." between ''dall\-e\:'' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 2
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Binary operation "\." between mixed and "\\r\\n" results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot access offset ''apiKey'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot access offset ''b64_json'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot access offset ''baseUrl'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot access offset ''dalle'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot access offset ''error'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot access offset ''image'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot access offset ''openai'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot access offset ''providers'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot access offset ''revised_prompt'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot access offset ''timeout'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot access offset ''url'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot access offset 0 on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Specialized\\Image\\DallEImageService\:\:executeRequest\(\) should return array\<string, mixed\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Parameter \#2 \$model of method Netresearch\\NrLlm\\Specialized\\Image\\DallEImageService\:\:validatePrompt\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Parameter \$base64 of class Netresearch\\NrLlm\\Specialized\\Image\\ImageGenerationResult constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 4
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Parameter \$model of class Netresearch\\NrLlm\\Specialized\\Image\\ImageGenerationResult constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Parameter \$revisedPrompt of class Netresearch\\NrLlm\\Specialized\\Image\\ImageGenerationResult constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Parameter \$size of class Netresearch\\NrLlm\\Specialized\\Image\\ImageGenerationResult constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Parameter \$url of class Netresearch\\NrLlm\\Specialized\\Image\\ImageGenerationResult constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 4
+			path: ../../Classes/Specialized/Image/DallEImageService.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Binary operation "\." between ''FAL API error\: '' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Binary operation "\." between ''FAL API validation…'' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Binary operation "\." between ''FAL generation…'' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Binary operation "\." between mixed and ''x'' results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot access offset ''apiKey'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot access offset ''baseUrl'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot access offset ''detail'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot access offset ''fal'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot access offset ''image'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot access offset ''pollInterval'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot access offset ''seed'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot access offset ''timeout'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot access offset ''url'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot access offset 0 on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot cast mixed to float\.$#'
+			identifier: cast.double
+			count: 2
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 7
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Specialized\\Image\\FalImageService\:\:executeRequest\(\) should return array\<string, mixed\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Parameter \#1 \$image of method Netresearch\\NrLlm\\Specialized\\Image\\FalImageService\:\:extractSize\(\) expects array\<string, mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Parameter \#2 \$requestId of method Netresearch\\NrLlm\\Specialized\\Image\\FalImageService\:\:pollForResult\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Parameter \$url of class Netresearch\\NrLlm\\Specialized\\Image\\ImageGenerationResult constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Classes/Specialized/Image/FalImageService.php
+
+		-
+			message: '#^Parameter \$formality of class Netresearch\\NrLlm\\Specialized\\Option\\DeepLOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/DeepLOptions.php
+
+		-
+			message: '#^Parameter \$glossaryId of class Netresearch\\NrLlm\\Specialized\\Option\\DeepLOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/DeepLOptions.php
+
+		-
+			message: '#^Parameter \$ignoreTags of class Netresearch\\NrLlm\\Specialized\\Option\\DeepLOptions constructor expects array\<int, string\>\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/DeepLOptions.php
+
+		-
+			message: '#^Parameter \$nonSplittingTags of class Netresearch\\NrLlm\\Specialized\\Option\\DeepLOptions constructor expects array\<int, string\>\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/DeepLOptions.php
+
+		-
+			message: '#^Parameter \$preserveFormatting of class Netresearch\\NrLlm\\Specialized\\Option\\DeepLOptions constructor expects bool\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/DeepLOptions.php
+
+		-
+			message: '#^Parameter \$splitSentences of class Netresearch\\NrLlm\\Specialized\\Option\\DeepLOptions constructor expects bool\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/DeepLOptions.php
+
+		-
+			message: '#^Parameter \$tagHandling of class Netresearch\\NrLlm\\Specialized\\Option\\DeepLOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/DeepLOptions.php
+
+		-
+			message: '#^Parameter \$format of class Netresearch\\NrLlm\\Specialized\\Option\\ImageGenerationOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/ImageGenerationOptions.php
+
+		-
+			message: '#^Parameter \$model of class Netresearch\\NrLlm\\Specialized\\Option\\ImageGenerationOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/ImageGenerationOptions.php
+
+		-
+			message: '#^Parameter \$quality of class Netresearch\\NrLlm\\Specialized\\Option\\ImageGenerationOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/ImageGenerationOptions.php
+
+		-
+			message: '#^Parameter \$size of class Netresearch\\NrLlm\\Specialized\\Option\\ImageGenerationOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/ImageGenerationOptions.php
+
+		-
+			message: '#^Parameter \$style of class Netresearch\\NrLlm\\Specialized\\Option\\ImageGenerationOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/ImageGenerationOptions.php
+
+		-
+			message: '#^Cannot cast mixed to float\.$#'
+			identifier: cast.double
+			count: 1
+			path: ../../Classes/Specialized/Option/SpeechSynthesisOptions.php
+
+		-
+			message: '#^Parameter \$format of class Netresearch\\NrLlm\\Specialized\\Option\\SpeechSynthesisOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/SpeechSynthesisOptions.php
+
+		-
+			message: '#^Parameter \$model of class Netresearch\\NrLlm\\Specialized\\Option\\SpeechSynthesisOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/SpeechSynthesisOptions.php
+
+		-
+			message: '#^Parameter \$voice of class Netresearch\\NrLlm\\Specialized\\Option\\SpeechSynthesisOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/SpeechSynthesisOptions.php
+
+		-
+			message: '#^Cannot cast mixed to float\.$#'
+			identifier: cast.double
+			count: 1
+			path: ../../Classes/Specialized/Option/TranscriptionOptions.php
+
+		-
+			message: '#^Parameter \$format of class Netresearch\\NrLlm\\Specialized\\Option\\TranscriptionOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/TranscriptionOptions.php
+
+		-
+			message: '#^Parameter \$language of class Netresearch\\NrLlm\\Specialized\\Option\\TranscriptionOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/TranscriptionOptions.php
+
+		-
+			message: '#^Parameter \$model of class Netresearch\\NrLlm\\Specialized\\Option\\TranscriptionOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/TranscriptionOptions.php
+
+		-
+			message: '#^Parameter \$prompt of class Netresearch\\NrLlm\\Specialized\\Option\\TranscriptionOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Option/TranscriptionOptions.php
+
+		-
+			message: '#^Cannot cast mixed to float\.$#'
+			identifier: cast.double
+			count: 3
+			path: ../../Classes/Specialized/Speech/Segment.php
+
+		-
+			message: '#^Parameter \#1 \$callback of function array_map expects \(callable\(mixed\)\: mixed\)\|null, Closure\(array\<string, mixed\>\)\: Netresearch\\NrLlm\\Specialized\\Speech\\Word given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Speech/Segment.php
+
+		-
+			message: '#^Parameter \$text of class Netresearch\\NrLlm\\Specialized\\Speech\\Segment constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Speech/Segment.php
+
+		-
+			message: '#^Parameter \$words of class Netresearch\\NrLlm\\Specialized\\Speech\\Segment constructor expects array\<int, Netresearch\\NrLlm\\Specialized\\Speech\\Word\>\|null, array\<Netresearch\\NrLlm\\Specialized\\Speech\\Word\>\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Speech/Segment.php
+
+		-
+			message: '#^Binary operation "\." between ''TTS API error\: '' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Binary operation "\." between ''tts\:'' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Cannot access offset ''apiKey'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Cannot access offset ''baseUrl'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Cannot access offset ''error'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Cannot access offset ''openai'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Cannot access offset ''providers'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Cannot access offset ''speech'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Cannot access offset ''timeout'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Cannot access offset ''tts'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Parameter \$format of class Netresearch\\NrLlm\\Specialized\\Speech\\SpeechSynthesisResult constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Parameter \$model of class Netresearch\\NrLlm\\Specialized\\Speech\\SpeechSynthesisResult constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Parameter \$voice of class Netresearch\\NrLlm\\Specialized\\Speech\\SpeechSynthesisResult constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Speech/TextToSpeechService.php
+
+		-
+			message: '#^Binary operation "\." between ''Whisper API error\: '' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Binary operation "\." between mixed and "\\r\\n" results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 10
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Cannot access offset ''apiKey'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Cannot access offset ''baseUrl'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Cannot access offset ''error'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Cannot access offset ''openai'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Cannot access offset ''providers'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Cannot access offset ''speech'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Cannot access offset ''timeout'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Cannot access offset ''whisper'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Cannot cast mixed to float\.$#'
+			identifier: cast.double
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Specialized\\Speech\\WhisperTranscriptionService\:\:sendMultipartRequest\(\) should return array\<string, mixed\>\|string but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of function array_map expects \(callable\(mixed\)\: mixed\)\|null, Closure\(array\<string, mixed\>\)\: Netresearch\\NrLlm\\Specialized\\Speech\\Segment given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Parameter \#2 \$array of function array_map expects array, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Parameter \$language of class Netresearch\\NrLlm\\Specialized\\Speech\\TranscriptionResult constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Parameter \$segments of class Netresearch\\NrLlm\\Specialized\\Speech\\TranscriptionResult constructor expects array\<int, Netresearch\\NrLlm\\Specialized\\Speech\\Segment\>\|null, array\<Netresearch\\NrLlm\\Specialized\\Speech\\Segment\>\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Parameter \$text of class Netresearch\\NrLlm\\Specialized\\Speech\\TranscriptionResult constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Speech/WhisperTranscriptionService.php
+
+		-
+			message: '#^Cannot cast mixed to float\.$#'
+			identifier: cast.double
+			count: 2
+			path: ../../Classes/Specialized/Speech/Word.php
+
+		-
+			message: '#^Parameter \$word of class Netresearch\\NrLlm\\Specialized\\Speech\\Word constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Speech/Word.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Binary operation "\." between ''DeepL API error\: '' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Cannot access offset ''apiKey'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Cannot access offset ''baseUrl'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Cannot access offset ''deepl'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Cannot access offset ''detected_source_language'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Cannot access offset ''text'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Cannot access offset ''timeout'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Cannot access offset ''translators'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Cannot access offset 0 on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Specialized\\Translation\\DeepLTranslator\:\:getGlossaries\(\) should return array\<int, array\{glossary_id\: string, name\: string, source_lang\: string, target_lang\: string\}\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Specialized\\Translation\\DeepLTranslator\:\:getUsage\(\) should return array\{character_count\: int, character_limit\: int\} but returns array\{character_count\: mixed, character_limit\: mixed\}\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Specialized\\Translation\\DeepLTranslator\:\:sendRequest\(\) should return array\<string, mixed\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Parameter \#1 \$formality of method Netresearch\\NrLlm\\Specialized\\Translation\\DeepLTranslator\:\:mapFormality\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Parameter \#1 \$string of function strtolower expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 3
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Parameter \#2 \$array of function implode expects array, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Parameter \$translatedText of class Netresearch\\NrLlm\\Specialized\\Translation\\TranslatorResult constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Possibly invalid array key type mixed\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 1
+			path: ../../Classes/Specialized/Translation/DeepLTranslator.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: ../../Classes/Specialized/Translation/LlmTranslator.php
+
+		-
+			message: '#^Binary operation "\." between ''llm\:'' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 2
+			path: ../../Classes/Specialized/Translation/LlmTranslator.php
+
+		-
+			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 4
+			path: ../../Classes/Specialized/Translation/LlmTranslator.php
+
+		-
+			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Translation/LlmTranslator.php
+
+		-
+			message: '#^Parameter \$maxTokens of class Netresearch\\NrLlm\\Service\\Option\\ChatOptions constructor expects int\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Translation/LlmTranslator.php
+
+		-
+			message: '#^Parameter \$model of class Netresearch\\NrLlm\\Service\\Option\\ChatOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Translation/LlmTranslator.php
+
+		-
+			message: '#^Parameter \$provider of class Netresearch\\NrLlm\\Service\\Option\\ChatOptions constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Translation/LlmTranslator.php
+
+		-
+			message: '#^Parameter \$temperature of class Netresearch\\NrLlm\\Service\\Option\\ChatOptions constructor expects float\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Classes/Specialized/Translation/LlmTranslator.php
+
+		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\E2E\\AbstractE2ETestCase\:\:createClaudeChatResponse\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -31,8 +1189,44 @@ parameters:
 			path: ../../Tests/E2E/AbstractE2ETestCase.php
 
 		-
+			message: '#^Cannot access offset ''max_tokens'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/E2E/ChatCompletionWorkflowTest.php
+
+		-
+			message: '#^Cannot access offset ''messages'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/E2E/ChatCompletionWorkflowTest.php
+
+		-
+			message: '#^Cannot access offset ''temperature'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/E2E/ChatCompletionWorkflowTest.php
+
+		-
+			message: '#^Parameter \#1 \$data of method Netresearch\\NrLlm\\Tests\\E2E\\AbstractE2ETestCase\:\:createJsonResponse\(\) expects array\<string, mixed\>, array given\.$#'
+			identifier: argument.type
+			count: 8
+			path: ../../Tests/E2E/ChatCompletionWorkflowTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertCount\(\) expects Countable\|iterable, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/E2E/ChatCompletionWorkflowTest.php
+
+		-
 			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\<int, float\>\> will always evaluate to true\.$#'
 			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: ../../Tests/E2E/EmbeddingWorkflowTest.php
+
+		-
+			message: '#^Parameter \#1 \$data of method Netresearch\\NrLlm\\Tests\\E2E\\AbstractE2ETestCase\:\:createJsonResponse\(\) expects array\<string, mixed\>, array given\.$#'
+			identifier: argument.type
 			count: 1
 			path: ../../Tests/E2E/EmbeddingWorkflowTest.php
 
@@ -85,6 +1279,30 @@ parameters:
 			path: ../../Tests/Functional/Domain/Repository/LlmConfigurationRepositoryTest.php
 
 		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Domain\\Repository\\LlmConfigurationRepositoryTest\:\:\$persistenceManager \(TYPO3\\CMS\\Extbase\\Persistence\\Generic\\PersistenceManager\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/LlmConfigurationRepositoryTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Domain\\Repository\\LlmConfigurationRepositoryTest\:\:\$subject \(Netresearch\\NrLlm\\Domain\\Repository\\LlmConfigurationRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/LlmConfigurationRepositoryTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Service\\LlmConfigurationServiceTest\:\:\$repository \(Netresearch\\NrLlm\\Domain\\Repository\\LlmConfigurationRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: ../../Tests/Functional/Service/LlmConfigurationServiceTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Service\\LlmConfigurationServiceTest\:\:\$subject \(Netresearch\\NrLlm\\Service\\LlmConfigurationService\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: ../../Tests/Functional/Service/LlmConfigurationServiceTest.php
+
+		-
 			message: '#^Function Eris\\Generator\\filter not found\.$#'
 			identifier: function.notFound
 			count: 1
@@ -121,8 +1339,32 @@ parameters:
 			path: ../../Tests/Fuzzy/AbstractFuzzyTestCase.php
 
 		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Fuzzy\\AbstractFuzzyTestCase\:\:embeddingVector\(\) should return Eris\\Generator\<array\<float\>\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Tests/Fuzzy/AbstractFuzzyTestCase.php
+
+		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Fuzzy\\AbstractFuzzyTestCase\:\:floatBetween\(\) return type with generic interface Eris\\Generator does not specify its types\: T$#'
 			identifier: missingType.generics
+			count: 1
+			path: ../../Tests/Fuzzy/AbstractFuzzyTestCase.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Fuzzy\\AbstractFuzzyTestCase\:\:floatBetween\(\) should return Eris\\Generator but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Tests/Fuzzy/AbstractFuzzyTestCase.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Fuzzy\\AbstractFuzzyTestCase\:\:nonEmptyText\(\) should return Eris\\Generator\<string\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Tests/Fuzzy/AbstractFuzzyTestCase.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Fuzzy\\AbstractFuzzyTestCase\:\:positiveInt\(\) should return Eris\\Generator\<int\> but returns mixed\.$#'
+			identifier: return.type
 			count: 1
 			path: ../../Tests/Fuzzy/AbstractFuzzyTestCase.php
 
@@ -166,6 +1408,42 @@ parameters:
 			message: '#^Function Eris\\Generator\\suchThat not found\.$#'
 			identifier: function.notFound
 			count: 1
+			path: ../../Tests/Fuzzy/Domain/EmbeddingResponseFuzzyTest.php
+
+		-
+			message: '#^Parameter \#1 \$vector of method Netresearch\\NrLlm\\Tests\\Fuzzy\\Domain\\EmbeddingResponseFuzzyTest\:\:normalizeVector\(\) expects array\<float\>, array given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Tests/Fuzzy/Domain/EmbeddingResponseFuzzyTest.php
+
+		-
+			message: '#^Parameter \#1 \$vectorA of static method Netresearch\\NrLlm\\Domain\\Model\\EmbeddingResponse\:\:cosineSimilarity\(\) expects array\<int, float\>, array given\.$#'
+			identifier: argument.type
+			count: 3
+			path: ../../Tests/Fuzzy/Domain/EmbeddingResponseFuzzyTest.php
+
+		-
+			message: '#^Parameter \#1 \$vectorA of static method Netresearch\\NrLlm\\Domain\\Model\\EmbeddingResponse\:\:cosineSimilarity\(\) expects array\<int, float\>, array\<float\> given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Tests/Fuzzy/Domain/EmbeddingResponseFuzzyTest.php
+
+		-
+			message: '#^Parameter \#2 \$vectorB of static method Netresearch\\NrLlm\\Domain\\Model\\EmbeddingResponse\:\:cosineSimilarity\(\) expects array\<int, float\>, array given\.$#'
+			identifier: argument.type
+			count: 3
+			path: ../../Tests/Fuzzy/Domain/EmbeddingResponseFuzzyTest.php
+
+		-
+			message: '#^Parameter \#2 \$vectorB of static method Netresearch\\NrLlm\\Domain\\Model\\EmbeddingResponse\:\:cosineSimilarity\(\) expects array\<int, float\>, array\<float\> given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Tests/Fuzzy/Domain/EmbeddingResponseFuzzyTest.php
+
+		-
+			message: '#^Parameter \$embeddings of class Netresearch\\NrLlm\\Domain\\Model\\EmbeddingResponse constructor expects array\<int, array\<int, float\>\>, array\<int, array\> given\.$#'
+			identifier: argument.type
+			count: 3
 			path: ../../Tests/Fuzzy/Domain/EmbeddingResponseFuzzyTest.php
 
 		-
@@ -247,8 +1525,38 @@ parameters:
 			path: ../../Tests/Integration/Provider/ClaudeProviderIntegrationTest.php
 
 		-
+			message: '#^Parameter \#1 \$body of method Netresearch\\NrLlm\\Tests\\Integration\\AbstractIntegrationTestCase\:\:createSuccessResponse\(\) expects array\<string, mixed\>, array given\.$#'
+			identifier: argument.type
+			count: 6
+			path: ../../Tests/Integration/Provider/ClaudeProviderIntegrationTest.php
+
+		-
+			message: '#^Parameter \#1 \$responses of method Netresearch\\NrLlm\\Tests\\Integration\\AbstractIntegrationTestCase\:\:createHttpClientWithResponses\(\) expects array\<Psr\\Http\\Message\\ResponseInterface\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Integration/Provider/ClaudeProviderIntegrationTest.php
+
+		-
+			message: '#^Cannot access offset ''temperature'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/Integration/Provider/OpenAiProviderIntegrationTest.php
+
+		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Integration\\Provider\\OpenAiProviderIntegrationTest\:\:createProvider\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Integration/Provider/OpenAiProviderIntegrationTest.php
+
+		-
+			message: '#^Parameter \#1 \$body of method Netresearch\\NrLlm\\Tests\\Integration\\AbstractIntegrationTestCase\:\:createSuccessResponse\(\) expects array\<string, mixed\>, array given\.$#'
+			identifier: argument.type
+			count: 6
+			path: ../../Tests/Integration/Provider/OpenAiProviderIntegrationTest.php
+
+		-
+			message: '#^Parameter \#1 \$responses of method Netresearch\\NrLlm\\Tests\\Integration\\AbstractIntegrationTestCase\:\:createHttpClientWithResponses\(\) expects array\<Psr\\Http\\Message\\ResponseInterface\>, array given\.$#'
+			identifier: argument.type
 			count: 1
 			path: ../../Tests/Integration/Provider/OpenAiProviderIntegrationTest.php
 
@@ -257,6 +1565,18 @@ parameters:
 			identifier: property.unused
 			count: 1
 			path: ../../Tests/Integration/Provider/OpenAiProviderIntegrationTest.php
+
+		-
+			message: '#^Cannot access offset ''max_tokens'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/Integration/Service/LlmServiceManagerIntegrationTest.php
+
+		-
+			message: '#^Cannot access offset ''temperature'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/Integration/Service/LlmServiceManagerIntegrationTest.php
 
 		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Integration\\Service\\LlmServiceManagerIntegrationTest\:\:createConfiguredClaudeProvider\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
@@ -268,6 +1588,18 @@ parameters:
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Integration\\Service\\LlmServiceManagerIntegrationTest\:\:createConfiguredOpenAiProvider\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
+			path: ../../Tests/Integration/Service/LlmServiceManagerIntegrationTest.php
+
+		-
+			message: '#^Parameter \#1 \$body of method Netresearch\\NrLlm\\Tests\\Integration\\AbstractIntegrationTestCase\:\:createSuccessResponse\(\) expects array\<string, mixed\>, array given\.$#'
+			identifier: argument.type
+			count: 5
+			path: ../../Tests/Integration/Service/LlmServiceManagerIntegrationTest.php
+
+		-
+			message: '#^Parameter \#1 \$responses of method Netresearch\\NrLlm\\Tests\\Integration\\AbstractIntegrationTestCase\:\:createHttpClientWithResponses\(\) expects array\<Psr\\Http\\Message\\ResponseInterface\>, array given\.$#'
+			identifier: argument.type
+			count: 2
 			path: ../../Tests/Integration/Service/LlmServiceManagerIntegrationTest.php
 
 		-
@@ -289,6 +1621,12 @@ parameters:
 			path: ../../Tests/Unit/AbstractUnitTestCase.php
 
 		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\AbstractUnitTestCase\:\:randomModel\(\) should return string but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Tests/Unit/AbstractUnitTestCase.php
+
+		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Domain\\Model\\CompletionResponseTest\:\:completeFinishReasonProvider\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -298,6 +1636,12 @@ parameters:
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Domain\\Model\\EmbeddingResponseTest\:\:createSampleEmbedding\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
+			path: ../../Tests/Unit/Domain/Model/EmbeddingResponseTest.php
+
+		-
+			message: '#^Parameter \$embeddings of class Netresearch\\NrLlm\\Domain\\Model\\EmbeddingResponse constructor expects array\<int, array\<int, float\>\>, array\<int, array\> given\.$#'
+			identifier: argument.type
+			count: 4
 			path: ../../Tests/Unit/Domain/Model/EmbeddingResponseTest.php
 
 		-
@@ -315,6 +1659,12 @@ parameters:
 		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Provider\\AbstractProviderConfigureTest\:\:timeoutValuesProvider\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Provider/AbstractProviderConfigureTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
 			count: 1
 			path: ../../Tests/Unit/Provider/AbstractProviderConfigureTest.php
 
@@ -337,6 +1687,12 @@ parameters:
 			path: ../../Tests/Unit/Provider/ClaudeProviderMutationTest.php
 
 		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Provider/ClaudeProviderMutationTest.php
+
+		-
 			message: '#^Call to an undefined method Psr\\Http\\Client\\ClientInterface\:\:method\(\)\.$#'
 			identifier: method.notFound
 			count: 5
@@ -346,6 +1702,12 @@ parameters:
 			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, string\> will always evaluate to true\.$#'
 			identifier: staticMethod.alreadyNarrowedType
 			count: 1
+			path: ../../Tests/Unit/Provider/ClaudeProviderTest.php
+
+		-
+			message: '#^Cannot call method willReturn\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 5
 			path: ../../Tests/Unit/Provider/ClaudeProviderTest.php
 
 		-
@@ -361,6 +1723,12 @@ parameters:
 			path: ../../Tests/Unit/Provider/OpenAiProviderMutationTest.php
 
 		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Provider/OpenAiProviderMutationTest.php
+
+		-
 			message: '#^Call to an undefined method Psr\\Http\\Client\\ClientInterface\:\:method\(\)\.$#'
 			identifier: method.notFound
 			count: 8
@@ -370,6 +1738,12 @@ parameters:
 			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, string\> will always evaluate to true\.$#'
 			identifier: staticMethod.alreadyNarrowedType
 			count: 1
+			path: ../../Tests/Unit/Provider/OpenAiProviderTest.php
+
+		-
+			message: '#^Cannot call method willReturn\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 8
 			path: ../../Tests/Unit/Provider/OpenAiProviderTest.php
 
 		-
@@ -391,6 +1765,36 @@ parameters:
 			path: ../../Tests/Unit/Provider/OpenRouterProviderMutationTest.php
 
 		-
+			message: '#^Parameter \#1 \$array of function array_values expects array\<T\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Provider/OpenRouterProviderMutationTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertContains\(\) expects iterable, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Tests/Unit/Provider/OpenRouterProviderMutationTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertCount\(\) expects Countable\|iterable, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Provider/OpenRouterProviderMutationTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertNotContains\(\) expects iterable, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Provider/OpenRouterProviderMutationTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Provider/OpenRouterProviderMutationTest.php
+
+		-
 			message: '#^Call to an undefined method Psr\\Http\\Client\\ClientInterface\:\:method\(\)\.$#'
 			identifier: method.notFound
 			count: 4
@@ -403,10 +1807,34 @@ parameters:
 			path: ../../Tests/Unit/Provider/OpenRouterProviderTest.php
 
 		-
+			message: '#^Cannot call method willReturn\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: ../../Tests/Unit/Provider/OpenRouterProviderTest.php
+
+		-
+			message: '#^Cannot call method willReturnOnConsecutiveCalls\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Unit/Provider/OpenRouterProviderTest.php
+
+		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Provider\\OpenRouterProviderTest\:\:routingStrategyProvider\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: ../../Tests/Unit/Provider/OpenRouterProviderTest.php
+
+		-
+			message: '#^Parameter \#1 \$haystack of function str_contains expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Tests/Unit/Service/CacheManagerMutationTest.php
+
+		-
+			message: '#^Parameter \#1 \$haystack of function str_starts_with expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Service/CacheManagerMutationTest.php
 
 		-
 			message: '#^Call to an undefined method TYPO3\\CMS\\Core\\Cache\\Frontend\\FrontendInterface\:\:method\(\)\.$#'
@@ -415,10 +1843,112 @@ parameters:
 			path: ../../Tests/Unit/Service/CacheManagerTest.php
 
 		-
+			message: '#^Cannot call method cacheCompletion\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Cannot call method cacheEmbeddings\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Cannot call method expects\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 11
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Cannot call method flush\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Cannot call method flushByProvider\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Cannot call method flushByTag\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Cannot call method get\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Cannot call method has\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Cannot call method method\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 11
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Cannot call method remove\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Cannot call method set\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Cannot call method willReturn\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 8
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Cannot call method with\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 10
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Service\\CacheManagerTest\:\:createSubjectWithMockFrontend\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Parameter \#2 \$string of static method PHPUnit\\Framework\\Assert\:\:assertStringStartsWith\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Service/CacheManagerTest.php
+
+		-
+			message: '#^Cannot access offset ''content'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: ../../Tests/Unit/Service/Feature/CompletionServiceMutationTest.php
+
+		-
+			message: '#^Cannot access offset ''role'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 5
+			path: ../../Tests/Unit/Service/Feature/CompletionServiceMutationTest.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: ../../Tests/Unit/Service/Feature/CompletionServiceMutationTest.php
 
 		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Service\\Feature\\CompletionServiceMutationTest\:\:invalidTemperatureProvider\(\) return type has no value type specified in iterable type array\.$#'
@@ -448,6 +1978,18 @@ parameters:
 			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, mixed\> will always evaluate to true\.$#'
 			identifier: staticMethod.alreadyNarrowedType
 			count: 1
+			path: ../../Tests/Unit/Service/Feature/CompletionServiceTest.php
+
+		-
+			message: '#^Cannot access offset ''content'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: ../../Tests/Unit/Service/Feature/CompletionServiceTest.php
+
+		-
+			message: '#^Cannot access offset ''role'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
 			path: ../../Tests/Unit/Service/Feature/CompletionServiceTest.php
 
 		-
@@ -487,6 +2029,24 @@ parameters:
 			path: ../../Tests/Unit/Service/Feature/EmbeddingServiceMutationTest.php
 
 		-
+			message: '#^Parameter \#1 \$vectorA of method Netresearch\\NrLlm\\Service\\Feature\\EmbeddingService\:\:cosineSimilarity\(\) expects array\<int, float\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Service/Feature/EmbeddingServiceMutationTest.php
+
+		-
+			message: '#^Parameter \#2 \$vectorB of method Netresearch\\NrLlm\\Service\\Feature\\EmbeddingService\:\:cosineSimilarity\(\) expects array\<int, float\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Service/Feature/EmbeddingServiceMutationTest.php
+
+		-
+			message: '#^Parameter \$embeddings of class Netresearch\\NrLlm\\Domain\\Model\\EmbeddingResponse constructor expects array\<int, array\<int, float\>\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Service/Feature/EmbeddingServiceMutationTest.php
+
+		-
 			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\<int, float\>\> will always evaluate to true\.$#'
 			identifier: staticMethod.alreadyNarrowedType
 			count: 1
@@ -499,10 +2059,70 @@ parameters:
 			path: ../../Tests/Unit/Service/Feature/EmbeddingServiceTest.php
 
 		-
+			message: '#^Parameter \$embeddings of class Netresearch\\NrLlm\\Domain\\Model\\EmbeddingResponse constructor expects array\<int, array\<int, float\>\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Service/Feature/EmbeddingServiceTest.php
+
+		-
+			message: '#^Cannot access offset ''detail'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Tests/Unit/Service/Feature/VisionServiceMutationTest.php
+
+		-
+			message: '#^Cannot access offset ''image_url'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: ../../Tests/Unit/Service/Feature/VisionServiceMutationTest.php
+
+		-
+			message: '#^Cannot access offset ''text'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Tests/Unit/Service/Feature/VisionServiceMutationTest.php
+
+		-
+			message: '#^Cannot access offset ''type'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Tests/Unit/Service/Feature/VisionServiceMutationTest.php
+
+		-
+			message: '#^Cannot access offset ''url'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/Unit/Service/Feature/VisionServiceMutationTest.php
+
+		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Service\\Feature\\VisionServiceMutationTest\:\:validBase64DataUriProvider\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: ../../Tests/Unit/Service/Feature/VisionServiceMutationTest.php
+
+		-
+			message: '#^Cannot access offset ''detail'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/Unit/Service/Feature/VisionServiceTest.php
+
+		-
+			message: '#^Cannot access offset ''image_url'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/Unit/Service/Feature/VisionServiceTest.php
+
+		-
+			message: '#^Cannot access offset ''text'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/Unit/Service/Feature/VisionServiceTest.php
+
+		-
+			message: '#^Cannot access offset ''type'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Tests/Unit/Service/Feature/VisionServiceTest.php
 
 		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Service\\LlmServiceManagerMutationTest\:\:createManager\(\) has parameter \$config with no value type specified in iterable type array\.$#'
@@ -697,6 +2317,18 @@ parameters:
 			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorOptionsTest.php
 
 		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorOptionsTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringNotContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorOptionsTest.php
+
+		-
 			message: '#^Call to an undefined method Psr\\Http\\Client\\ClientInterface\:\:method\(\)\.$#'
 			identifier: method.notFound
 			count: 9
@@ -706,6 +2338,12 @@ parameters:
 			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, string\> will always evaluate to true\.$#'
 			identifier: staticMethod.alreadyNarrowedType
 			count: 1
+			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorTest.php
+
+		-
+			message: '#^Cannot call method willReturn\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 9
 			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorTest.php
 
 		-
@@ -731,3 +2369,27 @@ parameters:
 			identifier: staticMethod.alreadyNarrowedType
 			count: 4
 			path: ../../Tests/Unit/Specialized/Translation/TranslatorResultTest.php
+
+		-
+			message: '#^Cannot access offset ''SYS'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../ext_localconf.php
+
+		-
+			message: '#^Cannot access offset ''cacheConfigurations'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../ext_localconf.php
+
+		-
+			message: '#^Cannot access offset ''caching'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../ext_localconf.php
+
+		-
+			message: '#^Cannot access offset ''nrllm_responses'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../ext_localconf.php
