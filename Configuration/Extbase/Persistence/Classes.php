@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+
 /*
  * Extbase persistence configuration for nr_llm.
  *
@@ -9,7 +11,7 @@ declare(strict_types=1);
  * the default Extbase naming convention.
  */
 return [
-    \Netresearch\NrLlm\Domain\Model\LlmConfiguration::class => [
+    LlmConfiguration::class => [
         'tableName' => 'tx_nrllm_configuration',
     ],
 ];

@@ -353,7 +353,7 @@ trait ResponseParserTrait
         $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
 
         if (!is_array($decoded)) {
-            throw new InvalidArgumentException('Expected JSON object, got ' . gettype($decoded));
+            throw new InvalidArgumentException('Expected JSON object, got ' . gettype($decoded), 8142137949);
         }
 
         /** @var array<string, mixed> $decoded */
