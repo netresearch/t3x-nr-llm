@@ -20,6 +20,8 @@ use Throwable;
 
 abstract class AbstractProvider implements ProviderInterface
 {
+    use ResponseParserTrait;
+
     protected const FEATURE_CHAT = 'chat';
     protected const FEATURE_COMPLETION = 'completion';
     protected const FEATURE_EMBEDDINGS = 'embeddings';
@@ -52,11 +54,11 @@ abstract class AbstractProvider implements ProviderInterface
      */
     public function configure(array $config): void
     {
-        $this->apiKey = (string)($config['apiKey'] ?? '');
-        $this->baseUrl = (string)($config['baseUrl'] ?? $this->getDefaultBaseUrl());
-        $this->defaultModel = (string)($config['defaultModel'] ?? $this->getDefaultModel());
-        $this->timeout = (int)($config['timeout'] ?? 30);
-        $this->maxRetries = (int)($config['maxRetries'] ?? 3);
+        $this->apiKey = $this->getString($config, 'apiKey');
+        $this->baseUrl = $this->getString($config, 'baseUrl', $this->getDefaultBaseUrl());
+        $this->defaultModel = $this->getString($config, 'defaultModel', $this->getDefaultModel());
+        $this->timeout = $this->getInt($config, 'timeout', 30);
+        $this->maxRetries = $this->getInt($config, 'maxRetries', 3);
 
         $this->validateConfiguration();
     }
@@ -115,12 +117,14 @@ abstract class AbstractProvider implements ProviderInterface
 
                 if ($statusCode >= 200 && $statusCode < 300) {
                     $body = (string)$response->getBody();
-                    return json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+
+                    return $this->decodeJsonResponse($body);
                 }
 
                 if ($statusCode >= 400 && $statusCode < 500) {
                     $body = (string)$response->getBody();
-                    $error = json_decode($body, true) ?? ['error' => ['message' => 'Unknown error']];
+                    $decoded = json_decode($body, true);
+                    $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => 'Unknown error']];
                     throw new ProviderResponseException(
                         $this->extractErrorMessage($error),
                         $statusCode,
@@ -161,10 +165,28 @@ abstract class AbstractProvider implements ProviderInterface
      */
     protected function extractErrorMessage(array $error): string
     {
-        return $error['error']['message']
-            ?? $error['error']
-            ?? $error['message']
-            ?? 'Unknown provider error';
+        // Try nested error.message first (OpenAI format)
+        $nestedError = $this->getArray($error, 'error');
+        if ($nestedError !== []) {
+            $message = $this->getNullableString($nestedError, 'message');
+            if ($message !== null) {
+                return $message;
+            }
+
+            // Sometimes error is just a string
+            $errorValue = $error['error'] ?? null;
+            if (is_string($errorValue)) {
+                return $errorValue;
+            }
+        }
+
+        // Try direct message (some providers)
+        $message = $this->getNullableString($error, 'message');
+        if ($message !== null) {
+            return $message;
+        }
+
+        return 'Unknown provider error';
     }
 
     protected function validateConfiguration(): void

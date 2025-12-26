@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Psr\Http\Message\ResponseInterface;
@@ -72,10 +73,10 @@ final class LlmModuleController extends ActionController
     public function executeTestAction(): ResponseInterface
     {
         $body = $this->request->getParsedBody();
-        $provider = $body['provider'] ?? null;
-        $prompt = $body['prompt'] ?? 'Hello, please respond with a brief greeting.';
+        $provider = $this->extractStringFromBody($body, 'provider');
+        $prompt = $this->extractStringFromBody($body, 'prompt', 'Hello, please respond with a brief greeting.');
 
-        if (!$provider) {
+        if ($provider === '') {
             return new JsonResponse(['error' => 'No provider specified'], 400);
         }
 
@@ -102,9 +103,23 @@ final class LlmModuleController extends ActionController
     }
 
     /**
+     * Extract string value from request body.
+     */
+    private function extractStringFromBody(mixed $body, string $key, string $default = ''): string
+    {
+        if (!is_array($body)) {
+            return $default;
+        }
+
+        $value = $body[$key] ?? $default;
+
+        return is_string($value) || is_numeric($value) ? (string)$value : $default;
+    }
+
+    /**
      * @return array<string, bool>
      */
-    private function getProviderFeatures(?object $provider): array
+    private function getProviderFeatures(?ProviderInterface $provider): array
     {
         if ($provider === null) {
             return [];

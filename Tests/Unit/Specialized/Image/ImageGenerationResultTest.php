@@ -298,6 +298,7 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
 
         $dataUrl = $result->toDataUrl();
 
+        self::assertNotNull($dataUrl);
         self::assertStringStartsWith('data:image/png;base64,', $dataUrl);
         self::assertStringContainsString($base64, $dataUrl);
     }

@@ -153,7 +153,7 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
     {
         $this->setUpAdminUser();
 
-        $config = $this->repository->findByIdentifier('restricted-config');
+        $config = $this->repository->findOneByIdentifier('restricted-config');
         self::assertNotNull($config);
 
         self::assertTrue($this->subject->hasAccess($config));
@@ -164,7 +164,7 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
     {
         $this->setUpEditorUser();
 
-        $config = $this->repository->findByIdentifier('default-config');
+        $config = $this->repository->findOneByIdentifier('default-config');
         self::assertNotNull($config);
 
         // Default config has no restrictions
@@ -176,7 +176,7 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
     {
         unset($GLOBALS['BE_USER']);
 
-        $config = $this->repository->findByIdentifier('default-config');
+        $config = $this->repository->findOneByIdentifier('default-config');
         self::assertNotNull($config);
 
         self::assertFalse($this->subject->hasAccess($config));
@@ -188,7 +188,7 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         $this->setUpAdminUser();
 
         // Get creative config and make it default
-        $config = $this->repository->findByIdentifier('creative-config');
+        $config = $this->repository->findOneByIdentifier('creative-config');
         self::assertNotNull($config);
         self::assertFalse($config->isDefault());
 
@@ -199,7 +199,8 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         self::assertEquals('creative-config', $newDefault->getIdentifier());
 
         // Verify old default is no longer default
-        $oldDefault = $this->repository->findByIdentifier('default-config');
+        $oldDefault = $this->repository->findOneByIdentifier('default-config');
+        self::assertNotNull($oldDefault);
         self::assertFalse($oldDefault->isDefault());
     }
 
@@ -208,14 +209,15 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
     {
         $this->setUpAdminUser();
 
-        $config = $this->repository->findByIdentifier('creative-config');
+        $config = $this->repository->findOneByIdentifier('creative-config');
         self::assertNotNull($config);
         self::assertTrue($config->isActive());
 
         $this->subject->toggleActive($config);
 
         // Reload to verify persistence
-        $reloaded = $this->repository->findByIdentifier('creative-config');
+        $reloaded = $this->repository->findOneByIdentifier('creative-config');
+        self::assertNotNull($reloaded);
         self::assertFalse($reloaded->isActive());
     }
 
@@ -234,7 +236,7 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
 
         $this->subject->create($config);
 
-        $retrieved = $this->repository->findByIdentifier('new-service-config');
+        $retrieved = $this->repository->findOneByIdentifier('new-service-config');
         self::assertNotNull($retrieved);
         self::assertEquals('New Service Configuration', $retrieved->getName());
     }
@@ -244,13 +246,14 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
     {
         $this->setUpAdminUser();
 
-        $config = $this->repository->findByIdentifier('creative-config');
+        $config = $this->repository->findOneByIdentifier('creative-config');
         self::assertNotNull($config);
 
         $config->setName('Updated via Service');
         $this->subject->update($config);
 
-        $retrieved = $this->repository->findByIdentifier('creative-config');
+        $retrieved = $this->repository->findOneByIdentifier('creative-config');
+        self::assertNotNull($retrieved);
         self::assertEquals('Updated via Service', $retrieved->getName());
     }
 
@@ -259,12 +262,12 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
     {
         $this->setUpAdminUser();
 
-        $config = $this->repository->findByIdentifier('creative-config');
+        $config = $this->repository->findOneByIdentifier('creative-config');
         self::assertNotNull($config);
 
         $this->subject->delete($config);
 
-        $retrieved = $this->repository->findByIdentifier('creative-config');
+        $retrieved = $this->repository->findOneByIdentifier('creative-config');
         self::assertNull($retrieved);
     }
 

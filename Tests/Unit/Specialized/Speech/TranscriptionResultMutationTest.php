@@ -287,7 +287,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
         $lines = explode("\n", $srt);
 
         // Find index lines (first line of each subtitle block)
-        $indices = array_filter($lines, fn($line) => preg_match('/^\d+$/', (string)$line));
+        $indices = array_filter($lines, static fn(string $line): bool => preg_match('/^\d+$/', $line) === 1);
         $indices = array_values($indices);
 
         self::assertEquals('1', $indices[0]);

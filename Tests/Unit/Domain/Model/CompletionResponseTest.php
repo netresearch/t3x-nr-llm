@@ -224,6 +224,7 @@ class CompletionResponseTest extends AbstractUnitTestCase
             toolCalls: $toolCalls,
         );
 
+        self::assertNotNull($response->toolCalls);
         self::assertCount(3, $response->toolCalls);
         self::assertEquals('call_2', $response->toolCalls[1]['id']);
     }

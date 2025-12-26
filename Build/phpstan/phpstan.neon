@@ -2,8 +2,11 @@
 # Based on TYPO3 Best Practices: https://github.com/TYPO3BestPractices/tea
 #
 # This configuration enforces:
-# - Level 6 strict analysis
+# - Level 10 maximum analysis (strictest type checking)
 # - PHP 8.5 compatibility
+#
+# Level 10 enforces complete type safety for all mixed types.
+# Baseline ignores specific patterns that cannot be typed (TYPO3 globals, etc.)
 
 includes:
   - phpstan-baseline.neon
@@ -17,7 +20,8 @@ parameters:
     maximumNumberOfProcesses: 5
 
   # Analysis level (0-10, higher is stricter)
-  level: 6
+  # Level 10 is maximum strictness - full type safety enforcement
+  level: 10
 
   # Paths to analyze
   paths:

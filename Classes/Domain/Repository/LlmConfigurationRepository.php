@@ -148,6 +148,9 @@ class LlmConfigurationRepository extends Repository
     {
         $configurations = $this->findAll();
         foreach ($configurations as $configuration) {
+            if (!$configuration instanceof LlmConfiguration) {
+                continue;
+            }
             if ($configuration->isDefault()) {
                 $configuration->setIsDefault(false);
                 $this->update($configuration);
