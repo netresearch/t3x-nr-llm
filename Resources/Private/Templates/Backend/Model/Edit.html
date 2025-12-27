@@ -1,0 +1,270 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <h1>
+        <f:if condition="{isNew}">
+            <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.edit.new" default="New LLM Model" /></f:then>
+            <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.edit.edit" default="Edit Model" />: {model.name}</f:else>
+        </f:if>
+    </h1>
+
+    <f:if condition="{isNew}">
+        <f:then>
+            <f:form action="create" method="post">
+                <f:render section="FormFields" arguments="{_all}" />
+            </f:form>
+        </f:then>
+        <f:else>
+            <f:form action="update" method="post" arguments="{uid: model.uid}">
+                <f:render section="FormFields" arguments="{_all}" />
+            </f:form>
+        </f:else>
+    </f:if>
+</f:section>
+
+<f:section name="FormFields">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Identity Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title">Identity</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="identifier">Identifier *</label>
+                        <div class="col-sm-9">
+                            <input type="text" class="form-control" id="identifier"
+                                   name="model[identifier]"
+                                   value="{model.identifier}"
+                                   required
+                                   pattern="[a-z0-9_-]+"
+                                   placeholder="gpt4o_openai" />
+                            <small class="form-text text-body-secondary">Unique technical identifier (lowercase, no spaces)</small>
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="name">Name *</label>
+                        <div class="col-sm-9">
+                            <input type="text" class="form-control" id="name"
+                                   name="model[name]"
+                                   value="{model.name}"
+                                   required
+                                   placeholder="GPT-4o" />
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="description">Description</label>
+                        <div class="col-sm-9">
+                            <textarea class="form-control" id="description"
+                                      name="model[description]"
+                                      rows="2"
+                                      placeholder="Optional description">{model.description}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Provider & Model Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title">Provider &amp; Model</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="providerUid">Provider *</label>
+                        <div class="col-sm-9">
+                            <select class="form-control form-select" id="providerUid"
+                                    name="model[providerUid]"
+                                    required>
+                                <option value="">-- Select Provider --</option>
+                                <f:for each="{providers}" as="provider">
+                                    <option value="{provider.uid}"
+                                            {f:if(condition: '{model.providerUid} == {provider.uid}', then: 'selected')}>
+                                        {provider.name} ({provider.adapterName})
+                                    </option>
+                                </f:for>
+                            </select>
+                            <small class="form-text text-body-secondary">The API provider for this model</small>
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="modelId">Model ID *</label>
+                        <div class="col-sm-9">
+                            <input type="text" class="form-control" id="modelId"
+                                   name="model[modelId]"
+                                   value="{model.modelId}"
+                                   required
+                                   placeholder="gpt-4o" />
+                            <small class="form-text text-body-secondary">The model identifier as used in API calls</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Capabilities Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title">Capabilities</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label">Supported Features</label>
+                        <div class="col-sm-9">
+                            <f:for each="{capabilities}" as="label" key="value">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="cap_{value}"
+                                           name="model[capabilities][]" value="{value}"
+                                           {f:if(condition: '{model.capabilitiesArray}', then: '')}>
+                                    <label class="form-check-label" for="cap_{value}">{label}</label>
+                                </div>
+                            </f:for>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Limits Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title">Model Limits</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="contextLength">Context Length</label>
+                        <div class="col-sm-9">
+                            <input type="number" class="form-control" id="contextLength"
+                                   name="model[contextLength]"
+                                   value="{f:if(condition: model, then: model.contextLength, else: '0')}"
+                                   min="0" />
+                            <small class="form-text text-body-secondary">Maximum context window in tokens (0 = unknown)</small>
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="maxOutputTokens">Max Output Tokens</label>
+                        <div class="col-sm-9">
+                            <input type="number" class="form-control" id="maxOutputTokens"
+                                   name="model[maxOutputTokens]"
+                                   value="{f:if(condition: model, then: model.maxOutputTokens, else: '0')}"
+                                   min="0" />
+                            <small class="form-text text-body-secondary">Maximum output tokens per request (0 = unknown)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pricing Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title">Pricing</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="costInput">Input Cost</label>
+                        <div class="col-sm-9">
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="costInput"
+                                       name="model[costInput]"
+                                       value="{f:if(condition: model, then: model.costInput, else: '0')}"
+                                       min="0" />
+                                <span class="input-group-text">cents / 1M tokens</span>
+                            </div>
+                            <small class="form-text text-body-secondary">Cost per 1 million input tokens in cents</small>
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="costOutput">Output Cost</label>
+                        <div class="col-sm-9">
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="costOutput"
+                                       name="model[costOutput]"
+                                       value="{f:if(condition: model, then: model.costOutput, else: '0')}"
+                                       min="0" />
+                                <span class="input-group-text">cents / 1M tokens</span>
+                            </div>
+                            <small class="form-text text-body-secondary">Cost per 1 million output tokens in cents</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Status Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title">Status</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-check mb-3">
+                        <input type="hidden" name="model[isActive]" value="0" />
+                        <input type="checkbox" class="form-check-input" id="isActive"
+                               name="model[isActive]" value="1"
+                               {f:if(condition: '{model.isActive} || {isNew}', then: 'checked')} />
+                        <label class="form-check-label" for="isActive">Active</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="hidden" name="model[isDefault]" value="0" />
+                        <input type="checkbox" class="form-check-input" id="isDefault"
+                               name="model[isDefault]" value="1"
+                               {f:if(condition: model.isDefault, then: 'checked')} />
+                        <label class="form-check-label" for="isDefault">Default Model</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <button type="submit" class="btn btn-primary btn-block mb-2">
+                        <core:icon identifier="actions-save" />
+                        <f:if condition="{isNew}">
+                            <f:then>Create Model</f:then>
+                            <f:else>Save Model</f:else>
+                        </f:if>
+                    </button>
+                    <f:link.action action="list" class="btn btn-default btn-block">
+                        Cancel
+                    </f:link.action>
+                </div>
+            </div>
+
+            <!-- Common Models Reference -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h3 class="card-title">Common Model IDs</h3>
+                </div>
+                <div class="card-body">
+                    <h5>OpenAI</h5>
+                    <ul class="list-unstyled small text-body-secondary mb-3">
+                        <li>gpt-4.5-preview</li>
+                        <li>gpt-4o</li>
+                        <li>gpt-4o-mini</li>
+                        <li>o3-mini</li>
+                        <li>o1</li>
+                    </ul>
+                    <h5>Anthropic</h5>
+                    <ul class="list-unstyled small text-body-secondary mb-3">
+                        <li>claude-opus-4-20250514</li>
+                        <li>claude-sonnet-4-20250514</li>
+                        <li>claude-3-7-sonnet-20250219</li>
+                        <li>claude-3-5-haiku-20241022</li>
+                    </ul>
+                    <h5>Google</h5>
+                    <ul class="list-unstyled small text-body-secondary mb-0">
+                        <li>gemini-2.5-pro</li>
+                        <li>gemini-2.5-flash</li>
+                        <li>gemini-2.0-flash</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</f:section>
+
+</html>
