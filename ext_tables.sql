@@ -1,4 +1,92 @@
 #
+# Table structure for table 'tx_nrllm_provider'
+# API provider connections (endpoint, credentials, adapter type)
+#
+CREATE TABLE tx_nrllm_provider (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    -- Identity
+    identifier varchar(100) DEFAULT '' NOT NULL,
+    name varchar(255) DEFAULT '' NOT NULL,
+    description text,
+
+    -- Connection settings
+    adapter_type varchar(50) DEFAULT '' NOT NULL,
+    endpoint_url varchar(500) DEFAULT '' NOT NULL,
+    api_key varchar(500) DEFAULT '' NOT NULL,
+    organization_id varchar(100) DEFAULT '' NOT NULL,
+
+    -- Request settings
+    timeout int(11) DEFAULT '30' NOT NULL,
+    max_retries int(11) DEFAULT '3' NOT NULL,
+
+    -- Additional options (JSON)
+    options text,
+
+    -- Status
+    is_active tinyint(1) DEFAULT '1' NOT NULL,
+    sorting int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Standard TYPO3 fields
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    cruser_id int(11) unsigned DEFAULT '0' NOT NULL,
+    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
+    hidden tinyint(4) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    UNIQUE KEY identifier (identifier, deleted)
+);
+
+#
+# Table structure for table 'tx_nrllm_model'
+# Available LLM models with capabilities and pricing
+#
+CREATE TABLE tx_nrllm_model (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    -- Identity
+    identifier varchar(100) DEFAULT '' NOT NULL,
+    name varchar(255) DEFAULT '' NOT NULL,
+    description text,
+
+    -- Provider relation
+    provider_uid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Model settings
+    model_id varchar(150) DEFAULT '' NOT NULL,
+    context_length int(11) unsigned DEFAULT '0' NOT NULL,
+    max_output_tokens int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Capabilities (comma-separated: chat,completion,embeddings,vision,streaming,tools)
+    capabilities varchar(255) DEFAULT '' NOT NULL,
+
+    -- Pricing (cents per 1M tokens)
+    cost_input int(11) unsigned DEFAULT '0' NOT NULL,
+    cost_output int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Status
+    is_active tinyint(1) DEFAULT '1' NOT NULL,
+    is_default tinyint(1) DEFAULT '0' NOT NULL,
+    sorting int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Standard TYPO3 fields
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    cruser_id int(11) unsigned DEFAULT '0' NOT NULL,
+    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
+    hidden tinyint(4) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY provider_uid (provider_uid),
+    UNIQUE KEY identifier (identifier, deleted)
+);
+
+#
 # Table structure for table 'tx_nrllm_configuration'
 # Named LLM configuration presets with provider, model, parameters, and access control
 #
@@ -11,7 +99,10 @@ CREATE TABLE tx_nrllm_configuration (
     name varchar(255) DEFAULT '' NOT NULL,
     description text,
 
-    -- Provider configuration
+    -- Model relation (new multi-tier architecture)
+    model_uid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Provider configuration (deprecated - kept for migration)
     provider varchar(50) DEFAULT '' NOT NULL,
     model varchar(100) DEFAULT '' NOT NULL,
     translator varchar(50) DEFAULT '' NOT NULL,
@@ -47,6 +138,7 @@ CREATE TABLE tx_nrllm_configuration (
 
     PRIMARY KEY (uid),
     KEY parent (pid),
+    KEY model_uid (model_uid),
     UNIQUE KEY identifier (identifier, deleted)
 );
 
