@@ -73,19 +73,8 @@ $GLOBALS['TYPO3_CONF_VARS']['GFX']['processor_path'] = '/usr/bin/';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['features']['security.backend.enforceReferrer'] = false;
 
-// Valkey (Redis-compatible) caching for performance
-$GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['hash'] = [
-    'backend' => \TYPO3\CMS\Core\Cache\Backend\RedisBackend::class,
-    'options' => ['hostname' => 'valkey', 'port' => 6379, 'database' => 0],
-];
-$GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['pages'] = [
-    'backend' => \TYPO3\CMS\Core\Cache\Backend\RedisBackend::class,
-    'options' => ['hostname' => 'valkey', 'port' => 6379, 'database' => 1],
-];
-$GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['rootline'] = [
-    'backend' => \TYPO3\CMS\Core\Cache\Backend\RedisBackend::class,
-    'options' => ['hostname' => 'valkey', 'port' => 6379, 'database' => 2],
-];
+// Note: Valkey caching disabled - requires php-redis extension
+// Use default file-based caching for development
 EOF
 
 # Setup extensions

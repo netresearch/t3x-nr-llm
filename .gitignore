@@ -24,6 +24,12 @@ coverage/
 infection.log
 infection-log.json
 
+# Playwright E2E tests
+Tests/E2E/Playwright/test-results/
+Tests/E2E/Playwright/reports/
+playwright-report/
+test-results/
+
 # Temporary files
 *.tmp
 *.cache
