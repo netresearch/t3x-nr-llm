@@ -135,6 +135,206 @@
             <trans-unit id="tx_nrllm_configuration.allowed_groups.description">
                 <source>If empty, configuration is accessible to all users with LLM permissions</source>
             </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.model_uid">
+                <source>Model</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.model_uid.description">
+                <source>Select a configured LLM model</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.provider.deprecated">
+                <source>Legacy field - use Model selection instead</source>
+            </trans-unit>
+
+            <trans-unit id="palette.legacy_provider">
+                <source>Legacy Provider (deprecated)</source>
+            </trans-unit>
+
+            <!-- Provider Table -->
+            <trans-unit id="tx_nrllm_provider">
+                <source>LLM API Provider</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_provider.identifier">
+                <source>Identifier</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.identifier.description">
+                <source>Unique technical identifier (lowercase, no spaces)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_provider.name">
+                <source>Name</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_provider.description">
+                <source>Description</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_provider.adapter_type">
+                <source>Adapter Type</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.description">
+                <source>The API protocol adapter to use</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_provider.endpoint_url">
+                <source>Endpoint URL</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.endpoint_url.description">
+                <source>Custom API endpoint URL (leave empty for default)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_provider.api_key">
+                <source>API Key</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.api_key.description">
+                <source>Your API key for authentication</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_provider.organization_id">
+                <source>Organization ID</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.organization_id.description">
+                <source>Optional organization ID (OpenAI, Azure)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_provider.timeout">
+                <source>Timeout (seconds)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.timeout.description">
+                <source>Request timeout in seconds</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_provider.max_retries">
+                <source>Max Retries</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.max_retries.description">
+                <source>Number of retry attempts on failure</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_provider.options">
+                <source>Additional Options</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.options.description">
+                <source>Additional provider-specific options as JSON</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_provider.is_active">
+                <source>Active</source>
+            </trans-unit>
+
+            <trans-unit id="palette.connection">
+                <source>Connection Settings</source>
+            </trans-unit>
+
+            <trans-unit id="palette.advanced">
+                <source>Advanced Settings</source>
+            </trans-unit>
+
+            <trans-unit id="tab.connection">
+                <source>Connection</source>
+            </trans-unit>
+
+            <trans-unit id="tab.advanced">
+                <source>Advanced</source>
+            </trans-unit>
+
+            <!-- Model Table -->
+            <trans-unit id="tx_nrllm_model">
+                <source>LLM Model</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.identifier">
+                <source>Identifier</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.identifier.description">
+                <source>Unique technical identifier (lowercase, no spaces)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.name">
+                <source>Name</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.description">
+                <source>Description</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.provider_uid">
+                <source>Provider</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.provider_uid.description">
+                <source>The API provider for this model</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.model_id">
+                <source>Model ID</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.model_id.description">
+                <source>The model identifier as used in API calls (e.g., gpt-4o, claude-3-5-sonnet)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.context_length">
+                <source>Context Length</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.context_length.description">
+                <source>Maximum context window in tokens (0 = unknown)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.max_output_tokens">
+                <source>Max Output Tokens</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.max_output_tokens.description">
+                <source>Maximum output tokens per request (0 = unknown)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.capabilities">
+                <source>Capabilities</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.description">
+                <source>Supported features of this model</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.cost_input">
+                <source>Input Cost</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.cost_input.description">
+                <source>Cost per 1 million input tokens in cents</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.cost_output">
+                <source>Output Cost</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.cost_output.description">
+                <source>Cost per 1 million output tokens in cents</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.is_active">
+                <source>Active</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.is_default">
+                <source>Default Model</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.is_default.description">
+                <source>Use as the default model for new configurations</source>
+            </trans-unit>
+
+            <trans-unit id="tab.capabilities">
+                <source>Capabilities</source>
+            </trans-unit>
+
+            <trans-unit id="tab.pricing">
+                <source>Pricing</source>
+            </trans-unit>
+
+            <trans-unit id="palette.model_limits">
+                <source>Model Limits</source>
+            </trans-unit>
+
+            <trans-unit id="palette.pricing">
+                <source>Pricing</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

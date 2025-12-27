@@ -1,291 +1,268 @@
 <html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
       xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
       data-namespace-typo3-fluid="true">
 
-<f:layout name="Backend/Default" />
+<f:layout name="Module" />
 
 <f:section name="Content">
-    <div class="module-docheader">
-        <h1>
-            <f:if condition="{isNew}">
-                <f:then>New LLM Configuration</f:then>
-                <f:else>Edit LLM Configuration: {configuration.name}</f:else>
-            </f:if>
-        </h1>
-    </div>
+    <h1>
+        <f:if condition="{isNew}">
+            <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.edit.new" default="New LLM Configuration" /></f:then>
+            <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.edit.edit" default="Edit LLM Configuration" />: {configuration.name}</f:else>
+        </f:if>
+    </h1>
 
-    <div class="container-fluid">
-        <div class="row mb-3">
-            <div class="col-12">
-                <f:link.action action="list" class="btn btn-default">
-                    <core:icon identifier="actions-view-go-back" /> Back to List
-                </f:link.action>
+    <f:if condition="{isNew}">
+        <f:then>
+            <f:form action="create" method="post">
+                <f:render section="FormFields" arguments="{_all}" />
+            </f:form>
+        </f:then>
+        <f:else>
+            <f:form action="update" method="post" arguments="{uid: configuration.uid}">
+                <f:render section="FormFields" arguments="{_all}" />
+            </f:form>
+        </f:else>
+    </f:if>
+</f:section>
+
+<f:section name="FormFields">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Identity Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title">Identity</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="identifier">Identifier *</label>
+                        <div class="col-sm-9">
+                            <input type="text" class="form-control" id="identifier"
+                                   name="configuration[identifier]"
+                                   value="{configuration.identifier}"
+                                   required
+                                   pattern="[a-z0-9_-]+"
+                                   placeholder="my_config_identifier" />
+                            <small class="form-text text-body-secondary">Unique technical identifier (lowercase, no spaces)</small>
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="name">Name *</label>
+                        <div class="col-sm-9">
+                            <input type="text" class="form-control" id="name"
+                                   name="configuration[name]"
+                                   value="{configuration.name}"
+                                   required
+                                   placeholder="My Configuration" />
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="description">Description</label>
+                        <div class="col-sm-9">
+                            <textarea class="form-control" id="description"
+                                      name="configuration[description]"
+                                      rows="2"
+                                      placeholder="Optional description">{configuration.description}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title">Model</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="modelUid">LLM Model *</label>
+                        <div class="col-sm-9">
+                            <select class="form-control form-select" id="modelUid"
+                                    name="configuration[modelUid]"
+                                    required>
+                                <option value="">-- Select Model --</option>
+                                <f:for each="{models}" as="modelItem">
+                                    <option value="{modelItem.uid}"
+                                            {f:if(condition: '{configuration.modelUid} == {modelItem.uid}', then: 'selected')}>
+                                        {modelItem.name} ({modelItem.provider.name} - {modelItem.modelId})
+                                    </option>
+                                </f:for>
+                            </select>
+                            <small class="form-text text-body-secondary">Select a configured model from the Models list</small>
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="translator">Translator</label>
+                        <div class="col-sm-9">
+                            <select class="form-control form-select" id="translator"
+                                    name="configuration[translator]">
+                                <option value="" {f:if(condition: '!{configuration.translator}', then: 'selected')}>None (use LLM)</option>
+                                <option value="deepl" {f:if(condition: '{configuration.translator} == "deepl"', then: 'selected')}>DeepL</option>
+                            </select>
+                            <small class="form-text text-body-secondary">Optional translation service override</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parameters Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title">Model Parameters</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="systemPrompt">System Prompt</label>
+                        <div class="col-sm-9">
+                            <textarea class="form-control" id="systemPrompt"
+                                      name="configuration[systemPrompt]"
+                                      rows="4"
+                                      placeholder="You are a helpful assistant...">{configuration.systemPrompt}</textarea>
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="temperature">Temperature</label>
+                        <div class="col-sm-9">
+                            <input type="number" class="form-control" id="temperature"
+                                   name="configuration[temperature]"
+                                   value="{f:if(condition: configuration, then: configuration.temperature, else: '0.7')}"
+                                   min="0" max="2" step="0.1" />
+                            <small class="form-text text-body-secondary">Controls randomness (0.0 = deterministic, 2.0 = very creative)</small>
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="maxTokens">Max Tokens</label>
+                        <div class="col-sm-9">
+                            <input type="number" class="form-control" id="maxTokens"
+                                   name="configuration[maxTokens]"
+                                   value="{f:if(condition: configuration, then: configuration.maxTokens, else: '1000')}"
+                                   min="1" max="128000" />
+                            <small class="form-text text-body-secondary">Maximum number of tokens in the response</small>
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="topP">Top P</label>
+                        <div class="col-sm-9">
+                            <input type="number" class="form-control" id="topP"
+                                   name="configuration[topP]"
+                                   value="{f:if(condition: configuration, then: configuration.topP, else: '1.0')}"
+                                   min="0" max="1" step="0.01" />
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="frequencyPenalty">Frequency Penalty</label>
+                        <div class="col-sm-9">
+                            <input type="number" class="form-control" id="frequencyPenalty"
+                                   name="configuration[frequencyPenalty]"
+                                   value="{f:if(condition: configuration, then: configuration.frequencyPenalty, else: '0.0')}"
+                                   min="-2" max="2" step="0.1" />
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="presencePenalty">Presence Penalty</label>
+                        <div class="col-sm-9">
+                            <input type="number" class="form-control" id="presencePenalty"
+                                   name="configuration[presencePenalty]"
+                                   value="{f:if(condition: configuration, then: configuration.presencePenalty, else: '0.0')}"
+                                   min="-2" max="2" step="0.1" />
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="options">Additional Options</label>
+                        <div class="col-sm-9">
+                            <textarea class="form-control" id="options"
+                                      name="configuration[options]"
+                                      rows="3"
+                                      placeholder='{"stop_sequences": ["\n\n"]}'>{configuration.options}</textarea>
+                            <small class="form-text text-body-secondary">Additional options as JSON (optional)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Usage Limits Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title">Usage Limits</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="maxRequestsPerDay">Max Requests/Day</label>
+                        <div class="col-sm-9">
+                            <input type="number" class="form-control" id="maxRequestsPerDay"
+                                   name="configuration[maxRequestsPerDay]"
+                                   value="{f:if(condition: configuration, then: configuration.maxRequestsPerDay, else: '0')}"
+                                   min="0" />
+                            <small class="form-text text-body-secondary">Maximum requests per day (0 = unlimited)</small>
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="maxTokensPerDay">Max Tokens/Day</label>
+                        <div class="col-sm-9">
+                            <input type="number" class="form-control" id="maxTokensPerDay"
+                                   name="configuration[maxTokensPerDay]"
+                                   value="{f:if(condition: configuration, then: configuration.maxTokensPerDay, else: '0')}"
+                                   min="0" />
+                            <small class="form-text text-body-secondary">Maximum tokens per day (0 = unlimited)</small>
+                        </div>
+                    </div>
+                    <div class="form-group row mb-3">
+                        <label class="col-sm-3 col-form-label" for="maxCostPerDay">Max Cost/Day ($)</label>
+                        <div class="col-sm-9">
+                            <input type="number" class="form-control" id="maxCostPerDay"
+                                   name="configuration[maxCostPerDay]"
+                                   value="{f:if(condition: configuration, then: configuration.maxCostPerDay, else: '0.00')}"
+                                   min="0" step="0.01" />
+                            <small class="form-text text-body-secondary">Maximum cost per day in USD (0 = unlimited)</small>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <f:form action="{f:if(condition: isNew, then: 'create', else: 'update')}"
-                method="post"
-                arguments="{f:if(condition: '!{isNew}', then: '{uid: configuration.uid}', else: '')}">
-
-            <div class="row">
-                <div class="col-lg-8">
-                    <!-- Identity Section -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h3 class="card-title">Identity</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="identifier">Identifier *</label>
-                                <div class="col-sm-9">
-                                    <input type="text" class="form-control" id="identifier"
-                                           name="configuration[identifier]"
-                                           value="{configuration.identifier}"
-                                           required
-                                           pattern="[a-z0-9_-]+"
-                                           placeholder="my_config_identifier" />
-                                    <small class="form-text text-muted">Unique technical identifier (lowercase, no spaces)</small>
-                                </div>
-                            </div>
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="name">Name *</label>
-                                <div class="col-sm-9">
-                                    <input type="text" class="form-control" id="name"
-                                           name="configuration[name]"
-                                           value="{configuration.name}"
-                                           required
-                                           placeholder="My Configuration" />
-                                </div>
-                            </div>
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="description">Description</label>
-                                <div class="col-sm-9">
-                                    <textarea class="form-control" id="description"
-                                              name="configuration[description]"
-                                              rows="2"
-                                              placeholder="Optional description">{configuration.description}</textarea>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Provider Section -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h3 class="card-title">Provider</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="provider">Provider *</label>
-                                <div class="col-sm-9">
-                                    <select class="form-control" id="provider"
-                                            name="configuration[provider]"
-                                            required>
-                                        <option value="">-- Select Provider --</option>
-                                        <f:for each="{providers}" as="name" key="key">
-                                            <option value="{key}"
-                                                    {f:if(condition: '{configuration.provider} == {key}', then: 'selected')}>
-                                                {name}
-                                            </option>
-                                        </f:for>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="model">Model</label>
-                                <div class="col-sm-9">
-                                    <input type="text" class="form-control" id="model"
-                                           name="configuration[model]"
-                                           value="{configuration.model}"
-                                           placeholder="gpt-4o" />
-                                    <small class="form-text text-muted">Model identifier (e.g., gpt-4o, claude-3-5-sonnet-20241022)</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Parameters Section -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h3 class="card-title">Model Parameters</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="systemPrompt">System Prompt</label>
-                                <div class="col-sm-9">
-                                    <textarea class="form-control" id="systemPrompt"
-                                              name="configuration[systemPrompt]"
-                                              rows="4"
-                                              placeholder="You are a helpful assistant...">{configuration.systemPrompt}</textarea>
-                                </div>
-                            </div>
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="temperature">Temperature</label>
-                                <div class="col-sm-9">
-                                    <input type="number" class="form-control" id="temperature"
-                                           name="configuration[temperature]"
-                                           value="{f:if(condition: configuration, then: configuration.temperature, else: '0.7')}"
-                                           min="0" max="2" step="0.1" />
-                                    <small class="form-text text-muted">Controls randomness (0.0 = deterministic, 2.0 = very creative)</small>
-                                </div>
-                            </div>
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="maxTokens">Max Tokens</label>
-                                <div class="col-sm-9">
-                                    <input type="number" class="form-control" id="maxTokens"
-                                           name="configuration[maxTokens]"
-                                           value="{f:if(condition: configuration, then: configuration.maxTokens, else: '1000')}"
-                                           min="1" max="128000" />
-                                    <small class="form-text text-muted">Maximum number of tokens in the response</small>
-                                </div>
-                            </div>
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="topP">Top P</label>
-                                <div class="col-sm-9">
-                                    <input type="number" class="form-control" id="topP"
-                                           name="configuration[topP]"
-                                           value="{f:if(condition: configuration, then: configuration.topP, else: '1.0')}"
-                                           min="0" max="1" step="0.01" />
-                                </div>
-                            </div>
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="frequencyPenalty">Frequency Penalty</label>
-                                <div class="col-sm-9">
-                                    <input type="number" class="form-control" id="frequencyPenalty"
-                                           name="configuration[frequencyPenalty]"
-                                           value="{f:if(condition: configuration, then: configuration.frequencyPenalty, else: '0.0')}"
-                                           min="-2" max="2" step="0.1" />
-                                </div>
-                            </div>
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="presencePenalty">Presence Penalty</label>
-                                <div class="col-sm-9">
-                                    <input type="number" class="form-control" id="presencePenalty"
-                                           name="configuration[presencePenalty]"
-                                           value="{f:if(condition: configuration, then: configuration.presencePenalty, else: '0.0')}"
-                                           min="-2" max="2" step="0.1" />
-                                </div>
-                            </div>
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="options">Additional Options</label>
-                                <div class="col-sm-9">
-                                    <textarea class="form-control" id="options"
-                                              name="configuration[options]"
-                                              rows="3"
-                                              placeholder='{"stop_sequences": ["\n\n"]}'>{configuration.options}</textarea>
-                                    <small class="form-text text-muted">Additional options as JSON (optional)</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Usage Limits Section -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h3 class="card-title">Usage Limits</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="maxRequestsPerDay">Max Requests/Day</label>
-                                <div class="col-sm-9">
-                                    <input type="number" class="form-control" id="maxRequestsPerDay"
-                                           name="configuration[maxRequestsPerDay]"
-                                           value="{f:if(condition: configuration, then: configuration.maxRequestsPerDay, else: '0')}"
-                                           min="0" />
-                                    <small class="form-text text-muted">Maximum requests per day (0 = unlimited)</small>
-                                </div>
-                            </div>
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="maxTokensPerDay">Max Tokens/Day</label>
-                                <div class="col-sm-9">
-                                    <input type="number" class="form-control" id="maxTokensPerDay"
-                                           name="configuration[maxTokensPerDay]"
-                                           value="{f:if(condition: configuration, then: configuration.maxTokensPerDay, else: '0')}"
-                                           min="0" />
-                                    <small class="form-text text-muted">Maximum tokens per day (0 = unlimited)</small>
-                                </div>
-                            </div>
-                            <div class="form-group row mb-3">
-                                <label class="col-sm-3 col-form-label" for="maxCostPerDay">Max Cost/Day ($)</label>
-                                <div class="col-sm-9">
-                                    <input type="number" class="form-control" id="maxCostPerDay"
-                                           name="configuration[maxCostPerDay]"
-                                           value="{f:if(condition: configuration, then: configuration.maxCostPerDay, else: '0.00')}"
-                                           min="0" step="0.01" />
-                                    <small class="form-text text-muted">Maximum cost per day in USD (0 = unlimited)</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+        <div class="col-lg-4">
+            <!-- Status Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title">Status</h3>
                 </div>
-
-                <div class="col-lg-4">
-                    <!-- Status Section -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h3 class="card-title">Status</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="form-check mb-3">
-                                <input type="hidden" name="configuration[isActive]" value="0" />
-                                <input type="checkbox" class="form-check-input" id="isActive"
-                                       name="configuration[isActive]" value="1"
-                                       {f:if(condition: '{configuration.isActive} || {isNew}', then: 'checked')} />
-                                <label class="form-check-label" for="isActive">Active</label>
-                            </div>
-                            <div class="form-check mb-3">
-                                <input type="hidden" name="configuration[isDefault]" value="0" />
-                                <input type="checkbox" class="form-check-input" id="isDefault"
-                                       name="configuration[isDefault]" value="1"
-                                       {f:if(condition: configuration.isDefault, then: 'checked')} />
-                                <label class="form-check-label" for="isDefault">Default Configuration</label>
-                            </div>
-                        </div>
+                <div class="card-body">
+                    <div class="form-check mb-3">
+                        <input type="hidden" name="configuration[isActive]" value="0" />
+                        <input type="checkbox" class="form-check-input" id="isActive"
+                               name="configuration[isActive]" value="1"
+                               {f:if(condition: '{configuration.isActive} || {isNew}', then: 'checked')} />
+                        <label class="form-check-label" for="isActive">Active</label>
                     </div>
-
-                    <!-- Actions -->
-                    <div class="card">
-                        <div class="card-body">
-                            <button type="submit" class="btn btn-primary btn-block mb-2">
-                                <core:icon identifier="actions-save" />
-                                <f:if condition="{isNew}">
-                                    <f:then>Create Configuration</f:then>
-                                    <f:else>Save Configuration</f:else>
-                                </f:if>
-                            </button>
-                            <f:link.action action="list" class="btn btn-default btn-block">
-                                Cancel
-                            </f:link.action>
-                        </div>
+                    <div class="form-check mb-3">
+                        <input type="hidden" name="configuration[isDefault]" value="0" />
+                        <input type="checkbox" class="form-check-input" id="isDefault"
+                               name="configuration[isDefault]" value="1"
+                               {f:if(condition: configuration.isDefault, then: 'checked')} />
+                        <label class="form-check-label" for="isDefault">Default Configuration</label>
                     </div>
                 </div>
             </div>
-        </f:form>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <button type="submit" class="btn btn-primary btn-block mb-2">
+                        <core:icon identifier="actions-save" />
+                        <f:if condition="{isNew}">
+                            <f:then>Create Configuration</f:then>
+                            <f:else>Save Configuration</f:else>
+                        </f:if>
+                    </button>
+                    <f:link.action action="list" class="btn btn-default btn-block">
+                        Cancel
+                    </f:link.action>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            var providerSelect = document.getElementById('provider');
-            var modelInput = document.getElementById('model');
-
-            providerSelect.addEventListener('change', function() {
-                var provider = this.value;
-                if (!provider) return;
-
-                fetch(TYPO3.settings.ajaxUrls['nrllm_config_get_models'], {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({provider: provider})
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success && data.defaultModel && !modelInput.value) {
-                        modelInput.value = data.defaultModel;
-                    }
-                });
-            });
-        });
-    </script>
 </f:section>
 
 </html>

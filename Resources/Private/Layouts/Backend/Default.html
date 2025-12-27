@@ -2,6 +2,15 @@
       xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
       data-namespace-typo3-fluid="true">
 
-<f:render section="Content" />
+<f:render section="Before" optional="true" />
+
+<div class="module" data-module-name="nr-llm">
+    <div class="module-body t3js-module-body">
+        <f:flashMessages />
+        <f:render section="Content" />
+    </div>
+</div>
+
+<f:render section="After" optional="true" />
 
 </html>
