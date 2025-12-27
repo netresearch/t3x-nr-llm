@@ -67,12 +67,25 @@ services:
       - name: nr_llm.provider
         priority: 50
 
+  Netresearch\NrLlm\Provider\OllamaProvider:
+    public: true
+    tags:
+      - name: nr_llm.provider
+        priority: 40
+
   # ========================================
   # Provider Registry (handles auto-registration)
   # ========================================
 
   Netresearch\NrLlm\Provider\ProviderRegistry:
     public: false
+
+  # ========================================
+  # Provider Adapter Registry (database-backed providers)
+  # ========================================
+
+  Netresearch\NrLlm\Provider\ProviderAdapterRegistry:
+    public: true
 
   # ========================================
   # Feature Services (PUBLIC)
@@ -111,6 +124,22 @@ services:
   # ========================================
 
   Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository:
+    public: true
+
+  Netresearch\NrLlm\Domain\Repository\ProviderRepository:
+    public: true
+
+  Netresearch\NrLlm\Domain\Repository\ModelRepository:
+    public: true
+
+  # ========================================
+  # Crypto Services
+  # ========================================
+
+  Netresearch\NrLlm\Service\Crypto\ProviderEncryptionServiceInterface:
+    alias: Netresearch\NrLlm\Service\Crypto\ProviderEncryptionService
+
+  Netresearch\NrLlm\Service\Crypto\ProviderEncryptionService:
     public: true
 
   # ========================================
