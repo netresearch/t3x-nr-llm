@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Crypto;
 
+use RuntimeException;
 use TYPO3\CMS\Core\SingletonInterface;
 
 /**
@@ -22,14 +23,10 @@ use TYPO3\CMS\Core\SingletonInterface;
  */
 final class ProviderEncryptionService implements ProviderEncryptionServiceInterface, SingletonInterface
 {
-    /**
-     * Prefix for encrypted values to distinguish from plaintext.
-     */
+    /** Prefix for encrypted values to distinguish from plaintext. */
     private const ENCRYPTION_PREFIX = 'enc:';
 
-    /**
-     * Encryption key derived from TYPO3 encryptionKey.
-     */
+    /** Encryption key derived from TYPO3 encryptionKey. */
     private ?string $encryptionKey = null;
 
     public function encrypt(string $plaintext): string
@@ -68,7 +65,7 @@ final class ProviderEncryptionService implements ProviderEncryptionServiceInterf
         $decoded = base64_decode(substr($ciphertext, strlen(self::ENCRYPTION_PREFIX)), true);
 
         if ($decoded === false || strlen($decoded) < SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
-            throw new \RuntimeException('Invalid encrypted value format', 1735304800);
+            throw new RuntimeException('Invalid encrypted value format', 1735304800);
         }
 
         $nonce = substr($decoded, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
@@ -78,7 +75,7 @@ final class ProviderEncryptionService implements ProviderEncryptionServiceInterf
         $plaintext = sodium_crypto_secretbox_open($cipher, $nonce, $key);
 
         if ($plaintext === false) {
-            throw new \RuntimeException('Decryption failed: invalid key or tampered data', 1735304801);
+            throw new RuntimeException('Decryption failed: invalid key or tampered data', 1735304801);
         }
 
         return $plaintext;
@@ -104,9 +101,9 @@ final class ProviderEncryptionService implements ProviderEncryptionServiceInterf
         $typo3EncryptionKey = $this->getTypo3EncryptionKey();
 
         if ($typo3EncryptionKey === '') {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'TYPO3 encryptionKey is not configured. Cannot encrypt provider secrets.',
-                1735304802
+                1735304802,
             );
         }
 

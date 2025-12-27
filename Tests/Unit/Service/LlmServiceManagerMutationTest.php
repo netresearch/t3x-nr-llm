@@ -6,6 +6,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service;
 
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -29,8 +30,9 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
             ->willReturn($config);
 
         $loggerMock = $this->createMock(LoggerInterface::class);
+        $adapterRegistryMock = $this->createMock(ProviderAdapterRegistry::class);
 
-        return new LlmServiceManager($extensionConfigMock, $loggerMock);
+        return new LlmServiceManager($extensionConfigMock, $loggerMock, $adapterRegistryMock);
     }
 
     private function createProviderMock(string $identifier, string $name = 'Test'): ProviderInterface

@@ -12,6 +12,7 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
+use Throwable;
 use TYPO3\CMS\Core\SingletonInterface;
 
 /**
@@ -20,7 +21,7 @@ use TYPO3\CMS\Core\SingletonInterface;
  * This registry bridges database Provider entities with PHP adapter implementations.
  * It creates and configures adapter instances on demand based on provider settings.
  */
-final class ProviderAdapterRegistry implements SingletonInterface
+class ProviderAdapterRegistry implements SingletonInterface
 {
     /**
      * Mapping of adapter types to provider class names.
@@ -63,11 +64,12 @@ final class ProviderAdapterRegistry implements SingletonInterface
     /**
      * Register a custom adapter class for an adapter type.
      *
-     * @param string $adapterType The adapter type identifier
+     * @param string                         $adapterType  The adapter type identifier
      * @param class-string<AbstractProvider> $adapterClass The adapter class name
      */
     public function registerAdapter(string $adapterType, string $adapterClass): void
     {
+        // @phpstan-ignore function.alreadyNarrowedType (runtime validation for external callers)
         if (!is_subclass_of($adapterClass, AbstractProvider::class)) {
             throw new ProviderConfigurationException(
                 sprintf('Adapter class %s must extend %s', $adapterClass, AbstractProvider::class),
@@ -84,7 +86,6 @@ final class ProviderAdapterRegistry implements SingletonInterface
     /**
      * Get an adapter class for the given adapter type.
      *
-     * @param string $adapterType
      * @return class-string<AbstractProvider>
      */
     public function getAdapterClass(string $adapterType): string
@@ -138,15 +139,16 @@ final class ProviderAdapterRegistry implements SingletonInterface
      * Create a configured adapter instance from a Provider entity.
      *
      * @param Provider $provider The provider entity from database
-     * @param bool $useCache Whether to use cached instances
+     * @param bool     $useCache Whether to use cached instances
+     *
      * @return ProviderInterface Configured adapter instance
      */
     public function createAdapterFromProvider(Provider $provider, bool $useCache = true): ProviderInterface
     {
         $providerUid = $provider->getUid();
 
-        // Return cached instance if available
-        if ($useCache && isset($this->adapterCache[$providerUid])) {
+        // Return cached instance if available (only for persisted providers with valid UID)
+        if ($useCache && $providerUid !== null && isset($this->adapterCache[$providerUid])) {
             return $this->adapterCache[$providerUid];
         }
 
@@ -157,8 +159,8 @@ final class ProviderAdapterRegistry implements SingletonInterface
         $config = $this->buildAdapterConfig($provider);
         $adapter->configure($config);
 
-        // Cache the instance
-        if ($useCache) {
+        // Cache the instance (only for persisted providers with valid UID)
+        if ($useCache && $providerUid !== null) {
             $this->adapterCache[$providerUid] = $adapter;
         }
 
@@ -177,8 +179,9 @@ final class ProviderAdapterRegistry implements SingletonInterface
      *
      * This is a convenience method that extracts the provider and model settings.
      *
-     * @param Model $model The model entity from database
-     * @param bool $useCache Whether to use cached instances
+     * @param Model $model    The model entity from database
+     * @param bool  $useCache Whether to use cached instances
+     *
      * @return ProviderInterface Configured adapter instance
      */
     public function createAdapterFromModel(Model $model, bool $useCache = true): ProviderInterface
@@ -224,7 +227,6 @@ final class ProviderAdapterRegistry implements SingletonInterface
      * Instantiate an adapter class with dependencies.
      *
      * @param class-string<AbstractProvider> $adapterClass
-     * @return AbstractProvider
      */
     private function instantiateAdapter(string $adapterClass): AbstractProvider
     {
@@ -241,7 +243,6 @@ final class ProviderAdapterRegistry implements SingletonInterface
      *
      * Maps Provider domain model fields to the config array expected by AbstractProvider::configure().
      *
-     * @param Provider $provider
      * @return array<string, mixed>
      */
     private function buildAdapterConfig(Provider $provider): array
@@ -270,7 +271,6 @@ final class ProviderAdapterRegistry implements SingletonInterface
     /**
      * Test a provider connection.
      *
-     * @param Provider $provider
      * @return array{success: bool, message: string, models?: array<string, string>}
      */
     public function testProviderConnection(Provider $provider): array
@@ -293,7 +293,7 @@ final class ProviderAdapterRegistry implements SingletonInterface
                 'message' => sprintf('Connection successful. Found %d models.', count($models)),
                 'models' => $models,
             ];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return [
                 'success' => false,
                 'message' => sprintf('Connection failed: %s', $e->getMessage()),

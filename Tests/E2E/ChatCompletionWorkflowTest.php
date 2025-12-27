@@ -7,6 +7,7 @@ namespace Netresearch\NrLlm\Tests\E2E;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\Feature\CompletionService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -55,7 +56,8 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
         ]);
 
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger());
+        $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
         $serviceManager->setDefaultProvider('openai');
 
@@ -103,7 +105,8 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'providers' => ['claude' => ['apiKey' => 'sk-ant-test']],
         ]);
 
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger());
+        $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
         $serviceManager->setDefaultProvider('claude');
 
@@ -149,7 +152,8 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
         ]);
 
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger());
+        $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
         $serviceManager->setDefaultProvider('openai');
 
@@ -203,7 +207,8 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
         ]);
 
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger());
+        $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
         $serviceManager->setDefaultProvider('openai');
 
@@ -254,7 +259,8 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
         ]);
 
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger());
+        $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
         $serviceManager->setDefaultProvider('openai');
 
@@ -300,7 +306,8 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'providers' => ['openai' => ['apiKey' => 'sk-test']],
         ]);
 
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger());
+        $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
         $serviceManager->setDefaultProvider('openai');
 
@@ -366,7 +373,8 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             ],
         ]);
 
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger());
+        $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($openAiProvider);
         $serviceManager->registerProvider($claudeProvider);
         $serviceManager->setDefaultProvider('openai');

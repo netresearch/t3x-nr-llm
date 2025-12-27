@@ -12,7 +12,6 @@ use Netresearch\NrLlm\Service\LlmServiceManager;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
-use TYPO3\CMS\Backend\Template\Components\ButtonBar;
 use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Crypto;
 
+use RuntimeException;
+
 /**
  * Interface for encrypting/decrypting provider secrets (API keys).
  *
@@ -26,9 +28,9 @@ interface ProviderEncryptionServiceInterface
      *
      * @param string $ciphertext Base64-encoded ciphertext
      *
-     * @return string The decrypted plaintext
+     * @throws RuntimeException If decryption fails (wrong key, tampered data)
      *
-     * @throws \RuntimeException If decryption fails (wrong key, tampered data)
+     * @return string The decrypted plaintext
      */
     public function decrypt(string $ciphertext): string;
 

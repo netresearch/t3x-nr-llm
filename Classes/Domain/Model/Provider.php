@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 use Netresearch\NrLlm\Service\Crypto\ProviderEncryptionService;
+use Throwable;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
@@ -17,9 +18,7 @@ use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
  */
 class Provider extends AbstractEntity
 {
-    /**
-     * Supported adapter types.
-     */
+    /** Supported adapter types. */
     public const ADAPTER_OPENAI = 'openai';
     public const ADAPTER_ANTHROPIC = 'anthropic';
     public const ADAPTER_GEMINI = 'gemini';
@@ -110,7 +109,7 @@ class Provider extends AbstractEntity
         try {
             $encryptionService = GeneralUtility::makeInstance(ProviderEncryptionService::class);
             return $encryptionService->decrypt($this->apiKey);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // If decryption fails, return the raw value (backwards compatibility for unencrypted keys)
             return $this->apiKey;
         }
@@ -243,7 +242,7 @@ class Provider extends AbstractEntity
             } else {
                 $this->apiKey = $apiKey;
             }
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // If encryption fails, store as plaintext (fallback)
             $this->apiKey = $apiKey;
         }

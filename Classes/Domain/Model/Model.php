@@ -14,9 +14,7 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
  */
 class Model extends AbstractEntity
 {
-    /**
-     * Capability constants.
-     */
+    /** Capability constants. */
     public const CAPABILITY_CHAT = 'chat';
     public const CAPABILITY_COMPLETION = 'completion';
     public const CAPABILITY_EMBEDDINGS = 'embeddings';
@@ -200,7 +198,7 @@ class Model extends AbstractEntity
     {
         $this->provider = $provider;
         if ($provider !== null) {
-            $this->providerUid = $provider->getUid();
+            $this->providerUid = $provider->getUid() ?? 0;
         }
     }
 
@@ -249,7 +247,7 @@ class Model extends AbstractEntity
      */
     public function setCostInputDollars(float $dollars): void
     {
-        $this->costInput = (int) round($dollars * 100);
+        $this->costInput = (int)round($dollars * 100);
     }
 
     /**
@@ -257,7 +255,7 @@ class Model extends AbstractEntity
      */
     public function setCostOutputDollars(float $dollars): void
     {
-        $this->costOutput = (int) round($dollars * 100);
+        $this->costOutput = (int)round($dollars * 100);
     }
 
     public function setIsActive(bool $isActive): void
@@ -306,7 +304,7 @@ class Model extends AbstractEntity
     {
         $caps = array_filter(
             $this->getCapabilitiesArray(),
-            static fn(string $cap): bool => $cap !== $capability
+            static fn(string $cap): bool => $cap !== $capability,
         );
         $this->setCapabilitiesArray($caps);
     }
@@ -397,9 +395,9 @@ class Model extends AbstractEntity
             return sprintf('%.1fM', $this->contextLength / 1000000);
         }
         if ($this->contextLength >= 1000) {
-            return sprintf('%dK', (int) ($this->contextLength / 1000));
+            return sprintf('%dK', (int)($this->contextLength / 1000));
         }
-        return (string) $this->contextLength;
+        return (string)$this->contextLength;
     }
 
     /**

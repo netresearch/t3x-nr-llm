@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
 use Netresearch\NrLlm\Provider\AbstractProvider;
-use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;

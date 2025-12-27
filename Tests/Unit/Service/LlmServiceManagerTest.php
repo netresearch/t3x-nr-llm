@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -24,6 +25,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     private LlmServiceManager $subject;
     private ExtensionConfiguration $extensionConfigStub;
     private LoggerInterface $loggerStub;
+    private ProviderAdapterRegistry $adapterRegistryStub;
     private TestableProvider $provider;
 
     #[Override]
@@ -40,10 +42,12 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             ]);
 
         $this->loggerStub = self::createStub(LoggerInterface::class);
+        $this->adapterRegistryStub = self::createStub(ProviderAdapterRegistry::class);
 
         $this->subject = new LlmServiceManager(
             $this->extensionConfigStub,
             $this->loggerStub,
+            $this->adapterRegistryStub,
         );
 
         // Create and register a testable provider
@@ -94,7 +98,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             ->method('get')
             ->willReturn(['providers' => []]);
 
-        $manager = new LlmServiceManager($extensionConfigStub, $this->loggerStub);
+        $manager = new LlmServiceManager($extensionConfigStub, $this->loggerStub, $this->adapterRegistryStub);
 
         $this->expectException(ProviderException::class);
         $this->expectExceptionMessage('No provider specified and no default provider configured');
@@ -262,7 +266,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
                 ],
             ]);
 
-        $manager = new LlmServiceManager($extensionConfigStub, $this->loggerStub);
+        $manager = new LlmServiceManager($extensionConfigStub, $this->loggerStub, $this->adapterRegistryStub);
         $config = $manager->getProviderConfiguration('openai');
 
         self::assertArrayHasKey('apiKey', $config);

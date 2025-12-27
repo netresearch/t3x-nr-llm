@@ -8,6 +8,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Integration\AbstractIntegrationTestCase;
@@ -28,6 +29,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 {
     private LlmServiceManager $subject;
     private ExtensionConfiguration&Stub $extensionConfigStub;
+    private ProviderAdapterRegistry&Stub $adapterRegistryStub;
 
     #[Override]
     protected function setUp(): void
@@ -51,9 +53,12 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
                 ],
             ]);
 
+        $this->adapterRegistryStub = self::createStub(ProviderAdapterRegistry::class);
+
         $this->subject = new LlmServiceManager(
             $this->extensionConfigStub,
             new NullLogger(),
+            $this->adapterRegistryStub,
         );
     }
 
@@ -209,7 +214,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
             'providers' => [],
         ]);
 
-        $manager = new LlmServiceManager($configMock, new NullLogger());
+        $manager = new LlmServiceManager($configMock, new NullLogger(), $this->adapterRegistryStub);
 
         $this->expectException(ProviderException::class);
         $this->expectExceptionMessage('No provider specified and no default provider configured');

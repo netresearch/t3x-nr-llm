@@ -10,7 +10,6 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
-use TYPO3\CMS\Backend\Template\Components\ButtonBar;
 use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
@@ -341,6 +340,7 @@ final class ModelController extends ActionController
             $modelData = [];
 
             foreach ($models as $model) {
+                // @phpstan-ignore instanceof.alwaysTrue (defensive check for QueryResult)
                 if (!$model instanceof Model) {
                     continue;
                 }
@@ -429,7 +429,9 @@ final class ModelController extends ActionController
         }
         if (isset($data['capabilities'])) {
             if (is_array($data['capabilities'])) {
-                $model->setCapabilitiesArray($data['capabilities']);
+                /** @var array<string> $capabilities */
+                $capabilities = array_filter($data['capabilities'], 'is_string');
+                $model->setCapabilitiesArray($capabilities);
             } elseif (is_string($data['capabilities'])) {
                 $model->setCapabilities($data['capabilities']);
             }

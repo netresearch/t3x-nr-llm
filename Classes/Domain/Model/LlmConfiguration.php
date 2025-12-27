@@ -24,20 +24,14 @@ class LlmConfiguration extends AbstractEntity
     protected string $name = '';
     protected string $description = '';
 
-    /**
-     * Reference to database Model entity (new architecture).
-     */
+    /** Reference to database Model entity (new architecture). */
     protected int $modelUid = 0;
     protected ?Model $llmModel = null;
 
-    /**
-     * @deprecated Use $modelUid instead. Legacy provider string field.
-     */
+    /** @deprecated Use $modelUid instead. Legacy provider string field. */
     protected string $provider = '';
 
-    /**
-     * @deprecated Use $modelUid instead. Legacy model string field.
-     */
+    /** @deprecated Use $modelUid instead. Legacy model string field. */
     protected string $model = '';
 
     protected string $translator = '';

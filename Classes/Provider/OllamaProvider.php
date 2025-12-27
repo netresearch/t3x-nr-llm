@@ -10,11 +10,13 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Override;
+use Throwable;
 
 /**
  * Ollama provider for local LLM deployments.
  *
  * Ollama provides an OpenAI-compatible API for local model serving.
+ *
  * @see https://ollama.com/
  */
 final class OllamaProvider extends AbstractProvider implements StreamingCapableInterface
@@ -85,7 +87,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             }
 
             return $result;
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Return default models if we can't fetch from server
             return [
                 'llama3.2' => 'Llama 3.2',
@@ -105,23 +107,30 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
     {
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
+        /** @var array<string, mixed> $payloadOptions */
+        $payloadOptions = [];
+
+        // Add optional parameters
+        if (isset($options['temperature'])) {
+            $payloadOptions['temperature'] = $this->getFloat($options, 'temperature');
+        }
+
+        if (isset($options['top_p'])) {
+            $payloadOptions['top_p'] = $this->getFloat($options, 'top_p');
+        }
+
+        if (isset($options['num_predict']) || isset($options['max_tokens'])) {
+            $payloadOptions['num_predict'] = $this->getInt($options, 'num_predict', $this->getInt($options, 'max_tokens', 4096));
+        }
+
         $payload = [
             'model' => $model,
             'messages' => $messages,
             'stream' => false,
         ];
 
-        // Add optional parameters
-        if (isset($options['temperature'])) {
-            $payload['options']['temperature'] = $this->getFloat($options, 'temperature');
-        }
-
-        if (isset($options['top_p'])) {
-            $payload['options']['top_p'] = $this->getFloat($options, 'top_p');
-        }
-
-        if (isset($options['num_predict']) || isset($options['max_tokens'])) {
-            $payload['options']['num_predict'] = $this->getInt($options, 'num_predict', $this->getInt($options, 'max_tokens', 4096));
+        if ($payloadOptions !== []) {
+            $payload['options'] = $payloadOptions;
         }
 
         $response = $this->sendRequest('api/chat', $payload);
@@ -183,14 +192,21 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
     {
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
+        /** @var array<string, mixed> $payloadOptions */
+        $payloadOptions = [];
+
+        if (isset($options['temperature'])) {
+            $payloadOptions['temperature'] = $this->getFloat($options, 'temperature');
+        }
+
         $payload = [
             'model' => $model,
             'messages' => $messages,
             'stream' => true,
         ];
 
-        if (isset($options['temperature'])) {
-            $payload['options']['temperature'] = $this->getFloat($options, 'temperature');
+        if ($payloadOptions !== []) {
+            $payload['options'] = $payloadOptions;
         }
 
         $url = rtrim($this->baseUrl, '/') . '/api/chat';
