@@ -60,7 +60,8 @@ abstract class AbstractProvider implements ProviderInterface
         $this->timeout = $this->getInt($config, 'timeout', 30);
         $this->maxRetries = $this->getInt($config, 'maxRetries', 3);
 
-        $this->validateConfiguration();
+        // Note: Configuration is validated lazily when sendRequest() is called.
+        // This allows providers to be registered without throwing during DI initialization.
     }
 
     abstract protected function getDefaultBaseUrl(): string;
@@ -94,6 +95,9 @@ abstract class AbstractProvider implements ProviderInterface
      */
     protected function sendRequest(string $endpoint, array $payload, string $method = 'POST'): array
     {
+        // Validate configuration before making API calls
+        $this->validateConfiguration();
+
         $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
 
         $request = $this->requestFactory->createRequest($method, $url)

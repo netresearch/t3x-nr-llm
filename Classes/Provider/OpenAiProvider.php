@@ -59,16 +59,18 @@ final class OpenAiProvider extends AbstractProvider implements
     public function getAvailableModels(): array
     {
         return [
-            // GPT-5.2 Series (December 2025 - Current)
-            'gpt-5.2' => 'GPT-5.2 Thinking (Current)',
-            'gpt-5.2-pro' => 'GPT-5.2 Pro (Most Capable)',
-            'gpt-5.2-instant' => 'GPT-5.2 Instant (Fast)',
-            // Reasoning Models
-            'o3' => 'O3 (Advanced Reasoning)',
-            'o4-mini' => 'O4 Mini (Reasoning)',
+            // GPT-4o Series (Current)
+            'gpt-4o' => 'GPT-4o (Flagship)',
+            'gpt-4o-mini' => 'GPT-4o Mini (Fast & Efficient)',
+            'chatgpt-4o-latest' => 'ChatGPT-4o Latest',
+            // Reasoning Models (o-series)
+            'o1' => 'O1 (Advanced Reasoning)',
+            'o1-mini' => 'O1 Mini (Reasoning)',
+            'o1-preview' => 'O1 Preview',
             // Legacy Models
-            'gpt-5' => 'GPT-5 (Legacy)',
-            'gpt-4.1' => 'GPT-4.1 (Legacy)',
+            'gpt-4-turbo' => 'GPT-4 Turbo (Legacy)',
+            'gpt-4' => 'GPT-4 (Legacy)',
+            'gpt-3.5-turbo' => 'GPT-3.5 Turbo (Legacy)',
         ];
     }
 
