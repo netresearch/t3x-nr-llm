@@ -8,6 +8,8 @@ use Exception;
 use Generator;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
@@ -15,6 +17,7 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
@@ -36,6 +39,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     public function __construct(
         private readonly ExtensionConfiguration $extensionConfiguration,
         private readonly LoggerInterface $logger,
+        private readonly ProviderAdapterRegistry $adapterRegistry,
     ) {
         $this->loadConfiguration();
     }
@@ -278,5 +282,108 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         }
 
         $this->providers[$identifier]->configure($config);
+    }
+
+    // ========================================
+    // Database-Backed Provider Methods
+    // ========================================
+
+    /**
+     * Get adapter instance from a database Model entity.
+     *
+     * This creates a configured adapter using the Provider and Model from the database.
+     */
+    public function getAdapterFromModel(Model $model): ProviderInterface
+    {
+        return $this->adapterRegistry->createAdapterFromModel($model);
+    }
+
+    /**
+     * Get adapter instance from an LlmConfiguration entity.
+     *
+     * If the configuration has a model relation (new architecture), uses that.
+     * Otherwise falls back to legacy provider string for backward compatibility.
+     */
+    public function getAdapterFromConfiguration(LlmConfiguration $configuration): ProviderInterface
+    {
+        // Use new model relation if available
+        $llmModel = $configuration->getLlmModel();
+        if ($llmModel !== null) {
+            return $this->adapterRegistry->createAdapterFromModel($llmModel);
+        }
+
+        // Fall back to legacy provider string
+        $providerIdentifier = $configuration->getProvider();
+        if ($providerIdentifier === '') {
+            throw new ProviderException(
+                sprintf('Configuration "%s" has no provider or model configured', $configuration->getIdentifier()),
+                1735300100,
+            );
+        }
+
+        return $this->getProvider($providerIdentifier);
+    }
+
+    /**
+     * Execute chat completion using an LlmConfiguration entity.
+     *
+     * @param array<int, array{role: string, content: string}> $messages
+     */
+    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration): CompletionResponse
+    {
+        $adapter = $this->getAdapterFromConfiguration($configuration);
+        $options = $configuration->toOptionsArray();
+
+        // Remove provider key as we already have the adapter
+        unset($options['provider']);
+
+        return $adapter->chatCompletion($messages, $options);
+    }
+
+    /**
+     * Execute completion using an LlmConfiguration entity.
+     */
+    public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration): CompletionResponse
+    {
+        $adapter = $this->getAdapterFromConfiguration($configuration);
+        $options = $configuration->toOptionsArray();
+
+        // Remove provider key as we already have the adapter
+        unset($options['provider']);
+
+        return $adapter->complete($prompt, $options);
+    }
+
+    /**
+     * Stream chat completion using an LlmConfiguration entity.
+     *
+     * @param array<int, array{role: string, content: string}> $messages
+     *
+     * @return Generator<int, string, mixed, void>
+     */
+    public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration): Generator
+    {
+        $adapter = $this->getAdapterFromConfiguration($configuration);
+        $options = $configuration->toOptionsArray();
+
+        // Remove provider key as we already have the adapter
+        unset($options['provider']);
+
+        if (!$adapter instanceof StreamingCapableInterface) {
+            throw new UnsupportedFeatureException(
+                sprintf('Provider "%s" does not support streaming', $adapter->getIdentifier()),
+                1735300101,
+            );
+        }
+
+        return $adapter->streamChatCompletion($messages, $options);
+    }
+
+    /**
+     * Get provider adapter registry.
+     */
+    public function getAdapterRegistry(): ProviderAdapterRegistry
+    {
+        return $this->adapterRegistry;
     }
 }
