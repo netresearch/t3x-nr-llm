@@ -1,7 +1,7 @@
 # Additional services for nr_llm TYPO3 extension development
-# Valkey (Redis-compatible, open source) for TYPO3 caching
 
 services:
+  # Valkey (Redis-compatible, open source) for TYPO3 caching
   valkey:
     container_name: ddev-${DDEV_SITENAME}-valkey
     image: valkey/valkey:8-alpine
@@ -18,6 +18,34 @@ services:
       com.ddev.site-name: ${DDEV_SITENAME}
       com.ddev.approot: $DDEV_APPROOT
 
+  # Ollama for local LLM inference
+  # Configure model via OLLAMA_MODEL env var (default: qwen2.5:0.5b)
+  ollama:
+    container_name: ddev-${DDEV_SITENAME}-ollama
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      # Model to pull on startup (override in .env or .ddev/.env)
+      # Options: qwen3:0.6b, gemma3:1b, smollm2:360m, qwen2.5:0.5b
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:0.6b}
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}
+      com.ddev.approot: $DDEV_APPROOT
+    # Healthcheck to ensure Ollama is ready
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
 volumes:
   valkey-data:
     name: "${DDEV_SITENAME}-valkey-data"
+  ollama-data:
+    name: "${DDEV_SITENAME}-ollama-data"
