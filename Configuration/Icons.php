@@ -5,10 +5,21 @@ declare(strict_types=1);
 use TYPO3\CMS\Core\Imaging\IconProvider\SvgIconProvider;
 
 return [
+    // Module icons
     'module-nrllm' => [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/module-nrllm.svg',
     ],
+    'module-nrllm-provider' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/Provider.svg',
+    ],
+    'module-nrllm-model' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/Model.svg',
+    ],
+
+    // Provider type icons
     'nrllm-provider-openai' => [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/provider-openai.svg',
