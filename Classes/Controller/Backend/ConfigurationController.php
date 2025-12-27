@@ -6,16 +6,23 @@ namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
+use TYPO3\CMS\Backend\Template\Components\ButtonBar;
+use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
+use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Http\RedirectResponse;
+use TYPO3\CMS\Core\Imaging\IconFactory;
+use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
+use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
  * Backend controller for LLM configuration management.
@@ -23,28 +30,45 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 #[AsController]
 final class ConfigurationController extends ActionController
 {
+    private ModuleTemplate $moduleTemplate;
+
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
+        private readonly ComponentFactory $componentFactory,
+        private readonly IconFactory $iconFactory,
         private readonly LlmConfigurationService $configurationService,
         private readonly LlmConfigurationRepository $configurationRepository,
+        private readonly ModelRepository $modelRepository,
         private readonly LlmServiceManager $llmServiceManager,
     ) {}
+
+    protected function initializeAction(): void
+    {
+        $this->moduleTemplate = $this->moduleTemplateFactory->create($this->request);
+        $this->moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
+    }
 
     /**
      * List all LLM configurations.
      */
     public function listAction(): ResponseInterface
     {
-        $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-
         $configurations = $this->configurationRepository->findAll();
 
-        $moduleTemplate->assignMultiple([
+        $this->moduleTemplate->assignMultiple([
             'configurations' => $configurations,
             'providers' => $this->getProviderOptions(),
         ]);
 
-        return $moduleTemplate->renderResponse('Backend/Configuration/List');
+        // Add "New Configuration" button to docheader
+        $createButton = $this->componentFactory->createLinkButton()
+            ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.configuration.new', 'nr_llm') ?? 'New Configuration')
+            ->setShowLabelText(true)
+            ->setHref((string)$this->uriBuilder->reset()->uriFor('edit'));
+        $this->moduleTemplate->addButtonToButtonBar($createButton);
+
+        return $this->moduleTemplate->renderResponse('Backend/Configuration/List');
     }
 
     /**
@@ -52,8 +76,6 @@ final class ConfigurationController extends ActionController
      */
     public function editAction(?int $uid = null): ResponseInterface
     {
-        $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-
         $configuration = null;
         if ($uid !== null) {
             $configuration = $this->configurationRepository->findByUid($uid);
@@ -69,13 +91,21 @@ final class ConfigurationController extends ActionController
             }
         }
 
-        $moduleTemplate->assignMultiple([
+        $this->moduleTemplate->assignMultiple([
             'configuration' => $configuration,
-            'providers' => $this->getProviderOptions(),
+            'models' => $this->modelRepository->findActive(),
             'isNew' => $configuration === null,
         ]);
 
-        return $moduleTemplate->renderResponse('Backend/Configuration/Edit');
+        // Add "Back to List" button to docheader
+        $backButton = $this->componentFactory->createLinkButton()
+            ->setIcon($this->iconFactory->getIcon('actions-view-go-back', IconSize::SMALL))
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.back', 'nr_llm') ?? 'Back to List')
+            ->setShowLabelText(true)
+            ->setHref((string)$this->uriBuilder->reset()->uriFor('list'));
+        $this->moduleTemplate->addButtonToButtonBar($backButton);
+
+        return $this->moduleTemplate->renderResponse('Backend/Configuration/Edit');
     }
 
     /**
@@ -431,11 +461,19 @@ final class ConfigurationController extends ActionController
         if (isset($data['description']) && is_scalar($data['description'])) {
             $configuration->setDescription((string)$data['description']);
         }
-        if (isset($data['provider']) && is_scalar($data['provider'])) {
-            $configuration->setProvider((string)$data['provider']);
+        if (isset($data['modelUid']) && is_numeric($data['modelUid'])) {
+            $modelUid = (int)$data['modelUid'];
+            if ($modelUid > 0) {
+                $model = $this->modelRepository->findByUid($modelUid);
+                if ($model !== null) {
+                    $configuration->setLlmModel($model);
+                }
+            } else {
+                $configuration->setLlmModel(null);
+            }
         }
-        if (isset($data['model']) && is_scalar($data['model'])) {
-            $configuration->setModel((string)$data['model']);
+        if (isset($data['translator']) && is_scalar($data['translator'])) {
+            $configuration->setTranslator((string)$data['translator']);
         }
         if (isset($data['systemPrompt']) && is_scalar($data['systemPrompt'])) {
             $configuration->setSystemPrompt((string)$data['systemPrompt']);

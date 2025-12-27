@@ -14,14 +14,32 @@ use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
  * Represents a named LLM configuration that administrators can create
  * and manage via backend module. Includes provider settings, model parameters,
  * usage limits, and access control.
+ *
+ * Supports both the new three-tier model (Configuration → Model → Provider)
+ * and legacy direct provider/model string fields for backward compatibility.
  */
 class LlmConfiguration extends AbstractEntity
 {
     protected string $identifier = '';
     protected string $name = '';
     protected string $description = '';
+
+    /**
+     * Reference to database Model entity (new architecture).
+     */
+    protected int $modelUid = 0;
+    protected ?Model $llmModel = null;
+
+    /**
+     * @deprecated Use $modelUid instead. Legacy provider string field.
+     */
     protected string $provider = '';
+
+    /**
+     * @deprecated Use $modelUid instead. Legacy model string field.
+     */
     protected string $model = '';
+
     protected string $translator = '';
     protected string $systemPrompt = '';
     protected float $temperature = 0.7;
@@ -71,11 +89,66 @@ class LlmConfiguration extends AbstractEntity
         return $this->description;
     }
 
+    public function getModelUid(): int
+    {
+        return $this->modelUid;
+    }
+
+    public function getLlmModel(): ?Model
+    {
+        return $this->llmModel;
+    }
+
+    /**
+     * Check if configuration uses new model relation.
+     */
+    public function hasLlmModel(): bool
+    {
+        return $this->modelUid > 0 || $this->llmModel !== null;
+    }
+
+    /**
+     * Get effective provider identifier.
+     *
+     * Returns provider from database Model relation if available,
+     * falls back to legacy provider string for backward compatibility.
+     */
+    public function getEffectiveProvider(): string
+    {
+        if ($this->llmModel !== null) {
+            $provider = $this->llmModel->getProvider();
+            if ($provider !== null) {
+                return $provider->getAdapterType();
+            }
+        }
+        return $this->provider;
+    }
+
+    /**
+     * Get effective model ID.
+     *
+     * Returns model ID from database Model relation if available,
+     * falls back to legacy model string for backward compatibility.
+     */
+    public function getEffectiveModelId(): string
+    {
+        if ($this->llmModel !== null) {
+            return $this->llmModel->getModelId();
+        }
+        return $this->model;
+    }
+
+    /**
+     * @deprecated Use getEffectiveProvider() for proper resolution.
+     */
     public function getProvider(): string
     {
         return $this->provider;
     }
 
+    /**
+     * @deprecated Use getEffectiveModelId() for proper resolution.
+     */
     public function getModel(): string
     {
         return $this->model;
@@ -221,11 +294,33 @@ class LlmConfiguration extends AbstractEntity
         $this->description = $description;
     }
 
+    public function setModelUid(int $modelUid): void
+    {
+        $this->modelUid = $modelUid;
+    }
+
+    public function setLlmModel(?Model $llmModel): void
+    {
+        $this->llmModel = $llmModel;
+        if ($llmModel !== null) {
+            $uid = $llmModel->getUid();
+            if ($uid !== null) {
+                $this->modelUid = $uid;
+            }
+        }
+    }
+
+    /**
+     * @deprecated Use setLlmModel() instead.
+     */
     public function setProvider(string $provider): void
     {
         $this->provider = $provider;
     }
 
+    /**
+     * @deprecated Use setLlmModel() instead.
+     */
     public function setModel(string $model): void
     {
         $this->model = $model;
@@ -347,6 +442,9 @@ class LlmConfiguration extends AbstractEntity
      */
     public function toChatOptions(): ChatOptions
     {
+        $effectiveProvider = $this->getEffectiveProvider();
+        $effectiveModel = $this->getEffectiveModelId();
+
         return new ChatOptions(
             temperature: $this->temperature,
             maxTokens: $this->maxTokens,
@@ -354,8 +452,8 @@ class LlmConfiguration extends AbstractEntity
             frequencyPenalty: $this->frequencyPenalty,
             presencePenalty: $this->presencePenalty,
             systemPrompt: $this->systemPrompt !== '' ? $this->systemPrompt : null,
-            provider: $this->provider !== '' ? $this->provider : null,
-            model: $this->model !== '' ? $this->model : null,
+            provider: $effectiveProvider !== '' ? $effectiveProvider : null,
+            model: $effectiveModel !== '' ? $effectiveModel : null,
         );
     }
 
@@ -378,12 +476,14 @@ class LlmConfiguration extends AbstractEntity
             $options['system_prompt'] = $this->systemPrompt;
         }
 
-        if ($this->provider !== '') {
-            $options['provider'] = $this->provider;
+        $effectiveProvider = $this->getEffectiveProvider();
+        if ($effectiveProvider !== '') {
+            $options['provider'] = $effectiveProvider;
         }
 
-        if ($this->model !== '') {
-            $options['model'] = $this->model;
+        $effectiveModel = $this->getEffectiveModelId();
+        if ($effectiveModel !== '') {
+            $options['model'] = $effectiveModel;
         }
 
         if ($this->translator !== '') {
@@ -397,5 +497,16 @@ class LlmConfiguration extends AbstractEntity
         }
 
         return $options;
+    }
+
+    /**
+     * Get the Provider entity if using the new model relation.
+     */
+    public function getResolvedProvider(): ?Provider
+    {
+        if ($this->llmModel !== null) {
+            return $this->llmModel->getProvider();
+        }
+        return null;
     }
 }

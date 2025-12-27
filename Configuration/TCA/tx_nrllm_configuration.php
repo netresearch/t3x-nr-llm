@@ -47,7 +47,11 @@ return [
         ],
         'provider' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.provider',
-            'showitem' => 'provider, model, translator',
+            'showitem' => 'model_uid, translator',
+        ],
+        'legacy_provider' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.legacy_provider',
+            'showitem' => 'provider, model',
         ],
         'parameters' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.parameters',
@@ -100,8 +104,24 @@ return [
                 'eval' => 'trim',
             ],
         ],
+        'model_uid' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_uid',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model_uid.description',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectSingle',
+                'foreign_table' => 'tx_nrllm_model',
+                'foreign_table_where' => 'AND {#tx_nrllm_model}.{#hidden} = 0 AND {#tx_nrllm_model}.{#deleted} = 0 ORDER BY tx_nrllm_model.name',
+                'items' => [
+                    ['label' => '-- Select Model --', 'value' => 0],
+                ],
+                'default' => 0,
+                'minitems' => 0,
+            ],
+        ],
         'provider' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.provider',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.provider.deprecated',
             'config' => [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
