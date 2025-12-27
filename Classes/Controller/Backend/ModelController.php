@@ -62,7 +62,7 @@ final class ModelController extends ActionController
         // Add "New Model" button to docheader
         $createButton = $this->componentFactory->createLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
-            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.model.new', 'nr_llm') ?? 'New Model')
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.model.new', 'NrLlm') ?? 'New Model')
             ->setShowLabelText(true)
             ->setHref((string)$this->uriBuilder->reset()->uriFor('edit'));
         $this->moduleTemplate->addButtonToButtonBar($createButton);
@@ -100,7 +100,7 @@ final class ModelController extends ActionController
         // Add "Back to List" button to docheader
         $backButton = $this->componentFactory->createLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-view-go-back', IconSize::SMALL))
-            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.back', 'nr_llm') ?? 'Back to List')
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.back', 'NrLlm') ?? 'Back to List')
             ->setShowLabelText(true)
             ->setHref((string)$this->uriBuilder->reset()->uriFor('list'));
         $this->moduleTemplate->addButtonToButtonBar($backButton);
@@ -430,7 +430,7 @@ final class ModelController extends ActionController
         if (isset($data['capabilities'])) {
             if (is_array($data['capabilities'])) {
                 /** @var array<string> $capabilities */
-                $capabilities = array_filter($data['capabilities'], 'is_string');
+                $capabilities = array_filter($data['capabilities'], is_string(...));
                 $model->setCapabilitiesArray($capabilities);
             } elseif (is_string($data['capabilities'])) {
                 $model->setCapabilities($data['capabilities']);

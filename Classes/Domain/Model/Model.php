@@ -101,7 +101,7 @@ class Model extends AbstractEntity
         if ($this->capabilities === '') {
             return [];
         }
-        return array_map('trim', explode(',', $this->capabilities));
+        return array_map(trim(...), explode(',', $this->capabilities));
     }
 
     public function getCostInput(): int
@@ -229,7 +229,7 @@ class Model extends AbstractEntity
      */
     public function setCapabilitiesArray(array $capabilities): void
     {
-        $this->capabilities = implode(',', array_map('trim', $capabilities));
+        $this->capabilities = implode(',', array_map(trim(...), $capabilities));
     }
 
     public function setCostInput(int $costInput): void

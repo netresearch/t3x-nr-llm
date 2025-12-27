@@ -58,7 +58,7 @@ final class ProviderController extends ActionController
         // Add "New Provider" button to docheader
         $createButton = $this->componentFactory->createLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
-            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.provider.new', 'nr_llm') ?? 'New Provider')
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.provider.new', 'NrLlm') ?? 'New Provider')
             ->setShowLabelText(true)
             ->setHref((string)$this->uriBuilder->reset()->uriFor('edit'));
         $this->moduleTemplate->addButtonToButtonBar($createButton);
@@ -95,7 +95,7 @@ final class ProviderController extends ActionController
         // Add "Back to List" button to docheader
         $backButton = $this->componentFactory->createLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-view-go-back', IconSize::SMALL))
-            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.back', 'nr_llm') ?? 'Back to List')
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.back', 'NrLlm') ?? 'Back to List')
             ->setShowLabelText(true)
             ->setHref((string)$this->uriBuilder->reset()->uriFor('list'));
         $this->moduleTemplate->addButtonToButtonBar($backButton);

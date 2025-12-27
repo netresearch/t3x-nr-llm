@@ -24,7 +24,7 @@ use TYPO3\CMS\Core\SingletonInterface;
 final class ProviderEncryptionService implements ProviderEncryptionServiceInterface, SingletonInterface
 {
     /** Prefix for encrypted values to distinguish from plaintext. */
-    private const ENCRYPTION_PREFIX = 'enc:';
+    private const string ENCRYPTION_PREFIX = 'enc:';
 
     /** Encryption key derived from TYPO3 encryptionKey. */
     private ?string $encryptionKey = null;
