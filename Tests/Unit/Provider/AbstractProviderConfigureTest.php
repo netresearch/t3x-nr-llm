@@ -112,10 +112,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
         );
 
-        $this->expectException(ProviderConfigurationException::class);
-        $this->expectExceptionMessage('API key is required');
-
+        // Configure with empty config should NOT throw (lazy validation)
         $provider->configure([]);
+
+        // Provider should report as not available
+        self::assertFalse($provider->isAvailable());
     }
 
     #[Test]
@@ -266,7 +267,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function configureCallsValidateConfiguration(): void
+    public function configureWithEmptyApiKeyMarksProviderAsNotAvailable(): void
     {
         $provider = new GeminiProvider(
             $this->createHttpClientMock(),
@@ -275,16 +276,17 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
         );
 
-        // This should throw because validateConfiguration checks for empty API key
-        $this->expectException(ProviderConfigurationException::class);
-
+        // Configure with empty API key should NOT throw (lazy validation)
         $provider->configure([
             'apiKey' => '',
         ]);
+
+        // Provider should report as not available
+        self::assertFalse($provider->isAvailable());
     }
 
     #[Test]
-    public function configureCastsApiKeyToString(): void
+    public function configureCastsNullApiKeyToEmptyString(): void
     {
         $provider = new GeminiProvider(
             $this->createHttpClientMock(),
@@ -293,11 +295,12 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
         );
 
-        // Passing null should be cast to empty string and throw exception
-        $this->expectException(ProviderConfigurationException::class);
-
+        // Passing null should be cast to empty string (lazy validation)
         $provider->configure([
             'apiKey' => null,
         ]);
+
+        // Provider should report as not available due to empty API key
+        self::assertFalse($provider->isAvailable());
     }
 }
