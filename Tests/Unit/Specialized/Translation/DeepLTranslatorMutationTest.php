@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
+use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use Exception;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Option\DeepLOptions;
@@ -26,6 +29,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     private array $defaultConfig;
     private UsageTrackerServiceInterface $usageTrackerStub;
 
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -514,7 +518,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
 
         $translator = $this->createTranslatorWithHttpClient($httpClientMock);
 
-        $this->expectException(\Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException::class);
+        $this->expectException(ServiceConfigurationException::class);
 
         $translator->translate('Hello', 'de');
     }
@@ -529,7 +533,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
 
         $translator = $this->createTranslatorWithHttpClient($httpClientMock);
 
-        $this->expectException(\Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException::class);
+        $this->expectException(ServiceUnavailableException::class);
         $this->expectExceptionMessage('Internal error');
 
         $translator->translate('Hello', 'de');
@@ -545,7 +549,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
 
         $translator = $this->createTranslatorWithHttpClient($httpClientMock);
 
-        $this->expectException(\Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException::class);
+        $this->expectException(ServiceUnavailableException::class);
         $this->expectExceptionMessage('Unknown DeepL API error');
 
         $translator->translate('Hello', 'de');
@@ -656,7 +660,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     #[Test]
     public function constructorHandlesConfigurationException(): void
     {
-        $extensionConfigMock = $this->createMock(\TYPO3\CMS\Core\Configuration\ExtensionConfiguration::class);
+        $extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
         $extensionConfigMock
             ->method('get')
             ->willThrowException(new Exception('Config error'));
@@ -686,7 +690,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
 
         $translator = $this->createTranslatorWithHttpClient($httpClientMock);
 
-        $this->expectException(\Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException::class);
+        $this->expectException(ServiceUnavailableException::class);
         $this->expectExceptionMessage('Connection failed');
 
         $translator->translate('Hello', 'de');

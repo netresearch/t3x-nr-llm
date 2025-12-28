@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryInterface;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
@@ -308,28 +310,33 @@ final class ModelControllerTest extends TestCase
         $model2->setName('GPT-3.5');
 
         // Create a mock that can be iterated and satisfies return type
-        $queryResult = new class ([$model1, $model2]) implements \TYPO3\CMS\Extbase\Persistence\QueryResultInterface {
+        /** @phpstan-ignore-next-line Anonymous class implementing QueryResultInterface for test */
+        $queryResult = new class ([$model1, $model2]) implements QueryResultInterface {
+            /** @var array<int, object> */
             private array $items;
+            /** @param array<int, object> $items */
             public function __construct(array $items)
             {
-                $this->items = $items;
+                $this->items = array_values($items);
             }
-            public function setQuery(\TYPO3\CMS\Extbase\Persistence\QueryInterface $query): void {}
+            public function setQuery(QueryInterface $query): void {}
             public function getFirst(): ?object
             {
                 return $this->items[0] ?? null;
             }
+            /** @return list<object> */
             public function toArray(): array
             {
+                /** @var list<object> */
                 return $this->items;
             }
             public function count(): int
             {
                 return count($this->items);
             }
-            public function getQuery(): \TYPO3\CMS\Extbase\Persistence\QueryInterface
+            public function getQuery(): QueryInterface
             {
-                throw new RuntimeException('Not implemented');
+                throw new RuntimeException('Not implemented', 7771386589);
             }
             public function offsetExists($offset): bool
             {
@@ -341,7 +348,9 @@ final class ModelControllerTest extends TestCase
             }
             public function offsetSet($offset, $value): void
             {
-                $this->items[$offset] = $value;
+                if (is_object($value) && is_int($offset)) {
+                    $this->items[$offset] = $value;
+                }
             }
             public function offsetUnset($offset): void
             {

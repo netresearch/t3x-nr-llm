@@ -270,7 +270,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             ->willReturnCallback(function () use (&$attempts) {
                 $attempts++;
                 if ($attempts < 3) {
-                    throw new class ('Connection failed') extends Exception implements ClientExceptionInterface {};
+                    throw new class ('Connection failed', 6712573549) extends Exception implements ClientExceptionInterface {};
                 }
 
                 return $this->createJsonResponseMock(['ok' => true]);
@@ -305,7 +305,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturnCallback(function () use (&$attempts): void {
                 $attempts++;
-                throw new class ('Connection failed') extends Exception implements ClientExceptionInterface {};
+                throw new class ('Connection failed', 9141046435) extends Exception implements ClientExceptionInterface {};
             });
 
         $provider = new GeminiProvider(
@@ -360,7 +360,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $method = $reflection->getMethod('sendRequest');
             $method->invoke($provider, '/test', []);
             self::fail('Expected ProviderResponseException');
-        } catch (ProviderResponseException $e) {
+        } catch (ProviderResponseException) {
             // Client errors (4xx) should NOT retry
             self::assertEquals(1, $attempts);
         }

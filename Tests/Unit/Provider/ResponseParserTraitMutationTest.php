@@ -21,6 +21,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
 {
     private object $traitObject;
 
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();

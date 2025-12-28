@@ -18,6 +18,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
     private ProviderRepository $repository;
     private PersistenceManagerInterface $persistenceManager;
 
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();
