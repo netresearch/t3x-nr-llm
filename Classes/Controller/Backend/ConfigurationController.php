@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -51,6 +52,7 @@ final class ConfigurationController extends ActionController
         private readonly ModelRepository $modelRepository,
         private readonly ProviderRepository $providerRepository,
         private readonly LlmServiceManagerInterface $llmServiceManager,
+        private readonly ProviderAdapterRegistry $providerAdapterRegistry,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
     ) {}
@@ -422,11 +424,19 @@ final class ConfigurationController extends ActionController
         $this->hydrateConfigurationRelations($configuration);
 
         try {
-            $chatOptions = $configuration->toChatOptions();
-            $response = $this->llmServiceManager->complete(
-                'Hello, please respond with a brief greeting.',
-                $chatOptions,
-            );
+            $testPrompt = 'Hello, please respond with a brief greeting.';
+
+            // Use database Provider/Model when available (uses correct endpoint_url)
+            $model = $configuration->getLlmModel();
+            if ($model !== null && $model->getProvider() !== null) {
+                $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
+                $options = $configuration->toOptionsArray();
+                $response = $adapter->complete($testPrompt, $options);
+            } else {
+                // Fall back to ext_conf providers for legacy configurations
+                $chatOptions = $configuration->toChatOptions();
+                $response = $this->llmServiceManager->complete($testPrompt, $chatOptions);
+            }
 
             return new JsonResponse(
                 TestConfigurationResponse::fromCompletionResponse($response)->jsonSerialize(),
