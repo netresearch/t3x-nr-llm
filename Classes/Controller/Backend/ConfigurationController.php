@@ -161,9 +161,13 @@ final class ConfigurationController extends ActionController
             }
         }
 
+        // Load models with hydrated provider relations for dropdown display
+        $models = $this->modelRepository->findActive();
+        $this->hydrateModelsProviderRelations($models);
+
         $this->moduleTemplate->assignMultiple([
             'configuration' => $configuration,
-            'models' => $this->modelRepository->findActive(),
+            'models' => $models,
             'isNew' => $configuration === null,
         ]);
 
@@ -542,6 +546,26 @@ final class ConfigurationController extends ActionController
         }
 
         $configuration->setLlmModel($model);
+    }
+
+    /**
+     * Hydrate Provider relations for a collection of models.
+     *
+     * Extbase doesn't automatically lazy-load relations when iterating,
+     * so we need to manually populate Provider objects for display.
+     *
+     * @param iterable<Model> $models
+     */
+    private function hydrateModelsProviderRelations(iterable $models): void
+    {
+        foreach ($models as $model) {
+            if ($model->getProviderUid() > 0 && $model->getProvider() === null) {
+                $provider = $this->providerRepository->findByUid($model->getProviderUid());
+                if ($provider !== null) {
+                    $model->setProvider($provider);
+                }
+            }
+        }
     }
 
     /**
