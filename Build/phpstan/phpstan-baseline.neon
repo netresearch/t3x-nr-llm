@@ -1,6 +1,18 @@
 parameters:
 	ignoreErrors:
 		-
+			message: '#^Instanceof between Netresearch\\NrLlm\\Domain\\Model\\Model and Netresearch\\NrLlm\\Domain\\Model\\Model will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: ../../Classes/Controller/Backend/Response/ModelListResponse.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: ../../Classes/Controller/Backend/Response/TestConnectionResponse.php
+
+		-
 			message: '#^Cannot access offset ''priority'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 2
@@ -199,18 +211,6 @@ parameters:
 			path: ../../Classes/Service/Feature/TranslationService.php
 
 		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: ../../Classes/Service/LlmConfigurationService.php
-
-		-
-			message: '#^Method Netresearch\\NrLlm\\Service\\LlmConfigurationService\:\:getBackendUser\(\) should return TYPO3\\CMS\\Core\\Authentication\\BackendUserAuthentication\|null but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: ../../Classes/Service/LlmConfigurationService.php
-
-		-
 			message: '#^Cannot access offset string on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 2
@@ -283,26 +283,8 @@ parameters:
 			path: ../../Classes/Service/PromptTemplateService.php
 
 		-
-			message: '#^Cannot access offset ''uid'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: ../../Classes/Service/UsageTrackerService.php
-
-		-
-			message: '#^Cannot access property \$user on mixed\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: ../../Classes/Service/UsageTrackerService.php
-
-		-
 			message: '#^Cannot cast mixed to float\.$#'
 			identifier: cast.double
-			count: 1
-			path: ../../Classes/Service/UsageTrackerService.php
-
-		-
-			message: '#^Cannot cast mixed to int\.$#'
-			identifier: cast.int
 			count: 1
 			path: ../../Classes/Service/UsageTrackerService.php
 
@@ -1231,48 +1213,6 @@ parameters:
 			path: ../../Tests/E2E/EmbeddingWorkflowTest.php
 
 		-
-			message: '#^Access to private property Netresearch\\NrLlm\\Service\\Option\\ChatOptions\:\:\$frequencyPenalty\.$#'
-			identifier: property.private
-			count: 1
-			path: ../../Tests/Functional/Domain/Repository/LlmConfigurationRepositoryTest.php
-
-		-
-			message: '#^Access to private property Netresearch\\NrLlm\\Service\\Option\\ChatOptions\:\:\$maxTokens\.$#'
-			identifier: property.private
-			count: 1
-			path: ../../Tests/Functional/Domain/Repository/LlmConfigurationRepositoryTest.php
-
-		-
-			message: '#^Access to private property Netresearch\\NrLlm\\Service\\Option\\ChatOptions\:\:\$model\.$#'
-			identifier: property.private
-			count: 1
-			path: ../../Tests/Functional/Domain/Repository/LlmConfigurationRepositoryTest.php
-
-		-
-			message: '#^Access to private property Netresearch\\NrLlm\\Service\\Option\\ChatOptions\:\:\$presencePenalty\.$#'
-			identifier: property.private
-			count: 1
-			path: ../../Tests/Functional/Domain/Repository/LlmConfigurationRepositoryTest.php
-
-		-
-			message: '#^Access to private property Netresearch\\NrLlm\\Service\\Option\\ChatOptions\:\:\$provider\.$#'
-			identifier: property.private
-			count: 1
-			path: ../../Tests/Functional/Domain/Repository/LlmConfigurationRepositoryTest.php
-
-		-
-			message: '#^Access to private property Netresearch\\NrLlm\\Service\\Option\\ChatOptions\:\:\$temperature\.$#'
-			identifier: property.private
-			count: 1
-			path: ../../Tests/Functional/Domain/Repository/LlmConfigurationRepositoryTest.php
-
-		-
-			message: '#^Access to private property Netresearch\\NrLlm\\Service\\Option\\ChatOptions\:\:\$topP\.$#'
-			identifier: property.private
-			count: 1
-			path: ../../Tests/Functional/Domain/Repository/LlmConfigurationRepositoryTest.php
-
-		-
 			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, mixed\> will always evaluate to true\.$#'
 			identifier: staticMethod.alreadyNarrowedType
 			count: 1
@@ -1289,6 +1229,108 @@ parameters:
 			identifier: assign.propertyType
 			count: 1
 			path: ../../Tests/Functional/Domain/Repository/LlmConfigurationRepositoryTest.php
+
+		-
+			message: '#^Cannot call method isActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ModelRepositoryTest.php
+
+		-
+			message: '#^Cannot call method isDefault\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: ../../Tests/Functional/Domain/Repository/ModelRepositoryTest.php
+
+		-
+			message: '#^Parameter \#1 \$model of method Netresearch\\NrLlm\\Domain\\Repository\\ModelRepository\:\:setAsDefault\(\) expects Netresearch\\NrLlm\\Domain\\Model\\Model, Netresearch\\NrLlm\\Domain\\Model\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ModelRepositoryTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Domain\\Repository\\ModelRepositoryTest\:\:\$persistenceManager \(TYPO3\\CMS\\Extbase\\Persistence\\PersistenceManagerInterface\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ModelRepositoryTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Domain\\Repository\\ModelRepositoryTest\:\:\$providerRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ProviderRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ModelRepositoryTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Domain\\Repository\\ModelRepositoryTest\:\:\$providerRepository is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ModelRepositoryTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Domain\\Repository\\ModelRepositoryTest\:\:\$repository \(Netresearch\\NrLlm\\Domain\\Repository\\ModelRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ModelRepositoryTest.php
+
+		-
+			message: '#^Cannot call method getAdapterType\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Cannot call method getDescription\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Cannot call method getEndpointUrl\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Cannot call method getIdentifier\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Cannot call method getMaxRetries\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Cannot call method getName\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Cannot call method getTimeout\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Cannot call method isActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: ../../Tests/Functional/Domain/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Domain\\Repository\\ProviderRepositoryTest\:\:\$persistenceManager \(TYPO3\\CMS\\Extbase\\Persistence\\PersistenceManagerInterface\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Domain\\Repository\\ProviderRepositoryTest\:\:\$repository \(Netresearch\\NrLlm\\Domain\\Repository\\ProviderRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: ../../Tests/Functional/Domain/Repository/ProviderRepositoryTest.php
 
 		-
 			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Service\\LlmConfigurationServiceTest\:\:\$repository \(Netresearch\\NrLlm\\Domain\\Repository\\LlmConfigurationRepository\) does not accept mixed\.$#'
@@ -1447,6 +1489,156 @@ parameters:
 			path: ../../Tests/Fuzzy/Domain/EmbeddingResponseFuzzyTest.php
 
 		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: ../../Tests/Fuzzy/Domain/LlmConfigurationFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\associative not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: ../../Tests/Fuzzy/Domain/LlmConfigurationFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\bool not found\.$#'
+			identifier: function.notFound
+			count: 3
+			path: ../../Tests/Fuzzy/Domain/LlmConfigurationFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\float not found\.$#'
+			identifier: function.notFound
+			count: 4
+			path: ../../Tests/Fuzzy/Domain/LlmConfigurationFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\int not found\.$#'
+			identifier: function.notFound
+			count: 2
+			path: ../../Tests/Fuzzy/Domain/LlmConfigurationFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\string not found\.$#'
+			identifier: function.notFound
+			count: 4
+			path: ../../Tests/Fuzzy/Domain/LlmConfigurationFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\suchThat not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: ../../Tests/Fuzzy/Domain/LlmConfigurationFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\bool not found\.$#'
+			identifier: function.notFound
+			count: 2
+			path: ../../Tests/Fuzzy/Domain/ModelFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\choose not found\.$#'
+			identifier: function.notFound
+			count: 4
+			path: ../../Tests/Fuzzy/Domain/ModelFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\int not found\.$#'
+			identifier: function.notFound
+			count: 4
+			path: ../../Tests/Fuzzy/Domain/ModelFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\string not found\.$#'
+			identifier: function.notFound
+			count: 4
+			path: ../../Tests/Fuzzy/Domain/ModelFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\subset not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: ../../Tests/Fuzzy/Domain/ModelFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\suchThat not found\.$#'
+			identifier: function.notFound
+			count: 2
+			path: ../../Tests/Fuzzy/Domain/ModelFuzzyTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: ../../Tests/Fuzzy/Domain/ProviderFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\associative not found\.$#'
+			identifier: function.notFound
+			count: 2
+			path: ../../Tests/Fuzzy/Domain/ProviderFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\bind not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: ../../Tests/Fuzzy/Domain/ProviderFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\bool not found\.$#'
+			identifier: function.notFound
+			count: 2
+			path: ../../Tests/Fuzzy/Domain/ProviderFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\choose not found\.$#'
+			identifier: function.notFound
+			count: 2
+			path: ../../Tests/Fuzzy/Domain/ProviderFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\constant not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: ../../Tests/Fuzzy/Domain/ProviderFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\elements not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: ../../Tests/Fuzzy/Domain/ProviderFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\int not found\.$#'
+			identifier: function.notFound
+			count: 2
+			path: ../../Tests/Fuzzy/Domain/ProviderFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\map not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: ../../Tests/Fuzzy/Domain/ProviderFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\string not found\.$#'
+			identifier: function.notFound
+			count: 7
+			path: ../../Tests/Fuzzy/Domain/ProviderFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\suchThat not found\.$#'
+			identifier: function.notFound
+			count: 2
+			path: ../../Tests/Fuzzy/Domain/ProviderFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\vector not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: ../../Tests/Fuzzy/Domain/ProviderFuzzyTest.php
+
+		-
 			message: '#^Function Eris\\Generator\\choose not found\.$#'
 			identifier: function.notFound
 			count: 2
@@ -1457,6 +1649,54 @@ parameters:
 			identifier: function.notFound
 			count: 6
 			path: ../../Tests/Fuzzy/Domain/UsageStatisticsFuzzyTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 2
+			path: ../../Tests/Fuzzy/Security/InputSanitizationFuzzyTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: ../../Tests/Fuzzy/Security/InputSanitizationFuzzyTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsInt\(\) with int will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: ../../Tests/Fuzzy/Security/InputSanitizationFuzzyTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 6
+			path: ../../Tests/Fuzzy/Security/InputSanitizationFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\choose not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: ../../Tests/Fuzzy/Security/InputSanitizationFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\elements not found\.$#'
+			identifier: function.notFound
+			count: 8
+			path: ../../Tests/Fuzzy/Security/InputSanitizationFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\map not found\.$#'
+			identifier: function.notFound
+			count: 3
+			path: ../../Tests/Fuzzy/Security/InputSanitizationFuzzyTest.php
+
+		-
+			message: '#^Function Eris\\Generator\\string not found\.$#'
+			identifier: function.notFound
+			count: 2
+			path: ../../Tests/Fuzzy/Security/InputSanitizationFuzzyTest.php
 
 		-
 			message: '#^Function Eris\\Generator\\choose not found\.$#'
@@ -1627,6 +1867,192 @@ parameters:
 			path: ../../Tests/Unit/AbstractUnitTestCase.php
 
 		-
+			message: '#^Cannot access offset ''content'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ConfigurationControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''defaultModel'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ConfigurationControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''error'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 12
+			path: ../../Tests/Unit/Controller/Backend/ConfigurationControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''isActive'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Tests/Unit/Controller/Backend/ConfigurationControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''model'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ConfigurationControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 6
+			path: ../../Tests/Unit/Controller/Backend/ConfigurationControllerTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Controller\\Backend\\ConfigurationControllerTest\:\:createRequest\(\) has parameter \$body with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ConfigurationControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 14
+			path: ../../Tests/Unit/Controller/Backend/ConfigurationControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 12
+			path: ../../Tests/Unit/Controller/Backend/ConfigurationControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''error'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 8
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''isActive'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''models'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Controller\\Backend\\ModelControllerTest\:\:createRequest\(\) has parameter \$body with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Method TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface@anonymous/Tests/Unit/Controller/Backend/ModelControllerTest\.php\:311\:\:__construct\(\) has parameter \$items with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Method TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface@anonymous/Tests/Unit/Controller/Backend/ModelControllerTest\.php\:311\:\:getFirst\(\) should return object\|null but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Method TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface@anonymous/Tests/Unit/Controller/Backend/ModelControllerTest\.php\:311\:\:toArray\(\) should return list\<object\> but returns array\.$#'
+			identifier: return.type
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 8
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertCount\(\) expects Countable\|iterable, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 8
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Possibly invalid array key type mixed\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 4
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Property TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface@anonymous/Tests/Unit/Controller/Backend/ModelControllerTest\.php\:311\:\:\$items type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''error'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: ../../Tests/Unit/Controller/Backend/ProviderControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''isActive'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Tests/Unit/Controller/Backend/ProviderControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ProviderControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''models'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ProviderControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: ../../Tests/Unit/Controller/Backend/ProviderControllerTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Controller\\Backend\\ProviderControllerTest\:\:createRequest\(\) has parameter \$body with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ProviderControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 5
+			path: ../../Tests/Unit/Controller/Backend/ProviderControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertCount\(\) expects Countable\|iterable, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Controller/Backend/ProviderControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 4
+			path: ../../Tests/Unit/Controller/Backend/ProviderControllerTest.php
+
+		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Domain\\Model\\CompletionResponseTest\:\:completeFinishReasonProvider\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -1667,6 +2093,66 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: ../../Tests/Unit/Provider/AbstractProviderConfigureTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertTrue\(\) with true will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: ../../Tests/Unit/Provider/AbstractProviderMutationTest.php
+
+		-
+			message: '#^Dead catch \- Netresearch\\NrLlm\\Provider\\Exception\\ProviderConnectionException is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: ../../Tests/Unit/Provider/AbstractProviderMutationTest.php
+
+		-
+			message: '#^Dead catch \- Netresearch\\NrLlm\\Provider\\Exception\\ProviderResponseException is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: ../../Tests/Unit/Provider/AbstractProviderMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Provider\\AbstractProviderMutationTest\:\:clientErrorStatusCodeProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Provider/AbstractProviderMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Provider\\AbstractProviderMutationTest\:\:errorMessageProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Provider/AbstractProviderMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Provider\\AbstractProviderMutationTest\:\:extractErrorMessageParsesVariousFormats\(\) has parameter \$errorData with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Provider/AbstractProviderMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Provider\\AbstractProviderMutationTest\:\:serverErrorStatusCodeProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Provider/AbstractProviderMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Provider\\AbstractProviderMutationTest\:\:successfulStatusCodeProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Provider/AbstractProviderMutationTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Provider/AbstractProviderMutationTest.php
+
+		-
+			message: '#^Parameter \#3 \$subject of function str_replace expects array\<string\>\|string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Provider/AbstractProviderMutationTest.php
 
 		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Provider\\AbstractProviderTest\:\:providerConfigProvider\(\) return type has no value type specified in iterable type array\.$#'
@@ -1823,6 +2309,12 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: ../../Tests/Unit/Provider/OpenRouterProviderTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Provider\\ResponseParserTraitMutationTest\:\:invokeTraitMethod\(\) has parameter \$args with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Provider/ResponseParserTraitMutationTest.php
 
 		-
 			message: '#^Parameter \#1 \$haystack of function str_contains expects string, mixed given\.$#'
@@ -2291,6 +2783,60 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: ../../Tests/Unit/Specialized/Speech/TranscriptionResultTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{glossary_id\: string, name\: string, source_lang\: string, target_lang\: string\}\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Translation\\DeepLTranslatorMutationTest\:\:createTranslator\(\) has parameter \$config with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Translation\\DeepLTranslatorMutationTest\:\:createTranslatorWithHttpClient\(\) has parameter \$config with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Translation\\DeepLTranslatorMutationTest\:\:formalityMappingProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorMutationTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Translation\\DeepLTranslatorMutationTest\:\:languageCodeNormalizationProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorMutationTest.php
+
+		-
+			message: '#^Offset ''billed_characters'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorMutationTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorMutationTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringNotContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorMutationTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Translation\\DeepLTranslatorMutationTest\:\:\$defaultConfig type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: ../../Tests/Unit/Specialized/Translation/DeepLTranslatorMutationTest.php
 
 		-
 			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{glossary_id\: string, name\: string, source_lang\: string, target_lang\: string\}\> will always evaluate to true\.$#'

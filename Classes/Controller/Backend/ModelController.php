@@ -4,12 +4,19 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\ModelListResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
+use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
@@ -17,6 +24,7 @@ use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Imaging\IconSize;
+use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
@@ -37,12 +45,34 @@ final class ModelController extends ActionController
         private readonly ModelRepository $modelRepository,
         private readonly ProviderRepository $providerRepository,
         private readonly PersistenceManagerInterface $persistenceManager,
+        private readonly PageRenderer $pageRenderer,
+        private readonly BackendUriBuilder $backendUriBuilder,
     ) {}
 
     protected function initializeAction(): void
     {
         $this->moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $this->moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
+
+        // Register AJAX URLs for JavaScript
+        $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
+            'nrllm_model_toggle_active' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_toggle_active'),
+            'nrllm_model_set_default' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_set_default'),
+        ]);
+
+        // Load JavaScript for model list actions
+        $this->pageRenderer->addJsFile(
+            'EXT:nr_llm/Resources/Public/JavaScript/Backend/ModelList.js',
+            'text/javascript',
+            false,
+            false,
+            '',
+            false,
+            '|',
+            false,
+            '',
+            true,
+        );
     }
 
     /**
@@ -52,6 +82,23 @@ final class ModelController extends ActionController
     {
         $models = $this->modelRepository->findAll();
         $providers = $this->providerRepository->findActive();
+
+        // Build provider lookup map and populate provider relation on models
+        $providerMap = [];
+        foreach ($providers as $provider) {
+            $uid = $provider->getUid();
+            if ($uid !== null) {
+                $providerMap[$uid] = $provider;
+            }
+        }
+        foreach ($models as $model) {
+            if (!$model instanceof Model) {
+                continue;
+            }
+            if ($model->getProviderUid() > 0) {
+                $model->setProvider($providerMap[$model->getProviderUid()] ?? null);
+            }
+        }
 
         $this->moduleTemplate->assignMultiple([
             'models' => $models,
@@ -270,95 +317,76 @@ final class ModelController extends ActionController
     /**
      * AJAX: Toggle active status.
      */
-    public function toggleActiveAction(): ResponseInterface
+    public function toggleActiveAction(ServerRequestInterface $request): ResponseInterface
     {
-        $body = $this->request->getParsedBody();
+        $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
-            return new JsonResponse(['error' => 'No model UID specified'], 400);
+            return new JsonResponse((new ErrorResponse('No model UID specified'))->jsonSerialize(), 400);
         }
 
         $model = $this->modelRepository->findByUid($uid);
         if ($model === null) {
-            return new JsonResponse(['error' => 'Model not found'], 404);
+            return new JsonResponse((new ErrorResponse('Model not found'))->jsonSerialize(), 404);
         }
 
         try {
             $model->setIsActive(!$model->isActive());
             $this->modelRepository->update($model);
             $this->persistenceManager->persistAll();
-            return new JsonResponse([
-                'success' => true,
-                'isActive' => $model->isActive(),
-            ]);
+            return new JsonResponse((new ToggleActiveResponse(
+                success: true,
+                isActive: $model->isActive(),
+            ))->jsonSerialize());
         } catch (Throwable $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
         }
     }
 
     /**
      * AJAX: Set model as default.
      */
-    public function setDefaultAction(): ResponseInterface
+    public function setDefaultAction(ServerRequestInterface $request): ResponseInterface
     {
-        $body = $this->request->getParsedBody();
+        $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
-            return new JsonResponse(['error' => 'No model UID specified'], 400);
+            return new JsonResponse((new ErrorResponse('No model UID specified'))->jsonSerialize(), 400);
         }
 
         $model = $this->modelRepository->findByUid($uid);
         if ($model === null) {
-            return new JsonResponse(['error' => 'Model not found'], 404);
+            return new JsonResponse((new ErrorResponse('Model not found'))->jsonSerialize(), 404);
         }
 
         try {
             $this->modelRepository->setAsDefault($model);
             $this->persistenceManager->persistAll();
-            return new JsonResponse(['success' => true]);
+            return new JsonResponse((new SuccessResponse())->jsonSerialize());
         } catch (Throwable $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
         }
     }
 
     /**
      * AJAX: Get models by provider.
      */
-    public function getByProviderAction(): ResponseInterface
+    public function getByProviderAction(ServerRequestInterface $request): ResponseInterface
     {
-        $body = $this->request->getParsedBody();
+        $body = $request->getParsedBody();
         $providerUid = $this->extractIntFromBody($body, 'providerUid');
 
         if ($providerUid === 0) {
-            return new JsonResponse(['error' => 'No provider UID specified'], 400);
+            return new JsonResponse((new ErrorResponse('No provider UID specified'))->jsonSerialize(), 400);
         }
 
         try {
             $models = $this->modelRepository->findByProviderUid($providerUid);
-            $modelData = [];
-
-            foreach ($models as $model) {
-                // @phpstan-ignore instanceof.alwaysTrue (defensive check for QueryResult)
-                if (!$model instanceof Model) {
-                    continue;
-                }
-                $modelData[] = [
-                    'uid' => $model->getUid(),
-                    'identifier' => $model->getIdentifier(),
-                    'name' => $model->getName(),
-                    'modelId' => $model->getModelId(),
-                    'isDefault' => $model->isDefault(),
-                ];
-            }
-
-            return new JsonResponse([
-                'success' => true,
-                'models' => $modelData,
-            ]);
+            return new JsonResponse(ModelListResponse::fromModels($models)->jsonSerialize());
         } catch (Throwable $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
         }
     }
 

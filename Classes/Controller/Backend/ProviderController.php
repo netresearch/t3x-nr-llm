@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\TestConnectionResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
+use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
@@ -16,6 +22,7 @@ use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Imaging\IconSize;
+use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
@@ -34,13 +41,36 @@ final class ProviderController extends ActionController
         private readonly ComponentFactory $componentFactory,
         private readonly IconFactory $iconFactory,
         private readonly ProviderRepository $providerRepository,
+        private readonly ProviderAdapterRegistry $providerAdapterRegistry,
         private readonly PersistenceManagerInterface $persistenceManager,
+        private readonly PageRenderer $pageRenderer,
+        private readonly BackendUriBuilder $backendUriBuilder,
     ) {}
 
     protected function initializeAction(): void
     {
         $this->moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $this->moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
+
+        // Register AJAX URLs for JavaScript
+        $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
+            'nrllm_provider_toggle_active' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_provider_toggle_active'),
+            'nrllm_provider_test_connection' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_provider_test_connection'),
+        ]);
+
+        // Load JavaScript for provider list actions
+        $this->pageRenderer->addJsFile(
+            'EXT:nr_llm/Resources/Public/JavaScript/Backend/ProviderList.js',
+            'text/javascript',
+            false,
+            false,
+            '',
+            false,
+            '|',
+            false,
+            '',
+            true,
+        );
     }
 
     /**
@@ -249,69 +279,56 @@ final class ProviderController extends ActionController
     /**
      * AJAX: Toggle active status.
      */
-    public function toggleActiveAction(): ResponseInterface
+    public function toggleActiveAction(ServerRequestInterface $request): ResponseInterface
     {
-        $body = $this->request->getParsedBody();
+        $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
-            return new JsonResponse(['error' => 'No provider UID specified'], 400);
+            return new JsonResponse((new ErrorResponse('No provider UID specified'))->jsonSerialize(), 400);
         }
 
         $provider = $this->providerRepository->findByUid($uid);
         if ($provider === null) {
-            return new JsonResponse(['error' => 'Provider not found'], 404);
+            return new JsonResponse((new ErrorResponse('Provider not found'))->jsonSerialize(), 404);
         }
 
         try {
             $provider->setIsActive(!$provider->isActive());
             $this->providerRepository->update($provider);
             $this->persistenceManager->persistAll();
-            return new JsonResponse([
-                'success' => true,
-                'isActive' => $provider->isActive(),
-            ]);
+            return new JsonResponse((new ToggleActiveResponse(
+                success: true,
+                isActive: $provider->isActive(),
+            ))->jsonSerialize());
         } catch (Throwable $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
         }
     }
 
     /**
      * AJAX: Test provider connection.
      */
-    public function testConnectionAction(): ResponseInterface
+    public function testConnectionAction(ServerRequestInterface $request): ResponseInterface
     {
-        $body = $this->request->getParsedBody();
+        $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
-            return new JsonResponse(['error' => 'No provider UID specified'], 400);
+            return new JsonResponse((new ErrorResponse('No provider UID specified'))->jsonSerialize(), 400);
         }
 
         $provider = $this->providerRepository->findByUid($uid);
         if ($provider === null) {
-            return new JsonResponse(['error' => 'Provider not found'], 404);
+            return new JsonResponse((new ErrorResponse('Provider not found'))->jsonSerialize(), 404);
         }
 
         try {
-            // TODO: Implement actual connection test via ProviderAdapterRegistry
-            // For now, just check if API key is configured
-            if (!$provider->hasApiKey()) {
-                return new JsonResponse([
-                    'success' => false,
-                    'error' => 'API key not configured',
-                ]);
-            }
+            $result = $this->providerAdapterRegistry->testProviderConnection($provider);
 
-            return new JsonResponse([
-                'success' => true,
-                'message' => 'Connection test not yet implemented',
-            ]);
+            return new JsonResponse(TestConnectionResponse::fromResult($result)->jsonSerialize());
         } catch (Throwable $e) {
-            return new JsonResponse([
-                'success' => false,
-                'error' => $e->getMessage(),
-            ], 500);
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
         }
     }
 

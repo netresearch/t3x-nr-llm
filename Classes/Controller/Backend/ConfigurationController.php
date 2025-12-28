@@ -4,14 +4,24 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\ProviderModelsResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\TestConfigurationResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
-use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
+use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
@@ -19,6 +29,7 @@ use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Imaging\IconSize;
+use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
@@ -38,13 +49,37 @@ final class ConfigurationController extends ActionController
         private readonly LlmConfigurationService $configurationService,
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly ModelRepository $modelRepository,
-        private readonly LlmServiceManager $llmServiceManager,
+        private readonly ProviderRepository $providerRepository,
+        private readonly LlmServiceManagerInterface $llmServiceManager,
+        private readonly PageRenderer $pageRenderer,
+        private readonly BackendUriBuilder $backendUriBuilder,
     ) {}
 
     protected function initializeAction(): void
     {
         $this->moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $this->moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
+
+        // Register AJAX URLs for JavaScript
+        $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
+            'nrllm_config_toggle_active' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_toggle_active'),
+            'nrllm_config_set_default' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_set_default'),
+            'nrllm_config_test' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_test'),
+        ]);
+
+        // Load JavaScript for configuration list actions
+        $this->pageRenderer->addJsFile(
+            'EXT:nr_llm/Resources/Public/JavaScript/Backend/ConfigurationList.js',
+            'text/javascript',
+            false,
+            false,
+            '',
+            false,
+            '|',
+            false,
+            '',
+            true,
+        );
     }
 
     /**
@@ -53,6 +88,40 @@ final class ConfigurationController extends ActionController
     public function listAction(): ResponseInterface
     {
         $configurations = $this->configurationRepository->findAll();
+
+        // Build lookup maps for models and providers
+        $models = $this->modelRepository->findAll();
+        $providers = $this->providerRepository->findActive();
+
+        $providerMap = [];
+        foreach ($providers as $provider) {
+            $uid = $provider->getUid();
+            if ($uid !== null) {
+                $providerMap[$uid] = $provider;
+            }
+        }
+
+        $modelMap = [];
+        foreach ($models as $model) {
+            if (!$model instanceof Model) {
+                continue;
+            }
+            $uid = $model->getUid();
+            if ($uid !== null) {
+                // Populate provider on model
+                if ($model->getProviderUid() > 0) {
+                    $model->setProvider($providerMap[$model->getProviderUid()] ?? null);
+                }
+                $modelMap[$uid] = $model;
+            }
+        }
+
+        // Populate llmModel on configurations
+        foreach ($configurations as $config) {
+            if ($config instanceof LlmConfiguration && $config->getModelUid() > 0) {
+                $config->setLlmModel($modelMap[$config->getModelUid()] ?? null);
+            }
+        }
 
         $this->moduleTemplate->assignMultiple([
             'configurations' => $configurations,
@@ -250,103 +319,103 @@ final class ConfigurationController extends ActionController
     /**
      * AJAX: Toggle active status.
      */
-    public function toggleActiveAction(): ResponseInterface
+    public function toggleActiveAction(ServerRequestInterface $request): ResponseInterface
     {
-        $body = $this->request->getParsedBody();
+        $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
-            return new JsonResponse(['error' => 'No configuration UID specified'], 400);
+            return new JsonResponse((new ErrorResponse('No configuration UID specified'))->jsonSerialize(), 400);
         }
 
         $configuration = $this->configurationRepository->findByUid($uid);
         if ($configuration === null) {
-            return new JsonResponse(['error' => 'Configuration not found'], 404);
+            return new JsonResponse((new ErrorResponse('Configuration not found'))->jsonSerialize(), 404);
         }
 
         try {
             $this->configurationService->toggleActive($configuration);
-            return new JsonResponse([
-                'success' => true,
-                'isActive' => $configuration->isActive(),
-            ]);
+            return new JsonResponse((new ToggleActiveResponse(
+                success: true,
+                isActive: $configuration->isActive(),
+            ))->jsonSerialize());
         } catch (Throwable $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
         }
     }
 
     /**
      * AJAX: Set configuration as default.
      */
-    public function setDefaultAction(): ResponseInterface
+    public function setDefaultAction(ServerRequestInterface $request): ResponseInterface
     {
-        $body = $this->request->getParsedBody();
+        $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
-            return new JsonResponse(['error' => 'No configuration UID specified'], 400);
+            return new JsonResponse((new ErrorResponse('No configuration UID specified'))->jsonSerialize(), 400);
         }
 
         $configuration = $this->configurationRepository->findByUid($uid);
         if ($configuration === null) {
-            return new JsonResponse(['error' => 'Configuration not found'], 404);
+            return new JsonResponse((new ErrorResponse('Configuration not found'))->jsonSerialize(), 404);
         }
 
         try {
             $this->configurationService->setAsDefault($configuration);
-            return new JsonResponse(['success' => true]);
+            return new JsonResponse((new SuccessResponse())->jsonSerialize());
         } catch (Throwable $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
         }
     }
 
     /**
      * AJAX: Get available models for a provider.
      */
-    public function getModelsAction(): ResponseInterface
+    public function getModelsAction(ServerRequestInterface $request): ResponseInterface
     {
-        $body = $this->request->getParsedBody();
+        $body = $request->getParsedBody();
         $providerKey = $this->extractStringFromBody($body, 'provider');
 
         if ($providerKey === '') {
-            return new JsonResponse(['error' => 'No provider specified'], 400);
+            return new JsonResponse((new ErrorResponse('No provider specified'))->jsonSerialize(), 400);
         }
 
         try {
             $providers = $this->llmServiceManager->getAvailableProviders();
             if (!isset($providers[$providerKey])) {
-                return new JsonResponse(['error' => 'Provider not available'], 404);
+                return new JsonResponse((new ErrorResponse('Provider not available'))->jsonSerialize(), 404);
             }
 
             $provider = $providers[$providerKey];
             $models = $provider->getAvailableModels();
             $defaultModel = $provider->getDefaultModel();
 
-            return new JsonResponse([
-                'success' => true,
-                'models' => $models,
-                'defaultModel' => $defaultModel,
-            ]);
+            return new JsonResponse((new ProviderModelsResponse(
+                success: true,
+                models: $models,
+                defaultModel: $defaultModel,
+            ))->jsonSerialize());
         } catch (Throwable $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
         }
     }
 
     /**
      * AJAX: Test configuration.
      */
-    public function testConfigurationAction(): ResponseInterface
+    public function testConfigurationAction(ServerRequestInterface $request): ResponseInterface
     {
-        $body = $this->request->getParsedBody();
+        $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
-            return new JsonResponse(['error' => 'No configuration UID specified'], 400);
+            return new JsonResponse((new ErrorResponse('No configuration UID specified'))->jsonSerialize(), 400);
         }
 
         $configuration = $this->configurationRepository->findByUid($uid);
         if ($configuration === null) {
-            return new JsonResponse(['error' => 'Configuration not found'], 404);
+            return new JsonResponse((new ErrorResponse('Configuration not found'))->jsonSerialize(), 404);
         }
 
         try {
@@ -356,21 +425,11 @@ final class ConfigurationController extends ActionController
                 $chatOptions,
             );
 
-            return new JsonResponse([
-                'success' => true,
-                'content' => $response->content,
-                'model' => $response->model,
-                'usage' => [
-                    'promptTokens' => $response->usage->promptTokens,
-                    'completionTokens' => $response->usage->completionTokens,
-                    'totalTokens' => $response->usage->totalTokens,
-                ],
-            ]);
+            return new JsonResponse(
+                TestConfigurationResponse::fromCompletionResponse($response)->jsonSerialize(),
+            );
         } catch (Throwable $e) {
-            return new JsonResponse([
-                'success' => false,
-                'error' => $e->getMessage(),
-            ], 500);
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
         }
     }
 
