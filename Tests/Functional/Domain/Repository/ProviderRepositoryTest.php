@@ -7,6 +7,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Domain\Repository;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
@@ -18,7 +19,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
     private ProviderRepository $repository;
     private PersistenceManagerInterface $persistenceManager;
 
-    #[\Override]
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

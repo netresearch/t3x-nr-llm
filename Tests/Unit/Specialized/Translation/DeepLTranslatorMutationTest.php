@@ -4,19 +4,20 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
-use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
-use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
-use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use Exception;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
+use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Option\DeepLOptions;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Client\ClientInterface;
 use ReflectionClass;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * Mutation-killing tests for DeepLTranslator.
@@ -29,7 +30,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     private array $defaultConfig;
     private UsageTrackerServiceInterface $usageTrackerStub;
 
-    #[\Override]
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

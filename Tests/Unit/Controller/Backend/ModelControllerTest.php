@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
-use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
-use TYPO3\CMS\Extbase\Persistence\QueryInterface;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
@@ -17,6 +15,8 @@ use ReflectionClass;
 use RuntimeException;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * Unit tests for ModelController AJAX actions.
@@ -314,7 +314,9 @@ final class ModelControllerTest extends TestCase
         $queryResult = new class ([$model1, $model2]) implements QueryResultInterface {
             /** @var array<int, object> */
             private array $items;
-            /** @param array<int, object> $items */
+            /**
+             * @param array<int, object> $items
+             */
             public function __construct(array $items)
             {
                 $this->items = array_values($items);
@@ -324,7 +326,9 @@ final class ModelControllerTest extends TestCase
             {
                 return $this->items[0] ?? null;
             }
-            /** @return list<object> */
+            /**
+             * @return list<object>
+             */
             public function toArray(): array
             {
                 /** @var list<object> */
