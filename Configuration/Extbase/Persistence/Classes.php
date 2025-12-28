@@ -30,6 +30,9 @@ return [
             'providerUid' => [
                 'fieldName' => 'provider_uid',
             ],
+            'provider' => [
+                'fieldName' => 'provider_uid',
+            ],
         ],
     ],
     LlmConfiguration::class => [
