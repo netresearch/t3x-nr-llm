@@ -418,6 +418,9 @@ final class ConfigurationController extends ActionController
             return new JsonResponse((new ErrorResponse('Configuration not found'))->jsonSerialize(), 404);
         }
 
+        // Populate Model→Provider relations for proper provider resolution
+        $this->hydrateConfigurationRelations($configuration);
+
         try {
             $chatOptions = $configuration->toChatOptions();
             $response = $this->llmServiceManager->complete(
@@ -501,6 +504,34 @@ final class ConfigurationController extends ActionController
         $value = $body[$key] ?? '';
 
         return is_string($value) || is_numeric($value) ? (string)$value : '';
+    }
+
+    /**
+     * Hydrate Model→Provider relations for a configuration.
+     *
+     * Extbase doesn't automatically load nested relations, so we need to
+     * manually populate the Model and Provider objects for proper resolution.
+     */
+    private function hydrateConfigurationRelations(LlmConfiguration $configuration): void
+    {
+        if ($configuration->getModelUid() <= 0) {
+            return;
+        }
+
+        $model = $this->modelRepository->findByUid($configuration->getModelUid());
+        if ($model === null) {
+            return;
+        }
+
+        // Populate provider on model
+        if ($model->getProviderUid() > 0) {
+            $provider = $this->providerRepository->findByUid($model->getProviderUid());
+            if ($provider !== null) {
+                $model->setProvider($provider);
+            }
+        }
+
+        $configuration->setLlmModel($model);
     }
 
     /**
