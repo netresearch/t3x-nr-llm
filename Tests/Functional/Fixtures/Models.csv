@@ -1,0 +1,6 @@
+"tx_nrllm_model"
+,"uid","pid","identifier","name","description","provider_uid","model_id","context_length","max_output_tokens","capabilities","cost_input","cost_output","is_active","is_default","sorting","deleted","hidden"
+,1,0,"gpt-4o","GPT-4o","OpenAI GPT-4o model",1,"gpt-4o",128000,4096,"chat,vision,tools",500,1500,1,1,1,0,0
+,2,0,"gpt-4o-mini","GPT-4o Mini","OpenAI GPT-4o Mini model",1,"gpt-4o-mini",128000,4096,"chat,tools",15,60,0,0,2,0,0
+,3,0,"llama3","Llama 3","Local Llama 3 model",1,"llama3:latest",8192,2048,"chat",0,0,1,0,3,0,0
+,4,0,"deleted-model","Deleted Model","Should not appear",1,"deleted-model",4096,1024,"chat",0,0,1,0,4,1,0

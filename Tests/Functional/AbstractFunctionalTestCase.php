@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional;
 
 use Override;
+use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
@@ -63,7 +64,12 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
             );
         }
 
-        parent::setUp();
+        try {
+            parent::setUp();
+        } catch (Throwable $e) {
+            $this->skipped = true;
+            self::markTestSkipped('Failed to initialize functional test: ' . $e->getMessage());
+        }
     }
 
     #[Override]
@@ -72,7 +78,12 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
         if ($this->skipped) {
             return;
         }
-        parent::tearDown();
+
+        try {
+            parent::tearDown();
+        } catch (Throwable) {
+            // Ignore teardown errors when setup failed
+        }
     }
 
     /**

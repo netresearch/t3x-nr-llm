@@ -1,0 +1,6 @@
+"tx_nrllm_configuration"
+,"uid","pid","identifier","name","description","model_uid","system_prompt","temperature","max_tokens","top_p","frequency_penalty","presence_penalty","stop_sequences","options","is_active","is_default","sorting","deleted","hidden"
+,1,0,"default-chat","Default Chat","Default chat configuration",1,"You are a helpful assistant.",0.7,4096,1.0,0.0,0.0,"","",1,1,1,0,0
+,2,0,"code-helper","Code Helper","Code assistance configuration",1,"You are a coding assistant.",0.3,8192,1.0,0.0,0.0,"","",0,0,2,0,0
+,3,0,"translator","Translator","Translation configuration",3,"You are a professional translator.",0.5,4096,1.0,0.0,0.0,"","",1,0,3,0,0
+,4,0,"deleted-config","Deleted Config","Should not appear",1,"Test",0.7,4096,1.0,0.0,0.0,"","",1,0,4,1,0
