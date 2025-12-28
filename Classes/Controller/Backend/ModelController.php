@@ -427,22 +427,34 @@ final class ModelController extends ActionController
             // Create adapter from model's provider
             $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
 
-            // Make a simple test call
-            $testPrompt = 'Say "OK" to confirm this model is working.';
+            // Make a simple test call - use enough tokens for models with thinking
+            $testPrompt = 'Respond with exactly one word: Hello';
             $response = $adapter->complete($testPrompt, [
                 'model' => $model->getModelId(),
-                'max_tokens' => 10,
+                'max_tokens' => 100,
                 'temperature' => 0.0,
             ]);
 
             $responseText = trim($response->content);
-            $message = sprintf(
-                'Model "%s" responded: "%s" (tokens: %d in, %d out)',
-                $model->getName(),
-                mb_substr($responseText, 0, 50) . (mb_strlen($responseText) > 50 ? '...' : ''),
-                $response->usage->promptTokens,
-                $response->usage->completionTokens,
-            );
+
+            // Build success message
+            if ($responseText !== '') {
+                $message = sprintf(
+                    'Model "%s" responded: "%s" (tokens: %d in, %d out)',
+                    $model->getName(),
+                    mb_substr($responseText, 0, 100) . (mb_strlen($responseText) > 100 ? '...' : ''),
+                    $response->usage->promptTokens,
+                    $response->usage->completionTokens,
+                );
+            } else {
+                // Model connected but returned empty content (might be using thinking mode)
+                $message = sprintf(
+                    'Model "%s" connected successfully (tokens: %d in, %d out) - response content empty, model may use internal reasoning',
+                    $model->getName(),
+                    $response->usage->promptTokens,
+                    $response->usage->completionTokens,
+                );
+            }
 
             return new JsonResponse((new TestConnectionResponse(
                 success: true,

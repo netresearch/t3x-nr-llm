@@ -85,7 +85,7 @@
                                 <option value="">-- Select Provider --</option>
                                 <f:for each="{providers}" as="provider">
                                     <option value="{provider.uid}"
-                                            {f:if(condition: 'model.providerUid == provider.uid', then: 'selected')}>
+                                            {f:if(condition: '{model.providerUid} == {provider.uid}', then: 'selected')}>
                                         {provider.name} ({provider.adapterName})
                                     </option>
                                 </f:for>
