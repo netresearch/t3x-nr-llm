@@ -36,13 +36,13 @@ services:
     labels:
       com.ddev.site-name: ${DDEV_SITENAME}
       com.ddev.approot: $DDEV_APPROOT
-    # Healthcheck to ensure Ollama is ready
+    # Healthcheck to ensure Ollama is ready (minimal image has no curl/wget)
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "ollama", "list"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
 
 volumes:
   valkey-data:

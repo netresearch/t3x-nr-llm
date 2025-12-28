@@ -17,7 +17,7 @@ case "$1" in
         ;;
     list)
         echo "Available models:"
-        docker exec -it "$OLLAMA_CONTAINER" ollama list
+        docker exec "$OLLAMA_CONTAINER" ollama list
         ;;
     run|chat)
         MODEL="${2:-$DEFAULT_MODEL}"
@@ -34,7 +34,7 @@ case "$1" in
         ;;
     status)
         echo "Ollama container status:"
-        docker exec "$OLLAMA_CONTAINER" curl -s http://localhost:11434/api/tags | jq .
+        docker exec "$OLLAMA_CONTAINER" ollama list
         ;;
     api)
         echo "Ollama API endpoint: http://ollama:11434"

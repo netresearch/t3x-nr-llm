@@ -127,10 +127,24 @@ vendor/bin/typo3 extension:activate nr_llm || true
 echo "Clearing caches..."
 vendor/bin/typo3 cache:flush
 
+# Import Ollama seed data (provider, models, configurations)
+echo "Importing Ollama LLM seed data..."
+SQL_FILE="/var/www/nr_llm/.ddev/sql/seed-ollama.sql"
+if [ -f "$SQL_FILE" ]; then
+    mysql -h db -u db -pdb db < "$SQL_FILE" && echo "   ✅ Seed data imported" || echo "   ⚠️ Seed import skipped"
+else
+    echo "   ⚠️ Seed file not found, skipping"
+fi
+
 echo ""
 echo "=== Installation Complete ==="
 echo ""
 echo "Access TYPO3 backend at: https://nr-llm.ddev.site/typo3/"
 echo "Username: admin"
 echo "Password: Joh316!"
+echo ""
+echo "🤖 LLM Configuration (pre-configured):"
+echo "   Provider: Local Ollama (http://ollama:11434)"
+echo "   Model: qwen3:0.6b (default)"
+echo "   Run 'ddev ollama list' to verify model"
 echo ""

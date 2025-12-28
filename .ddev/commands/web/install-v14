@@ -88,6 +88,15 @@ vendor/bin/typo3 styleguide:generate || echo "⚠️ Styleguide generation skipp
 # Flush caches
 vendor/bin/typo3 cache:flush
 
+# Import Ollama seed data (provider, models, configurations)
+echo "🤖 Importing Ollama LLM seed data..."
+SQL_FILE="/var/www/nr_llm/.ddev/sql/seed-ollama.sql"
+if [ -f "$SQL_FILE" ]; then
+    mysql -h db -u root -proot "$VERSION" < "$SQL_FILE" && echo "   ✅ Seed data imported" || echo "   ⚠️ Seed import skipped"
+else
+    echo "   ⚠️ Seed file not found, skipping"
+fi
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅ TYPO3 $VERSION installation complete!"
@@ -98,4 +107,9 @@ echo ""
 echo "📋 Credentials:"
 echo "   Username: admin"
 echo "   Password: Joh316!!"
+echo ""
+echo "🤖 LLM Configuration (pre-configured):"
+echo "   Provider: Local Ollama (http://ollama:11434)"
+echo "   Model: qwen3:0.6b (default)"
+echo "   Run 'ddev ollama list' to verify model"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

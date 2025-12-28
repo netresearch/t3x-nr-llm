@@ -33,10 +33,10 @@ hooks:
         OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3:0.6b}"
         OLLAMA_CONTAINER="ddev-${DDEV_SITENAME}-ollama"
 
-        # Wait for Ollama container to be ready
+        # Wait for Ollama container to be ready (use ollama list, no curl in image)
         echo "🤖 Checking Ollama container..."
         for i in {1..30}; do
-          if docker exec "$OLLAMA_CONTAINER" curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
+          if docker exec "$OLLAMA_CONTAINER" ollama list >/dev/null 2>&1; then
             break
           fi
           sleep 1
