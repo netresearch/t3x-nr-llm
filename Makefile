@@ -1,7 +1,7 @@
 # Makefile for nr_llm TYPO3 extension development
 # Generated according to TYPO3 DDEV Skill best practices
 
-.PHONY: help up down restart install test test-unit test-functional lint lint-fix phpstan rector docs clean ci
+.PHONY: help setup up down restart install seed ollama test test-unit test-integration test-functional test-fuzzy test-e2e coverage mutation lint lint-fix phpstan rector docs clean ci
 
 # Default target
 help:
@@ -9,18 +9,26 @@ help:
 	@echo ""
 	@echo "Usage: make [target]"
 	@echo ""
+	@echo "Quick Start:"
+	@echo "  setup       Full setup: start DDEV, install TYPO3, pull LLM model"
+	@echo ""
 	@echo "Environment:"
 	@echo "  up          Start DDEV environment"
 	@echo "  down        Stop DDEV environment"
 	@echo "  restart     Restart DDEV environment"
 	@echo "  install     Install TYPO3 v14 with extension"
+	@echo "  seed        Import Ollama seed data (provider, models, configs)"
+	@echo "  ollama      Check Ollama status and available models"
 	@echo ""
 	@echo "Testing:"
-	@echo "  test        Run all tests"
-	@echo "  test-unit   Run unit tests only"
-	@echo "  test-func   Run functional tests only"
-	@echo "  coverage    Run tests with coverage"
-	@echo "  mutation    Run mutation testing"
+	@echo "  test            Run all tests (unit, integration, fuzzy)"
+	@echo "  test-unit       Run unit tests only"
+	@echo "  test-integration Run integration tests only"
+	@echo "  test-func       Run functional tests (SQLite)"
+	@echo "  test-fuzzy      Run fuzzy/property-based tests"
+	@echo "  test-e2e        Run Playwright E2E tests"
+	@echo "  coverage        Run tests with coverage report"
+	@echo "  mutation        Run mutation testing with Infection"
 	@echo ""
 	@echo "Quality:"
 	@echo "  lint        Check code style (dry-run)"
@@ -36,6 +44,19 @@ help:
 	@echo "Maintenance:"
 	@echo "  clean       Remove generated files"
 
+# Quick start - complete setup in one command
+setup: up install ollama
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "✅ Setup complete!"
+	@echo ""
+	@echo "🌐 TYPO3 Backend: https://v14.nr-llm.ddev.site/typo3/"
+	@echo "   Username: admin | Password: Joh316!!"
+	@echo ""
+	@echo "🤖 LLM ready: Local Ollama with qwen3:0.6b"
+	@echo "   Test: ddev ollama chat"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
 # Environment targets
 up:
 	ddev start
@@ -49,22 +70,38 @@ restart:
 install:
 	ddev install-v14
 
+seed:
+	ddev seed-ollama
+
+ollama:
+	@echo "🤖 Ollama Status:"
+	@ddev ollama list || echo "   Model not yet pulled. Run: ddev ollama pull"
+
 # Testing targets
 test:
-	ddev test
+	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c phpunit.xml --testsuite unit,integration,fuzzy"
 
 test-unit:
-	ddev exec "cd /var/www/html/v14 && vendor/bin/phpunit -c /var/www/nr_llm/phpunit.xml --testsuite unit"
+	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c phpunit.xml --testsuite unit"
+
+test-integration:
+	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c phpunit.xml --testsuite integration"
 
 test-func:
-	ddev exec "cd /var/www/html/v14 && vendor/bin/phpunit -c /var/www/nr_llm/phpunit.xml --testsuite functional"
+	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c Build/FunctionalTests.xml"
+
+test-fuzzy:
+	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c phpunit.xml --testsuite fuzzy"
+
+test-e2e:
+	cd Tests/E2E/Playwright && npm run test
 
 coverage:
-	ddev exec "cd /var/www/html/v14 && XDEBUG_MODE=coverage vendor/bin/phpunit -c /var/www/nr_llm/phpunit.xml --coverage-html /var/www/nr_llm/.Build/coverage"
+	ddev exec "cd /var/www/nr_llm && XDEBUG_MODE=coverage .Build/bin/phpunit -c phpunit.xml --coverage-html .Build/coverage"
 	@echo "Coverage report: .Build/coverage/index.html"
 
 mutation:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/infection --min-msi=80 --min-covered-msi=90"
+	ddev exec "cd /var/www/nr_llm && .Build/bin/infection --configuration=infection.json.dist --threads=4 --show-mutations --no-progress"
 
 # Quality targets
 lint:
@@ -82,8 +119,11 @@ rector:
 rector-fix:
 	ddev exec "cd /var/www/nr_llm && .Build/bin/rector process --config Build/rector/rector.php"
 
-ci: lint phpstan test
+ci: lint phpstan test-unit test-integration test-fuzzy
 	@echo "✅ All CI checks passed"
+
+ci-full: ci test-func
+	@echo "✅ Full CI checks passed (including functional tests)"
 
 # Documentation targets
 docs:
@@ -92,5 +132,7 @@ docs:
 # Maintenance targets
 clean:
 	rm -rf .Build/coverage
+	rm -rf .Build/logs/infection*
+	rm -rf .Build/cache/infection
 	rm -rf Documentation-GENERATED-temp
 	rm -rf var/cache
