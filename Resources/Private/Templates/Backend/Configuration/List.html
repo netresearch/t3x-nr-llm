@@ -36,16 +36,16 @@
                                 </td>
                                 <td><code>{config.identifier}</code></td>
                                 <td>
-                                    <f:if condition="{config.model}">
-                                        <f:then>{config.model.provider.name}</f:then>
+                                    <f:if condition="{config.llmModel}">
+                                        <f:then>{config.llmModel.provider.name}</f:then>
                                         <f:else><span class="text-body-secondary">-</span></f:else>
                                     </f:if>
                                 </td>
                                 <td>
-                                    <f:if condition="{config.model}">
+                                    <f:if condition="{config.llmModel}">
                                         <f:then>
-                                            <strong>{config.model.name}</strong>
-                                            <br /><small class="text-body-secondary">{config.model.modelId}</small>
+                                            <strong>{config.llmModel.name}</strong>
+                                            <br /><small class="text-body-secondary">{config.llmModel.modelId}</small>
                                         </f:then>
                                         <f:else><span class="text-body-secondary">Not configured</span></f:else>
                                     </f:if>
@@ -130,98 +130,6 @@
             </dl>
         </div>
     </div>
-</f:section>
-
-<f:section name="After">
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Toggle active status
-            document.querySelectorAll('.js-toggle-active').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    var uid = this.dataset.uid;
-                    fetch(TYPO3.settings.ajaxUrls['nrllm_config_toggle_active'], {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({uid: uid})
-                    })
-                    .then(function(response) { return response.json(); })
-                    .then(function(data) {
-                        if (data.success) {
-                            location.reload();
-                        } else {
-                            alert('Error: ' + (data.error || 'Unknown error'));
-                        }
-                    });
-                });
-            });
-
-            // Set as default
-            document.querySelectorAll('.js-set-default').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    var uid = this.dataset.uid;
-                    fetch(TYPO3.settings.ajaxUrls['nrllm_config_set_default'], {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({uid: uid})
-                    })
-                    .then(function(response) { return response.json(); })
-                    .then(function(data) {
-                        if (data.success) {
-                            location.reload();
-                        } else {
-                            alert('Error: ' + (data.error || 'Unknown error'));
-                        }
-                    });
-                });
-            });
-
-            // Test configuration
-            document.querySelectorAll('.js-test-config').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    var uid = this.dataset.uid;
-                    var resultDiv = document.getElementById('test-result');
-                    var loadingDiv = document.getElementById('test-loading');
-                    var successDiv = document.getElementById('test-success');
-                    var errorDiv = document.getElementById('test-error');
-                    var detailsDiv = document.getElementById('test-details');
-
-                    resultDiv.style.display = 'block';
-                    loadingDiv.style.display = 'block';
-                    successDiv.style.display = 'none';
-                    errorDiv.style.display = 'none';
-                    detailsDiv.style.display = 'none';
-
-                    fetch(TYPO3.settings.ajaxUrls['nrllm_config_test'], {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({uid: uid})
-                    })
-                    .then(function(response) { return response.json(); })
-                    .then(function(data) {
-                        loadingDiv.style.display = 'none';
-
-                        if (data.success) {
-                            successDiv.style.display = 'block';
-                            detailsDiv.style.display = 'block';
-                            document.getElementById('test-response').textContent = data.content;
-                            document.getElementById('test-model').textContent = data.model;
-                            document.getElementById('test-tokens').textContent =
-                                data.usage.totalTokens + ' (prompt: ' + data.usage.promptTokens +
-                                ', completion: ' + data.usage.completionTokens + ')';
-                        } else {
-                            errorDiv.style.display = 'block';
-                            document.getElementById('test-error-message').textContent = data.error;
-                        }
-                    })
-                    .catch(function(err) {
-                        loadingDiv.style.display = 'none';
-                        errorDiv.style.display = 'block';
-                        document.getElementById('test-error-message').textContent = err.message;
-                    });
-                });
-            });
-        });
-    </script>
 </f:section>
 
 </html>
