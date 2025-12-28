@@ -7,11 +7,13 @@ namespace Netresearch\NrLlm\Controller\Backend;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ModelListResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\TestConnectionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -47,6 +49,7 @@ final class ModelController extends ActionController
         private readonly PersistenceManagerInterface $persistenceManager,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly ProviderAdapterRegistry $providerAdapterRegistry,
     ) {}
 
     protected function initializeAction(): void
@@ -58,6 +61,7 @@ final class ModelController extends ActionController
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
             'nrllm_model_toggle_active' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_toggle_active'),
             'nrllm_model_set_default' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_set_default'),
+            'nrllm_model_test' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_test'),
         ]);
 
         // Load JavaScript for model list actions
@@ -387,6 +391,68 @@ final class ModelController extends ActionController
             return new JsonResponse(ModelListResponse::fromModels($models)->jsonSerialize());
         } catch (Throwable $e) {
             return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
+        }
+    }
+
+    /**
+     * AJAX: Test model by making a simple API call.
+     */
+    public function testModelAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $body = $request->getParsedBody();
+        $uid = $this->extractIntFromBody($body, 'uid');
+
+        if ($uid === 0) {
+            return new JsonResponse((new ErrorResponse('No model UID specified'))->jsonSerialize(), 400);
+        }
+
+        $model = $this->modelRepository->findByUid($uid);
+        if ($model === null) {
+            return new JsonResponse((new ErrorResponse('Model not found'))->jsonSerialize(), 404);
+        }
+
+        // Ensure we have the Provider entity loaded
+        if ($model->getProviderUid() > 0 && $model->getProvider() === null) {
+            $provider = $this->providerRepository->findByUid($model->getProviderUid());
+            if ($provider !== null) {
+                $model->setProvider($provider);
+            }
+        }
+
+        if ($model->getProvider() === null) {
+            return new JsonResponse((new ErrorResponse('Model has no provider configured'))->jsonSerialize(), 400);
+        }
+
+        try {
+            // Create adapter from model's provider
+            $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
+
+            // Make a simple test call
+            $testPrompt = 'Say "OK" to confirm this model is working.';
+            $response = $adapter->complete($testPrompt, [
+                'model' => $model->getModelId(),
+                'max_tokens' => 10,
+                'temperature' => 0.0,
+            ]);
+
+            $responseText = trim($response->content);
+            $message = sprintf(
+                'Model "%s" responded: "%s" (tokens: %d in, %d out)',
+                $model->getName(),
+                mb_substr($responseText, 0, 50) . (mb_strlen($responseText) > 50 ? '...' : ''),
+                $response->usage->promptTokens,
+                $response->usage->completionTokens,
+            );
+
+            return new JsonResponse((new TestConnectionResponse(
+                success: true,
+                message: $message,
+            ))->jsonSerialize());
+        } catch (Throwable $e) {
+            return new JsonResponse((new TestConnectionResponse(
+                success: false,
+                message: $e->getMessage(),
+            ))->jsonSerialize());
         }
     }
 

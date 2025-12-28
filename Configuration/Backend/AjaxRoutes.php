@@ -37,6 +37,10 @@ return [
         'path' => '/nrllm/model/get-by-provider',
         'target' => ModelController::class . '::getByProviderAction',
     ],
+    'nrllm_model_test' => [
+        'path' => '/nrllm/model/test',
+        'target' => ModelController::class . '::testModelAction',
+    ],
 
     // Configuration routes
     'nrllm_config_toggle_active' => [

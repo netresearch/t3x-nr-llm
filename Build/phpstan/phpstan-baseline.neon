@@ -1923,13 +1923,19 @@ parameters:
 		-
 			message: '#^Cannot access offset ''error'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 8
+			count: 11
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-
 			message: '#^Cannot access offset ''isActive'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 2
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''message'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-
@@ -1941,7 +1947,7 @@ parameters:
 		-
 			message: '#^Cannot access offset ''success'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 4
+			count: 6
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-
@@ -1951,27 +1957,9 @@ parameters:
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-
-			message: '#^Method TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface@anonymous/Tests/Unit/Controller/Backend/ModelControllerTest\.php\:311\:\:__construct\(\) has parameter \$items with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
-
-		-
-			message: '#^Method TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface@anonymous/Tests/Unit/Controller/Backend/ModelControllerTest\.php\:311\:\:getFirst\(\) should return object\|null but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
-
-		-
-			message: '#^Method TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface@anonymous/Tests/Unit/Controller/Backend/ModelControllerTest\.php\:311\:\:toArray\(\) should return list\<object\> but returns array\.$#'
-			identifier: return.type
-			count: 1
-			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
-
-		-
 			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
 			identifier: argument.type
-			count: 8
+			count: 11
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-
@@ -1983,19 +1971,13 @@ parameters:
 		-
 			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, mixed given\.$#'
 			identifier: argument.type
-			count: 8
+			count: 14
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-
 			message: '#^Possibly invalid array key type mixed\.$#'
 			identifier: offsetAccess.invalidOffset
-			count: 4
-			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
-
-		-
-			message: '#^Property TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface@anonymous/Tests/Unit/Controller/Backend/ModelControllerTest\.php\:311\:\:\$items type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
+			count: 3
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-

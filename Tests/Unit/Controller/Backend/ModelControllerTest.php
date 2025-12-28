@@ -5,8 +5,14 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\ModelController;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -28,7 +34,9 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 final class ModelControllerTest extends TestCase
 {
     private ModelRepository&MockObject $modelRepository;
+    private ProviderRepository&MockObject $providerRepository;
     private PersistenceManagerInterface&MockObject $persistenceManager;
+    private ProviderAdapterRegistry&MockObject $providerAdapterRegistry;
     private ModelController $subject;
 
     protected function setUp(): void
@@ -36,7 +44,9 @@ final class ModelControllerTest extends TestCase
         parent::setUp();
 
         $this->modelRepository = $this->createMock(ModelRepository::class);
+        $this->providerRepository = $this->createMock(ProviderRepository::class);
         $this->persistenceManager = $this->createMock(PersistenceManagerInterface::class);
+        $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
 
         // Create controller using reflection to inject only required dependencies
         $this->subject = $this->createControllerWithDependencies();
@@ -53,7 +63,9 @@ final class ModelControllerTest extends TestCase
 
         // Set only the properties needed for AJAX actions
         $this->setPrivateProperty($controller, 'modelRepository', $this->modelRepository);
+        $this->setPrivateProperty($controller, 'providerRepository', $this->providerRepository);
         $this->setPrivateProperty($controller, 'persistenceManager', $this->persistenceManager);
+        $this->setPrivateProperty($controller, 'providerAdapterRegistry', $this->providerAdapterRegistry);
 
         return $controller;
     }
@@ -430,5 +442,160 @@ final class ModelControllerTest extends TestCase
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
         self::assertStringContainsString('Database error', $data['error']);
+    }
+
+    // testModelAction tests
+
+    #[Test]
+    public function testModelActionReturnsErrorForMissingUid(): void
+    {
+        $this->modelRepository
+            ->expects(self::never())
+            ->method('findByUid');
+
+        $request = $this->createRequest([]);
+        $response = $this->subject->testModelAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('No model UID', $data['error']);
+    }
+
+    #[Test]
+    public function testModelActionReturnsErrorForNonexistentModel(): void
+    {
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(99999)
+            ->willReturn(null);
+
+        $request = $this->createRequest(['uid' => 99999]);
+        $response = $this->subject->testModelAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(404, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('not found', $data['error']);
+    }
+
+    #[Test]
+    public function testModelActionReturnsErrorForModelWithoutProvider(): void
+    {
+        $model = $this->createModel(1, true);
+        $model->setProviderUid(0);
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(1)
+            ->willReturn($model);
+
+        $request = $this->createRequest(['uid' => 1]);
+        $response = $this->subject->testModelAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('no provider', $data['error']);
+    }
+
+    #[Test]
+    public function testModelActionReturnsSuccessOnSuccessfulTest(): void
+    {
+        $model = $this->createModel(1, true);
+        $model->setName('GPT-4');
+        $model->setModelId('gpt-4');
+        $model->setProviderUid(1);
+
+        $provider = new Provider();
+        $providerReflection = new ReflectionClass($provider);
+        $providerUidProp = $providerReflection->getProperty('uid');
+        $providerUidProp->setValue($provider, 1);
+        $provider->setName('OpenAI');
+        $provider->setAdapterType('openai');
+        $model->setProvider($provider);
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(1)
+            ->willReturn($model);
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        $usage = new UsageStatistics(10, 5, 15);
+        $completionResponse = new CompletionResponse(
+            content: 'OK',
+            model: 'gpt-4',
+            usage: $usage,
+        );
+
+        $adapter
+            ->expects(self::once())
+            ->method('complete')
+            ->willReturn($completionResponse);
+
+        $this->providerAdapterRegistry
+            ->expects(self::once())
+            ->method('createAdapterFromModel')
+            ->with($model)
+            ->willReturn($adapter);
+
+        $request = $this->createRequest(['uid' => 1]);
+        $response = $this->subject->testModelAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        self::assertStringContainsString('GPT-4', $data['message']);
+        self::assertStringContainsString('OK', $data['message']);
+    }
+
+    #[Test]
+    public function testModelActionReturnsErrorOnAdapterException(): void
+    {
+        $model = $this->createModel(1, true);
+        $model->setName('GPT-4');
+        $model->setModelId('gpt-4');
+        $model->setProviderUid(1);
+
+        $provider = new Provider();
+        $providerReflection = new ReflectionClass($provider);
+        $providerUidProp = $providerReflection->getProperty('uid');
+        $providerUidProp->setValue($provider, 1);
+        $provider->setName('OpenAI');
+        $provider->setAdapterType('openai');
+        $model->setProvider($provider);
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(1)
+            ->willReturn($model);
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter
+            ->method('complete')
+            ->willThrowException(new RuntimeException('API connection failed'));
+
+        $this->providerAdapterRegistry
+            ->expects(self::once())
+            ->method('createAdapterFromModel')
+            ->with($model)
+            ->willReturn($adapter);
+
+        $request = $this->createRequest(['uid' => 1]);
+        $response = $this->subject->testModelAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertFalse($data['success']);
+        self::assertStringContainsString('API connection failed', $data['message']);
     }
 }
