@@ -72,7 +72,12 @@
     "scripts": {
         "test": "phpunit -c phpunit.xml",
         "test:unit": "phpunit -c phpunit.xml --testsuite unit",
-        "test:functional": "phpunit -c phpunit.xml --testsuite functional",
+        "test:integration": "phpunit -c phpunit.xml --testsuite integration",
+        "test:functional": "phpunit -c Build/FunctionalTests.xml",
+        "test:fuzzy": "phpunit -c phpunit.xml --testsuite fuzzy",
+        "test:e2e": "npm run test:e2e",
+        "test:mutation": "infection --configuration=infection.json.dist --threads=4 -s --no-progress",
+        "test:mutation:ci": "infection --configuration=infection.json.dist --threads=4 --logger-github --no-progress",
         "lint": "php-cs-fixer fix --dry-run --diff",
         "lint:fix": "php-cs-fixer fix",
         "phpstan": "phpstan analyse -c Build/phpstan/phpstan.neon",
@@ -82,7 +87,13 @@
         "ci": [
             "@lint",
             "@phpstan",
-            "@test"
+            "@test:unit",
+            "@test:integration",
+            "@test:fuzzy"
+        ],
+        "ci:full": [
+            "@ci",
+            "@test:functional"
         ]
     }
 }
