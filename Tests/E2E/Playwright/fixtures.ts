@@ -66,4 +66,24 @@ export const test = base.extend<{
   },
 });
 
-export { expect, loginToBackend, navigateToLlmModule, getModuleFrame };
+/**
+ * Navigate to Providers sub-module.
+ */
+async function navigateToProviders(page: Page): Promise<FrameLocator> {
+  await page.goto('/typo3/module/tools/nrllm/providers');
+  const moduleFrame = getModuleFrame(page);
+  await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
+  return moduleFrame;
+}
+
+/**
+ * Navigate to Models sub-module.
+ */
+async function navigateToModels(page: Page): Promise<FrameLocator> {
+  await page.goto('/typo3/module/tools/nrllm/models');
+  const moduleFrame = getModuleFrame(page);
+  await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
+  return moduleFrame;
+}
+
+export { expect, loginToBackend, navigateToLlmModule, getModuleFrame, navigateToProviders, navigateToModels };
