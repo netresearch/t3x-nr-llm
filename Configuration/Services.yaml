@@ -9,23 +9,10 @@ services:
     public: false
 
   # ========================================
-  # PSR-17 HTTP Factories
-  # ========================================
-  # Required for ProviderAdapterRegistry and HTTP client services
-  # GuzzleHttp\Psr7\HttpFactory implements both RequestFactoryInterface and StreamFactoryInterface
-
-  GuzzleHttp\Psr7\HttpFactory:
-    public: false
-
-  Psr\Http\Message\RequestFactoryInterface:
-    alias: GuzzleHttp\Psr7\HttpFactory
-
-  Psr\Http\Message\StreamFactoryInterface:
-    alias: GuzzleHttp\Psr7\HttpFactory
-
-  # ========================================
   # Namespace Auto-registration
   # ========================================
+  # Note: PSR-17 HTTP factories (RequestFactoryInterface, StreamFactoryInterface)
+  # are provided by TYPO3 Core via TYPO3\CMS\Core\Http\RequestFactory and StreamFactory
 
   Netresearch\NrLlm\:
     resource: '../Classes/*'
