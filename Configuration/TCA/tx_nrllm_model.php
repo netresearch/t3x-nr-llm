@@ -14,7 +14,6 @@ return [
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
-        'searchFields' => 'identifier,name,description,model_id',
         'iconfile' => 'EXT:nr_llm/Resources/Public/Icons/Model.svg',
         'security' => [
             'ignorePageTypeRestriction' => true,

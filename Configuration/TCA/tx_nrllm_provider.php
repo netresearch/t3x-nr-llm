@@ -14,7 +14,6 @@ return [
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
-        'searchFields' => 'identifier,name,description,adapter_type,endpoint_url',
         'iconfile' => 'EXT:nr_llm/Resources/Public/Icons/Provider.svg',
         'security' => [
             'ignorePageTypeRestriction' => true,
