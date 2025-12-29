@@ -42,8 +42,8 @@ async function loginToBackend(page: Page): Promise<void> {
  * Returns a FrameLocator for the module iframe content.
  */
 async function navigateToLlmModule(page: Page): Promise<FrameLocator> {
-  // Navigate directly to the module URL
-  await page.goto('/typo3/module/tools/nrllm');
+  // Navigate directly to the module URL (module is under 'admin' parent)
+  await page.goto('/typo3/module/nrllm');
 
   // TYPO3 v14 loads module content in an iframe
   const moduleFrame = getModuleFrame(page);
@@ -70,7 +70,7 @@ export const test = base.extend<{
  * Navigate to Providers sub-module.
  */
 async function navigateToProviders(page: Page): Promise<FrameLocator> {
-  await page.goto('/typo3/module/tools/nrllm/providers');
+  await page.goto('/typo3/module/nrllm/providers');
   const moduleFrame = getModuleFrame(page);
   await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
   return moduleFrame;
@@ -80,10 +80,20 @@ async function navigateToProviders(page: Page): Promise<FrameLocator> {
  * Navigate to Models sub-module.
  */
 async function navigateToModels(page: Page): Promise<FrameLocator> {
-  await page.goto('/typo3/module/tools/nrllm/models');
+  await page.goto('/typo3/module/nrllm/models');
   const moduleFrame = getModuleFrame(page);
   await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
   return moduleFrame;
 }
 
-export { expect, loginToBackend, navigateToLlmModule, getModuleFrame, navigateToProviders, navigateToModels };
+/**
+ * Navigate to Configurations sub-module.
+ */
+async function navigateToConfigurations(page: Page): Promise<FrameLocator> {
+  await page.goto('/typo3/module/nrllm/configurations');
+  const moduleFrame = getModuleFrame(page);
+  await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
+  return moduleFrame;
+}
+
+export { expect, loginToBackend, navigateToLlmModule, getModuleFrame, navigateToProviders, navigateToModels, navigateToConfigurations };
