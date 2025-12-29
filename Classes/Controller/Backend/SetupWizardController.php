@@ -70,6 +70,11 @@ final class SetupWizardController extends ActionController
             'nrllm_wizard_save' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_wizard_save'),
         ]);
 
+        // Register module URLs for navigation
+        $this->pageRenderer->addInlineSettingArray('moduleUrls', [
+            'nrllm_providers' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_providers'),
+        ]);
+
         // Load wizard CSS and JavaScript (ES6 module)
         $this->pageRenderer->addCssFile('EXT:nr_llm/Resources/Public/Css/Backend/SetupWizard.css');
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/SetupWizard.js');
@@ -280,6 +285,21 @@ final class SetupWizardController extends ActionController
             $providerUid = $provider->getUid();
             /** @var array<string, Model> $savedModels */
             $savedModels = [];
+
+            // Check if any model will be set as default
+            $hasNewDefault = false;
+            foreach ($modelsData as $modelData) {
+                if (is_array($modelData) && ($modelData['selected'] ?? false) && ($modelData['recommended'] ?? false)) {
+                    $hasNewDefault = true;
+                    break;
+                }
+            }
+
+            // Clear existing defaults before setting new ones
+            if ($hasNewDefault) {
+                $this->modelRepository->unsetAllDefaults();
+                $this->persistenceManager->persistAll();
+            }
 
             // Create models
             foreach ($modelsData as $modelData) {

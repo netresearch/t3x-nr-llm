@@ -51,6 +51,12 @@ class SetupWizard {
         document.getElementById('btn-back-4')?.addEventListener('click', () => this.goToStep(4));
         document.getElementById('btn-save')?.addEventListener('click', () => this.saveConfiguration());
         document.getElementById('btn-restart')?.addEventListener('click', () => this.restart());
+
+        // Initialize "View Providers" link with module URL
+        const providersLink = document.getElementById('btn-go-providers');
+        if (providersLink && TYPO3.settings.moduleUrls?.nrllm_providers) {
+            providersLink.href = TYPO3.settings.moduleUrls.nrllm_providers;
+        }
     }
 
     goToStep(step) {
@@ -521,10 +527,10 @@ class SetupWizard {
 
                 Notification.success('Success', 'LLM configuration saved successfully', 5);
 
-                // Update "View Providers" link
+                // Update "View Providers" link with module URL
                 const providersLink = document.getElementById('btn-go-providers');
-                if (providersLink && TYPO3.settings.ajaxUrls['nrllm_providers_list']) {
-                    providersLink.href = TYPO3.settings.ajaxUrls['nrllm_providers_list'];
+                if (providersLink && TYPO3.settings.moduleUrls?.nrllm_providers) {
+                    providersLink.href = TYPO3.settings.moduleUrls.nrllm_providers;
                 }
             } else {
                 document.getElementById('save-error').style.display = 'block';
