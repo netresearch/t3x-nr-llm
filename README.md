@@ -11,13 +11,14 @@ A unified LLM (Large Language Model) provider abstraction layer for TYPO3 v14.
 
 ## Features
 
-- **Multi-Provider Support**: OpenAI, Anthropic Claude, Google Gemini
-- **Unified API**: Single interface for all providers
+- **Multi-Provider Support**: OpenAI, Anthropic Claude, Google Gemini, Ollama, OpenRouter, Mistral, Groq
+- **Three-Tier Architecture**: Providers (connections) → Models (capabilities) → Configurations (use cases)
+- **Encrypted API Keys**: API keys stored encrypted using sodium_crypto_secretbox
 - **Feature Services**: Translation, Completion, Embedding, Vision
 - **Caching**: Built-in response caching for embeddings and completions
 - **Streaming**: Server-Sent Events (SSE) support for real-time responses
 - **Tool Calling**: Function/tool support for compatible providers
-- **Backend Module**: Test and manage providers from TYPO3 backend
+- **Backend Module**: Manage providers, models, and configurations from TYPO3 backend
 
 ## Requirements
 
@@ -39,35 +40,73 @@ composer require netresearch/nr-llm
 2. Extract to `typo3conf/ext/nr_llm`
 3. Activate in Extension Manager
 
+## Architecture
+
+The extension uses a three-tier configuration hierarchy:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ CONFIGURATION (Use-Case Specific)                       │
+│ "blog-summarizer", "product-description", "translator"  │
+│ → system_prompt, temperature, max_tokens                │
+└───────────────────────────┬─────────────────────────────┘
+                            │ references
+┌───────────────────────────▼─────────────────────────────┐
+│ MODEL (Available Models)                                 │
+│ "gpt-4o", "claude-sonnet", "llama-70b"                  │
+│ → model_id, capabilities, pricing                       │
+└───────────────────────────┬─────────────────────────────┘
+                            │ references
+┌───────────────────────────▼─────────────────────────────┐
+│ PROVIDER (API Connections)                               │
+│ "openai-prod", "openai-dev", "local-ollama"             │
+│ → endpoint, api_key (encrypted), adapter_type           │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Benefits:**
+- Multiple API keys per provider type (prod/dev/backup)
+- Custom endpoints (Azure OpenAI, Ollama, vLLM, local models)
+- Reusable model definitions across configurations
+- Clear separation of concerns
+
 ## Configuration
 
-### Extension Settings
+Configuration is managed through the TYPO3 Backend Module at **Admin Tools > LLM**:
 
-Configure API keys in **Admin Tools > Settings > Extension Configuration > nr_llm**:
+### Providers
 
-| Setting | Description |
-|---------|-------------|
-| `openai_api_key` | OpenAI API key |
-| `openai_default_model` | Default model (e.g., `gpt-5.2`) |
-| `claude_api_key` | Anthropic Claude API key |
-| `claude_default_model` | Default model (e.g., `claude-sonnet-4-5-20250929`) |
-| `gemini_api_key` | Google Gemini API key |
-| `gemini_default_model` | Default model (e.g., `gemini-3-flash-preview`) |
-| `default_provider` | Default provider (`openai`, `claude`, `gemini`) |
-| `request_timeout` | HTTP request timeout in seconds |
+Create providers with API credentials:
 
-### TypoScript Constants
+| Field | Description |
+|-------|-------------|
+| `identifier` | Unique slug (e.g., `openai-prod`) |
+| `adapter_type` | Protocol: `openai`, `anthropic`, `gemini`, `ollama`, etc. |
+| `api_key` | Encrypted API key |
+| `endpoint_url` | Custom endpoint (optional) |
+| `timeout` | Request timeout in seconds |
 
-```typoscript
-plugin.tx_nrllm {
-    settings {
-        defaultProvider = openai
-        defaultTemperature = 0.7
-        defaultMaxTokens = 1000
-        cacheLifetime = 3600
-    }
-}
-```
+### Models
+
+Define available models:
+
+| Field | Description |
+|-------|-------------|
+| `identifier` | Unique slug (e.g., `gpt-4o`) |
+| `provider` | Reference to Provider |
+| `model_id` | API model identifier (e.g., `gpt-4o-2024-08-06`) |
+| `capabilities` | CSV: `chat,vision,streaming,tools` |
+
+### Configurations
+
+Create use-case-specific configurations:
+
+| Field | Description |
+|-------|-------------|
+| `identifier` | Unique slug (e.g., `blog-summarizer`) |
+| `model` | Reference to Model |
+| `system_prompt` | System message for the AI |
+| `temperature` | Creativity (0.0-2.0) |
 
 ## Usage
 
@@ -97,21 +136,33 @@ class MyController
 }
 ```
 
-### Simple Completion
+### Using Database Configurations
 
 ```php
-$response = $this->llmManager->complete('Write a haiku about TYPO3');
-echo $response->content;
-```
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 
-### Using a Specific Provider
+class MyController
+{
+    public function __construct(
+        private readonly LlmConfigurationRepository $configRepository,
+        private readonly ProviderAdapterRegistry $adapterRegistry,
+    ) {}
 
-```php
-$response = $this->llmManager->chat($messages, [
-    'provider' => 'claude',
-    'model' => 'claude-opus-4-5-20251124',
-    'temperature' => 0.5,
-]);
+    public function processAction(): void
+    {
+        // Get configuration by identifier
+        $config = $this->configRepository->findByIdentifier('blog-summarizer');
+
+        // Get the model and provider chain
+        $model = $config->getModel();
+        $provider = $model->getProvider();
+
+        // Create adapter and make requests
+        $adapter = $this->adapterRegistry->createAdapterFromModel($model);
+        $response = $adapter->chatCompletion($messages, $config->toOptions());
+    }
+}
 ```
 
 ### Embeddings
@@ -139,21 +190,8 @@ class ImageController
 
     public function analyzeAction(): void
     {
-        // Generate alt text
-        $altText = $this->visionService->generateAltText(
-            'https://example.com/image.jpg'
-        );
-
-        // Generate SEO title
-        $title = $this->visionService->generateTitle(
-            'https://example.com/image.jpg'
-        );
-
-        // Custom analysis
-        $analysis = $this->visionService->analyzeImage(
-            'https://example.com/image.jpg',
-            'Describe the colors and composition of this image'
-        );
+        $altText = $this->visionService->generateAltText('https://example.com/image.jpg');
+        $title = $this->visionService->generateTitle('https://example.com/image.jpg');
     }
 }
 ```
@@ -163,42 +201,24 @@ class ImageController
 ```php
 use Netresearch\NrLlm\Service\Feature\TranslationService;
 
-class TranslationController
-{
-    public function __construct(
-        private readonly TranslationService $translationService,
-    ) {}
-
-    public function translateAction(): void
-    {
-        $result = $this->translationService->translate(
-            'Hello, world!',
-            'de', // target language
-            'en', // source language (optional, auto-detected)
-            [
-                'formality' => 'formal',
-                'domain' => 'technical',
-                'glossary' => [
-                    'TYPO3' => 'TYPO3',
-                    'extension' => 'Erweiterung',
-                ],
-            ]
-        );
-
-        echo $result->translation;
-        echo "Detected source: " . $result->sourceLanguage;
-    }
-}
+$result = $this->translationService->translate(
+    'Hello, world!',
+    'de', // target language
+    'en', // source language (optional)
+    [
+        'formality' => 'formal',
+        'glossary' => ['TYPO3' => 'TYPO3'],
+    ]
+);
 ```
 
 ### Streaming Responses
 
 ```php
-// Get a generator for streaming
 $stream = $this->llmManager->streamChat($messages);
 
 foreach ($stream as $chunk) {
-    echo $chunk; // Output each chunk as it arrives
+    echo $chunk;
     flush();
 }
 ```
@@ -215,10 +235,7 @@ $tools = [
             'parameters' => [
                 'type' => 'object',
                 'properties' => [
-                    'location' => [
-                        'type' => 'string',
-                        'description' => 'City name',
-                    ],
+                    'location' => ['type' => 'string', 'description' => 'City name'],
                 ],
                 'required' => ['location'],
             ],
@@ -239,94 +256,45 @@ if ($response->toolCalls) {
 
 ## Feature Services
 
-The extension provides high-level feature services for common AI tasks:
+High-level services for common AI tasks:
 
-- **CompletionService** - Text generation and completion with format control
-- **VisionService** - Image analysis and metadata generation (alt text, SEO titles)
-- **EmbeddingService** - Text-to-vector conversion and similarity search
-- **TranslationService** - Language translation with quality control
+- **CompletionService** - Text generation with format control
+- **VisionService** - Image analysis and metadata generation
+- **EmbeddingService** - Text-to-vector conversion and similarity
+- **TranslationService** - Language translation with glossaries
 - **PromptTemplateService** - Centralized prompt management
-
-For detailed documentation on each service, see [Documentation/Developer/FeatureServices/Index.rst](Documentation/Developer/FeatureServices/Index.rst)
 
 ## Supported Providers
 
-### OpenAI
+| Provider | Adapter Type | Features |
+|----------|--------------|----------|
+| OpenAI | `openai` | Chat, Embeddings, Vision, Streaming, Tools |
+| Anthropic Claude | `anthropic` | Chat, Vision, Streaming, Tools |
+| Google Gemini | `gemini` | Chat, Embeddings, Vision, Streaming, Tools |
+| Ollama | `ollama` | Chat, Embeddings, Streaming (local) |
+| OpenRouter | `openrouter` | Chat, Vision, Streaming, Tools |
+| Mistral | `mistral` | Chat, Embeddings, Streaming |
+| Groq | `groq` | Chat, Streaming (fast inference) |
+| Azure OpenAI | `azure_openai` | Same as OpenAI |
+| Custom | `custom` | OpenAI-compatible endpoints |
 
-- **Models**: gpt-5.2, gpt-5.2-pro, gpt-5.2-instant, o3, o4-mini
-- **Features**: Chat, Completion, Embeddings, Vision, Streaming, Tools
+## Security
 
-### Anthropic Claude
-
-- **Models**: claude-opus-4-5, claude-sonnet-4-5, claude-opus-4-1, claude-opus-4, claude-sonnet-4
-- **Features**: Chat, Completion, Vision, Streaming, Tools
-- **Note**: No native embeddings support
-
-### Google Gemini
-
-- **Models**: gemini-3-flash-preview, gemini-3-pro, gemini-2.5-flash, gemini-2.5-pro
-- **Features**: Chat, Completion, Embeddings, Vision, Streaming, Tools
-
-## Adding Custom Providers
-
-Implement `ProviderInterface` and tag your service:
-
-```php
-<?php
-namespace MyVendor\MyExtension\Provider;
-
-use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
-use Netresearch\NrLlm\Provider\AbstractProvider;
-
-class MyProvider extends AbstractProvider implements ProviderInterface
-{
-    public function getName(): string
-    {
-        return 'My Custom Provider';
-    }
-
-    public function getIdentifier(): string
-    {
-        return 'myprovider';
-    }
-
-    // Implement remaining methods...
-}
-```
-
-Register in `Configuration/Services.yaml`:
-
-```yaml
-MyVendor\MyExtension\Provider\MyProvider:
-  public: true
-  tags:
-    - name: nr_llm.provider
-      priority: 50
-```
-
-## Backend Module
-
-Access the LLM management module at **Admin Tools > LLM Providers**:
-
-- View all registered providers and their status
-- Test provider connections with sample prompts
-- See available models and capabilities
+- **API Keys**: Encrypted at rest using sodium_crypto_secretbox (XSalsa20-Poly1305)
+- **Key Derivation**: Domain-separated key derivation from TYPO3's encryptionKey
+- **Backend Access**: Restrict module access to authorized administrators
+- **Input Validation**: Always sanitize user input before sending to providers
+- **Output Handling**: Treat LLM responses as untrusted content
 
 ## Caching
 
-Responses are cached automatically using TYPO3's caching framework:
+Responses are cached using TYPO3's caching framework:
 
 - **Cache identifier**: `nrllm_responses`
 - **Default TTL**: 3600 seconds (1 hour)
 - **Embeddings TTL**: 86400 seconds (24 hours)
 
-Configure in TypoScript:
-
-```typoscript
-plugin.tx_nrllm.settings.cacheLifetime = 7200
-```
-
-Clear cache via CLI:
+Clear cache:
 
 ```bash
 vendor/bin/typo3 cache:flush --group=nrllm
@@ -334,27 +302,25 @@ vendor/bin/typo3 cache:flush --group=nrllm
 
 ## Error Handling
 
-The extension throws specific exceptions:
-
-- `ProviderException`: General provider errors
-- `AuthenticationException`: Invalid API key
-- `RateLimitException`: Rate limit exceeded
-- `InvalidArgumentException`: Invalid parameters
-
 ```php
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\RateLimitException;
+use Netresearch\NrLlm\Provider\Exception\AuthenticationException;
 
 try {
     $response = $this->llmManager->chat($messages);
+} catch (AuthenticationException $e) {
+    // Invalid API key
 } catch (RateLimitException $e) {
-    // Handle rate limiting, retry after delay
     $retryAfter = $e->getRetryAfter();
 } catch (ProviderException $e) {
-    // Handle general provider errors
     $this->logger->error('LLM error: ' . $e->getMessage());
 }
 ```
+
+## Documentation
+
+Full documentation available at [Documentation/Index.rst](Documentation/Index.rst)
 
 ## License
 

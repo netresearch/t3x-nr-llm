@@ -20,8 +20,10 @@ The recommended way to install this extension is via Composer:
 After installation:
 
 1. Activate the extension in **Admin Tools > Extension Manager**
-2. Configure API keys in **Admin Tools > Settings > Extension Configuration**
-3. Clear caches
+2. Configure providers and API keys in **Admin Tools > LLM > Providers**
+3. Define available models in **Admin Tools > LLM > Models**
+4. Create configurations in **Admin Tools > LLM > Configurations**
+5. Clear caches
 
 .. _composer-installation:
 
@@ -90,8 +92,12 @@ The extension creates the following database tables automatically:
 
    * - Table
      - Purpose
+   * - ``tx_nrllm_provider``
+     - Stores API provider connections with encrypted credentials
+   * - ``tx_nrllm_model``
+     - Stores available LLM models with capabilities and pricing
    * - ``tx_nrllm_configuration``
-     - Stores named LLM configuration presets
+     - Stores use-case-specific configurations with prompts and parameters
    * - ``tx_nrllm_prompt_template``
      - Stores reusable prompt templates
 
@@ -171,6 +177,8 @@ To remove the extension:
 
    .. code-block:: sql
 
+      DROP TABLE IF EXISTS tx_nrllm_provider;
+      DROP TABLE IF EXISTS tx_nrllm_model;
       DROP TABLE IF EXISTS tx_nrllm_configuration;
       DROP TABLE IF EXISTS tx_nrllm_prompt_template;
 

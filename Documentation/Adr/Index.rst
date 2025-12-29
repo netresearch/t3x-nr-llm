@@ -51,3 +51,5 @@ Decision Records
    Adr009StreamingImplementation
    Adr010ToolFunctionCallingDesign
    Adr011ObjectOnlyOptionsApi
+   Adr012ApiKeyEncryption
+   Adr013ThreeLevelConfigurationArchitecture

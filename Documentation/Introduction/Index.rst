@@ -54,10 +54,14 @@ All providers implement a common interface, allowing you to:
 
 .. code-block:: php
 
-   // Use any provider through the same interface
+   // Use database configurations for consistent settings
+   $config = $configRepository->findByIdentifier('blog-summarizer');
+   $adapter = $adapterRegistry->createAdapterFromModel($config->getModel());
+   $response = $adapter->chatCompletion($messages, $config->toOptions());
+
+   // Or use inline provider selection
    $response = $llmManager->chat($messages, ['provider' => 'openai']);
    $response = $llmManager->chat($messages, ['provider' => 'claude']);
-   $response = $llmManager->chat($messages, ['provider' => 'gemini']);
 
 Specialized Feature Services
 ----------------------------

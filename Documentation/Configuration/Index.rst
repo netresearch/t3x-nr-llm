@@ -6,105 +6,244 @@
 Configuration
 =============
 
-.. _extension-configuration:
+The extension uses a database-based configuration architecture with three levels:
+**Providers**, **Models**, and **Configurations**. All management is done through the
+TYPO3 Backend Module.
 
-Extension Configuration
-=======================
+.. contents::
+   :local:
+   :depth: 2
 
-Configure the extension in **Admin Tools > Settings > Extension Configuration > nr_llm**.
+.. _backend-module:
 
-Provider Settings
------------------
+Backend module
+==============
 
-.. confval:: openai_api_key
+Access the LLM management module at **Admin Tools > LLM**.
 
-   :type: string
-   :Default: (empty)
+The backend module provides four sections:
 
-   Your OpenAI API key. Obtain from https://platform.openai.com/api-keys
+Dashboard
+   Overview of registered providers, models, and configurations with status indicators.
 
-.. confval:: openai_default_model
+Providers
+   Manage API connections with encrypted credentials. Test connections directly from the interface.
 
-   :type: string
-   :Default: gpt-5.2
+Models
+   Define available models with their capabilities and pricing. Fetch models from provider APIs.
 
-   Default model for OpenAI requests. Options:
+Configurations
+   Create use-case-specific configurations with prompts and parameters.
 
-   - ``gpt-5.2`` - GPT-5.2 Thinking (Current, December 2025)
-   - ``gpt-5.2-pro`` - GPT-5.2 Pro (Most Capable)
-   - ``gpt-5.2-instant`` - GPT-5.2 Instant (Fast)
-   - ``o3`` - Advanced reasoning model
-   - ``o4-mini`` - Smaller reasoning model
+.. _provider-configuration:
 
-.. confval:: claude_api_key
+Provider configuration
+======================
 
-   :type: string
-   :Default: (empty)
+Providers represent API connections with credentials. Create providers in
+**Admin Tools > LLM > Providers**.
 
-   Your Anthropic API key. Obtain from https://console.anthropic.com
+Required fields
+---------------
 
-.. confval:: claude_default_model
+identifier
+   Unique slug for programmatic access (e.g., ``openai-prod``, ``ollama-local``)
 
-   :type: string
-   :Default: claude-sonnet-4-5-20250929
+name
+   Display name shown in the backend
 
-   Default model for Claude requests. Options:
+adapter_type
+   The protocol to use. Available options:
 
-   - ``claude-opus-4-5-20251124`` - Most capable (November 2025)
-   - ``claude-sonnet-4-5-20250929`` - Recommended balanced model
-   - ``claude-opus-4-1-20250805`` - Previous Opus
-   - ``claude-opus-4-20250514`` - Claude 4 Opus
-   - ``claude-sonnet-4-20250514`` - Claude 4 Sonnet
+   - ``openai`` - OpenAI API
+   - ``anthropic`` - Anthropic Claude API
+   - ``gemini`` - Google Gemini API
+   - ``ollama`` - Local Ollama instance
+   - ``openrouter`` - OpenRouter multi-model API
+   - ``mistral`` - Mistral AI API
+   - ``groq`` - Groq inference API
+   - ``azure_openai`` - Azure OpenAI Service
+   - ``custom`` - Custom OpenAI-compatible endpoint
 
-.. confval:: gemini_api_key
+api_key
+   API key for authentication. Encrypted at rest using sodium_crypto_secretbox.
+   Not required for local providers like Ollama.
 
-   :type: string
-   :Default: (empty)
+Optional fields
+---------------
 
-   Your Google Gemini API key. Obtain from https://aistudio.google.com/apikey
+endpoint_url
+   Custom API endpoint. Leave empty to use the adapter's default URL.
 
-.. confval:: gemini_default_model
+organization_id
+   Organization ID for providers that support it (OpenAI, Azure).
 
-   :type: string
-   :Default: gemini-3-flash-preview
+timeout
+   Request timeout in seconds. Default: 30
 
-   Default model for Gemini requests. Options:
+max_retries
+   Number of retry attempts on failure. Default: 3
 
-   - ``gemini-3-flash-preview`` - Latest flash model (December 2025)
-   - ``gemini-3-pro`` - Most capable
-   - ``gemini-2.5-flash`` - Stable flash model
-   - ``gemini-2.5-pro`` - Stable pro model
-   - ``gemini-2.5-flash-lite`` - Fast, cost-effective
+options
+   JSON object with additional adapter-specific options.
 
-General Settings
-----------------
+Testing connections
+-------------------
 
-.. confval:: default_provider
+Use the **Test Connection** button to verify provider configuration.
+The test makes an actual HTTP request to the provider's API and returns:
 
-   :type: string
-   :Default: openai
-   :Options: openai, claude, gemini
+- Connection status (success/failure)
+- Available models (if supported by the provider)
+- Error details (on failure)
 
-   The default provider used when none is specified in requests.
+.. _model-configuration:
 
-.. confval:: request_timeout
+Model configuration
+===================
 
-   :type: int
-   :Default: 60
+Models represent specific LLM models available through a provider.
+Create models in **Admin Tools > LLM > Models**.
 
-   HTTP request timeout in seconds. Increase for longer operations.
+Required fields
+---------------
 
-.. confval:: cache_lifetime
+identifier
+   Unique slug (e.g., ``gpt-4o``, ``claude-sonnet``)
 
-   :type: int
-   :Default: 3600
+name
+   Display name (e.g., ``GPT-4o (128K)``)
 
-   Default cache lifetime in seconds for API responses.
+provider
+   Reference to the parent Provider
+
+model_id
+   The API model identifier (e.g., ``gpt-4o-2024-08-06``, ``claude-3-5-sonnet-20241022``)
+
+Optional fields
+---------------
+
+context_length
+   Maximum context window in tokens (e.g., 128000 for GPT-4o)
+
+max_output_tokens
+   Maximum output tokens (e.g., 16384)
+
+capabilities
+   Comma-separated list of supported features:
+
+   - ``chat`` - Chat completion
+   - ``completion`` - Text completion
+   - ``embeddings`` - Text-to-vector
+   - ``vision`` - Image analysis
+   - ``streaming`` - Real-time streaming
+   - ``tools`` - Function/tool calling
+
+cost_input
+   Cost per 1M input tokens in cents (for cost tracking)
+
+cost_output
+   Cost per 1M output tokens in cents
+
+is_default
+   Mark as default model for this provider
+
+Fetching models from provider
+-----------------------------
+
+Use the **Fetch Models** action to automatically retrieve available models
+from the provider's API. This populates the model list with the provider's
+current offerings.
+
+.. _llm-configuration:
+
+LLM configuration
+=================
+
+Configurations define specific use cases with model selection and parameters.
+Create configurations in **Admin Tools > LLM > Configurations**.
+
+Required fields
+---------------
+
+identifier
+   Unique slug for programmatic access (e.g., ``blog-summarizer``)
+
+name
+   Display name (e.g., ``Blog Post Summarizer``)
+
+model
+   Reference to the Model to use
+
+system_prompt
+   System message that sets the AI's behavior and context
+
+Optional fields
+---------------
+
+temperature
+   Creativity level from 0.0 (deterministic) to 2.0 (creative). Default: 0.7
+
+max_tokens
+   Maximum response length in tokens
+
+top_p
+   Nucleus sampling parameter (0.0 - 1.0)
+
+frequency_penalty
+   Reduces word repetition (-2.0 to 2.0)
+
+presence_penalty
+   Encourages topic diversity (-2.0 to 2.0)
+
+use_case_type
+   The type of task:
+
+   - ``chat`` - Conversational interactions
+   - ``completion`` - Text completion
+   - ``embedding`` - Vector generation
+   - ``translation`` - Language translation
+
+.. _using-configurations:
+
+Using configurations
+====================
+
+Retrieve configurations programmatically:
+
+.. code-block:: php
+
+   use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+   use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+
+   class MyController
+   {
+       public function __construct(
+           private readonly LlmConfigurationRepository $configRepository,
+           private readonly ProviderAdapterRegistry $adapterRegistry,
+       ) {}
+
+       public function processAction(): void
+       {
+           // Get configuration by identifier
+           $config = $this->configRepository->findByIdentifier('blog-summarizer');
+
+           // Get the model and provider
+           $model = $config->getModel();
+           $provider = $model->getProvider();
+
+           // Create adapter and make requests
+           $adapter = $this->adapterRegistry->createAdapterFromModel($model);
+           $response = $adapter->chatCompletion($messages, $config->toOptions());
+       }
+   }
 
 .. _typoscript-configuration:
 
-TypoScript Configuration
+TypoScript configuration
 ========================
+
+Runtime settings can be configured via TypoScript:
 
 Constants
 ---------
@@ -114,9 +253,6 @@ Constants
 
    plugin.tx_nrllm {
        settings {
-           # Default provider (openai, claude, gemini)
-           defaultProvider = openai
-
            # Default temperature (0.0-2.0)
            defaultTemperature = 0.7
 
@@ -134,111 +270,36 @@ Constants
        }
    }
 
-Setup
------
-
-.. code-block:: typoscript
-   :caption: TypoScript Setup
-
-   plugin.tx_nrllm {
-       settings {
-           # Provider-specific overrides
-           providers {
-               openai {
-                   model = gpt-5.2
-                   temperature = 0.7
-                   maxTokens = 2000
-               }
-               claude {
-                   model = claude-sonnet-4-5-20250929
-                   temperature = 0.5
-                   maxTokens = 4000
-               }
-           }
-
-           # Feature service defaults
-           services {
-               completion {
-                   temperature = 0.7
-                   maxTokens = 1000
-               }
-               embedding {
-                   cacheTtl = 86400
-               }
-               translation {
-                   formality = default
-                   preserveFormatting = 1
-               }
-               vision {
-                   detailLevel = auto
-               }
-           }
-       }
-   }
-
-.. _services-yaml-configuration:
-
-Services.yaml Configuration
-===========================
-
-Customize dependency injection in your extension:
-
-.. code-block:: yaml
-   :caption: Configuration/Services.yaml
-
-   services:
-     _defaults:
-       autowire: true
-       autoconfigure: true
-       public: false
-
-     # Override default provider
-     Netresearch\NrLlm\Service\LlmServiceManager:
-       arguments:
-         $defaultProvider: 'claude'
-
-     # Register custom provider
-     MyVendor\MyExtension\Provider\CustomProvider:
-       tags:
-         - name: nr_llm.provider
-           priority: 100
-
 .. _environment-variables:
 
-Environment Variables
+Environment variables
 =====================
 
-For sensitive credentials, use environment variables:
+For deployment flexibility, use environment variables:
 
 .. code-block:: bash
    :caption: .env
 
-   TYPO3_NR_LLM_OPENAI_API_KEY=sk-...
-   TYPO3_NR_LLM_CLAUDE_API_KEY=sk-ant-...
-   TYPO3_NR_LLM_GEMINI_API_KEY=AIza...
+   # TYPO3 encryption key (used for API key encryption)
+   TYPO3_CONF_VARS__SYS__encryptionKey=your-secure-encryption-key
 
-Reference in configuration:
-
-.. code-block:: php
-   :caption: config/system/additional.php
-
-   $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['openai_api_key'] =
-       getenv('TYPO3_NR_LLM_OPENAI_API_KEY');
+   # Optional: Override provider settings via environment
+   TYPO3_NR_LLM_DEFAULT_TIMEOUT=60
 
 .. _security-considerations:
 
-Security Considerations
+Security considerations
 =======================
 
-API Key Protection
+API key protection
 ------------------
 
-1. **Never commit API keys** to version control
-2. Use environment variables or secrets management
-3. Restrict backend access to authorized users only
-4. Implement rate limiting for public-facing features
+1. **Encrypted storage**: API keys are encrypted using sodium_crypto_secretbox
+2. **Database security**: Ensure database backups are encrypted
+3. **Backend access**: Restrict backend module access to authorized users
+4. **Key rotation**: Change the TYPO3 encryptionKey requires re-encryption
 
-Input Sanitization
+Input sanitization
 ------------------
 
 Always sanitize user input before sending to LLM providers:
@@ -248,40 +309,23 @@ Always sanitize user input before sending to LLM providers:
    use TYPO3\CMS\Core\Utility\GeneralUtility;
 
    $sanitizedInput = GeneralUtility::removeXSS($userInput);
-   $response = $llmManager->complete($sanitizedInput);
+   $response = $adapter->chatCompletion([
+       ['role' => 'user', 'content' => $sanitizedInput]
+   ]);
 
-Output Handling
+Output handling
 ---------------
 
 Treat LLM responses as untrusted content:
 
 .. code-block:: php
 
-   use TYPO3\CMS\Core\Utility\GeneralUtility;
-
-   $response = $llmManager->complete($prompt);
+   $response = $adapter->chatCompletion($messages);
    $safeOutput = htmlspecialchars($response->content, ENT_QUOTES, 'UTF-8');
-
-.. _rate-limiting-configuration:
-
-Rate Limiting
-=============
-
-Configure rate limits to protect against excessive API usage:
-
-.. code-block:: php
-   :caption: config/system/additional.php
-
-   $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['rate_limiting'] = [
-       'enabled' => true,
-       'requests_per_minute' => 60,
-       'requests_per_day' => 1000,
-       'tokens_per_day' => 100000,
-   ];
 
 .. _logging-configuration:
 
-Logging Configuration
+Logging configuration
 =====================
 
 Enable detailed logging for debugging:
@@ -300,3 +344,20 @@ Enable detailed logging for debugging:
    ];
 
 Log file location: ``var/log/typo3_nr_llm_*.log``
+
+.. _caching-configuration:
+
+Caching configuration
+=====================
+
+The extension uses TYPO3's caching framework:
+
+- **Cache identifier**: ``nrllm_responses``
+- **Default TTL**: 3600 seconds (1 hour)
+- **Embeddings TTL**: 86400 seconds (24 hours)
+
+Clear cache via CLI:
+
+.. code-block:: bash
+
+   vendor/bin/typo3 cache:flush --group=nrllm

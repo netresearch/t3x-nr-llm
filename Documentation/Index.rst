@@ -83,11 +83,11 @@ and image analysis.
 
          .. rst-class:: card-header h3
 
-            .. rubric:: :ref:`Architecture Decisions <adr>`
+            .. rubric:: :ref:`Architecture <architecture>`
 
          .. container:: card-body
 
-            Architecture Decision Records documenting key design choices.
+            Three-tier configuration architecture and service design.
 
 ----
 
@@ -100,6 +100,7 @@ and image analysis.
    Introduction/Index
    Installation/Index
    Configuration/Index
+   Architecture/Index
    Developer/Index
    Api/Index
    Testing/Index
