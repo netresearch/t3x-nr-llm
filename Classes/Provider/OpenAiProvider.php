@@ -379,9 +379,10 @@ final class OpenAiProvider extends AbstractProvider implements
      * Unlike getAvailableModels() which returns a static list, this method
      * makes an actual HTTP request to verify connectivity.
      *
-     * @return array{success: bool, message: string, models?: array<string, string>}
      *
      * @throws \Netresearch\NrLlm\Provider\Exception\ProviderConnectionException on connection failure
+     *
+     * @return array{success: bool, message: string, models?: array<string, string>}
      */
     #[Override]
     public function testConnection(): array

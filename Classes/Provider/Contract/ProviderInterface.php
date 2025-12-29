@@ -55,9 +55,10 @@ interface ProviderInterface
      * Unlike getAvailableModels(), this method MUST throw an exception on failure
      * and should NOT return fallback values.
      *
-     * @return array{success: bool, message: string, models?: array<string, string>}
      *
      * @throws \Netresearch\NrLlm\Provider\Exception\ProviderConnectionException on connection failure
+     *
+     * @return array{success: bool, message: string, models?: array<string, string>}
      */
     public function testConnection(): array;
 }

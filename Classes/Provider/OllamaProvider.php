@@ -266,9 +266,10 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
      * Unlike getAvailableModels(), this method does NOT return fallback models
      * on failure. It makes an actual HTTP request and throws on any error.
      *
-     * @return array{success: bool, message: string, models?: array<string, string>}
      *
      * @throws \Netresearch\NrLlm\Provider\Exception\ProviderConnectionException on connection failure
+     *
+     * @return array{success: bool, message: string, models?: array<string, string>}
      */
     #[Override]
     public function testConnection(): array

@@ -287,9 +287,10 @@ abstract class AbstractProvider implements ProviderInterface
      * Default implementation makes a simple HTTP request to verify connectivity.
      * Providers can override this for provider-specific connection tests.
      *
-     * @return array{success: bool, message: string, models?: array<string, string>}
      *
      * @throws ProviderConnectionException on connection failure
+     *
+     * @return array{success: bool, message: string, models?: array<string, string>}
      */
     public function testConnection(): array
     {
