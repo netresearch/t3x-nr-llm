@@ -19,12 +19,14 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
 {
     private function createProvider(): ClaudeProvider
     {
-        return new ClaudeProvider(
-            $this->createHttpClientMock(),
+        $provider = new ClaudeProvider(
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
+
+        return $provider;
     }
 
     #[Test]

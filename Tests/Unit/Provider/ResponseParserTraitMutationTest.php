@@ -28,12 +28,13 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
         parent::setUp();
 
         // Use a concrete provider since the trait is protected
-        $this->traitObject = new GeminiProvider(
-            $this->createHttpClientMock(),
+        $provider = new GeminiProvider(
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
+        $this->traitObject = $provider;
     }
 
     // ===== Tests for getString() =====

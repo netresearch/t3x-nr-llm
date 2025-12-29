@@ -18,12 +18,14 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
 {
     private function createProvider(): OpenAiProvider
     {
-        return new OpenAiProvider(
-            $this->createHttpClientMock(),
+        $provider = new OpenAiProvider(
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
+
+        return $provider;
     }
 
     #[Test]

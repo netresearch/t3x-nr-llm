@@ -2085,7 +2085,7 @@ parameters:
 		-
 			message: '#^Dead catch \- Netresearch\\NrLlm\\Provider\\Exception\\ProviderConnectionException is never thrown in the try block\.$#'
 			identifier: catch.neverThrown
-			count: 1
+			count: 4
 			path: ../../Tests/Unit/Provider/AbstractProviderMutationTest.php
 
 		-

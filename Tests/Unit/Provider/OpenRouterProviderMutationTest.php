@@ -19,12 +19,14 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
 {
     private function createProvider(): OpenRouterProvider
     {
-        return new OpenRouterProvider(
-            $this->createHttpClientMock(),
+        $provider = new OpenRouterProvider(
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
+
+        return $provider;
     }
 
     #[Test]

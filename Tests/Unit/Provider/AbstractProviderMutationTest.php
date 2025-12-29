@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
 use Exception;
+use GuzzleHttp\Psr7\HttpFactory;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -13,6 +14,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
+use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -33,15 +35,22 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
 {
     // ===== Tests for supportsFeature() =====
 
-    #[Test]
-    public function supportsFeatureReturnsTrueForSupportedFeature(): void
+    private function createProvider(): GeminiProvider
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
+
+        return $provider;
+    }
+
+    #[Test]
+    public function supportsFeatureReturnsTrueForSupportedFeature(): void
+    {
+        $provider = $this->createProvider();
 
         // GeminiProvider supports chat
         self::assertTrue($provider->supportsFeature('chat'));
@@ -50,12 +59,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function supportsFeatureReturnsFalseForUnsupportedFeature(): void
     {
-        $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-        );
+        $provider = $this->createProvider();
 
         // Random non-existent feature
         self::assertFalse($provider->supportsFeature('non_existent_feature'));
@@ -64,12 +68,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function supportsFeatureUsesStrictComparison(): void
     {
-        $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-        );
+        $provider = $this->createProvider();
 
         // Case-sensitive - "Chat" should not match "chat"
         self::assertFalse($provider->supportsFeature('Chat'));
@@ -90,11 +89,11 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createJsonResponseMock($expectedResponse, $statusCode));
 
         $provider = new GeminiProvider(
-            $httpClient,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
         ]);
@@ -127,11 +126,11 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createJsonResponseMock(['error' => ['message' => 'Client error']], $statusCode));
 
         $provider = new GeminiProvider(
-            $httpClient,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
         ]);
@@ -164,11 +163,11 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createJsonResponseMock(['error' => 'Server error'], $statusCode));
 
         $provider = new GeminiProvider(
-            $httpClient,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
             'maxRetries' => 1,
@@ -207,11 +206,11 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             });
 
         $provider = new GeminiProvider(
-            $httpClient,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
             'baseUrl' => 'https://api.example.com/',
@@ -240,11 +239,11 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             });
 
         $provider = new GeminiProvider(
-            $httpClient,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
             'baseUrl' => 'https://api.example.com',
@@ -277,11 +276,11 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             });
 
         $provider = new GeminiProvider(
-            $httpClient,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
             'maxRetries' => 3,
@@ -309,11 +308,11 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             });
 
         $provider = new GeminiProvider(
-            $httpClient,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
             'maxRetries' => 2,
@@ -345,11 +344,11 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             });
 
         $provider = new GeminiProvider(
-            $httpClient,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
             'maxRetries' => 3,
@@ -375,12 +374,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[DataProvider('errorMessageProvider')]
     public function extractErrorMessageParsesVariousFormats(array $errorData, string $expectedMessage): void
     {
-        $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-        );
+        $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('extractErrorMessage');
@@ -426,12 +420,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function validateConfigurationThrowsWhenApiKeyEmpty(): void
     {
-        $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-        );
+        $provider = $this->createProvider();
         $provider->configure([
             'apiKey' => '',
         ]);
@@ -447,12 +436,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function validateConfigurationDoesNotThrowWhenApiKeyProvided(): void
     {
-        $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-        );
+        $provider = $this->createProvider();
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
         ]);
@@ -470,12 +454,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function createUsageStatisticsCalculatesTotalCorrectly(): void
     {
-        $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-        );
+        $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('createUsageStatistics');
@@ -490,12 +469,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function createUsageStatisticsHandlesZeroValues(): void
     {
-        $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-        );
+        $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('createUsageStatistics');
@@ -512,12 +486,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function createCompletionResponseUsesDefaultFinishReason(): void
     {
-        $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-        );
+        $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('createCompletionResponse');
@@ -531,12 +500,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function createCompletionResponseUsesProvidedFinishReason(): void
     {
-        $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-        );
+        $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('createCompletionResponse');
@@ -550,12 +514,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function createCompletionResponseIncludesProviderIdentifier(): void
     {
-        $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-        );
+        $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('createCompletionResponse');
@@ -571,12 +530,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function createEmbeddingResponseIncludesProviderIdentifier(): void
     {
-        $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-        );
+        $provider = $this->createProvider();
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('createEmbeddingResponse');
@@ -593,12 +547,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function isAvailableReturnsFalseForEmptyApiKey(): void
     {
-        $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-        );
+        $provider = $this->createProvider();
 
         $provider->configure(['apiKey' => '']);
 
@@ -608,12 +557,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function isAvailableReturnsTrueForNonEmptyApiKey(): void
     {
-        $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-        );
+        $provider = $this->createProvider();
 
         $provider->configure(['apiKey' => 'a']);
 
@@ -622,4 +566,278 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
 
     // Note: Tests for complete() delegation are covered by integration tests
     // as they require full HTTP client integration
+
+    // ===== Additional tests for mutation coverage =====
+
+    #[Test]
+    public function sendRequestSetsAuthorizationHeaderWithBearerPrefix(): void
+    {
+        $capturedHeaders = [];
+        $httpFactory = new HttpFactory();
+
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient
+            ->method('sendRequest')
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedHeaders) {
+                $capturedHeaders = $request->getHeaders();
+
+                return $this->createJsonResponseMock(['ok' => true]);
+            });
+
+        // Use OpenAiProvider because GeminiProvider removes Authorization header
+        $provider = new OpenAiProvider(
+            $httpFactory,
+            $httpFactory,
+            $this->createLoggerMock(),
+        );
+        $provider->setHttpClient($httpClient);
+        $provider->configure([
+            'apiKey' => 'test-api-key-123',
+        ]);
+
+        $reflection = new ReflectionClass($provider);
+        $method = $reflection->getMethod('sendRequest');
+        $method->invoke($provider, '/test', []);
+
+        self::assertArrayHasKey('Authorization', $capturedHeaders);
+        self::assertStringStartsWith('Bearer ', $capturedHeaders['Authorization'][0]);
+        self::assertStringContainsString('test-api-key-123', $capturedHeaders['Authorization'][0]);
+    }
+
+    #[Test]
+    public function sendRequestDoesNotSetBodyForGetRequest(): void
+    {
+        $capturedBody = 'initial';
+        $httpFactory = new HttpFactory();
+
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient
+            ->method('sendRequest')
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody) {
+                $capturedBody = (string)$request->getBody();
+
+                return $this->createJsonResponseMock(['ok' => true]);
+            });
+
+        $provider = new GeminiProvider(
+            $httpFactory,
+            $httpFactory,
+            $this->createLoggerMock(),
+        );
+        $provider->setHttpClient($httpClient);
+        $provider->configure([
+            'apiKey' => $this->randomApiKey(),
+        ]);
+
+        $reflection = new ReflectionClass($provider);
+        $method = $reflection->getMethod('sendRequest');
+        $method->invoke($provider, '/test', ['data' => 'value'], 'GET');
+
+        // GET requests should not have body even if payload is provided
+        self::assertEmpty($capturedBody);
+    }
+
+    #[Test]
+    public function sendRequestDoesNotSetBodyForEmptyPayload(): void
+    {
+        $capturedBody = 'initial';
+        $httpFactory = new HttpFactory();
+
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient
+            ->method('sendRequest')
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody) {
+                $capturedBody = (string)$request->getBody();
+
+                return $this->createJsonResponseMock(['ok' => true]);
+            });
+
+        $provider = new GeminiProvider(
+            $httpFactory,
+            $httpFactory,
+            $this->createLoggerMock(),
+        );
+        $provider->setHttpClient($httpClient);
+        $provider->configure([
+            'apiKey' => $this->randomApiKey(),
+        ]);
+
+        $reflection = new ReflectionClass($provider);
+        $method = $reflection->getMethod('sendRequest');
+        $method->invoke($provider, '/test', []);
+
+        // Empty payload should not set body
+        self::assertEmpty($capturedBody);
+    }
+
+    #[Test]
+    public function sendRequestSetsBodyForPostWithPayload(): void
+    {
+        $capturedBody = '';
+        $httpFactory = new HttpFactory();
+
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient
+            ->method('sendRequest')
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody) {
+                $capturedBody = (string)$request->getBody();
+
+                return $this->createJsonResponseMock(['ok' => true]);
+            });
+
+        $provider = new GeminiProvider(
+            $httpFactory,
+            $httpFactory,
+            $this->createLoggerMock(),
+        );
+        $provider->setHttpClient($httpClient);
+        $provider->configure([
+            'apiKey' => $this->randomApiKey(),
+        ]);
+
+        $reflection = new ReflectionClass($provider);
+        $method = $reflection->getMethod('sendRequest');
+        $method->invoke($provider, '/test', ['key' => 'value']);
+
+        // POST with payload should have body
+        self::assertNotEmpty($capturedBody);
+        $decoded = json_decode($capturedBody, true);
+        self::assertEquals(['key' => 'value'], $decoded);
+    }
+
+    #[Test]
+    public function sendRequestErrorMessageContainsRetryCount(): void
+    {
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient
+            ->method('sendRequest')
+            ->willThrowException(new class ('Network error', 4892619012) extends Exception implements ClientExceptionInterface {});
+
+        $provider = new GeminiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+        );
+        $provider->setHttpClient($httpClient);
+        $provider->configure([
+            'apiKey' => $this->randomApiKey(),
+            'maxRetries' => 5,
+        ]);
+
+        try {
+            $reflection = new ReflectionClass($provider);
+            $method = $reflection->getMethod('sendRequest');
+            $method->invoke($provider, '/test', []);
+            self::fail('Expected ProviderConnectionException');
+        } catch (ProviderConnectionException $e) {
+            // Must contain the specific retry count
+            self::assertStringContainsString('5 attempts', $e->getMessage());
+            // And the original error message
+            self::assertStringContainsString('Network error', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function sendRequestHandlesNullLastExceptionMessage(): void
+    {
+        $attempts = 0;
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient
+            ->method('sendRequest')
+            ->willReturnCallback(function () use (&$attempts) {
+                $attempts++;
+                // Return a server error that causes retry
+                return $this->createJsonResponseMock(['error' => 'Server error'], 500);
+            });
+
+        $provider = new GeminiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+        );
+        $provider->setHttpClient($httpClient);
+        $provider->configure([
+            'apiKey' => $this->randomApiKey(),
+            'maxRetries' => 2,
+        ]);
+
+        try {
+            $reflection = new ReflectionClass($provider);
+            $method = $reflection->getMethod('sendRequest');
+            $method->invoke($provider, '/test', []);
+            self::fail('Expected ProviderConnectionException');
+        } catch (ProviderConnectionException $e) {
+            // When we get a 500 status, lastException is set from the status code error
+            // The message should contain 'Server returned status 500'
+            self::assertStringContainsString('2 attempts', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function sendRequestRetriesExactlyMaxRetriesTimes(): void
+    {
+        $attempts = 0;
+
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient
+            ->method('sendRequest')
+            ->willReturnCallback(function () use (&$attempts): void {
+                $attempts++;
+                throw new class ('Fail', 2103857921) extends Exception implements ClientExceptionInterface {};
+            });
+
+        $provider = new GeminiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+        );
+        $provider->setHttpClient($httpClient);
+        $provider->configure([
+            'apiKey' => $this->randomApiKey(),
+            'maxRetries' => 4,
+        ]);
+
+        try {
+            $reflection = new ReflectionClass($provider);
+            $method = $reflection->getMethod('sendRequest');
+            $method->invoke($provider, '/test', []);
+        } catch (ProviderConnectionException) {
+            // Should have tried exactly 4 times
+            self::assertEquals(4, $attempts);
+        }
+    }
+
+    #[Test]
+    public function sendRequestSucceedsOnFirstAttemptWithSingleRetry(): void
+    {
+        $attempts = 0;
+
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient
+            ->method('sendRequest')
+            ->willReturnCallback(function () use (&$attempts) {
+                $attempts++;
+
+                return $this->createJsonResponseMock(['success' => true]);
+            });
+
+        $provider = new GeminiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+        );
+        $provider->setHttpClient($httpClient);
+        $provider->configure([
+            'apiKey' => $this->randomApiKey(),
+            'maxRetries' => 1,
+        ]);
+
+        $reflection = new ReflectionClass($provider);
+        $method = $reflection->getMethod('sendRequest');
+        $result = $method->invoke($provider, '/test', []);
+
+        // Should succeed on first attempt
+        self::assertEquals(1, $attempts);
+        self::assertEquals(['success' => true], $result);
+    }
 }
