@@ -87,7 +87,9 @@ class ProviderList {
         }
 
         // Show modal with loading state using TYPO3 Modal API
-        const modalContent = `
+        // Create DOM element container for modal content (TYPO3 v14 requires DOM element, not HTML string)
+        const container = document.createElement('div');
+        container.innerHTML = `
             <div class="modal-loading text-center py-4" id="provider-test-loading">
                 <div class="spinner-border text-primary mb-3" role="status">
                     <span class="visually-hidden">Testing connection...</span>
@@ -113,7 +115,7 @@ class ProviderList {
 
         const modal = Modal.advanced({
             title: `Test Connection: ${name}`,
-            content: modalContent,
+            content: container,
             severity: Severity.info,
             size: Modal.sizes.default,
             buttons: [
