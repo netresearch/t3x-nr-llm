@@ -18,6 +18,10 @@ return [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/Model.svg',
     ],
+    'module-nrllm-wizard' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/Wizard.svg',
+    ],
 
     // Provider type icons
     'nrllm-provider-openai' => [

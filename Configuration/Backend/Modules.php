@@ -6,23 +6,33 @@ use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
+use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 
 /**
  * Backend module registration for nr_llm.
  *
- * Structure: All LLM modules are registered under 'tools' parent as siblings
- * to avoid TYPO3's parent/child routing conflicts.
+ * Structure: Main module under 'admin', sub-modules as children of main module.
+ * Sub-modules only appear in docheader dropdown, not in main navigation.
+ *
+ * Pattern follows TYPO3 Styleguide extension:
+ * - Main module identifier without prefix (e.g., 'nrllm' not 'tools_nrllm')
+ * - Child modules with parent as prefix (e.g., 'nrllm_providers')
+ * - Nested paths under main module path
  */
 return [
-    // Main dashboard module
-    'tools_nrllm' => [
-        'parent' => 'tools',
-        'position' => ['after' => 'tools_ExtensionmanagerExtensionmanager'],
+    // Main dashboard module (parent container)
+    'nrllm' => [
+        'parent' => 'admin',
+        'position' => ['after' => 'styleguide'],
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm',
-        'path' => '/module/tools/nrllm',
+        'path' => '/module/nrllm',
         'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod.xlf',
         'extensionName' => 'NrLlm',
+        'appearance' => [
+            'dependsOnSubmodules' => true,
+        ],
+        'showSubmoduleOverview' => true,
         'controllerActions' => [
             LlmModuleController::class => [
                 'index',
@@ -31,13 +41,12 @@ return [
             ],
         ],
     ],
-    // Provider management - sibling module
-    'tools_nrllm_providers' => [
-        'parent' => 'tools',
-        'position' => ['after' => 'tools_nrllm'],
+    // Provider management - child of main module
+    'nrllm_providers' => [
+        'parent' => 'nrllm',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-provider',
-        'path' => '/module/tools/nrllm-providers',
+        'path' => '/module/nrllm/providers',
         'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_provider.xlf',
         'extensionName' => 'NrLlm',
         'controllerActions' => [
@@ -52,13 +61,12 @@ return [
             ],
         ],
     ],
-    // Model management - sibling module
-    'tools_nrllm_models' => [
-        'parent' => 'tools',
-        'position' => ['after' => 'tools_nrllm_providers'],
+    // Model management - child of main module
+    'nrllm_models' => [
+        'parent' => 'nrllm',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-model',
-        'path' => '/module/tools/nrllm-models',
+        'path' => '/module/nrllm/models',
         'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_model.xlf',
         'extensionName' => 'NrLlm',
         'controllerActions' => [
@@ -74,13 +82,12 @@ return [
             ],
         ],
     ],
-    // Configuration management - sibling module
-    'tools_nrllm_configurations' => [
-        'parent' => 'tools',
-        'position' => ['after' => 'tools_nrllm_models'],
+    // Configuration management - child of main module
+    'nrllm_configurations' => [
+        'parent' => 'nrllm',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm',
-        'path' => '/module/tools/nrllm-configurations',
+        'path' => '/module/nrllm/configurations',
         'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_config.xlf',
         'extensionName' => 'NrLlm',
         'controllerActions' => [
@@ -90,6 +97,25 @@ return [
                 'create',
                 'update',
                 'delete',
+            ],
+        ],
+    ],
+    // Setup wizard - child of main module
+    'nrllm_wizard' => [
+        'parent' => 'nrllm',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-wizard',
+        'path' => '/module/nrllm/wizard',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_wizard.xlf',
+        'extensionName' => 'NrLlm',
+        'controllerActions' => [
+            SetupWizardController::class => [
+                'index',
+                'detect',
+                'test',
+                'discover',
+                'generate',
+                'save',
             ],
         ],
     ],

@@ -6,6 +6,7 @@ use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
+use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 
 return [
     // Main module
@@ -58,5 +59,27 @@ return [
     'nrllm_config_test' => [
         'path' => '/nrllm/config/test',
         'target' => ConfigurationController::class . '::testConfigurationAction',
+    ],
+
+    // Setup Wizard routes
+    'nrllm_wizard_detect' => [
+        'path' => '/nrllm/wizard/detect',
+        'target' => SetupWizardController::class . '::detectAction',
+    ],
+    'nrllm_wizard_test' => [
+        'path' => '/nrllm/wizard/test',
+        'target' => SetupWizardController::class . '::testAction',
+    ],
+    'nrllm_wizard_discover' => [
+        'path' => '/nrllm/wizard/discover',
+        'target' => SetupWizardController::class . '::discoverAction',
+    ],
+    'nrllm_wizard_generate' => [
+        'path' => '/nrllm/wizard/generate',
+        'target' => SetupWizardController::class . '::generateAction',
+    ],
+    'nrllm_wizard_save' => [
+        'path' => '/nrllm/wizard/save',
+        'target' => SetupWizardController::class . '::saveAction',
     ],
 ];
