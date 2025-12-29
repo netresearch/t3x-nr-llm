@@ -259,4 +259,37 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
     {
         return true;
     }
+
+    /**
+     * Test the connection to Ollama.
+     *
+     * Unlike getAvailableModels(), this method does NOT return fallback models
+     * on failure. It makes an actual HTTP request and throws on any error.
+     *
+     * @return array{success: bool, message: string, models?: array<string, string>}
+     *
+     * @throws \Netresearch\NrLlm\Provider\Exception\ProviderConnectionException on connection failure
+     */
+    #[Override]
+    public function testConnection(): array
+    {
+        // Make actual HTTP request - do NOT catch exceptions
+        $response = $this->sendRequest('api/tags', [], 'GET');
+        $models = $this->getList($response, 'models');
+
+        $result = [];
+        foreach ($models as $model) {
+            $modelArray = $this->asArray($model);
+            $name = $this->getString($modelArray, 'name');
+            if ($name !== '') {
+                $result[$name] = $name;
+            }
+        }
+
+        return [
+            'success' => true,
+            'message' => sprintf('Connection successful. Found %d models.', count($result)),
+            'models' => $result,
+        ];
+    }
 }

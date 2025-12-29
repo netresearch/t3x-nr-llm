@@ -280,4 +280,27 @@ abstract class AbstractProvider implements ProviderInterface
             provider: $this->getIdentifier(),
         );
     }
+
+    /**
+     * Test the connection to the provider.
+     *
+     * Default implementation makes a simple HTTP request to verify connectivity.
+     * Providers can override this for provider-specific connection tests.
+     *
+     * @return array{success: bool, message: string, models?: array<string, string>}
+     *
+     * @throws ProviderConnectionException on connection failure
+     */
+    public function testConnection(): array
+    {
+        // Default: use getAvailableModels which makes an API call for most providers
+        // Providers that return static lists should override this method
+        $models = $this->getAvailableModels();
+
+        return [
+            'success' => true,
+            'message' => sprintf('Connection successful. Found %d models.', count($models)),
+            'models' => $models,
+        ];
+    }
 }

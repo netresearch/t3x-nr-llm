@@ -47,4 +47,17 @@ interface ProviderInterface
     public function getAvailableModels(): array;
 
     public function getDefaultModel(): string;
+
+    /**
+     * Test the connection to the provider.
+     *
+     * This method should make an actual HTTP request to verify connectivity.
+     * Unlike getAvailableModels(), this method MUST throw an exception on failure
+     * and should NOT return fallback values.
+     *
+     * @return array{success: bool, message: string, models?: array<string, string>}
+     *
+     * @throws \Netresearch\NrLlm\Provider\Exception\ProviderConnectionException on connection failure
+     */
+    public function testConnection(): array;
 }

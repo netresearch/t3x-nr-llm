@@ -268,6 +268,10 @@ class ProviderAdapterRegistry implements SingletonInterface
     /**
      * Test a provider connection.
      *
+     * Uses the provider's testConnection() method which makes an actual HTTP request
+     * and throws exceptions on failure (unlike getAvailableModels() which may return
+     * fallback values).
+     *
      * @return array{success: bool, message: string, models?: array<string, string>}
      */
     public function testProviderConnection(Provider $provider): array
@@ -282,14 +286,8 @@ class ProviderAdapterRegistry implements SingletonInterface
                 ];
             }
 
-            // Try to get available models as a connection test
-            $models = $adapter->getAvailableModels();
-
-            return [
-                'success' => true,
-                'message' => sprintf('Connection successful. Found %d models.', count($models)),
-                'models' => $models,
-            ];
+            // Use testConnection() which makes actual HTTP request and throws on failure
+            return $adapter->testConnection();
         } catch (Throwable $e) {
             return [
                 'success' => false,

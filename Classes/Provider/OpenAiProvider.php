@@ -372,4 +372,37 @@ final class OpenAiProvider extends AbstractProvider implements
     {
         return true;
     }
+
+    /**
+     * Test the connection to OpenAI.
+     *
+     * Unlike getAvailableModels() which returns a static list, this method
+     * makes an actual HTTP request to verify connectivity.
+     *
+     * @return array{success: bool, message: string, models?: array<string, string>}
+     *
+     * @throws \Netresearch\NrLlm\Provider\Exception\ProviderConnectionException on connection failure
+     */
+    #[Override]
+    public function testConnection(): array
+    {
+        // Make actual HTTP request to /models endpoint - do NOT catch exceptions
+        $response = $this->sendRequest('models', [], 'GET');
+        $data = $this->getList($response, 'data');
+
+        $models = [];
+        foreach ($data as $model) {
+            $modelArray = $this->asArray($model);
+            $id = $this->getString($modelArray, 'id');
+            if ($id !== '') {
+                $models[$id] = $id;
+            }
+        }
+
+        return [
+            'success' => true,
+            'message' => sprintf('Connection successful. Found %d models.', count($models)),
+            'models' => $models,
+        ];
+    }
 }
