@@ -1,0 +1,365 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div class="setup-wizard" id="setup-wizard">
+        <!-- Progress Steps -->
+        <div class="wizard-progress mb-4">
+            <div class="wizard-steps d-flex justify-content-between">
+                <div class="wizard-step active" data-step="1">
+                    <div class="step-icon">
+                        <core:icon identifier="actions-link" size="small" />
+                    </div>
+                    <div class="step-label">Connect</div>
+                </div>
+                <div class="wizard-step" data-step="2">
+                    <div class="step-icon">
+                        <core:icon identifier="actions-check" size="small" />
+                    </div>
+                    <div class="step-label">Verify</div>
+                </div>
+                <div class="wizard-step" data-step="3">
+                    <div class="step-icon">
+                        <core:icon identifier="apps-pagetree-folder-contains-board" size="small" />
+                    </div>
+                    <div class="step-label">Models</div>
+                </div>
+                <div class="wizard-step" data-step="4">
+                    <div class="step-icon">
+                        <core:icon identifier="actions-cog" size="small" />
+                    </div>
+                    <div class="step-label">Configure</div>
+                </div>
+                <div class="wizard-step" data-step="5">
+                    <div class="step-icon">
+                        <core:icon identifier="actions-database" size="small" />
+                    </div>
+                    <div class="step-label">Save</div>
+                </div>
+            </div>
+            <div class="wizard-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Setup wizard progress">
+                <div class="wizard-progress-fill" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Step 1: Connect -->
+        <div class="wizard-panel" data-panel="1">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <core:icon identifier="actions-link" size="small" />
+                        Connect to LLM Provider
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Enter your LLM provider's API endpoint and credentials. The wizard will auto-detect
+                        the provider type and configure everything for you.
+                    </p>
+
+                    <div class="mb-3">
+                        <label for="wizard-endpoint" class="form-label">API Endpoint URL *</label>
+                        <input type="url" class="form-control" id="wizard-endpoint"
+                               placeholder="https://api.openai.com" required>
+                        <div class="form-text">
+                            Examples: https://api.openai.com, https://api.anthropic.com, http://localhost:11434
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="wizard-apikey" class="form-label">API Key</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="wizard-apikey"
+                                   placeholder="sk-...">
+                            <button type="button" class="btn btn-outline-secondary" id="toggle-apikey"
+                                    aria-label="Toggle API key visibility">
+                                <core:icon identifier="actions-preview" size="small" />
+                            </button>
+                        </div>
+                        <div class="form-text">
+                            Leave empty for local providers like Ollama that don't require authentication.
+                        </div>
+                    </div>
+
+                    <div id="detected-provider" class="alert alert-info" style="display: none;">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <core:icon identifier="information" size="small" />
+                            </div>
+                            <div>
+                                <strong>Detected:</strong> <span id="detected-name"></span>
+                                <span class="badge bg-secondary ms-2" id="detected-adapter"></span>
+                                <div class="small text-muted" id="detected-confidence"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="adapter-override" style="display: none;">
+                        <label for="wizard-adapter" class="form-label">Provider Type (override)</label>
+                        <select class="form-select" id="wizard-adapter">
+                            <f:for each="{adapterTypes}" as="label" key="value">
+                                <option value="{value}">{label}</option>
+                            </f:for>
+                        </select>
+                        <div class="form-text">
+                            Only change this if auto-detection is incorrect.
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-link btn-sm" id="show-adapter-override">
+                        <core:icon identifier="actions-cog" size="small" />
+                        Override provider type
+                    </button>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-end">
+                        <button type="button" class="btn btn-primary" id="btn-detect">
+                            <core:icon identifier="actions-search" size="small" />
+                            Detect &amp; Continue
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Verify Connection -->
+        <div class="wizard-panel" data-panel="2" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <core:icon identifier="actions-check" size="small" />
+                        Verify Connection
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div id="test-loading" class="text-center py-5">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Testing connection...</span>
+                        </div>
+                        <p class="text-muted">Testing connection to provider...</p>
+                    </div>
+
+                    <div id="test-success" class="text-center py-4" style="display: none;">
+                        <div class="mb-3">
+                            <span class="badge bg-success fs-4 p-3 rounded-circle">
+                                <core:icon identifier="actions-check" size="large" />
+                            </span>
+                        </div>
+                        <h4 class="text-success">Connection Successful</h4>
+                        <p class="text-muted" id="test-success-message"></p>
+                    </div>
+
+                    <div id="test-error" class="alert alert-danger" style="display: none;">
+                        <h4 class="alert-heading">
+                            <core:icon identifier="actions-ban" size="small" />
+                            Connection Failed
+                        </h4>
+                        <p id="test-error-message"></p>
+                        <hr>
+                        <p class="mb-0">Please check your endpoint URL and API key, then try again.</p>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn btn-default" id="btn-back-1">
+                            <core:icon identifier="actions-chevron-left" size="small" />
+                            Back
+                        </button>
+                        <button type="button" class="btn btn-primary" id="btn-discover" disabled>
+                            <core:icon identifier="actions-refresh" size="small" />
+                            Discover Models
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Select Models -->
+        <div class="wizard-panel" data-panel="3" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <core:icon identifier="apps-pagetree-folder-contains-board" size="small" />
+                        Select Models
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div id="models-loading" class="text-center py-5">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Discovering models...</span>
+                        </div>
+                        <p class="text-muted">Discovering available models...</p>
+                    </div>
+
+                    <div id="models-list" style="display: none;">
+                        <p class="text-muted mb-3">
+                            Select the models you want to add to your configuration.
+                            Recommended models are pre-selected.
+                        </p>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="models-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 40px;">
+                                            <input type="checkbox" class="form-check-input" id="select-all-models"
+                                                   aria-label="Select all models">
+                                        </th>
+                                        <th>Model</th>
+                                        <th>Context</th>
+                                        <th>Capabilities</th>
+                                        <th style="width: 100px;">Recommended</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn btn-default" id="btn-back-2">
+                            <core:icon identifier="actions-chevron-left" size="small" />
+                            Back
+                        </button>
+                        <button type="button" class="btn btn-primary" id="btn-generate" disabled>
+                            <core:icon identifier="actions-bolt" size="small" />
+                            Generate Configurations
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Configure -->
+        <div class="wizard-panel" data-panel="4" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <core:icon identifier="actions-cog" size="small" />
+                        Configuration Presets
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div id="configs-loading" class="text-center py-5">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Generating configurations...</span>
+                        </div>
+                        <p class="text-muted">
+                            Using AI to generate optimal configuration presets...
+                        </p>
+                    </div>
+
+                    <div id="configs-list" style="display: none;">
+                        <p class="text-muted mb-3">
+                            The following configuration presets have been generated for common use cases.
+                            Select the ones you want to create.
+                        </p>
+                        <div class="row" id="configs-container"></div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn btn-default" id="btn-back-3">
+                            <core:icon identifier="actions-chevron-left" size="small" />
+                            Back
+                        </button>
+                        <button type="button" class="btn btn-primary" id="btn-review">
+                            <core:icon identifier="actions-preview" size="small" />
+                            Review &amp; Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 5: Review & Save -->
+        <div class="wizard-panel" data-panel="5" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <core:icon identifier="actions-database" size="small" />
+                        Review &amp; Save
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div id="review-content">
+                        <h5>Provider</h5>
+                        <div class="card mb-3">
+                            <div class="card-body" id="review-provider"></div>
+                        </div>
+
+                        <h5>Models (<span id="review-models-count">0</span>)</h5>
+                        <div class="card mb-3">
+                            <ul class="list-group list-group-flush" id="review-models"></ul>
+                        </div>
+
+                        <h5>Configurations (<span id="review-configs-count">0</span>)</h5>
+                        <div class="card mb-3">
+                            <ul class="list-group list-group-flush" id="review-configs"></ul>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="wizard-pid" class="form-label">Storage Folder (Page ID)</label>
+                            <input type="number" class="form-control" id="wizard-pid" value="0" min="0">
+                            <div class="form-text">
+                                The page ID where records will be stored. Use 0 for root level.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="save-loading" class="text-center py-5" style="display: none;">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Saving...</span>
+                        </div>
+                        <p class="text-muted">Saving configuration...</p>
+                    </div>
+
+                    <div id="save-success" class="text-center py-5" style="display: none;">
+                        <div class="mb-3">
+                            <span class="badge bg-success fs-1 p-4 rounded-circle">
+                                <core:icon identifier="actions-check" size="large" />
+                            </span>
+                        </div>
+                        <h4 class="text-success">Setup Complete!</h4>
+                        <p class="text-muted" id="save-success-message"></p>
+                        <div class="mt-4">
+                            <a href="#" class="btn btn-primary" id="btn-go-providers">
+                                <core:icon identifier="actions-open" size="small" />
+                                View Providers
+                            </a>
+                            <button type="button" class="btn btn-default" id="btn-restart">
+                                <core:icon identifier="actions-refresh" size="small" />
+                                Add Another Provider
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="save-error" class="alert alert-danger" style="display: none;">
+                        <h4 class="alert-heading">
+                            <core:icon identifier="actions-ban" size="small" />
+                            Save Failed
+                        </h4>
+                        <p id="save-error-message"></p>
+                    </div>
+                </div>
+                <div class="card-footer" id="save-footer">
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn btn-default" id="btn-back-4">
+                            <core:icon identifier="actions-chevron-left" size="small" />
+                            Back
+                        </button>
+                        <button type="button" class="btn btn-success" id="btn-save">
+                            <core:icon identifier="actions-check" size="small" />
+                            Save Configuration
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</f:section>
+
+</html>

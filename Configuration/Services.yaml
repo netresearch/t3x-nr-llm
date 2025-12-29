@@ -185,3 +185,16 @@ services:
 
   Netresearch\NrLlm\Specialized\Image\FalImageService:
     public: true
+
+  # ========================================
+  # Setup Wizard Services
+  # ========================================
+
+  Netresearch\NrLlm\Service\SetupWizard\ProviderDetector:
+    public: true
+
+  Netresearch\NrLlm\Service\SetupWizard\ModelDiscovery:
+    public: true
+
+  Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator:
+    public: true

@@ -1,0 +1,244 @@
+/**
+ * Setup Wizard Styles
+ */
+
+.setup-wizard {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* Progress Steps */
+.wizard-progress {
+    padding: 0 20px;
+}
+
+.wizard-steps {
+    position: relative;
+    z-index: 1;
+}
+
+.wizard-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    position: relative;
+}
+
+.wizard-step .step-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.wizard-step.active .step-icon {
+    background: var(--typo3-primary-color, #0078d4);
+    border-color: var(--typo3-primary-color, #0078d4);
+}
+
+.wizard-step.active .step-icon .icon {
+    filter: brightness(0) invert(1);
+}
+
+.wizard-step.completed .step-icon {
+    background: #28a745;
+    border-color: #28a745;
+}
+
+.wizard-step.completed .step-icon .icon {
+    filter: brightness(0) invert(1);
+}
+
+.wizard-step .step-label {
+    font-size: 12px;
+    color: #666;
+    text-align: center;
+}
+
+.wizard-step.active .step-label {
+    color: var(--typo3-primary-color, #0078d4);
+    font-weight: 600;
+}
+
+.wizard-step.completed .step-label {
+    color: #28a745;
+}
+
+/* Progress Bar */
+.wizard-progress-bar {
+    height: 4px;
+    background: #e0e0e0;
+    border-radius: 2px;
+    margin-top: -28px;
+    margin-bottom: 20px;
+}
+
+.wizard-progress-fill {
+    height: 100%;
+    background: var(--typo3-primary-color, #0078d4);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+/* Wizard Panels */
+.wizard-panel {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Configuration Cards */
+.config-card {
+    height: 100%;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.config-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.config-card.selected {
+    border-color: var(--typo3-primary-color, #0078d4);
+    background: rgba(0, 120, 212, 0.05);
+}
+
+.config-card .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.config-card .config-check {
+    width: 20px;
+    height: 20px;
+}
+
+.config-card .config-temp,
+.config-card .config-tokens {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #666;
+}
+
+/* Model table */
+#models-table .form-check-input,
+#models-table .model-checkbox {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    cursor: pointer;
+    /* Ensure visibility regardless of TYPO3 backend styles */
+    opacity: 1 !important;
+    visibility: visible !important;
+    position: relative !important;
+    margin: 0;
+    display: inline-block;
+    vertical-align: middle;
+    appearance: auto;
+    -webkit-appearance: checkbox;
+    -moz-appearance: checkbox;
+}
+
+#models-table th:first-child,
+#models-table td:first-child {
+    width: 50px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+#models-table .badge {
+    font-size: 10px;
+    margin-right: 4px;
+}
+
+/* Select all checkbox */
+#select-all-models {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    cursor: pointer;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Review lists */
+#review-provider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+#review-provider .provider-icon {
+    width: 48px;
+    height: 48px;
+    background: #f0f0f0;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#review-models .list-group-item,
+#review-configs .list-group-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Success state */
+#save-success .badge {
+    width: 80px;
+    height: 80px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#save-success .icon {
+    width: 32px;
+    height: 32px;
+}
+
+/* Loading spinner sizing */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .wizard-step .step-label {
+        display: none;
+    }
+
+    .wizard-step .step-icon {
+        width: 32px;
+        height: 32px;
+    }
+
+    .wizard-progress-bar {
+        margin-top: -22px;
+    }
+}
