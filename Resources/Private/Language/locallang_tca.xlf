@@ -200,10 +200,10 @@
             </trans-unit>
 
             <trans-unit id="tx_nrllm_provider.timeout">
-                <source>Timeout (seconds)</source>
+                <source>Response Timeout (seconds)</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.timeout.description">
-                <source>Request timeout in seconds</source>
+                <source>Maximum time to wait for the complete API response. Includes connection (max 10s) and model processing time. Large models may need 60-300 seconds.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_provider.max_retries">
