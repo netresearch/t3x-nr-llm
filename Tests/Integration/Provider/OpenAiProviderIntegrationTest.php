@@ -35,11 +35,11 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
         $httpClient = $this->createHttpClientWithResponses($responses);
 
         $provider = new OpenAiProvider(
-            $httpClient,
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
         );
+        $provider->setHttpClient($httpClient);
 
         $provider->configure([
             'apiKey' => 'sk-test-' . $this->faker->sha256(),
@@ -276,11 +276,11 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
         );
 
         $provider = new OpenAiProvider(
-            $clientSetup['client'],
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
         );
+        $provider->setHttpClient($clientSetup['client']);
 
         $provider->configure([
             'apiKey' => 'sk-test',

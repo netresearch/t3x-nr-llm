@@ -66,24 +66,28 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     {
         $httpClient = $this->createHttpClientWithResponses($responses);
 
-        return new OpenAiProvider(
-            $httpClient,
+        $provider = new OpenAiProvider(
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
         );
+        $provider->setHttpClient($httpClient);
+
+        return $provider;
     }
 
     private function createConfiguredClaudeProvider(array $responses): ClaudeProvider
     {
         $httpClient = $this->createHttpClientWithResponses($responses);
 
-        return new ClaudeProvider(
-            $httpClient,
+        $provider = new ClaudeProvider(
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
         );
+        $provider->setHttpClient($httpClient);
+
+        return $provider;
     }
 
     #[Test]
@@ -164,11 +168,11 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 
         // Create unavailable provider (no API key)
         $unavailableProvider = new OpenAiProvider(
-            $this->createHttpClientWithResponses([]),
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
         );
+        $unavailableProvider->setHttpClient($this->createHttpClientWithResponses([]));
         // Don't configure it, so it's not available
 
         $this->subject->registerProvider($availableProvider);
@@ -232,11 +236,11 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         );
 
         $provider = new OpenAiProvider(
-            $clientSetup['client'],
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
         );
+        $provider->setHttpClient($clientSetup['client']);
         $provider->configure([
             'apiKey' => 'sk-test',
             'defaultModel' => 'gpt-4o',

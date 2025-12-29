@@ -32,11 +32,11 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
         $httpClient = $this->createHttpClientWithResponses($responses);
 
         $provider = new ClaudeProvider(
-            $httpClient,
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
         );
+        $provider->setHttpClient($httpClient);
 
         $provider->configure([
             'apiKey' => 'sk-ant-test-' . $this->faker->sha256(),
