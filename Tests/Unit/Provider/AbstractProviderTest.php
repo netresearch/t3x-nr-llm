@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
+use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Provider\GroqProvider;
@@ -18,38 +19,38 @@ use PHPUnit\Framework\Attributes\Test;
 class AbstractProviderTest extends AbstractUnitTestCase
 {
     /**
-     * @param class-string<ProviderInterface> $providerClass
+     * @param class-string<AbstractProvider> $providerClass
      */
     #[Test]
     #[DataProvider('providerConfigProvider')]
     public function providerIsNotAvailableWithoutApiKey(string $providerClass, string $providerName): void
     {
-        /** @var ProviderInterface $provider */
+        /** @var AbstractProvider $provider */
         $provider = new $providerClass(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         // Provider without configure() call should not have API key
         self::assertFalse($provider->isAvailable());
     }
 
     /**
-     * @param class-string<ProviderInterface> $providerClass
+     * @param class-string<AbstractProvider> $providerClass
      */
     #[Test]
     #[DataProvider('providerConfigProvider')]
     public function providerIsAvailableWithApiKey(string $providerClass, string $providerName): void
     {
-        /** @var ProviderInterface $provider */
+        /** @var AbstractProvider $provider */
         $provider = new $providerClass(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
@@ -61,37 +62,37 @@ class AbstractProviderTest extends AbstractUnitTestCase
     }
 
     /**
-     * @param class-string<ProviderInterface> $providerClass
+     * @param class-string<AbstractProvider> $providerClass
      */
     #[Test]
     #[DataProvider('providerConfigProvider')]
     public function providerReturnsCorrectName(string $providerClass, string $providerName): void
     {
-        /** @var ProviderInterface $provider */
+        /** @var AbstractProvider $provider */
         $provider = new $providerClass(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         self::assertEquals($providerName, $provider->getName());
     }
 
     /**
-     * @param class-string<ProviderInterface> $providerClass
+     * @param class-string<AbstractProvider> $providerClass
      */
     #[Test]
     #[DataProvider('providerConfigProvider')]
     public function providerReturnsNonEmptyModelList(string $providerClass, string $providerName): void
     {
-        /** @var ProviderInterface $provider */
+        /** @var AbstractProvider $provider */
         $provider = new $providerClass(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         $provider->configure([
             'apiKey' => $this->randomApiKey(),

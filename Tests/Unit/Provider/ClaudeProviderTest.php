@@ -28,11 +28,11 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $this->httpClientStub = $this->createHttpClientMock();
 
         $this->subject = new ClaudeProvider(
-            $this->httpClientStub,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $this->subject->setHttpClient($this->httpClientStub);
 
         $this->subject->configure([
             'apiKey' => $this->randomApiKey(),
@@ -52,11 +52,11 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $httpClientMock = $this->createHttpClientWithExpectations();
 
         $subject = new ClaudeProvider(
-            $httpClientMock,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $subject->setHttpClient($httpClientMock);
 
         $subject->configure([
             'apiKey' => $this->randomApiKey(),

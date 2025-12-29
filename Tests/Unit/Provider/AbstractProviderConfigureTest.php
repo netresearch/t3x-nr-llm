@@ -22,11 +22,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureUsesDefaultTimeoutOf30WhenNotProvided(): void
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
@@ -43,11 +43,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureUsesDefaultMaxRetriesOf3WhenNotProvided(): void
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
@@ -63,11 +63,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureUsesProvidedTimeoutValue(): void
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
@@ -84,11 +84,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureUsesProvidedMaxRetriesValue(): void
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
@@ -105,11 +105,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureUsesEmptyStringApiKeyWhenNotProvided(): void
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         // Configure with empty config should NOT throw (lazy validation)
         $provider->configure([]);
@@ -122,11 +122,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureUsesProvidedBaseUrl(): void
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         $customBaseUrl = 'https://custom-api.example.com';
         $provider->configure([
@@ -144,11 +144,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureUsesDefaultBaseUrlWhenNotProvided(): void
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
@@ -166,11 +166,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureUsesProvidedDefaultModel(): void
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         $customModel = 'gemini-custom-model';
         $provider->configure([
@@ -185,11 +185,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureUsesProviderDefaultModelWhenNotProvided(): void
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
@@ -204,11 +204,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureAcceptsVariousTimeoutValues(int $timeout): void
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
@@ -237,11 +237,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureAcceptsVariousMaxRetriesValues(int $maxRetries): void
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         $provider->configure([
             'apiKey' => $this->randomApiKey(),
@@ -269,11 +269,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureWithEmptyApiKeyMarksProviderAsNotAvailable(): void
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         // Configure with empty API key should NOT throw (lazy validation)
         $provider->configure([
@@ -288,11 +288,11 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureCastsNullApiKeyToEmptyString(): void
     {
         $provider = new GeminiProvider(
-            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->createHttpClientMock());
 
         // Passing null should be cast to empty string (lazy validation)
         $provider->configure([

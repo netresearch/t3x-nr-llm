@@ -27,7 +27,6 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $this->httpClientMock = $this->createHttpClientMock();
 
         $this->subject = new OpenRouterProvider(
-            $this->httpClientMock,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
@@ -43,6 +42,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             'fallbackModels' => '',
             'timeout' => 60,
         ]);
+
+        // Set HTTP client AFTER configure() to ensure timeout matches
+        $this->subject->setHttpClient($this->httpClientMock);
     }
 
     #[Test]
@@ -122,11 +124,11 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     public function selectModelRespectsRoutingStrategy(string $strategy, string $expectedBehavior): void
     {
         $provider = new OpenRouterProvider(
-            $this->httpClientMock,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->httpClientMock);
 
         $provider->configure([
             'apiKey' => $this->randomApiKey(),

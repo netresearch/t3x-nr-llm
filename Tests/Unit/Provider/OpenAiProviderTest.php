@@ -31,11 +31,11 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $this->httpClientStub = $this->createHttpClientMock();
 
         $this->subject = new OpenAiProvider(
-            $this->httpClientStub,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $this->subject->setHttpClient($this->httpClientStub);
 
         $this->subject->configure([
             'apiKey' => $this->randomApiKey(),
@@ -55,11 +55,11 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $httpClientMock = $this->createHttpClientWithExpectations();
 
         $subject = new OpenAiProvider(
-            $httpClientMock,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $subject->setHttpClient($httpClientMock);
 
         $subject->configure([
             'apiKey' => $this->randomApiKey(),
@@ -93,11 +93,11 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function isAvailableReturnsFalseWhenNoApiKey(): void
     {
         $provider = new OpenAiProvider(
-            $this->httpClientStub,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
         );
+        $provider->setHttpClient($this->httpClientStub);
 
         // Without calling configure(), provider has no API key
         self::assertFalse($provider->isAvailable());
