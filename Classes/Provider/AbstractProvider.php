@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
+use GuzzleHttp\Client as GuzzleClient;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -38,8 +39,10 @@ abstract class AbstractProvider implements ProviderInterface
     /** @var array<string> */
     protected array $supportedFeatures = [];
 
+    private ?ClientInterface $configuredHttpClient = null;
+    private int $configuredTimeout = 0;
+
     public function __construct(
-        protected readonly ClientInterface $httpClient,
         protected readonly RequestFactoryInterface $requestFactory,
         protected readonly StreamFactoryInterface $streamFactory,
         protected readonly LoggerInterface $logger,
@@ -89,6 +92,40 @@ abstract class AbstractProvider implements ProviderInterface
     }
 
     /**
+     * Set a custom HTTP client (primarily for testing).
+     *
+     * @param ClientInterface $client The HTTP client to use
+     *
+     * @internal This method is intended for testing purposes
+     */
+    public function setHttpClient(ClientInterface $client): void
+    {
+        $this->configuredHttpClient = $client;
+        // Mark as configured so getHttpClient() doesn't recreate it
+        $this->configuredTimeout = $this->timeout;
+    }
+
+    /**
+     * Get HTTP client configured with the current timeout.
+     * Creates a new client if timeout has changed.
+     *
+     * @return ClientInterface HTTP client with configured timeout
+     */
+    protected function getHttpClient(): ClientInterface
+    {
+        // Create new client if timeout changed or not yet created
+        if ($this->configuredHttpClient === null || $this->configuredTimeout !== $this->timeout) {
+            $this->configuredHttpClient = new GuzzleClient([
+                'timeout' => $this->timeout,
+                'connect_timeout' => min($this->timeout, 10), // Connection timeout max 10s
+            ]);
+            $this->configuredTimeout = $this->timeout;
+        }
+
+        return $this->configuredHttpClient;
+    }
+
+    /**
      * @param array<string, mixed> $payload
      *
      * @return array<string, mixed>
@@ -111,12 +148,13 @@ abstract class AbstractProvider implements ProviderInterface
             $request = $request->withBody($body);
         }
 
+        $httpClient = $this->getHttpClient();
         $attempt = 0;
         $lastException = null;
 
         while ($attempt < $this->maxRetries) {
             try {
-                $response = $this->httpClient->sendRequest($request);
+                $response = $httpClient->sendRequest($request);
                 $statusCode = $response->getStatusCode();
 
                 if ($statusCode >= 200 && $statusCode < 300) {
