@@ -8,7 +8,6 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
-use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
@@ -55,7 +54,6 @@ class ProviderAdapterRegistry implements SingletonInterface
     private array $customAdapters = [];
 
     public function __construct(
-        private readonly ClientInterface $httpClient,
         private readonly RequestFactoryInterface $requestFactory,
         private readonly StreamFactoryInterface $streamFactory,
         private readonly LoggerInterface $logger,
@@ -231,7 +229,6 @@ class ProviderAdapterRegistry implements SingletonInterface
     private function instantiateAdapter(string $adapterClass): AbstractProvider
     {
         return new $adapterClass(
-            $this->httpClient,
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
