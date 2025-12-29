@@ -23,6 +23,18 @@ class ModelRepository extends Repository
     ];
 
     /**
+     * Initialize repository for backend module use.
+     * Ignores storage page and enable fields restrictions.
+     */
+    public function initializeObject(): void
+    {
+        $querySettings = $this->createQuery()->getQuerySettings();
+        $querySettings->setRespectStoragePage(false);
+        $querySettings->setIgnoreEnableFields(true);
+        $this->setDefaultQuerySettings($querySettings);
+    }
+
+    /**
      * Find model by identifier string.
      */
     public function findOneByIdentifier(string $identifier): ?Model

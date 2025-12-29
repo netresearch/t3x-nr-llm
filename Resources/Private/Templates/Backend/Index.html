@@ -10,6 +10,25 @@
         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.title" />
     </h1>
 
+    <!-- Quick Start Wizard Banner -->
+    <div class="callout callout-info mb-4">
+        <div class="d-flex align-items-center">
+            <div class="me-3">
+                <core:icon identifier="module-nrllm-wizard" size="large" />
+            </div>
+            <div class="flex-grow-1">
+                <h4 class="callout-title mb-1">New to LLM Integration?</h4>
+                <p class="mb-0">Use the <strong>Setup Wizard</strong> to auto-configure your provider, discover models, and generate configuration presets.</p>
+            </div>
+            <div class="ms-3">
+                <a href="{be:moduleLink(route:'nrllm_wizard')}" class="btn btn-primary">
+                    <core:icon identifier="actions-bolt" size="small" />
+                    Start Setup Wizard
+                </a>
+            </div>
+        </div>
+    </div>
+
     <h2>LLM Management</h2>
 
     <section class="card-container">
@@ -27,7 +46,7 @@
                 <p class="card-text">Configure endpoints, API keys, and timeouts for LLM services.</p>
             </div>
             <div class="card-footer">
-                <a href="{be:moduleLink(route:'tools_nrllm_providers')}" class="btn btn-default">
+                <a href="{be:moduleLink(route:'nrllm_providers')}" class="btn btn-default">
                     Manage Providers
                 </a>
             </div>
@@ -46,7 +65,7 @@
                 <p class="card-text">Configure model definitions, capabilities, and pricing per provider.</p>
             </div>
             <div class="card-footer">
-                <a href="{be:moduleLink(route:'tools_nrllm_models')}" class="btn btn-default">
+                <a href="{be:moduleLink(route:'nrllm_models')}" class="btn btn-default">
                     Manage Models
                 </a>
             </div>
@@ -65,7 +84,7 @@
                 <p class="card-text">Create named configurations with prompts, parameters, and limits.</p>
             </div>
             <div class="card-footer">
-                <a href="{be:moduleLink(route:'tools_nrllm_configurations')}" class="btn btn-default">
+                <a href="{be:moduleLink(route:'nrllm_configurations')}" class="btn btn-default">
                     Manage Configurations
                 </a>
             </div>

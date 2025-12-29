@@ -62,6 +62,9 @@ final class ConfigurationController extends ActionController
         $this->moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $this->moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
 
+        // Add module menu dropdown to docheader (shows all LLM sub-modules)
+        $this->moduleTemplate->makeDocHeaderModuleMenu();
+
         // Register AJAX URLs for JavaScript
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
             'nrllm_config_toggle_active' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_toggle_active'),
@@ -69,19 +72,8 @@ final class ConfigurationController extends ActionController
             'nrllm_config_test' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_test'),
         ]);
 
-        // Load JavaScript for configuration list actions
-        $this->pageRenderer->addJsFile(
-            'EXT:nr_llm/Resources/Public/JavaScript/Backend/ConfigurationList.js',
-            'text/javascript',
-            false,
-            false,
-            '',
-            false,
-            '|',
-            false,
-            '',
-            true,
-        );
+        // Load JavaScript for configuration list actions (ES6 module)
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/ConfigurationList.js');
     }
 
     /**
@@ -130,6 +122,12 @@ final class ConfigurationController extends ActionController
             'providers' => $this->getProviderOptions(),
         ]);
 
+        // Add shortcut/bookmark button to docheader
+        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+            routeIdentifier: 'nrllm_configurations',
+            displayName: 'LLM - Configurations',
+        );
+
         // Add "New Configuration" button to docheader
         $createButton = $this->componentFactory->createLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
@@ -170,6 +168,15 @@ final class ConfigurationController extends ActionController
             'models' => $models,
             'isNew' => $configuration === null,
         ]);
+
+        // Add shortcut/bookmark button to docheader
+        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+            routeIdentifier: 'nrllm_configurations',
+            displayName: $configuration !== null
+                ? sprintf('LLM - Configuration: %s', $configuration->getName())
+                : 'LLM - New Configuration',
+            arguments: $configuration !== null ? ['uid' => $configuration->getUid()] : [],
+        );
 
         // Add "Back to List" button to docheader
         $backButton = $this->componentFactory->createLinkButton()

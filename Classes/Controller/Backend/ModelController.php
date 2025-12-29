@@ -57,6 +57,9 @@ final class ModelController extends ActionController
         $this->moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $this->moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
 
+        // Add module menu dropdown to docheader (shows all LLM sub-modules)
+        $this->moduleTemplate->makeDocHeaderModuleMenu();
+
         // Register AJAX URLs for JavaScript
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
             'nrllm_model_toggle_active' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_toggle_active'),
@@ -64,19 +67,8 @@ final class ModelController extends ActionController
             'nrllm_model_test' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_test'),
         ]);
 
-        // Load JavaScript for model list actions
-        $this->pageRenderer->addJsFile(
-            'EXT:nr_llm/Resources/Public/JavaScript/Backend/ModelList.js',
-            'text/javascript',
-            false,
-            false,
-            '',
-            false,
-            '|',
-            false,
-            '',
-            true,
-        );
+        // Load JavaScript for model list actions (ES6 module)
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/ModelList.js');
     }
 
     /**
@@ -109,6 +101,12 @@ final class ModelController extends ActionController
             'providers' => $providers,
             'capabilities' => Model::getAllCapabilities(),
         ]);
+
+        // Add shortcut/bookmark button to docheader
+        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+            routeIdentifier: 'nrllm_models',
+            displayName: 'LLM - Models',
+        );
 
         // Add "New Model" button to docheader
         $createButton = $this->componentFactory->createLinkButton()
@@ -147,6 +145,15 @@ final class ModelController extends ActionController
             'capabilities' => Model::getAllCapabilities(),
             'isNew' => $model === null,
         ]);
+
+        // Add shortcut/bookmark button to docheader
+        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+            routeIdentifier: 'nrllm_models',
+            displayName: $model !== null
+                ? sprintf('LLM - Model: %s', $model->getName())
+                : 'LLM - New Model',
+            arguments: $model !== null ? ['uid' => $model->getUid()] : [],
+        );
 
         // Add "Back to List" button to docheader
         $backButton = $this->componentFactory->createLinkButton()

@@ -94,6 +94,7 @@
                                         </button>
                                         <button type="button" class="btn btn-default btn-sm js-test-model"
                                                 data-uid="{model.uid}"
+                                                data-name="{model.name}"
                                                 title="Test model">
                                             <core:icon identifier="actions-play" size="small" />
                                         </button>
@@ -141,19 +142,36 @@
         </div>
     </f:if>
 
-    <div id="test-result" class="card mt-4" style="display: none;">
-        <div class="card-header">
-            <h3 class="card-title">Model Test</h3>
-        </div>
-        <div class="card-body">
-            <div id="test-loading" style="display: none;">
-                <span class="spinner-border spinner-border-sm"></span> Testing model...
-            </div>
-            <div id="test-success" class="alert alert-success" style="display: none;">
-                <strong>Success!</strong> <span id="test-success-message"></span>
-            </div>
-            <div id="test-error" class="alert alert-danger" style="display: none;">
-                <strong>Error:</strong> <span id="test-error-message"></span>
+    <!-- Model Test Modal -->
+    <div class="modal fade" id="test-modal" tabindex="-1" aria-labelledby="test-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="test-modal-label">Model Test</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="test-model-name" class="mb-3">
+                        <strong>Model:</strong> <span id="test-model-label"></span>
+                    </div>
+                    <div id="test-loading" class="text-center py-4">
+                        <span class="spinner-border text-primary"></span>
+                        <div class="mt-2">Testing model...</div>
+                    </div>
+                    <div id="test-success" class="alert alert-success" style="display: none;">
+                        <core:icon identifier="actions-check" size="small" />
+                        <strong>Success!</strong>
+                        <div id="test-success-message" class="mt-2"></div>
+                    </div>
+                    <div id="test-error" class="alert alert-danger" style="display: none;">
+                        <core:icon identifier="actions-ban" size="small" />
+                        <strong>Error</strong>
+                        <div id="test-error-message" class="mt-2"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>

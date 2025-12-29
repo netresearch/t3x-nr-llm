@@ -26,6 +26,15 @@ final class LlmModuleController extends ActionController
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
 
+        // Add module menu dropdown to docheader (shows all LLM sub-modules)
+        $moduleTemplate->makeDocHeaderModuleMenu();
+
+        // Add shortcut/bookmark button to docheader
+        $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+            routeIdentifier: 'nrllm',
+            displayName: 'LLM - Dashboard',
+        );
+
         $providers = $this->llmServiceManager->getProviderList();
         $availableProviders = $this->llmServiceManager->getAvailableProviders();
         $defaultProvider = $this->llmServiceManager->getDefaultProvider();
@@ -57,6 +66,16 @@ final class LlmModuleController extends ActionController
     public function testAction(): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
+
+        // Add module menu dropdown to docheader (shows all LLM sub-modules)
+        $moduleTemplate->makeDocHeaderModuleMenu();
+
+        // Add shortcut/bookmark button to docheader
+        $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+            routeIdentifier: 'nrllm',
+            displayName: 'LLM - Test',
+            arguments: ['action' => 'test'],
+        );
 
         $providers = $this->llmServiceManager->getAvailableProviders();
 

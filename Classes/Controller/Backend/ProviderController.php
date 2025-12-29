@@ -52,25 +52,17 @@ final class ProviderController extends ActionController
         $this->moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $this->moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
 
+        // Add module menu dropdown to docheader (shows all LLM sub-modules)
+        $this->moduleTemplate->makeDocHeaderModuleMenu();
+
         // Register AJAX URLs for JavaScript
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
             'nrllm_provider_toggle_active' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_provider_toggle_active'),
             'nrllm_provider_test_connection' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_provider_test_connection'),
         ]);
 
-        // Load JavaScript for provider list actions
-        $this->pageRenderer->addJsFile(
-            'EXT:nr_llm/Resources/Public/JavaScript/Backend/ProviderList.js',
-            'text/javascript',
-            false,
-            false,
-            '',
-            false,
-            '|',
-            false,
-            '',
-            true,
-        );
+        // Load JavaScript for provider list actions (ES6 module)
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/ProviderList.js');
     }
 
     /**
@@ -84,6 +76,12 @@ final class ProviderController extends ActionController
             'providers' => $providers,
             'adapterTypes' => Provider::getAdapterTypes(),
         ]);
+
+        // Add shortcut/bookmark button to docheader
+        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+            routeIdentifier: 'nrllm_providers',
+            displayName: 'LLM - Providers',
+        );
 
         // Add "New Provider" button to docheader
         $createButton = $this->componentFactory->createLinkButton()
@@ -121,6 +119,15 @@ final class ProviderController extends ActionController
             'adapterTypes' => Provider::getAdapterTypes(),
             'isNew' => $provider === null,
         ]);
+
+        // Add shortcut/bookmark button to docheader
+        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+            routeIdentifier: 'nrllm_providers',
+            displayName: $provider !== null
+                ? sprintf('LLM - Provider: %s', $provider->getName())
+                : 'LLM - New Provider',
+            arguments: $provider !== null ? ['uid' => $provider->getUid()] : [],
+        );
 
         // Add "Back to List" button to docheader
         $backButton = $this->componentFactory->createLinkButton()
