@@ -40,11 +40,11 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $provider = new OpenAiProvider(
-            $httpClient,
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => 'sk-test-key',
             'defaultModel' => 'gpt-4o',
@@ -89,11 +89,11 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $provider = new ClaudeProvider(
-            $httpClient,
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => 'sk-ant-test-key',
             'defaultModel' => 'claude-sonnet-4-20250514',
@@ -136,11 +136,11 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         );
 
         $provider = new OpenAiProvider(
-            $clientSetup['client'],
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
         );
+        $provider->setHttpClient($clientSetup['client']);
         $provider->configure([
             'apiKey' => 'sk-test-key',
             'defaultModel' => 'gpt-4o',
@@ -191,11 +191,11 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         );
 
         $provider = new OpenAiProvider(
-            $clientSetup['client'],
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
         );
+        $provider->setHttpClient($clientSetup['client']);
         $provider->configure([
             'apiKey' => 'sk-test-key',
             'defaultModel' => 'gpt-4o',
@@ -243,11 +243,11 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $provider = new OpenAiProvider(
-            $httpClient,
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => 'sk-test-key',
             'defaultModel' => 'gpt-4o',
@@ -290,11 +290,11 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $provider = new OpenAiProvider(
-            $httpClient,
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => 'sk-test-key',
             'defaultModel' => 'gpt-4o',
@@ -343,22 +343,22 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $openAiProvider = new OpenAiProvider(
-            $openAiClient,
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
         );
+        $openAiProvider->setHttpClient($openAiClient);
         $openAiProvider->configure([
             'apiKey' => 'sk-openai-test',
             'defaultModel' => 'gpt-4o',
         ]);
 
         $claudeProvider = new ClaudeProvider(
-            $claudeClient,
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
         );
+        $claudeProvider->setHttpClient($claudeClient);
         $claudeProvider->configure([
             'apiKey' => 'sk-ant-test',
             'defaultModel' => 'claude-sonnet-4-20250514',

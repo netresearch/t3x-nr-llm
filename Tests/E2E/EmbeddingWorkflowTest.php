@@ -35,11 +35,11 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $provider = new OpenAiProvider(
-            $httpClient,
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => 'sk-test-key',
             'defaultModel' => 'gpt-4o',
@@ -155,11 +155,11 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $provider = new OpenAiProvider(
-            $httpClient,
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => 'sk-test-key',
             'defaultModel' => 'gpt-4o',
@@ -225,11 +225,11 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $provider = new OpenAiProvider(
-            $httpClient,
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
         );
+        $provider->setHttpClient($httpClient);
         $provider->configure([
             'apiKey' => 'sk-test-key',
             'defaultModel' => 'gpt-4o',
