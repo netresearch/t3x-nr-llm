@@ -23,7 +23,7 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 final class ProviderDetector
 {
     /**
-     * Detection patterns: [pattern => [adapterType, suggestedName, confidence]]
+     * Detection patterns: [pattern => [adapterType, suggestedName, confidence]].
      *
      * @var array<string, array{0: string, 1: string, 2: float}>
      */

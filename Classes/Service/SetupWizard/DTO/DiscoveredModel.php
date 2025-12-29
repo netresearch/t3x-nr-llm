@@ -10,15 +10,15 @@ namespace Netresearch\NrLlm\Service\SetupWizard\DTO;
 final readonly class DiscoveredModel
 {
     /**
-     * @param string $modelId The API model identifier (e.g., gpt-5.2, claude-opus-4-5)
-     * @param string $name Human-readable name
-     * @param string $description Model description
-     * @param array<string> $capabilities List of capabilities (chat, vision, tools, etc.)
-     * @param int $contextLength Context window size in tokens
-     * @param int $maxOutputTokens Maximum output tokens
-     * @param int $costInput Cost per 1M input tokens in cents
-     * @param int $costOutput Cost per 1M output tokens in cents
-     * @param bool $recommended Whether this model is recommended for general use
+     * @param string        $modelId         The API model identifier (e.g., gpt-5.2, claude-opus-4-5)
+     * @param string        $name            Human-readable name
+     * @param string        $description     Model description
+     * @param array<string> $capabilities    List of capabilities (chat, vision, tools, etc.)
+     * @param int           $contextLength   Context window size in tokens
+     * @param int           $maxOutputTokens Maximum output tokens
+     * @param int           $costInput       Cost per 1M input tokens in cents
+     * @param int           $costOutput      Cost per 1M output tokens in cents
+     * @param bool          $recommended     Whether this model is recommended for general use
      */
     public function __construct(
         public string $modelId,

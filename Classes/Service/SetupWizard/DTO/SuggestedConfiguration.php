@@ -10,13 +10,13 @@ namespace Netresearch\NrLlm\Service\SetupWizard\DTO;
 final readonly class SuggestedConfiguration
 {
     /**
-     * @param string $identifier Configuration identifier (e.g., blog-summarizer)
-     * @param string $name Human-readable name
-     * @param string $description What this configuration is for
-     * @param string $systemPrompt The system prompt for this use case
-     * @param string $recommendedModelId Which model to use
-     * @param float $temperature Temperature setting (0.0-2.0)
-     * @param int $maxTokens Maximum tokens for response
+     * @param string               $identifier         Configuration identifier (e.g., blog-summarizer)
+     * @param string               $name               Human-readable name
+     * @param string               $description        What this configuration is for
+     * @param string               $systemPrompt       The system prompt for this use case
+     * @param string               $recommendedModelId Which model to use
+     * @param float                $temperature        Temperature setting (0.0-2.0)
+     * @param int                  $maxTokens          Maximum tokens for response
      * @param array<string, mixed> $additionalSettings Any other settings
      */
     public function __construct(

@@ -401,9 +401,9 @@ final class ModelDiscovery
      */
     private function isRelevantGeminiModel(string $modelId): bool
     {
-        return str_starts_with($modelId, 'gemini-3') ||
-               str_starts_with($modelId, 'gemini-2.5') ||
-               str_starts_with($modelId, 'gemini-2.0');
+        return str_starts_with($modelId, 'gemini-3')
+               || str_starts_with($modelId, 'gemini-2.5')
+               || str_starts_with($modelId, 'gemini-2.0');
     }
 
     /**
@@ -611,13 +611,13 @@ final class ModelDiscovery
                     ? $model['description']
                     : 'OpenRouter model';
                 $contextLength = isset($model['context_length']) && is_numeric($model['context_length'])
-                    ? (int) $model['context_length']
+                    ? (int)$model['context_length']
                     : 0;
                 $promptCost = isset($pricing['prompt']) && is_numeric($pricing['prompt'])
-                    ? (float) $pricing['prompt']
+                    ? (float)$pricing['prompt']
                     : 0.0;
                 $completionCost = isset($pricing['completion']) && is_numeric($pricing['completion'])
-                    ? (float) $pricing['completion']
+                    ? (float)$pricing['completion']
                     : 0.0;
 
                 $models[] = new DiscoveredModel(
@@ -627,8 +627,8 @@ final class ModelDiscovery
                     capabilities: ['chat'],
                     contextLength: $contextLength,
                     maxOutputTokens: 0,
-                    costInput: (int) ($promptCost * 100000000),
-                    costOutput: (int) ($completionCost * 100000000),
+                    costInput: (int)($promptCost * 100000000),
+                    costOutput: (int)($completionCost * 100000000),
                     recommended: false,
                 );
             }
@@ -759,7 +759,7 @@ final class ModelDiscovery
                 }
 
                 $contextWindow = isset($model['context_window']) && is_numeric($model['context_window'])
-                    ? (int) $model['context_window']
+                    ? (int)$model['context_window']
                     : 0;
 
                 $models[] = new DiscoveredModel(

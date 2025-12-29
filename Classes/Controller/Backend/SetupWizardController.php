@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\SetupWizard\ModelDiscovery;
 use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
@@ -398,7 +399,7 @@ final class SetupWizardController extends ActionController
                 'modelsCount' => count($savedModels),
                 'configurationsCount' => $configCount,
             ]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return new JsonResponse([
                 'success' => false,
                 'error' => 'Failed to save: ' . $e->getMessage(),

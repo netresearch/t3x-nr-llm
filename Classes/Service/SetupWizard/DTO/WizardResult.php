@@ -10,11 +10,11 @@ namespace Netresearch\NrLlm\Service\SetupWizard\DTO;
 final readonly class WizardResult
 {
     /**
-     * @param DetectedProvider $provider Detected/configured provider
-     * @param array<DiscoveredModel> $models Discovered or suggested models
-     * @param array<SuggestedConfiguration> $configurations Suggested configurations
-     * @param bool $connectionSuccessful Whether connection test passed
-     * @param string $connectionMessage Message from connection test
+     * @param DetectedProvider              $provider             Detected/configured provider
+     * @param array<DiscoveredModel>        $models               Discovered or suggested models
+     * @param array<SuggestedConfiguration> $configurations       Suggested configurations
+     * @param bool                          $connectionSuccessful Whether connection test passed
+     * @param string                        $connectionMessage    Message from connection test
      */
     public function __construct(
         public DetectedProvider $provider,

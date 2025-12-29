@@ -10,6 +10,7 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\SuggestedConfiguration;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -21,31 +22,31 @@ use Throwable;
 final class ConfigurationGenerator
 {
     private const SYSTEM_PROMPT = <<<'PROMPT'
-You are an expert at configuring LLM integrations. Generate practical configuration presets for common business use cases.
+        You are an expert at configuring LLM integrations. Generate practical configuration presets for common business use cases.
 
-For each configuration, provide:
-1. A unique identifier (lowercase, hyphenated, e.g., "blog-summarizer")
-2. A human-readable name
-3. A clear description of the use case
-4. An effective system prompt tailored for that use case
-5. Recommended temperature (0.0-2.0)
-6. Recommended max tokens
+        For each configuration, provide:
+        1. A unique identifier (lowercase, hyphenated, e.g., "blog-summarizer")
+        2. A human-readable name
+        3. A clear description of the use case
+        4. An effective system prompt tailored for that use case
+        5. Recommended temperature (0.0-2.0)
+        6. Recommended max tokens
 
-Return a JSON array of configurations. Example format:
-[
-  {
-    "identifier": "content-summarizer",
-    "name": "Content Summarizer",
-    "description": "Summarizes articles, documents, and long-form content",
-    "systemPrompt": "You are a professional content summarizer...",
-    "temperature": 0.3,
-    "maxTokens": 2048
-  }
-]
+        Return a JSON array of configurations. Example format:
+        [
+          {
+            "identifier": "content-summarizer",
+            "name": "Content Summarizer",
+            "description": "Summarizes articles, documents, and long-form content",
+            "systemPrompt": "You are a professional content summarizer...",
+            "temperature": 0.3,
+            "maxTokens": 2048
+          }
+        ]
 
-Generate 4-5 practical configurations that would be useful for a typical business website (TYPO3 CMS).
-Focus on: content creation, translation, summarization, customer support, and code/technical assistance.
-PROMPT;
+        Generate 4-5 practical configurations that would be useful for a typical business website (TYPO3 CMS).
+        Focus on: content creation, translation, summarization, customer support, and code/technical assistance.
+        PROMPT;
 
     public function __construct(
         private readonly ClientInterface $httpClient,
@@ -57,6 +58,7 @@ PROMPT;
      * Generate configuration suggestions using the LLM.
      *
      * @param array<DiscoveredModel> $models Available models
+     *
      * @return array<SuggestedConfiguration>
      */
     public function generate(
@@ -106,8 +108,10 @@ PROMPT;
         }
 
         // Sort by context length (prefer larger context)
-        usort($candidates, fn(DiscoveredModel $a, DiscoveredModel $b) =>
-            $b->contextLength <=> $a->contextLength
+        usort(
+            $candidates,
+            fn(DiscoveredModel $a, DiscoveredModel $b)
+            => $b->contextLength <=> $a->contextLength,
         );
 
         return $candidates[0];
@@ -169,7 +173,7 @@ PROMPT;
         $response = $this->httpClient->sendRequest($request);
 
         if ($response->getStatusCode() !== 200) {
-            throw new \RuntimeException('LLM API error: ' . $response->getStatusCode());
+            throw new RuntimeException('LLM API error: ' . $response->getStatusCode());
         }
 
         $data = json_decode($response->getBody()->getContents(), true);
@@ -445,6 +449,7 @@ PROMPT;
      * Get fallback configurations when LLM generation fails.
      *
      * @param array<DiscoveredModel> $models
+     *
      * @return array<SuggestedConfiguration>
      */
     private function getFallbackConfigurations(array $models): array
