@@ -6,6 +6,7 @@ namespace Netresearch\NrLlm\Provider\Contract;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 
 interface ProviderInterface
 {
@@ -56,7 +57,7 @@ interface ProviderInterface
      * and should NOT return fallback values.
      *
      *
-     * @throws \Netresearch\NrLlm\Provider\Exception\ProviderConnectionException on connection failure
+     * @throws ProviderConnectionException on connection failure
      *
      * @return array{success: bool, message: string, models?: array<string, string>}
      */

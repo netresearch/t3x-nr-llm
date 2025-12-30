@@ -9,6 +9,7 @@ use JsonException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Override;
 use Throwable;
 
@@ -267,7 +268,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
      * on failure. It makes an actual HTTP request and throws on any error.
      *
      *
-     * @throws \Netresearch\NrLlm\Provider\Exception\ProviderConnectionException on connection failure
+     * @throws ProviderConnectionException on connection failure
      *
      * @return array{success: bool, message: string, models?: array<string, string>}
      */

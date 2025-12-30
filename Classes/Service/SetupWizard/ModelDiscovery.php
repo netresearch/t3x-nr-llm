@@ -15,11 +15,11 @@ use Throwable;
  *
  * Model information updated: December 2025
  */
-final class ModelDiscovery
+final readonly class ModelDiscovery
 {
     public function __construct(
-        private readonly ClientInterface $httpClient,
-        private readonly RequestFactoryInterface $requestFactory,
+        private ClientInterface $httpClient,
+        private RequestFactoryInterface $requestFactory,
     ) {}
 
     /**

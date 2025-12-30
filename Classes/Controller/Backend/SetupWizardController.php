@@ -229,7 +229,7 @@ final class SetupWizardController extends ActionController
                 modelId: is_string($modelData['modelId'] ?? null) ? $modelData['modelId'] : '',
                 name: is_string($modelData['name'] ?? null) ? $modelData['name'] : '',
                 description: is_string($modelData['description'] ?? null) ? $modelData['description'] : '',
-                capabilities: is_array($modelData['capabilities'] ?? null) ? array_values(array_filter($modelData['capabilities'], 'is_string')) : ['chat'],
+                capabilities: is_array($modelData['capabilities'] ?? null) ? array_values(array_filter($modelData['capabilities'], is_string(...))) : ['chat'],
                 contextLength: is_numeric($modelData['contextLength'] ?? null) ? (int)$modelData['contextLength'] : 0,
                 maxOutputTokens: is_numeric($modelData['maxOutputTokens'] ?? null) ? (int)$modelData['maxOutputTokens'] : 0,
                 recommended: (bool)($modelData['recommended'] ?? false),
@@ -326,7 +326,7 @@ final class SetupWizardController extends ActionController
                 $model->setProvider($provider);
                 $model->setContextLength($contextLength);
                 $model->setMaxOutputTokens($maxOutputTokens);
-                $model->setCapabilities(implode(',', array_filter($modelCapabilities, 'is_string')));
+                $model->setCapabilities(implode(',', array_filter($modelCapabilities, is_string(...))));
                 $model->setIsActive(true);
                 $model->setIsDefault((bool)($modelData['recommended'] ?? false));
                 if ($pid >= 0) {

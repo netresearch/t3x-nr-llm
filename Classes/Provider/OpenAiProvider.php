@@ -12,6 +12,7 @@ use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Override;
 
 final class OpenAiProvider extends AbstractProvider implements
@@ -380,7 +381,7 @@ final class OpenAiProvider extends AbstractProvider implements
      * makes an actual HTTP request to verify connectivity.
      *
      *
-     * @throws \Netresearch\NrLlm\Provider\Exception\ProviderConnectionException on connection failure
+     * @throws ProviderConnectionException on connection failure
      *
      * @return array{success: bool, message: string, models?: array<string, string>}
      */

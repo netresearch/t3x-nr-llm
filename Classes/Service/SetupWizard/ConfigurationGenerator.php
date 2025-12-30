@@ -19,9 +19,9 @@ use Throwable;
  * Uses the newly connected LLM to generate optimal configuration presets
  * for common use cases.
  */
-final class ConfigurationGenerator
+final readonly class ConfigurationGenerator
 {
-    private const SYSTEM_PROMPT = <<<'PROMPT'
+    private const string SYSTEM_PROMPT = <<<'PROMPT'
         You are an expert at configuring LLM integrations. Generate practical configuration presets for common business use cases.
 
         For each configuration, provide:
@@ -49,9 +49,9 @@ final class ConfigurationGenerator
         PROMPT;
 
     public function __construct(
-        private readonly ClientInterface $httpClient,
-        private readonly RequestFactoryInterface $requestFactory,
-        private readonly StreamFactoryInterface $streamFactory,
+        private ClientInterface $httpClient,
+        private RequestFactoryInterface $requestFactory,
+        private StreamFactoryInterface $streamFactory,
     ) {}
 
     /**
@@ -173,7 +173,7 @@ final class ConfigurationGenerator
         $response = $this->httpClient->sendRequest($request);
 
         if ($response->getStatusCode() !== 200) {
-            throw new RuntimeException('LLM API error: ' . $response->getStatusCode());
+            throw new RuntimeException('LLM API error: ' . $response->getStatusCode(), 6587111580);
         }
 
         $data = json_decode($response->getBody()->getContents(), true);
