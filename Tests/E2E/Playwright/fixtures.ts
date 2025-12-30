@@ -48,8 +48,8 @@ async function navigateToLlmModule(page: Page): Promise<FrameLocator> {
   // TYPO3 v14 loads module content in an iframe
   const moduleFrame = getModuleFrame(page);
 
-  // Wait for module content to load inside the iframe
-  await moduleFrame.getByRole('heading', { name: 'LLM Configurations', level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
+  // Wait for module content to load inside the iframe (main dashboard shows "LLM Providers")
+  await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
 
   return moduleFrame;
 }

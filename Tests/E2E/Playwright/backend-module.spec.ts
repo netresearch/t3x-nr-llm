@@ -1,6 +1,6 @@
-import { test, expect, navigateToLlmModule, getModuleFrame } from './fixtures';
+import { test, expect, navigateToLlmModule, navigateToConfigurations, navigateToProviders, getModuleFrame } from './fixtures';
 
-test.describe('LLM Configuration Backend Module', () => {
+test.describe('LLM Backend Module - Multi-Tier Architecture', () => {
   test.describe('Module Access', () => {
     test('should display module in Tools menu after login', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
@@ -8,140 +8,90 @@ test.describe('LLM Configuration Backend Module', () => {
       // Navigate to the module - returns iframe content
       const moduleFrame = await navigateToLlmModule(page);
 
-      // Verify module header is displayed (inside iframe)
-      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Configurations');
+      // Verify module header is displayed (main module shows Providers dashboard)
+      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Providers');
     });
 
-    test('should show configuration list with action buttons', async ({ authenticatedPage }) => {
+    test('should show providers page with provider list or empty state', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      const moduleFrame = await navigateToLlmModule(page);
+      const moduleFrame = await navigateToProviders(page);
 
-      // Verify "New Configuration" button exists (inside iframe)
-      await expect(moduleFrame.getByRole('link', { name: 'New Configuration' })).toBeVisible();
+      // The page should show either a table with providers or an info box for empty state
+      const hasTable = await moduleFrame.locator('table').isVisible();
+      const hasInfoBox = await moduleFrame.locator('.callout, .alert').first().isVisible();
+
+      // Either a table or info message should be visible
+      expect(hasTable || hasInfoBox).toBe(true);
     });
   });
 
-  test.describe('Configuration List', () => {
+  test.describe('Provider List', () => {
+    test('should display providers page content', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      const moduleFrame = await navigateToProviders(page);
+
+      // Verify we're on the providers page
+      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Providers');
+
+      // Check for expected content: either providers table or empty state callout
+      const hasTable = await moduleFrame.locator('table').isVisible();
+      const hasCallout = await moduleFrame.locator('.callout').isVisible();
+      const hasInfoBox = await moduleFrame.locator('.t3js-infobox, [class*="infobox"]').isVisible();
+
+      expect(hasTable || hasCallout || hasInfoBox).toBe(true);
+    });
+
+    test('should have provider type filter options', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      const moduleFrame = await navigateToProviders(page);
+
+      // Just verify the page loaded correctly
+      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Providers');
+    });
+  });
+
+  test.describe('Configuration Sub-Module', () => {
+    test('should navigate to configurations sub-module', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+
+      // Navigate directly to configurations sub-module
+      const moduleFrame = await navigateToConfigurations(page);
+
+      // Verify configurations heading is displayed
+      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Configurations');
+    });
+
+    test('should show configurations page content', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      const moduleFrame = await navigateToConfigurations(page);
+
+      // Check for expected content: either configurations table or empty state
+      const hasTable = await moduleFrame.locator('table').isVisible();
+      const hasCallout = await moduleFrame.locator('.callout').isVisible();
+      const hasInfoBox = await moduleFrame.locator('.t3js-infobox, [class*="infobox"]').isVisible();
+
+      expect(hasTable || hasCallout || hasInfoBox).toBe(true);
+    });
+
     test('should display configurations table or empty state', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      const moduleFrame = await navigateToLlmModule(page);
+      const moduleFrame = await navigateToConfigurations(page);
 
-      // Either a table with configurations or an empty state message should be visible
+      // Either a table with configurations or an info message should be visible
       const hasTable = await moduleFrame.locator('table').isVisible();
-      const hasEmptyState = await moduleFrame.locator('.alert.alert-info').first().isVisible();
+      const hasEmptyState = await moduleFrame.locator('.callout, .alert').first().isVisible();
 
       expect(hasTable || hasEmptyState).toBe(true);
-    });
-
-    test('should have provider filter options', async ({ authenticatedPage }) => {
-      const page = authenticatedPage;
-      const moduleFrame = await navigateToLlmModule(page);
-
-      // Check for provider tabs or filter (may not exist if no configs)
-      // Just verify the page loaded correctly
-      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Configurations');
-    });
-  });
-
-  test.describe('Create Configuration', () => {
-    test('should navigate to new configuration form', async ({ authenticatedPage }) => {
-      const page = authenticatedPage;
-      const moduleFrame = await navigateToLlmModule(page);
-
-      // Click "New Configuration" button (inside iframe)
-      await moduleFrame.getByRole('link', { name: 'New Configuration' }).click();
-
-      // Wait for navigation and verify form page loaded
-      await page.waitForTimeout(1000);
-      const newModuleFrame = getModuleFrame(page);
-      await expect(newModuleFrame.getByRole('heading', { level: 1 })).toContainText('New LLM Configuration');
-    });
-
-    test('should display all required form fields', async ({ authenticatedPage }) => {
-      const page = authenticatedPage;
-      const moduleFrame = await navigateToLlmModule(page);
-
-      // Click "New Configuration" button
-      await moduleFrame.getByRole('link', { name: 'New Configuration' }).click();
-      await page.waitForTimeout(1000);
-
-      const formFrame = getModuleFrame(page);
-
-      // Verify Identity section fields
-      await expect(formFrame.locator('#identifier')).toBeVisible();
-      await expect(formFrame.locator('#name')).toBeVisible();
-
-      // Verify Provider section fields
-      await expect(formFrame.locator('#provider')).toBeVisible();
-    });
-
-    test('should validate required fields on submit', async ({ authenticatedPage }) => {
-      const page = authenticatedPage;
-      const moduleFrame = await navigateToLlmModule(page);
-
-      // Click "New Configuration" button
-      await moduleFrame.getByRole('link', { name: 'New Configuration' }).click();
-      await page.waitForTimeout(1000);
-
-      const formFrame = getModuleFrame(page);
-
-      // Try to submit without filling required fields
-      await formFrame.locator('button[type="submit"]').click();
-
-      // Browser should show validation error (HTML5 validation)
-      // The identifier field is required - check it's still visible (form didn't submit)
-      await expect(formFrame.locator('#identifier')).toBeVisible();
-    });
-
-    test('should create configuration with valid data', async ({ authenticatedPage }) => {
-      const page = authenticatedPage;
-      const moduleFrame = await navigateToLlmModule(page);
-
-      // Click "New Configuration" button
-      await moduleFrame.getByRole('link', { name: 'New Configuration' }).click();
-      await page.waitForTimeout(1000);
-
-      const formFrame = getModuleFrame(page);
-
-      // Generate unique identifier
-      const uniqueId = `e2e_test_${Date.now()}`;
-
-      // Fill valid form data
-      await formFrame.locator('#identifier').fill(uniqueId);
-      await formFrame.locator('#name').fill('E2E Test Configuration');
-
-      // Select first available provider (if dropdown exists)
-      const providerSelect = formFrame.locator('#provider');
-      if (await providerSelect.isVisible()) {
-        await providerSelect.selectOption({ index: 1 });
-      }
-
-      // Fill temperature if visible
-      const tempField = formFrame.locator('#temperature');
-      if (await tempField.isVisible()) {
-        await tempField.fill('0.7');
-      }
-
-      // Submit form
-      await formFrame.locator('button[type="submit"]').click();
-
-      // Wait for redirect/response
-      await page.waitForTimeout(2000);
-
-      // Should redirect to list or show success
-      const newModuleFrame = getModuleFrame(page);
-      // Verify we're on a valid page (either back on list or success message)
-      await expect(newModuleFrame.locator('body')).toBeVisible();
     });
   });
 
   test.describe('Edit Configuration', () => {
     test('should navigate to edit form when clicking edit button', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      const moduleFrame = await navigateToLlmModule(page);
+      const moduleFrame = await navigateToConfigurations(page);
 
       // Check if there are any configurations to edit
-      const editButtons = moduleFrame.locator('a[title="Edit"], a:has-text("Edit")');
+      const editButtons = moduleFrame.locator('a[title="Edit"], a:has-text("Edit"), a .icon-actions-open');
       const count = await editButtons.count();
 
       if (count > 0) {
@@ -160,10 +110,10 @@ test.describe('LLM Configuration Backend Module', () => {
 
     test('should preserve existing values in edit form', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      const moduleFrame = await navigateToLlmModule(page);
+      const moduleFrame = await navigateToConfigurations(page);
 
       // Find and click first edit button
-      const editButtons = moduleFrame.locator('a[title="Edit"], a:has-text("Edit")');
+      const editButtons = moduleFrame.locator('a[title="Edit"], a:has-text("Edit"), a .icon-actions-open');
       const count = await editButtons.count();
 
       if (count > 0) {
@@ -184,10 +134,10 @@ test.describe('LLM Configuration Backend Module', () => {
   test.describe('Delete Configuration', () => {
     test('should show delete confirmation or button', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      const moduleFrame = await navigateToLlmModule(page);
+      const moduleFrame = await navigateToConfigurations(page);
 
       // Check for delete buttons
-      const deleteButtons = moduleFrame.locator('a[title="Delete"], button[title="Delete"], a:has-text("Delete")');
+      const deleteButtons = moduleFrame.locator('a[title="Delete"], button[title="Delete"], a:has-text("Delete"), .btn-danger');
       const count = await deleteButtons.count();
 
       // If configurations exist, delete buttons should be present
@@ -202,26 +152,16 @@ test.describe('LLM Configuration Backend Module', () => {
   });
 
   test.describe('Navigation', () => {
-    test('should have working back button on forms', async ({ authenticatedPage }) => {
+    test('should navigate between Provider and Configuration modules', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      const moduleFrame = await navigateToLlmModule(page);
 
-      // Navigate to new configuration form
-      await moduleFrame.getByRole('link', { name: 'New Configuration' }).click();
-      await page.waitForTimeout(1000);
+      // Navigate to providers
+      const providerFrame = await navigateToProviders(page);
+      await expect(providerFrame.getByRole('heading', { level: 1 })).toContainText('LLM Providers');
 
-      const formFrame = getModuleFrame(page);
-
-      // Click back/cancel button
-      const backButton = formFrame.locator('a:has-text("Back"), a:has-text("Cancel")');
-      if (await backButton.count() > 0) {
-        await backButton.first().click();
-        await page.waitForTimeout(1000);
-
-        // Should be back on list page
-        const listFrame = getModuleFrame(page);
-        await expect(listFrame.getByRole('heading', { level: 1 })).toContainText('LLM Configurations');
-      }
+      // Navigate to configurations
+      const configFrame = await navigateToConfigurations(page);
+      await expect(configFrame.getByRole('heading', { level: 1 })).toContainText('LLM Configurations');
     });
 
     test('should maintain session across module navigation', async ({ authenticatedPage }) => {
@@ -233,25 +173,65 @@ test.describe('LLM Configuration Backend Module', () => {
       await page.waitForTimeout(500);
       const moduleFrame = await navigateToLlmModule(page);
 
-      // Should still be authenticated and see the module
-      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Configurations');
+      // Should still be authenticated and see the module (Providers dashboard)
+      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Providers');
     });
   });
 
-  test.describe('Provider Selection', () => {
-    test('should show provider dropdown in form', async ({ authenticatedPage }) => {
+  test.describe('Provider Actions', () => {
+    test('should have action buttons for providers in list', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      const moduleFrame = await navigateToLlmModule(page);
+      const moduleFrame = await navigateToProviders(page);
 
-      // Navigate to new configuration form
-      await moduleFrame.getByRole('link', { name: 'New Configuration' }).click();
-      await page.waitForTimeout(1000);
+      // Check if there are providers
+      const providerRows = await moduleFrame.locator('table tbody tr').count();
 
-      const formFrame = getModuleFrame(page);
+      if (providerRows > 0) {
+        // Each provider should have action buttons (edit, toggle, test, delete)
+        const actionButtons = moduleFrame.locator('table tbody tr:first-child .btn-group button, table tbody tr:first-child .btn-group a');
+        const buttonCount = await actionButtons.count();
+        expect(buttonCount).toBeGreaterThan(0);
+      } else {
+        // No providers - verify empty state message exists
+        const hasEmptyState = await moduleFrame.locator('.callout, [class*="infobox"]').isVisible();
+        expect(hasEmptyState).toBe(true);
+      }
+    });
 
-      // Check for provider select field
-      const providerSelect = formFrame.locator('#provider');
-      await expect(providerSelect).toBeVisible();
+    test('should have test connection button for providers', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      const moduleFrame = await navigateToProviders(page);
+
+      // Check for test connection buttons
+      const testButtons = moduleFrame.locator('.js-test-connection, button[data-action="test-connection"]');
+      const count = await testButtons.count();
+
+      // If providers exist, test buttons should exist
+      const providerRows = await moduleFrame.locator('table tbody tr').count();
+      if (providerRows > 0) {
+        expect(count).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  test.describe('Configuration Actions', () => {
+    test('should have action buttons for configurations in list', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      const moduleFrame = await navigateToConfigurations(page);
+
+      // Check if there are configurations
+      const configRows = await moduleFrame.locator('table tbody tr').count();
+
+      if (configRows > 0) {
+        // Each configuration should have action buttons
+        const actionButtons = moduleFrame.locator('table tbody tr:first-child .btn-group button, table tbody tr:first-child .btn-group a');
+        const buttonCount = await actionButtons.count();
+        expect(buttonCount).toBeGreaterThan(0);
+      } else {
+        // No configurations - verify empty state message exists
+        const hasEmptyState = await moduleFrame.locator('.callout, [class*="infobox"]').isVisible();
+        expect(hasEmptyState).toBe(true);
+      }
     });
   });
 });
