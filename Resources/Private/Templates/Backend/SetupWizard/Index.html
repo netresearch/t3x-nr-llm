@@ -99,7 +99,7 @@
 
                     <div class="mb-3" id="adapter-override" style="display: none;">
                         <label for="wizard-adapter" class="form-label">Provider Type (override)</label>
-                        <select class="form-select" id="wizard-adapter">
+                        <select class="form-select" id="wizard-adapter" aria-label="Select provider type">
                             <f:for each="{adapterTypes}" as="label" key="value">
                                 <option value="{value}">{label}</option>
                             </f:for>

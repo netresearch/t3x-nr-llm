@@ -49,7 +49,7 @@
                                 <td>
                                     <f:if condition="{provider.hasApiKey}">
                                         <f:then>
-                                            <span class="badge bg-success">Configured</span>
+                                            <span class="badge text-bg-success">Configured</span>
                                         </f:then>
                                         <f:else>
                                             <span class="badge bg-warning">Not set</span>
@@ -59,7 +59,7 @@
                                 <td>
                                     <f:if condition="{provider.isActive}">
                                         <f:then>
-                                            <span class="badge bg-success">Active</span>
+                                            <span class="badge text-bg-success">Active</span>
                                         </f:then>
                                         <f:else>
                                             <span class="badge bg-secondary">Inactive</span>
@@ -107,7 +107,7 @@
     </f:if>
 
     <!-- Connection Test Modal -->
-    <div class="modal fade" id="test-modal" tabindex="-1" aria-labelledby="test-modal-label" aria-hidden="true">
+    <div class="modal fade" id="test-modal" aria-labelledby="test-modal-label">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">

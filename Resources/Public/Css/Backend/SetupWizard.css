@@ -63,12 +63,14 @@
 }
 
 .wizard-step.active .step-label {
-    color: var(--typo3-primary-color, #0078d4);
+    /* Use darker shade for WCAG AA contrast (6:1 ratio on white) */
+    color: #005a9e;
     font-weight: 600;
 }
 
 .wizard-step.completed .step-label {
-    color: #28a745;
+    /* Use darker shade for WCAG AA contrast (4.9:1 ratio on white) */
+    color: #1e7e34;
 }
 
 /* Progress Bar */

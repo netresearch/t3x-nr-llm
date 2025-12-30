@@ -30,7 +30,7 @@
                                 <td>
                                     <strong>{model.name}</strong>
                                     <f:if condition="{model.isDefault}">
-                                        <span class="badge bg-primary">Default</span>
+                                        <span class="badge text-bg-primary">Default</span>
                                     </f:if>
                                     <f:if condition="{model.description}">
                                         <br /><small class="text-body-secondary">{model.description}</small>
@@ -66,7 +66,7 @@
                                 <td>
                                     <f:if condition="{model.isActive}">
                                         <f:then>
-                                            <span class="badge bg-success">Active</span>
+                                            <span class="badge text-bg-success">Active</span>
                                         </f:then>
                                         <f:else>
                                             <span class="badge bg-secondary">Inactive</span>
@@ -130,7 +130,7 @@
                         <h3 class="card-title">Filter by Provider</h3>
                     </div>
                     <div class="card-body">
-                        <select class="form-control form-select" id="provider-filter">
+                        <select class="form-control form-select" id="provider-filter" aria-label="Filter models by provider">
                             <option value="">All Providers</option>
                             <f:for each="{providers}" as="provider">
                                 <option value="{provider.uid}">{provider.name}</option>
@@ -143,7 +143,7 @@
     </f:if>
 
     <!-- Model Test Modal -->
-    <div class="modal fade" id="test-modal" tabindex="-1" aria-labelledby="test-modal-label" aria-hidden="true">
+    <div class="modal fade" id="test-modal" aria-labelledby="test-modal-label">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
