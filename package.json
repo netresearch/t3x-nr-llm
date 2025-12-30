@@ -8,9 +8,12 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "test:accessibility": "playwright test --grep @accessibility",
+    "test:a11y": "playwright test --grep @accessibility"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
     "@playwright/test": "^1.49.0",
     "@types/node": "^22.10.2"
   }
