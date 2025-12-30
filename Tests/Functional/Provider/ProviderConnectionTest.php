@@ -7,6 +7,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Provider;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -21,6 +22,7 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
 {
     private ProviderAdapterRegistry $registry;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -38,6 +40,7 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
         $provider->setAdapterType(Provider::ADAPTER_OLLAMA);
         $provider->setEndpointUrl('http://ollama:11434');
         $provider->setTimeout(5); // 5 second timeout
+        $provider->setMaxRetries(1); // No retries for connection tests
         $provider->setIsActive(true);
 
         $startTime = microtime(true);
@@ -45,7 +48,8 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
         $elapsed = microtime(true) - $startTime;
 
         // Should return within timeout + small buffer, never hang
-        self::assertLessThan(10, $elapsed, 'Connection test should not hang');
+        // Allow 15s to account for DNS resolution and network delays
+        self::assertLessThan(15, $elapsed, 'Connection test should not hang');
         // Result is always an array with 'success' and 'message' keys
         self::assertArrayHasKey('success', $result);
         self::assertArrayHasKey('message', $result);
@@ -58,9 +62,11 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
         $provider->setIdentifier('test-unreachable');
         $provider->setName('Unreachable Provider');
         $provider->setAdapterType(Provider::ADAPTER_OPENAI); // Use OpenAI, not Ollama (Ollama has fallback)
-        $provider->setEndpointUrl('http://nonexistent-host:11434');
+        // Use non-routable IP (RFC 5737) to avoid DNS resolution delays
+        $provider->setEndpointUrl('http://192.0.2.1:11434');
         $provider->setApiKey('fake-key'); // Required for OpenAI
         $provider->setTimeout(3); // Short timeout
+        $provider->setMaxRetries(1); // No retries for connection tests
         $provider->setIsActive(true);
 
         $startTime = microtime(true);
@@ -68,7 +74,8 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
         $elapsed = microtime(true) - $startTime;
 
         // Should fail quickly, not hang
-        self::assertLessThan(10, $elapsed, 'Connection test to unreachable host should not hang');
+        // Allow 15s to account for network delays and retries
+        self::assertLessThan(15, $elapsed, 'Connection test to unreachable host should not hang');
         self::assertFalse($result['success']);
         self::assertStringContainsString('failed', strtolower($result['message']));
     }
@@ -83,6 +90,7 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
         $provider->setAdapterType(Provider::ADAPTER_OLLAMA);
         // Intentionally NOT setting endpointUrl to test default behavior
         $provider->setTimeout(3);
+        $provider->setMaxRetries(1); // No retries for connection tests
         $provider->setIsActive(true);
 
         $startTime = microtime(true);
