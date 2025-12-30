@@ -512,7 +512,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     #[Test]
     public function translateHandles403Error(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock(['message' => 'Forbidden'], 403));
@@ -527,7 +527,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     #[Test]
     public function translateHandlesGenericError(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock(['message' => 'Internal error'], 500));
@@ -543,7 +543,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     #[Test]
     public function translateHandlesEmptyErrorMessage(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([], 500));
@@ -561,7 +561,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     #[Test]
     public function detectLanguageFallsBackToEnglishOnEmptyResponse(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock(['translations' => []]));
@@ -576,7 +576,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     #[Test]
     public function detectLanguageFallsBackToEnglishOnMissingField(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([
@@ -597,7 +597,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getUsageReturnsZerosOnMissingFields(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([]));
@@ -615,7 +615,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getGlossariesReturnsEmptyArrayOnMissingField(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock([]));
@@ -661,8 +661,8 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     #[Test]
     public function constructorHandlesConfigurationException(): void
     {
-        $extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $extensionConfigMock
+        $extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $extensionConfigStub
             ->method('get')
             ->willThrowException(new Exception('Config error'));
 
@@ -670,7 +670,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
-            $extensionConfigMock,
+            $extensionConfigStub,
             $this->usageTrackerStub,
             $this->createLoggerMock(),
         );
@@ -684,7 +684,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     #[Test]
     public function translateHandlesHttpClientException(): void
     {
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willThrowException(new Exception('Connection failed'));
@@ -709,7 +709,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             ],
         ];
 
-        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));

@@ -9,7 +9,6 @@ use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
@@ -18,26 +17,24 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 /**
  * Mutation-killing tests for LlmServiceManager.
  */
-#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(LlmServiceManager::class)]
 class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 {
     private function createManager(array $config = []): LlmServiceManager
     {
-        $extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $extensionConfigMock->method('get')
-            ->with('nr_llm')
+        $extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $extensionConfigStub->method('get')
             ->willReturn($config);
 
-        $loggerMock = $this->createMock(LoggerInterface::class);
-        $adapterRegistryMock = $this->createMock(ProviderAdapterRegistry::class);
+        $loggerStub = self::createStub(LoggerInterface::class);
+        $adapterRegistryStub = self::createStub(ProviderAdapterRegistry::class);
 
-        return new LlmServiceManager($extensionConfigMock, $loggerMock, $adapterRegistryMock);
+        return new LlmServiceManager($extensionConfigStub, $loggerStub, $adapterRegistryStub);
     }
 
-    private function createProviderMock(string $identifier, string $name = 'Test'): ProviderInterface
+    private function createProviderStub(string $identifier, string $name = 'Test'): ProviderInterface
     {
-        $provider = $this->createMock(ProviderInterface::class);
+        $provider = self::createStub(ProviderInterface::class);
         $provider->method('getIdentifier')->willReturn($identifier);
         $provider->method('getName')->willReturn($name);
         $provider->method('isAvailable')->willReturn(true);
@@ -48,7 +45,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     public function registerProviderStoresProvider(): void
     {
         $manager = $this->createManager();
-        $provider = $this->createProviderMock('test');
+        $provider = $this->createProviderStub('test');
 
         $manager->registerProvider($provider);
 
@@ -81,7 +78,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     public function getProviderUsesDefaultWhenNullPassed(): void
     {
         $manager = $this->createManager(['defaultProvider' => 'test']);
-        $provider = $this->createProviderMock('test');
+        $provider = $this->createProviderStub('test');
         $manager->registerProvider($provider);
 
         $result = $manager->getProvider(null);
@@ -94,11 +91,11 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     {
         $manager = $this->createManager();
 
-        $available = $this->createMock(ProviderInterface::class);
+        $available = self::createStub(ProviderInterface::class);
         $available->method('getIdentifier')->willReturn('available');
         $available->method('isAvailable')->willReturn(true);
 
-        $unavailable = $this->createMock(ProviderInterface::class);
+        $unavailable = self::createStub(ProviderInterface::class);
         $unavailable->method('getIdentifier')->willReturn('unavailable');
         $unavailable->method('isAvailable')->willReturn(false);
 
@@ -123,7 +120,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     public function hasAvailableProviderReturnsTrueWhenProviderAvailable(): void
     {
         $manager = $this->createManager();
-        $provider = $this->createProviderMock('test');
+        $provider = $this->createProviderStub('test');
         $manager->registerProvider($provider);
 
         self::assertTrue($manager->hasAvailableProvider());
@@ -133,8 +130,8 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     public function getProviderListReturnsIdentifierNameMap(): void
     {
         $manager = $this->createManager();
-        $provider1 = $this->createProviderMock('openai', 'OpenAI');
-        $provider2 = $this->createProviderMock('claude', 'Anthropic Claude');
+        $provider1 = $this->createProviderStub('openai', 'OpenAI');
+        $provider2 = $this->createProviderStub('claude', 'Anthropic Claude');
 
         $manager->registerProvider($provider1);
         $manager->registerProvider($provider2);
@@ -162,7 +159,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     public function setDefaultProviderUpdatesDefault(): void
     {
         $manager = $this->createManager();
-        $provider = $this->createProviderMock('test');
+        $provider = $this->createProviderStub('test');
         $manager->registerProvider($provider);
 
         $manager->setDefaultProvider('test');
@@ -287,7 +284,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     {
         $manager = $this->createManager(['defaultProvider' => 'test']);
 
-        $provider = $this->createMock(ProviderInterface::class);
+        $provider = self::createStub(ProviderInterface::class);
         $provider->method('getIdentifier')->willReturn('test');
         $provider->method('supportsFeature')
             ->with('chat')

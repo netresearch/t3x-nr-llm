@@ -83,7 +83,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     {
         $expectedResponse = ['content' => 'test response'];
 
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($expectedResponse, $statusCode));
@@ -120,7 +120,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[DataProvider('clientErrorStatusCodeProvider')]
     public function sendRequestThrowsProviderResponseExceptionForClientErrors(int $statusCode): void
     {
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock(['error' => ['message' => 'Client error']], $statusCode));
@@ -157,7 +157,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[DataProvider('serverErrorStatusCodeProvider')]
     public function sendRequestThrowsConnectionExceptionForServerErrors(int $statusCode): void
     {
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock(['error' => 'Server error'], $statusCode));
@@ -196,7 +196,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     {
         $capturedUrl = null;
 
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use (&$capturedUrl) {
@@ -229,7 +229,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     {
         $capturedUrl = null;
 
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use (&$capturedUrl) {
@@ -263,7 +263,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     {
         $attempts = 0;
 
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function () use (&$attempts) {
@@ -299,7 +299,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     {
         $attempts = 0;
 
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function () use (&$attempts): void {
@@ -334,7 +334,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     {
         $attempts = 0;
 
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function () use (&$attempts) {
@@ -575,7 +575,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $capturedHeaders = [];
         $httpFactory = new HttpFactory();
 
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use (&$capturedHeaders) {
@@ -610,7 +610,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $capturedBody = 'initial';
         $httpFactory = new HttpFactory();
 
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody) {
@@ -643,7 +643,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $capturedBody = 'initial';
         $httpFactory = new HttpFactory();
 
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody) {
@@ -676,7 +676,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $capturedBody = '';
         $httpFactory = new HttpFactory();
 
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody) {
@@ -708,7 +708,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function sendRequestErrorMessageContainsRetryCount(): void
     {
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willThrowException(new class ('Network error', 4892619012) extends Exception implements ClientExceptionInterface {});
@@ -741,7 +741,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     public function sendRequestHandlesNullLastExceptionMessage(): void
     {
         $attempts = 0;
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function () use (&$attempts) {
@@ -778,7 +778,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     {
         $attempts = 0;
 
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function () use (&$attempts): void {
@@ -812,7 +812,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     {
         $attempts = 0;
 
-        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
             ->willReturnCallback(function () use (&$attempts) {

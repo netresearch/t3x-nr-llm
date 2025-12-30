@@ -154,7 +154,7 @@ final class ResponseDtoTest extends TestCase
 
     public function testModelListItemResponseFromModel(): void
     {
-        $model = $this->createMock(Model::class);
+        $model = self::createStub(Model::class);
         $model->method('getUid')->willReturn(42);
         $model->method('getIdentifier')->willReturn('my-model');
         $model->method('getName')->willReturn('My Model');
@@ -185,14 +185,14 @@ final class ResponseDtoTest extends TestCase
 
     public function testModelListResponseFromModels(): void
     {
-        $model1 = $this->createMock(Model::class);
+        $model1 = self::createStub(Model::class);
         $model1->method('getUid')->willReturn(1);
         $model1->method('getIdentifier')->willReturn('model-1');
         $model1->method('getName')->willReturn('Model 1');
         $model1->method('getModelId')->willReturn('gpt-4');
         $model1->method('isDefault')->willReturn(true);
 
-        $model2 = $this->createMock(Model::class);
+        $model2 = self::createStub(Model::class);
         $model2->method('getUid')->willReturn(2);
         $model2->method('getIdentifier')->willReturn('model-2');
         $model2->method('getName')->willReturn('Model 2');
