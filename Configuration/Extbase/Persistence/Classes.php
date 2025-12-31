@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\Model\Task;
 
 /*
  * Extbase persistence configuration for nr_llm.
@@ -27,9 +28,6 @@ return [
             'cruserId' => [
                 'fieldName' => 'cruser_id',
             ],
-            'providerUid' => [
-                'fieldName' => 'provider_uid',
-            ],
             'provider' => [
                 'fieldName' => 'provider_uid',
             ],
@@ -41,11 +39,19 @@ return [
             'cruserId' => [
                 'fieldName' => 'cruser_id',
             ],
-            'modelUid' => [
-                'fieldName' => 'model_uid',
-            ],
             'llmModel' => [
                 'fieldName' => 'model_uid',
+            ],
+        ],
+    ],
+    Task::class => [
+        'tableName' => 'tx_nrllm_task',
+        'properties' => [
+            'cruserId' => [
+                'fieldName' => 'cruser_id',
+            ],
+            'configuration' => [
+                'fieldName' => 'configuration_uid',
             ],
         ],
     ],
