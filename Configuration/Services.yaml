@@ -134,6 +134,9 @@ services:
   Netresearch\NrLlm\Domain\Repository\ModelRepository:
     public: true
 
+  Netresearch\NrLlm\Domain\Repository\TaskRepository:
+    public: true
+
   # ========================================
   # Crypto Services
   # ========================================
@@ -203,4 +206,17 @@ services:
     public: true
 
   Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator:
+    public: true
+
+  # ========================================
+  # DTO Factories (for controller form handling)
+  # ========================================
+
+  Netresearch\NrLlm\Controller\Backend\DTO\ModelFormInputFactory:
+    public: true
+
+  Netresearch\NrLlm\Controller\Backend\DTO\ConfigurationFormInputFactory:
+    public: true
+
+  Netresearch\NrLlm\Controller\Backend\DTO\TaskFormInputFactory:
     public: true
