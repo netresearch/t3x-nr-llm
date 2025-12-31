@@ -129,8 +129,14 @@
 
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-success btn-lg" id="executeBtn">
-                                <core:icon identifier="actions-play" size="small" />
-                                Execute Task
+                                <span class="btn-content">
+                                    <core:icon identifier="actions-play" size="small" />
+                                    Execute Task
+                                </span>
+                                <span class="btn-loading d-none">
+                                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                    Executing...
+                                </span>
                             </button>
                             <f:if condition="!{requiresManualInput}">
                                 <button type="button" class="btn btn-default" id="refreshInputBtn">
@@ -177,6 +183,20 @@
                         <div id="outputPlaceholder" class="text-center text-muted py-5">
                             <core:icon identifier="actions-play" size="large" />
                             <p class="mt-3">Click "Execute Task" to run this task</p>
+                        </div>
+
+                        <div id="outputLoading" class="d-none text-center py-5">
+                            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                                <span class="visually-hidden">Processing...</span>
+                            </div>
+                            <h4 class="text-primary">Processing request...</h4>
+                            <p class="text-muted mb-2">Sending to LLM and waiting for response</p>
+                            <div class="progress mx-auto" style="width: 200px; height: 4px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 100%"></div>
+                            </div>
+                            <p class="text-muted mt-3 small">
+                                <span id="elapsedTime">0</span>s elapsed
+                            </p>
                         </div>
 
                         <div id="outputError" class="d-none">
@@ -226,18 +246,24 @@
             const refreshInputUrl = TYPO3.settings.ajaxUrls.nrllm_task_refresh_input;
 
             const executeBtn = document.getElementById('executeBtn');
+            const btnContent = executeBtn?.querySelector('.btn-content');
+            const btnLoading = executeBtn?.querySelector('.btn-loading');
             const taskInput = document.getElementById('taskInput');
             const outputStatus = document.getElementById('outputStatus');
             const outputPlaceholder = document.getElementById('outputPlaceholder');
+            const outputLoading = document.getElementById('outputLoading');
             const outputError = document.getElementById('outputError');
             const outputResult = document.getElementById('outputResult');
             const outputContent = document.getElementById('outputContent');
             const outputModel = document.getElementById('outputModel');
             const outputTokens = document.getElementById('outputTokens');
             const errorMessage = document.getElementById('errorMessage');
+            const elapsedTimeEl = document.getElementById('elapsedTime');
             const copyOutputBtn = document.getElementById('copyOutputBtn');
             const refreshInputBtn = document.getElementById('refreshInputBtn');
             const emptyDataWarning = document.getElementById('emptyDataWarning');
+
+            let elapsedTimer = null;
 
             // Table picker elements
             const tablePickerCollapse = document.getElementById('tablePickerCollapse');
@@ -403,12 +429,27 @@
             });
 
             executeBtn?.addEventListener('click', async () => {
-                // Show loading state
+                // Show loading state on button
                 executeBtn.disabled = true;
+                btnContent?.classList.add('d-none');
+                btnLoading?.classList.remove('d-none');
+
+                // Show loading state in output panel
                 outputStatus.classList.remove('d-none');
                 outputPlaceholder.classList.add('d-none');
+                outputLoading?.classList.remove('d-none');
                 outputError.classList.add('d-none');
                 outputResult.classList.add('d-none');
+
+                // Start elapsed time counter
+                let elapsedSeconds = 0;
+                if (elapsedTimeEl) {
+                    elapsedTimeEl.textContent = '0';
+                    elapsedTimer = setInterval(() => {
+                        elapsedSeconds++;
+                        elapsedTimeEl.textContent = elapsedSeconds.toString();
+                    }, 1000);
+                }
 
                 try {
                     const formData = new FormData();
@@ -457,8 +498,20 @@
                     outputError.classList.remove('d-none');
                     Notification.error('Request failed', error.message || 'Unknown error');
                 } finally {
+                    // Stop elapsed timer
+                    if (elapsedTimer) {
+                        clearInterval(elapsedTimer);
+                        elapsedTimer = null;
+                    }
+
+                    // Reset button state
                     executeBtn.disabled = false;
+                    btnContent?.classList.remove('d-none');
+                    btnLoading?.classList.add('d-none');
+
+                    // Hide loading indicators
                     outputStatus.classList.add('d-none');
+                    outputLoading?.classList.add('d-none');
                 }
             });
 

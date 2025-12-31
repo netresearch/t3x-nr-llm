@@ -111,6 +111,63 @@ test.describe('Task Execute Module', () => {
       // At minimum some content should be visible
       expect(infoCount).toBeGreaterThanOrEqual(0);
     });
+
+    test('should have loading elements in DOM for execute button', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=1');
+
+      const moduleFrame = getModuleFrame(page);
+      await page.waitForTimeout(1000);
+
+      // Find the execute button
+      const executeButton = moduleFrame.locator('#executeBtn');
+      if (await executeButton.count() === 0) {
+        test.skip(true, 'Execute button not found');
+        return;
+      }
+
+      // Verify loading elements exist in DOM (even if hidden initially)
+      const btnContent = moduleFrame.locator('#executeBtn .btn-content');
+      const btnLoading = moduleFrame.locator('#executeBtn .btn-loading');
+
+      // Content should be visible, loading should be hidden initially
+      await expect(btnContent).toBeVisible();
+      await expect(btnLoading).toHaveCount(1); // Element exists in DOM
+
+      // Verify loading panel exists
+      const outputLoading = moduleFrame.locator('#outputLoading');
+      await expect(outputLoading).toHaveCount(1);
+
+      // Verify progress bar exists with animation class
+      const progressBar = moduleFrame.locator('#outputLoading .progress-bar');
+      await expect(progressBar).toHaveCount(1);
+      await expect(progressBar).toHaveClass(/progress-bar-animated/);
+
+      // Verify elapsed time counter exists
+      const elapsedTime = moduleFrame.locator('#elapsedTime');
+      await expect(elapsedTime).toHaveCount(1);
+    });
+
+    test('should have output panel with placeholder', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=1');
+
+      const moduleFrame = getModuleFrame(page);
+      await page.waitForTimeout(1000);
+
+      // Verify output panel structure exists
+      const outputPlaceholder = moduleFrame.locator('#outputPlaceholder');
+      await expect(outputPlaceholder).toBeVisible();
+      await expect(outputPlaceholder).toContainText('Execute Task');
+
+      // Verify output result panel exists (hidden initially)
+      const outputResult = moduleFrame.locator('#outputResult');
+      await expect(outputResult).toHaveCount(1);
+
+      // Verify output error panel exists (hidden initially)
+      const outputError = moduleFrame.locator('#outputError');
+      await expect(outputError).toHaveCount(1);
+    });
   });
 
   test.describe('Task Navigation', () => {
