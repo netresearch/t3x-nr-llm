@@ -1,0 +1,477 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div class="container" data-task-execute data-task-uid="{task.uid}"
+         data-execute-url="{be:moduleLink(route:'nrllm_tasks', arguments:{action: 'execute'})}"
+         data-list-tables-url="{f:uri.action(action:'listTables', controller:'Task', absolute:true)}"
+         data-fetch-records-url="{f:uri.action(action:'fetchRecords', controller:'Task', absolute:true)}"
+         data-refresh-input-url="{f:uri.action(action:'refreshInput', controller:'Task', absolute:true)}">
+
+        <f:be.infobox
+            title="One-Shot Prompt"
+            state="{f:constant(name: 'TYPO3\CMS\Core\Type\ContextualFeedbackSeverity::NOTICE')}"
+        >
+            <p>
+                This is a <strong>simple one-shot prompt</strong> - it sends your input to the LLM once and returns the response.
+                It cannot reason across multiple steps, use external tools, or remember previous interactions.
+                For complex tasks, consider using a proper AI agent framework.
+            </p>
+        </f:be.infobox>
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <core:icon identifier="actions-play" size="medium" />
+                Execute: {task.name}
+            </h1>
+            <a href="{be:moduleLink(route:'nrllm_tasks')}" class="btn btn-default">
+                <core:icon identifier="actions-view-go-back" size="small" />
+                Back to List
+            </a>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h2 class="card-title mb-0">
+                            <core:icon identifier="actions-upload" size="small" />
+                            Input
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <f:if condition="{task.description}">
+                            <p class="text-muted mb-3">{task.description}</p>
+                        </f:if>
+
+                        <f:if condition="{requiresManualInput}">
+                            <f:then>
+                                <!-- Table picker for manual input tasks -->
+                                <div class="card bg-light mb-3" id="tablePickerCard">
+                                    <div class="card-header py-2">
+                                        <button type="button" class="btn btn-link text-decoration-none p-0 collapsed"
+                                                data-bs-toggle="collapse" data-bs-target="#tablePickerCollapse"
+                                                aria-expanded="false" aria-controls="tablePickerCollapse">
+                                            <core:icon identifier="actions-database" size="small" />
+                                            Load data from database table
+                                            <core:icon identifier="actions-chevron-down" size="small" class="ms-1" />
+                                        </button>
+                                    </div>
+                                    <div class="collapse" id="tablePickerCollapse">
+                                        <div class="card-body">
+                                            <div class="row g-2">
+                                                <div class="col-md-5">
+                                                    <label class="form-label small">Select Table</label>
+                                                    <select class="form-select form-select-sm" id="tableSelect">
+                                                        <option value="">-- Load tables --</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <label class="form-label small">Select Records</label>
+                                                    <select class="form-select form-select-sm" id="recordSelect" multiple size="4" disabled>
+                                                        <option value="">Select a table first</option>
+                                                    </select>
+                                                    <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
+                                                </div>
+                                                <div class="col-md-2 d-flex align-items-end">
+                                                    <button type="button" class="btn btn-primary btn-sm w-100" id="loadRecordsBtn" disabled>
+                                                        <core:icon identifier="actions-download" size="small" />
+                                                        Load
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </f:then>
+                        </f:if>
+
+                        <div class="mb-3">
+                            <label for="taskInput" class="form-label">
+                                <f:if condition="{requiresManualInput}">
+                                    <f:then>Enter your input:</f:then>
+                                    <f:else>
+                                        Auto-fetched data ({task.inputType}):
+                                        <span class="badge text-bg-info">Auto-populated</span>
+                                    </f:else>
+                                </f:if>
+                            </label>
+                            <textarea class="form-control font-monospace" id="taskInput" rows="15"
+                                      placeholder="Enter the data to analyze...">{inputData}</textarea>
+
+                            <!-- Empty data feedback for auto-fetch tasks -->
+                            <f:if condition="!{requiresManualInput}">
+                                <div id="emptyDataWarning" class="alert alert-warning mt-2 {f:if(condition: inputData, then: 'd-none')}">
+                                    <core:icon identifier="actions-exclamation-triangle" size="small" />
+                                    <strong>No data available.</strong>
+                                    <f:switch expression="{task.inputType}">
+                                        <f:case value="syslog">
+                                            The system log (sys_log) contains no matching entries. This is normal for a fresh installation.
+                                        </f:case>
+                                        <f:case value="deprecation_log">
+                                            No deprecation log found. The file <code>var/log/typo3_deprecations.log</code> may not exist yet.
+                                        </f:case>
+                                        <f:case value="table">
+                                            The configured table is empty or the table/field configuration is missing.
+                                        </f:case>
+                                        <f:default>
+                                            No data could be fetched automatically.
+                                        </f:default>
+                                    </f:switch>
+                                    You can still enter data manually above.
+                                </div>
+                            </f:if>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-success btn-lg" id="executeBtn">
+                                <core:icon identifier="actions-play" size="small" />
+                                Execute Task
+                            </button>
+                            <f:if condition="!{requiresManualInput}">
+                                <button type="button" class="btn btn-default" id="refreshInputBtn">
+                                    <core:icon identifier="actions-refresh" size="small" />
+                                    Refresh Data
+                                </button>
+                            </f:if>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title mb-0">
+                            <core:icon identifier="actions-code" size="small" />
+                            Prompt Template
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <pre class="bg-light p-3 rounded" style="max-height: 200px; overflow-y: auto;"><code>{task.promptTemplate}</code></pre>
+                        <small class="text-muted">
+                            <code>{"{{input}}"}</code> will be replaced with the input above.
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h2 class="card-title mb-0">
+                            <core:icon identifier="actions-download" size="small" />
+                            Output
+                            <span class="badge text-bg-secondary ms-2">{task.outputFormat}</span>
+                        </h2>
+                        <div id="outputStatus" class="d-none">
+                            <span class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </span>
+                            Processing...
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="outputPlaceholder" class="text-center text-muted py-5">
+                            <core:icon identifier="actions-play" size="large" />
+                            <p class="mt-3">Click "Execute Task" to run this task</p>
+                        </div>
+
+                        <div id="outputError" class="d-none">
+                            <div class="alert alert-danger">
+                                <strong>Error:</strong>
+                                <span id="errorMessage"></span>
+                            </div>
+                        </div>
+
+                        <div id="outputResult" class="d-none">
+                            <div id="outputContent" class="bg-light p-3 rounded" style="max-height: 500px; overflow-y: auto;"></div>
+
+                            <div class="mt-3 d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    Model: <span id="outputModel">-</span>
+                                </small>
+                                <small class="text-muted">
+                                    Tokens: <span id="outputTokens">-</span>
+                                </small>
+                            </div>
+
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-sm btn-default" id="copyOutputBtn">
+                                    <core:icon identifier="actions-clipboard" size="small" />
+                                    Copy to Clipboard
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
+        import Notification from '@typo3/backend/notification.js';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.querySelector('[data-task-execute]');
+            if (!container) return;
+
+            const taskUid = container.dataset.taskUid;
+            const executeUrl = container.dataset.executeUrl;
+            const listTablesUrl = TYPO3.settings.ajaxUrls.nrllm_task_list_tables;
+            const fetchRecordsUrl = TYPO3.settings.ajaxUrls.nrllm_task_fetch_records;
+            const refreshInputUrl = TYPO3.settings.ajaxUrls.nrllm_task_refresh_input;
+
+            const executeBtn = document.getElementById('executeBtn');
+            const taskInput = document.getElementById('taskInput');
+            const outputStatus = document.getElementById('outputStatus');
+            const outputPlaceholder = document.getElementById('outputPlaceholder');
+            const outputError = document.getElementById('outputError');
+            const outputResult = document.getElementById('outputResult');
+            const outputContent = document.getElementById('outputContent');
+            const outputModel = document.getElementById('outputModel');
+            const outputTokens = document.getElementById('outputTokens');
+            const errorMessage = document.getElementById('errorMessage');
+            const copyOutputBtn = document.getElementById('copyOutputBtn');
+            const refreshInputBtn = document.getElementById('refreshInputBtn');
+            const emptyDataWarning = document.getElementById('emptyDataWarning');
+
+            // Table picker elements
+            const tablePickerCollapse = document.getElementById('tablePickerCollapse');
+            const tableSelect = document.getElementById('tableSelect');
+            const recordSelect = document.getElementById('recordSelect');
+            const loadRecordsBtn = document.getElementById('loadRecordsBtn');
+
+            // Load tables when picker is opened
+            if (tablePickerCollapse) {
+                tablePickerCollapse.addEventListener('show.bs.collapse', async () => {
+                    if (tableSelect.options.length <= 1) {
+                        await loadTables();
+                    }
+                });
+            }
+
+            // Load tables list
+            async function loadTables() {
+                tableSelect.innerHTML = '<option value="">Loading...</option>';
+                try {
+                    const response = await new AjaxRequest(listTablesUrl)
+                        .post({})
+                        .then(r => r.resolve());
+
+                    if (response.success && response.tables) {
+                        tableSelect.innerHTML = '<option value="">-- Select a table --</option>';
+                        response.tables.forEach(table => {
+                            const option = document.createElement('option');
+                            option.value = table.name;
+                            option.textContent = `${table.label} (${table.name})`;
+                            tableSelect.appendChild(option);
+                        });
+                    } else {
+                        throw new Error(response.error || 'Failed to load tables');
+                    }
+                } catch (error) {
+                    tableSelect.innerHTML = '<option value="">Error loading tables</option>';
+                    Notification.error('Error', error.message || 'Failed to load tables');
+                }
+            }
+
+            // Load records when table is selected
+            tableSelect?.addEventListener('change', async () => {
+                const table = tableSelect.value;
+                if (!table) {
+                    recordSelect.innerHTML = '<option value="">Select a table first</option>';
+                    recordSelect.disabled = true;
+                    loadRecordsBtn.disabled = true;
+                    return;
+                }
+
+                recordSelect.innerHTML = '<option value="">Loading records...</option>';
+                recordSelect.disabled = true;
+
+                try {
+                    const formData = new FormData();
+                    formData.append('table', table);
+                    formData.append('limit', '100');
+
+                    const response = await new AjaxRequest(fetchRecordsUrl)
+                        .post(formData)
+                        .then(r => r.resolve());
+
+                    if (response.success && response.records) {
+                        recordSelect.innerHTML = '';
+                        if (response.records.length === 0) {
+                            recordSelect.innerHTML = '<option value="">No records found</option>';
+                        } else {
+                            response.records.forEach(record => {
+                                const option = document.createElement('option');
+                                option.value = record.uid;
+                                option.textContent = `[${record.uid}] ${record.label}`;
+                                recordSelect.appendChild(option);
+                            });
+                            recordSelect.disabled = false;
+                            loadRecordsBtn.disabled = false;
+                        }
+                    } else {
+                        throw new Error(response.error || 'Failed to load records');
+                    }
+                } catch (error) {
+                    recordSelect.innerHTML = '<option value="">Error loading records</option>';
+                    Notification.error('Error', error.message || 'Failed to load records');
+                }
+            });
+
+            // Load selected records into input
+            loadRecordsBtn?.addEventListener('click', async () => {
+                const table = tableSelect.value;
+                const selectedOptions = Array.from(recordSelect.selectedOptions);
+                const selectedUids = selectedOptions.map(opt => opt.value);
+
+                if (!table || selectedUids.length === 0) {
+                    Notification.warning('Selection Required', 'Please select a table and at least one record.');
+                    return;
+                }
+
+                loadRecordsBtn.disabled = true;
+                const originalBtnHtml = loadRecordsBtn.innerHTML;
+                loadRecordsBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+
+                try {
+                    const loadRecordDataUrl = TYPO3.settings.ajaxUrls.nrllm_task_load_record_data;
+                    const formData = new FormData();
+                    formData.append('table', table);
+                    formData.append('uids', selectedUids.join(','));
+
+                    const response = await new AjaxRequest(loadRecordDataUrl)
+                        .post(formData)
+                        .then(r => r.resolve());
+
+                    if (response.success) {
+                        taskInput.value = response.data;
+                        Notification.success('Data Loaded', `Loaded ${response.recordCount} record(s) from ${table}`);
+
+                        // Collapse the picker
+                        const bsCollapse = bootstrap.Collapse.getInstance(tablePickerCollapse);
+                        if (bsCollapse) {
+                            bsCollapse.hide();
+                        }
+                    } else {
+                        throw new Error(response.error || 'Failed to load records');
+                    }
+                } catch (error) {
+                    Notification.error('Error', error.message || 'Failed to load record data');
+                } finally {
+                    loadRecordsBtn.disabled = false;
+                    loadRecordsBtn.innerHTML = originalBtnHtml;
+                }
+            });
+
+            // Refresh input data for auto-fetch tasks
+            refreshInputBtn?.addEventListener('click', async () => {
+                refreshInputBtn.disabled = true;
+                const originalHtml = refreshInputBtn.innerHTML;
+                refreshInputBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Refreshing...';
+
+                try {
+                    const formData = new FormData();
+                    formData.append('uid', taskUid);
+
+                    const response = await new AjaxRequest(refreshInputUrl)
+                        .post(formData)
+                        .then(r => r.resolve());
+
+                    if (response.success) {
+                        taskInput.value = response.inputData;
+                        if (response.isEmpty && emptyDataWarning) {
+                            emptyDataWarning.classList.remove('d-none');
+                        } else if (emptyDataWarning) {
+                            emptyDataWarning.classList.add('d-none');
+                        }
+                        Notification.success('Refreshed', 'Input data has been refreshed');
+                    } else {
+                        throw new Error(response.error || 'Failed to refresh data');
+                    }
+                } catch (error) {
+                    Notification.error('Error', error.message || 'Failed to refresh input data');
+                } finally {
+                    refreshInputBtn.disabled = false;
+                    refreshInputBtn.innerHTML = originalHtml;
+                }
+            });
+
+            executeBtn?.addEventListener('click', async () => {
+                // Show loading state
+                executeBtn.disabled = true;
+                outputStatus.classList.remove('d-none');
+                outputPlaceholder.classList.add('d-none');
+                outputError.classList.add('d-none');
+                outputResult.classList.add('d-none');
+
+                try {
+                    const formData = new FormData();
+                    formData.append('uid', taskUid);
+                    formData.append('input', taskInput.value);
+
+                    const response = await new AjaxRequest(executeUrl)
+                        .post(formData)
+                        .then(r => r.resolve());
+
+                    if (response.success) {
+                        // Format output based on format
+                        let formattedContent = response.content;
+                        if (response.outputFormat === 'json') {
+                            try {
+                                formattedContent = '<pre>' + JSON.stringify(JSON.parse(response.content), null, 2) + '</pre>';
+                            } catch {
+                                formattedContent = '<pre>' + response.content + '</pre>';
+                            }
+                        } else if (response.outputFormat === 'markdown') {
+                            // Basic markdown rendering (could be enhanced)
+                            formattedContent = '<div class="markdown-content">' +
+                                response.content
+                                    .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+                                    .replace(/`([^`]+)`/g, '<code>$1</code>')
+                                    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                                    .replace(/\n/g, '<br>') +
+                                '</div>';
+                        } else {
+                            formattedContent = '<pre>' + response.content + '</pre>';
+                        }
+
+                        outputContent.innerHTML = formattedContent;
+                        outputModel.textContent = response.model || '-';
+                        outputTokens.textContent = response.usage?.totalTokens || '-';
+                        outputResult.classList.remove('d-none');
+
+                        Notification.success('Task completed', 'The task has been executed successfully.');
+                    } else {
+                        errorMessage.textContent = response.error || 'Unknown error';
+                        outputError.classList.remove('d-none');
+                        Notification.error('Task failed', response.error || 'Unknown error');
+                    }
+                } catch (error) {
+                    errorMessage.textContent = error.message || 'Request failed';
+                    outputError.classList.remove('d-none');
+                    Notification.error('Request failed', error.message || 'Unknown error');
+                } finally {
+                    executeBtn.disabled = false;
+                    outputStatus.classList.add('d-none');
+                }
+            });
+
+            copyOutputBtn?.addEventListener('click', () => {
+                const text = outputContent.innerText || outputContent.textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    Notification.success('Copied', 'Output copied to clipboard');
+                }).catch(() => {
+                    Notification.error('Failed', 'Could not copy to clipboard');
+                });
+            });
+        });
+    </script>
+</f:section>
+
+</html>

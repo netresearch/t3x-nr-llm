@@ -8,6 +8,13 @@ use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 
+/**
+ * AJAX routes for nr_llm backend module.
+ *
+ * Note: TYPO3 automatically prefixes these route names with 'ajax_'
+ * when registering them, so 'nrllm_provider_toggle_active' becomes
+ * accessible as 'ajax_nrllm_provider_toggle_active'.
+ */
 return [
     // Main module
     'nrllm_test' => [
@@ -42,6 +49,14 @@ return [
         'path' => '/nrllm/model/test',
         'target' => ModelController::class . '::testModelAction',
     ],
+    'nrllm_model_fetch_available' => [
+        'path' => '/nrllm/model/fetch-available',
+        'target' => ModelController::class . '::fetchAvailableModelsAction',
+    ],
+    'nrllm_model_detect_limits' => [
+        'path' => '/nrllm/model/detect-limits',
+        'target' => ModelController::class . '::detectLimitsAction',
+    ],
 
     // Configuration routes
     'nrllm_config_toggle_active' => [
@@ -59,6 +74,24 @@ return [
     'nrllm_config_test' => [
         'path' => '/nrllm/config/test',
         'target' => ConfigurationController::class . '::testConfigurationAction',
+    ],
+
+    // Task routes
+    'nrllm_task_list_tables' => [
+        'path' => '/nrllm/task/list-tables',
+        'target' => \Netresearch\NrLlm\Controller\Backend\TaskController::class . '::listTablesAction',
+    ],
+    'nrllm_task_fetch_records' => [
+        'path' => '/nrllm/task/fetch-records',
+        'target' => \Netresearch\NrLlm\Controller\Backend\TaskController::class . '::fetchRecordsAction',
+    ],
+    'nrllm_task_load_record_data' => [
+        'path' => '/nrllm/task/load-record-data',
+        'target' => \Netresearch\NrLlm\Controller\Backend\TaskController::class . '::loadRecordDataAction',
+    ],
+    'nrllm_task_refresh_input' => [
+        'path' => '/nrllm/task/refresh-input',
+        'target' => \Netresearch\NrLlm\Controller\Backend\TaskController::class . '::refreshInputAction',
     ],
 
     // Setup Wizard routes

@@ -1,0 +1,174 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <core:icon identifier="actions-bolt" size="medium" />
+                <f:if condition="{isNew}">
+                    <f:then>Create Task</f:then>
+                    <f:else>Edit Task: {task.name}</f:else>
+                </f:if>
+            </h1>
+            <a href="{be:moduleLink(route:'nrllm_tasks')}" class="btn btn-default">
+                <core:icon identifier="actions-view-go-back" size="small" />
+                Back to List
+            </a>
+        </div>
+
+        <form action="{be:moduleLink(route:'nrllm_tasks', arguments:{action: 'save'})}" method="post">
+            <f:if condition="{task.uid}">
+                <input type="hidden" name="task[uid]" value="{task.uid}" />
+            </f:if>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">Identity</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="identifier" class="form-label">Identifier *</label>
+                            <input type="text" class="form-control" id="identifier" name="task[identifier]"
+                                   value="{task.identifier}" required pattern="[a-z0-9\-_]+"
+                                   placeholder="analyze-syslog">
+                            <small class="form-text text-muted">Unique identifier (lowercase, alphanumeric, hyphens)</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="category" class="form-label">Category</label>
+                            <select class="form-select" id="category" name="task[category]">
+                                <f:for each="{categories}" as="label" key="value">
+                                    <option value="{value}" {f:if(condition: '{task.category} == \'{value}\'', then: 'selected')}>{label}</option>
+                                </f:for>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Name *</label>
+                        <input type="text" class="form-control" id="name" name="task[name]"
+                               value="{task.name}" required placeholder="Analyze System Log">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="task[description]" rows="2"
+                                  placeholder="Analyzes system log entries and provides a summary of issues found.">{task.description}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">Configuration</h2>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="configurationUid" class="form-label">LLM Configuration</label>
+                        <select class="form-select" id="configurationUid" name="task[configurationUid]">
+                            <option value="0">-- Use Default Configuration --</option>
+                            <f:for each="{configurations}" as="config">
+                                <option value="{config.uid}" {f:if(condition: '{task.configurationUid} == {config.uid}', then: 'selected')}>
+                                    {config.name} ({config.identifier})
+                                </option>
+                            </f:for>
+                        </select>
+                        <small class="form-text text-muted">Select which LLM configuration to use for this task</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">Prompt Template</h2>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="promptTemplate" class="form-label">Prompt Template *</label>
+                        <textarea class="form-control font-monospace" id="promptTemplate" name="task[promptTemplate]"
+                                  rows="12" required placeholder="Analyze the following log entries...
+
+{{input}}">{task.promptTemplate}</textarea>
+                        <small class="form-text text-muted">
+                            Use <code>{"{{input}}"}</code> as placeholder for the input data.
+                            This will be replaced with user input or auto-fetched data when the task is executed.
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">Input & Output</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="inputType" class="form-label">Input Type</label>
+                            <select class="form-select" id="inputType" name="task[inputType]">
+                                <f:for each="{inputTypes}" as="label" key="value">
+                                    <option value="{value}" {f:if(condition: '{task.inputType} == \'{value}\'', then: 'selected')}>{label}</option>
+                                </f:for>
+                            </select>
+                            <small class="form-text text-muted">How input data is provided</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="outputFormat" class="form-label">Output Format</label>
+                            <select class="form-select" id="outputFormat" name="task[outputFormat]">
+                                <f:for each="{outputFormats}" as="label" key="value">
+                                    <option value="{value}" {f:if(condition: '{task.outputFormat} == \'{value}\'', then: 'selected')}>{label}</option>
+                                </f:for>
+                            </select>
+                            <small class="form-text text-muted">Expected response format</small>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="inputSource" class="form-label">Input Source Configuration (JSON)</label>
+                        <textarea class="form-control font-monospace" id="inputSource" name="task[inputSource]"
+                                  rows="3" placeholder='{"table": "sys_log", "limit": 50, "error_only": true}'>{task.inputSource}</textarea>
+                        <small class="form-text text-muted">
+                            JSON configuration for automatic data sources (syslog, table, etc.)
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">Status</h2>
+                </div>
+                <div class="card-body">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="isActive" name="task[isActive]" value="1"
+                               {f:if(condition: '{isNew}', then: 'checked')} {f:if(condition: '{task.isActive}', then: 'checked')}>
+                        <label class="form-check-label" for="isActive">
+                            Active
+                        </label>
+                        <small class="form-text text-muted d-block">Only active tasks can be executed</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <core:icon identifier="actions-save" size="small" />
+                    <f:if condition="{isNew}">
+                        <f:then>Create Task</f:then>
+                        <f:else>Save Changes</f:else>
+                    </f:if>
+                </button>
+                <a href="{be:moduleLink(route:'nrllm_tasks')}" class="btn btn-default">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</f:section>
+
+</html>

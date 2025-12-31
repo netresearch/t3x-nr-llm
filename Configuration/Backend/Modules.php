@@ -7,6 +7,7 @@ use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
+use Netresearch\NrLlm\Controller\Backend\TaskController;
 
 /**
  * Backend module registration for nr_llm.
@@ -97,6 +98,26 @@ return [
                 'create',
                 'update',
                 'delete',
+            ],
+        ],
+    ],
+    // Task management - child of main module
+    'nrllm_tasks' => [
+        'parent' => 'nrllm',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-task',
+        'path' => '/module/nrllm/tasks',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_task.xlf',
+        'extensionName' => 'NrLlm',
+        'controllerActions' => [
+            TaskController::class => [
+                'list',
+                'new',
+                'edit',
+                'save',
+                'delete',
+                'executeForm',
+                'execute',
             ],
         ],
     ],

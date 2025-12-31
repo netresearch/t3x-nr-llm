@@ -198,5 +198,9 @@ services:
   Netresearch\NrLlm\Service\SetupWizard\ModelDiscovery:
     public: true
 
+  Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface:
+    alias: Netresearch\NrLlm\Service\SetupWizard\ModelDiscovery
+    public: true
+
   Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator:
     public: true
