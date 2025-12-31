@@ -132,11 +132,11 @@ class ConfigurationList {
                 <div class="spinner-border text-primary mb-3" role="status">
                     <span class="visually-hidden">Testing configuration...</span>
                 </div>
-                <p class="text-muted">Testing configuration ${this.escapeHtml(name)}...</p>
+                <p class="text-body-secondary">Testing configuration ${this.escapeHtml(name)}...</p>
             </div>
             <div class="config-test-success" id="config-test-success" style="display: none;">
                 <div class="text-center py-3 mb-3">
-                    <span class="badge bg-success fs-4 p-3 rounded-circle">
+                    <span class="badge text-bg-success fs-4 p-3 rounded-circle">
                         <span class="icon icon-size-large">
                             <span class="icon-markup">&#10003;</span>
                         </span>
@@ -146,7 +146,7 @@ class ConfigurationList {
                 <div class="config-test-details mt-3">
                     <div class="mb-2">
                         <strong>Response:</strong>
-                        <p class="text-muted small mb-1" id="config-test-response"></p>
+                        <p class="text-body-secondary small mb-1" id="config-test-response"></p>
                     </div>
                     <div class="row small">
                         <div class="col-6">
@@ -190,9 +190,11 @@ class ConfigurationList {
         .then(response => response.json())
         .then(data => {
             console.debug('[ConfigurationList] Test response:', data);
-            const loadingDiv = document.getElementById('config-test-loading');
-            const successDiv = document.getElementById('config-test-success');
-            const errorDiv = document.getElementById('config-test-error');
+            // Use container reference instead of document.getElementById()
+            // because TYPO3 Modal places content in a different DOM context
+            const loadingDiv = container.querySelector('#config-test-loading');
+            const successDiv = container.querySelector('#config-test-success');
+            const errorDiv = container.querySelector('#config-test-error');
 
             if (loadingDiv) loadingDiv.style.display = 'none';
 
@@ -200,17 +202,17 @@ class ConfigurationList {
                 if (successDiv) {
                     successDiv.style.display = 'block';
 
-                    const responseEl = document.getElementById('config-test-response');
+                    const responseEl = container.querySelector('#config-test-response');
                     if (responseEl && data.content) {
                         responseEl.textContent = data.content;
                     }
 
-                    const modelEl = document.getElementById('config-test-model');
+                    const modelEl = container.querySelector('#config-test-model');
                     if (modelEl) {
                         modelEl.textContent = data.model || '-';
                     }
 
-                    const tokensEl = document.getElementById('config-test-tokens');
+                    const tokensEl = container.querySelector('#config-test-tokens');
                     if (tokensEl && data.usage) {
                         tokensEl.textContent = `${data.usage.totalTokens} (prompt: ${data.usage.promptTokens}, completion: ${data.usage.completionTokens})`;
                     }
@@ -218,20 +220,21 @@ class ConfigurationList {
             } else {
                 if (errorDiv) {
                     errorDiv.style.display = 'block';
-                    const msgEl = document.getElementById('config-test-error-message');
+                    const msgEl = container.querySelector('#config-test-error-message');
                     if (msgEl) msgEl.textContent = data.error || data.message || 'Unknown error';
                 }
             }
         })
         .catch(err => {
             console.error('[ConfigurationList] Test error:', err);
-            const loadingDiv = document.getElementById('config-test-loading');
-            const errorDiv = document.getElementById('config-test-error');
+            // Use container reference instead of document.getElementById()
+            const loadingDiv = container.querySelector('#config-test-loading');
+            const errorDiv = container.querySelector('#config-test-error');
 
             if (loadingDiv) loadingDiv.style.display = 'none';
             if (errorDiv) {
                 errorDiv.style.display = 'block';
-                const msgEl = document.getElementById('config-test-error-message');
+                const msgEl = container.querySelector('#config-test-error-message');
                 if (msgEl) msgEl.textContent = err.message;
             }
         });

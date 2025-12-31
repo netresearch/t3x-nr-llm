@@ -6,128 +6,143 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
-    <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="LLM Configurations" /></h1>
+    <div class="container">
+        <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="LLM Configurations" /></h1>
 
-    <f:if condition="{configurations -> f:count()}">
-        <f:then>
-            <div class="table-fit">
-                <table class="table table-striped table-hover table-vertical-top">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Identifier</th>
-                            <th>Provider</th>
-                            <th>Model</th>
-                            <th>Status</th>
-                            <th class="col-control">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <f:for each="{configurations}" as="config">
-                            <tr data-uid="{config.uid}">
-                                <td>
-                                    <strong>{config.name}</strong>
-                                    <f:if condition="{config.isDefault}">
-                                        <span class="badge text-bg-primary">Default</span>
-                                    </f:if>
-                                    <f:if condition="{config.description}">
-                                        <br /><small class="text-body-secondary">{config.description}</small>
-                                    </f:if>
-                                </td>
-                                <td><code>{config.identifier}</code></td>
-                                <td>
-                                    <f:if condition="{config.llmModel}">
-                                        <f:then>{config.llmModel.provider.name}</f:then>
-                                        <f:else><span class="text-body-secondary">-</span></f:else>
-                                    </f:if>
-                                </td>
-                                <td>
-                                    <f:if condition="{config.llmModel}">
-                                        <f:then>
-                                            <strong>{config.llmModel.name}</strong>
-                                            <br /><small class="text-body-secondary">{config.llmModel.modelId}</small>
-                                        </f:then>
-                                        <f:else><span class="text-body-secondary">Not configured</span></f:else>
-                                    </f:if>
-                                </td>
-                                <td>
-                                    <f:if condition="{config.isActive}">
-                                        <f:then>
-                                            <span class="badge text-bg-success">Active</span>
-                                        </f:then>
-                                        <f:else>
-                                            <span class="badge bg-secondary">Inactive</span>
-                                        </f:else>
-                                    </f:if>
-                                </td>
-                                <td class="col-control">
-                                    <div class="btn-group" role="group">
-                                        <f:link.action action="edit" arguments="{uid: config.uid}" class="btn btn-default btn-sm" title="Edit">
-                                            <core:icon identifier="actions-open" size="small" />
-                                        </f:link.action>
-                                        <button type="button" class="btn btn-default btn-sm js-toggle-active"
-                                                data-uid="{config.uid}"
-                                                title="{f:if(condition: config.isActive, then: 'Deactivate', else: 'Activate')}">
-                                            <f:if condition="{config.isActive}">
-                                                <f:then><core:icon identifier="actions-toggle-on" size="small" /></f:then>
-                                                <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
-                                            </f:if>
-                                        </button>
-                                        <f:if condition="!{config.isDefault}">
-                                            <button type="button" class="btn btn-default btn-sm js-set-default"
-                                                    data-uid="{config.uid}"
-                                                    title="Set as default">
-                                                <core:icon identifier="actions-star" size="small" />
-                                            </button>
-                                        </f:if>
-                                        <button type="button" class="btn btn-default btn-sm js-test-config"
-                                                data-uid="{config.uid}"
-                                                title="Test configuration">
-                                            <core:icon identifier="actions-play" size="small" />
-                                        </button>
-                                        <f:link.action action="delete" arguments="{uid: config.uid}"
-                                                       class="btn btn-danger btn-sm"
-                                                       title="Delete"
-                                                       additionalAttributes="{onclick: 'return confirm(\'Are you sure you want to delete this configuration?\')'}">
-                                            <core:icon identifier="actions-delete" size="small" />
-                                        </f:link.action>
-                                    </div>
-                                </td>
+        <f:if condition="{configurations -> f:count()}">
+            <f:then>
+                <div class="table-fit">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.field.name" default="Name" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.field.identifier" default="Identifier" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.field.provider" default="Provider" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.field.model" default="Model" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.field.status" default="Status" /></th>
+                                <th class="col-control"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
                             </tr>
-                        </f:for>
-                    </tbody>
-                </table>
-            </div>
-        </f:then>
-        <f:else>
-            <f:be.infobox title="No Configurations Found" state="{f:constant(name: 'TYPO3\CMS\Core\Type\ContextualFeedbackSeverity::INFO')}">
-                <p>No LLM configurations found yet. Create your first configuration to get started.</p>
-            </f:be.infobox>
-        </f:else>
-    </f:if>
+                        </thead>
+                        <tbody>
+                            <f:for each="{configurations}" as="config">
+                                <tr data-uid="{config.uid}">
+                                    <td>
+                                        <strong>{config.name}</strong>
+                                        <f:if condition="{config.isDefault}">
+                                            <span class="badge text-bg-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:default" default="Default" /></span>
+                                        </f:if>
+                                        <f:if condition="{config.description}">
+                                            <br /><span class="text-body-secondary">{config.description}</span>
+                                        </f:if>
+                                    </td>
+                                    <td><code>{config.identifier}</code></td>
+                                    <td>
+                                        <f:if condition="{config.llmModel}">
+                                            <f:then>{config.llmModel.provider.name}</f:then>
+                                            <f:else><span class="text-body-secondary">-</span></f:else>
+                                        </f:if>
+                                    </td>
+                                    <td>
+                                        <f:if condition="{config.llmModel}">
+                                            <f:then>
+                                                <strong>{config.llmModel.name}</strong>
+                                                <br /><span class="text-body-secondary">{config.llmModel.modelId}</span>
+                                            </f:then>
+                                            <f:else>
+                                                <span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:notConfigured" default="Not configured" /></span>
+                                            </f:else>
+                                        </f:if>
+                                    </td>
+                                    <td>
+                                        <f:if condition="{config.isActive}">
+                                            <f:then>
+                                                <span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:active" default="Active" /></span>
+                                            </f:then>
+                                            <f:else>
+                                                <span class="badge text-bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:inactive" default="Inactive" /></span>
+                                            </f:else>
+                                        </f:if>
+                                    </td>
+                                    <td class="col-control">
+                                        <div class="btn-group" role="group">
+                                            <f:link.action action="edit" arguments="{uid: config.uid}" class="btn btn-default btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
+                                                <core:icon identifier="actions-open" size="small" />
+                                            </f:link.action>
+                                            <button type="button" class="btn btn-default btn-sm js-toggle-active"
+                                                    data-uid="{config.uid}"
+                                                    title="{f:if(condition: config.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
+                                                <f:if condition="{config.isActive}">
+                                                    <f:then><core:icon identifier="actions-toggle-on" size="small" /></f:then>
+                                                    <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
+                                                </f:if>
+                                            </button>
+                                            <f:if condition="!{config.isDefault}">
+                                                <button type="button" class="btn btn-default btn-sm js-set-default"
+                                                        data-uid="{config.uid}"
+                                                        title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setDefault')}">
+                                                    <core:icon identifier="actions-star" size="small" />
+                                                </button>
+                                            </f:if>
+                                            <button type="button" class="btn btn-default btn-sm js-test-config"
+                                                    data-uid="{config.uid}"
+                                                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testConfiguration')}">
+                                                <core:icon identifier="actions-play" size="small" />
+                                            </button>
+                                            <f:link.action action="delete" arguments="{uid: config.uid}"
+                                                           class="btn btn-danger btn-sm"
+                                                           title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:delete')}"
+                                                           additionalAttributes="{onclick: 'return confirm(\'{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:confirmDelete\')}\')'}">
+                                                <core:icon identifier="actions-delete" size="small" />
+                                            </f:link.action>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </f:for>
+                        </tbody>
+                    </table>
+                </div>
+            </f:then>
+            <f:else>
+                <f:be.infobox
+                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.empty.title', default: 'No Configurations Found')}"
+                    state="{f:constant(name: 'TYPO3\CMS\Core\Type\ContextualFeedbackSeverity::INFO')}"
+                >
+                    <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.empty.message" default="No LLM configurations found yet. Create your first configuration to get started." /></p>
+                </f:be.infobox>
+            </f:else>
+        </f:if>
+    </div>
 
-    <div id="test-result" class="card mt-4" style="display: none;">
-        <div class="card-header">
-            <h3 class="card-title">Test Result</h3>
-        </div>
-        <div class="card-body">
-            <div id="test-loading" style="display: none;">
-                <span class="spinner-border spinner-border-sm"></span> Testing configuration...
+    <f:comment>Test Result Card</f:comment>
+    <div class="container">
+        <div id="test-result" class="card mt-4" style="display: none;">
+            <div class="card-header">
+                <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testResult" default="Test Result" /></h2>
             </div>
-            <div id="test-success" class="alert alert-success" style="display: none;">
-                <strong>Success!</strong> Configuration is working.
+            <div class="card-body">
+                <div id="test-loading" style="display: none;">
+                    <span class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testing" default="Testing..." /></span>
+                    </span>
+                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testingConfiguration" default="Testing configuration..." />
+                </div>
+                <div id="test-success" class="alert alert-success" style="display: none;">
+                    <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:success" default="Success!" /></strong>
+                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configurationWorking" default="Configuration is working." />
+                </div>
+                <div id="test-error" class="alert alert-danger" style="display: none;">
+                    <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error" default="Error" />:</strong>
+                    <span id="test-error-message"></span>
+                </div>
+                <dl id="test-details" class="row" style="display: none;">
+                    <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:response" default="Response" />:</dt>
+                    <dd class="col-sm-9" id="test-response"></dd>
+                    <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model" default="Model" />:</dt>
+                    <dd class="col-sm-9" id="test-model"></dd>
+                    <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tokensUsed" default="Tokens used" />:</dt>
+                    <dd class="col-sm-9" id="test-tokens"></dd>
+                </dl>
             </div>
-            <div id="test-error" class="alert alert-danger" style="display: none;">
-                <strong>Error:</strong> <span id="test-error-message"></span>
-            </div>
-            <dl id="test-details" class="row" style="display: none;">
-                <dt class="col-sm-3">Response:</dt>
-                <dd class="col-sm-9" id="test-response"></dd>
-                <dt class="col-sm-3">Model:</dt>
-                <dd class="col-sm-9" id="test-model"></dd>
-                <dt class="col-sm-3">Tokens used:</dt>
-                <dd class="col-sm-9" id="test-tokens"></dd>
-            </dl>
         </div>
     </div>
 </f:section>

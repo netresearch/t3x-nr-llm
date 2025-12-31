@@ -5,8 +5,9 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
+    <div class="container">
     <div class="setup-wizard" id="setup-wizard">
-        <!-- Progress Steps -->
+        <f:comment>Progress Steps</f:comment>
         <div class="wizard-progress mb-4">
             <div class="wizard-steps d-flex justify-content-between">
                 <div class="wizard-step active" data-step="1">
@@ -45,19 +46,18 @@
             </div>
         </div>
 
-        <!-- Step 1: Connect -->
+        <f:comment>Step 1: Connect</f:comment>
         <div class="wizard-panel" data-panel="1">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">
+                    <h2 class="card-title">
                         <core:icon identifier="actions-link" size="small" />
-                        Connect to LLM Provider
-                    </h3>
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step1.title" default="Connect to LLM Provider" />
+                    </h2>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted mb-4">
-                        Enter your LLM provider's API endpoint and credentials. The wizard will auto-detect
-                        the provider type and configure everything for you.
+                    <p class="text-body-secondary mb-4">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step1.description" default="Enter your LLM provider's API endpoint and credentials. The wizard will auto-detect the provider type and configure everything for you." />
                     </p>
 
                     <div class="mb-3">
@@ -91,8 +91,8 @@
                             </div>
                             <div>
                                 <strong>Detected:</strong> <span id="detected-name"></span>
-                                <span class="badge bg-secondary ms-2" id="detected-adapter"></span>
-                                <div class="small text-muted" id="detected-confidence"></div>
+                                <span class="badge text-bg-secondary ms-2" id="detected-adapter"></span>
+                                <div class="small text-body-secondary" id="detected-confidence"></div>
                             </div>
                         </div>
                     </div>
@@ -125,31 +125,31 @@
             </div>
         </div>
 
-        <!-- Step 2: Verify Connection -->
+        <f:comment>Step 2: Verify Connection</f:comment>
         <div class="wizard-panel" data-panel="2" style="display: none;">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">
+                    <h2 class="card-title">
                         <core:icon identifier="actions-check" size="small" />
-                        Verify Connection
-                    </h3>
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step2.title" default="Verify Connection" />
+                    </h2>
                 </div>
                 <div class="card-body">
                     <div id="test-loading" class="text-center py-5">
                         <div class="spinner-border text-primary mb-3" role="status">
                             <span class="visually-hidden">Testing connection...</span>
                         </div>
-                        <p class="text-muted">Testing connection to provider...</p>
+                        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testingConnection" default="Testing connection to provider..." /></p>
                     </div>
 
                     <div id="test-success" class="text-center py-4" style="display: none;">
                         <div class="mb-3">
-                            <span class="badge bg-success fs-4 p-3 rounded-circle">
+                            <span class="badge text-bg-success fs-4 p-3 rounded-circle">
                                 <core:icon identifier="actions-check" size="large" />
                             </span>
                         </div>
-                        <h4 class="text-success">Connection Successful</h4>
-                        <p class="text-muted" id="test-success-message"></p>
+                        <h4 class="text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:connectionSuccessful" default="Connection Successful" /></h4>
+                        <p class="text-body-secondary" id="test-success-message"></p>
                     </div>
 
                     <div id="test-error" class="alert alert-danger" style="display: none;">
@@ -177,27 +177,26 @@
             </div>
         </div>
 
-        <!-- Step 3: Select Models -->
+        <f:comment>Step 3: Select Models</f:comment>
         <div class="wizard-panel" data-panel="3" style="display: none;">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">
+                    <h2 class="card-title">
                         <core:icon identifier="apps-pagetree-folder-contains-board" size="small" />
-                        Select Models
-                    </h3>
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step3.title" default="Select Models" />
+                    </h2>
                 </div>
                 <div class="card-body">
                     <div id="models-loading" class="text-center py-5">
                         <div class="spinner-border text-primary mb-3" role="status">
                             <span class="visually-hidden">Discovering models...</span>
                         </div>
-                        <p class="text-muted">Discovering available models...</p>
+                        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:discoveringModels" default="Discovering available models..." /></p>
                     </div>
 
                     <div id="models-list" style="display: none;">
-                        <p class="text-muted mb-3">
-                            Select the models you want to add to your configuration.
-                            Recommended models are pre-selected.
+                        <p class="text-body-secondary mb-3">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.selectModels.description" default="Select the models you want to add to your configuration. Recommended models are pre-selected." />
                         </p>
                         <div class="table-responsive">
                             <table class="table table-hover" id="models-table">
@@ -233,29 +232,28 @@
             </div>
         </div>
 
-        <!-- Step 4: Configure -->
+        <f:comment>Step 4: Configure</f:comment>
         <div class="wizard-panel" data-panel="4" style="display: none;">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">
+                    <h2 class="card-title">
                         <core:icon identifier="actions-cog" size="small" />
-                        Configuration Presets
-                    </h3>
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step4.title" default="Configuration Presets" />
+                    </h2>
                 </div>
                 <div class="card-body">
                     <div id="configs-loading" class="text-center py-5">
                         <div class="spinner-border text-primary mb-3" role="status">
-                            <span class="visually-hidden">Generating configurations...</span>
+                            <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:generatingConfigurations" default="Generating configurations..." /></span>
                         </div>
-                        <p class="text-muted">
-                            Using AI to generate optimal configuration presets...
+                        <p class="text-body-secondary">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step4.loading" default="Using AI to generate optimal configuration presets..." />
                         </p>
                     </div>
 
                     <div id="configs-list" style="display: none;">
-                        <p class="text-muted mb-3">
-                            The following configuration presets have been generated for common use cases.
-                            Select the ones you want to create.
+                        <p class="text-body-secondary mb-3">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step4.description" default="The following configuration presets have been generated for common use cases. Select the ones you want to create." />
                         </p>
                         <div class="row" id="configs-container"></div>
                     </div>
@@ -275,14 +273,14 @@
             </div>
         </div>
 
-        <!-- Step 5: Review & Save -->
+        <f:comment>Step 5: Review & Save</f:comment>
         <div class="wizard-panel" data-panel="5" style="display: none;">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">
+                    <h2 class="card-title">
                         <core:icon identifier="actions-database" size="small" />
-                        Review &amp; Save
-                    </h3>
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step5.title" default="Review &amp; Save" />
+                    </h2>
                 </div>
                 <div class="card-body">
                     <div id="review-content">
@@ -312,19 +310,19 @@
 
                     <div id="save-loading" class="text-center py-5" style="display: none;">
                         <div class="spinner-border text-primary mb-3" role="status">
-                            <span class="visually-hidden">Saving...</span>
+                            <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:saving" default="Saving..." /></span>
                         </div>
-                        <p class="text-muted">Saving configuration...</p>
+                        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:savingConfiguration" default="Saving configuration..." /></p>
                     </div>
 
                     <div id="save-success" class="text-center py-5" style="display: none;">
                         <div class="mb-3">
-                            <span class="badge bg-success fs-1 p-4 rounded-circle">
+                            <span class="badge text-bg-success fs-1 p-4 rounded-circle">
                                 <core:icon identifier="actions-check" size="large" />
                             </span>
                         </div>
-                        <h4 class="text-success">Setup Complete!</h4>
-                        <p class="text-muted" id="save-success-message"></p>
+                        <h4 class="text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setupComplete" default="Setup Complete!" /></h4>
+                        <p class="text-body-secondary" id="save-success-message"></p>
                         <div class="mt-4">
                             <a href="#" class="btn btn-primary" id="btn-go-providers">
                                 <core:icon identifier="actions-open" size="small" />
@@ -359,6 +357,7 @@
                 </div>
             </div>
         </div>
+    </div>
     </div>
 </f:section>
 

@@ -6,98 +6,171 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
-    <h1>
-        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.title" />
-    </h1>
+    <div class="container">
+        <h1>
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.title" />
+        </h1>
 
-    <!-- Quick Start Wizard Banner -->
-    <div class="callout callout-info mb-4">
-        <div class="d-flex align-items-center">
-            <div class="me-3">
-                <core:icon identifier="module-nrllm-wizard" size="large" />
+        <f:be.infobox
+            title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.callout.title', default: 'New to LLM Integration?')}"
+            state="{f:constant(name: 'TYPO3\CMS\Core\Type\ContextualFeedbackSeverity::INFO')}"
+        >
+            <p>
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.callout.message" default="Use the Setup Wizard to auto-configure your provider, discover models, and generate configuration presets." />
+            </p>
+            <a href="{be:moduleLink(route:'nrllm_wizard')}" class="btn btn-primary">
+                <core:icon identifier="actions-bolt" size="small" />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.callout.button" default="Start Setup Wizard" />
+            </a>
+        </f:be.infobox>
+
+        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.management" default="LLM Management" /></h2>
+
+        <div class="card-container">
+            <div class="card card-size-small">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <core:icon identifier="module-nrllm-provider" size="medium" />
+                    </div>
+                    <div class="card-header-body">
+                        <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.card.title" default="API Providers" /></h2>
+                        <span class="card-subtitle"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.card.subtitle" default="Manage API connections" /></span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.card.description" default="Configure endpoints, API keys, and timeouts for LLM services." /></p>
+                    <f:if condition="{dbProviderCount} > 0">
+                        <f:then>
+                            <p class="text-success fw-bold mb-0">
+                                <core:icon identifier="actions-check" size="small" />
+                                {dbProviderCount} <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.providers" default="provider(s) configured" />
+                            </p>
+                        </f:then>
+                        <f:else>
+                            <p class="text-warning fw-bold mb-0">
+                                <core:icon identifier="actions-exclamation-triangle" size="small" />
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.none.providers" default="No providers configured" />
+                            </p>
+                        </f:else>
+                    </f:if>
+                </div>
+                <div class="card-footer">
+                    <a href="{be:moduleLink(route:'nrllm_providers')}" class="btn btn-default">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.card.button" default="Manage Providers" />
+                    </a>
+                </div>
             </div>
-            <div class="flex-grow-1">
-                <h4 class="callout-title mb-1">New to LLM Integration?</h4>
-                <p class="mb-0">Use the <strong>Setup Wizard</strong> to auto-configure your provider, discover models, and generate configuration presets.</p>
+
+            <div class="card card-size-small">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <core:icon identifier="module-nrllm-model" size="medium" />
+                    </div>
+                    <div class="card-header-body">
+                        <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.card.title" default="LLM Models" /></h2>
+                        <span class="card-subtitle"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.card.subtitle" default="Define available models" /></span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.card.description" default="Configure model definitions, capabilities, and pricing per provider." /></p>
+                    <f:if condition="{dbModelCount} > 0">
+                        <f:then>
+                            <p class="text-success fw-bold mb-0">
+                                <core:icon identifier="actions-check" size="small" />
+                                {dbModelCount} <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.models" default="model(s) configured" />
+                            </p>
+                        </f:then>
+                        <f:else>
+                            <p class="text-warning fw-bold mb-0">
+                                <core:icon identifier="actions-exclamation-triangle" size="small" />
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.none.models" default="No models configured" />
+                            </p>
+                        </f:else>
+                    </f:if>
+                </div>
+                <div class="card-footer">
+                    <a href="{be:moduleLink(route:'nrllm_models')}" class="btn btn-default">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.card.button" default="Manage Models" />
+                    </a>
+                </div>
             </div>
-            <div class="ms-3">
-                <a href="{be:moduleLink(route:'nrllm_wizard')}" class="btn btn-primary">
-                    <core:icon identifier="actions-bolt" size="small" />
-                    Start Setup Wizard
-                </a>
+
+            <div class="card card-size-small">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <core:icon identifier="module-nrllm" size="medium" />
+                    </div>
+                    <div class="card-header-body">
+                        <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.card.title" default="Configurations" /></h2>
+                        <span class="card-subtitle"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.card.subtitle" default="Use-case specific presets" /></span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.card.description" default="Create named configurations with prompts, parameters, and limits." /></p>
+                    <f:if condition="{dbConfigurationCount} > 0">
+                        <f:then>
+                            <p class="text-success fw-bold mb-0">
+                                <core:icon identifier="actions-check" size="small" />
+                                {dbConfigurationCount} <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.configurations" default="configuration(s) configured" />
+                            </p>
+                        </f:then>
+                        <f:else>
+                            <p class="text-warning fw-bold mb-0">
+                                <core:icon identifier="actions-exclamation-triangle" size="small" />
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.none.configurations" default="No configurations configured" />
+                            </p>
+                        </f:else>
+                    </f:if>
+                </div>
+                <div class="card-footer">
+                    <a href="{be:moduleLink(route:'nrllm_configurations')}" class="btn btn-default">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.card.button" default="Manage Configurations" />
+                    </a>
+                </div>
+            </div>
+
+            <div class="card card-size-small">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <core:icon identifier="module-nrllm-task" size="medium" />
+                    </div>
+                    <div class="card-header-body">
+                        <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.card.title" default="Tasks (One-Shot)" /></h2>
+                        <span class="card-subtitle"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.card.subtitle" default="Simple prompt templates" /></span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.card.description" default="One-shot prompts for common operations. Not AI agents - limited capabilities." /></p>
+                    <f:if condition="{dbTaskCount} > 0">
+                        <f:then>
+                            <p class="text-success fw-bold mb-0">
+                                <core:icon identifier="actions-check" size="small" />
+                                {dbTaskCount} <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.tasks" default="task(s) configured" />
+                            </p>
+                        </f:then>
+                        <f:else>
+                            <p class="text-muted fw-bold mb-0">
+                                <core:icon identifier="actions-info" size="small" />
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.none.tasks" default="No tasks configured - use seed data" />
+                            </p>
+                        </f:else>
+                    </f:if>
+                </div>
+                <div class="card-footer">
+                    <a href="{be:moduleLink(route:'nrllm_tasks')}" class="btn btn-default">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.card.button" default="Manage Tasks" />
+                    </a>
+                </div>
             </div>
         </div>
-    </div>
 
-    <h2>LLM Management</h2>
-
-    <section class="card-container">
-        <div class="card card-size-small">
+        <div class="card mt-4">
             <div class="card-header">
-                <div class="card-icon">
-                    <core:icon identifier="module-nrllm-provider" size="large" />
-                </div>
-                <div class="card-header-body">
-                    <h4 class="card-title">API Providers</h4>
-                    <span class="card-subtitle">Manage API connections</span>
-                </div>
+                <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:reference.title" default="Quick Reference" /></h2>
             </div>
             <div class="card-body">
-                <p class="card-text">Configure endpoints, API keys, and timeouts for LLM services.</p>
-            </div>
-            <div class="card-footer">
-                <a href="{be:moduleLink(route:'nrllm_providers')}" class="btn btn-default">
-                    Manage Providers
-                </a>
-            </div>
-        </div>
-        <div class="card card-size-small">
-            <div class="card-header">
-                <div class="card-icon">
-                    <core:icon identifier="module-nrllm-model" size="large" />
-                </div>
-                <div class="card-header-body">
-                    <h4 class="card-title">LLM Models</h4>
-                    <span class="card-subtitle">Define available models</span>
-                </div>
-            </div>
-            <div class="card-body">
-                <p class="card-text">Configure model definitions, capabilities, and pricing per provider.</p>
-            </div>
-            <div class="card-footer">
-                <a href="{be:moduleLink(route:'nrllm_models')}" class="btn btn-default">
-                    Manage Models
-                </a>
-            </div>
-        </div>
-        <div class="card card-size-small">
-            <div class="card-header">
-                <div class="card-icon">
-                    <core:icon identifier="module-nrllm" size="large" />
-                </div>
-                <div class="card-header-body">
-                    <h4 class="card-title">Configurations</h4>
-                    <span class="card-subtitle">Use-case specific presets</span>
-                </div>
-            </div>
-            <div class="card-body">
-                <p class="card-text">Create named configurations with prompts, parameters, and limits.</p>
-            </div>
-            <div class="card-footer">
-                <a href="{be:moduleLink(route:'nrllm_configurations')}" class="btn btn-default">
-                    Manage Configurations
-                </a>
-            </div>
-        </div>
-    </section>
-
-    <div class="card mt-4">
-        <div class="card-header">
-            <h3 class="card-title">Quick Reference</h3>
-        </div>
-        <div class="card-body">
-            <h4>Usage in PHP</h4>
-            <pre><code>use Netresearch\NrLlm\Service\LlmServiceManager;
+                <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:reference.php.title" default="Usage in PHP" /></h3>
+                <pre><code class="language-php">use Netresearch\NrLlm\Service\LlmServiceManager;
 
 // Inject via constructor
 public function __construct(
@@ -116,6 +189,7 @@ $response = $this->llmManager->chat([
 
 // Use database-backed configuration
 $response = $this->llmManager->chatWithConfiguration($messages, $configuration);</code></pre>
+            </div>
         </div>
     </div>
 </f:section>

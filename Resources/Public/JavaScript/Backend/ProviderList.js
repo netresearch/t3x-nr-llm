@@ -94,18 +94,18 @@ class ProviderList {
                 <div class="spinner-border text-primary mb-3" role="status">
                     <span class="visually-hidden">Testing connection...</span>
                 </div>
-                <p class="text-muted">Testing connection to ${this.escapeHtml(name)}...</p>
+                <p class="text-body-secondary">Testing connection to ${this.escapeHtml(name)}...</p>
             </div>
             <div class="modal-success text-center py-4" id="provider-test-success" style="display: none;">
                 <div class="mb-3">
-                    <span class="badge bg-success fs-4 p-3 rounded-circle">
+                    <span class="badge text-bg-success fs-4 p-3 rounded-circle">
                         <span class="icon icon-size-large">
                             <span class="icon-markup">&#10003;</span>
                         </span>
                     </span>
                 </div>
                 <h4 class="text-success">Connection Successful</h4>
-                <p class="text-muted" id="provider-test-success-message"></p>
+                <p class="text-body-secondary" id="provider-test-success-message"></p>
             </div>
             <div class="modal-error alert alert-danger" id="provider-test-error" style="display: none;">
                 <h5 class="alert-heading">Connection Failed</h5>
@@ -139,35 +139,38 @@ class ProviderList {
         .then(response => response.json())
         .then(data => {
             console.debug('[ProviderList] Test response:', data);
-            const loadingDiv = document.getElementById('provider-test-loading');
-            const successDiv = document.getElementById('provider-test-success');
-            const errorDiv = document.getElementById('provider-test-error');
+            // Use container reference instead of document.getElementById()
+            // because TYPO3 Modal places content in a different DOM context
+            const loadingDiv = container.querySelector('#provider-test-loading');
+            const successDiv = container.querySelector('#provider-test-success');
+            const errorDiv = container.querySelector('#provider-test-error');
 
             if (loadingDiv) loadingDiv.style.display = 'none';
 
             if (data.success) {
                 if (successDiv) {
                     successDiv.style.display = 'block';
-                    const msgEl = document.getElementById('provider-test-success-message');
+                    const msgEl = container.querySelector('#provider-test-success-message');
                     if (msgEl) msgEl.textContent = data.message || 'Connection successful';
                 }
             } else {
                 if (errorDiv) {
                     errorDiv.style.display = 'block';
-                    const msgEl = document.getElementById('provider-test-error-message');
+                    const msgEl = container.querySelector('#provider-test-error-message');
                     if (msgEl) msgEl.textContent = data.error || data.message || 'Unknown error';
                 }
             }
         })
         .catch(err => {
             console.error('[ProviderList] Test error:', err);
-            const loadingDiv = document.getElementById('provider-test-loading');
-            const errorDiv = document.getElementById('provider-test-error');
+            // Use container reference instead of document.getElementById()
+            const loadingDiv = container.querySelector('#provider-test-loading');
+            const errorDiv = container.querySelector('#provider-test-error');
 
             if (loadingDiv) loadingDiv.style.display = 'none';
             if (errorDiv) {
                 errorDiv.style.display = 'block';
-                const msgEl = document.getElementById('provider-test-error-message');
+                const msgEl = container.querySelector('#provider-test-error-message');
                 if (msgEl) msgEl.textContent = err.message;
             }
         });

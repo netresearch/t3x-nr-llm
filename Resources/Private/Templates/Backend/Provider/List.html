@@ -6,135 +6,147 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
-    <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.list.title" default="LLM Providers" /></h1>
+    <div class="container">
+        <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.list.title" default="LLM Providers" /></h1>
 
-    <f:if condition="{providers -> f:count()}">
-        <f:then>
-            <div class="table-fit">
-                <table class="table table-striped table-hover table-vertical-top">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Identifier</th>
-                            <th>Adapter Type</th>
-                            <th>Endpoint</th>
-                            <th>API Key</th>
-                            <th>Status</th>
-                            <th class="col-control">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <f:for each="{providers}" as="provider">
-                            <tr data-uid="{provider.uid}">
-                                <td>
-                                    <strong>{provider.name}</strong>
-                                    <f:if condition="{provider.description}">
-                                        <br /><small class="text-body-secondary">{provider.description}</small>
-                                    </f:if>
-                                </td>
-                                <td><code>{provider.identifier}</code></td>
-                                <td>
-                                    <span class="badge bg-info">{provider.adapterName}</span>
-                                </td>
-                                <td>
-                                    <f:if condition="{provider.endpointUrl}">
-                                        <f:then>
-                                            <small class="text-body-secondary">{provider.endpointUrl}</small>
-                                        </f:then>
-                                        <f:else>
-                                            <small class="text-body-secondary">(default)</small>
-                                        </f:else>
-                                    </f:if>
-                                </td>
-                                <td>
-                                    <f:if condition="{provider.hasApiKey}">
-                                        <f:then>
-                                            <span class="badge text-bg-success">Configured</span>
-                                        </f:then>
-                                        <f:else>
-                                            <span class="badge bg-warning">Not set</span>
-                                        </f:else>
-                                    </f:if>
-                                </td>
-                                <td>
-                                    <f:if condition="{provider.isActive}">
-                                        <f:then>
-                                            <span class="badge text-bg-success">Active</span>
-                                        </f:then>
-                                        <f:else>
-                                            <span class="badge bg-secondary">Inactive</span>
-                                        </f:else>
-                                    </f:if>
-                                </td>
-                                <td class="col-control">
-                                    <div class="btn-group" role="group">
-                                        <f:link.action action="edit" arguments="{uid: provider.uid}" class="btn btn-default btn-sm" title="Edit">
-                                            <core:icon identifier="actions-open" size="small" />
-                                        </f:link.action>
-                                        <button type="button" class="btn btn-default btn-sm js-toggle-active"
-                                                data-uid="{provider.uid}"
-                                                title="{f:if(condition: provider.isActive, then: 'Deactivate', else: 'Activate')}">
-                                            <f:if condition="{provider.isActive}">
-                                                <f:then><core:icon identifier="actions-toggle-on" size="small" /></f:then>
-                                                <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
-                                            </f:if>
-                                        </button>
-                                        <button type="button" class="btn btn-default btn-sm js-test-connection"
-                                                data-uid="{provider.uid}"
-                                                data-name="{provider.name}"
-                                                title="Test connection">
-                                            <core:icon identifier="actions-play" size="small" />
-                                        </button>
-                                        <f:link.action action="delete" arguments="{uid: provider.uid}"
-                                                       class="btn btn-danger btn-sm"
-                                                       title="Delete"
-                                                       additionalAttributes="{onclick: 'return confirm(\'Are you sure you want to delete this provider?\')'}">
-                                            <core:icon identifier="actions-delete" size="small" />
-                                        </f:link.action>
-                                    </div>
-                                </td>
+        <f:if condition="{providers -> f:count()}">
+            <f:then>
+                <div class="table-fit">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.name" default="Name" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.identifier" default="Identifier" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.adapterType" default="Adapter Type" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.endpoint" default="Endpoint" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.apiKey" default="API Key" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.status" default="Status" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.priority" default="Priority" /></th>
+                                <th class="col-control"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
                             </tr>
-                        </f:for>
-                    </tbody>
-                </table>
-            </div>
-        </f:then>
-        <f:else>
-            <f:be.infobox title="No Providers Configured" state="{f:constant(name: 'TYPO3\CMS\Core\Type\ContextualFeedbackSeverity::INFO')}">
-                <p>No API providers configured yet. Create your first provider to connect to LLM services.</p>
-            </f:be.infobox>
-        </f:else>
-    </f:if>
+                        </thead>
+                        <tbody>
+                            <f:for each="{providers}" as="provider">
+                                <tr data-uid="{provider.uid}">
+                                    <td>
+                                        <strong>{provider.name}</strong>
+                                        <f:if condition="{provider.description}">
+                                            <br /><span class="text-body-secondary">{provider.description}</span>
+                                        </f:if>
+                                    </td>
+                                    <td><code>{provider.identifier}</code></td>
+                                    <td>
+                                        <span class="badge text-bg-info">{provider.adapterName}</span>
+                                    </td>
+                                    <td>
+                                        <f:if condition="{provider.endpointUrl}">
+                                            <f:then>
+                                                <span class="text-body-secondary">{provider.endpointUrl}</span>
+                                            </f:then>
+                                            <f:else>
+                                                <span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.endpoint.default" default="(default)" /></span>
+                                            </f:else>
+                                        </f:if>
+                                    </td>
+                                    <td>
+                                        <f:if condition="{provider.hasApiKey}">
+                                            <f:then>
+                                                <span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configured" default="Configured" /></span>
+                                            </f:then>
+                                            <f:else>
+                                                <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:notSet" default="Not set" /></span>
+                                            </f:else>
+                                        </f:if>
+                                    </td>
+                                    <td>
+                                        <f:if condition="{provider.isActive}">
+                                            <f:then>
+                                                <span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:active" default="Active" /></span>
+                                            </f:then>
+                                            <f:else>
+                                                <span class="badge text-bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:inactive" default="Inactive" /></span>
+                                            </f:else>
+                                        </f:if>
+                                    </td>
+                                    <td>
+                                        <span class="badge text-bg-primary">{provider.priority}</span>
+                                    </td>
+                                    <td class="col-control">
+                                        <div class="btn-group" role="group">
+                                            <f:link.action action="edit" arguments="{uid: provider.uid}" class="btn btn-default btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
+                                                <core:icon identifier="actions-open" size="small" />
+                                            </f:link.action>
+                                            <button type="button" class="btn btn-default btn-sm js-toggle-active"
+                                                    data-uid="{provider.uid}"
+                                                    title="{f:if(condition: provider.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
+                                                <f:if condition="{provider.isActive}">
+                                                    <f:then><core:icon identifier="actions-toggle-on" size="small" /></f:then>
+                                                    <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
+                                                </f:if>
+                                            </button>
+                                            <button type="button" class="btn btn-default btn-sm js-test-connection"
+                                                    data-uid="{provider.uid}"
+                                                    data-name="{provider.name}"
+                                                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testConnection')}">
+                                                <core:icon identifier="actions-play" size="small" />
+                                            </button>
+                                            <f:link.action action="delete" arguments="{uid: provider.uid}"
+                                                           class="btn btn-danger btn-sm"
+                                                           title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:delete')}"
+                                                           additionalAttributes="{onclick: 'return confirm(\'{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:confirmDelete\')}\')'}">
+                                                <core:icon identifier="actions-delete" size="small" />
+                                            </f:link.action>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </f:for>
+                        </tbody>
+                    </table>
+                </div>
+            </f:then>
+            <f:else>
+                <f:be.infobox
+                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.empty.title', default: 'No Providers Configured')}"
+                    state="{f:constant(name: 'TYPO3\CMS\Core\Type\ContextualFeedbackSeverity::INFO')}"
+                >
+                    <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.empty.message" default="No API providers configured yet. Create your first provider to connect to LLM services." /></p>
+                </f:be.infobox>
+            </f:else>
+        </f:if>
+    </div>
 
-    <!-- Connection Test Modal -->
-    <div class="modal fade" id="test-modal" aria-labelledby="test-modal-label">
+    <f:comment>Connection Test Modal</f:comment>
+    <div class="modal fade" id="test-modal" tabindex="-1" aria-labelledby="test-modal-label" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4 class="modal-title" id="test-modal-label">Connection Test</h4>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h4 class="modal-title" id="test-modal-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:connectionTest" default="Connection Test" /></h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:close')}"></button>
                 </div>
                 <div class="modal-body">
                     <div id="test-provider-name" class="mb-3">
-                        <strong>Provider:</strong> <span id="test-provider-label"></span>
+                        <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider" default="Provider" />:</strong>
+                        <span id="test-provider-label"></span>
                     </div>
                     <div id="test-loading" class="text-center py-4">
-                        <span class="spinner-border text-primary"></span>
-                        <div class="mt-2">Testing connection...</div>
+                        <span class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testing" default="Testing..." /></span>
+                        </span>
+                        <div class="mt-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testingConnection" default="Testing connection..." /></div>
                     </div>
                     <div id="test-success" class="alert alert-success" style="display: none;">
                         <core:icon identifier="actions-check" size="small" />
-                        <strong>Success!</strong>
+                        <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:success" default="Success!" /></strong>
                         <div id="test-success-message" class="mt-2"></div>
                     </div>
                     <div id="test-error" class="alert alert-danger" style="display: none;">
                         <core:icon identifier="actions-ban" size="small" />
-                        <strong>Error</strong>
+                        <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error" default="Error" /></strong>
                         <div id="test-error-message" class="mt-2"></div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-default" data-bs-dismiss="modal"><f:translate key="LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:close" default="Close" /></button>
                 </div>
             </div>
         </div>

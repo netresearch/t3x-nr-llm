@@ -6,171 +6,182 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
-    <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.list.title" default="LLM Models" /></h1>
+    <div class="container">
+        <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.list.title" default="LLM Models" /></h1>
 
-    <f:if condition="{models -> f:count()}">
-        <f:then>
-            <div class="table-fit">
-                <table class="table table-striped table-hover table-vertical-top">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Identifier</th>
-                            <th>Provider</th>
-                            <th>Model ID</th>
-                            <th>Capabilities</th>
-                            <th>Context</th>
-                            <th>Status</th>
-                            <th class="col-control">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <f:for each="{models}" as="model">
-                            <tr data-uid="{model.uid}">
-                                <td>
-                                    <strong>{model.name}</strong>
-                                    <f:if condition="{model.isDefault}">
-                                        <span class="badge text-bg-primary">Default</span>
-                                    </f:if>
-                                    <f:if condition="{model.description}">
-                                        <br /><small class="text-body-secondary">{model.description}</small>
-                                    </f:if>
-                                </td>
-                                <td><code>{model.identifier}</code></td>
-                                <td>
-                                    <f:if condition="{model.provider}">
-                                        <f:then>
-                                            <span class="badge bg-info">{model.provider.name}</span>
-                                        </f:then>
-                                        <f:else>
-                                            <span class="badge bg-warning">No provider</span>
-                                        </f:else>
-                                    </f:if>
-                                </td>
-                                <td><code>{model.modelId}</code></td>
-                                <td>
-                                    <f:for each="{model.capabilitiesArray}" as="capability">
-                                        <span class="badge bg-secondary">{capability}</span>
-                                    </f:for>
-                                </td>
-                                <td>
-                                    <f:if condition="{model.contextLength}">
-                                        <f:then>
-                                            <small>{model.formattedContextLength}</small>
-                                        </f:then>
-                                        <f:else>
-                                            <small class="text-body-secondary">-</small>
-                                        </f:else>
-                                    </f:if>
-                                </td>
-                                <td>
-                                    <f:if condition="{model.isActive}">
-                                        <f:then>
-                                            <span class="badge text-bg-success">Active</span>
-                                        </f:then>
-                                        <f:else>
-                                            <span class="badge bg-secondary">Inactive</span>
-                                        </f:else>
-                                    </f:if>
-                                </td>
-                                <td class="col-control">
-                                    <div class="btn-group" role="group">
-                                        <f:link.action action="edit" arguments="{uid: model.uid}" class="btn btn-default btn-sm" title="Edit">
-                                            <core:icon identifier="actions-open" size="small" />
-                                        </f:link.action>
-                                        <button type="button" class="btn btn-default btn-sm js-toggle-active"
-                                                data-uid="{model.uid}"
-                                                title="{f:if(condition: model.isActive, then: 'Deactivate', else: 'Activate')}">
-                                            <f:if condition="{model.isActive}">
-                                                <f:then><core:icon identifier="actions-toggle-on" size="small" /></f:then>
-                                                <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
-                                            </f:if>
-                                        </button>
-                                        <button type="button" class="btn btn-default btn-sm js-set-default"
-                                                data-uid="{model.uid}"
-                                                title="Set as default"
-                                                {f:if(condition: model.isDefault, then: 'disabled')}>
-                                            <core:icon identifier="actions-star" size="small" />
-                                        </button>
-                                        <button type="button" class="btn btn-default btn-sm js-test-model"
-                                                data-uid="{model.uid}"
-                                                data-name="{model.name}"
-                                                title="Test model">
-                                            <core:icon identifier="actions-play" size="small" />
-                                        </button>
-                                        <f:link.action action="delete" arguments="{uid: model.uid}"
-                                                       class="btn btn-danger btn-sm"
-                                                       title="Delete"
-                                                       additionalAttributes="{onclick: 'return confirm(\'Are you sure you want to delete this model?\')'}">
-                                            <core:icon identifier="actions-delete" size="small" />
-                                        </f:link.action>
-                                    </div>
-                                </td>
+        <f:if condition="{models -> f:count()}">
+            <f:then>
+                <div class="table-fit">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.field.name" default="Name" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.field.identifier" default="Identifier" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.field.provider" default="Provider" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.field.modelId" default="Model ID" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.field.capabilities" default="Capabilities" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.field.context" default="Context" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.field.status" default="Status" /></th>
+                                <th class="col-control"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
                             </tr>
-                        </f:for>
-                    </tbody>
-                </table>
-            </div>
-        </f:then>
-        <f:else>
-            <f:be.infobox title="No Models Configured" state="{f:constant(name: 'TYPO3\CMS\Core\Type\ContextualFeedbackSeverity::INFO')}">
-                <p>No models configured yet. Create your first model to start using LLM services.</p>
-                <f:if condition="{providers -> f:count()} == 0">
-                    <p class="mb-0"><strong>Note:</strong> You need to create a provider first before adding models.</p>
-                </f:if>
-            </f:be.infobox>
-        </f:else>
-    </f:if>
-
-    <f:if condition="{providers -> f:count()}">
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Filter by Provider</h3>
-                    </div>
-                    <div class="card-body">
-                        <select class="form-control form-select" id="provider-filter" aria-label="Filter models by provider">
-                            <option value="">All Providers</option>
-                            <f:for each="{providers}" as="provider">
-                                <option value="{provider.uid}">{provider.name}</option>
+                        </thead>
+                        <tbody>
+                            <f:for each="{models}" as="model">
+                                <tr data-uid="{model.uid}">
+                                    <td>
+                                        <strong>{model.name}</strong>
+                                        <f:if condition="{model.isDefault}">
+                                            <span class="badge text-bg-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:default" default="Default" /></span>
+                                        </f:if>
+                                        <f:if condition="{model.description}">
+                                            <br /><span class="text-body-secondary">{model.description}</span>
+                                        </f:if>
+                                    </td>
+                                    <td><code>{model.identifier}</code></td>
+                                    <td>
+                                        <f:if condition="{model.provider}">
+                                            <f:then>
+                                                <span class="badge text-bg-info">{model.provider.name}</span>
+                                            </f:then>
+                                            <f:else>
+                                                <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:noProvider" default="No provider" /></span>
+                                            </f:else>
+                                        </f:if>
+                                    </td>
+                                    <td><code>{model.modelId}</code></td>
+                                    <td>
+                                        <f:for each="{model.capabilitiesArray}" as="capability">
+                                            <span class="badge text-bg-secondary">{capability}</span>
+                                        </f:for>
+                                    </td>
+                                    <td>
+                                        <f:if condition="{model.contextLength}">
+                                            <f:then>
+                                                <span class="text-body-secondary">{model.formattedContextLength}</span>
+                                            </f:then>
+                                            <f:else>
+                                                <span class="text-body-secondary">-</span>
+                                            </f:else>
+                                        </f:if>
+                                    </td>
+                                    <td>
+                                        <f:if condition="{model.isActive}">
+                                            <f:then>
+                                                <span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:active" default="Active" /></span>
+                                            </f:then>
+                                            <f:else>
+                                                <span class="badge text-bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:inactive" default="Inactive" /></span>
+                                            </f:else>
+                                        </f:if>
+                                    </td>
+                                    <td class="col-control">
+                                        <div class="btn-group" role="group">
+                                            <f:link.action action="edit" arguments="{uid: model.uid}" class="btn btn-default btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
+                                                <core:icon identifier="actions-open" size="small" />
+                                            </f:link.action>
+                                            <button type="button" class="btn btn-default btn-sm js-toggle-active"
+                                                    data-uid="{model.uid}"
+                                                    title="{f:if(condition: model.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
+                                                <f:if condition="{model.isActive}">
+                                                    <f:then><core:icon identifier="actions-toggle-on" size="small" /></f:then>
+                                                    <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
+                                                </f:if>
+                                            </button>
+                                            <button type="button" class="btn btn-default btn-sm js-set-default"
+                                                    data-uid="{model.uid}"
+                                                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setDefault')}"
+                                                    {f:if(condition: model.isDefault, then: 'disabled')}>
+                                                <core:icon identifier="actions-star" size="small" />
+                                            </button>
+                                            <button type="button" class="btn btn-default btn-sm js-test-model"
+                                                    data-uid="{model.uid}"
+                                                    data-name="{model.name}"
+                                                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testModel')}">
+                                                <core:icon identifier="actions-play" size="small" />
+                                            </button>
+                                            <f:link.action action="delete" arguments="{uid: model.uid}"
+                                                           class="btn btn-danger btn-sm"
+                                                           title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:delete')}"
+                                                           additionalAttributes="{onclick: 'return confirm(\'{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:confirmDelete\')}\')'}">
+                                                <core:icon identifier="actions-delete" size="small" />
+                                            </f:link.action>
+                                        </div>
+                                    </td>
+                                </tr>
                             </f:for>
-                        </select>
+                        </tbody>
+                    </table>
+                </div>
+            </f:then>
+            <f:else>
+                <f:be.infobox
+                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.empty.title', default: 'No Models Configured')}"
+                    state="{f:constant(name: 'TYPO3\CMS\Core\Type\ContextualFeedbackSeverity::INFO')}"
+                >
+                    <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.empty.message" default="No models configured yet. Create your first model to start using LLM services." /></p>
+                    <f:if condition="{providers -> f:count()} == 0">
+                        <p class="mb-0">
+                            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:note" default="Note" />:</strong>
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.empty.providerRequired" default="You need to create a provider first before adding models." />
+                        </p>
+                    </f:if>
+                </f:be.infobox>
+            </f:else>
+        </f:if>
+
+        <f:if condition="{providers -> f:count()}">
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:filterByProvider" default="Filter by Provider" /></h2>
+                        </div>
+                        <div class="card-body">
+                            <select class="form-select" id="provider-filter" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:filterModelsLabel')}">
+                                <option value=""><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:allProviders" default="All Providers" /></option>
+                                <f:for each="{providers}" as="provider">
+                                    <option value="{provider.uid}">{provider.name}</option>
+                                </f:for>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </f:if>
+        </f:if>
+    </div>
 
-    <!-- Model Test Modal -->
-    <div class="modal fade" id="test-modal" aria-labelledby="test-modal-label">
+    <f:comment>Model Test Modal</f:comment>
+    <div class="modal fade" id="test-modal" tabindex="-1" aria-labelledby="test-modal-label" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4 class="modal-title" id="test-modal-label">Model Test</h4>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h4 class="modal-title" id="test-modal-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:modelTest" default="Model Test" /></h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:close')}"></button>
                 </div>
                 <div class="modal-body">
                     <div id="test-model-name" class="mb-3">
-                        <strong>Model:</strong> <span id="test-model-label"></span>
+                        <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model" default="Model" />:</strong>
+                        <span id="test-model-label"></span>
                     </div>
                     <div id="test-loading" class="text-center py-4">
-                        <span class="spinner-border text-primary"></span>
-                        <div class="mt-2">Testing model...</div>
+                        <span class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testing" default="Testing..." /></span>
+                        </span>
+                        <div class="mt-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testingModel" default="Testing model..." /></div>
                     </div>
                     <div id="test-success" class="alert alert-success" style="display: none;">
                         <core:icon identifier="actions-check" size="small" />
-                        <strong>Success!</strong>
+                        <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:success" default="Success!" /></strong>
                         <div id="test-success-message" class="mt-2"></div>
                     </div>
                     <div id="test-error" class="alert alert-danger" style="display: none;">
                         <core:icon identifier="actions-ban" size="small" />
-                        <strong>Error</strong>
+                        <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error" default="Error" /></strong>
                         <div id="test-error-message" class="mt-2"></div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-default" data-bs-dismiss="modal"><f:translate key="LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:close" default="Close" /></button>
                 </div>
             </div>
         </div>

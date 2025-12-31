@@ -138,19 +138,19 @@ class ModelList {
                 <div class="progress-steps small">
                     <div class="d-flex align-items-center mb-2" id="step-connect">
                         <span class="spinner-border spinner-border-sm text-primary me-2" id="step-connect-spinner"></span>
-                        <span class="text-muted" id="step-connect-text">Connecting to provider...</span>
+                        <span class="text-body-secondary" id="step-connect-text">Connecting to provider...</span>
                     </div>
-                    <div class="d-flex align-items-center mb-2 text-muted" id="step-send" style="opacity: 0.5;">
+                    <div class="d-flex align-items-center mb-2 text-body-secondary" id="step-send" style="opacity: 0.5;">
                         <span class="me-2">○</span>
                         <span id="step-send-text">Sending test prompt...</span>
                     </div>
-                    <div class="d-flex align-items-center mb-2 text-muted" id="step-wait" style="opacity: 0.5;">
+                    <div class="d-flex align-items-center mb-2 text-body-secondary" id="step-wait" style="opacity: 0.5;">
                         <span class="me-2">○</span>
                         <span id="step-wait-text">Waiting for response...</span>
                     </div>
                 </div>
                 <div class="text-center mt-3">
-                    <small class="text-muted">Elapsed: <span id="elapsed-time">0</span>s</small>
+                    <small class="text-body-secondary">Elapsed: <span id="elapsed-time">0</span>s</small>
                 </div>
                 <div class="alert alert-info mt-3 small">
                     <strong>Note:</strong> Large models or models with thinking/reasoning capabilities may take longer to respond.
@@ -158,20 +158,20 @@ class ModelList {
             </div>
             <div class="modal-success text-center py-4" id="model-test-success" style="display: none;">
                 <div class="mb-3">
-                    <span class="badge bg-success fs-4 p-3 rounded-circle">
+                    <span class="badge text-bg-success fs-4 p-3 rounded-circle">
                         <span class="icon icon-size-large">
                             <span class="icon-markup">&#10003;</span>
                         </span>
                     </span>
                 </div>
                 <h4 class="text-success">Model Test Successful</h4>
-                <p class="text-muted" id="model-test-success-message"></p>
-                <small class="text-muted">Completed in <span id="success-elapsed">0</span>s</small>
+                <p class="text-body-secondary" id="model-test-success-message"></p>
+                <small class="text-body-secondary">Completed in <span id="success-elapsed">0</span>s</small>
             </div>
             <div class="modal-error alert alert-danger" id="model-test-error" style="display: none;">
                 <h5 class="alert-heading">Model Test Failed</h5>
                 <p id="model-test-error-message"></p>
-                <small class="text-muted">Failed after <span id="error-elapsed">0</span>s</small>
+                <small class="text-body-secondary">Failed after <span id="error-elapsed">0</span>s</small>
             </div>
         `;
 
@@ -192,10 +192,12 @@ class ModelList {
         });
 
         // Start elapsed time counter
+        // Use container reference instead of document.getElementById()
+        // because TYPO3 Modal places content in a different DOM context
         const startTime = Date.now();
         let timerInterval = setInterval(() => {
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            const elapsedEl = document.getElementById('elapsed-time');
+            const elapsedEl = container.querySelector('#elapsed-time');
             if (elapsedEl) {
                 elapsedEl.textContent = elapsed.toString();
             }
@@ -205,14 +207,14 @@ class ModelList {
         const updateStep = (stepNum) => {
             const steps = ['connect', 'send', 'wait'];
             steps.forEach((step, idx) => {
-                const stepEl = document.getElementById(`step-${step}`);
-                const spinnerEl = document.getElementById(`step-${step}-spinner`);
+                const stepEl = container.querySelector(`#step-${step}`);
+                const spinnerEl = container.querySelector(`#step-${step}-spinner`);
                 if (!stepEl) return;
 
                 if (idx < stepNum) {
                     // Completed step
                     stepEl.style.opacity = '1';
-                    stepEl.classList.remove('text-muted');
+                    stepEl.classList.remove('text-body-secondary');
                     stepEl.classList.add('text-success');
                     if (spinnerEl) {
                         spinnerEl.outerHTML = '<span class="text-success me-2">✓</span>';
@@ -223,7 +225,7 @@ class ModelList {
                 } else if (idx === stepNum) {
                     // Current step
                     stepEl.style.opacity = '1';
-                    stepEl.classList.remove('text-muted');
+                    stepEl.classList.remove('text-body-secondary');
                     const icon = stepEl.querySelector('span:first-child');
                     if (icon && !icon.classList.contains('spinner-border')) {
                         icon.outerHTML = '<span class="spinner-border spinner-border-sm text-primary me-2"></span>';
@@ -249,26 +251,27 @@ class ModelList {
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
 
             console.debug('[ModelList] Test response:', data);
-            const loadingDiv = document.getElementById('model-test-loading');
-            const successDiv = document.getElementById('model-test-success');
-            const errorDiv = document.getElementById('model-test-error');
+            // Use container reference instead of document.getElementById()
+            const loadingDiv = container.querySelector('#model-test-loading');
+            const successDiv = container.querySelector('#model-test-success');
+            const errorDiv = container.querySelector('#model-test-error');
 
             if (loadingDiv) loadingDiv.style.display = 'none';
 
             if (data.success) {
                 if (successDiv) {
                     successDiv.style.display = 'block';
-                    const msgEl = document.getElementById('model-test-success-message');
+                    const msgEl = container.querySelector('#model-test-success-message');
                     if (msgEl) msgEl.textContent = data.message || 'Model test successful';
-                    const elapsedEl = document.getElementById('success-elapsed');
+                    const elapsedEl = container.querySelector('#success-elapsed');
                     if (elapsedEl) elapsedEl.textContent = elapsed.toString();
                 }
             } else {
                 if (errorDiv) {
                     errorDiv.style.display = 'block';
-                    const msgEl = document.getElementById('model-test-error-message');
+                    const msgEl = container.querySelector('#model-test-error-message');
                     if (msgEl) msgEl.textContent = data.error || data.message || 'Unknown error';
-                    const elapsedEl = document.getElementById('error-elapsed');
+                    const elapsedEl = container.querySelector('#error-elapsed');
                     if (elapsedEl) elapsedEl.textContent = elapsed.toString();
                 }
             }
@@ -278,15 +281,16 @@ class ModelList {
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
 
             console.error('[ModelList] Test error:', err);
-            const loadingDiv = document.getElementById('model-test-loading');
-            const errorDiv = document.getElementById('model-test-error');
+            // Use container reference instead of document.getElementById()
+            const loadingDiv = container.querySelector('#model-test-loading');
+            const errorDiv = container.querySelector('#model-test-error');
 
             if (loadingDiv) loadingDiv.style.display = 'none';
             if (errorDiv) {
                 errorDiv.style.display = 'block';
-                const msgEl = document.getElementById('model-test-error-message');
+                const msgEl = container.querySelector('#model-test-error-message');
                 if (msgEl) msgEl.textContent = err.message;
-                const elapsedEl = document.getElementById('error-elapsed');
+                const elapsedEl = container.querySelector('#error-elapsed');
                 if (elapsedEl) elapsedEl.textContent = elapsed.toString();
             }
         });
