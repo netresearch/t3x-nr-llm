@@ -58,7 +58,7 @@
                                                 aria-expanded="false" aria-controls="tablePickerCollapse">
                                             <core:icon identifier="actions-database" size="small" />
                                             Load data from database table
-                                            <core:icon identifier="actions-chevron-down" size="small" class="ms-1" />
+                                            <span class="ms-1"><core:icon identifier="actions-chevron-down" size="small" /></span>
                                         </button>
                                     </div>
                                     <div class="collapse" id="tablePickerCollapse">
@@ -118,9 +118,9 @@
                                         <f:case value="table">
                                             The configured table is empty or the table/field configuration is missing.
                                         </f:case>
-                                        <f:default>
+                                        <f:defaultCase>
                                             No data could be fetched automatically.
-                                        </f:default>
+                                        </f:defaultCase>
                                     </f:switch>
                                     You can still enter data manually above.
                                 </div>
