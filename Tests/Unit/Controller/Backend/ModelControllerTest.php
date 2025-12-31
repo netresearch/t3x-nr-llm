@@ -13,6 +13,8 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
+use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -37,6 +39,7 @@ final class ModelControllerTest extends TestCase
     private ProviderRepository&MockObject $providerRepository;
     private PersistenceManagerInterface&MockObject $persistenceManager;
     private ProviderAdapterRegistry&MockObject $providerAdapterRegistry;
+    private ModelDiscoveryInterface&MockObject $modelDiscovery;
     private ModelController $subject;
 
     protected function setUp(): void
@@ -47,6 +50,7 @@ final class ModelControllerTest extends TestCase
         $this->providerRepository = $this->createMock(ProviderRepository::class);
         $this->persistenceManager = $this->createMock(PersistenceManagerInterface::class);
         $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+        $this->modelDiscovery = $this->createMock(ModelDiscoveryInterface::class);
 
         // Create controller using reflection to inject only required dependencies
         $this->subject = $this->createControllerWithDependencies();
@@ -66,6 +70,7 @@ final class ModelControllerTest extends TestCase
         $this->setPrivateProperty($controller, 'providerRepository', $this->providerRepository);
         $this->setPrivateProperty($controller, 'persistenceManager', $this->persistenceManager);
         $this->setPrivateProperty($controller, 'providerAdapterRegistry', $this->providerAdapterRegistry);
+        $this->setPrivateProperty($controller, 'modelDiscovery', $this->modelDiscovery);
 
         return $controller;
     }
@@ -486,7 +491,7 @@ final class ModelControllerTest extends TestCase
     public function testModelActionReturnsErrorForModelWithoutProvider(): void
     {
         $model = $this->createModel(1, true);
-        $model->setProviderUid(0);
+        // Model has no provider set (null)
 
         $this->modelRepository
             ->expects(self::once())
@@ -510,7 +515,6 @@ final class ModelControllerTest extends TestCase
         $model = $this->createModel(1, true);
         $model->setName('GPT-4');
         $model->setModelId('gpt-4');
-        $model->setProviderUid(1);
 
         $provider = new Provider();
         $providerReflection = new ReflectionClass($provider);
@@ -562,7 +566,6 @@ final class ModelControllerTest extends TestCase
         $model = $this->createModel(1, true);
         $model->setName('GPT-4');
         $model->setModelId('gpt-4');
-        $model->setProviderUid(1);
 
         $provider = new Provider();
         $providerReflection = new ReflectionClass($provider);
@@ -597,5 +600,273 @@ final class ModelControllerTest extends TestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertFalse($data['success']);
         self::assertStringContainsString('API connection failed', $data['message']);
+    }
+
+    private function createProvider(int $uid): Provider
+    {
+        $provider = new Provider();
+        $reflection = new ReflectionClass($provider);
+        $uidProperty = $reflection->getProperty('uid');
+        $uidProperty->setValue($provider, $uid);
+        $provider->setName('Test Provider');
+        $provider->setAdapterType('openai');
+        $provider->setApiKey('test-key');
+        return $provider;
+    }
+
+    // fetchAvailableModelsAction tests
+
+    #[Test]
+    public function fetchAvailableModelsActionReturnsErrorForMissingProviderUid(): void
+    {
+        $this->providerRepository
+            ->expects(self::never())
+            ->method('findByUid');
+
+        $request = $this->createRequest([]);
+        $response = $this->subject->fetchAvailableModelsAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('No provider UID', $data['error']);
+    }
+
+    #[Test]
+    public function fetchAvailableModelsActionReturnsErrorForNonexistentProvider(): void
+    {
+        $this->providerRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(99999)
+            ->willReturn(null);
+
+        $request = $this->createRequest(['providerUid' => 99999]);
+        $response = $this->subject->fetchAvailableModelsAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(404, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('Provider not found', $data['error']);
+    }
+
+    #[Test]
+    public function fetchAvailableModelsActionReturnsModelsFromProvider(): void
+    {
+        $provider = $this->createProvider(1);
+
+        $this->providerRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(1)
+            ->willReturn($provider);
+
+        $discoveredModels = [
+            new DiscoveredModel(
+                modelId: 'gpt-4o',
+                name: 'GPT-4o',
+                description: 'Flagship model',
+                capabilities: ['chat', 'vision', 'tools'],
+                contextLength: 128000,
+                maxOutputTokens: 16384,
+            ),
+            new DiscoveredModel(
+                modelId: 'gpt-4o-mini',
+                name: 'GPT-4o Mini',
+                description: 'Fast and cheap',
+                capabilities: ['chat', 'tools'],
+                contextLength: 128000,
+                maxOutputTokens: 16384,
+            ),
+        ];
+
+        $this->modelDiscovery
+            ->expects(self::once())
+            ->method('discover')
+            ->willReturn($discoveredModels);
+
+        $request = $this->createRequest(['providerUid' => 1]);
+        $response = $this->subject->fetchAvailableModelsAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        self::assertCount(2, $data['models']);
+        self::assertSame('gpt-4o', $data['models'][0]['id']);
+        self::assertSame('GPT-4o', $data['models'][0]['name']);
+        self::assertSame(128000, $data['models'][0]['contextLength']);
+        self::assertContains('vision', $data['models'][0]['capabilities']);
+    }
+
+    #[Test]
+    public function fetchAvailableModelsActionReturnsErrorOnDiscoveryException(): void
+    {
+        $provider = $this->createProvider(1);
+
+        $this->providerRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(1)
+            ->willReturn($provider);
+
+        $this->modelDiscovery
+            ->method('discover')
+            ->willThrowException(new RuntimeException('API unavailable'));
+
+        $request = $this->createRequest(['providerUid' => 1]);
+        $response = $this->subject->fetchAvailableModelsAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(500, $response->getStatusCode());
+        self::assertFalse($data['success']);
+        self::assertStringContainsString('API unavailable', $data['error']);
+    }
+
+    // detectLimitsAction tests
+
+    #[Test]
+    public function detectLimitsActionReturnsErrorForMissingProviderUid(): void
+    {
+        $request = $this->createRequest(['modelId' => 'gpt-4o']);
+        $response = $this->subject->detectLimitsAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('No provider UID', $data['error']);
+    }
+
+    #[Test]
+    public function detectLimitsActionReturnsErrorForMissingModelId(): void
+    {
+        $request = $this->createRequest(['providerUid' => 1]);
+        $response = $this->subject->detectLimitsAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('No model ID', $data['error']);
+    }
+
+    #[Test]
+    public function detectLimitsActionReturnsErrorForNonexistentProvider(): void
+    {
+        $this->providerRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(99999)
+            ->willReturn(null);
+
+        $request = $this->createRequest(['providerUid' => 99999, 'modelId' => 'gpt-4o']);
+        $response = $this->subject->detectLimitsAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(404, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('Provider not found', $data['error']);
+    }
+
+    #[Test]
+    public function detectLimitsActionReturnsModelLimits(): void
+    {
+        $provider = $this->createProvider(1);
+
+        $this->providerRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(1)
+            ->willReturn($provider);
+
+        $discoveredModels = [
+            new DiscoveredModel(
+                modelId: 'gpt-4o',
+                name: 'GPT-4o',
+                description: 'Flagship model',
+                capabilities: ['chat', 'vision', 'tools'],
+                contextLength: 128000,
+                maxOutputTokens: 16384,
+            ),
+        ];
+
+        $this->modelDiscovery
+            ->expects(self::once())
+            ->method('discover')
+            ->willReturn($discoveredModels);
+
+        $request = $this->createRequest(['providerUid' => 1, 'modelId' => 'gpt-4o']);
+        $response = $this->subject->detectLimitsAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        self::assertSame(128000, $data['contextLength']);
+        self::assertSame(16384, $data['maxOutputTokens']);
+        self::assertContains('vision', $data['capabilities']);
+    }
+
+    #[Test]
+    public function detectLimitsActionReturnsErrorWhenModelNotFound(): void
+    {
+        $provider = $this->createProvider(1);
+
+        $this->providerRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(1)
+            ->willReturn($provider);
+
+        $discoveredModels = [
+            new DiscoveredModel(
+                modelId: 'gpt-4o-mini',
+                name: 'GPT-4o Mini',
+            ),
+        ];
+
+        $this->modelDiscovery
+            ->expects(self::once())
+            ->method('discover')
+            ->willReturn($discoveredModels);
+
+        $request = $this->createRequest(['providerUid' => 1, 'modelId' => 'gpt-4o']);
+        $response = $this->subject->detectLimitsAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(404, $response->getStatusCode());
+        self::assertFalse($data['success']);
+        self::assertStringContainsString('not found', $data['error']);
+    }
+
+    #[Test]
+    public function detectLimitsActionReturnsErrorOnDiscoveryException(): void
+    {
+        $provider = $this->createProvider(1);
+
+        $this->providerRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(1)
+            ->willReturn($provider);
+
+        $this->modelDiscovery
+            ->method('discover')
+            ->willThrowException(new RuntimeException('API unavailable'));
+
+        $request = $this->createRequest(['providerUid' => 1, 'modelId' => 'gpt-4o']);
+        $response = $this->subject->detectLimitsAction($request);
+
+        $data = json_decode((string)$response->getBody(), true);
+
+        self::assertSame(500, $response->getStatusCode());
+        self::assertFalse($data['success']);
+        self::assertStringContainsString('API unavailable', $data['error']);
     }
 }

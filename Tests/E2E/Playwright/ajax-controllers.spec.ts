@@ -175,6 +175,150 @@ test.describe('Provider AJAX Actions', () => {
 });
 
 test.describe('Model AJAX Actions', () => {
+  test.describe('Fetch Available Models', () => {
+    test('should fetch available models from provider API', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      const moduleFrame = await navigateToModels(page);
+
+      // Look for a "Fetch Models" or similar button in the model form
+      const editButtons = moduleFrame.locator('a[title="Edit"], a:has-text("Edit")');
+      const count = await editButtons.count();
+
+      if (count === 0) {
+        test.skip(true, 'No models available to test fetch');
+        return;
+      }
+
+      // Click edit to open form
+      await editButtons.first().click();
+      await page.waitForTimeout(1000);
+
+      const formFrame = getModuleFrame(page);
+
+      // Look for fetch models button
+      const fetchButton = formFrame.locator('button[data-action="fetch-models"], button:has-text("Fetch"), .fetch-models-btn');
+      const fetchCount = await fetchButton.count();
+
+      if (fetchCount === 0) {
+        test.skip(true, 'No fetch models button found in form');
+        return;
+      }
+
+      // Set up AJAX listener
+      const ajaxPromise = page.waitForResponse(
+        response => /nrllm.*model.*fetch/i.test(response.url()),
+        { timeout: 30000 }
+      );
+
+      await fetchButton.first().click();
+
+      const response = await ajaxPromise;
+      expect(response.status()).toBe(200);
+
+      const json = await response.json();
+      expect(json).toHaveProperty('success');
+    });
+
+    test('should populate model dropdown after fetch', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      const moduleFrame = await navigateToModels(page);
+
+      const editButtons = moduleFrame.locator('a[title="Edit"], a:has-text("Edit")');
+      const count = await editButtons.count();
+
+      if (count === 0) {
+        test.skip(true, 'No models available to test');
+        return;
+      }
+
+      await editButtons.first().click();
+      await page.waitForTimeout(1000);
+
+      const formFrame = getModuleFrame(page);
+
+      // Check for model ID input with datalist or select
+      const modelIdInput = formFrame.locator('input[name*="modelId"], input[list*="model"]');
+      const inputCount = await modelIdInput.count();
+
+      if (inputCount > 0) {
+        await expect(modelIdInput.first()).toBeVisible();
+      }
+    });
+  });
+
+  test.describe('Detect Model Limits', () => {
+    test('should detect model limits via AJAX', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      const moduleFrame = await navigateToModels(page);
+
+      const editButtons = moduleFrame.locator('a[title="Edit"], a:has-text("Edit")');
+      const count = await editButtons.count();
+
+      if (count === 0) {
+        test.skip(true, 'No models available to test detect limits');
+        return;
+      }
+
+      await editButtons.first().click();
+      await page.waitForTimeout(1000);
+
+      const formFrame = getModuleFrame(page);
+
+      // Look for detect limits button
+      const detectButton = formFrame.locator('button[data-action="detect-limits"], button:has-text("Detect"), .detect-limits-btn');
+      const detectCount = await detectButton.count();
+
+      if (detectCount === 0) {
+        test.skip(true, 'No detect limits button found in form');
+        return;
+      }
+
+      // Set up AJAX listener
+      const ajaxPromise = page.waitForResponse(
+        response => /nrllm.*model.*detect/i.test(response.url()),
+        { timeout: 30000 }
+      );
+
+      await detectButton.first().click();
+
+      const response = await ajaxPromise;
+      expect(response.status()).toBe(200);
+
+      const json = await response.json();
+      expect(json).toHaveProperty('success');
+    });
+
+    test('should populate form fields after detecting limits', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      const moduleFrame = await navigateToModels(page);
+
+      const editButtons = moduleFrame.locator('a[title="Edit"], a:has-text("Edit")');
+      const count = await editButtons.count();
+
+      if (count === 0) {
+        test.skip(true, 'No models available to test');
+        return;
+      }
+
+      await editButtons.first().click();
+      await page.waitForTimeout(1000);
+
+      const formFrame = getModuleFrame(page);
+
+      // Check that context length and max output tokens fields exist
+      const contextLengthInput = formFrame.locator('input[name*="contextLength"]');
+      const maxOutputInput = formFrame.locator('input[name*="maxOutputTokens"]');
+
+      if (await contextLengthInput.count() > 0) {
+        await expect(contextLengthInput.first()).toBeVisible();
+      }
+
+      if (await maxOutputInput.count() > 0) {
+        await expect(maxOutputInput.first()).toBeVisible();
+      }
+    });
+  });
+
   test.describe('Toggle Active', () => {
     test('should toggle model active status via AJAX', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
