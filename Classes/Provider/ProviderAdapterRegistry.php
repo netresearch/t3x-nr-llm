@@ -200,7 +200,7 @@ class ProviderAdapterRegistry implements SingletonInterface
             'apiKey' => $provider->getApiKey(),
             'baseUrl' => $provider->getEffectiveEndpointUrl(),
             'defaultModel' => $model->getModelId(),
-            'timeout' => $provider->getTimeout(),
+            'timeout' => $provider->getApiTimeout(),
             'maxRetries' => $provider->getMaxRetries(),
         ]);
 
@@ -247,7 +247,7 @@ class ProviderAdapterRegistry implements SingletonInterface
         $config = [
             'apiKey' => $provider->getApiKey(),
             'baseUrl' => $provider->getEffectiveEndpointUrl(),
-            'timeout' => $provider->getTimeout(),
+            'timeout' => $provider->getApiTimeout(),
             'maxRetries' => $provider->getMaxRetries(),
         ];
 

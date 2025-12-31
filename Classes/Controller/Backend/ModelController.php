@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Controller\Backend\DTO\ModelFormInput;
+use Netresearch\NrLlm\Controller\Backend\DTO\ModelFormInputFactory;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ModelListResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TestConnectionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
-use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
+use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -50,6 +53,8 @@ final class ModelController extends ActionController
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly ProviderAdapterRegistry $providerAdapterRegistry,
+        private readonly ModelDiscoveryInterface $modelDiscovery,
+        private readonly ModelFormInputFactory $formInputFactory,
     ) {}
 
     protected function initializeAction(): void
@@ -65,6 +70,8 @@ final class ModelController extends ActionController
             'nrllm_model_toggle_active' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_toggle_active'),
             'nrllm_model_set_default' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_set_default'),
             'nrllm_model_test' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_test'),
+            'nrllm_model_fetch_available' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_fetch_available'),
+            'nrllm_model_detect_limits' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_detect_limits'),
         ]);
 
         // Load JavaScript for model list actions (ES6 module)
@@ -79,22 +86,7 @@ final class ModelController extends ActionController
         $models = $this->modelRepository->findAll();
         $providers = $this->providerRepository->findActive();
 
-        // Build provider lookup map and populate provider relation on models
-        $providerMap = [];
-        foreach ($providers as $provider) {
-            $uid = $provider->getUid();
-            if ($uid !== null) {
-                $providerMap[$uid] = $provider;
-            }
-        }
-        foreach ($models as $model) {
-            if (!$model instanceof Model) {
-                continue;
-            }
-            if ($model->getProviderUid() > 0) {
-                $model->setProvider($providerMap[$model->getProviderUid()] ?? null);
-            }
-        }
+        // Note: Provider relations are lazy-loaded by Extbase when accessed via $model->getProvider()
 
         $this->moduleTemplate->assignMultiple([
             'models' => $models,
@@ -139,11 +131,22 @@ final class ModelController extends ActionController
             }
         }
 
+        $selectedCapabilities = $model?->getCapabilitiesArray() ?? [];
         $this->moduleTemplate->assignMultiple([
             'model' => $model,
             'providers' => $this->providerRepository->findActive(),
             'capabilities' => Model::getAllCapabilities(),
+            'selectedCapabilities' => $selectedCapabilities,
             'isNew' => $model === null,
+            // Individual capability flags for reliable template rendering
+            'hasChat' => in_array(Model::CAPABILITY_CHAT, $selectedCapabilities, true),
+            'hasCompletion' => in_array(Model::CAPABILITY_COMPLETION, $selectedCapabilities, true),
+            'hasEmbeddings' => in_array(Model::CAPABILITY_EMBEDDINGS, $selectedCapabilities, true),
+            'hasVision' => in_array(Model::CAPABILITY_VISION, $selectedCapabilities, true),
+            'hasStreaming' => in_array(Model::CAPABILITY_STREAMING, $selectedCapabilities, true),
+            'hasTools' => in_array(Model::CAPABILITY_TOOLS, $selectedCapabilities, true),
+            'hasJsonMode' => in_array(Model::CAPABILITY_JSON_MODE, $selectedCapabilities, true),
+            'hasAudio' => in_array(Model::CAPABILITY_AUDIO, $selectedCapabilities, true),
         ]);
 
         // Add shortcut/bookmark button to docheader
@@ -163,6 +166,9 @@ final class ModelController extends ActionController
             ->setHref((string)$this->uriBuilder->reset()->uriFor('list'));
         $this->moduleTemplate->addButtonToButtonBar($backButton);
 
+        // Load ModelForm JavaScript for fetch/detect functionality
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/ModelForm.js');
+
         return $this->moduleTemplate->renderResponse('Backend/Model/Edit');
     }
 
@@ -174,8 +180,9 @@ final class ModelController extends ActionController
         $body = $this->request->getParsedBody();
         $data = $this->extractModelData($body);
 
-        $model = new Model();
-        $this->mapDataToModel($model, $data);
+        // Create DTO from form data and use factory to create entity
+        $formInput = ModelFormInput::fromRequestData($data);
+        $model = $this->formInputFactory->createFromInput($formInput);
 
         // Validate identifier uniqueness
         if (!$this->modelRepository->isIdentifierUnique($model->getIdentifier())) {
@@ -187,14 +194,6 @@ final class ModelController extends ActionController
             return new RedirectResponse(
                 $this->uriBuilder->reset()->uriFor('edit'),
             );
-        }
-
-        // Validate provider exists
-        if ($model->getProviderUid() > 0) {
-            $provider = $this->providerRepository->findByUid($model->getProviderUid());
-            if ($provider !== null) {
-                $model->setProvider($provider);
-            }
         }
 
         try {
@@ -239,13 +238,15 @@ final class ModelController extends ActionController
         $body = $this->request->getParsedBody();
         $data = $this->extractModelData($body);
 
+        // Create DTO from form data
+        $formInput = ModelFormInput::fromRequestData($data);
+
         // Validate identifier uniqueness (excluding current record)
-        $newIdentifier = $data['identifier'] ?? '';
-        if (is_string($newIdentifier) && $newIdentifier !== $model->getIdentifier()
-            && !$this->modelRepository->isIdentifierUnique($newIdentifier, $uid)
+        if ($formInput->identifier !== $model->getIdentifier()
+            && !$this->modelRepository->isIdentifierUnique($formInput->identifier, $uid)
         ) {
             $this->addFlashMessage(
-                sprintf('Identifier "%s" is already in use', $newIdentifier),
+                sprintf('Identifier "%s" is already in use', $formInput->identifier),
                 'Validation Error',
                 ContextualFeedbackSeverity::ERROR,
             );
@@ -254,15 +255,8 @@ final class ModelController extends ActionController
             );
         }
 
-        $this->mapDataToModel($model, $data);
-
-        // Update provider relation
-        if ($model->getProviderUid() > 0) {
-            $provider = $this->providerRepository->findByUid($model->getProviderUid());
-            if ($provider !== null) {
-                $model->setProvider($provider);
-            }
-        }
+        // Use factory to update entity from DTO
+        $this->formInputFactory->updateFromInput($model, $formInput);
 
         try {
             $this->modelRepository->update($model);
@@ -418,14 +412,7 @@ final class ModelController extends ActionController
             return new JsonResponse((new ErrorResponse('Model not found'))->jsonSerialize(), 404);
         }
 
-        // Ensure we have the Provider entity loaded
-        if ($model->getProviderUid() > 0 && $model->getProvider() === null) {
-            $provider = $this->providerRepository->findByUid($model->getProviderUid());
-            if ($provider !== null) {
-                $model->setProvider($provider);
-            }
-        }
-
+        // Provider is lazy-loaded by Extbase
         if ($model->getProvider() === null) {
             return new JsonResponse((new ErrorResponse('Model has no provider configured'))->jsonSerialize(), 400);
         }
@@ -476,6 +463,154 @@ final class ModelController extends ActionController
     }
 
     /**
+     * AJAX: Fetch available model IDs from provider's API.
+     *
+     * Uses the ModelDiscoveryService to query the provider's API and return
+     * a list of available models that can be used in the model_id field.
+     */
+    public function fetchAvailableModelsAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $body = $request->getParsedBody();
+        $providerUid = $this->extractIntFromBody($body, 'providerUid');
+
+        if ($providerUid === 0) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'No provider UID specified',
+            ], 400);
+        }
+
+        $provider = $this->providerRepository->findByUid($providerUid);
+        if ($provider === null) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'Provider not found',
+            ], 404);
+        }
+
+        try {
+            // Create a DetectedProvider to use with ModelDiscoveryService
+            $detected = new DetectedProvider(
+                adapterType: $provider->getAdapterType(),
+                suggestedName: $provider->getName(),
+                endpoint: $provider->getEffectiveEndpointUrl(),
+            );
+
+            // Discover available models from the provider's API
+            $discoveredModels = $this->modelDiscovery->discover(
+                $detected,
+                $provider->getDecryptedApiKey(),
+            );
+
+            // Convert to simple array for JSON response
+            $models = [];
+            foreach ($discoveredModels as $model) {
+                $models[] = [
+                    'id' => $model->modelId,
+                    'name' => $model->name,
+                    'contextLength' => $model->contextLength,
+                    'maxOutputTokens' => $model->maxOutputTokens,
+                    'capabilities' => $model->capabilities,
+                ];
+            }
+
+            return new JsonResponse([
+                'success' => true,
+                'models' => $models,
+                'providerName' => $provider->getName(),
+            ]);
+        } catch (Throwable $e) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * AJAX: Detect model limits by querying the provider's API.
+     *
+     * Takes a provider UID and model ID, queries the provider's API,
+     * and returns the model's context length, max output tokens, and capabilities.
+     */
+    public function detectLimitsAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $body = $request->getParsedBody();
+        $providerUid = $this->extractIntFromBody($body, 'providerUid');
+        $modelId = $this->extractStringFromBody($body, 'modelId');
+
+        if ($providerUid === 0) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'No provider UID specified',
+            ], 400);
+        }
+
+        if ($modelId === '') {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'No model ID specified',
+            ], 400);
+        }
+
+        $provider = $this->providerRepository->findByUid($providerUid);
+        if ($provider === null) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'Provider not found',
+            ], 404);
+        }
+
+        try {
+            // Create a DetectedProvider to use with ModelDiscovery
+            $detected = new DetectedProvider(
+                adapterType: $provider->getAdapterType(),
+                suggestedName: $provider->getName(),
+                endpoint: $provider->getEffectiveEndpointUrl(),
+            );
+
+            // Discover available models from the provider's API
+            $discoveredModels = $this->modelDiscovery->discover(
+                $detected,
+                $provider->getDecryptedApiKey(),
+            );
+
+            // Find the specific model
+            $foundModel = null;
+            foreach ($discoveredModels as $model) {
+                if ($model->modelId === $modelId) {
+                    $foundModel = $model;
+                    break;
+                }
+            }
+
+            if ($foundModel === null) {
+                return new JsonResponse([
+                    'success' => false,
+                    'error' => sprintf('Model "%s" not found in provider\'s available models', $modelId),
+                ], 404);
+            }
+
+            return new JsonResponse([
+                'success' => true,
+                'modelId' => $foundModel->modelId,
+                'name' => $foundModel->name,
+                'description' => $foundModel->description,
+                'contextLength' => $foundModel->contextLength,
+                'maxOutputTokens' => $foundModel->maxOutputTokens,
+                'capabilities' => $foundModel->capabilities,
+                'costInput' => $foundModel->costInput,
+                'costOutput' => $foundModel->costOutput,
+            ]);
+        } catch (Throwable $e) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Extract model data from request body.
      *
      * @return array<string, mixed>
@@ -513,53 +648,16 @@ final class ModelController extends ActionController
     }
 
     /**
-     * Map form data to model entity.
-     *
-     * @param array<string, mixed> $data
+     * Extract string value from request body.
      */
-    private function mapDataToModel(Model $model, array $data): void
+    private function extractStringFromBody(mixed $body, string $key): string
     {
-        if (isset($data['identifier']) && is_scalar($data['identifier'])) {
-            $model->setIdentifier((string)$data['identifier']);
+        if (!is_array($body)) {
+            return '';
         }
-        if (isset($data['name']) && is_scalar($data['name'])) {
-            $model->setName((string)$data['name']);
-        }
-        if (isset($data['description']) && is_scalar($data['description'])) {
-            $model->setDescription((string)$data['description']);
-        }
-        if (isset($data['providerUid']) && is_numeric($data['providerUid'])) {
-            $model->setProviderUid((int)$data['providerUid']);
-        }
-        if (isset($data['modelId']) && is_scalar($data['modelId'])) {
-            $model->setModelId((string)$data['modelId']);
-        }
-        if (isset($data['contextLength']) && is_numeric($data['contextLength'])) {
-            $model->setContextLength((int)$data['contextLength']);
-        }
-        if (isset($data['maxOutputTokens']) && is_numeric($data['maxOutputTokens'])) {
-            $model->setMaxOutputTokens((int)$data['maxOutputTokens']);
-        }
-        if (isset($data['capabilities'])) {
-            if (is_array($data['capabilities'])) {
-                /** @var array<string> $capabilities */
-                $capabilities = array_filter($data['capabilities'], is_string(...));
-                $model->setCapabilitiesArray($capabilities);
-            } elseif (is_string($data['capabilities'])) {
-                $model->setCapabilities($data['capabilities']);
-            }
-        }
-        if (isset($data['costInput']) && is_numeric($data['costInput'])) {
-            $model->setCostInput((int)$data['costInput']);
-        }
-        if (isset($data['costOutput']) && is_numeric($data['costOutput'])) {
-            $model->setCostOutput((int)$data['costOutput']);
-        }
-        if (isset($data['isActive'])) {
-            $model->setIsActive((bool)$data['isActive']);
-        }
-        if (isset($data['isDefault'])) {
-            $model->setIsDefault((bool)$data['isDefault']);
-        }
+
+        $value = $body[$key] ?? '';
+
+        return is_scalar($value) ? trim((string)$value) : '';
     }
 }

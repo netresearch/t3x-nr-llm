@@ -404,8 +404,8 @@ final class ProviderController extends ActionController
         if (isset($data['organizationId']) && is_scalar($data['organizationId'])) {
             $provider->setOrganizationId((string)$data['organizationId']);
         }
-        if (isset($data['timeout']) && is_numeric($data['timeout'])) {
-            $provider->setTimeout((int)$data['timeout']);
+        if (isset($data['apiTimeout']) && is_numeric($data['apiTimeout'])) {
+            $provider->setApiTimeout((int)$data['apiTimeout']);
         }
         if (isset($data['maxRetries']) && is_numeric($data['maxRetries'])) {
             $provider->setMaxRetries((int)$data['maxRetries']);

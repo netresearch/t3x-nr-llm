@@ -8,6 +8,7 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use Throwable;
 
 /**
@@ -15,11 +16,12 @@ use Throwable;
  *
  * Model information updated: December 2025
  */
-final readonly class ModelDiscovery
+final readonly class ModelDiscovery implements ModelDiscoveryInterface
 {
     public function __construct(
         private ClientInterface $httpClient,
         private RequestFactoryInterface $requestFactory,
+        private StreamFactoryInterface $streamFactory,
     ) {}
 
     /**
@@ -553,13 +555,16 @@ final readonly class ModelDiscovery
                     continue;
                 }
 
+                // Get model details via /api/show to retrieve context length
+                $modelDetails = $this->getOllamaModelDetails($endpoint, $modelId);
+
                 $models[] = new DiscoveredModel(
                     modelId: $modelId,
                     name: $modelId,
-                    description: 'Local Ollama model',
-                    capabilities: ['chat'],
-                    contextLength: 0,
-                    maxOutputTokens: 0,
+                    description: $modelDetails['description'],
+                    capabilities: $modelDetails['capabilities'],
+                    contextLength: $modelDetails['contextLength'],
+                    maxOutputTokens: $modelDetails['maxOutputTokens'],
                     costInput: 0,
                     costOutput: 0,
                     recommended: true,
@@ -570,6 +575,136 @@ final readonly class ModelDiscovery
         } catch (Throwable) {
             return [];
         }
+    }
+
+    /**
+     * Get detailed model info from Ollama's /api/show endpoint.
+     *
+     * @return array{description: string, capabilities: array<string>, contextLength: int, maxOutputTokens: int}
+     */
+    private function getOllamaModelDetails(string $endpoint, string $modelId): array
+    {
+        $defaults = [
+            'description' => 'Local Ollama model',
+            'capabilities' => ['chat'],
+            'contextLength' => 0,
+            'maxOutputTokens' => 0,
+        ];
+
+        try {
+            // Create body with model name
+            $body = json_encode(['name' => $modelId], JSON_THROW_ON_ERROR);
+            $stream = $this->streamFactory->createStream($body);
+
+            $request = $this->requestFactory->createRequest('POST', $endpoint . '/api/show')
+                ->withHeader('Content-Type', 'application/json')
+                ->withBody($stream);
+
+            $response = $this->httpClient->sendRequest($request);
+
+            if ($response->getStatusCode() !== 200) {
+                return $defaults;
+            }
+
+            $data = json_decode($response->getBody()->getContents(), true);
+            if (!is_array($data)) {
+                return $defaults;
+            }
+
+            // Extract model parameters
+            $modelInfo = isset($data['model_info']) && is_array($data['model_info'])
+                ? $data['model_info']
+                : [];
+
+            // Context length is in model_info or parameters
+            $contextLength = 0;
+            $parameters = isset($data['parameters']) && is_string($data['parameters'])
+                ? $data['parameters']
+                : '';
+
+            // Try to get from model_info (newer Ollama versions)
+            foreach ($modelInfo as $key => $value) {
+                if (str_contains(strtolower((string)$key), 'context') && is_numeric($value)) {
+                    $contextLength = (int)$value;
+                    break;
+                }
+            }
+
+            // Try to parse from parameters string (e.g., "num_ctx 32768")
+            if ($contextLength === 0 && $parameters !== '') {
+                if (preg_match('/num_ctx\s+(\d+)/i', $parameters, $matches)) {
+                    $contextLength = (int)$matches[1];
+                }
+            }
+
+            // Detect capabilities based on model family
+            $capabilities = ['chat'];
+            $modelIdLower = strtolower($modelId);
+
+            // Vision models
+            if (str_contains($modelIdLower, 'vision') || str_contains($modelIdLower, 'llava')) {
+                $capabilities[] = 'vision';
+            }
+
+            // Tool-use models (qwen, llama 3.x, mistral, etc.)
+            if (str_contains($modelIdLower, 'qwen')
+                || str_contains($modelIdLower, 'llama3')
+                || str_contains($modelIdLower, 'mistral')
+                || str_contains($modelIdLower, 'mixtral')) {
+                $capabilities[] = 'tools';
+            }
+
+            // Ollama doesn't expose max output tokens, so derive sensible defaults
+            // Most models can output up to 1/4 of context, with reasonable caps
+            $maxOutputTokens = $this->estimateOllamaMaxOutput($modelIdLower, $contextLength);
+
+            return [
+                'description' => 'Local Ollama model',
+                'capabilities' => $capabilities,
+                'contextLength' => $contextLength,
+                'maxOutputTokens' => $maxOutputTokens,
+            ];
+        } catch (Throwable) {
+            return $defaults;
+        }
+    }
+
+    /**
+     * Estimate max output tokens for Ollama models.
+     *
+     * Ollama doesn't expose this, so we use model-specific defaults
+     * or derive from context length.
+     */
+    private function estimateOllamaMaxOutput(string $modelIdLower, int $contextLength): int
+    {
+        // Known model limits (December 2025)
+        $knownLimits = [
+            'qwen' => 8192,      // Qwen models typically 8K output
+            'llama3' => 8192,    // Llama 3.x models
+            'llama-3' => 8192,
+            'mistral' => 8192,   // Mistral models
+            'mixtral' => 8192,
+            'gemma' => 8192,     // Gemma models
+            'phi' => 4096,       // Phi models (smaller)
+            'codellama' => 16384, // Code models need longer output
+            'deepseek' => 8192,
+            'yi' => 4096,
+        ];
+
+        // Check for known model families
+        foreach ($knownLimits as $family => $limit) {
+            if (str_contains($modelIdLower, $family)) {
+                return $limit;
+            }
+        }
+
+        // If we have context length, use 1/4 of it (capped at 16K)
+        if ($contextLength > 0) {
+            return min((int)($contextLength / 4), 16384);
+        }
+
+        // Default fallback
+        return 4096;
     }
 
     /**

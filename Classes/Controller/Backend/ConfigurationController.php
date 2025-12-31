@@ -14,7 +14,6 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
-use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -50,7 +49,6 @@ final class ConfigurationController extends ActionController
         private readonly LlmConfigurationService $configurationService,
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly ModelRepository $modelRepository,
-        private readonly ProviderRepository $providerRepository,
         private readonly LlmServiceManagerInterface $llmServiceManager,
         private readonly ProviderAdapterRegistry $providerAdapterRegistry,
         private readonly PageRenderer $pageRenderer,
@@ -81,41 +79,8 @@ final class ConfigurationController extends ActionController
      */
     public function listAction(): ResponseInterface
     {
+        // Note: Model and Provider relations are lazy-loaded by Extbase when accessed
         $configurations = $this->configurationRepository->findAll();
-
-        // Build lookup maps for models and providers
-        $models = $this->modelRepository->findAll();
-        $providers = $this->providerRepository->findActive();
-
-        $providerMap = [];
-        foreach ($providers as $provider) {
-            $uid = $provider->getUid();
-            if ($uid !== null) {
-                $providerMap[$uid] = $provider;
-            }
-        }
-
-        $modelMap = [];
-        foreach ($models as $model) {
-            if (!$model instanceof Model) {
-                continue;
-            }
-            $uid = $model->getUid();
-            if ($uid !== null) {
-                // Populate provider on model
-                if ($model->getProviderUid() > 0) {
-                    $model->setProvider($providerMap[$model->getProviderUid()] ?? null);
-                }
-                $modelMap[$uid] = $model;
-            }
-        }
-
-        // Populate llmModel on configurations
-        foreach ($configurations as $config) {
-            if ($config instanceof LlmConfiguration && $config->getModelUid() > 0) {
-                $config->setLlmModel($modelMap[$config->getModelUid()] ?? null);
-            }
-        }
 
         $this->moduleTemplate->assignMultiple([
             'configurations' => $configurations,
@@ -530,49 +495,29 @@ final class ConfigurationController extends ActionController
     /**
      * Hydrate Model→Provider relations for a configuration.
      *
-     * Extbase doesn't automatically load nested relations, so we need to
-     * manually populate the Model and Provider objects for proper resolution.
+     * Triggers lazy loading of Model and Provider relations for proper resolution.
+     *
+     * @deprecated Relations are now lazy-loaded by Extbase. Will be removed in next major version.
      */
     private function hydrateConfigurationRelations(LlmConfiguration $configuration): void
     {
-        if ($configuration->getModelUid() <= 0) {
-            return;
-        }
-
-        $model = $this->modelRepository->findByUid($configuration->getModelUid());
-        if ($model === null) {
-            return;
-        }
-
-        // Populate provider on model
-        if ($model->getProviderUid() > 0) {
-            $provider = $this->providerRepository->findByUid($model->getProviderUid());
-            if ($provider !== null) {
-                $model->setProvider($provider);
-            }
-        }
-
-        $configuration->setLlmModel($model);
+        // Relations are lazy-loaded by Extbase when accessed via getLlmModel() / getProvider()
+        // This method is kept for backward compatibility but does nothing.
     }
 
     /**
      * Hydrate Provider relations for a collection of models.
      *
-     * Extbase doesn't automatically lazy-load relations when iterating,
-     * so we need to manually populate Provider objects for display.
+     * Triggers lazy loading of Provider relations for display.
      *
      * @param iterable<Model> $models
+     *
+     * @deprecated Relations are now lazy-loaded by Extbase. Will be removed in next major version.
      */
     private function hydrateModelsProviderRelations(iterable $models): void
     {
-        foreach ($models as $model) {
-            if ($model->getProviderUid() > 0 && $model->getProvider() === null) {
-                $provider = $this->providerRepository->findByUid($model->getProviderUid());
-                if ($provider !== null) {
-                    $model->setProvider($provider);
-                }
-            }
-        }
+        // Relations are lazy-loaded by Extbase when accessed via getProvider()
+        // This method is kept for backward compatibility but does nothing.
     }
 
     /**
@@ -622,6 +567,9 @@ final class ConfigurationController extends ActionController
         }
         if (isset($data['presencePenalty']) && is_numeric($data['presencePenalty'])) {
             $configuration->setPresencePenalty((float)$data['presencePenalty']);
+        }
+        if (isset($data['timeout']) && is_numeric($data['timeout'])) {
+            $configuration->setTimeout((int)$data['timeout']);
         }
         if (isset($data['options']) && is_scalar($data['options'])) {
             $configuration->setOptions((string)$data['options']);

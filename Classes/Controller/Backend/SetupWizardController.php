@@ -14,7 +14,7 @@ use Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\SuggestedConfiguration;
-use Netresearch\NrLlm\Service\SetupWizard\ModelDiscovery;
+use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -45,7 +45,7 @@ final class SetupWizardController extends ActionController
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly ProviderDetector $providerDetector,
-        private readonly ModelDiscovery $modelDiscovery,
+        private readonly ModelDiscoveryInterface $modelDiscovery,
         private readonly ConfigurationGenerator $configurationGenerator,
         private readonly ProviderRepository $providerRepository,
         private readonly ModelRepository $modelRepository,
