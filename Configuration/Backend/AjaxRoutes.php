@@ -93,6 +93,10 @@ return [
         'path' => '/nrllm/task/refresh-input',
         'target' => \Netresearch\NrLlm\Controller\Backend\TaskController::class . '::refreshInputAction',
     ],
+    'nrllm_task_execute' => [
+        'path' => '/nrllm/task/execute',
+        'target' => \Netresearch\NrLlm\Controller\Backend\TaskController::class . '::executeAction',
+    ],
 
     // Setup Wizard routes
     'nrllm_wizard_detect' => [

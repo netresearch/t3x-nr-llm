@@ -6,11 +6,7 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
-    <div class="container" data-task-execute data-task-uid="{task.uid}"
-         data-execute-url="{be:moduleLink(route:'nrllm_tasks', arguments:{action: 'execute'})}"
-         data-list-tables-url="{f:uri.action(action:'listTables', controller:'Task', absolute:true)}"
-         data-fetch-records-url="{f:uri.action(action:'fetchRecords', controller:'Task', absolute:true)}"
-         data-refresh-input-url="{f:uri.action(action:'refreshInput', controller:'Task', absolute:true)}">
+    <div class="container" data-task-execute data-task-uid="{task.uid}">
 
         <f:be.infobox
             title="One-Shot Prompt"

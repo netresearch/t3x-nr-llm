@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
@@ -259,6 +260,7 @@ final class TaskController extends ActionController
             'nrllm_task_fetch_records' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_fetch_records'),
             'nrllm_task_load_record_data' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_load_record_data'),
             'nrllm_task_refresh_input' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_refresh_input'),
+            'nrllm_task_execute' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_execute'),
         ]);
 
         // Load JavaScript module for task execution
@@ -279,11 +281,11 @@ final class TaskController extends ActionController
     /**
      * Execute a task via AJAX.
      */
-    public function executeAction(): ResponseInterface
+    public function executeAction(ServerRequestInterface $request): ResponseInterface
     {
-        $request = ExecuteTaskRequest::fromRequest($this->request);
+        $dto = ExecuteTaskRequest::fromRequest($request);
 
-        $task = $this->taskRepository->findByUid($request->uid);
+        $task = $this->taskRepository->findByUid($dto->uid);
         if ($task === null) {
             return new JsonResponse(['error' => 'Task not found'], 404);
         }
@@ -294,7 +296,7 @@ final class TaskController extends ActionController
 
         try {
             // Build the prompt with input
-            $prompt = $task->buildPrompt(['input' => $request->input]);
+            $prompt = $task->buildPrompt(['input' => $dto->input]);
 
             // Get configuration (lazy-loaded by Extbase)
             $configuration = $task->getConfiguration();
@@ -371,21 +373,21 @@ final class TaskController extends ActionController
     /**
      * Fetch records from a database table.
      */
-    public function fetchRecordsAction(): ResponseInterface
+    public function fetchRecordsAction(ServerRequestInterface $request): ResponseInterface
     {
-        $request = FetchRecordsRequest::fromRequest($this->request);
+        $dto = FetchRecordsRequest::fromRequest($request);
 
-        if (!$request->isValid()) {
+        if (!$dto->isValid()) {
             return new JsonResponse(['success' => false, 'error' => 'No table specified'], 400);
         }
 
         try {
             // Determine label field if not specified
-            $labelField = $request->labelField !== ''
-                ? $request->labelField
-                : $this->detectLabelField($request->table);
+            $labelField = $dto->labelField !== ''
+                ? $dto->labelField
+                : $this->detectLabelField($dto->table);
 
-            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($request->table);
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($dto->table);
 
             // Build select fields
             $selectFields = ['uid'];
@@ -395,8 +397,8 @@ final class TaskController extends ActionController
 
             $queryBuilder
                 ->select(...$selectFields)
-                ->from($request->table)
-                ->setMaxResults($request->limit);
+                ->from($dto->table)
+                ->setMaxResults($dto->limit);
 
             // Add ordering if we have a label field
             if ($labelField !== '' && $labelField !== 'uid') {
@@ -436,24 +438,24 @@ final class TaskController extends ActionController
     /**
      * Load full record data for selected records.
      */
-    public function loadRecordDataAction(): ResponseInterface
+    public function loadRecordDataAction(ServerRequestInterface $request): ResponseInterface
     {
-        $request = LoadRecordDataRequest::fromRequest($this->request);
+        $dto = LoadRecordDataRequest::fromRequest($request);
 
-        if (!$request->isValid()) {
-            $error = $request->table === '' || $request->uids === ''
+        if (!$dto->isValid()) {
+            $error = $dto->table === '' || $dto->uids === ''
                 ? 'Table and UIDs required'
                 : 'No valid UIDs provided';
             return new JsonResponse(['success' => false, 'error' => $error], 400);
         }
 
         try {
-            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($request->table);
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($dto->table);
             $queryBuilder
                 ->select('*')
-                ->from($request->table)
+                ->from($dto->table)
                 ->where(
-                    $queryBuilder->expr()->in('uid', $request->uidList),
+                    $queryBuilder->expr()->in('uid', $dto->uidList),
                 );
 
             $rows = $queryBuilder->executeQuery()->fetchAllAssociative();
@@ -477,11 +479,11 @@ final class TaskController extends ActionController
     /**
      * Refresh input data for a task via AJAX.
      */
-    public function refreshInputAction(): ResponseInterface
+    public function refreshInputAction(ServerRequestInterface $request): ResponseInterface
     {
-        $request = RefreshInputRequest::fromRequest($this->request);
+        $dto = RefreshInputRequest::fromRequest($request);
 
-        $task = $this->taskRepository->findByUid($request->uid);
+        $task = $this->taskRepository->findByUid($dto->uid);
         if ($task === null) {
             return new JsonResponse(['success' => false, 'error' => 'Task not found'], 404);
         }

@@ -10,7 +10,7 @@ class TaskExecute {
         if (!this.container) return;
 
         this.taskUid = this.container.dataset.taskUid;
-        this.executeUrl = this.container.dataset.executeUrl;
+        this.executeUrl = TYPO3.settings.ajaxUrls.nrllm_task_execute;
         this.listTablesUrl = TYPO3.settings.ajaxUrls.nrllm_task_list_tables;
         this.fetchRecordsUrl = TYPO3.settings.ajaxUrls.nrllm_task_fetch_records;
         this.refreshInputUrl = TYPO3.settings.ajaxUrls.nrllm_task_refresh_input;

@@ -117,7 +117,6 @@ return [
                 'save',
                 'delete',
                 'executeForm',
-                'execute',
             ],
         ],
     ],
