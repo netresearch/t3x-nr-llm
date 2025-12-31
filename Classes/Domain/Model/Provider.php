@@ -36,10 +36,11 @@ class Provider extends AbstractEntity
     protected string $endpointUrl = '';
     protected string $apiKey = '';
     protected string $organizationId = '';
-    protected int $timeout = 30;
+    protected int $apiTimeout = 30;
     protected int $maxRetries = 3;
     protected string $options = '';
     protected bool $isActive = true;
+    protected int $priority = 50;
     protected int $sorting = 0;
     protected int $tstamp = 0;
     protected int $crdate = 0;
@@ -120,9 +121,17 @@ class Provider extends AbstractEntity
         return $this->organizationId;
     }
 
+    public function getApiTimeout(): int
+    {
+        return $this->apiTimeout;
+    }
+
+    /**
+     * Alias for getApiTimeout (compatibility).
+     */
     public function getTimeout(): int
     {
-        return $this->timeout;
+        return $this->getApiTimeout();
     }
 
     public function getMaxRetries(): int
@@ -161,6 +170,11 @@ class Provider extends AbstractEntity
     public function isActive(): bool
     {
         return $this->isActive;
+    }
+
+    public function getPriority(): int
+    {
+        return $this->priority;
     }
 
     public function getSorting(): int
@@ -253,9 +267,17 @@ class Provider extends AbstractEntity
         $this->organizationId = $organizationId;
     }
 
+    public function setApiTimeout(int $apiTimeout): void
+    {
+        $this->apiTimeout = max(1, $apiTimeout);
+    }
+
+    /**
+     * Alias for setApiTimeout (compatibility).
+     */
     public function setTimeout(int $timeout): void
     {
-        $this->timeout = max(1, $timeout);
+        $this->setApiTimeout($timeout);
     }
 
     public function setMaxRetries(int $maxRetries): void
@@ -281,6 +303,11 @@ class Provider extends AbstractEntity
     public function setIsActive(bool $isActive): void
     {
         $this->isActive = $isActive;
+    }
+
+    public function setPriority(int $priority): void
+    {
+        $this->priority = max(0, min(100, $priority));
     }
 
     public function setSorting(int $sorting): void
@@ -387,7 +414,7 @@ class Provider extends AbstractEntity
         $config = [
             'api_key' => $this->getDecryptedApiKey(),
             'endpoint' => $this->getEffectiveEndpointUrl(),
-            'timeout' => $this->timeout,
+            'api_timeout' => $this->apiTimeout,
             'max_retries' => $this->maxRetries,
         ];
 

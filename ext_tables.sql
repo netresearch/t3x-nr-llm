@@ -17,15 +17,16 @@ CREATE TABLE tx_nrllm_provider (
     api_key varchar(500) DEFAULT '' NOT NULL,
     organization_id varchar(100) DEFAULT '' NOT NULL,
 
-    -- Request settings
-    timeout int(11) DEFAULT '30' NOT NULL,
+    -- Request settings (for API operations like list models, test connection)
+    api_timeout int(11) DEFAULT '30' NOT NULL,
     max_retries int(11) DEFAULT '3' NOT NULL,
 
     -- Additional options (JSON)
     options text,
 
-    -- Status
+    -- Status and Priority
     is_active tinyint(1) DEFAULT '1' NOT NULL,
+    priority int(11) DEFAULT '50' NOT NULL,
     sorting int(11) unsigned DEFAULT '0' NOT NULL,
 
     -- Standard TYPO3 fields
@@ -37,7 +38,8 @@ CREATE TABLE tx_nrllm_provider (
 
     PRIMARY KEY (uid),
     KEY parent (pid),
-    UNIQUE KEY identifier (identifier, deleted)
+    KEY identifier (identifier),
+    KEY priority_active (priority, is_active)
 );
 
 #
@@ -64,6 +66,9 @@ CREATE TABLE tx_nrllm_model (
     -- Capabilities (comma-separated: chat,completion,embeddings,vision,streaming,tools)
     capabilities varchar(255) DEFAULT '' NOT NULL,
 
+    -- Default timeout for LLM inference (seconds, 0 = provider default)
+    default_timeout int(11) DEFAULT '120' NOT NULL,
+
     -- Pricing (cents per 1M tokens)
     cost_input int(11) unsigned DEFAULT '0' NOT NULL,
     cost_output int(11) unsigned DEFAULT '0' NOT NULL,
@@ -83,7 +88,7 @@ CREATE TABLE tx_nrllm_model (
     PRIMARY KEY (uid),
     KEY parent (pid),
     KEY provider_uid (provider_uid),
-    UNIQUE KEY identifier (identifier, deleted)
+    KEY identifier (identifier)
 );
 
 #
@@ -102,6 +107,10 @@ CREATE TABLE tx_nrllm_configuration (
     -- Model relation (new multi-tier architecture)
     model_uid int(11) unsigned DEFAULT '0' NOT NULL,
 
+    -- Dynamic model selection (criteria-based runtime selection)
+    model_selection_mode varchar(20) DEFAULT 'fixed' NOT NULL,
+    model_selection_criteria text,
+
     -- Provider configuration (deprecated - kept for migration)
     provider varchar(50) DEFAULT '' NOT NULL,
     model varchar(100) DEFAULT '' NOT NULL,
@@ -114,6 +123,7 @@ CREATE TABLE tx_nrllm_configuration (
     top_p decimal(3,2) DEFAULT '1.00' NOT NULL,
     frequency_penalty decimal(3,2) DEFAULT '0.00' NOT NULL,
     presence_penalty decimal(3,2) DEFAULT '0.00' NOT NULL,
+    timeout int(11) DEFAULT '0' NOT NULL,
     options text,
 
     -- Usage limits
@@ -139,7 +149,7 @@ CREATE TABLE tx_nrllm_configuration (
     PRIMARY KEY (uid),
     KEY parent (pid),
     KEY model_uid (model_uid),
-    UNIQUE KEY identifier (identifier, deleted)
+    KEY identifier (identifier)
 );
 
 #
@@ -153,6 +163,54 @@ CREATE TABLE tx_nrllm_configuration_begroups_mm (
 
     KEY uid_local (uid_local),
     KEY uid_foreign (uid_foreign)
+);
+
+#
+# Table structure for table 'tx_nrllm_task'
+# One-shot prompt tasks for common operations (demonstration/utility)
+#
+CREATE TABLE tx_nrllm_task (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    -- Identity
+    identifier varchar(100) DEFAULT '' NOT NULL,
+    name varchar(255) DEFAULT '' NOT NULL,
+    description text,
+
+    -- Category for grouping
+    category varchar(50) DEFAULT 'general' NOT NULL,
+
+    -- Configuration relation
+    configuration_uid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Prompt template (with {{input}} placeholder)
+    prompt_template mediumtext,
+
+    -- Input configuration
+    input_type varchar(50) DEFAULT 'manual' NOT NULL,
+    input_source text,
+
+    -- Output configuration
+    output_format varchar(20) DEFAULT 'markdown' NOT NULL,
+
+    -- Status
+    is_active tinyint(1) DEFAULT '1' NOT NULL,
+    is_system tinyint(1) DEFAULT '0' NOT NULL,
+    sorting int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Standard TYPO3 fields
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    cruser_id int(11) unsigned DEFAULT '0' NOT NULL,
+    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
+    hidden tinyint(4) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY configuration_uid (configuration_uid),
+    KEY identifier (identifier),
+    KEY category (category)
 );
 
 #

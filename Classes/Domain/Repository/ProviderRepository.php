@@ -62,6 +62,44 @@ class ProviderRepository extends Repository
     }
 
     /**
+     * Find all active providers sorted by priority (highest first).
+     *
+     * @return QueryResultInterface<int, Provider>
+     */
+    public function findActiveByPriority(): QueryResultInterface
+    {
+        $query = $this->createQuery();
+        $query->matching(
+            $query->equals('isActive', true),
+        );
+        $query->setOrderings([
+            'priority' => QueryInterface::ORDER_DESCENDING,
+            'sorting' => QueryInterface::ORDER_ASCENDING,
+            'name' => QueryInterface::ORDER_ASCENDING,
+        ]);
+        return $query->execute();
+    }
+
+    /**
+     * Find highest priority active provider.
+     */
+    public function findHighestPriority(): ?Provider
+    {
+        $query = $this->createQuery();
+        $query->matching(
+            $query->equals('isActive', true),
+        );
+        $query->setOrderings([
+            'priority' => QueryInterface::ORDER_DESCENDING,
+            'sorting' => QueryInterface::ORDER_ASCENDING,
+        ]);
+        $query->setLimit(1);
+        /** @var Provider|null $result */
+        $result = $query->execute()->getFirst();
+        return $result;
+    }
+
+    /**
      * Find providers by adapter type.
      *
      * @return QueryResultInterface<int, Provider>
@@ -98,12 +136,16 @@ class ProviderRepository extends Repository
     }
 
     /**
-     * Check if identifier is unique (for validation).
+     * Check if identifier is unique among non-deleted records (for validation).
      */
     public function isIdentifierUnique(string $identifier, ?int $excludeUid = null): bool
     {
         $query = $this->createQuery();
-        $query->getQuerySettings()->setRespectStoragePage(false);
+        $querySettings = $query->getQuerySettings();
+        $querySettings->setRespectStoragePage(false);
+        // Enable soft-delete check to only find non-deleted records
+        $querySettings->setIgnoreEnableFields(false);
+        $querySettings->setEnableFieldsToBeIgnored(['hidden']);
 
         $constraints = [
             $query->equals('identifier', $identifier),
@@ -118,6 +160,20 @@ class ProviderRepository extends Repository
         $query->matching($query->logicalAnd(...$constraints));
 
         return $query->count() === 0;
+    }
+
+    /**
+     * Count all non-deleted providers.
+     */
+    public function countActive(): int
+    {
+        $query = $this->createQuery();
+        $querySettings = $query->getQuerySettings();
+        $querySettings->setRespectStoragePage(false);
+        $querySettings->setIgnoreEnableFields(false);
+        $querySettings->setEnableFieldsToBeIgnored(['hidden']);
+
+        return $query->count();
     }
 
     /**

@@ -44,7 +44,7 @@ return [
         ],
         'limits' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.model_limits',
-            'showitem' => 'context_length, max_output_tokens',
+            'showitem' => 'context_length, max_output_tokens, --linebreak--, default_timeout',
         ],
         'pricing' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.pricing',
@@ -100,9 +100,9 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
                 'foreign_table' => 'tx_nrllm_provider',
-                'foreign_table_where' => 'AND {#tx_nrllm_provider}.{#hidden} = 0 AND {#tx_nrllm_provider}.{#deleted} = 0 ORDER BY tx_nrllm_provider.name',
+                'foreign_table_where' => 'AND {#tx_nrllm_provider}.{#hidden} = 0 AND {#tx_nrllm_provider}.{#deleted} = 0 ORDER BY tx_nrllm_provider.priority DESC, tx_nrllm_provider.name',
                 'items' => [
-                    ['label' => '-- Select Provider --', 'value' => 0],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.provider_uid.select', 'value' => 0],
                 ],
                 'default' => 0,
                 'required' => true,
@@ -145,6 +145,19 @@ return [
                 'default' => 0,
             ],
         ],
+        'default_timeout' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.default_timeout',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.default_timeout.description',
+            'config' => [
+                'type' => 'number',
+                'size' => 5,
+                'range' => [
+                    'lower' => 0,
+                    'upper' => 600,
+                ],
+                'default' => 120,
+            ],
+        ],
         'capabilities' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.description',
@@ -152,14 +165,46 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectCheckBox',
                 'items' => [
-                    ['label' => 'Chat', 'value' => 'chat'],
-                    ['label' => 'Completion', 'value' => 'completion'],
-                    ['label' => 'Embeddings', 'value' => 'embeddings'],
-                    ['label' => 'Vision', 'value' => 'vision'],
-                    ['label' => 'Streaming', 'value' => 'streaming'],
-                    ['label' => 'Tool Use', 'value' => 'tools'],
-                    ['label' => 'JSON Mode', 'value' => 'json_mode'],
-                    ['label' => 'Audio', 'value' => 'audio'],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.chat',
+                        'value' => 'chat',
+                        'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.chat.description',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.completion',
+                        'value' => 'completion',
+                        'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.completion.description',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.embeddings',
+                        'value' => 'embeddings',
+                        'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.embeddings.description',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.vision',
+                        'value' => 'vision',
+                        'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.vision.description',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.streaming',
+                        'value' => 'streaming',
+                        'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.streaming.description',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.tools',
+                        'value' => 'tools',
+                        'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.tools.description',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.json_mode',
+                        'value' => 'json_mode',
+                        'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.json_mode.description',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.audio',
+                        'value' => 'audio',
+                        'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.audio.description',
+                    ],
                 ],
                 'default' => 'chat',
             ],

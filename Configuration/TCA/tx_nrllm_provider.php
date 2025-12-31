@@ -31,7 +31,8 @@ return [
                     options,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     hidden,
-                    is_active
+                    is_active,
+                    priority
             ',
         ],
     ],
@@ -46,7 +47,7 @@ return [
         ],
         'request' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.request',
-            'showitem' => 'timeout, max_retries',
+            'showitem' => 'api_timeout, max_retries',
         ],
     ],
     'columns' => [
@@ -148,9 +149,9 @@ return [
                 'eval' => 'trim',
             ],
         ],
-        'timeout' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.timeout',
-            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.timeout.description',
+        'api_timeout' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.api_timeout',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.api_timeout.description',
             'config' => [
                 'type' => 'number',
                 'size' => 5,
@@ -189,6 +190,23 @@ return [
             'config' => [
                 'type' => 'check',
                 'default' => 1,
+            ],
+        ],
+        'priority' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.priority',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.priority.description',
+            'config' => [
+                'type' => 'number',
+                'size' => 5,
+                'range' => [
+                    'lower' => 0,
+                    'upper' => 100,
+                ],
+                'default' => 50,
+                'slider' => [
+                    'step' => 10,
+                    'width' => 200,
+                ],
             ],
         ],
     ],

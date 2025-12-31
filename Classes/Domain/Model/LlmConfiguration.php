@@ -24,9 +24,18 @@ class LlmConfiguration extends AbstractEntity
     protected string $name = '';
     protected string $description = '';
 
-    /** Reference to database Model entity (new architecture). */
-    protected int $modelUid = 0;
+    /** Reference to database Model entity. */
     protected ?Model $llmModel = null;
+
+    /** Dynamic model selection mode. */
+    public const SELECTION_MODE_FIXED = 'fixed';
+    public const SELECTION_MODE_CRITERIA = 'criteria';
+
+    /** Selection mode: 'fixed' (specific model) or 'criteria' (dynamic). */
+    protected string $modelSelectionMode = self::SELECTION_MODE_FIXED;
+
+    /** JSON-encoded criteria for dynamic model selection. */
+    protected string $modelSelectionCriteria = '';
 
     /** @deprecated Use $modelUid instead. Legacy provider string field. */
     protected string $provider = '';
@@ -41,6 +50,7 @@ class LlmConfiguration extends AbstractEntity
     protected float $topP = 1.0;
     protected float $frequencyPenalty = 0.0;
     protected float $presencePenalty = 0.0;
+    protected int $timeout = 0;
     protected string $options = '';
     protected int $maxRequestsPerDay = 0;
     protected int $maxTokensPerDay = 0;
@@ -83,22 +93,53 @@ class LlmConfiguration extends AbstractEntity
         return $this->description;
     }
 
-    public function getModelUid(): int
-    {
-        return $this->modelUid;
-    }
-
     public function getLlmModel(): ?Model
     {
         return $this->llmModel;
     }
 
     /**
-     * Check if configuration uses new model relation.
+     * Check if configuration has a model assigned.
      */
     public function hasLlmModel(): bool
     {
-        return $this->modelUid > 0 || $this->llmModel !== null;
+        return $this->llmModel !== null;
+    }
+
+    public function getModelSelectionMode(): string
+    {
+        return $this->modelSelectionMode;
+    }
+
+    public function getModelSelectionCriteria(): string
+    {
+        return $this->modelSelectionCriteria;
+    }
+
+    /**
+     * Get model selection criteria as array.
+     *
+     * @return array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool}
+     */
+    public function getModelSelectionCriteriaArray(): array
+    {
+        if ($this->modelSelectionCriteria === '') {
+            return [];
+        }
+        $decoded = json_decode($this->modelSelectionCriteria, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+        /** @var array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $decoded */
+        return $decoded;
+    }
+
+    /**
+     * Check if using criteria-based model selection.
+     */
+    public function usesCriteriaSelection(): bool
+    {
+        return $this->modelSelectionMode === self::SELECTION_MODE_CRITERIA;
     }
 
     /**
@@ -181,6 +222,28 @@ class LlmConfiguration extends AbstractEntity
     public function getPresencePenalty(): float
     {
         return $this->presencePenalty;
+    }
+
+    public function getTimeout(): int
+    {
+        return $this->timeout;
+    }
+
+    /**
+     * Get effective timeout for LLM inference.
+     *
+     * Returns configuration-specific timeout if set (> 0),
+     * otherwise falls back to the model's default timeout.
+     */
+    public function getEffectiveTimeout(): int
+    {
+        if ($this->timeout > 0) {
+            return $this->timeout;
+        }
+        if ($this->llmModel !== null) {
+            return $this->llmModel->getDefaultTimeout();
+        }
+        return 120; // fallback default
     }
 
     public function getOptions(): string
@@ -288,20 +351,32 @@ class LlmConfiguration extends AbstractEntity
         $this->description = $description;
     }
 
-    public function setModelUid(int $modelUid): void
-    {
-        $this->modelUid = $modelUid;
-    }
-
     public function setLlmModel(?Model $llmModel): void
     {
         $this->llmModel = $llmModel;
-        if ($llmModel !== null) {
-            $uid = $llmModel->getUid();
-            if ($uid !== null) {
-                $this->modelUid = $uid;
-            }
+    }
+
+    public function setModelSelectionMode(string $modelSelectionMode): void
+    {
+        if (!in_array($modelSelectionMode, [self::SELECTION_MODE_FIXED, self::SELECTION_MODE_CRITERIA], true)) {
+            $modelSelectionMode = self::SELECTION_MODE_FIXED;
         }
+        $this->modelSelectionMode = $modelSelectionMode;
+    }
+
+    public function setModelSelectionCriteria(string $modelSelectionCriteria): void
+    {
+        $this->modelSelectionCriteria = $modelSelectionCriteria;
+    }
+
+    /**
+     * Set model selection criteria from array.
+     *
+     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     */
+    public function setModelSelectionCriteriaArray(array $criteria): void
+    {
+        $this->modelSelectionCriteria = json_encode($criteria, JSON_THROW_ON_ERROR);
     }
 
     /**
@@ -353,6 +428,11 @@ class LlmConfiguration extends AbstractEntity
     public function setPresencePenalty(float $presencePenalty): void
     {
         $this->presencePenalty = max(-2.0, min(2.0, $presencePenalty));
+    }
+
+    public function setTimeout(int $timeout): void
+    {
+        $this->timeout = max(0, $timeout);
     }
 
     public function setOptions(string $options): void
@@ -483,6 +563,9 @@ class LlmConfiguration extends AbstractEntity
         if ($this->translator !== '') {
             $options['translator'] = $this->translator;
         }
+
+        // Always include effective timeout
+        $options['timeout'] = $this->getEffectiveTimeout();
 
         // Merge additional options
         $additionalOptions = $this->getOptionsArray();

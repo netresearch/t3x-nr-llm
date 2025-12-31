@@ -136,11 +136,45 @@
                 <source>If empty, configuration is accessible to all users with LLM permissions</source>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_configuration.model_selection_mode">
+                <source>Model Selection</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.model_selection_mode.description">
+                <source>Choose how the model is selected: Fixed (specific model) or Criteria (dynamic selection at runtime)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.model_selection_mode.fixed">
+                <source>Fixed Model</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.model_selection_mode.criteria">
+                <source>Dynamic (Criteria-based)</source>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_configuration.model_uid">
                 <source>Model</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.model_uid.description">
                 <source>Select a configured LLM model</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.model_selection_criteria">
+                <source>Selection Criteria</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.model_selection_criteria.description">
+                <source>Define criteria for automatic model selection. Models matching all selected criteria will be considered.</source>
+            </trans-unit>
+
+            <!-- Model Selection Criteria Groups -->
+            <trans-unit id="tx_nrllm_configuration.criteria.group.capabilities">
+                <source>Required Capabilities</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.criteria.group.adapters">
+                <source>Preferred Providers</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.criteria.group.preferences">
+                <source>Preferences</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.prefer_lowest_cost">
+                <source>Prefer Lowest Cost</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.provider.deprecated">
@@ -224,6 +258,13 @@
                 <source>Active</source>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_provider.priority">
+                <source>Priority</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.priority.description">
+                <source>Higher priority providers are preferred for auto-selection (0-100)</source>
+            </trans-unit>
+
             <trans-unit id="palette.connection">
                 <source>Connection Settings</source>
             </trans-unit>
@@ -264,7 +305,10 @@
                 <source>Provider</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.provider_uid.description">
-                <source>The API provider for this model</source>
+                <source>The API provider for this model (sorted by priority, highest first)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.provider_uid.select">
+                <source>-- Select Provider --</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_model.model_id">
@@ -292,7 +336,71 @@
                 <source>Capabilities</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities.description">
-                <source>Supported features of this model</source>
+                <source>Select features supported by this model. Used for filtering models in configurations and validating API requests.</source>
+            </trans-unit>
+
+            <!-- Capability labels and descriptions -->
+            <trans-unit id="tx_nrllm_model.capabilities.chat">
+                <source>Chat</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.chat.description">
+                <source>Conversational interactions with message history. Supports system prompts, user messages, and assistant responses.</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.capabilities.completion">
+                <source>Completion</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.completion.description">
+                <source>Text completion from a prompt. Legacy API format, less common in modern models.</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.capabilities.embeddings">
+                <source>Embeddings</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.embeddings.description">
+                <source>Generate vector embeddings for semantic search, similarity comparison, and RAG applications.</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.capabilities.vision">
+                <source>Vision</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.vision.description">
+                <source>Analyze images and visual content. Accepts image URLs or base64-encoded images in messages.</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.capabilities.streaming">
+                <source>Streaming</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.streaming.description">
+                <source>Receive responses token-by-token via Server-Sent Events for real-time output display.</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.capabilities.tools">
+                <source>Tool Use</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.tools.description">
+                <source>Function calling / tool use. Model can request to call defined functions with structured arguments.</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.capabilities.json_mode">
+                <source>JSON Mode</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.json_mode.description">
+                <source>Guaranteed valid JSON output. Use for structured data extraction and API integrations.</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.capabilities.audio">
+                <source>Audio</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.audio.description">
+                <source>Process audio input (speech-to-text) or generate audio output (text-to-speech).</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.default_timeout">
+                <source>Default Timeout</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.default_timeout.description">
+                <source>Default timeout in seconds for requests to this model. Thinking/reasoning models may need longer timeouts (120-300s).</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_model.cost_input">

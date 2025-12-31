@@ -27,12 +27,12 @@ class Model extends AbstractEntity
     protected string $identifier = '';
     protected string $name = '';
     protected string $description = '';
-    protected int $providerUid = 0;
     protected ?Provider $provider = null;
     protected string $modelId = '';
     protected int $contextLength = 0;
     protected int $maxOutputTokens = 0;
     protected string $capabilities = '';
+    protected int $defaultTimeout = 120;
     protected int $costInput = 0;
     protected int $costOutput = 0;
     protected bool $isActive = true;
@@ -59,11 +59,6 @@ class Model extends AbstractEntity
     public function getDescription(): string
     {
         return $this->description;
-    }
-
-    public function getProviderUid(): int
-    {
-        return $this->providerUid;
     }
 
     public function getProvider(): ?Provider
@@ -102,6 +97,11 @@ class Model extends AbstractEntity
             return [];
         }
         return array_map(trim(...), explode(',', $this->capabilities));
+    }
+
+    public function getDefaultTimeout(): int
+    {
+        return $this->defaultTimeout;
     }
 
     public function getCostInput(): int
@@ -189,17 +189,9 @@ class Model extends AbstractEntity
         $this->description = $description;
     }
 
-    public function setProviderUid(int $providerUid): void
-    {
-        $this->providerUid = $providerUid;
-    }
-
     public function setProvider(?Provider $provider): void
     {
         $this->provider = $provider;
-        if ($provider !== null) {
-            $this->providerUid = $provider->getUid() ?? 0;
-        }
     }
 
     public function setModelId(string $modelId): void
@@ -230,6 +222,11 @@ class Model extends AbstractEntity
     public function setCapabilitiesArray(array $capabilities): void
     {
         $this->capabilities = implode(',', array_map(trim(...), $capabilities));
+    }
+
+    public function setDefaultTimeout(int $defaultTimeout): void
+    {
+        $this->defaultTimeout = max(0, $defaultTimeout);
     }
 
     public function setCostInput(int $costInput): void

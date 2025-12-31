@@ -131,12 +131,16 @@ class LlmConfigurationRepository extends Repository
     }
 
     /**
-     * Check if identifier is unique (for validation).
+     * Check if identifier is unique among non-deleted records (for validation).
      */
     public function isIdentifierUnique(string $identifier, ?int $excludeUid = null): bool
     {
         $query = $this->createQuery();
-        $query->getQuerySettings()->setRespectStoragePage(false);
+        $querySettings = $query->getQuerySettings();
+        $querySettings->setRespectStoragePage(false);
+        // Enable soft-delete check to only find non-deleted records
+        $querySettings->setIgnoreEnableFields(false);
+        $querySettings->setEnableFieldsToBeIgnored(['hidden']);
 
         $constraints = [
             $query->equals('identifier', $identifier),
@@ -151,6 +155,20 @@ class LlmConfigurationRepository extends Repository
         $query->matching($query->logicalAnd(...$constraints));
 
         return $query->count() === 0;
+    }
+
+    /**
+     * Count all non-deleted configurations.
+     */
+    public function countActive(): int
+    {
+        $query = $this->createQuery();
+        $querySettings = $query->getQuerySettings();
+        $querySettings->setRespectStoragePage(false);
+        $querySettings->setIgnoreEnableFields(false);
+        $querySettings->setEnableFieldsToBeIgnored(['hidden']);
+
+        return $query->count();
     }
 
     /**
