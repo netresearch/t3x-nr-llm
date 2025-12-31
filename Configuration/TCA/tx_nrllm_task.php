@@ -15,7 +15,6 @@ return [
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
-        'searchFields' => 'identifier,name,description,prompt_template',
         'iconfile' => 'EXT:nr_llm/Resources/Public/Icons/Task.svg',
         'rootLevel' => -1,
         'security' => [
@@ -74,7 +73,8 @@ return [
                 'type' => 'input',
                 'size' => 30,
                 'max' => 100,
-                'eval' => 'trim,alphanum_x,lower,required',
+                'eval' => 'trim,alphanum_x,lower',
+                'required' => true,
                 'placeholder' => 'analyze-syslog',
             ],
         ],
@@ -84,7 +84,8 @@ return [
                 'type' => 'input',
                 'size' => 50,
                 'max' => 255,
-                'eval' => 'trim,required',
+                'eval' => 'trim',
+                'required' => true,
             ],
         ],
         'description' => [
@@ -131,7 +132,7 @@ return [
                 'type' => 'text',
                 'cols' => 80,
                 'rows' => 15,
-                'eval' => 'required',
+                'required' => true,
                 'placeholder' => 'Analyze the following log entries and provide a summary of issues found:\n\n{{input}}',
             ],
         ],
@@ -158,6 +159,7 @@ return [
                 'cols' => 40,
                 'rows' => 3,
                 'placeholder' => '{"table": "sys_log", "limit": 100, "where": "error > 0"}',
+                'searchable' => false,
             ],
         ],
         'output_format' => [
