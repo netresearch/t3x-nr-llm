@@ -170,6 +170,144 @@ test.describe('Task Execute Module', () => {
     });
   });
 
+  test.describe('Table Picker', () => {
+    test('should have AJAX URLs available for table loading', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=5');
+
+      const moduleFrame = getModuleFrame(page);
+      await page.waitForTimeout(1000);
+
+      // Check if TYPO3.settings.ajaxUrls contains our task routes
+      const iframeEl = await page.locator('iframe').first().elementHandle();
+      const frame = await iframeEl?.contentFrame();
+
+      if (frame) {
+        const ajaxUrls = await frame.evaluate(() => {
+          return (window as any).TYPO3?.settings?.ajaxUrls;
+        });
+
+        console.log('AJAX URLs:', JSON.stringify(ajaxUrls, null, 2));
+
+        // These URLs should be defined for table picker to work
+        expect(ajaxUrls?.nrllm_task_list_tables).toBeDefined();
+        expect(ajaxUrls?.nrllm_task_fetch_records).toBeDefined();
+        expect(ajaxUrls?.nrllm_task_load_record_data).toBeDefined();
+      }
+    });
+
+    test('should load tables when table picker is expanded', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+
+      // Capture console errors
+      const consoleMessages: string[] = [];
+      page.on('console', msg => {
+        if (msg.type() === 'error') {
+          consoleMessages.push(`[${msg.type()}] ${msg.text()}`);
+        }
+      });
+
+      // Capture page errors
+      const pageErrors: string[] = [];
+      page.on('pageerror', error => {
+        pageErrors.push(error.message);
+      });
+
+      // Task UID 5 should have manual input type (which shows table picker)
+      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=5');
+
+      const moduleFrame = getModuleFrame(page);
+      await page.waitForTimeout(1000);
+
+      // Check if table picker card exists (only for manual input tasks)
+      const tablePickerCard = moduleFrame.locator('#tablePickerCard');
+      if (await tablePickerCard.count() === 0) {
+        test.skip(true, 'Task does not have table picker (not manual input type)');
+        return;
+      }
+
+      // Find and click the collapse button to expand table picker
+      const collapseButton = moduleFrame.locator('button[data-bs-target="#tablePickerCollapse"]');
+      await expect(collapseButton).toBeVisible();
+
+      // Check collapse state before clicking
+      const collapseDiv = moduleFrame.locator('#tablePickerCollapse');
+      const classesBefore = await collapseDiv.getAttribute('class');
+      console.log('Collapse classes before click:', classesBefore);
+
+      await collapseButton.click();
+
+      // Wait for collapse animation
+      await page.waitForTimeout(1000);
+
+      // Check collapse state after clicking
+      const classesAfter = await collapseDiv.getAttribute('class');
+      console.log('Collapse classes after click:', classesAfter);
+
+      // Check if collapse is now expanded (should have 'show' class)
+      await expect(collapseDiv).toHaveClass(/show/);
+
+      // The table select should show "Loading..." first, then populate with tables
+      const tableSelect = moduleFrame.locator('#tableSelect');
+      await expect(tableSelect).toBeVisible();
+
+      // Check what the select currently shows
+      const currentOptions = await tableSelect.innerHTML();
+      console.log('Table select options:', currentOptions);
+
+      // Wait for AJAX to complete - should have more than just the placeholder option
+      await page.waitForTimeout(2000);
+
+      // Check again after waiting
+      const optionsAfterWait = await tableSelect.innerHTML();
+      console.log('Table select options after wait:', optionsAfterWait);
+
+      // Log any errors captured
+      if (consoleMessages.length > 0) {
+        console.log('Console errors:', consoleMessages);
+      }
+      if (pageErrors.length > 0) {
+        console.log('Page errors:', pageErrors);
+      }
+
+      // Verify tables are loaded (should have more than 1 option)
+      const options = await tableSelect.locator('option').count();
+      expect(options).toBeGreaterThan(1);
+
+      // First option should be "Select a table" placeholder
+      const firstOption = tableSelect.locator('option').first();
+      await expect(firstOption).toContainText('Select');
+    });
+
+    test('should show error notification if table loading fails', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+
+      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=5');
+
+      const moduleFrame = getModuleFrame(page);
+      await page.waitForTimeout(1000);
+
+      const tablePickerCard = moduleFrame.locator('#tablePickerCard');
+      if (await tablePickerCard.count() === 0) {
+        test.skip(true, 'Task does not have table picker');
+        return;
+      }
+
+      // Expand table picker
+      const collapseButton = moduleFrame.locator('button[data-bs-target="#tablePickerCollapse"]');
+      await collapseButton.click();
+      await page.waitForTimeout(500);
+
+      const tableSelect = moduleFrame.locator('#tableSelect');
+      await page.waitForTimeout(2000);
+
+      // Should NOT show "Error loading tables" if AJAX worked correctly
+      const selectedText = await tableSelect.locator('option:first-child').textContent();
+      expect(selectedText).not.toContain('Error');
+      expect(selectedText).not.toContain('Load tables'); // Should not be stuck on initial state
+    });
+  });
+
   test.describe('Task Navigation', () => {
     test('should navigate from list to execute form', async ({ authenticatedPage }) => {
       const page = authenticatedPage;

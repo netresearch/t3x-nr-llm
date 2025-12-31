@@ -27,6 +27,8 @@ use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
+use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
@@ -49,6 +51,8 @@ final class TaskController extends ActionController
         private readonly FlashMessageService $flashMessageService,
         private readonly ConnectionPool $connectionPool,
         private readonly TaskFormInputFactory $taskFormInputFactory,
+        private readonly PageRenderer $pageRenderer,
+        private readonly BackendUriBuilder $backendUriBuilder,
     ) {}
 
     /**
@@ -248,6 +252,17 @@ final class TaskController extends ActionController
             $this->enqueueFlashMessage('Task not found.', 'Error', ContextualFeedbackSeverity::ERROR);
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('list'));
         }
+
+        // Register AJAX URLs for JavaScript
+        $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
+            'nrllm_task_list_tables' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_list_tables'),
+            'nrllm_task_fetch_records' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_fetch_records'),
+            'nrllm_task_load_record_data' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_load_record_data'),
+            'nrllm_task_refresh_input' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_task_refresh_input'),
+        ]);
+
+        // Load JavaScript module for task execution
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/TaskExecute.js');
 
         // Get input data based on input type
         $inputData = $this->getInputData($task);
