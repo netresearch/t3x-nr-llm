@@ -10,6 +10,7 @@
 
 includes:
   - phpstan-baseline.neon
+  - ../../.Build/vendor/phpat/phpat/extension.neon
 
 parameters:
   # PHP 8.5 (TYPO3 v14 minimum)
@@ -32,3 +33,22 @@ parameters:
 
   # reportUnmatchedIgnoredErrors: false is needed when using baselines
   reportUnmatchedIgnoredErrors: false
+
+  # PHPat architectural tests configuration
+  phpat:
+    ignore_built_in_classes: true
+
+# PHPat test classes registration
+services:
+  -
+    class: Netresearch\NrLlm\Tests\Architecture\DomainLayerTest
+    tags:
+      - phpat.test
+  -
+    class: Netresearch\NrLlm\Tests\Architecture\DtoLayerTest
+    tags:
+      - phpat.test
+  -
+    class: Netresearch\NrLlm\Tests\Architecture\ControllerLayerTest
+    tags:
+      - phpat.test

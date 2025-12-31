@@ -5,7 +5,7 @@
 -- Provider: Local Ollama instance
 INSERT INTO tx_nrllm_provider (
     pid, identifier, name, description, adapter_type, endpoint_url, api_key,
-    timeout, max_retries, is_active, sorting, tstamp, crdate
+    api_timeout, max_retries, is_active, priority, sorting, tstamp, crdate
 ) VALUES (
     0,
     'ollama-local',
@@ -14,9 +14,10 @@ INSERT INTO tx_nrllm_provider (
     'ollama',
     'http://ollama:11434',
     '',
-    60,
+    30,
     3,
     1,
+    100,
     10,
     UNIX_TIMESTAMP(),
     UNIX_TIMESTAMP()
@@ -24,6 +25,7 @@ INSERT INTO tx_nrllm_provider (
     name = VALUES(name),
     description = VALUES(description),
     endpoint_url = VALUES(endpoint_url),
+    priority = VALUES(priority),
     tstamp = UNIX_TIMESTAMP();
 
 -- Get the provider UID for the model relation
@@ -32,7 +34,7 @@ SET @ollama_provider_uid = (SELECT uid FROM tx_nrllm_provider WHERE identifier =
 -- Model: Qwen 3 0.6B (default small model)
 INSERT INTO tx_nrllm_model (
     pid, identifier, name, description, provider_uid, model_id,
-    context_length, max_output_tokens, capabilities,
+    context_length, max_output_tokens, capabilities, default_timeout,
     cost_input, cost_output, is_active, is_default, sorting, tstamp, crdate
 ) VALUES (
     0,
@@ -44,6 +46,7 @@ INSERT INTO tx_nrllm_model (
     32768,
     4096,
     'chat,completion,streaming',
+    60,
     0,
     0,
     1,
@@ -61,7 +64,7 @@ INSERT INTO tx_nrllm_model (
 -- Model: Gemma 3 1B (alternative small model)
 INSERT INTO tx_nrllm_model (
     pid, identifier, name, description, provider_uid, model_id,
-    context_length, max_output_tokens, capabilities,
+    context_length, max_output_tokens, capabilities, default_timeout,
     cost_input, cost_output, is_active, is_default, sorting, tstamp, crdate
 ) VALUES (
     0,
@@ -73,6 +76,7 @@ INSERT INTO tx_nrllm_model (
     32768,
     4096,
     'chat,completion,streaming',
+    60,
     0,
     0,
     1,
@@ -90,7 +94,7 @@ INSERT INTO tx_nrllm_model (
 -- Model: SmolLM2 360M (ultra-small model)
 INSERT INTO tx_nrllm_model (
     pid, identifier, name, description, provider_uid, model_id,
-    context_length, max_output_tokens, capabilities,
+    context_length, max_output_tokens, capabilities, default_timeout,
     cost_input, cost_output, is_active, is_default, sorting, tstamp, crdate
 ) VALUES (
     0,
@@ -102,6 +106,7 @@ INSERT INTO tx_nrllm_model (
     8192,
     2048,
     'chat,completion',
+    30,
     0,
     0,
     1,
@@ -122,7 +127,7 @@ SET @default_model_uid = (SELECT uid FROM tx_nrllm_model WHERE identifier = 'qwe
 -- Configuration: General Purpose
 INSERT INTO tx_nrllm_configuration (
     pid, identifier, name, description, model_uid,
-    system_prompt, temperature, max_tokens, top_p,
+    system_prompt, temperature, max_tokens, top_p, timeout,
     is_active, is_default, sorting, tstamp, crdate
 ) VALUES (
     0,
@@ -134,6 +139,7 @@ INSERT INTO tx_nrllm_configuration (
     0.7,
     2048,
     0.9,
+    0,
     1,
     1,
     10,
@@ -148,7 +154,7 @@ INSERT INTO tx_nrllm_configuration (
 -- Configuration: Content Summarizer
 INSERT INTO tx_nrllm_configuration (
     pid, identifier, name, description, model_uid,
-    system_prompt, temperature, max_tokens, top_p,
+    system_prompt, temperature, max_tokens, top_p, timeout,
     is_active, is_default, sorting, tstamp, crdate
 ) VALUES (
     0,
@@ -160,6 +166,7 @@ INSERT INTO tx_nrllm_configuration (
     0.3,
     1024,
     0.85,
+    0,
     1,
     0,
     20,
@@ -174,7 +181,7 @@ INSERT INTO tx_nrllm_configuration (
 -- Configuration: Creative Writing
 INSERT INTO tx_nrllm_configuration (
     pid, identifier, name, description, model_uid,
-    system_prompt, temperature, max_tokens, top_p,
+    system_prompt, temperature, max_tokens, top_p, timeout,
     is_active, is_default, sorting, tstamp, crdate
 ) VALUES (
     0,
@@ -186,6 +193,7 @@ INSERT INTO tx_nrllm_configuration (
     0.9,
     2048,
     0.95,
+    120,
     1,
     0,
     30,
@@ -200,7 +208,7 @@ INSERT INTO tx_nrllm_configuration (
 -- Configuration: Code Assistant
 INSERT INTO tx_nrllm_configuration (
     pid, identifier, name, description, model_uid,
-    system_prompt, temperature, max_tokens, top_p,
+    system_prompt, temperature, max_tokens, top_p, timeout,
     is_active, is_default, sorting, tstamp, crdate
 ) VALUES (
     0,
@@ -212,6 +220,7 @@ INSERT INTO tx_nrllm_configuration (
     0.2,
     4096,
     0.8,
+    180,
     1,
     0,
     40,

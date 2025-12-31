@@ -1921,15 +1921,39 @@ parameters:
 			path: ../../Tests/Unit/Controller/Backend/ConfigurationControllerTest.php
 
 		-
+			message: '#^Cannot access offset ''capabilities'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''contextLength'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
 			message: '#^Cannot access offset ''error'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 11
+			count: 19
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-
 			message: '#^Cannot access offset ''isActive'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 2
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''maxOutputTokens'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-
@@ -1941,13 +1965,25 @@ parameters:
 		-
 			message: '#^Cannot access offset ''models'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
+			count: 6
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-
 			message: '#^Cannot access offset ''success'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 6
+			count: 11
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Cannot access offset 0 on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-
@@ -1959,19 +1995,25 @@ parameters:
 		-
 			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
 			identifier: argument.type
-			count: 11
+			count: 16
+			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertContains\(\) expects iterable, mixed given\.$#'
+			identifier: argument.type
+			count: 2
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-
 			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertCount\(\) expects Countable\|iterable, mixed given\.$#'
 			identifier: argument.type
-			count: 1
+			count: 2
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-
 			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, mixed given\.$#'
 			identifier: argument.type
-			count: 14
+			count: 22
 			path: ../../Tests/Unit/Controller/Backend/ModelControllerTest.php
 
 		-
@@ -2051,6 +2093,24 @@ parameters:
 			identifier: argument.type
 			count: 4
 			path: ../../Tests/Unit/Domain/Model/EmbeddingResponseTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, string\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: ../../Tests/Unit/Domain/Model/ModelTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: ../../Tests/Unit/Domain/Model/ModelTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertNotNull\(\) with Netresearch\\NrLlm\\Domain\\Model\\Provider will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: ../../Tests/Unit/Domain/Model/ModelTest.php
 
 		-
 			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsInt\(\) with int will always evaluate to true\.$#'
@@ -2627,6 +2687,18 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: ../../Tests/Unit/Service/LlmServiceManagerTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Service\\ModelSelectionServiceTest\:\:createQueryResult\(\) return type with generic interface TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: ../../Tests/Unit/Service/ModelSelectionServiceTest.php
+
+		-
+			message: '#^Possibly invalid array key type mixed\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 3
+			path: ../../Tests/Unit/Service/ModelSelectionServiceTest.php
 
 		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Service\\Option\\ChatOptionsTest\:\:invalidPenaltyProvider\(\) return type has no value type specified in iterable type array\.$#'
