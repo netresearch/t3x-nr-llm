@@ -15,13 +15,13 @@
                     <f:else>Edit Task: {task.name}</f:else>
                 </f:if>
             </h1>
-            <a href="{be:moduleLink(route:'nrllm_tasks')}" class="btn btn-default">
+            <a href="{be:moduleLink(route: 'nrllm_tasks')}" class="btn btn-default">
                 <core:icon identifier="actions-view-go-back" size="small" />
                 Back to List
             </a>
         </div>
 
-        <form action="{be:moduleLink(route:'nrllm_tasks', arguments:{action: 'save'})}" method="post">
+        <form action="{be:moduleLink(route: 'nrllm_tasks', arguments: {action: 'save'})}" method="post">
             <f:if condition="{task.uid}">
                 <input type="hidden" name="task[uid]" value="{task.uid}" />
             </f:if>
@@ -41,11 +41,13 @@
                         </div>
                         <div class="col-md-6">
                             <label for="category" class="form-label">Category</label>
-                            <select class="form-select" id="category" name="task[category]">
-                                <f:for each="{categories}" as="label" key="value">
-                                    <option value="{value}" {f:if(condition: '{task.category} == \'{value}\'', then: 'selected')}>{label}</option>
-                                </f:for>
-                            </select>
+                            <f:form.select
+                                id="category"
+                                name="task[category]"
+                                options="{categories}"
+                                value="{task.category}"
+                                class="form-select"
+                            />
                         </div>
                     </div>
 
@@ -110,20 +112,24 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="inputType" class="form-label">Input Type</label>
-                            <select class="form-select" id="inputType" name="task[inputType]">
-                                <f:for each="{inputTypes}" as="label" key="value">
-                                    <option value="{value}" {f:if(condition: '{task.inputType} == \'{value}\'', then: 'selected')}>{label}</option>
-                                </f:for>
-                            </select>
+                            <f:form.select
+                                id="inputType"
+                                name="task[inputType]"
+                                options="{inputTypes}"
+                                value="{task.inputType}"
+                                class="form-select"
+                            />
                             <small class="form-text text-muted">How input data is provided</small>
                         </div>
                         <div class="col-md-6">
                             <label for="outputFormat" class="form-label">Output Format</label>
-                            <select class="form-select" id="outputFormat" name="task[outputFormat]">
-                                <f:for each="{outputFormats}" as="label" key="value">
-                                    <option value="{value}" {f:if(condition: '{task.outputFormat} == \'{value}\'', then: 'selected')}>{label}</option>
-                                </f:for>
-                            </select>
+                            <f:form.select
+                                id="outputFormat"
+                                name="task[outputFormat]"
+                                options="{outputFormats}"
+                                value="{task.outputFormat}"
+                                class="form-select"
+                            />
                             <small class="form-text text-muted">Expected response format</small>
                         </div>
                     </div>
@@ -163,7 +169,7 @@
                         <f:else>Save Changes</f:else>
                     </f:if>
                 </button>
-                <a href="{be:moduleLink(route:'nrllm_tasks')}" class="btn btn-default">
+                <a href="{be:moduleLink(route: 'nrllm_tasks')}" class="btn btn-default">
                     Cancel
                 </a>
             </div>
