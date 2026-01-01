@@ -209,7 +209,7 @@ CREATE TABLE tx_nrllm_task (
     PRIMARY KEY (uid),
     KEY parent (pid),
     KEY configuration_uid (configuration_uid),
-    KEY identifier (identifier),
+    UNIQUE KEY identifier (identifier),
     KEY category (category)
 );
 
