@@ -6,6 +6,14 @@
 -- They cannot perform multi-step reasoning, use tools, or maintain context.
 
 -- =====================================================================
+-- HELPER: Get first available configuration UID
+-- =====================================================================
+SET @default_config_uid = (SELECT COALESCE(
+    (SELECT uid FROM tx_nrllm_configuration WHERE deleted = 0 AND hidden = 0 ORDER BY is_default DESC, uid ASC LIMIT 1),
+    0
+));
+
+-- =====================================================================
 -- LOG ANALYSIS TASKS
 -- =====================================================================
 
@@ -20,7 +28,7 @@ INSERT INTO tx_nrllm_task (
     'Analyze System Log Errors',
     'Reviews TYPO3 sys_log entries and identifies patterns, critical errors, and potential issues.',
     'log_analysis',
-    0,
+    @default_config_uid,
     'You are a TYPO3 system administrator assistant. Analyze the following system log entries and provide:
 
 1. **Summary**: Brief overview of the log content
@@ -45,7 +53,11 @@ Log entries:
 ) ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     description = VALUES(description),
+    category = VALUES(category),
     prompt_template = VALUES(prompt_template),
+    input_type = VALUES(input_type),
+    input_source = VALUES(input_source),
+    output_format = VALUES(output_format),
     tstamp = UNIX_TIMESTAMP();
 
 -- Task: Analyze Deprecation Log
@@ -59,7 +71,7 @@ INSERT INTO tx_nrllm_task (
     'Analyze Deprecation Log',
     'Reviews TYPO3 deprecation log and suggests upgrade paths for deprecated code.',
     'log_analysis',
-    0,
+    @default_config_uid,
     'You are a TYPO3 upgrade specialist. Analyze the following deprecation log entries and provide:
 
 1. **Summary**: Overview of deprecated functionality being used
@@ -84,7 +96,11 @@ Deprecation log:
 ) ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     description = VALUES(description),
+    category = VALUES(category),
     prompt_template = VALUES(prompt_template),
+    input_type = VALUES(input_type),
+    input_source = VALUES(input_source),
+    output_format = VALUES(output_format),
     tstamp = UNIX_TIMESTAMP();
 
 -- Task: Security Event Analysis
@@ -98,7 +114,7 @@ INSERT INTO tx_nrllm_task (
     'Security Event Analysis',
     'Analyzes system logs for potential security issues like failed logins or suspicious activity.',
     'log_analysis',
-    0,
+    @default_config_uid,
     'You are a security analyst reviewing TYPO3 system logs. Analyze for:
 
 1. **Failed Login Attempts**: Look for brute force patterns or credential stuffing
@@ -123,7 +139,11 @@ Log entries:
 ) ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     description = VALUES(description),
+    category = VALUES(category),
     prompt_template = VALUES(prompt_template),
+    input_type = VALUES(input_type),
+    input_source = VALUES(input_source),
+    output_format = VALUES(output_format),
     tstamp = UNIX_TIMESTAMP();
 
 -- =====================================================================
@@ -141,7 +161,7 @@ INSERT INTO tx_nrllm_task (
     'Generate Image Alt Text',
     'Generates accessible alt text descriptions for images based on context or filename.',
     'content',
-    0,
+    @default_config_uid,
     'Generate concise, accessible alt text for images. The alt text should:
 
 1. Be descriptive but brief (under 125 characters if possible)
@@ -166,7 +186,11 @@ Provide the alt text in a format that can be directly used in HTML alt attribute
 ) ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     description = VALUES(description),
+    category = VALUES(category),
     prompt_template = VALUES(prompt_template),
+    input_type = VALUES(input_type),
+    input_source = VALUES(input_source),
+    output_format = VALUES(output_format),
     tstamp = UNIX_TIMESTAMP();
 
 -- Task: Generate Meta Descriptions
@@ -180,7 +204,7 @@ INSERT INTO tx_nrllm_task (
     'Generate Meta Descriptions',
     'Creates SEO-optimized meta descriptions for web pages based on content.',
     'content',
-    0,
+    @default_config_uid,
     'Generate an SEO-optimized meta description for a web page. Requirements:
 
 1. Length: 150-160 characters (optimal for search results)
@@ -204,7 +228,11 @@ Provide ONLY the meta description text, ready to use in a <meta name="descriptio
 ) ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     description = VALUES(description),
+    category = VALUES(category),
     prompt_template = VALUES(prompt_template),
+    input_type = VALUES(input_type),
+    input_source = VALUES(input_source),
+    output_format = VALUES(output_format),
     tstamp = UNIX_TIMESTAMP();
 
 -- Task: Summarize Page Content
@@ -218,7 +246,7 @@ INSERT INTO tx_nrllm_task (
     'Summarize Page Content',
     'Creates a concise summary of page content for internal use or teasers.',
     'content',
-    0,
+    @default_config_uid,
     'Summarize the following web page content in 2-3 sentences. The summary should:
 
 1. Capture the main topic and key points
@@ -241,7 +269,11 @@ Provide a clear, concise summary.',
 ) ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     description = VALUES(description),
+    category = VALUES(category),
     prompt_template = VALUES(prompt_template),
+    input_type = VALUES(input_type),
+    input_source = VALUES(input_source),
+    output_format = VALUES(output_format),
     tstamp = UNIX_TIMESTAMP();
 
 -- Task: Translate Content
@@ -255,7 +287,7 @@ INSERT INTO tx_nrllm_task (
     'Translate Content',
     'Translates content between languages while maintaining tone and context.',
     'content',
-    0,
+    @default_config_uid,
     'Translate the following content. Guidelines:
 
 1. Maintain the original tone and style
@@ -281,7 +313,11 @@ Provide only the translated text.',
 ) ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     description = VALUES(description),
+    category = VALUES(category),
     prompt_template = VALUES(prompt_template),
+    input_type = VALUES(input_type),
+    input_source = VALUES(input_source),
+    output_format = VALUES(output_format),
     tstamp = UNIX_TIMESTAMP();
 
 -- =====================================================================
@@ -299,7 +335,7 @@ INSERT INTO tx_nrllm_task (
     'Analyze Broken Links Report',
     'Reviews a list of broken links and suggests fixes or removal strategies.',
     'system',
-    0,
+    @default_config_uid,
     'Analyze the following broken links report and provide:
 
 1. **Priority Fixes**: Links that are most critical to fix (high-traffic pages, important resources)
@@ -326,7 +362,11 @@ Format the response for easy action by content editors.',
 ) ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     description = VALUES(description),
+    category = VALUES(category),
     prompt_template = VALUES(prompt_template),
+    input_type = VALUES(input_type),
+    input_source = VALUES(input_source),
+    output_format = VALUES(output_format),
     tstamp = UNIX_TIMESTAMP();
 
 -- Task: Review Redirect Chains
@@ -340,7 +380,7 @@ INSERT INTO tx_nrllm_task (
     'Review Redirect Chains',
     'Analyzes redirect configurations and identifies chains or loops that need optimization.',
     'system',
-    0,
+    @default_config_uid,
     'Analyze the following redirect configurations for issues:
 
 1. **Redirect Chains**: Identify any A→B→C patterns that should be A→C
@@ -364,7 +404,11 @@ Provide specific recommendations for each issue found.',
 ) ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     description = VALUES(description),
+    category = VALUES(category),
     prompt_template = VALUES(prompt_template),
+    input_type = VALUES(input_type),
+    input_source = VALUES(input_source),
+    output_format = VALUES(output_format),
     tstamp = UNIX_TIMESTAMP();
 
 -- =====================================================================
@@ -382,7 +426,7 @@ INSERT INTO tx_nrllm_task (
     'Explain TCA Configuration',
     'Explains TYPO3 TCA (Table Configuration Array) settings in plain language.',
     'developer',
-    0,
+    @default_config_uid,
     'You are a TYPO3 expert. Explain the following TCA (Table Configuration Array) configuration in plain language.
 
 For each significant setting, explain:
@@ -410,7 +454,11 @@ Provide a clear explanation suitable for intermediate TYPO3 developers.',
 ) ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     description = VALUES(description),
+    category = VALUES(category),
     prompt_template = VALUES(prompt_template),
+    input_type = VALUES(input_type),
+    input_source = VALUES(input_source),
+    output_format = VALUES(output_format),
     tstamp = UNIX_TIMESTAMP();
 
 -- Task: Suggest TypoScript Fixes
@@ -424,7 +472,7 @@ INSERT INTO tx_nrllm_task (
     'Suggest TypoScript Fixes',
     'Analyzes TypoScript code and suggests fixes for common issues.',
     'developer',
-    0,
+    @default_config_uid,
     'You are a TYPO3 TypoScript expert. Analyze the following TypoScript configuration for issues:
 
 1. **Syntax Errors**: Missing brackets, incorrect property assignments
@@ -454,7 +502,11 @@ Provide clear, actionable fixes.',
 ) ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     description = VALUES(description),
+    category = VALUES(category),
     prompt_template = VALUES(prompt_template),
+    input_type = VALUES(input_type),
+    input_source = VALUES(input_source),
+    output_format = VALUES(output_format),
     tstamp = UNIX_TIMESTAMP();
 
 -- Task: Analyze Fluid Template Issues
@@ -468,7 +520,7 @@ INSERT INTO tx_nrllm_task (
     'Analyze Fluid Template Issues',
     'Reviews Fluid templates for errors, accessibility issues, and best practices.',
     'developer',
-    0,
+    @default_config_uid,
     'You are a TYPO3 Fluid template expert. Analyze the following Fluid template for:
 
 1. **Syntax Errors**: Invalid ViewHelper usage, missing closures
@@ -494,7 +546,11 @@ Provide specific fixes with corrected code examples.',
 ) ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     description = VALUES(description),
+    category = VALUES(category),
     prompt_template = VALUES(prompt_template),
+    input_type = VALUES(input_type),
+    input_source = VALUES(input_source),
+    output_format = VALUES(output_format),
     tstamp = UNIX_TIMESTAMP();
 
 -- Task: Generate Extension Documentation
@@ -508,7 +564,7 @@ INSERT INTO tx_nrllm_task (
     'Generate Extension Documentation',
     'Creates documentation for TYPO3 extension classes or features.',
     'developer',
-    0,
+    @default_config_uid,
     'Generate documentation for the following TYPO3 code. Include:
 
 1. **Purpose**: What this code does
@@ -535,7 +591,11 @@ Format the documentation in RST (reStructuredText) format suitable for TYPO3 doc
 ) ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     description = VALUES(description),
+    category = VALUES(category),
     prompt_template = VALUES(prompt_template),
+    input_type = VALUES(input_type),
+    input_source = VALUES(input_source),
+    output_format = VALUES(output_format),
     tstamp = UNIX_TIMESTAMP();
 
 -- =====================================================================
