@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
-use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 use Countable;
 use Netresearch\NrLlm\Controller\Backend\DTO\ExecuteTaskRequest;
 use Netresearch\NrLlm\Controller\Backend\DTO\FetchRecordsRequest;
@@ -31,6 +30,7 @@ use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * Backend controller for managing one-shot prompt tasks.
@@ -83,7 +83,7 @@ final class TaskController extends ActionController
         /** @var array<int, string> $editUrls */
         $editUrls = [];
         foreach ($tasks as $task) {
-            
+            // @phpstan-ignore instanceof.alwaysTrue (defensive type guard for iterator)
             if (!$task instanceof Task) {
                 continue;
             }

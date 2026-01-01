@@ -74,7 +74,7 @@ class ModelSelectionService
         $candidates = [];
 
         foreach ($allModels as $model) {
-            
+            // @phpstan-ignore instanceof.alwaysTrue (defensive type guard)
             if (!$model instanceof Model) {
                 continue;
             }
