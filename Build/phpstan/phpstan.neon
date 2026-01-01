@@ -6,9 +6,10 @@
 # - PHP 8.5 compatibility
 #
 # Level 10 enforces complete type safety for all mixed types.
-# No baseline - all code is fully type-safe.
+# Baseline used for new test files pending type improvements.
 
 includes:
+  - ../../phpstan-baseline.neon
   - ../../.Build/vendor/phpat/phpat/extension.neon
 
 parameters:

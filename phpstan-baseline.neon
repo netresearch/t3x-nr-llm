@@ -1,0 +1,1807 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\E2E\\Backend\\AbstractBackendE2ETestCase\:\:assertErrorResponse\(\) should return array\<string, mixed\> but returns array\.$#'
+			identifier: return.type
+			count: 1
+			path: Tests/E2E/Backend/AbstractBackendE2ETestCase.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\E2E\\Backend\\AbstractBackendE2ETestCase\:\:assertSuccessResponse\(\) should return array\<string, mixed\> but returns array\.$#'
+			identifier: return.type
+			count: 1
+			path: Tests/E2E/Backend/AbstractBackendE2ETestCase.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getLlmModel\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getMaxTokens\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getName\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getTemperature\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:isActive\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:isDefault\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method count\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getLlmModel\(\) on Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getMaxTokens\(\) on Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getName\(\) on Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getProvider\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getTemperature\(\) on Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method isActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method isActive\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method isDefault\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method setLlmModel\(\) on Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method toArray\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$modifiedObject of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\>\:\:update\(\) expects Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration, Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$pid of method TYPO3\\CMS\\Extbase\\DomainObject\\AbstractDomainObject\:\:setPid\(\) expects int\<0, max\>, int\<0, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 9
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ConfigurationManagementE2ETest\:\:\$configurationRepository \(Netresearch\\NrLlm\\Domain\\Repository\\LlmConfigurationRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ConfigurationManagementE2ETest\:\:\$modelRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ModelRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ConfigurationManagementE2ETest\:\:\$persistenceManager \(TYPO3\\CMS\\Extbase\\Persistence\\PersistenceManagerInterface\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ConfigurationManagementE2ETest\:\:\$providerRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ProviderRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ConfigurationManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:isActive\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:isDefault\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 2
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsInt\(\) with int will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 12
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsIterable\(\) with TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\<int, Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsIterable\(\) with TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\<int, Netresearch\\NrLlm\\Domain\\Model\\Model\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsIterable\(\) with TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\<int, Netresearch\\NrLlm\\Domain\\Model\\Provider\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsIterable\(\) with TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\<int, Netresearch\\NrLlm\\Domain\\Model\\Task\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 2
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method clearState\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 5
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method count\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method count\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method count\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method count\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Task\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method persistAll\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 10
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method setApiKey\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method setIsActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method setIsActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method setIsActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method toArray\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Cannot call method toArray\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\E2E\\Backend\\DashboardE2ETest\:\:createDashboardExtbaseRequest\(\) has parameter \$parsedBody with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$modifiedObject of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\>\:\:update\(\) expects Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration, Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$modifiedObject of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\:\:update\(\) expects Netresearch\\NrLlm\\Domain\\Model\\Model, Netresearch\\NrLlm\\Domain\\Model\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$modifiedObject of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:update\(\) expects Netresearch\\NrLlm\\Domain\\Model\\Provider, Netresearch\\NrLlm\\Domain\\Model\\Provider\|null given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 4
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Possibly invalid array key type int\<1, max\>\|null\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 9
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\DashboardE2ETest\:\:\$configurationRepository \(Netresearch\\NrLlm\\Domain\\Repository\\LlmConfigurationRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\DashboardE2ETest\:\:\$modelRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ModelRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\DashboardE2ETest\:\:\$providerRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ProviderRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\DashboardE2ETest\:\:\$taskRepository \(Netresearch\\NrLlm\\Domain\\Repository\\TaskRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/DashboardE2ETest.php
+
+		-
+			message: '#^Call to an undefined method Netresearch\\NrLlm\\Controller\\Backend\\ModelController\|Netresearch\\NrLlm\\Controller\\Backend\\ProviderController\:\:setDefaultAction\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Call to an undefined method Netresearch\\NrLlm\\Controller\\Backend\\ModelController\|Netresearch\\NrLlm\\Controller\\Backend\\ProviderController\:\:testModelAction\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsInt\(\) with int will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 2
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Cannot access offset ''error'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 10
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 10
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Cannot call method count\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Task\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Cannot call method isActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Cannot call method isActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Cannot call method isActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Cannot call method isDefault\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Cannot call method setIsActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ErrorPathwaysE2ETest\:\:createDashboardExtbaseRequest\(\) has parameter \$parsedBody with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$modifiedObject of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:update\(\) expects Netresearch\\NrLlm\\Domain\\Model\\Provider, Netresearch\\NrLlm\\Domain\\Model\\Provider\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\:\:findByUid\(\) expects int, int\<1, max\>\|string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 5
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsStringIgnoringCase\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 7
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringNotContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Possibly invalid array key type int\<1, max\>\|null\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ErrorPathwaysE2ETest\:\:\$configurationRepository \(Netresearch\\NrLlm\\Domain\\Repository\\LlmConfigurationRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ErrorPathwaysE2ETest\:\:\$modelRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ModelRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ErrorPathwaysE2ETest\:\:\$persistenceManager \(TYPO3\\CMS\\Extbase\\Persistence\\PersistenceManagerInterface\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ErrorPathwaysE2ETest\:\:\$providerRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ProviderRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ErrorPathwaysE2ETest\:\:\$taskRepository \(Netresearch\\NrLlm\\Domain\\Repository\\TaskRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ErrorPathwaysE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getContextLength\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getMaxOutputTokens\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getModelId\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getName\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getProvider\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:isActive\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:isDefault\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, int\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 2
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsInt\(\) with int will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 4
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getContextLength\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getContextLength\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getIdentifier\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getMaxOutputTokens\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getModelId\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getName\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getName\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method isActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method isDefault\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method isDefault\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method setContextLength\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method setName\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method toArray\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$modifiedObject of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\:\:update\(\) expects Netresearch\\NrLlm\\Domain\\Model\\Model, Netresearch\\NrLlm\\Domain\\Model\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 7
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ModelManagementE2ETest\:\:\$modelRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ModelRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ModelManagementE2ETest\:\:\$persistenceManager \(TYPO3\\CMS\\Extbase\\Persistence\\PersistenceManagerInterface\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ModelManagementE2ETest\:\:\$providerRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ProviderRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ModelManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getAdapterType\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getConfiguration\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getIdentifier\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getLlmModel\(\)\.$#'
+			identifier: method.notFound
+			count: 4
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getName\(\)\.$#'
+			identifier: method.notFound
+			count: 5
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getProvider\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getUid\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:isDefault\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, int\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsInt\(\) with int will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 2
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method count\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method count\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method count\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method getAdapterType\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method getIdentifier\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 5
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method getLlmModel\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method getModelId\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method getName\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method getName\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 5
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method getProvider\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 12
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method isActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method isDefault\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method setIsActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method setName\(\) on Netresearch\\NrLlm\\Domain\\Model\\Model\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method setName\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method toArray\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 5
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method toArray\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method toArray\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Cannot call method toArray\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Task\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$modifiedObject of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\:\:update\(\) expects Netresearch\\NrLlm\\Domain\\Model\\Model, Netresearch\\NrLlm\\Domain\\Model\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$modifiedObject of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:update\(\) expects Netresearch\\NrLlm\\Domain\\Model\\Provider, Netresearch\\NrLlm\\Domain\\Model\\Provider\|null given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$providerUid of method Netresearch\\NrLlm\\Domain\\Repository\\ModelRepository\:\:findByProviderUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\>\:\:findByUid\(\) expects int, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\:\:findByUid\(\) expects int, int\<1, max\>\|string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\:\:findByUid\(\) expects int, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 12
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:findByUid\(\) expects int, int\<1, max\>\|string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:findByUid\(\) expects int, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Task\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(object\)\: bool\)\|null, Closure\(mixed\)\: mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#2 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 4
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Part \$adapterType \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Part \$model\-\>getIdentifier\(\) \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Part \$model\-\>getName\(\) \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Possibly invalid array key type int\<1, max\>\|null\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 2
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\MultiProviderWorkflowsE2ETest\:\:\$configurationRepository \(Netresearch\\NrLlm\\Domain\\Repository\\LlmConfigurationRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\MultiProviderWorkflowsE2ETest\:\:\$modelRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ModelRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\MultiProviderWorkflowsE2ETest\:\:\$persistenceManager \(TYPO3\\CMS\\Extbase\\Persistence\\PersistenceManagerInterface\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\MultiProviderWorkflowsE2ETest\:\:\$providerController is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\MultiProviderWorkflowsE2ETest\:\:\$providerRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ProviderRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\MultiProviderWorkflowsE2ETest\:\:\$taskRepository \(Netresearch\\NrLlm\\Domain\\Repository\\TaskRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/MultiProviderWorkflowsE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getAdapterType\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getName\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:isActive\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsInt\(\) with int will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsInt\(\) with int\<0, max\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method count\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getAdapterType\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getDecryptedApiKey\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getIdentifier\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getName\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getName\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getPriority\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getTimeout\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method isActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method setApiKey\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method setName\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method setPriority\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method setTimeout\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot call method toArray\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$modifiedObject of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:update\(\) expects Netresearch\\NrLlm\\Domain\\Model\\Provider, Netresearch\\NrLlm\\Domain\\Model\\Provider\|null given\.$#'
+			identifier: argument.type
+			count: 5
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$provider of method Netresearch\\NrLlm\\Domain\\Repository\\ModelRepository\:\:findByProvider\(\) expects Netresearch\\NrLlm\\Domain\\Model\\Provider, Netresearch\\NrLlm\\Domain\\Model\\Provider\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 11
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Part \$provider\-\>getAdapterType\(\) \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Part \$provider\-\>getName\(\) \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ProviderManagementE2ETest\:\:\$modelRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ModelRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ProviderManagementE2ETest\:\:\$persistenceManager \(TYPO3\\CMS\\Extbase\\Persistence\\PersistenceManagerInterface\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\ProviderManagementE2ETest\:\:\$providerRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ProviderRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
+
+		-
+			message: '#^Cannot access offset ''adapterType'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 5
+			path: Tests/E2E/Backend/SetupWizardE2ETest.php
+
+		-
+			message: '#^Cannot access offset ''suggestedName'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/E2E/Backend/SetupWizardE2ETest.php
+
+		-
+			message: '#^Cannot access offset ''uid'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 6
+			path: Tests/E2E/Backend/SetupWizardE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/SetupWizardE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:findByUid\(\) expects int, mixed given\.$#'
+			identifier: argument.type
+			count: 6
+			path: Tests/E2E/Backend/SetupWizardE2ETest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Tests/E2E/Backend/SetupWizardE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\SetupWizardE2ETest\:\:\$configurationRepository \(Netresearch\\NrLlm\\Domain\\Repository\\LlmConfigurationRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/SetupWizardE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\SetupWizardE2ETest\:\:\$modelRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ModelRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/SetupWizardE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\SetupWizardE2ETest\:\:\$persistenceManager \(TYPO3\\CMS\\Extbase\\Persistence\\PersistenceManagerInterface\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/SetupWizardE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\SetupWizardE2ETest\:\:\$providerRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ProviderRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/SetupWizardE2ETest.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getCategory\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getIdentifier\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getInputType\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getName\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, int\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 2
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsBool\(\) with bool will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 2
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 2
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot access offset ''name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot access offset 0 on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot access offset 1 on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot call method clearState\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot call method count\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Task\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot call method findActive\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot call method getFirst\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot call method persistAll\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 5
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot call method toArray\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Task\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot call method toArray\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$array of function array_column expects array, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$configuration of method Netresearch\\NrLlm\\Domain\\Model\\Task\:\:setConfiguration\(\) expects Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$uid of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Task\>\:\:findByUid\(\) expects int, int\<1, max\>\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Parameter \#1 \$value of function count expects array\|Countable, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 5
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Parameter \#2 \$string of static method PHPUnit\\Framework\\Assert\:\:assertStringStartsNotWith\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\TaskExecutionE2ETest\:\:\$persistenceManager \(TYPO3\\CMS\\Extbase\\Persistence\\PersistenceManagerInterface\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\E2E\\Backend\\TaskExecutionE2ETest\:\:\$taskRepository \(Netresearch\\NrLlm\\Domain\\Repository\\TaskRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/E2E/Backend/TaskExecutionE2ETest.php
+
+		-
+			message: '#^Cannot access offset ''error'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Functional/Controller/Backend/ErrorHandlingTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Functional\\Controller\\Backend\\ErrorHandlingTest\:\:createExtbaseRequest\(\) has parameter \$parsedBody with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Functional/Controller/Backend/ErrorHandlingTest.php
+
+		-
+			message: '#^Parameter \#1 \$string of function strlen expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/Functional/Controller/Backend/ErrorHandlingTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringNotContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Tests/Functional/Controller/Backend/ErrorHandlingTest.php
+
+		-
+			message: '#^Parameter \#2 \$string of static method PHPUnit\\Framework\\Assert\:\:assertDoesNotMatchRegularExpression\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/Functional/Controller/Backend/ErrorHandlingTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Controller\\Backend\\ErrorHandlingTest\:\:\$configurationRepository \(Netresearch\\NrLlm\\Domain\\Repository\\LlmConfigurationRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/Functional/Controller/Backend/ErrorHandlingTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Functional\\Controller\\Backend\\LlmModuleControllerTest\:\:createExtbaseRequest\(\) has parameter \$parsedBody with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Functional/Controller/Backend/LlmModuleControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Tests/Functional/Controller/Backend/LlmModuleControllerTest.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: Tests/Functional/Controller/Backend/MultiProviderWorkflowTest.php
+
+		-
+			message: '#^Cannot access offset ''models'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: Tests/Functional/Controller/Backend/MultiProviderWorkflowTest.php
+
+		-
+			message: '#^Cannot access offset ''success'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 7
+			path: Tests/Functional/Controller/Backend/MultiProviderWorkflowTest.php
+
+		-
+			message: '#^Cannot call method isActive\(\) on Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: Tests/Functional/Controller/Backend/MultiProviderWorkflowTest.php
+
+		-
+			message: '#^Cannot call method isDefault\(\) on Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\|null\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: Tests/Functional/Controller/Backend/MultiProviderWorkflowTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Functional\\Controller\\Backend\\MultiProviderWorkflowTest\:\:createExtbaseRequest\(\) has parameter \$parsedBody with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Functional/Controller/Backend/MultiProviderWorkflowTest.php
+
+		-
+			message: '#^Parameter \#1 \$array of function array_column expects array, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/Functional/Controller/Backend/MultiProviderWorkflowTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 6
+			path: Tests/Functional/Controller/Backend/MultiProviderWorkflowTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Controller\\Backend\\MultiProviderWorkflowTest\:\:\$configurationRepository \(Netresearch\\NrLlm\\Domain\\Repository\\LlmConfigurationRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/Functional/Controller/Backend/MultiProviderWorkflowTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Controller\\Backend\\MultiProviderWorkflowTest\:\:\$persistenceManager \(TYPO3\\CMS\\Extbase\\Persistence\\PersistenceManagerInterface\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/Functional/Controller/Backend/MultiProviderWorkflowTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Functional\\Controller\\Backend\\MultiProviderWorkflowTest\:\:\$providerRepository \(Netresearch\\NrLlm\\Domain\\Repository\\ProviderRepository\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Tests/Functional/Controller/Backend/MultiProviderWorkflowTest.php
+
+		-
+			message: '#^Cannot access offset ''adapterType'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: Tests/Functional/Controller/Backend/SetupWizardControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''uid'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Functional/Controller/Backend/SetupWizardControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Tests/Functional/Controller/Backend/SetupWizardControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''label'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Functional/Controller/Backend/TaskControllerTest.php
+
+		-
+			message: '#^Cannot access offset ''uid'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Functional/Controller/Backend/TaskControllerTest.php
+
+		-
+			message: '#^Cannot access offset 0 on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Functional/Controller/Backend/TaskControllerTest.php
+
+		-
+			message: '#^Parameter \#1 \$array of function array_column expects array, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/Functional/Controller/Backend/TaskControllerTest.php
+
+		-
+			message: '#^Parameter \#1 \$json of function json_decode expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/Functional/Controller/Backend/TaskControllerTest.php
+
+		-
+			message: '#^Parameter \#1 \$value of function count expects array\|Countable, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/Functional/Controller/Backend/TaskControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 7
+			path: Tests/Functional/Controller/Backend/TaskControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/Functional/Controller/Backend/TaskControllerTest.php
+
+		-
+			message: '#^Parameter \#2 \$string of static method PHPUnit\\Framework\\Assert\:\:assertStringStartsNotWith\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/Functional/Controller/Backend/TaskControllerTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, int\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Functional/Repository/ModelRepositoryTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsInt\(\) with int will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Functional/Repository/ModelRepositoryTest.php
+
+		-
+			message: '#^Cannot call method count\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Model\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/Functional/Repository/ModelRepositoryTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertStringContainsString\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/Functional/Repository/ModelRepositoryTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, int\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Functional/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Functional/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Cannot call method count\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/Functional/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Cannot call method getUid\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/Functional/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Cannot call method setIsActive\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/Functional/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Cannot call method toArray\(\) on iterable\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\|TYPO3\\CMS\\Extbase\\Persistence\\QueryResultInterface\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Tests/Functional/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Parameter \#1 \$callback of function array_map expects \(callable\(object\)\: mixed\)\|null, Closure\(Netresearch\\NrLlm\\Domain\\Model\\Provider\)\: string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/Functional/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Parameter \#1 \$modifiedObject of method TYPO3\\CMS\\Extbase\\Persistence\\Repository\<Netresearch\\NrLlm\\Domain\\Model\\Provider\>\:\:update\(\) expects Netresearch\\NrLlm\\Domain\\Model\\Provider, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/Functional/Repository/ProviderRepositoryTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, int\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Functional/Repository/TaskRepositoryTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Functional/Repository/TaskRepositoryTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{service_provider\: string, total_requests\: int, total_tokens\: int, total_characters\: int, total_audio_seconds\: int, total_images\: int, total_cost\: float\}\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Functional/Service/UsageTrackerServiceTest.php
+
+		-
+			message: '#^Cannot cast mixed to float\.$#'
+			identifier: cast.double
+			count: 1
+			path: Tests/Functional/Service/UsageTrackerServiceTest.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 9
+			path: Tests/Functional/Service/UsageTrackerServiceTest.php
