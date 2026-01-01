@@ -308,7 +308,9 @@ class TestableProvider extends AbstractProvider
 {
     private ?CompletionResponse $nextResponse = null;
     private ?EmbeddingResponse $nextEmbeddingResponse = null;
+    /** @var array<string, mixed> */
     private array $lastOptions = [];
+    /** @var array<string, mixed> */
     private array $lastConfiguration = [];
 
     public function __construct(
@@ -402,11 +404,17 @@ class TestableProvider extends AbstractProvider
         $this->nextEmbeddingResponse = $response;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getLastOptions(): array
     {
         return $this->lastOptions;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getLastConfiguration(): array
     {
         return $this->lastConfiguration;

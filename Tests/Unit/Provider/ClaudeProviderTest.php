@@ -12,13 +12,14 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 
 #[CoversClass(ClaudeProvider::class)]
 class ClaudeProviderTest extends AbstractUnitTestCase
 {
     private ClaudeProvider $subject;
-    private ClientInterface $httpClientStub;
+    private ClientInterface&Stub $httpClientStub;
 
     #[Override]
     protected function setUp(): void
@@ -198,7 +199,6 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     {
         $models = $this->subject->getAvailableModels();
 
-        self::assertIsArray($models);
         self::assertNotEmpty($models);
         // Models are returned as key => label pairs
         self::assertArrayHasKey('claude-sonnet-4-20250514', $models);

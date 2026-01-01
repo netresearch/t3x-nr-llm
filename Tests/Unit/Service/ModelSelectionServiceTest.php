@@ -81,6 +81,7 @@ final class ModelSelectionServiceTest extends TestCase
      * Create a QueryResultInterface from an array of models.
      *
      * @param array<int, Model> $items
+     * @return QueryResultInterface<int, Model>
      */
     private function createQueryResult(array $items): QueryResultInterface
     {
@@ -118,10 +119,16 @@ final class ModelSelectionServiceTest extends TestCase
             }
             public function offsetExists($offset): bool
             {
+                if (!is_int($offset)) {
+                    return false;
+                }
                 return isset($this->items[$offset]);
             }
             public function offsetGet($offset): mixed
             {
+                if (!is_int($offset)) {
+                    return null;
+                }
                 return $this->items[$offset];
             }
             public function offsetSet($offset, $value): void
@@ -132,6 +139,9 @@ final class ModelSelectionServiceTest extends TestCase
             }
             public function offsetUnset($offset): void
             {
+                if (!is_int($offset)) {
+                    return;
+                }
                 unset($this->items[$offset]);
             }
             public function current(): mixed

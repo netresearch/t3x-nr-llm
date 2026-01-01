@@ -21,8 +21,8 @@ class UsageStatisticsFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
-                Generator\choose(0, 100000),
-                Generator\choose(0, 100000),
+                Generator\choose(0, 100000), // @phpstan-ignore function.notFound
+                Generator\choose(0, 100000), // @phpstan-ignore function.notFound
             )
             ->then(function (int $promptTokens, int $completionTokens): void {
                 $totalTokens = $promptTokens + $completionTokens;
@@ -43,9 +43,9 @@ class UsageStatisticsFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
-                Generator\pos(),
-                Generator\pos(),
-                Generator\pos(),
+                Generator\pos(), // @phpstan-ignore function.notFound
+                Generator\pos(), // @phpstan-ignore function.notFound
+                Generator\pos(), // @phpstan-ignore function.notFound
             )
             ->then(function (int $prompt, int $completion, int $total): void {
                 $usage = new UsageStatistics(
@@ -65,9 +65,9 @@ class UsageStatisticsFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
-                Generator\pos(),
-                Generator\pos(),
-                Generator\pos(),
+                Generator\pos(), // @phpstan-ignore function.notFound
+                Generator\pos(), // @phpstan-ignore function.notFound
+                Generator\pos(), // @phpstan-ignore function.notFound
             )
             ->then(function (int $prompt, int $completion, int $total): void {
                 $usage = new UsageStatistics(

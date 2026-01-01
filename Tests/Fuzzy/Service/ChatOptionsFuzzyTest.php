@@ -35,7 +35,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
     public function maxTokensIsAlwaysPositive(): void
     {
         $this
-            ->forAll(Generator\pos())
+            ->forAll(Generator\pos()) // @phpstan-ignore function.notFound
             ->then(function (int $maxTokens): void {
                 $options = new ChatOptions(maxTokens: $maxTokens);
                 $array = $options->toArray();
@@ -94,14 +94,14 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
     public function factoryPresetsReturnValidOptions(): void
     {
         $this
-            ->forAll(Generator\elements(['factual', 'creative', 'balanced', 'json', 'code']))
+            ->forAll(Generator\elements(['factual', 'creative', 'balanced', 'json', 'code'])) // @phpstan-ignore function.notFound
             ->then(function (string $preset): void {
                 $options = match ($preset) {
                     'factual' => ChatOptions::factual(),
                     'creative' => ChatOptions::creative(),
                     'balanced' => ChatOptions::balanced(),
                     'json' => ChatOptions::json(),
-                    'code' => ChatOptions::code(),
+                    default => ChatOptions::code(),
                 };
 
                 $array = $options->toArray();
@@ -119,7 +119,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(
                 $this->floatBetween(0.0, 2.0),
-                Generator\pos(),
+                Generator\pos(), // @phpstan-ignore function.notFound
             )
             ->then(function (float $temperature, int $maxTokens): void {
                 $options = new ChatOptions(
@@ -142,7 +142,7 @@ class ChatOptionsFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(
                 $this->floatBetween(0.0, 2.0),
-                Generator\choose(1, 10000),
+                Generator\choose(1, 10000), // @phpstan-ignore function.notFound
             )
             ->then(function (float $temp, int $maxTokens): void {
                 $options = new ChatOptions(

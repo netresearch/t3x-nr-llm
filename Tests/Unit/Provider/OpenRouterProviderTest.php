@@ -11,12 +11,15 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 
 #[CoversClass(OpenRouterProvider::class)]
 class OpenRouterProviderTest extends AbstractUnitTestCase
 {
     private OpenRouterProvider $subject;
+
+    /** @var ClientInterface&Stub */
     private ClientInterface $httpClientMock;
 
     #[Override]
@@ -109,7 +112,6 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         $models = $this->subject->getAvailableModels();
 
-        self::assertIsArray($models);
         self::assertNotEmpty($models);
         // OpenRouter models have provider prefixes in keys (e.g., "anthropic/claude-3.5-sonnet")
         $modelKeys = array_keys($models);
@@ -141,6 +143,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         self::assertTrue($provider->isAvailable());
     }
 
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
     public static function routingStrategyProvider(): array
     {
         return [

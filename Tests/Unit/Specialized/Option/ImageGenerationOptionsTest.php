@@ -53,6 +53,9 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         self::assertEquals($size, $options->size);
     }
 
+    /**
+     * @return array<string, array{0: string}>
+     */
     public static function validDalle3SizeProvider(): array
     {
         return [
@@ -71,6 +74,9 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         self::assertEquals($size, $options->size);
     }
 
+    /**
+     * @return array<string, array{0: string}>
+     */
     public static function validDalle2SizeProvider(): array
     {
         return [
@@ -107,6 +113,9 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         self::assertEquals($quality, $options->quality);
     }
 
+    /**
+     * @return array<string, array{0: string}>
+     */
     public static function validQualityProvider(): array
     {
         return [
@@ -133,6 +142,9 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         self::assertEquals($style, $options->style);
     }
 
+    /**
+     * @return array<string, array{0: string}>
+     */
     public static function validStyleProvider(): array
     {
         return [
@@ -159,6 +171,9 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         self::assertEquals($format, $options->format);
     }
 
+    /**
+     * @return array<string, array{0: string}>
+     */
     public static function validFormatProvider(): array
     {
         return [
@@ -185,6 +200,9 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         self::assertEquals($model, $options->model);
     }
 
+    /**
+     * @return array<string, array{0: string}>
+     */
     public static function validModelProvider(): array
     {
         return [

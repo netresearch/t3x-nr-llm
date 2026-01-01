@@ -12,6 +12,7 @@ use Netresearch\NrLlm\Tests\Integration\AbstractIntegrationTestCase;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Integration tests for Claude provider.
@@ -27,6 +28,9 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
         parent::setUp();
     }
 
+    /**
+     * @param array<ResponseInterface> $responses
+     */
     private function createProvider(array $responses): ClaudeProvider
     {
         $httpClient = $this->createHttpClientWithResponses($responses);
@@ -50,6 +54,7 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function chatCompletionWithRealisticResponse(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getClaudeChatResponse(
             content: 'The capital of France is Paris.',
             model: 'claude-sonnet-4-20250514',
@@ -73,6 +78,7 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function chatCompletionWithSystemPrompt(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getClaudeChatResponse(
             content: 'Bonjour! Je suis ravi de vous aider avec le français.',
         );
@@ -126,6 +132,7 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function chatCompletionWithMaxTokensTruncation(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getClaudeChatResponse(
             content: 'This response was truncated',
             stopReason: 'max_tokens',
@@ -247,6 +254,7 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function multipleMessagesInConversation(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getClaudeChatResponse(
             content: 'Yes, Paris has been the capital of France since...',
         );
@@ -268,6 +276,7 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function mapsEndTurnToStopFinishReason(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getClaudeChatResponse(stopReason: 'end_turn');
 
         $provider = $this->createProvider([
@@ -284,6 +293,7 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function mapsMaxTokensToLengthFinishReason(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getClaudeChatResponse(stopReason: 'max_tokens');
 
         $provider = $this->createProvider([

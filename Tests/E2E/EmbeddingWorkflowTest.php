@@ -191,7 +191,6 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         // Assert: embedBatch returns array of vectors directly
-        self::assertIsArray($result);
         self::assertCount(3, $result);
         foreach ($result as $embedding) {
             self::assertCount(1536, $embedding);

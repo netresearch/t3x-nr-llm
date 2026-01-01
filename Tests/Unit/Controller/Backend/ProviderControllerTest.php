@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
+use Psr\Http\Message\ResponseInterface;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
@@ -67,11 +68,28 @@ final class ProviderControllerTest extends TestCase
         $prop->setValue($object, $value);
     }
 
+    /**
+     * @param array<string, mixed> $body
+     */
     private function createRequest(array $body): ServerRequest
     {
         // TYPO3's ServerRequest has ($uri, $method) signature, not ($method, $uri)
         return (new ServerRequest('/ajax/test', 'POST'))
             ->withParsedBody($body);
+    }
+
+    /**
+     * Decode JSON response and assert it's an array.
+     *
+     * @return array<string, mixed>
+     */
+    private function decodeJsonResponse(ResponseInterface $response): array
+    {
+        $data = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($data);
+
+        /** @var array<string, mixed> $data */
+        return $data;
     }
 
     private function createProvider(int $uid, bool $isActive): Provider
@@ -107,7 +125,7 @@ final class ProviderControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['success']);
@@ -138,7 +156,7 @@ final class ProviderControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['success']);
@@ -156,10 +174,11 @@ final class ProviderControllerTest extends TestCase
         $request = $this->createRequest([]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('No provider UID', $data['error']);
     }
 
@@ -175,10 +194,11 @@ final class ProviderControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(404, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('not found', $data['error']);
     }
 
@@ -198,10 +218,11 @@ final class ProviderControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('Database error', $data['error']);
     }
 
@@ -229,11 +250,12 @@ final class ProviderControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testConnectionAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['success']);
         self::assertEquals('Connection successful', $data['message']);
+        self::assertIsArray($data['models']);
         self::assertCount(2, $data['models']);
     }
 
@@ -247,7 +269,7 @@ final class ProviderControllerTest extends TestCase
         $request = $this->createRequest([]);
         $response = $this->subject->testConnectionAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
@@ -265,7 +287,7 @@ final class ProviderControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->testConnectionAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(404, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
@@ -287,10 +309,11 @@ final class ProviderControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testConnectionAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(500, $response->getStatusCode());
         self::assertFalse($data['success']);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('Connection failed', $data['error']);
     }
 }

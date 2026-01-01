@@ -28,8 +28,13 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         parent::setUp();
 
-        $this->subject = $this->get(LlmConfigurationRepository::class);
-        $this->persistenceManager = $this->get(PersistenceManager::class);
+        /** @var LlmConfigurationRepository $subject */
+        $subject = $this->get(LlmConfigurationRepository::class);
+        $this->subject = $subject;
+
+        /** @var PersistenceManager $persistenceManager */
+        $persistenceManager = $this->get(PersistenceManager::class);
+        $this->persistenceManager = $persistenceManager;
 
         // Import providers and models first since configurations reference them
         $this->importFixture('Providers.csv');
@@ -277,7 +282,6 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         self::assertNotNull($config);
 
         $optionsArray = $config->getOptionsArray();
-        self::assertIsArray($optionsArray);
         self::assertArrayHasKey('response_format', $optionsArray);
         self::assertEquals('json', $optionsArray['response_format']);
     }

@@ -26,8 +26,13 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
 
         $this->importFixture('Providers.csv');
 
-        $this->repository = $this->get(ProviderRepository::class);
-        $this->persistenceManager = $this->get(PersistenceManagerInterface::class);
+        $repository = $this->get(ProviderRepository::class);
+        self::assertInstanceOf(ProviderRepository::class, $repository);
+        $this->repository = $repository;
+
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $this->persistenceManager = $persistenceManager;
     }
 
     #[Test]
@@ -95,6 +100,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
 
         // Reload and verify
         $reloaded = $this->repository->findByUid(1);
+        self::assertInstanceOf(Provider::class, $reloaded);
         self::assertFalse($reloaded->isActive());
     }
 
@@ -119,6 +125,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
     public function providerPropertiesAreCorrect(): void
     {
         $provider = $this->repository->findByUid(1);
+        self::assertInstanceOf(Provider::class, $provider);
 
         self::assertEquals('ollama-local', $provider->getIdentifier());
         self::assertEquals('Local Ollama', $provider->getName());

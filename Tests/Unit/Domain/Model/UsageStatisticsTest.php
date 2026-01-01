@@ -103,10 +103,10 @@ class UsageStatisticsTest extends AbstractUnitTestCase
     {
         $usage = new UsageStatistics(100, 50, 150, 0.001);
 
-        // Test that readonly properties exist and are accessible
-        self::assertIsInt($usage->promptTokens);
-        self::assertIsInt($usage->completionTokens);
-        self::assertIsInt($usage->totalTokens);
+        // Test that readonly properties exist and are accessible with expected values
+        self::assertSame(100, $usage->promptTokens);
+        self::assertSame(50, $usage->completionTokens);
+        self::assertSame(150, $usage->totalTokens);
     }
 
     #[Test]

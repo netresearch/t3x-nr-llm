@@ -30,8 +30,13 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
     {
         parent::setUp();
 
-        $this->subject = $this->get(LlmConfigurationService::class);
-        $this->repository = $this->get(LlmConfigurationRepository::class);
+        /** @var LlmConfigurationService $subject */
+        $subject = $this->get(LlmConfigurationService::class);
+        $this->subject = $subject;
+
+        /** @var LlmConfigurationRepository $repository */
+        $repository = $this->get(LlmConfigurationRepository::class);
+        $this->repository = $repository;
 
         $this->importFixture('LlmConfigurations.csv');
         $this->importFixture('BeUsers.csv');

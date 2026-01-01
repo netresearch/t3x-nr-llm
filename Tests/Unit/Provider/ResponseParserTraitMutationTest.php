@@ -588,6 +588,9 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
 
     // ===== Helper method =====
 
+    /**
+     * @param list<mixed> $args
+     */
     private function invokeTraitMethod(string $method, array $args): mixed
     {
         $reflection = new ReflectionClass($this->traitObject);

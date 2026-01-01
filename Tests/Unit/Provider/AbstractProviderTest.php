@@ -105,6 +105,9 @@ class AbstractProviderTest extends AbstractUnitTestCase
         self::assertNotEmpty($models);
     }
 
+    /**
+     * @return array<string, array{class-string<AbstractProvider>, string}>
+     */
     public static function providerConfigProvider(): array
     {
         return [

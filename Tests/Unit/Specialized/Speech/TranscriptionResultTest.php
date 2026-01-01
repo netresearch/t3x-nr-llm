@@ -105,6 +105,9 @@ class TranscriptionResultTest extends AbstractUnitTestCase
         self::assertEquals($expected, $result->getFormattedDuration());
     }
 
+    /**
+     * @return array<string, array{float, string}>
+     */
     public static function durationFormattingProvider(): array
     {
         return [
@@ -141,6 +144,9 @@ class TranscriptionResultTest extends AbstractUnitTestCase
         self::assertEquals($expected, $result->getConfidencePercent());
     }
 
+    /**
+     * @return array<string, array{float, string}>
+     */
     public static function confidencePercentProvider(): array
     {
         return [

@@ -270,10 +270,10 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 self::anything(),
-                self::callback(function (array $tags) {
+                self::callback(function (array $tags): bool {
                     // Both dots and dashes should be replaced with underscores
                     foreach ($tags as $tag) {
-                        if (str_starts_with($tag, 'nrllm_model_')) {
+                        if (is_string($tag) && str_starts_with($tag, 'nrllm_model_')) {
                             return !str_contains($tag, '.') && !str_contains($tag, '-');
                         }
                     }

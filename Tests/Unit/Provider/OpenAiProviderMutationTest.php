@@ -86,7 +86,6 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
 
         $models = $provider->getAvailableModels();
 
-        self::assertIsArray($models);
         self::assertNotEmpty($models);
         self::assertArrayHasKey('gpt-5.2', $models);
         self::assertArrayHasKey('gpt-5.2-pro', $models);
@@ -208,7 +207,9 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
         $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');
 
-        self::assertStringContainsString('api.openai.com', $baseUrl->getValue($provider));
+        /** @var string $baseUrlValue */
+        $baseUrlValue = $baseUrl->getValue($provider);
+        self::assertStringContainsString('api.openai.com', $baseUrlValue);
     }
 
     #[Test]
@@ -227,10 +228,8 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
 
         $models = $provider->getAvailableModels();
 
-        // Verify model descriptions are strings
+        // Verify model entries are non-empty
         foreach ($models as $modelId => $description) {
-            self::assertIsString($modelId);
-            self::assertIsString($description);
             self::assertNotEmpty($modelId);
             self::assertNotEmpty($description);
         }

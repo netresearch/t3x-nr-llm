@@ -41,7 +41,7 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
     /**
      * Create a stub HTTP client that returns sequential responses.
      *
-     * @param ResponseInterface[] $responses
+     * @param list<ResponseInterface> $responses
      */
     protected function createMockHttpClient(array $responses): ClientInterface&Stub
     {
@@ -86,6 +86,8 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
 
     /**
      * Create OpenAI-style chat completion response.
+     *
+     * @return array<string, mixed>
      */
     protected function createOpenAiChatResponse(
         string $content,
@@ -119,6 +121,8 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
 
     /**
      * Create Claude-style chat completion response.
+     *
+     * @return array<string, mixed>
      */
     protected function createClaudeChatResponse(
         string $content,
@@ -145,6 +149,8 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
 
     /**
      * Create OpenAI-style embedding response.
+     *
+     * @return array<string, mixed>
      */
     protected function createOpenAiEmbeddingResponse(int $dimensions = 1536): array
     {
@@ -170,6 +176,8 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
 
     /**
      * Create translation API response.
+     *
+     * @return array<string, mixed>
      */
     protected function createTranslationResponse(
         string $translatedText,

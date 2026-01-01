@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
 use RuntimeException;
 use TYPO3\CMS\Core\Http\ServerRequest;
@@ -82,6 +83,9 @@ final class ModelControllerTest extends TestCase
         $prop->setValue($object, $value);
     }
 
+    /**
+     * @param array<string, mixed> $body
+     */
     private function createRequest(array $body): ServerRequest
     {
         // TYPO3's ServerRequest has ($uri, $method) signature, not ($method, $uri)
@@ -98,6 +102,20 @@ final class ModelControllerTest extends TestCase
         $model->setIsActive($isActive);
         $model->setIsDefault($isDefault);
         return $model;
+    }
+
+    /**
+     * Decode JSON response body and return typed array.
+     *
+     * @return array<string, mixed>
+     */
+    private function decodeJsonResponse(ResponseInterface $response): array
+    {
+        $decoded = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($decoded);
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
     }
 
     // toggleActiveAction tests
@@ -125,7 +143,7 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['success']);
@@ -156,7 +174,7 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['success']);
@@ -174,10 +192,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest([]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('No model UID', $data['error']);
     }
 
@@ -193,10 +212,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(404, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('not found', $data['error']);
     }
 
@@ -216,10 +236,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('Database error', $data['error']);
     }
 
@@ -248,7 +269,7 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->setDefaultAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['success']);
@@ -264,10 +285,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest([]);
         $response = $this->subject->setDefaultAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('No model UID', $data['error']);
     }
 
@@ -283,10 +305,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->setDefaultAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(404, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('not found', $data['error']);
     }
 
@@ -306,10 +329,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->setDefaultAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('Database error', $data['error']);
     }
 
@@ -327,7 +351,6 @@ final class ModelControllerTest extends TestCase
         $model2->setName('GPT-3.5');
 
         // Create a mock that can be iterated and satisfies return type
-        /** @phpstan-ignore-next-line Anonymous class implementing QueryResultInterface for test */
         $queryResult = new class ([$model1, $model2]) implements QueryResultInterface {
             /** @var array<int, object> */
             private array $items;
@@ -361,11 +384,11 @@ final class ModelControllerTest extends TestCase
             }
             public function offsetExists($offset): bool
             {
-                return isset($this->items[$offset]);
+                return is_int($offset) && isset($this->items[$offset]);
             }
             public function offsetGet($offset): mixed
             {
-                return $this->items[$offset];
+                return is_int($offset) ? ($this->items[$offset] ?? null) : null;
             }
             public function offsetSet($offset, $value): void
             {
@@ -375,7 +398,9 @@ final class ModelControllerTest extends TestCase
             }
             public function offsetUnset($offset): void
             {
-                unset($this->items[$offset]);
+                if (is_int($offset)) {
+                    unset($this->items[$offset]);
+                }
             }
             public function current(): mixed
             {
@@ -408,10 +433,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->getByProviderAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['success']);
+        self::assertIsArray($data['models']);
         self::assertCount(2, $data['models']);
     }
 
@@ -425,10 +451,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest([]);
         $response = $this->subject->getByProviderAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('No provider UID', $data['error']);
     }
 
@@ -442,10 +469,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->getByProviderAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('Database error', $data['error']);
     }
 
@@ -461,10 +489,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest([]);
         $response = $this->subject->testModelAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('No model UID', $data['error']);
     }
 
@@ -480,10 +509,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->testModelAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(404, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('not found', $data['error']);
     }
 
@@ -502,10 +532,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testModelAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('no provider', $data['error']);
     }
 
@@ -552,10 +583,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testModelAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['success']);
+        self::assertIsString($data['message']);
         self::assertStringContainsString('GPT-4', $data['message']);
         self::assertStringContainsString('OK', $data['message']);
     }
@@ -595,10 +627,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testModelAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertFalse($data['success']);
+        self::assertIsString($data['message']);
         self::assertStringContainsString('API connection failed', $data['message']);
     }
 
@@ -626,10 +659,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest([]);
         $response = $this->subject->fetchAvailableModelsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('No provider UID', $data['error']);
     }
 
@@ -645,10 +679,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['providerUid' => 99999]);
         $response = $this->subject->fetchAvailableModelsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(404, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('Provider not found', $data['error']);
     }
 
@@ -690,14 +725,17 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->fetchAvailableModelsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['success']);
+        self::assertIsArray($data['models']);
         self::assertCount(2, $data['models']);
+        self::assertIsArray($data['models'][0]);
         self::assertSame('gpt-4o', $data['models'][0]['id']);
         self::assertSame('GPT-4o', $data['models'][0]['name']);
         self::assertSame(128000, $data['models'][0]['contextLength']);
+        self::assertIsArray($data['models'][0]['capabilities']);
         self::assertContains('vision', $data['models'][0]['capabilities']);
     }
 
@@ -719,10 +757,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->fetchAvailableModelsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(500, $response->getStatusCode());
         self::assertFalse($data['success']);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('API unavailable', $data['error']);
     }
 
@@ -734,10 +773,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['modelId' => 'gpt-4o']);
         $response = $this->subject->detectLimitsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('No provider UID', $data['error']);
     }
 
@@ -747,10 +787,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->detectLimitsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('No model ID', $data['error']);
     }
 
@@ -766,10 +807,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['providerUid' => 99999, 'modelId' => 'gpt-4o']);
         $response = $this->subject->detectLimitsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(404, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('Provider not found', $data['error']);
     }
 
@@ -803,12 +845,13 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['providerUid' => 1, 'modelId' => 'gpt-4o']);
         $response = $this->subject->detectLimitsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['success']);
         self::assertSame(128000, $data['contextLength']);
         self::assertSame(16384, $data['maxOutputTokens']);
+        self::assertIsArray($data['capabilities']);
         self::assertContains('vision', $data['capabilities']);
     }
 
@@ -838,10 +881,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['providerUid' => 1, 'modelId' => 'gpt-4o']);
         $response = $this->subject->detectLimitsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(404, $response->getStatusCode());
         self::assertFalse($data['success']);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('not found', $data['error']);
     }
 
@@ -863,10 +907,11 @@ final class ModelControllerTest extends TestCase
         $request = $this->createRequest(['providerUid' => 1, 'modelId' => 'gpt-4o']);
         $response = $this->subject->detectLimitsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(500, $response->getStatusCode());
         self::assertFalse($data['success']);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('API unavailable', $data['error']);
     }
 }

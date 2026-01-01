@@ -158,8 +158,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
         $baseUrl = $reflection->getProperty('baseUrl');
 
         // GeminiProvider has a specific default base URL
-        self::assertNotEmpty($baseUrl->getValue($provider));
-        self::assertStringContainsString('generativelanguage.googleapis.com', $baseUrl->getValue($provider));
+        $baseUrlValue = $baseUrl->getValue($provider);
+        self::assertIsString($baseUrlValue);
+        self::assertNotEmpty($baseUrlValue);
+        self::assertStringContainsString('generativelanguage.googleapis.com', $baseUrlValue);
     }
 
     #[Test]
@@ -221,6 +223,9 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
         self::assertEquals($timeout, $timeoutProp->getValue($provider));
     }
 
+    /**
+     * @return array<string, array{int}>
+     */
     public static function timeoutValuesProvider(): array
     {
         return [
@@ -254,6 +259,9 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
         self::assertEquals($maxRetries, $maxRetriesProp->getValue($provider));
     }
 
+    /**
+     * @return array<string, array{int}>
+     */
     public static function maxRetriesValuesProvider(): array
     {
         return [

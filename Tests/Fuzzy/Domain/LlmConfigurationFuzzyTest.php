@@ -22,7 +22,7 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
     public function temperatureIsClampedToValidRange(): void
     {
         $this
-            ->forAll(Generator\float())
+            ->forAll(Generator\float()) // @phpstan-ignore function.notFound
             ->then(function (float $temp): void {
                 $config = new LlmConfiguration();
                 $config->setTemperature($temp);
@@ -39,7 +39,7 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
     public function topPIsClampedToValidRange(): void
     {
         $this
-            ->forAll(Generator\float())
+            ->forAll(Generator\float()) // @phpstan-ignore function.notFound
             ->then(function (float $topP): void {
                 $config = new LlmConfiguration();
                 $config->setTopP($topP);
@@ -56,7 +56,7 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
     public function frequencyPenaltyIsClampedToValidRange(): void
     {
         $this
-            ->forAll(Generator\float())
+            ->forAll(Generator\float()) // @phpstan-ignore function.notFound
             ->then(function (float $penalty): void {
                 $config = new LlmConfiguration();
                 $config->setFrequencyPenalty($penalty);
@@ -73,7 +73,7 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
     public function presencePenaltyIsClampedToValidRange(): void
     {
         $this
-            ->forAll(Generator\float())
+            ->forAll(Generator\float()) // @phpstan-ignore function.notFound
             ->then(function (float $penalty): void {
                 $config = new LlmConfiguration();
                 $config->setPresencePenalty($penalty);
@@ -90,7 +90,7 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
     public function maxTokensIsAtLeastOne(): void
     {
         $this
-            ->forAll(Generator\int())
+            ->forAll(Generator\int()) // @phpstan-ignore function.notFound
             ->then(function (int $tokens): void {
                 $config = new LlmConfiguration();
                 $config->setMaxTokens($tokens);
@@ -107,9 +107,10 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
+                // @phpstan-ignore function.notFound
                 Generator\suchThat(
                     static fn(string $s) => preg_match('/^[a-zA-Z0-9_-]+$/', $s) === 1,
-                    Generator\string(),
+                    Generator\string(), // @phpstan-ignore function.notFound
                 ),
             )
             ->then(function (string $identifier): void {
@@ -124,7 +125,7 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
     public function namePreservesUnicodeCharacters(): void
     {
         $this
-            ->forAll(Generator\string())
+            ->forAll(Generator\string()) // @phpstan-ignore function.notFound
             ->then(function (string $name): void {
                 $config = new LlmConfiguration();
                 $config->setName($name);
@@ -137,7 +138,7 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
     public function systemPromptPreservesContent(): void
     {
         $this
-            ->forAll(Generator\string())
+            ->forAll(Generator\string()) // @phpstan-ignore function.notFound
             ->then(function (string $prompt): void {
                 $config = new LlmConfiguration();
                 $config->setSystemPrompt($prompt);
@@ -150,7 +151,7 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
     public function isActiveReturnsBoolean(): void
     {
         $this
-            ->forAll(Generator\bool())
+            ->forAll(Generator\bool()) // @phpstan-ignore function.notFound
             ->then(function (bool $active): void {
                 $config = new LlmConfiguration();
                 $config->setIsActive($active);
@@ -163,7 +164,7 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
     public function isDefaultReturnsBoolean(): void
     {
         $this
-            ->forAll(Generator\bool())
+            ->forAll(Generator\bool()) // @phpstan-ignore function.notFound
             ->then(function (bool $default): void {
                 $config = new LlmConfiguration();
                 $config->setIsDefault($default);
@@ -232,10 +233,11 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
+                // @phpstan-ignore function.notFound
                 Generator\associative([
-                    'key1' => Generator\string(),
-                    'key2' => Generator\int(),
-                    'key3' => Generator\bool(),
+                    'key1' => Generator\string(), // @phpstan-ignore function.notFound
+                    'key2' => Generator\int(), // @phpstan-ignore function.notFound
+                    'key3' => Generator\bool(), // @phpstan-ignore function.notFound
                 ]),
             )
             ->then(function (array $options): void {
@@ -245,8 +247,8 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
 
                 $decoded = $config->getOptionsArray();
 
-                // Should be an array (may be empty if JSON was invalid)
-                $this->assertIsArray($decoded);
+                // Verify options were stored correctly by checking it's non-empty for valid input
+                $this->assertNotEmpty($decoded);
             });
     }
 }

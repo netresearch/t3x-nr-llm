@@ -151,9 +151,9 @@ class SegmentTest extends AbstractUnitTestCase
     {
         $segment = new Segment('Test', 0.0, 1.0);
 
-        // Properties are readonly - verify they are accessible
-        self::assertIsString($segment->text);
-        self::assertIsFloat($segment->start);
-        self::assertIsFloat($segment->end);
+        // Properties are readonly - verify they are accessible and have expected values
+        self::assertSame('Test', $segment->text);
+        self::assertSame(0.0, $segment->start);
+        self::assertSame(1.0, $segment->end);
     }
 }

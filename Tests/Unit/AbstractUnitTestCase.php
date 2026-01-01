@@ -7,6 +7,7 @@ namespace Netresearch\NrLlm\Tests\Unit;
 use Faker\Factory as FakerFactory;
 use Faker\Generator as Faker;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -36,8 +37,10 @@ abstract class AbstractUnitTestCase extends TestCase
     /**
      * Create a stub HTTP client.
      * Use createHttpClientWithExpectations() if you need expects().
+     *
+     * @return ClientInterface&Stub
      */
-    protected function createHttpClientMock(): ClientInterface
+    protected function createHttpClientMock(): ClientInterface&Stub
     {
         return self::createStub(ClientInterface::class);
     }
@@ -105,6 +108,8 @@ abstract class AbstractUnitTestCase extends TestCase
 
     /**
      * Create a stub extension configuration.
+     *
+     * @param array<string, mixed> $config
      */
     protected function createExtensionConfigurationMock(array $config = []): ExtensionConfiguration
     {
@@ -124,6 +129,8 @@ abstract class AbstractUnitTestCase extends TestCase
 
     /**
      * Create a stub HTTP response.
+     *
+     * @param array<string, list<string>> $headers
      */
     protected function createHttpResponseMock(
         int $statusCode,
@@ -149,6 +156,8 @@ abstract class AbstractUnitTestCase extends TestCase
 
     /**
      * Create a successful JSON response mock.
+     *
+     * @param array<string, mixed> $data
      */
     protected function createJsonResponseMock(array $data, int $statusCode = 200): ResponseInterface
     {
@@ -188,14 +197,16 @@ abstract class AbstractUnitTestCase extends TestCase
      */
     protected function randomModel(): string
     {
-        return $this->faker->randomElement([
+        $models = [
             'gpt-4o',
             'gpt-4o-mini',
             'claude-sonnet-4-20250514',
             'gemini-2.0-flash',
             'mistral-large-latest',
             'llama-3.3-70b-versatile',
-        ]);
+        ];
+
+        return $models[array_rand($models)];
     }
 
     /**

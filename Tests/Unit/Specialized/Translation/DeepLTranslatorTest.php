@@ -14,14 +14,17 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\ResponseInterface;
 
 #[CoversClass(DeepLTranslator::class)]
 class DeepLTranslatorTest extends AbstractUnitTestCase
 {
     private DeepLTranslator $subject;
-    private ClientInterface $httpClientStub;
     private UsageTrackerServiceInterface $usageTrackerStub;
+
+    /** @var array{translators: array{deepl: array{apiKey: string, timeout: int}}} */
     private array $defaultConfig;
 
     #[Override]
@@ -29,7 +32,6 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->httpClientStub = $this->createHttpClientMock();
         $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
 
         $this->defaultConfig = [
@@ -41,8 +43,22 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->subject = new DeepLTranslator(
-            $this->httpClientStub,
+        $this->subject = $this->createSubjectWithResponse(
+            $this->createJsonResponseMock(['translations' => []])
+        );
+    }
+
+    /**
+     * Create a DeepLTranslator with a pre-configured HTTP client response.
+     */
+    private function createSubjectWithResponse(ResponseInterface $response): DeepLTranslator
+    {
+        /** @var ClientInterface&MockObject $httpClientStub */
+        $httpClientStub = self::createStub(ClientInterface::class);
+        $httpClientStub->method('sendRequest')->willReturn($response);
+
+        return new DeepLTranslator(
+            $httpClientStub,
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createExtensionConfigurationMock($this->defaultConfig),
@@ -81,7 +97,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         ];
 
         $translator = new DeepLTranslator(
-            $this->httpClientStub,
+            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createExtensionConfigurationMock($config),
@@ -205,7 +221,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $config = ['translators' => ['deepl' => ['apiKey' => '']]];
 
         $translator = new DeepLTranslator(
-            $this->httpClientStub,
+            $this->createHttpClientMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createExtensionConfigurationMock($config),
@@ -263,7 +279,6 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     {
         $languages = $this->subject->getSupportedLanguages();
 
-        self::assertIsArray($languages);
         self::assertNotEmpty($languages);
         self::assertContains('en', $languages);
         self::assertContains('de', $languages);
@@ -279,11 +294,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->httpClientStub
-            ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMock($apiResponse));
+        $subject = $this->createSubjectWithResponse($this->createJsonResponseMock($apiResponse));
 
-        $detected = $this->subject->detectLanguage('Hallo Welt, wie geht es dir?');
+        $detected = $subject->detectLanguage('Hallo Welt, wie geht es dir?');
 
         self::assertEquals('de', $detected);
     }
@@ -300,6 +313,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         self::assertEquals($expected, $result);
     }
 
+    /**
+     * @return array<string, array{0: string, 1: string, 2: bool}>
+     */
     public static function languagePairProvider(): array
     {
         return [
@@ -320,6 +336,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         self::assertEquals($expected, $result);
     }
 
+    /**
+     * @return array<string, array{0: string, 1: bool}>
+     */
     public static function formalityLanguageProvider(): array
     {
         return [
@@ -340,11 +359,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             'character_limit' => 500000,
         ];
 
-        $this->httpClientStub
-            ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMock($apiResponse));
+        $subject = $this->createSubjectWithResponse($this->createJsonResponseMock($apiResponse));
 
-        $usage = $this->subject->getUsage();
+        $usage = $subject->getUsage();
 
         self::assertEquals(50000, $usage['character_count']);
         self::assertEquals(500000, $usage['character_limit']);
@@ -364,11 +381,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->httpClientStub
-            ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMock($apiResponse));
+        $subject = $this->createSubjectWithResponse($this->createJsonResponseMock($apiResponse));
 
-        $glossaries = $this->subject->getGlossaries();
+        $glossaries = $subject->getGlossaries();
 
         self::assertCount(1, $glossaries);
         self::assertEquals('gls_123', $glossaries[0]['glossary_id']);
@@ -377,39 +392,39 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     #[Test]
     public function translateHandles401Error(): void
     {
-        $this->httpClientStub
-            ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMock(['error' => 'Unauthorized'], 401));
+        $subject = $this->createSubjectWithResponse(
+            $this->createJsonResponseMock(['error' => 'Unauthorized'], 401)
+        );
 
         $this->expectException(ServiceConfigurationException::class);
 
-        $this->subject->translate('Hello', 'de');
+        $subject->translate('Hello', 'de');
     }
 
     #[Test]
     public function translateHandles429RateLimitError(): void
     {
-        $this->httpClientStub
-            ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMock(['message' => 'Rate limit exceeded'], 429));
+        $subject = $this->createSubjectWithResponse(
+            $this->createJsonResponseMock(['message' => 'Rate limit exceeded'], 429)
+        );
 
         $this->expectException(ServiceUnavailableException::class);
         $this->expectExceptionMessage('rate limit');
 
-        $this->subject->translate('Hello', 'de');
+        $subject->translate('Hello', 'de');
     }
 
     #[Test]
     public function translateHandles456QuotaError(): void
     {
-        $this->httpClientStub
-            ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMock(['message' => 'Quota exceeded'], 456));
+        $subject = $this->createSubjectWithResponse(
+            $this->createJsonResponseMock(['message' => 'Quota exceeded'], 456)
+        );
 
         $this->expectException(ServiceUnavailableException::class);
         $this->expectExceptionMessage('quota exceeded');
 
-        $this->subject->translate('Hello', 'de');
+        $subject->translate('Hello', 'de');
     }
 
     #[Test]
@@ -417,14 +432,12 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     {
         $apiResponse = ['translations' => []];
 
-        $this->httpClientStub
-            ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMock($apiResponse));
+        $subject = $this->createSubjectWithResponse($this->createJsonResponseMock($apiResponse));
 
         $this->expectException(ServiceUnavailableException::class);
         $this->expectExceptionMessage('empty translation');
 
-        $this->subject->translate('Hello', 'de');
+        $subject->translate('Hello', 'de');
     }
 
     #[Test]
@@ -436,11 +449,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->httpClientStub
-            ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMock($apiResponse));
+        $subject = $this->createSubjectWithResponse($this->createJsonResponseMock($apiResponse));
 
-        $result = $this->subject->translate('Hello', 'de');
+        $result = $subject->translate('Hello', 'de');
 
         self::assertNotNull($result->metadata);
         self::assertArrayHasKey('detected_source_language', $result->metadata);
@@ -456,11 +467,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->httpClientStub
-            ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMock($apiResponse));
+        $subject = $this->createSubjectWithResponse($this->createJsonResponseMock($apiResponse));
 
-        $result = $this->subject->translate('Hello', 'de');
+        $result = $subject->translate('Hello', 'de');
 
         self::assertEquals(0.95, $result->confidence);
     }

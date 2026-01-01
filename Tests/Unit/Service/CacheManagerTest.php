@@ -9,6 +9,8 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 
@@ -16,6 +18,8 @@ use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 class CacheManagerTest extends AbstractUnitTestCase
 {
     private CacheManager $subject;
+
+    /** @var FrontendInterface&Stub */
     private FrontendInterface $cacheFrontendStub;
 
     #[Override]
@@ -35,6 +39,8 @@ class CacheManagerTest extends AbstractUnitTestCase
 
     /**
      * Create a CacheManager with a mock cache frontend for expectation testing.
+     *
+     * @return array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject}
      */
     private function createSubjectWithMockFrontend(): array
     {
@@ -108,7 +114,10 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function getReturnsNullWhenNotCached(): void
     {
-        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
 
         $cacheFrontendMock
             ->expects(self::once())
@@ -142,7 +151,10 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function setStoresDataWithDefaultTags(): void
     {
-        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
 
         $data = ['content' => 'test'];
 
@@ -166,7 +178,10 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function setMergesCustomTags(): void
     {
-        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
 
         $data = ['content' => 'test'];
         $customTags = ['custom_tag'];
@@ -192,7 +207,10 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function hasReturnsCacheFrontendResult(): void
     {
-        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
 
         $cacheFrontendMock
             ->expects(self::once())
@@ -206,7 +224,10 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function removeCallsCacheFrontend(): void
     {
-        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
 
         $cacheFrontendMock
             ->expects(self::once())
@@ -219,7 +240,10 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function flushCallsCacheFrontend(): void
     {
-        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
 
         $cacheFrontendMock
             ->expects(self::once())
@@ -231,7 +255,10 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function flushByTagCallsCacheFrontend(): void
     {
-        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
 
         $cacheFrontendMock
             ->expects(self::once())
@@ -244,7 +271,10 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function flushByProviderCallsFlushByTagWithProviderTag(): void
     {
-        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
 
         $cacheFrontendMock
             ->expects(self::once())
@@ -257,7 +287,10 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function cacheCompletionStoresAndReturnsCacheKey(): void
     {
-        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
 
         $messages = [['role' => 'user', 'content' => 'Hello']];
         $options = ['temperature' => 0.7];
@@ -285,7 +318,10 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function cacheCompletionIncludesModelTag(): void
     {
-        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
 
         $messages = [['role' => 'user', 'content' => 'Hello']];
         $options = ['model' => 'gpt-4o'];
@@ -345,7 +381,10 @@ class CacheManagerTest extends AbstractUnitTestCase
     #[Test]
     public function cacheEmbeddingsUsesLongerDefaultLifetime(): void
     {
-        ['subject' => $subject, 'cacheFrontend' => $cacheFrontendMock] = $this->createSubjectWithMockFrontend();
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
 
         $input = 'test text';
         $options = [];

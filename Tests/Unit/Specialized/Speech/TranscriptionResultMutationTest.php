@@ -59,6 +59,9 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
         self::assertEquals($expected, $result->getFormattedDuration());
     }
 
+    /**
+     * @return array<string, array{float, string}>
+     */
     public static function durationFormattingProvider(): array
     {
         return [
@@ -91,6 +94,9 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
         self::assertEquals($expected, $result->getConfidencePercent());
     }
 
+    /**
+     * @return array<string, array{float, string}>
+     */
     public static function confidenceFormattingProvider(): array
     {
         return [
@@ -111,6 +117,9 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
         self::assertEquals($expected, $result->getWordCount());
     }
 
+    /**
+     * @return array<string, array{string, int}>
+     */
     public static function wordCountProvider(): array
     {
         return [
@@ -171,6 +180,9 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
         self::assertStringContainsString($expectedStart . ' --> ' . $expectedEnd, $srt);
     }
 
+    /**
+     * @return array<string, array{float, float, string, string}>
+     */
     public static function srtTimeFormattingProvider(): array
     {
         return [
@@ -242,6 +254,9 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
         self::assertStringContainsString($expectedStart . ' --> ' . $expectedEnd, $vtt);
     }
 
+    /**
+     * @return array<string, array{float, float, string, string}>
+     */
     public static function vttTimeFormattingProvider(): array
     {
         return [

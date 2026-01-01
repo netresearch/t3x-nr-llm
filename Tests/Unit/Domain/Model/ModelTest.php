@@ -48,8 +48,7 @@ final class ModelTest extends TestCase
 
         $actualProvider = $model->getProvider();
         self::assertSame($provider, $actualProvider);
-        self::assertNotNull($actualProvider);
-        self::assertSame(456, $actualProvider->getUid());
+        self::assertSame(456, $provider->getUid());
     }
 
     #[Test]
@@ -96,7 +95,6 @@ final class ModelTest extends TestCase
 
         $capabilities = $model->getCapabilitiesArray();
 
-        self::assertIsArray($capabilities);
         self::assertCount(3, $capabilities);
         self::assertContains('chat', $capabilities);
         self::assertContains('vision', $capabilities);
@@ -146,7 +144,6 @@ final class ModelTest extends TestCase
     {
         $capabilities = Model::getAllCapabilities();
 
-        self::assertIsArray($capabilities);
         self::assertArrayHasKey(Model::CAPABILITY_CHAT, $capabilities);
         self::assertArrayHasKey(Model::CAPABILITY_COMPLETION, $capabilities);
         self::assertArrayHasKey(Model::CAPABILITY_EMBEDDINGS, $capabilities);

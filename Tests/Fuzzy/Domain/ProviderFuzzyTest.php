@@ -23,9 +23,10 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
+                // @phpstan-ignore function.notFound
                 Generator\suchThat(
                     static fn(string $s) => preg_match('/^[a-zA-Z0-9_-]+$/', $s) === 1 && strlen($s) <= 100,
-                    Generator\string(),
+                    Generator\string(), // @phpstan-ignore function.notFound
                 ),
             )
             ->then(function (string $identifier): void {
@@ -40,6 +41,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
     public function namePreservesAnyString(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\string())
             ->then(function (string $name): void {
                 $provider = new Provider();
@@ -65,6 +67,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
         ];
 
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\elements($validAdapterTypes))
             ->then(function (string $adapterType): void {
                 $provider = new Provider();
@@ -79,11 +82,13 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
+                // @phpstan-ignore function.notFound
                 Generator\suchThat(
                     static fn(string $s) => filter_var($s, FILTER_VALIDATE_URL) !== false,
+                    // @phpstan-ignore function.notFound
                     Generator\map(
                         static fn(string $path) => 'https://api.example.com/' . preg_replace('/[^a-z0-9]/i', '', $path),
-                        Generator\string(),
+                        Generator\string(), // @phpstan-ignore function.notFound
                     ),
                 ),
             )
@@ -99,6 +104,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
     public function apiKeyPreservesValue(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\string())
             ->then(function (string $apiKey): void {
                 $provider = new Provider();
@@ -112,6 +118,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
     public function organizationIdPreservesValue(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\string())
             ->then(function (string $orgId): void {
                 $provider = new Provider();
@@ -125,6 +132,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
     public function timeoutIsPositiveInteger(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\int())
             ->then(function (int $timeout): void {
                 $provider = new Provider();
@@ -141,6 +149,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
     public function maxRetriesIsNonNegative(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\int())
             ->then(function (int $retries): void {
                 $provider = new Provider();
@@ -157,6 +166,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
     public function isActiveReturnsBoolean(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\bool())
             ->then(function (bool $active): void {
                 $provider = new Provider();
@@ -170,6 +180,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
     public function positiveTimeoutIsPreserved(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\choose(1, 300))
             ->then(function (int $timeout): void {
                 $provider = new Provider();
@@ -183,6 +194,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
     public function positiveMaxRetriesIsPreserved(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\choose(0, 10))
             ->then(function (int $retries): void {
                 $provider = new Provider();
@@ -197,11 +209,13 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
+                // @phpstan-ignore function.notFound
                 Generator\associative([
+                    // @phpstan-ignore function.notFound
                     'headers' => Generator\associative([
-                        'X-Custom' => Generator\string(),
+                        'X-Custom' => Generator\string(), // @phpstan-ignore function.notFound
                     ]),
-                    'verify_ssl' => Generator\bool(),
+                    'verify_ssl' => Generator\bool(), // @phpstan-ignore function.notFound
                 ]),
             )
             ->then(function (array $options): void {
@@ -211,7 +225,7 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
 
                 $decoded = $provider->getOptionsArray();
 
-                $this->assertIsArray($decoded);
+                $this->assertArrayHasKey('headers', $decoded);
             });
     }
 
@@ -220,9 +234,11 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
+                // @phpstan-ignore function.notFound
                 Generator\bind(
-                    Generator\vector(5, Generator\string()),
-                    static fn(array $lines) => Generator\constant(implode("\n", $lines)),
+                    // @phpstan-ignore function.notFound
+                    Generator\vector(5, Generator\string()), // @phpstan-ignore function.notFound
+                    static fn(array $lines) => Generator\constant(implode("\n", $lines)), // @phpstan-ignore function.notFound
                 ),
             )
             ->then(function (string $description): void {

@@ -211,12 +211,13 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
     {
         $result = $this->subject->embedBatch([]);
 
-        self::assertIsArray($result);
-        self::assertEmpty($result);
+        self::assertSame([], $result);
     }
 
     /**
      * Create mock EmbeddingResponse.
+     *
+     * @param array<int, array<int, float>> $embeddings
      */
     private function createMockEmbeddingResponse(array $embeddings): EmbeddingResponse
     {

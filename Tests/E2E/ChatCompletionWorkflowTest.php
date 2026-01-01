@@ -174,6 +174,9 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         // Verify the request was properly formed
         self::assertCount(1, $clientSetup['requests']);
         $requestBody = json_decode((string)$clientSetup['requests'][0]->getBody(), true);
+        self::assertIsArray($requestBody);
+        self::assertArrayHasKey('messages', $requestBody);
+        self::assertIsArray($requestBody['messages']);
         self::assertCount(4, $requestBody['messages']);
     }
 
@@ -225,6 +228,9 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
 
         // Verify options were passed
         $requestBody = json_decode((string)$clientSetup['requests'][0]->getBody(), true);
+        self::assertIsArray($requestBody);
+        self::assertArrayHasKey('temperature', $requestBody);
+        self::assertArrayHasKey('max_tokens', $requestBody);
         self::assertEquals(0.1, $requestBody['temperature']);
         self::assertEquals(500, $requestBody['max_tokens']);
     }

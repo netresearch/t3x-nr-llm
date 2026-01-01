@@ -58,11 +58,9 @@ class TranslatorResultTest extends AbstractUnitTestCase
             translator: 'test',
         );
 
-        // Verify readonly properties are accessible
-        self::assertIsString($result->translatedText);
-        self::assertIsString($result->sourceLanguage);
-        self::assertIsString($result->targetLanguage);
-        self::assertIsString($result->translator);
+        // Verify readonly class reflection - class should be readonly
+        $reflection = new \ReflectionClass($result);
+        self::assertTrue($reflection->isReadOnly());
     }
 
     #[Test]

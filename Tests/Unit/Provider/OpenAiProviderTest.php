@@ -15,13 +15,14 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 
 #[CoversClass(OpenAiProvider::class)]
 class OpenAiProviderTest extends AbstractUnitTestCase
 {
     private OpenAiProvider $subject;
-    private ClientInterface $httpClientStub;
+    private ClientInterface&Stub $httpClientStub;
 
     #[Override]
     protected function setUp(): void
@@ -273,7 +274,6 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         $models = $this->subject->getAvailableModels();
 
-        self::assertIsArray($models);
         self::assertNotEmpty($models);
         // Models are returned as key => label pairs
         self::assertArrayHasKey('gpt-5.2', $models);
@@ -320,6 +320,9 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
 
+    /**
+     * @return array<string, array{float}>
+     */
     public static function temperatureValidationProvider(): array
     {
         return [

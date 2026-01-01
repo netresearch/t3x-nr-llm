@@ -135,9 +135,16 @@ class VisionServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('vision')
             ->with(
-                self::callback(fn(array $content) => $content[0]['type'] === 'text'
-                        && $content[0]['text'] === $customPrompt
-                        && $content[1]['type'] === 'image_url'),
+                self::callback(static function (array $content) use ($customPrompt): bool {
+                    /** @var array{type: string, text: string} $textPart */
+                    $textPart = $content[0];
+                    /** @var array{type: string} $imagePart */
+                    $imagePart = $content[1];
+
+                    return $textPart['type'] === 'text'
+                        && $textPart['text'] === $customPrompt
+                        && $imagePart['type'] === 'image_url';
+                }),
                 self::anything(),
             )
             ->willReturn($this->createMockVisionResponse($expectedAnalysis));
@@ -205,7 +212,12 @@ class VisionServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('vision')
             ->with(
-                self::callback(fn(array $content) => $content[1]['image_url']['detail'] === 'high'),
+                self::callback(static function (array $content): bool {
+                    /** @var array{image_url: array{detail: string}} $imagePart */
+                    $imagePart = $content[1];
+
+                    return $imagePart['image_url']['detail'] === 'high';
+                }),
                 self::anything(),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));

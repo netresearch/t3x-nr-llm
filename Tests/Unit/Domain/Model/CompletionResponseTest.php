@@ -123,6 +123,9 @@ class CompletionResponseTest extends AbstractUnitTestCase
         self::assertEquals($expected, $response->isComplete());
     }
 
+    /**
+     * @return array<string, array{string, bool}>
+     */
     public static function completeFinishReasonProvider(): array
     {
         return [

@@ -23,9 +23,10 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
+                // @phpstan-ignore function.notFound
                 Generator\suchThat(
                     static fn(string $s) => preg_match('/^[a-zA-Z0-9_.-]+$/', $s) === 1 && strlen($s) <= 100,
-                    Generator\string(),
+                    Generator\string(), // @phpstan-ignore function.notFound
                 ),
             )
             ->then(function (string $identifier): void {
@@ -40,6 +41,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
     public function namePreservesAnyString(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\string())
             ->then(function (string $name): void {
                 $model = new Model();
@@ -55,9 +57,10 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
         // Model IDs like "gpt-4o", "claude-3-sonnet", "gemini-pro"
         $this
             ->forAll(
+                // @phpstan-ignore function.notFound
                 Generator\suchThat(
                     static fn(string $s) => preg_match('/^[a-zA-Z0-9_.-]+$/', $s) === 1,
-                    Generator\string(),
+                    Generator\string(), // @phpstan-ignore function.notFound
                 ),
             )
             ->then(function (string $modelId): void {
@@ -72,6 +75,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
     public function contextLengthIsNonNegative(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\int())
             ->then(function (int $length): void {
                 $model = new Model();
@@ -88,6 +92,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
     public function maxOutputTokensIsNonNegative(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\int())
             ->then(function (int $tokens): void {
                 $model = new Model();
@@ -104,6 +109,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
     public function positiveContextLengthIsPreserved(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\choose(1, 200000))
             ->then(function (int $length): void {
                 $model = new Model();
@@ -117,6 +123,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
     public function positiveMaxOutputTokensIsPreserved(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\choose(1, 16000))
             ->then(function (int $tokens): void {
                 $model = new Model();
@@ -133,6 +140,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
 
         $this
             ->forAll(
+                // @phpstan-ignore function.notFound
                 Generator\subset($validCapabilities),
             )
             ->then(function (array $capabilities): void {
@@ -153,6 +161,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
     public function costInputIsNonNegative(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\int())
             ->then(function (int $cost): void {
                 $model = new Model();
@@ -169,6 +178,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
     public function costOutputIsNonNegative(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\int())
             ->then(function (int $cost): void {
                 $model = new Model();
@@ -186,8 +196,8 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
-                Generator\choose(0, 10000),
-                Generator\choose(0, 30000),
+                Generator\choose(0, 10000), // @phpstan-ignore function.notFound
+                Generator\choose(0, 30000), // @phpstan-ignore function.notFound
             )
             ->then(function (int $inputCost, int $outputCost): void {
                 $model = new Model();
@@ -203,6 +213,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
     public function isActiveReturnsBoolean(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\bool())
             ->then(function (bool $active): void {
                 $model = new Model();
@@ -216,6 +227,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
     public function isDefaultReturnsBoolean(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\bool())
             ->then(function (bool $default): void {
                 $model = new Model();
@@ -229,6 +241,7 @@ class ModelFuzzyTest extends AbstractFuzzyTestCase
     public function descriptionPreservesContent(): void
     {
         $this
+            // @phpstan-ignore function.notFound
             ->forAll(Generator\string())
             ->then(function (string $description): void {
                 $model = new Model();

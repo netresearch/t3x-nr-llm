@@ -23,6 +23,7 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll($this->embeddingVector(50))
             ->then(function (array $vector): void {
+                /** @var array<int, float> $vector */
                 // Normalize to avoid floating point issues with very small values
                 $normalizedVector = $this->normalizeVector($vector);
                 $similarity = EmbeddingResponse::cosineSimilarity($normalizedVector, $normalizedVector);
@@ -39,6 +40,8 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
                 $this->embeddingVector(50),
             )
             ->then(function (array $vectorA, array $vectorB): void {
+                /** @var array<int, float> $vectorA */
+                /** @var array<int, float> $vectorB */
                 $similarityAB = EmbeddingResponse::cosineSimilarity($vectorA, $vectorB);
                 $similarityBA = EmbeddingResponse::cosineSimilarity($vectorB, $vectorA);
                 $this->assertEqualsWithDelta($similarityAB, $similarityBA, 0.0001);
@@ -54,6 +57,8 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
                 $this->embeddingVector(50),
             )
             ->then(function (array $vectorA, array $vectorB): void {
+                /** @var array<int, float> $vectorA */
+                /** @var array<int, float> $vectorB */
                 $similarity = EmbeddingResponse::cosineSimilarity($vectorA, $vectorB);
                 $this->assertGreaterThanOrEqual(-1.0, $similarity);
                 $this->assertLessThanOrEqual(1.0, $similarity);
@@ -66,14 +71,15 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll(
                 $this->embeddingVector(50),
-                Generator\suchThat(
+                Generator\suchThat( // @phpstan-ignore function.notFound
                     static fn(string $s) => strlen(trim($s)) > 0 && strlen($s) < 100,
-                    Generator\string(),
+                    Generator\string(), // @phpstan-ignore function.notFound
                 ),
-                Generator\pos(),
-                Generator\pos(),
+                Generator\pos(), // @phpstan-ignore function.notFound
+                Generator\pos(), // @phpstan-ignore function.notFound
             )
             ->then(function (array $embedding, string $model, int $promptTokens, int $totalTokens): void {
+                /** @var array<int, float> $embedding */
                 $usage = new UsageStatistics(
                     promptTokens: $promptTokens,
                     completionTokens: 0,
@@ -103,6 +109,8 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
                 $this->embeddingVector(50),
             )
             ->then(function (array $embedding1, array $embedding2): void {
+                /** @var array<int, float> $embedding1 */
+                /** @var array<int, float> $embedding2 */
                 $usage = new UsageStatistics(10, 0, 10);
                 $response = new EmbeddingResponse(
                     embeddings: [$embedding1, $embedding2],
@@ -126,6 +134,9 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
                 $this->embeddingVector(25),
             )
             ->then(function (array $emb1, array $emb2, array $emb3): void {
+                /** @var array<int, float> $emb1 */
+                /** @var array<int, float> $emb2 */
+                /** @var array<int, float> $emb3 */
                 $usage = new UsageStatistics(10, 0, 10);
                 $response = new EmbeddingResponse(
                     embeddings: [$emb1, $emb2, $emb3],
@@ -147,6 +158,7 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
         $this
             ->forAll($this->embeddingVector(50))
             ->then(function (array $vector): void {
+                /** @var array<int, float> $vector */
                 // Normalize vector
                 $normalizedVector = $this->normalizeVector($vector);
                 // Create opposite vector (negate all elements)
@@ -160,9 +172,9 @@ class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
     /**
      * Normalize vector to unit length.
      *
-     * @param array<float> $vector
+     * @param array<int, float> $vector
      *
-     * @return array<float>
+     * @return array<int, float>
      */
     private function normalizeVector(array $vector): array
     {

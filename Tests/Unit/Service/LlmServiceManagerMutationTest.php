@@ -20,6 +20,9 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(LlmServiceManager::class)]
 class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 {
+    /**
+     * @param array<string, mixed> $config
+     */
     private function createManager(array $config = []): LlmServiceManager
     {
         $extensionConfigStub = self::createStub(ExtensionConfiguration::class);

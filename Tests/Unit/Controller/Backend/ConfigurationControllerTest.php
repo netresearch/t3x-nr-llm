@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
+use Psr\Http\Message\ResponseInterface;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -76,11 +77,28 @@ final class ConfigurationControllerTest extends TestCase
         $prop->setValue($object, $value);
     }
 
+    /**
+     * @param array<string, mixed> $body
+     */
     private function createRequest(array $body): ServerRequest
     {
         // TYPO3's ServerRequest has ($uri, $method) signature, not ($method, $uri)
         return (new ServerRequest('/ajax/test', 'POST'))
             ->withParsedBody($body);
+    }
+
+    /**
+     * Decode JSON response body and return as typed array.
+     *
+     * @return array<string, mixed>
+     */
+    private function decodeJsonResponse(ResponseInterface $response): array
+    {
+        $data = json_decode((string) $response->getBody(), true);
+        self::assertIsArray($data);
+
+        /** @var array<string, mixed> $data */
+        return $data;
     }
 
     private function createConfiguration(int $uid, bool $isActive, bool $isDefault = false): LlmConfiguration
@@ -139,10 +157,12 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
+        self::assertIsBool($data['success']);
         self::assertTrue($data['success']);
+        self::assertIsBool($data['isActive']);
         self::assertTrue($data['isActive']);
     }
 
@@ -168,10 +188,12 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
+        self::assertIsBool($data['success']);
         self::assertTrue($data['success']);
+        self::assertIsBool($data['isActive']);
         self::assertFalse($data['isActive']);
     }
 
@@ -185,10 +207,11 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest([]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('No configuration UID', $data['error']);
     }
 
@@ -204,10 +227,11 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(404, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('not found', $data['error']);
     }
 
@@ -227,10 +251,11 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('Database error', $data['error']);
     }
 
@@ -255,9 +280,10 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->setDefaultAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
+        self::assertIsBool($data['success']);
         self::assertTrue($data['success']);
     }
 
@@ -271,10 +297,11 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest([]);
         $response = $this->subject->setDefaultAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('No configuration UID', $data['error']);
     }
 
@@ -290,10 +317,11 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->setDefaultAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(404, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('not found', $data['error']);
     }
 
@@ -313,10 +341,11 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->setDefaultAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('Database error', $data['error']);
     }
 
@@ -339,11 +368,13 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest(['provider' => 'openai']);
         $response = $this->subject->getModelsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(200, $response->getStatusCode());
+        self::assertIsBool($data['success']);
         self::assertTrue($data['success']);
         self::assertArrayHasKey('models', $data);
+        self::assertIsString($data['defaultModel']);
         self::assertEquals('gpt-4', $data['defaultModel']);
     }
 
@@ -357,10 +388,11 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest([]);
         $response = $this->subject->getModelsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('No provider', $data['error']);
     }
 
@@ -375,10 +407,11 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest(['provider' => 'nonexistent']);
         $response = $this->subject->getModelsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(404, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('not available', $data['error']);
     }
 
@@ -392,10 +425,11 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest(['provider' => 'openai']);
         $response = $this->subject->getModelsAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('Provider error', $data['error']);
     }
 
@@ -433,11 +467,14 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $responseObj = $this->subject->testConfigurationAction($request);
 
-        $data = json_decode((string)$responseObj->getBody(), true);
+        $data = $this->decodeJsonResponse($responseObj);
 
         self::assertSame(200, $responseObj->getStatusCode());
+        self::assertIsBool($data['success']);
         self::assertTrue($data['success']);
+        self::assertIsString($data['content']);
         self::assertEquals('Hello! How can I help you?', $data['content']);
+        self::assertIsString($data['model']);
         self::assertEquals('gpt-4', $data['model']);
         self::assertArrayHasKey('usage', $data);
     }
@@ -452,10 +489,11 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest([]);
         $response = $this->subject->testConfigurationAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('No configuration UID', $data['error']);
     }
 
@@ -471,10 +509,11 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 99999]);
         $response = $this->subject->testConfigurationAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(404, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('not found', $data['error']);
     }
 
@@ -499,11 +538,13 @@ final class ConfigurationControllerTest extends TestCase
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testConfigurationAction($request);
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->decodeJsonResponse($response);
 
         self::assertSame(500, $response->getStatusCode());
+        self::assertIsBool($data['success']);
         self::assertFalse($data['success']);
         self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
         self::assertStringContainsString('API error', $data['error']);
     }
 }

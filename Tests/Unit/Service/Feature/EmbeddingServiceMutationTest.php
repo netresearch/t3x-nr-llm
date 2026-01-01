@@ -24,6 +24,9 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversClass(EmbeddingService::class)]
 class EmbeddingServiceMutationTest extends AbstractUnitTestCase
 {
+    /**
+     * @param array<int, array<int, float>> $embeddings
+     */
     private function createMockEmbeddingResponse(array $embeddings): EmbeddingResponse
     {
         return new EmbeddingResponse(
@@ -47,7 +50,6 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
 
         $result = $service->findMostSimilar([0.1, 0.2, 0.3], [], 5);
 
-        self::assertIsArray($result);
         self::assertEmpty($result);
     }
 
@@ -301,6 +303,10 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
         self::assertEquals('cached-model', $result->model);
     }
 
+    /**
+     * @param array<int, float> $vectorA
+     * @param array<int, float> $vectorB
+     */
     #[Test]
     #[DataProvider('cosineSimilarityEdgeCasesProvider')]
     public function cosineSimilarityHandlesEdgeCases(array $vectorA, array $vectorB, float $expected): void
@@ -314,6 +320,9 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
         self::assertEqualsWithDelta($expected, $result, 0.0001);
     }
 
+    /**
+     * @return array<string, array{array<int, float>, array<int, float>, float}>
+     */
     public static function cosineSimilarityEdgeCasesProvider(): array
     {
         return [
@@ -452,7 +461,6 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
 
         $result = $service->pairwiseSimilarities([]);
 
-        self::assertIsArray($result);
         self::assertEmpty($result);
     }
 
@@ -481,7 +489,6 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
 
         $result = $service->embedBatch([]);
 
-        self::assertIsArray($result);
         self::assertEmpty($result);
     }
 

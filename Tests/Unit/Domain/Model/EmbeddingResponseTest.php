@@ -14,6 +14,9 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
 class EmbeddingResponseTest extends AbstractUnitTestCase
 {
+    /**
+     * @return array<int, float>
+     */
     private function createSampleEmbedding(int $dimensions = 1536): array
     {
         return array_map(fn() => (mt_rand() / mt_getrandmax()) * 2 - 1, range(1, $dimensions));

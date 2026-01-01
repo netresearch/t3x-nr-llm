@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Integration\Provider;
 
+use Psr\Http\Message\ResponseInterface;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
@@ -22,14 +23,15 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversClass(OpenAiProvider::class)]
 class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
 {
-    private OpenAiProvider $subject;
-
     #[Override]
     protected function setUp(): void
     {
         parent::setUp();
     }
 
+    /**
+     * @param list<ResponseInterface> $responses
+     */
     private function createProvider(array $responses): OpenAiProvider
     {
         $httpClient = $this->createHttpClientWithResponses($responses);
@@ -54,6 +56,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function chatCompletionWithRealisticResponse(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getOpenAiChatResponse(
             content: 'The capital of France is Paris.',
             model: 'gpt-4o',
@@ -79,6 +82,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function chatCompletionWithSystemPrompt(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getOpenAiChatResponse(
             content: 'Bonjour! Comment allez-vous?',
         );
@@ -99,6 +103,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function chatCompletionWithMaxTokensTruncation(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getOpenAiChatResponse(
             content: 'This response was truncated because it reached the maximum',
             finishReason: 'length',
@@ -155,6 +160,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function embeddingsWithRealisticResponse(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getOpenAiEmbeddingResponse(dimensions: 1536);
 
         $provider = $this->createProvider([
@@ -248,6 +254,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function multipleMessagesInConversation(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getOpenAiChatResponse(
             content: 'That is correct! Paris has been the capital of France for centuries.',
         );
@@ -269,6 +276,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function temperatureOptionAffectsRequest(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getOpenAiChatResponse();
 
         $clientSetup = $this->createRequestCapturingClient(
@@ -296,6 +304,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
         self::assertCount(1, $clientSetup['requests']);
         $request = $clientSetup['requests'][0];
         $body = json_decode((string)$request->getBody(), true);
+        self::assertIsArray($body);
 
         self::assertEquals(0.2, $body['temperature']);
     }

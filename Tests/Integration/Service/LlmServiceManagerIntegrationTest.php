@@ -16,6 +16,7 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -62,6 +63,9 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         );
     }
 
+    /**
+     * @param array<ResponseInterface> $responses
+     */
     private function createConfiguredOpenAiProvider(array $responses): OpenAiProvider
     {
         $httpClient = $this->createHttpClientWithResponses($responses);
@@ -76,6 +80,9 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         return $provider;
     }
 
+    /**
+     * @param array<ResponseInterface> $responses
+     */
     private function createConfiguredClaudeProvider(array $responses): ClaudeProvider
     {
         $httpClient = $this->createHttpClientWithResponses($responses);
@@ -117,6 +124,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function defaultProviderIsUsedWhenNoProviderSpecified(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getOpenAiChatResponse(content: 'OpenAI response');
 
         $openAiProvider = $this->createConfiguredOpenAiProvider([
@@ -137,7 +145,9 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function specificProviderCanBeRequestedInOptions(): void
     {
+        /** @var array<string, mixed> $openAiResponse */
         $openAiResponse = $this->getOpenAiChatResponse(content: 'OpenAI response');
+        /** @var array<string, mixed> $claudeResponse */
         $claudeResponse = $this->getClaudeChatResponse(content: 'Claude response');
 
         $openAiProvider = $this->createConfiguredOpenAiProvider([
@@ -229,6 +239,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function chatWithOptionsPassesThemToProvider(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getOpenAiChatResponse();
 
         $clientSetup = $this->createRequestCapturingClient(
@@ -256,6 +267,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 
         self::assertCount(1, $clientSetup['requests']);
         $body = json_decode((string)$clientSetup['requests'][0]->getBody(), true);
+        self::assertIsArray($body);
 
         self::assertEquals(0.5, $body['temperature']);
         self::assertEquals(100, $body['max_tokens']);
@@ -281,6 +293,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function completeMethodCreatesUserMessage(): void
     {
+        /** @var array<string, mixed> $responseData */
         $responseData = $this->getOpenAiChatResponse(content: 'Completed prompt');
 
         $provider = $this->createConfiguredOpenAiProvider([

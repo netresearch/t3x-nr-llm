@@ -6,7 +6,6 @@ namespace Netresearch\NrLlm\Tests\Functional\Domain\Repository;
 
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
-use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,7 +17,6 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 final class ModelRepositoryTest extends AbstractFunctionalTestCase
 {
     private ModelRepository $repository;
-    private ProviderRepository $providerRepository;
     private PersistenceManagerInterface $persistenceManager;
 
     #[Override]
@@ -29,9 +27,13 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         $this->importFixture('Providers.csv');
         $this->importFixture('Models.csv');
 
-        $this->repository = $this->get(ModelRepository::class);
-        $this->providerRepository = $this->get(ProviderRepository::class);
-        $this->persistenceManager = $this->get(PersistenceManagerInterface::class);
+        /** @var ModelRepository $repository */
+        $repository = $this->get(ModelRepository::class);
+        $this->repository = $repository;
+
+        /** @var PersistenceManagerInterface $persistenceManager */
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        $this->persistenceManager = $persistenceManager;
     }
 
     #[Test]
@@ -98,6 +100,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
 
         // Reload and verify
         $reloaded = $this->repository->findByUid(1);
+        self::assertInstanceOf(Model::class, $reloaded);
         self::assertFalse($reloaded->isActive());
     }
 
@@ -108,6 +111,8 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         $currentDefault = $this->repository->findByUid(1);
         $newDefault = $this->repository->findByUid(3);
 
+        self::assertInstanceOf(Model::class, $currentDefault);
+        self::assertInstanceOf(Model::class, $newDefault);
         self::assertTrue($currentDefault->isDefault());
         self::assertFalse($newDefault->isDefault());
 
@@ -120,6 +125,8 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         $reloadedOld = $this->repository->findByUid(1);
         $reloadedNew = $this->repository->findByUid(3);
 
+        self::assertInstanceOf(Model::class, $reloadedOld);
+        self::assertInstanceOf(Model::class, $reloadedNew);
         self::assertFalse($reloadedOld->isDefault());
         self::assertTrue($reloadedNew->isDefault());
     }

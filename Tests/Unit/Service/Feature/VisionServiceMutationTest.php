@@ -270,7 +270,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('vision')
             ->with(
-                self::callback(fn(array $content) => $content[0]['text'] === $customPrompt),
+                self::callback(static function (array $content) use ($customPrompt): bool {
+                    /** @var array{text: string} $item */
+                    $item = $content[0];
+                    return $item['text'] === $customPrompt;
+                }),
                 self::anything(),
             )
             ->willReturn($this->createMockVisionResponse('3 cats'));
@@ -332,10 +336,16 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('vision')
             ->with(
-                self::callback(fn(array $content) => $content[0]['type'] === 'text'
-                        && $content[0]['text'] === $prompt
-                        && $content[1]['type'] === 'image_url'
-                        && $content[1]['image_url']['url'] === $imageUrl),
+                self::callback(static function (array $content) use ($prompt, $imageUrl): bool {
+                    /** @var array{type: string, text: string} $textItem */
+                    $textItem = $content[0];
+                    /** @var array{type: string, image_url: array{url: string}} $imageItem */
+                    $imageItem = $content[1];
+                    return $textItem['type'] === 'text'
+                        && $textItem['text'] === $prompt
+                        && $imageItem['type'] === 'image_url'
+                        && $imageItem['image_url']['url'] === $imageUrl;
+                }),
                 self::anything(),
             )
             ->willReturn($this->createMockVisionResponse('Result'));
@@ -405,6 +415,9 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         self::assertInstanceOf(VisionResponse::class, $result);
     }
 
+    /**
+     * @return array<string, array{0: string}>
+     */
     public static function validBase64DataUriProvider(): array
     {
         return [
@@ -424,7 +437,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('vision')
             ->with(
-                self::callback(fn(array $content) => $content[1]['image_url']['detail'] === 'high'),
+                self::callback(static function (array $content): bool {
+                    /** @var array{image_url: array{detail: string}} $imageItem */
+                    $imageItem = $content[1];
+                    return $imageItem['image_url']['detail'] === 'high';
+                }),
                 self::anything(),
             )
             ->willReturn($this->createMockVisionResponse('Result'));
@@ -442,7 +459,11 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('vision')
             ->with(
-                self::callback(fn(array $content) => $content[1]['image_url']['detail'] === 'auto'),
+                self::callback(static function (array $content): bool {
+                    /** @var array{image_url: array{detail: string}} $imageItem */
+                    $imageItem = $content[1];
+                    return $imageItem['image_url']['detail'] === 'auto';
+                }),
                 self::anything(),
             )
             ->willReturn($this->createMockVisionResponse('Result'));

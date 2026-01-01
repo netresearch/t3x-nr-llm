@@ -133,6 +133,9 @@ class SegmentMutationTest extends AbstractUnitTestCase
         self::assertEquals($expected, $segment->getDuration());
     }
 
+    /**
+     * @return array<string, array{float, float, float}>
+     */
     public static function durationProvider(): array
     {
         return [

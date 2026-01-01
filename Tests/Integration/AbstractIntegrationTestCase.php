@@ -42,9 +42,11 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
      */
     protected function createHttpClientWithResponses(array $responses): ClientInterface&Stub
     {
+        /** @var list<ResponseInterface> $responseList */
+        $responseList = array_values($responses);
         $client = self::createStub(ClientInterface::class);
         $client->method('sendRequest')
-            ->willReturnOnConsecutiveCalls(...$responses);
+            ->willReturnOnConsecutiveCalls(...$responseList);
 
         return $client;
     }
@@ -97,6 +99,8 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
 
     /**
      * Get standard OpenAI-style chat completion response.
+     *
+     * @return array<string, mixed>
      */
     protected function getOpenAiChatResponse(
         string $content = 'Test response',
@@ -128,6 +132,8 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
 
     /**
      * Get standard Claude-style chat completion response.
+     *
+     * @return array<string, mixed>
      */
     protected function getClaudeChatResponse(
         string $content = 'Test response',
@@ -155,6 +161,8 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
 
     /**
      * Get standard Gemini-style chat completion response.
+     *
+     * @return array<string, mixed>
      */
     protected function getGeminiChatResponse(
         string $content = 'Test response',
@@ -184,6 +192,8 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
 
     /**
      * Get standard OpenAI-style embedding response.
+     *
+     * @return array<string, mixed>
      */
     protected function getOpenAiEmbeddingResponse(int $dimensions = 1536): array
     {
@@ -209,6 +219,8 @@ abstract class AbstractIntegrationTestCase extends AbstractUnitTestCase
 
     /**
      * Get standard error response.
+     *
+     * @return array<string, mixed>
      */
     protected function getErrorResponse(string $message, string $type = 'invalid_request_error'): array
     {

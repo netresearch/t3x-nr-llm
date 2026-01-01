@@ -112,6 +112,9 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         self::assertEquals($strategy, $routingStrategy->getValue($provider));
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
     public static function validRoutingStrategyProvider(): array
     {
         return [
@@ -223,7 +226,6 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
 
         $models = $provider->getAvailableModels();
 
-        self::assertIsArray($models);
         self::assertNotEmpty($models);
         self::assertArrayHasKey('anthropic/claude-sonnet-4-5', $models);
         self::assertArrayHasKey('openai/gpt-5.2', $models);
@@ -339,6 +341,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $models = $fallbackModels->getValue($provider);
 
         // Should have filtered out empty strings
+        self::assertIsArray($models);
         self::assertCount(3, $models);
         self::assertEquals(['model1', 'model2', 'model3'], array_values($models));
     }
@@ -356,6 +359,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
         $fallbackModels = $reflection->getProperty('fallbackModels');
         $models = $fallbackModels->getValue($provider);
 
+        self::assertIsArray($models);
         self::assertContains('model1', $models);
         self::assertContains('model2', $models);
         self::assertNotContains('  model1  ', $models);
@@ -378,7 +382,9 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
 
         $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrlValue = $baseUrl->getValue($provider);
 
-        self::assertStringContainsString('openrouter.ai/api/v1', $baseUrl->getValue($provider));
+        self::assertIsString($baseUrlValue);
+        self::assertStringContainsString('openrouter.ai/api/v1', $baseUrlValue);
     }
 }

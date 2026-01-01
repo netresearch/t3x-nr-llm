@@ -58,8 +58,11 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('chat')
             ->with(
-                self::callback(fn(array $messages) => $messages[0]['role'] === 'user'
-                        && $messages[0]['content'] === $prompt),
+                self::callback(function (array $messages) use ($prompt): bool {
+                    /** @var array{role: string, content: string} $msg */
+                    $msg = $messages[0];
+                    return $msg['role'] === 'user' && $msg['content'] === $prompt;
+                }),
                 self::anything(),
             )
             ->willReturn($mockResponse);
@@ -85,11 +88,19 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('chat')
             ->with(
-                self::callback(fn(array $messages) => count($messages) === 2
-                        && $messages[0]['role'] === 'system'
-                        && $messages[0]['content'] === $systemPrompt
-                        && $messages[1]['role'] === 'user'
-                        && $messages[1]['content'] === $prompt),
+                self::callback(function (array $messages) use ($prompt, $systemPrompt): bool {
+                    if (count($messages) !== 2) {
+                        return false;
+                    }
+                    /** @var array{role: string, content: string} $msg0 */
+                    $msg0 = $messages[0];
+                    /** @var array{role: string, content: string} $msg1 */
+                    $msg1 = $messages[1];
+                    return $msg0['role'] === 'system'
+                        && $msg0['content'] === $systemPrompt
+                        && $msg1['role'] === 'user'
+                        && $msg1['content'] === $prompt;
+                }),
                 self::anything(),
             )
             ->willReturn($mockResponse);
@@ -112,9 +123,8 @@ class CompletionServiceTest extends AbstractUnitTestCase
 
         $result = $subject->completeJson('Generate JSON');
 
-        self::assertIsArray($result);
-        self::assertEquals('value', $result['key']);
-        self::assertEquals(42, $result['number']);
+        self::assertSame('value', $result['key']);
+        self::assertSame(42, $result['number']);
     }
 
     #[Test]

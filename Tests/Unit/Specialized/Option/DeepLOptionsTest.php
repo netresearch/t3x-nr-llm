@@ -53,6 +53,9 @@ class DeepLOptionsTest extends AbstractUnitTestCase
         self::assertEquals($formality, $options->formality);
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
     public static function validFormalityProvider(): array
     {
         return [
@@ -82,6 +85,9 @@ class DeepLOptionsTest extends AbstractUnitTestCase
         self::assertEquals($tagHandling, $options->tagHandling);
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
     public static function validTagHandlingProvider(): array
     {
         return [

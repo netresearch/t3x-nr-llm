@@ -20,6 +20,9 @@ use ReflectionClass;
 #[CoversClass(DeepLTranslator::class)]
 class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
 {
+    /**
+     * @param array<string, mixed> $config
+     */
     private function createTranslator(array $config = []): DeepLTranslator
     {
         $defaultConfig = [
@@ -84,6 +87,9 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         self::assertEquals('Hallo', $result->translatedText);
     }
 
+    /**
+     * @return array<string, array{string, string}>
+     */
     public static function formalityMappingProvider(): array
     {
         return [
@@ -109,6 +115,9 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         self::assertEquals($expected, $result);
     }
 
+    /**
+     * @return array<string, array{string, string, bool}>
+     */
     public static function languageNormalizationProvider(): array
     {
         return [
@@ -358,7 +367,6 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $translator = $this->createTranslatorWithMockClient($httpClientMock);
         $glossaries = $translator->getGlossaries();
 
-        self::assertIsArray($glossaries);
         self::assertEmpty($glossaries);
     }
 
@@ -404,8 +412,10 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         // Access baseUrl via reflection
         $reflection = new ReflectionClass($translator);
         $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrlValue = $baseUrl->getValue($translator);
+        self::assertIsString($baseUrlValue);
 
-        self::assertStringContainsString('api-free.deepl.com', $baseUrl->getValue($translator));
+        self::assertStringContainsString('api-free.deepl.com', $baseUrlValue);
     }
 
     #[Test]
@@ -432,9 +442,11 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         // Access baseUrl via reflection
         $reflection = new ReflectionClass($translator);
         $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrlValue = $baseUrl->getValue($translator);
+        self::assertIsString($baseUrlValue);
 
-        self::assertStringContainsString('api.deepl.com', $baseUrl->getValue($translator));
-        self::assertStringNotContainsString('api-free', $baseUrl->getValue($translator));
+        self::assertStringContainsString('api.deepl.com', $baseUrlValue);
+        self::assertStringNotContainsString('api-free', $baseUrlValue);
     }
 
     #[Test]

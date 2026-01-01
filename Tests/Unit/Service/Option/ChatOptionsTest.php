@@ -52,6 +52,9 @@ class ChatOptionsTest extends AbstractUnitTestCase
         new ChatOptions(temperature: $temperature);
     }
 
+    /**
+     * @return array<string, array{float}>
+     */
     public static function invalidTemperatureProvider(): array
     {
         return [
@@ -70,6 +73,9 @@ class ChatOptionsTest extends AbstractUnitTestCase
         self::assertEquals($temperature, $options->getTemperature());
     }
 
+    /**
+     * @return array<string, array{float}>
+     */
     public static function validTemperatureProvider(): array
     {
         return [
@@ -99,6 +105,9 @@ class ChatOptionsTest extends AbstractUnitTestCase
         new ChatOptions(topP: $topP);
     }
 
+    /**
+     * @return array<string, array{float}>
+     */
     public static function invalidTopPProvider(): array
     {
         return [
@@ -127,6 +136,9 @@ class ChatOptionsTest extends AbstractUnitTestCase
         new ChatOptions(presencePenalty: $penalty);
     }
 
+    /**
+     * @return array<string, array{float}>
+     */
     public static function invalidPenaltyProvider(): array
     {
         return [

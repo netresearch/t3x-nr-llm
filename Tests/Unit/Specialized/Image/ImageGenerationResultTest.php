@@ -105,6 +105,9 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
         self::assertEquals($expectedHeight, $dimensions['height']);
     }
 
+    /**
+     * @return array<string, array{string, int, int}>
+     */
     public static function dimensionsProvider(): array
     {
         return [

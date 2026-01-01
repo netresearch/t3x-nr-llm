@@ -87,7 +87,6 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
 
         $models = $provider->getAvailableModels();
 
-        self::assertIsArray($models);
         self::assertNotEmpty($models);
         self::assertArrayHasKey('claude-opus-4-5-20251124', $models);
         self::assertArrayHasKey('claude-sonnet-4-5-20250929', $models);
@@ -207,8 +206,10 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
 
         $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');
+        /** @var string $baseUrlValue */
+        $baseUrlValue = $baseUrl->getValue($provider);
 
-        self::assertStringContainsString('api.anthropic.com', $baseUrl->getValue($provider));
+        self::assertStringContainsString('api.anthropic.com', $baseUrlValue);
     }
 
     #[Test]
@@ -239,10 +240,8 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
 
         $models = $provider->getAvailableModels();
 
-        // Verify model descriptions are strings
+        // Verify model IDs and descriptions are non-empty
         foreach ($models as $modelId => $description) {
-            self::assertIsString($modelId);
-            self::assertIsString($description);
             self::assertNotEmpty($modelId);
             self::assertNotEmpty($description);
         }

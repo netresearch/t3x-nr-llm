@@ -210,11 +210,12 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('chat')
             ->with(
-                self::callback(function (array $messages) {
+                self::callback(function (array $messages): bool {
+                    /** @var array{role: string, content: string}|null $systemMessage */
                     $systemMessage = $messages[0] ?? null;
                     return $systemMessage !== null
                         && $systemMessage['role'] === 'system'
-                        && str_contains((string)$systemMessage['content'], 'Markdown');
+                        && str_contains($systemMessage['content'], 'Markdown');
                 }),
                 self::anything(),
             )
@@ -242,6 +243,9 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
 
+    /**
+     * @return array<string, array{float}>
+     */
     public static function validTemperatureProvider(): array
     {
         return [
@@ -265,6 +269,9 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
         $service->complete('Test', $options);
     }
 
+    /**
+     * @return array<string, array{float}>
+     */
     public static function invalidTemperatureProvider(): array
     {
         return [
@@ -291,6 +298,9 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
 
+    /**
+     * @return array<string, array{float}>
+     */
     public static function validTopPProvider(): array
     {
         return [
@@ -313,6 +323,9 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
         $service->complete('Test', $options);
     }
 
+    /**
+     * @return array<string, array{float}>
+     */
     public static function invalidTopPProvider(): array
     {
         return [
@@ -429,10 +442,13 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->with(
                 self::callback(
                     // Should have system message when markdown format
-
-                    fn(array $messages) => isset($messages[0]['role'])
-                    && $messages[0]['role'] === 'system'
-                    && str_contains((string)$messages[0]['content'], 'Markdown'),
+                    function (array $messages): bool {
+                        /** @var array{role: string, content: string}|null $msg */
+                        $msg = $messages[0] ?? null;
+                        return $msg !== null
+                            && $msg['role'] === 'system'
+                            && str_contains($msg['content'], 'Markdown');
+                    },
                 ),
                 self::anything(),
             )
@@ -451,10 +467,18 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('chat')
             ->with(
-                self::callback(fn(array $messages) => count($messages) === 2
-                        && $messages[0]['role'] === 'system'
-                        && $messages[0]['content'] === 'Be helpful'
-                        && $messages[1]['role'] === 'user'),
+                self::callback(function (array $messages): bool {
+                    if (count($messages) !== 2) {
+                        return false;
+                    }
+                    /** @var array{role: string, content: string} $msg0 */
+                    $msg0 = $messages[0];
+                    /** @var array{role: string, content: string} $msg1 */
+                    $msg1 = $messages[1];
+                    return $msg0['role'] === 'system'
+                        && $msg0['content'] === 'Be helpful'
+                        && $msg1['role'] === 'user';
+                }),
                 self::anything(),
             )
             ->willReturn($this->createMockResponse('Response'));
@@ -473,9 +497,15 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('chat')
             ->with(
-                self::callback(fn(array $messages) => count($messages) === 1
-                        && $messages[0]['role'] === 'user'
-                        && $messages[0]['content'] === 'User prompt'),
+                self::callback(function (array $messages): bool {
+                    if (count($messages) !== 1) {
+                        return false;
+                    }
+                    /** @var array{role: string, content: string} $msg */
+                    $msg = $messages[0];
+                    return $msg['role'] === 'user'
+                        && $msg['content'] === 'User prompt';
+                }),
                 self::anything(),
             )
             ->willReturn($this->createMockResponse('Response'));

@@ -47,6 +47,26 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         return $provider;
     }
 
+    /**
+     * Invoke a protected/private method via reflection, rethrowing the underlying cause.
+     *
+     * @throws \Throwable When the underlying method throws an exception
+     */
+    private function invokeMethod(object $object, string $methodName, mixed ...$args): mixed
+    {
+        $reflection = new ReflectionClass($object);
+        $method = $reflection->getMethod($methodName);
+
+        try {
+            return $method->invoke($object, ...$args);
+        } catch (\ReflectionException $e) {
+            if ($e->getPrevious() !== null) {
+                throw $e->getPrevious();
+            }
+            throw $e;
+        }
+    }
+
     #[Test]
     public function supportsFeatureReturnsTrueForSupportedFeature(): void
     {
@@ -106,6 +126,9 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         self::assertEquals($expectedResponse, $result);
     }
 
+    /**
+     * @return array<string, array{int}>
+     */
     public static function successfulStatusCodeProvider(): array
     {
         return [
@@ -142,6 +165,9 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $method->invoke($provider, '/test', []);
     }
 
+    /**
+     * @return array<string, array{int}>
+     */
     public static function clientErrorStatusCodeProvider(): array
     {
         return [
@@ -180,6 +206,9 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $method->invoke($provider, '/test', []);
     }
 
+    /**
+     * @return array<string, array{int}>
+     */
     public static function serverErrorStatusCodeProvider(): array
     {
         return [
@@ -194,7 +223,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function sendRequestTrimsTrailingSlashFromBaseUrl(): void
     {
-        $capturedUrl = null;
+        $capturedUrl = '';
 
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
@@ -227,7 +256,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     #[Test]
     public function sendRequestAddsLeadingSlashToEndpoint(): void
     {
-        $capturedUrl = null;
+        $capturedUrl = '';
 
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
@@ -319,9 +348,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         ]);
 
         try {
-            $reflection = new ReflectionClass($provider);
-            $method = $reflection->getMethod('sendRequest');
-            $method->invoke($provider, '/test', []);
+            $this->invokeMethod($provider, 'sendRequest', '/test', []);
             self::fail('Expected ProviderConnectionException');
         } catch (ProviderConnectionException $e) {
             self::assertEquals(2, $attempts);
@@ -355,9 +382,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         ]);
 
         try {
-            $reflection = new ReflectionClass($provider);
-            $method = $reflection->getMethod('sendRequest');
-            $method->invoke($provider, '/test', []);
+            $this->invokeMethod($provider, 'sendRequest', '/test', []);
             self::fail('Expected ProviderResponseException');
         } catch (ProviderResponseException) {
             // Client errors (4xx) should NOT retry
@@ -370,6 +395,9 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
 
     // ===== Tests for extractErrorMessage() =====
 
+    /**
+     * @param array<string, mixed> $errorData
+     */
     #[Test]
     #[DataProvider('errorMessageProvider')]
     public function extractErrorMessageParsesVariousFormats(array $errorData, string $expectedMessage): void
@@ -383,6 +411,9 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         self::assertEquals($expectedMessage, $result);
     }
 
+    /**
+     * @return array<string, array{array<string, mixed>, string}>
+     */
     public static function errorMessageProvider(): array
     {
         return [
@@ -441,12 +472,12 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             'apiKey' => $this->randomApiKey(),
         ]);
 
-        // Should not throw
+        // Should not throw - use expectNotToPerformAssertions() instead of assertTrue(true)
+        $this->expectNotToPerformAssertions();
+
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('validateConfiguration');
         $method->invoke($provider);
-
-        self::assertTrue(true);
     }
 
     // ===== Tests for createUsageStatistics() =====
@@ -725,9 +756,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         ]);
 
         try {
-            $reflection = new ReflectionClass($provider);
-            $method = $reflection->getMethod('sendRequest');
-            $method->invoke($provider, '/test', []);
+            $this->invokeMethod($provider, 'sendRequest', '/test', []);
             self::fail('Expected ProviderConnectionException');
         } catch (ProviderConnectionException $e) {
             // Must contain the specific retry count
@@ -762,9 +791,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         ]);
 
         try {
-            $reflection = new ReflectionClass($provider);
-            $method = $reflection->getMethod('sendRequest');
-            $method->invoke($provider, '/test', []);
+            $this->invokeMethod($provider, 'sendRequest', '/test', []);
             self::fail('Expected ProviderConnectionException');
         } catch (ProviderConnectionException $e) {
             // When we get a 500 status, lastException is set from the status code error
@@ -798,9 +825,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         ]);
 
         try {
-            $reflection = new ReflectionClass($provider);
-            $method = $reflection->getMethod('sendRequest');
-            $method->invoke($provider, '/test', []);
+            $this->invokeMethod($provider, 'sendRequest', '/test', []);
         } catch (ProviderConnectionException) {
             // Should have tried exactly 4 times
             self::assertEquals(4, $attempts);

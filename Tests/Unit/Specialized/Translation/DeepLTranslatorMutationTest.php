@@ -27,6 +27,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(DeepLTranslator::class)]
 class DeepLTranslatorMutationTest extends AbstractUnitTestCase
 {
+    /** @var array<string, array<string, array<string, int|string>>> */
     private array $defaultConfig;
     private UsageTrackerServiceInterface $usageTrackerStub;
 
@@ -47,6 +48,9 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
         ];
     }
 
+    /**
+     * @param array<string, array<string, array<string, int|string>>>|null $config
+     */
     private function createTranslator(?array $config = null): DeepLTranslator
     {
         return new DeepLTranslator(
@@ -59,6 +63,9 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
         );
     }
 
+    /**
+     * @param array<string, array<string, array<string, int|string>>>|null $config
+     */
     private function createTranslatorWithHttpClient(ClientInterface $httpClient, ?array $config = null): DeepLTranslator
     {
         return new DeepLTranslator(
@@ -88,6 +95,9 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
         self::assertEquals($expected, $result);
     }
 
+    /**
+     * @return array<string, array{string, string}>
+     */
     public static function formalityMappingProvider(): array
     {
         return [
@@ -122,6 +132,9 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
         self::assertEquals($expected, $result);
     }
 
+    /**
+     * @return array<string, array{string, bool, string}>
+     */
     public static function languageCodeNormalizationProvider(): array
     {
         return [
@@ -194,8 +207,10 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
 
         $reflection = new ReflectionClass($translator);
         $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrlValue = $baseUrl->getValue($translator);
+        self::assertIsString($baseUrlValue);
 
-        self::assertStringContainsString('api-free.deepl.com', $baseUrl->getValue($translator));
+        self::assertStringContainsString('api-free.deepl.com', $baseUrlValue);
     }
 
     #[Test]
@@ -214,9 +229,11 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
 
         $reflection = new ReflectionClass($translator);
         $baseUrl = $reflection->getProperty('baseUrl');
+        $baseUrlValue = $baseUrl->getValue($translator);
+        self::assertIsString($baseUrlValue);
 
-        self::assertStringContainsString('api.deepl.com', $baseUrl->getValue($translator));
-        self::assertStringNotContainsString('api-free', $baseUrl->getValue($translator));
+        self::assertStringContainsString('api.deepl.com', $baseUrlValue);
+        self::assertStringNotContainsString('api-free', $baseUrlValue);
     }
 
     #[Test]
@@ -624,8 +641,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
 
         $glossaries = $translator->getGlossaries();
 
-        self::assertIsArray($glossaries);
-        self::assertEmpty($glossaries);
+        self::assertSame([], $glossaries);
     }
 
     // ===== Tests for getSupportedLanguages =====
@@ -719,9 +735,13 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
         $results = $translator->translateBatch(['Hi', 'Hello World Test'], 'de');
 
         // First result should have billed_characters matching first input
+        self::assertIsArray($results[0]->metadata);
+        self::assertArrayHasKey('billed_characters', $results[0]->metadata);
         self::assertEquals(2, $results[0]->metadata['billed_characters']);
 
         // Second result should have billed_characters matching second input
+        self::assertIsArray($results[1]->metadata);
+        self::assertArrayHasKey('billed_characters', $results[1]->metadata);
         self::assertEquals(16, $results[1]->metadata['billed_characters']);
     }
 }

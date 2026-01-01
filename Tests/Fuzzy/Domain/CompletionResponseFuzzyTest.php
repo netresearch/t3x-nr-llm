@@ -21,7 +21,7 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
     public function completionResponsePreservesContent(): void
     {
         $this
-            ->forAll(Generator\string())
+            ->forAll(Generator\string()) // @phpstan-ignore function.notFound
             ->then(function (string $content): void {
                 $usage = new UsageStatistics(10, 20, 30);
                 $response = new CompletionResponse(
@@ -40,7 +40,7 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
     public function isCompleteReturnsTrueOnlyForStopFinishReason(): void
     {
         $this
-            ->forAll(Generator\string())
+            ->forAll(Generator\string()) // @phpstan-ignore function.notFound
             ->then(function (string $content): void {
                 $usage = new UsageStatistics(10, 20, 30);
                 $response = new CompletionResponse(
@@ -59,7 +59,7 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
     public function wasTruncatedReturnsTrueForLengthFinishReason(): void
     {
         $this
-            ->forAll(Generator\string())
+            ->forAll(Generator\string()) // @phpstan-ignore function.notFound
             ->then(function (string $content): void {
                 $usage = new UsageStatistics(10, 20, 30);
                 $response = new CompletionResponse(
@@ -80,13 +80,13 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
-                Generator\suchThat(
+                Generator\suchThat( // @phpstan-ignore function.notFound
                     static fn(string $s) => strlen(trim($s)) > 0 && strlen($s) < 50,
-                    Generator\string(),
+                    Generator\string(), // @phpstan-ignore function.notFound
                 ),
-                Generator\suchThat(
+                Generator\suchThat( // @phpstan-ignore function.notFound
                     static fn(string $s) => strlen(trim($s)) > 0 && strlen($s) < 50,
-                    Generator\string(),
+                    Generator\string(), // @phpstan-ignore function.notFound
                 ),
             )
             ->then(function (string $model, string $provider): void {
@@ -109,8 +109,8 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
-                Generator\choose(0, 100000),
-                Generator\choose(0, 100000),
+                Generator\choose(0, 100000), // @phpstan-ignore function.notFound
+                Generator\choose(0, 100000), // @phpstan-ignore function.notFound
             )
             ->then(function (int $promptTokens, int $completionTokens): void {
                 $totalTokens = $promptTokens + $completionTokens;
@@ -135,7 +135,7 @@ class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
     {
         $this
             ->forAll(
-                Generator\elements(['stop', 'length', 'tool_calls', 'content_filter']),
+                Generator\elements(['stop', 'length', 'tool_calls', 'content_filter']), // @phpstan-ignore function.notFound
             )
             ->then(function (string $finishReason): void {
                 $usage = new UsageStatistics(10, 20, 30);
