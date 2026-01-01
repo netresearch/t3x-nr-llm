@@ -168,6 +168,51 @@ test.describe('Task Execute Module', () => {
       const outputError = moduleFrame.locator('#outputError');
       await expect(outputError).toHaveCount(1);
     });
+
+    test('should execute task and show response or error', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+
+      // Intercept execute request to see response
+      await page.route('**/ajax/nrllm/task/execute**', async route => {
+        const response = await route.fetch();
+        const body = await response.text();
+        console.log('Execute response:', response.status(), body.substring(0, 500));
+        await route.fulfill({ response, body });
+      });
+
+      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=1');
+
+      const moduleFrame = getModuleFrame(page);
+      await page.waitForTimeout(1000);
+
+      // Enter some test input
+      const inputArea = moduleFrame.locator('#taskInput');
+      await inputArea.fill('Test log entry for analysis');
+
+      // Click execute button
+      const executeBtn = moduleFrame.locator('#executeBtn');
+      await executeBtn.click();
+
+      // Wait for response (error or success) - Ollama may take 30+ seconds
+      await page.waitForTimeout(60000);
+
+      // Check if error or result is visible
+      const outputResult = moduleFrame.locator('#outputResult');
+      const outputError = moduleFrame.locator('#outputError');
+      const resultVisible = await outputResult.isVisible();
+      const errorVisible = await outputError.isVisible();
+
+      // Either result or error panel should be visible
+      expect(resultVisible || errorVisible).toBe(true);
+
+      // If error, verify the message is displayed (not just "Request failed")
+      if (errorVisible) {
+        const errorMsg = await moduleFrame.locator('#errorMessage').textContent();
+        expect(errorMsg).toBeTruthy();
+        // Error should contain actual message, not generic "Request failed"
+        expect(errorMsg).not.toBe('Request failed');
+      }
+    });
   });
 
   test.describe('Table Picker', () => {
@@ -305,6 +350,65 @@ test.describe('Task Execute Module', () => {
       const selectedText = await tableSelect.locator('option:first-child').textContent();
       expect(selectedText).not.toContain('Error');
       expect(selectedText).not.toContain('Load tables'); // Should not be stuck on initial state
+    });
+  });
+
+  test.describe('Task Edit Form', () => {
+    test('should show correct input type selection for syslog task', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+
+      // Navigate to edit form for task UID 1 (analyze-syslog which has input_type=syslog)
+      await page.goto('/typo3/module/nrllm/tasks?action=edit&uid=1');
+
+      const moduleFrame = getModuleFrame(page);
+
+      // Wait for page to load
+      const heading = moduleFrame.getByRole('heading', { level: 1 });
+      await expect(heading).toBeVisible({ timeout: 10000 });
+
+      // Should show "Edit Task" not "Whoops"
+      const headingText = await heading.textContent();
+      expect(headingText).toContain('Edit Task');
+
+      // Find the input type select
+      const inputTypeSelect = moduleFrame.locator('#inputType');
+      await expect(inputTypeSelect).toBeVisible();
+
+      // Get the selected value - should be 'syslog'
+      const selectedValue = await inputTypeSelect.inputValue();
+      expect(selectedValue).toBe('syslog');
+    });
+
+    test('should preserve input type after save', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+
+      // Navigate to edit form for task UID 1
+      await page.goto('/typo3/module/nrllm/tasks?action=edit&uid=1');
+
+      const moduleFrame = getModuleFrame(page);
+      await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
+
+      // Get current input type value
+      const inputTypeSelect = moduleFrame.locator('#inputType');
+      const originalValue = await inputTypeSelect.inputValue();
+      expect(originalValue).toBe('syslog');
+
+      // Submit the form without changes
+      const saveButton = moduleFrame.getByRole('button', { name: /Save/i });
+      await saveButton.click();
+
+      // Wait for redirect to list (handles both old query-based and new path-based URLs)
+      await page.waitForURL(/action=list|nrllm\/tasks(\/Backend%5CTask\/list)?$|nrllm\/tasks\/Backend\\Task\/list/);
+
+      // Navigate back to edit
+      await page.goto('/typo3/module/nrllm/tasks?action=edit&uid=1');
+      const editFrame = getModuleFrame(page);
+      await editFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
+
+      // Verify input type is still syslog
+      const inputTypeSelectAfter = editFrame.locator('#inputType');
+      const valueAfter = await inputTypeSelectAfter.inputValue();
+      expect(valueAfter).toBe('syslog');
     });
   });
 
