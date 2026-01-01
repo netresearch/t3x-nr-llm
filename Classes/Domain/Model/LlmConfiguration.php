@@ -15,8 +15,7 @@ use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
  * and manage via backend module. Includes provider settings, model parameters,
  * usage limits, and access control.
  *
- * Supports both the new three-tier model (Configuration → Model → Provider)
- * and legacy direct provider/model string fields for backward compatibility.
+ * Uses the three-tier model: Configuration → Model → Provider.
  */
 class LlmConfiguration extends AbstractEntity
 {
@@ -36,12 +35,6 @@ class LlmConfiguration extends AbstractEntity
 
     /** JSON-encoded criteria for dynamic model selection. */
     protected string $modelSelectionCriteria = '';
-
-    /** @deprecated Use $modelUid instead. Legacy provider string field. */
-    protected string $provider = '';
-
-    /** @deprecated Use $modelUid instead. Legacy model string field. */
-    protected string $model = '';
 
     protected string $translator = '';
     protected string $systemPrompt = '';
@@ -143,12 +136,9 @@ class LlmConfiguration extends AbstractEntity
     }
 
     /**
-     * Get effective provider identifier.
-     *
-     * Returns provider from database Model relation if available,
-     * falls back to legacy provider string for backward compatibility.
+     * Get provider adapter type identifier from the associated model.
      */
-    public function getEffectiveProvider(): string
+    public function getProviderType(): string
     {
         if ($this->llmModel !== null) {
             $provider = $this->llmModel->getProvider();
@@ -156,37 +146,18 @@ class LlmConfiguration extends AbstractEntity
                 return $provider->getAdapterType();
             }
         }
-        return $this->provider;
+        return '';
     }
 
     /**
-     * Get effective model ID.
-     *
-     * Returns model ID from database Model relation if available,
-     * falls back to legacy model string for backward compatibility.
+     * Get model ID from the associated model.
      */
-    public function getEffectiveModelId(): string
+    public function getModelId(): string
     {
         if ($this->llmModel !== null) {
             return $this->llmModel->getModelId();
         }
-        return $this->model;
-    }
-
-    /**
-     * @deprecated Use getEffectiveProvider() for proper resolution.
-     */
-    public function getProvider(): string
-    {
-        return $this->provider;
-    }
-
-    /**
-     * @deprecated Use getEffectiveModelId() for proper resolution.
-     */
-    public function getModel(): string
-    {
-        return $this->model;
+        return '';
     }
 
     public function getTranslator(): string
@@ -379,22 +350,6 @@ class LlmConfiguration extends AbstractEntity
         $this->modelSelectionCriteria = json_encode($criteria, JSON_THROW_ON_ERROR);
     }
 
-    /**
-     * @deprecated Use setLlmModel() instead.
-     */
-    public function setProvider(string $provider): void
-    {
-        $this->provider = $provider;
-    }
-
-    /**
-     * @deprecated Use setLlmModel() instead.
-     */
-    public function setModel(string $model): void
-    {
-        $this->model = $model;
-    }
-
     public function setTranslator(string $translator): void
     {
         $this->translator = $translator;
@@ -516,8 +471,8 @@ class LlmConfiguration extends AbstractEntity
      */
     public function toChatOptions(): ChatOptions
     {
-        $effectiveProvider = $this->getEffectiveProvider();
-        $effectiveModel = $this->getEffectiveModelId();
+        $providerType = $this->getProviderType();
+        $modelId = $this->getModelId();
 
         return new ChatOptions(
             temperature: $this->temperature,
@@ -526,8 +481,8 @@ class LlmConfiguration extends AbstractEntity
             frequencyPenalty: $this->frequencyPenalty,
             presencePenalty: $this->presencePenalty,
             systemPrompt: $this->systemPrompt !== '' ? $this->systemPrompt : null,
-            provider: $effectiveProvider !== '' ? $effectiveProvider : null,
-            model: $effectiveModel !== '' ? $effectiveModel : null,
+            provider: $providerType !== '' ? $providerType : null,
+            model: $modelId !== '' ? $modelId : null,
         );
     }
 
@@ -550,14 +505,14 @@ class LlmConfiguration extends AbstractEntity
             $options['system_prompt'] = $this->systemPrompt;
         }
 
-        $effectiveProvider = $this->getEffectiveProvider();
-        if ($effectiveProvider !== '') {
-            $options['provider'] = $effectiveProvider;
+        $providerType = $this->getProviderType();
+        if ($providerType !== '') {
+            $options['provider'] = $providerType;
         }
 
-        $effectiveModel = $this->getEffectiveModelId();
-        if ($effectiveModel !== '') {
-            $options['model'] = $effectiveModel;
+        $modelId = $this->getModelId();
+        if ($modelId !== '') {
+            $options['model'] = $modelId;
         }
 
         if ($this->translator !== '') {
@@ -577,13 +532,10 @@ class LlmConfiguration extends AbstractEntity
     }
 
     /**
-     * Get the Provider entity if using the new model relation.
+     * Get the Provider entity from the associated model.
      */
-    public function getResolvedProvider(): ?Provider
+    public function getProvider(): ?Provider
     {
-        if ($this->llmModel !== null) {
-            return $this->llmModel->getProvider();
-        }
-        return null;
+        return $this->llmModel?->getProvider();
     }
 }

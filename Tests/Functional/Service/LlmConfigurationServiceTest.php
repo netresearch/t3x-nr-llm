@@ -136,19 +136,6 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function getConfigurationsByProviderFiltersCorrectly(): void
-    {
-        $this->setUpAdminUser();
-
-        $configs = $this->subject->getConfigurationsByProvider('openai');
-
-        self::assertNotEmpty($configs);
-        foreach ($configs as $config) {
-            self::assertEquals('openai', $config->getProvider());
-        }
-    }
-
-    #[Test]
     public function hasAccessReturnsTrueForAdmin(): void
     {
         $this->setUpAdminUser();
@@ -230,8 +217,6 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         $config->setPid(0);
         $config->setIdentifier('new-service-config');
         $config->setName('New Service Configuration');
-        $config->setProvider('openai');
-        $config->setModel('gpt-4o');
         $config->setIsActive(true);
 
         $this->subject->create($config);

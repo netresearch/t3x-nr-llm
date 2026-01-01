@@ -79,23 +79,6 @@ class LlmConfigurationRepository extends Repository
     }
 
     /**
-     * Find configurations by provider.
-     *
-     * @return QueryResultInterface<int, LlmConfiguration>
-     */
-    public function findByProvider(string $provider): QueryResultInterface
-    {
-        $query = $this->createQuery();
-        $query->matching(
-            $query->logicalAnd(
-                $query->equals('isActive', true),
-                $query->equals('provider', $provider),
-            ),
-        );
-        return $query->execute();
-    }
-
-    /**
      * Find configurations accessible to specific backend user groups.
      *
      * @param array<int> $groupUids

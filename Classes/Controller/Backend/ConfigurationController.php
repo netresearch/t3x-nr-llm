@@ -218,19 +218,15 @@ final class ConfigurationController extends ActionController
         }
 
         try {
-            $testPrompt = 'Hello, please respond with a brief greeting.';
-
-            // Use database Provider/Model when available (uses correct endpoint_url)
             $model = $configuration->getLlmModel();
-            if ($model !== null && $model->getProvider() !== null) {
-                $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
-                $options = $configuration->toOptionsArray();
-                $response = $adapter->complete($testPrompt, $options);
-            } else {
-                // Fall back to ext_conf providers for legacy configurations
-                $chatOptions = $configuration->toChatOptions();
-                $response = $this->llmServiceManager->complete($testPrompt, $chatOptions);
+            if ($model === null || $model->getProvider() === null) {
+                return new JsonResponse((new ErrorResponse('Configuration has no model assigned'))->jsonSerialize(), 400);
             }
+
+            $testPrompt = 'Hello, please respond with a brief greeting.';
+            $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
+            $options = $configuration->toOptionsArray();
+            $response = $adapter->complete($testPrompt, $options);
 
             return new JsonResponse(
                 TestConfigurationResponse::fromCompletionResponse($response)->jsonSerialize(),

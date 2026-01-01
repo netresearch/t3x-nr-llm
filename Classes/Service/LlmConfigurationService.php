@@ -94,19 +94,6 @@ class LlmConfigurationService implements SingletonInterface
     }
 
     /**
-     * Get configurations by provider.
-     *
-     * @return array<LlmConfiguration>
-     */
-    public function getConfigurationsByProvider(string $provider): array
-    {
-        $configurations = $this->configurationRepository->findByProvider($provider)->toArray();
-
-        // Filter by access
-        return array_filter($configurations, $this->hasAccess(...));
-    }
-
-    /**
      * Check access to configuration.
      *
      * @throws AccessDeniedException

@@ -354,45 +354,6 @@ class TranslationService
     }
 
     /**
-     * Convert TranslatorResult to legacy TranslationResult.
-     *
-     * For backwards compatibility with existing code.
-     */
-    public function convertToLegacyResult(TranslatorResult $result): TranslationResult
-    {
-        $metadata = $result->metadata ?? [];
-        $usage = $this->extractUsageFromMetadata($metadata);
-
-        return new TranslationResult(
-            translation: $result->translatedText,
-            sourceLanguage: $result->sourceLanguage,
-            targetLanguage: $result->targetLanguage,
-            confidence: $result->confidence ?? 1.0,
-            usage: $usage ?? new UsageStatistics(0, 0, 0),
-        );
-    }
-
-    /**
-     * Extract UsageStatistics from translator metadata.
-     *
-     * @param array<string, mixed> $metadata
-     */
-    private function extractUsageFromMetadata(array $metadata): ?UsageStatistics
-    {
-        if (!isset($metadata['usage'])) {
-            return null;
-        }
-
-        $usage = $metadata['usage'];
-
-        return new UsageStatistics(
-            promptTokens: $usage['prompt_tokens'] ?? 0,
-            completionTokens: $usage['completion_tokens'] ?? 0,
-            totalTokens: $usage['total_tokens'] ?? 0,
-        );
-    }
-
-    /**
      * Build translation prompt with template.
      *
      * @param array<string, mixed> $options

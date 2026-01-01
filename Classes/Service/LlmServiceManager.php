@@ -300,28 +300,18 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
     /**
      * Get adapter instance from an LlmConfiguration entity.
-     *
-     * If the configuration has a model relation (new architecture), uses that.
-     * Otherwise falls back to legacy provider string for backward compatibility.
      */
     public function getAdapterFromConfiguration(LlmConfiguration $configuration): ProviderInterface
     {
-        // Use new model relation if available
         $llmModel = $configuration->getLlmModel();
-        if ($llmModel !== null) {
-            return $this->adapterRegistry->createAdapterFromModel($llmModel);
-        }
-
-        // Fall back to legacy provider string
-        $providerIdentifier = $configuration->getProvider();
-        if ($providerIdentifier === '') {
+        if ($llmModel === null) {
             throw new ProviderException(
-                sprintf('Configuration "%s" has no provider or model configured', $configuration->getIdentifier()),
+                sprintf('Configuration "%s" has no model assigned', $configuration->getIdentifier()),
                 1735300100,
             );
         }
 
-        return $this->getProvider($providerIdentifier);
+        return $this->adapterRegistry->createAdapterFromModel($llmModel);
     }
 
     /**

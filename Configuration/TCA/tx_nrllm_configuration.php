@@ -6,7 +6,7 @@ return [
     'ctrl' => [
         'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration',
         'label' => 'name',
-        'label_alt' => 'identifier,provider',
+        'label_alt' => 'identifier',
         'tstamp' => 'tstamp',
         'crdate' => 'crdate',
         'sortby' => 'sorting',
@@ -47,10 +47,6 @@ return [
         'provider' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.provider',
             'showitem' => 'model_selection_mode, --linebreak--, model_uid, model_selection_criteria, --linebreak--, translator',
-        ],
-        'legacy_provider' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.legacy_provider',
-            'showitem' => 'provider, model',
         ],
         'parameters' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.parameters',
@@ -164,34 +160,6 @@ return [
                     'preferences' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.criteria.group.preferences',
                 ],
                 'default' => '',
-            ],
-        ],
-        'provider' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.provider',
-            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.provider.deprecated',
-            'config' => [
-                'type' => 'select',
-                'renderType' => 'selectSingle',
-                'items' => [
-                    ['label' => 'OpenAI', 'value' => 'openai'],
-                    ['label' => 'Claude (Anthropic)', 'value' => 'claude'],
-                    ['label' => 'Gemini (Google)', 'value' => 'gemini'],
-                    ['label' => 'OpenRouter', 'value' => 'openrouter'],
-                    ['label' => 'Mistral AI (EU)', 'value' => 'mistral'],
-                    ['label' => 'Groq (Fast)', 'value' => 'groq'],
-                ],
-                'default' => 'openai',
-            ],
-        ],
-        'model' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model',
-            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.model.description',
-            'config' => [
-                'type' => 'input',
-                'size' => 40,
-                'max' => 100,
-                'eval' => 'trim',
-                'placeholder' => 'gpt-4o',
             ],
         ],
         'translator' => [

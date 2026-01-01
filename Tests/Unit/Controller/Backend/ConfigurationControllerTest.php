@@ -7,9 +7,12 @@ namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -32,6 +35,7 @@ final class ConfigurationControllerTest extends TestCase
     private LlmConfigurationRepository&MockObject $configurationRepository;
     private LlmConfigurationService&MockObject $configurationService;
     private LlmServiceManagerInterface&MockObject $llmServiceManager;
+    private ProviderAdapterRegistry&MockObject $providerAdapterRegistry;
     private ConfigurationController $subject;
 
     protected function setUp(): void
@@ -41,6 +45,7 @@ final class ConfigurationControllerTest extends TestCase
         $this->configurationRepository = $this->createMock(LlmConfigurationRepository::class);
         $this->configurationService = $this->createMock(LlmConfigurationService::class);
         $this->llmServiceManager = $this->createMock(LlmServiceManagerInterface::class);
+        $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
 
         // Create controller using reflection to inject only required dependencies
         $this->subject = $this->createControllerWithDependencies();
@@ -59,6 +64,7 @@ final class ConfigurationControllerTest extends TestCase
         $this->setPrivateProperty($controller, 'configurationRepository', $this->configurationRepository);
         $this->setPrivateProperty($controller, 'configurationService', $this->configurationService);
         $this->setPrivateProperty($controller, 'llmServiceManager', $this->llmServiceManager);
+        $this->setPrivateProperty($controller, 'providerAdapterRegistry', $this->providerAdapterRegistry);
 
         return $controller;
     }
@@ -85,6 +91,27 @@ final class ConfigurationControllerTest extends TestCase
         $uidProperty->setValue($configuration, $uid);
         $configuration->setIsActive($isActive);
         $configuration->setIsDefault($isDefault);
+        return $configuration;
+    }
+
+    private function createConfigurationWithModel(int $uid, bool $isActive, string $modelId = 'gpt-4o'): LlmConfiguration
+    {
+        $configuration = $this->createConfiguration($uid, $isActive);
+
+        $provider = new Provider();
+        $providerReflection = new ReflectionClass($provider);
+        $providerReflection->getProperty('uid')->setValue($provider, 1);
+        $provider->setAdapterType('openai');
+        $provider->setName('OpenAI');
+
+        $model = new Model();
+        $modelReflection = new ReflectionClass($model);
+        $modelReflection->getProperty('uid')->setValue($model, 1);
+        $model->setModelId($modelId);
+        $model->setProvider($provider);
+
+        $configuration->setLlmModel($model);
+
         return $configuration;
     }
 
@@ -377,12 +404,10 @@ final class ConfigurationControllerTest extends TestCase
     #[Test]
     public function testConfigurationActionReturnsSuccessForValidConfiguration(): void
     {
-        $configuration = $this->createConfiguration(1, true);
-        $configuration->setProvider('openai');
-        $configuration->setModel('gpt-4');
+        $configuration = $this->createConfigurationWithModel(1, true, 'gpt-4');
 
         $usage = new UsageStatistics(10, 20, 30);
-        $response = new CompletionResponse(
+        $completionResponse = new CompletionResponse(
             content: 'Hello! How can I help you?',
             model: 'gpt-4',
             usage: $usage,
@@ -394,10 +419,16 @@ final class ConfigurationControllerTest extends TestCase
             ->with(1)
             ->willReturn($configuration);
 
-        $this->llmServiceManager
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter
             ->expects(self::once())
             ->method('complete')
-            ->willReturn($response);
+            ->willReturn($completionResponse);
+
+        $this->providerAdapterRegistry
+            ->expects(self::once())
+            ->method('createAdapterFromModel')
+            ->willReturn($adapter);
 
         $request = $this->createRequest(['uid' => 1]);
         $responseObj = $this->subject->testConfigurationAction($request);
@@ -450,17 +481,20 @@ final class ConfigurationControllerTest extends TestCase
     #[Test]
     public function testConfigurationActionReturnsErrorOnException(): void
     {
-        $configuration = $this->createConfiguration(1, true);
-        $configuration->setProvider('openai');
-        $configuration->setModel('gpt-4');
+        $configuration = $this->createConfigurationWithModel(1, true, 'gpt-4');
 
         $this->configurationRepository
             ->method('findByUid')
             ->willReturn($configuration);
 
-        $this->llmServiceManager
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter
             ->method('complete')
             ->willThrowException(new RuntimeException('API error'));
+
+        $this->providerAdapterRegistry
+            ->method('createAdapterFromModel')
+            ->willReturn($adapter);
 
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->testConfigurationAction($request);

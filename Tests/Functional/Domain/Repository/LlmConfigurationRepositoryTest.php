@@ -31,6 +31,9 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         $this->subject = $this->get(LlmConfigurationRepository::class);
         $this->persistenceManager = $this->get(PersistenceManager::class);
 
+        // Import providers and models first since configurations reference them
+        $this->importFixture('Providers.csv');
+        $this->importFixture('Models.csv');
         $this->importFixture('LlmConfigurations.csv');
     }
 
@@ -50,8 +53,8 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(LlmConfiguration::class, $result);
         self::assertEquals('default-config', $result->getIdentifier());
         self::assertEquals('Default Configuration', $result->getName());
-        self::assertEquals('openai', $result->getProvider());
-        self::assertEquals('gpt-4o', $result->getModel());
+        self::assertNotNull($result->getLlmModel());
+        self::assertEquals('gpt-4o', $result->getModelId());
     }
 
     #[Test]
@@ -82,27 +85,6 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(LlmConfiguration::class, $result);
         self::assertTrue($result->isDefault());
         self::assertEquals('default-config', $result->getIdentifier());
-    }
-
-    #[Test]
-    public function findByProviderReturnsConfigurationsForProvider(): void
-    {
-        $result = $this->subject->findByProvider('openai');
-
-        self::assertCount(4, $result);
-
-        foreach ($result as $config) {
-            self::assertEquals('openai', $config->getProvider());
-            self::assertTrue($config->isActive());
-        }
-    }
-
-    #[Test]
-    public function findByProviderReturnsEmptyForUnknownProvider(): void
-    {
-        $result = $this->subject->findByProvider('unknown-provider');
-
-        self::assertCount(0, $result);
     }
 
     #[Test]
@@ -148,8 +130,6 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         $configuration->setPid(0);
         $configuration->setIdentifier('new-test-config');
         $configuration->setName('New Test Configuration');
-        $configuration->setProvider('claude');
-        $configuration->setModel('claude-sonnet-4-20250514');
         $configuration->setTemperature(0.8);
         $configuration->setMaxTokens(2000);
         $configuration->setIsActive(true);
@@ -162,7 +142,6 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
 
         self::assertInstanceOf(LlmConfiguration::class, $retrieved);
         self::assertEquals('New Test Configuration', $retrieved->getName());
-        self::assertEquals('claude', $retrieved->getProvider());
         self::assertEquals(0.8, $retrieved->getTemperature());
     }
 
@@ -247,8 +226,8 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         self::assertEquals(0.95, $chatOptions->getTopP());
         self::assertEquals(0.50, $chatOptions->getFrequencyPenalty());
         self::assertEquals(0.50, $chatOptions->getPresencePenalty());
-        self::assertEquals('claude', $chatOptions->getProvider());
-        self::assertEquals('claude-sonnet-4-20250514', $chatOptions->getModel());
+        // creative-config uses model_uid=3 which is llama3 from the fixtures
+        self::assertEquals('llama3:latest', $chatOptions->getModel());
     }
 
     #[Test]
@@ -261,13 +240,13 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
 
         self::assertArrayHasKey('temperature', $options);
         self::assertArrayHasKey('max_tokens', $options);
-        self::assertArrayHasKey('provider', $options);
         self::assertArrayHasKey('model', $options);
         self::assertArrayHasKey('system_prompt', $options);
 
         self::assertEquals(0.30, $options['temperature']);
         self::assertEquals(4000, $options['max_tokens']);
-        self::assertEquals('openai', $options['provider']);
+        // code-review uses model_uid=1 which is gpt-4o from fixtures
+        self::assertEquals('gpt-4o', $options['model']);
     }
 
     #[Test]

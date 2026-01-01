@@ -111,9 +111,7 @@ CREATE TABLE tx_nrllm_configuration (
     model_selection_mode varchar(20) DEFAULT 'fixed' NOT NULL,
     model_selection_criteria text,
 
-    -- Provider configuration (deprecated - kept for migration)
-    provider varchar(50) DEFAULT '' NOT NULL,
-    model varchar(100) DEFAULT '' NOT NULL,
+    -- Translation service
     translator varchar(50) DEFAULT '' NOT NULL,
     system_prompt mediumtext,
 
