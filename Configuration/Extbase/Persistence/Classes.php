@@ -53,6 +53,24 @@ return [
             'configuration' => [
                 'fieldName' => 'configuration_uid',
             ],
+            'inputType' => [
+                'fieldName' => 'input_type',
+            ],
+            'inputSource' => [
+                'fieldName' => 'input_source',
+            ],
+            'outputFormat' => [
+                'fieldName' => 'output_format',
+            ],
+            'promptTemplate' => [
+                'fieldName' => 'prompt_template',
+            ],
+            'isActive' => [
+                'fieldName' => 'is_active',
+            ],
+            'isSystem' => [
+                'fieldName' => 'is_system',
+            ],
         ],
     ],
 ];
