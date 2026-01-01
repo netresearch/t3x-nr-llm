@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Architecture;
 
+use Netresearch\NrLlm\Provider\OpenAiProvider;
+use Netresearch\NrLlm\Provider\ClaudeProvider;
+use Netresearch\NrLlm\Provider\GeminiProvider;
+use Netresearch\NrLlm\Provider\OllamaProvider;
+use Netresearch\NrLlm\Provider\GroqProvider;
+use Netresearch\NrLlm\Provider\MistralProvider;
+use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
@@ -28,13 +35,13 @@ final class ControllerLayerTest
             ->classes(Selector::inNamespace('Netresearch\NrLlm\Controller\Backend'))
             ->shouldNotDependOn()
             ->classes(
-                Selector::classname('Netresearch\NrLlm\Provider\OpenAiProvider'),
-                Selector::classname('Netresearch\NrLlm\Provider\ClaudeProvider'),
-                Selector::classname('Netresearch\NrLlm\Provider\GeminiProvider'),
-                Selector::classname('Netresearch\NrLlm\Provider\OllamaProvider'),
-                Selector::classname('Netresearch\NrLlm\Provider\GroqProvider'),
-                Selector::classname('Netresearch\NrLlm\Provider\MistralProvider'),
-                Selector::classname('Netresearch\NrLlm\Provider\OpenRouterProvider'),
+                Selector::classname(OpenAiProvider::class),
+                Selector::classname(ClaudeProvider::class),
+                Selector::classname(GeminiProvider::class),
+                Selector::classname(OllamaProvider::class),
+                Selector::classname(GroqProvider::class),
+                Selector::classname(MistralProvider::class),
+                Selector::classname(OpenRouterProvider::class),
             )
             ->because('Controllers should use ProviderAdapterRegistry, not concrete provider classes.');
     }

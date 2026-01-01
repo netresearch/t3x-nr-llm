@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ProviderModelsResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
@@ -37,7 +38,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class ConfigurationController extends ActionController
 {
-    private const TABLE_NAME = 'tx_nrllm_configuration';
+    private const string TABLE_NAME = 'tx_nrllm_configuration';
 
     private ModuleTemplate $moduleTemplate;
 
@@ -83,7 +84,7 @@ final class ConfigurationController extends ActionController
         /** @var array<int, string> $editUrls */
         $editUrls = [];
         foreach ($configurations as $config) {
-            /** @var \Netresearch\NrLlm\Domain\Model\LlmConfiguration $config */
+            /** @var LlmConfiguration $config */
             $uid = $config->getUid();
             if ($uid === null) {
                 continue;

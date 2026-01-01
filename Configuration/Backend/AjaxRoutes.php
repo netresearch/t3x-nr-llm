@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Controller\Backend\TaskController;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
@@ -79,23 +80,23 @@ return [
     // Task routes
     'nrllm_task_list_tables' => [
         'path' => '/nrllm/task/list-tables',
-        'target' => \Netresearch\NrLlm\Controller\Backend\TaskController::class . '::listTablesAction',
+        'target' => TaskController::class . '::listTablesAction',
     ],
     'nrllm_task_fetch_records' => [
         'path' => '/nrllm/task/fetch-records',
-        'target' => \Netresearch\NrLlm\Controller\Backend\TaskController::class . '::fetchRecordsAction',
+        'target' => TaskController::class . '::fetchRecordsAction',
     ],
     'nrllm_task_load_record_data' => [
         'path' => '/nrllm/task/load-record-data',
-        'target' => \Netresearch\NrLlm\Controller\Backend\TaskController::class . '::loadRecordDataAction',
+        'target' => TaskController::class . '::loadRecordDataAction',
     ],
     'nrllm_task_refresh_input' => [
         'path' => '/nrllm/task/refresh-input',
-        'target' => \Netresearch\NrLlm\Controller\Backend\TaskController::class . '::refreshInputAction',
+        'target' => TaskController::class . '::refreshInputAction',
     ],
     'nrllm_task_execute' => [
         'path' => '/nrllm/task/execute',
-        'target' => \Netresearch\NrLlm\Controller\Backend\TaskController::class . '::executeAction',
+        'target' => TaskController::class . '::executeAction',
     ],
 
     // Setup Wizard routes

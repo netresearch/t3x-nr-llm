@@ -24,14 +24,14 @@ return [
     'types' => [
         '1' => [
             'showitem' => '
-                --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:general,
+                --div--;core.form.tabs:general,
                     --palette--;;identity,
                     --palette--;;settings,
                     prompt_template,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.tab.input_output,
                     --palette--;;input,
                     --palette--;;output,
-                --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
+                --div--;core.form.tabs:access,
                     --palette--;;status,
             ',
         ],

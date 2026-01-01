@@ -33,6 +33,7 @@
         "psr/log": "^2.0 || ^3.0"
     },
     "require-dev": {
+        "a9f/typo3-fractor": "^0.5.8",
         "fakerphp/faker": "^1.24",
         "friendsofphp/php-cs-fixer": "^3.0",
         "giorgiosironi/eris": "^1.0",
@@ -61,7 +62,8 @@
         "allow-plugins": {
             "typo3/cms-composer-installers": true,
             "typo3/class-alias-loader": true,
-            "infection/extension-installer": true
+            "infection/extension-installer": true,
+            "a9f/fractor-extension-installer": true
         }
     },
     "extra": {
@@ -85,6 +87,8 @@
         "phpstan:baseline": "phpstan analyse -c Build/phpstan/phpstan.neon --generate-baseline Build/phpstan/phpstan-baseline.neon",
         "rector": "rector process --config Build/rector/rector.php",
         "rector:dry": "rector process --config Build/rector/rector.php --dry-run",
+        "fractor": "fractor process --config Build/fractor/fractor.php",
+        "fractor:dry": "fractor process --config Build/fractor/fractor.php --dry-run",
         "ci": [
             "@lint",
             "@phpstan",

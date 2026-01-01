@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 use Countable;
 use Netresearch\NrLlm\Controller\Backend\DTO\ExecuteTaskRequest;
 use Netresearch\NrLlm\Controller\Backend\DTO\FetchRecordsRequest;
@@ -44,7 +45,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 #[AsController]
 final class TaskController extends ActionController
 {
-    private const TABLE_NAME = 'tx_nrllm_task';
+    private const string TABLE_NAME = 'tx_nrllm_task';
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -65,7 +66,7 @@ final class TaskController extends ActionController
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->makeDocHeaderModuleMenu();
 
-        /** @var \TYPO3\CMS\Extbase\Persistence\QueryResultInterface<int, Task>&Countable $tasks */
+        /** @var QueryResultInterface<int, Task>&Countable $tasks */
         $tasks = $this->taskRepository->findAll();
         $categories = Task::getCategories();
 

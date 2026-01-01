@@ -13,8 +13,8 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 final readonly class FetchRecordsRequest
 {
-    private const MAX_LIMIT = 200;
-    private const DEFAULT_LIMIT = 50;
+    private const int MAX_LIMIT = 200;
+    private const int DEFAULT_LIMIT = 50;
 
     public function __construct(
         public string $table,

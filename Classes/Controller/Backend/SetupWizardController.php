@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
@@ -54,6 +55,7 @@ final class SetupWizardController extends ActionController
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly IconFactory $iconFactory,
+        private readonly ComponentFactory $componentFactory,
     ) {}
 
     protected function initializeAction(): void
@@ -89,7 +91,7 @@ final class SetupWizardController extends ActionController
         $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
 
         // Add refresh button
-        $refreshButton = $buttonBar->makeLinkButton()
+        $refreshButton = $this->componentFactory->createLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-refresh', IconSize::SMALL))
             ->setTitle('Refresh')
             ->setShowLabelText(true)

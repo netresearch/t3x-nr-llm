@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Architecture;
 
+use Netresearch\NrLlm\Domain\Model\Provider;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
@@ -78,7 +80,7 @@ final class DomainLayerTest
             ->classes(Selector::inNamespace('Netresearch\NrLlm\Domain\Model'))
             ->excluding(
                 // Provider needs encryption service for API key handling
-                Selector::classname('Netresearch\NrLlm\Domain\Model\Provider'),
+                Selector::classname(Provider::class),
             )
             ->canOnlyDependOn()
             ->classes(
@@ -102,7 +104,7 @@ final class DomainLayerTest
     public function testProviderModelLimitedDependencies(): Rule
     {
         return PHPat::rule()
-            ->classes(Selector::classname('Netresearch\NrLlm\Domain\Model\Provider'))
+            ->classes(Selector::classname(Provider::class))
             ->canOnlyDependOn()
             ->classes(
                 // Other domain models
@@ -113,7 +115,7 @@ final class DomainLayerTest
                 Selector::inNamespace('TYPO3\CMS\Extbase\DomainObject'),
                 Selector::inNamespace('TYPO3\CMS\Extbase\Persistence'),
                 // TYPO3 utility for service instantiation (necessary evil)
-                Selector::classname('TYPO3\CMS\Core\Utility\GeneralUtility'),
+                Selector::classname(GeneralUtility::class),
             )
             ->because('Provider has limited additional dependencies for API key encryption.');
     }

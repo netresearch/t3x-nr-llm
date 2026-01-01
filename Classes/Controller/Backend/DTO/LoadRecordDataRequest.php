@@ -35,7 +35,7 @@ final readonly class LoadRecordDataRequest
         $uidList = [];
         if ($uids !== '') {
             $uidList = array_values(array_filter(
-                array_map('intval', explode(',', $uids)),
+                array_map(intval(...), explode(',', $uids)),
                 static fn(int $uid): bool => $uid > 0,
             ));
         }
