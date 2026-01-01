@@ -111,7 +111,7 @@ class Provider extends AbstractEntity
             $encryptionService = GeneralUtility::makeInstance(ProviderEncryptionService::class);
             return $encryptionService->decrypt($this->apiKey);
         } catch (Throwable) {
-            // If decryption fails, return the raw value (backwards compatibility for unencrypted keys)
+            // If decryption fails, return the raw value (may be stored unencrypted)
             return $this->apiKey;
         }
     }
@@ -127,7 +127,7 @@ class Provider extends AbstractEntity
     }
 
     /**
-     * Alias for getApiTimeout (compatibility).
+     * Alias for getApiTimeout.
      */
     public function getTimeout(): int
     {
@@ -273,7 +273,7 @@ class Provider extends AbstractEntity
     }
 
     /**
-     * Alias for setApiTimeout (compatibility).
+     * Alias for setApiTimeout.
      */
     public function setTimeout(int $timeout): void
     {

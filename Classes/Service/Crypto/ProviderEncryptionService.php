@@ -14,7 +14,7 @@ use TYPO3\CMS\Core\SingletonInterface;
  * The encryption key is derived from TYPO3's encryptionKey using SHA-256.
  *
  * Encrypted values are prefixed with 'enc:' to distinguish from plaintext.
- * This allows for gradual migration and backwards compatibility.
+ * This allows storing both encrypted and unencrypted values transparently.
  *
  * Security notes:
  * - Nonce is randomly generated per encryption and prepended to ciphertext
@@ -56,7 +56,7 @@ final class ProviderEncryptionService implements ProviderEncryptionServiceInterf
             return '';
         }
 
-        // Not encrypted? Return as-is (backwards compatibility for existing plaintext)
+        // Not encrypted? Return as-is (supports both encrypted and plaintext values)
         if (!$this->isEncrypted($ciphertext)) {
             return $ciphertext;
         }

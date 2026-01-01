@@ -177,14 +177,6 @@
                 <source>Prefer Lowest Cost</source>
             </trans-unit>
 
-            <trans-unit id="tx_nrllm_configuration.provider.deprecated">
-                <source>Legacy field - use Model selection instead</source>
-            </trans-unit>
-
-            <trans-unit id="palette.legacy_provider">
-                <source>Legacy Provider (deprecated)</source>
-            </trans-unit>
-
             <!-- Provider Table -->
             <trans-unit id="tx_nrllm_provider">
                 <source>LLM API Provider</source>
