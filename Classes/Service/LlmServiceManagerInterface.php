@@ -7,6 +7,7 @@ namespace Netresearch\NrLlm\Service;
 use Generator;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -45,6 +46,11 @@ interface LlmServiceManagerInterface
     public function chat(array $messages, ?ChatOptions $options = null): CompletionResponse;
 
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse;
+
+    /**
+     * Complete a prompt using a specific LLM configuration.
+     */
+    public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration): CompletionResponse;
 
     /**
      * @param string|array<int, string> $input
