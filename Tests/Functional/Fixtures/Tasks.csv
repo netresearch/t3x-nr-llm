@@ -1,0 +1,6 @@
+"tx_nrllm_task"
+,"uid","pid","identifier","name","description","category","configuration_uid","prompt_template","input_type","input_source","output_format","is_active","is_system","sorting","tstamp","crdate","cruser_id","deleted","hidden"
+,1,0,"test-manual-task","Test Manual Task","A test task requiring manual input","general",1,"Analyze the following input:\n\n{{input}}\n\nProvide a summary.","manual","","markdown",1,0,1,1703347200,1703347200,1,0,0
+,2,0,"test-syslog-task","Test Syslog Task","A test task for analyzing system logs","log_analysis",1,"Analyze these system log entries:\n\n{{input}}\n\nIdentify any issues.","syslog","{""limit"":50,""error_only"":true}","markdown",1,1,2,1703347200,1703347200,1,0,0
+,3,0,"test-inactive-task","Test Inactive Task","This task is inactive","general",1,"This should not execute: {{input}}","manual","","plain",0,0,3,1703347200,1703347200,1,0,0
+,4,0,"test-deleted-task","Test Deleted Task","This task is deleted","general",1,"Deleted task prompt: {{input}}","manual","","markdown",1,0,4,1703347200,1703347200,1,1,0

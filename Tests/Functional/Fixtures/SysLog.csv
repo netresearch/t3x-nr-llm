@@ -1,0 +1,8 @@
+"sys_log"
+,"uid","userid","action","recuid","tablename","recpid","error","details","type","channel","IP","log_data","event_pid","level","tstamp"
+,1,1,1,1,"pages",0,0,"Updated page [%s] - %s",1,"default","127.0.0.1","a:2:{i:0;i:1;i:1;s:4:\"Home\";}",0,"info",1703347100
+,2,1,2,0,"",0,1,"Login failed for user: admin",5,"default","127.0.0.1","a:1:{i:0;s:5:\"admin\";}",0,"error",1703347200
+,3,0,3,0,"",0,2,"Too many login attempts",5,"default","127.0.0.1","a:0:{}",0,"error",1703347300
+,4,1,1,5,"tt_content",0,0,"Created content element [%s]",1,"default","127.0.0.1","a:1:{i:0;i:5;}",0,"info",1703347400
+,5,1,4,3,"pages",0,0,"Deleted page [%s]",1,"default","127.0.0.1","a:1:{i:0;i:3;}",0,"info",1703347500
+,6,1,1,0,"",0,3,"Extension error: Could not load configuration",4,"default","127.0.0.1","a:0:{}",0,"error",1703347600
