@@ -18,6 +18,9 @@
         <testsuite name="Functional tests">
             <directory>../Tests/Functional/</directory>
         </testsuite>
+        <testsuite name="E2E Backend tests">
+            <directory>../Tests/E2E/Backend/</directory>
+        </testsuite>
     </testsuites>
     <php>
         <ini name="display_errors" value="1"/>
