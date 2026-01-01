@@ -26,7 +26,7 @@ abstract class AbstractFuzzyTestCase extends AbstractUnitTestCase
      */
     protected function floatBetween(float $min, float $max): Generator
     {
-        // @phpstan-ignore function.notFound
+        // @phpstan-ignore function.notFound, return.type
         return Generator\map(
             static function (int $n) use ($min, $max) {
                 // Use a scale factor to get better precision without edge case issues
@@ -48,7 +48,7 @@ abstract class AbstractFuzzyTestCase extends AbstractUnitTestCase
      */
     protected function embeddingVector(int $dimensions = 1536): Generator
     {
-        // @phpstan-ignore function.notFound
+        // @phpstan-ignore function.notFound, return.type
         return Generator\tuple(
             ...array_fill(0, min($dimensions, 100), $this->floatBetween(-1.0, 1.0)),
         );
@@ -61,7 +61,7 @@ abstract class AbstractFuzzyTestCase extends AbstractUnitTestCase
      */
     protected function nonEmptyText(): Generator
     {
-        // @phpstan-ignore function.notFound
+        // @phpstan-ignore function.notFound, return.type
         return Generator\filter(
             static fn(string $s) => strlen(trim($s)) > 0,
             Generator\string(), // @phpstan-ignore function.notFound
@@ -75,7 +75,7 @@ abstract class AbstractFuzzyTestCase extends AbstractUnitTestCase
      */
     protected function positiveInt(): Generator
     {
-        // @phpstan-ignore function.notFound
+        // @phpstan-ignore function.notFound, return.type
         return Generator\pos();
     }
 

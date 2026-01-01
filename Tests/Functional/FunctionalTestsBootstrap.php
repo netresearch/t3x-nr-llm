@@ -23,5 +23,7 @@ require_once $autoloadFile;
 // Initialize testing framework
 $testbase = new Testbase();
 $testbase->defineOriginalRootPath();
+/** @phpstan-ignore constant.notFound, binaryOp.invalid */
 $testbase->createDirectory(ORIGINAL_ROOT . 'typo3temp/var/tests');
+/** @phpstan-ignore constant.notFound, binaryOp.invalid */
 $testbase->createDirectory(ORIGINAL_ROOT . 'typo3temp/var/transient');

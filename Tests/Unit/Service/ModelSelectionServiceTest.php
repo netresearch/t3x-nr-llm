@@ -81,10 +81,12 @@ final class ModelSelectionServiceTest extends TestCase
      * Create a QueryResultInterface from an array of models.
      *
      * @param array<int, Model> $items
+     *
      * @return QueryResultInterface<int, Model>
      */
     private function createQueryResult(array $items): QueryResultInterface
     {
+        // @phpstan-ignore return.type (anonymous class implementing interface for test)
         return new class ($items) implements QueryResultInterface {
             /** @var array<int, object> */
             private array $items;
