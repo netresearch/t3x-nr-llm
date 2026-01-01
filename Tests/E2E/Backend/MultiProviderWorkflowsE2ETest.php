@@ -7,6 +7,7 @@ namespace Netresearch\NrLlm\Tests\E2E\Backend;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
@@ -705,7 +706,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($addedProvider);
 
         // Create model
-        $model = new \Netresearch\NrLlm\Domain\Model\Model();
+        $model = new Model();
         $model->setPid(0);
         $model->setIdentifier('chain-test-model-' . time());
         $model->setName('Chain Test Model');

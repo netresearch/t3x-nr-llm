@@ -6,6 +6,7 @@ namespace Netresearch\NrLlm\Tests\E2E\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\TaskController;
 use Netresearch\NrLlm\Domain\Model\Task;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Override;
@@ -393,7 +394,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function pathway5_5_createTaskWithConfiguration(): void
     {
         // Get an LLM configuration to link
-        $configRepo = $this->get(\Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository::class);
+        $configRepo = $this->get(LlmConfigurationRepository::class);
         $config = $configRepo->findActive()->getFirst();
 
         $task = new Task();
@@ -664,7 +665,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         // Deactivate the task
         $task->setIsActive(false);
         $this->taskRepository->update($task);
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
+        $this->get(PersistenceManagerInterface::class)->persistAll();
 
         // Try to execute the inactive task
         $request = $this->createFormRequest('/ajax/task/execute', [
@@ -685,7 +686,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($task);
         $task->setIsActive(true);
         $this->taskRepository->update($task);
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
+        $this->get(PersistenceManagerInterface::class)->persistAll();
     }
 
     #[Test]
@@ -702,8 +703,8 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         $task->setIsActive(false);
         $this->taskRepository->update($task);
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->clearState();
+        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $this->get(PersistenceManagerInterface::class)->clearState();
 
         // Active count should decrease
         $newActiveCount = $this->taskRepository->findActive()->count();
@@ -714,7 +715,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($task);
         $task->setIsActive(true);
         $this->taskRepository->update($task);
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
+        $this->get(PersistenceManagerInterface::class)->persistAll();
     }
 
     // =========================================================================
@@ -737,7 +738,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function pathway5_7_refreshInputForDeprecationLog(): void
     {
         // Create a task with deprecation log input type
-        $task = new \Netresearch\NrLlm\Domain\Model\Task();
+        $task = new Task();
         $task->setIdentifier('deprecation-log-test-' . time());
         $task->setName('Deprecation Log Test');
         $task->setDescription('Test task for deprecation log');
@@ -750,7 +751,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setPid(0);
 
         $this->taskRepository->add($task);
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
+        $this->get(PersistenceManagerInterface::class)->persistAll();
 
         $taskUid = $task->getUid();
         self::assertNotNull($taskUid);
@@ -1288,7 +1289,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway5_14_taskWithConfiguration(): void
     {
-        $configRepo = $this->get(\Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository::class);
+        $configRepo = $this->get(LlmConfigurationRepository::class);
         $config = $configRepo->findActive()->getFirst();
 
         $task = new Task();
@@ -1348,7 +1349,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway5_14_changeTaskConfiguration(): void
     {
-        $configRepo = $this->get(\Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository::class);
+        $configRepo = $this->get(LlmConfigurationRepository::class);
         $configs = $configRepo->findActive()->toArray();
 
         if (count($configs) < 2) {
@@ -1756,8 +1757,8 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function pathway5_19_taskWithConfiguration(): void
     {
         // Get an active configuration
-        $configurationRepository = $this->get(\Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository::class);
-        self::assertInstanceOf(\Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository::class, $configurationRepository);
+        $configurationRepository = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
 
         $config = $configurationRepository->findActive()->getFirst();
         if ($config === null) {
@@ -1815,8 +1816,8 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway5_19_changeTaskConfiguration(): void
     {
-        $configurationRepository = $this->get(\Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository::class);
-        self::assertInstanceOf(\Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository::class, $configurationRepository);
+        $configurationRepository = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
 
         $configs = $configurationRepository->findActive()->toArray();
         if (count($configs) < 2) {

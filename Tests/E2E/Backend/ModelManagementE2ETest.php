@@ -6,6 +6,7 @@ namespace Netresearch\NrLlm\Tests\E2E\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
@@ -454,7 +455,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway3_9_getModelsByProvider_emptyForNoModels(): void
     {
         // Create a provider without models
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('empty-provider-test');
         $provider->setName('Empty Provider');

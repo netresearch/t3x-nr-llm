@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Override;
@@ -117,8 +118,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $llmServiceManager = $this->get(LlmServiceManager::class);
         self::assertInstanceOf(LlmServiceManager::class, $llmServiceManager);
 
-        $configurationService = $this->get(\Netresearch\NrLlm\Service\LlmConfigurationService::class);
-        self::assertInstanceOf(\Netresearch\NrLlm\Service\LlmConfigurationService::class, $configurationService);
+        $configurationService = $this->get(LlmConfigurationService::class);
+        self::assertInstanceOf(LlmConfigurationService::class, $configurationService);
 
         return $this->createControllerWithReflection(ConfigurationController::class, [
             'configurationService' => $configurationService,

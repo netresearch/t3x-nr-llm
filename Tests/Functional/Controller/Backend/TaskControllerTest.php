@@ -500,7 +500,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         self::assertGreaterThan(0, $body['recordCount']);
 
         // Verify data is valid JSON
-        $parsedData = json_decode($body['data'], true);
+        $parsedData = json_decode((string)$body['data'], true);
         self::assertIsArray($parsedData);
     }
 
@@ -728,7 +728,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         self::assertSame(1, $body['recordCount']);
 
         // Verify data is properly formatted JSON
-        $parsedData = json_decode($body['data'], true);
+        $parsedData = json_decode((string)$body['data'], true);
         self::assertIsArray($parsedData);
         self::assertCount(1, $parsedData);
 

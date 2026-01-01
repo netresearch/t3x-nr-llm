@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\E2E\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
@@ -312,7 +313,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway2_5_deleteProvider_softDelete(): void
     {
         // First, create a provider to delete (don't delete fixture providers)
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('test-delete-provider');
         $provider->setName('Provider To Delete');
@@ -360,7 +361,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 
         // If only one provider, create another to test multi-provider scenario
         if (count($activeProviders) === 1) {
-            $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+            $provider = new Provider();
             $provider->setPid(0);
             $provider->setIdentifier('test-second-provider');
             $provider->setName('Second Test Provider');
@@ -433,7 +434,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_7_providerRequiresIdentifier(): void
     {
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setName('Test Provider');
         $provider->setAdapterType('openai');
@@ -633,7 +634,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_10_providerCustomEndpoint(): void
     {
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('custom-endpoint-provider');
         $provider->setName('Custom Endpoint Provider');
@@ -783,7 +784,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway2_13_providerConfigurationValidation(): void
     {
         // Create provider with minimal config
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('minimal-provider-' . time());
         $provider->setName('Minimal Provider');
@@ -811,7 +812,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_13_providerWithAllSettings(): void
     {
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('full-config-provider-' . time());
         $provider->setName('Full Config Provider');
@@ -842,7 +843,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function providerStateTransition_inactiveToActive(): void
     {
         // Create inactive provider
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('inactive-to-active-' . time());
         $provider->setName('State Transition Provider');
@@ -906,7 +907,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function providerError_testInactiveProvider(): void
     {
         // Create inactive provider
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('inactive-test-provider-' . time());
         $provider->setName('Inactive Test Provider');
@@ -981,7 +982,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $initialCount = $this->providerRepository->countActive();
 
         // Create provider
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('lifecycle-provider-' . time());
         $provider->setName('Lifecycle Provider');
@@ -1041,7 +1042,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_16_apiKeyIsStored(): void
     {
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('apikey-provider-' . time());
         $provider->setName('API Key Provider');
@@ -1063,7 +1064,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway2_16_providerWithoutApiKey(): void
     {
         // Ollama doesn't require API key
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('no-apikey-provider-' . time());
         $provider->setName('No API Key Provider');
@@ -1088,7 +1089,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_17_customTimeoutSettings(): void
     {
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('timeout-provider-' . time());
         $provider->setName('Timeout Provider');
@@ -1109,7 +1110,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_17_defaultTimeoutValue(): void
     {
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('default-timeout-provider-' . time());
         $provider->setName('Default Timeout Provider');
@@ -1137,7 +1138,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     {
         $longName = str_repeat('Long Provider Name ', 10);
 
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('long-name-provider-' . time());
         $provider->setName($longName);
@@ -1160,7 +1161,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     {
         $unicodeName = 'Proveïder Tëst 日本語 🤖';
 
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('unicode-name-provider-' . time());
         $provider->setName($unicodeName);
@@ -1182,7 +1183,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     {
         $specialName = "Provider <Test> & 'Name' \"Quoted\"";
 
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('special-char-provider-' . time());
         $provider->setName($specialName);
@@ -1287,7 +1288,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_20_providerWithHttpsEndpoint(): void
     {
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('https-endpoint-provider-' . time());
         $provider->setName('HTTPS Endpoint Provider');
@@ -1308,7 +1309,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_20_providerWithLocalhostEndpoint(): void
     {
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('localhost-endpoint-provider-' . time());
         $provider->setName('Localhost Endpoint Provider');
@@ -1328,7 +1329,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_20_providerWithIpAddressEndpoint(): void
     {
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('ip-endpoint-provider-' . time());
         $provider->setName('IP Address Endpoint Provider');
@@ -1348,7 +1349,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_20_providerWithPathInEndpoint(): void
     {
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('path-endpoint-provider-' . time());
         $provider->setName('Path Endpoint Provider');
@@ -1369,7 +1370,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_20_providerWithEmptyEndpoint(): void
     {
-        $provider = new \Netresearch\NrLlm\Domain\Model\Provider();
+        $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('empty-endpoint-provider-' . time());
         $provider->setName('Empty Endpoint Provider');

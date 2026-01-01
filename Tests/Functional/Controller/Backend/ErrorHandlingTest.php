@@ -463,7 +463,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
                 self::assertStringNotContainsString('.php', $body['error']);
 
                 // Error should be meaningful
-                self::assertGreaterThan(5, strlen($body['error']), 'Error message should be descriptive');
+                self::assertGreaterThan(5, strlen((string)$body['error']), 'Error message should be descriptive');
             }
         }
     }

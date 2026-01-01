@@ -16,6 +16,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
+use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 /**
  * E2E tests for Dashboard user pathways.
@@ -328,8 +329,8 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         if ($provider !== null) {
             $provider->setIsActive(false);
             $this->providerRepository->update($provider);
-            $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
-            $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->clearState();
+            $this->get(PersistenceManagerInterface::class)->persistAll();
+            $this->get(PersistenceManagerInterface::class)->clearState();
 
             // Dashboard active count should decrease
             $newCount = $this->providerRepository->findActive()->count();
@@ -339,7 +340,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             $provider = $this->providerRepository->findByUid($provider->getUid());
             $provider->setIsActive(true);
             $this->providerRepository->update($provider);
-            $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
+            $this->get(PersistenceManagerInterface::class)->persistAll();
         }
     }
 
@@ -511,8 +512,8 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             $this->providerRepository->update($provider);
         }
 
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->clearState();
+        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $this->get(PersistenceManagerInterface::class)->clearState();
 
         // Dashboard should show 0 active providers
         $activeCount = $this->providerRepository->findActive()->count();
@@ -527,7 +528,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             }
         }
 
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
+        $this->get(PersistenceManagerInterface::class)->persistAll();
     }
 
     #[Test]
@@ -544,8 +545,8 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             $this->modelRepository->update($model);
         }
 
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->clearState();
+        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $this->get(PersistenceManagerInterface::class)->clearState();
 
         // Dashboard should show 0 active models
         $activeCount = $this->modelRepository->findActive()->count();
@@ -560,7 +561,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             }
         }
 
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
+        $this->get(PersistenceManagerInterface::class)->persistAll();
     }
 
     #[Test]
@@ -577,8 +578,8 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             $this->configurationRepository->update($config);
         }
 
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->clearState();
+        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $this->get(PersistenceManagerInterface::class)->clearState();
 
         // Dashboard should show 0 active configurations
         $activeCount = $this->configurationRepository->findActive()->count();
@@ -593,7 +594,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             }
         }
 
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
+        $this->get(PersistenceManagerInterface::class)->persistAll();
     }
 
     // =========================================================================
@@ -625,8 +626,8 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $originalApiKey = $provider->getApiKey();
         $provider->setApiKey('');
         $this->providerRepository->update($provider);
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->clearState();
+        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $this->get(PersistenceManagerInterface::class)->clearState();
 
         // Test with provider that has no API key
         $request = $this->createDashboardExtbaseRequest([
@@ -646,7 +647,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findByUid($provider->getUid());
         $provider->setApiKey($originalApiKey);
         $this->providerRepository->update($provider);
-        $this->get(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->persistAll();
+        $this->get(PersistenceManagerInterface::class)->persistAll();
     }
 
     // =========================================================================
