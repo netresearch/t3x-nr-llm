@@ -239,7 +239,7 @@ class ModelRepository extends Repository
         $models = $this->findActive();
 
         foreach ($models as $model) {
-            // @phpstan-ignore instanceof.alwaysTrue (defensive check for QueryResult)
+            
             if (!$model instanceof Model) {
                 continue;
             }

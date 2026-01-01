@@ -67,7 +67,7 @@ class ProviderAdapterRegistry implements SingletonInterface
      */
     public function registerAdapter(string $adapterType, string $adapterClass): void
     {
-        // @phpstan-ignore function.alreadyNarrowedType (runtime validation for external callers)
+        
         if (!is_subclass_of($adapterClass, AbstractProvider::class)) {
             throw new ProviderConfigurationException(
                 sprintf('Adapter class %s must extend %s', $adapterClass, AbstractProvider::class),

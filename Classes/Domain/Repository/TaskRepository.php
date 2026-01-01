@@ -190,7 +190,7 @@ class TaskRepository extends Repository
         $tasks = $this->findActive();
 
         foreach ($tasks as $task) {
-            // @phpstan-ignore instanceof.alwaysTrue (defensive type guard)
+            
             if (!$task instanceof Task) {
                 continue;
             }

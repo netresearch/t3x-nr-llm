@@ -58,7 +58,7 @@ final class TextToSpeechService
 
     private string $apiKey = '';
     private string $baseUrl = '';
-    /** @phpstan-ignore property.onlyWritten (intended for future HTTP client configuration) */
+    
     private int $timeout = 60;
 
     public function __construct(
