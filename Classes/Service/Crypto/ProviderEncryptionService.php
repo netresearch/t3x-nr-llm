@@ -26,8 +26,15 @@ final class ProviderEncryptionService implements ProviderEncryptionServiceInterf
     /** Prefix for encrypted values to distinguish from plaintext. */
     private const string ENCRYPTION_PREFIX = 'enc:';
 
-    /** Encryption key derived from TYPO3 encryptionKey. */
-    private ?string $encryptionKey = null;
+    /** Derived encryption key (cached). */
+    private ?string $derivedKey = null;
+
+    /**
+     * @param string $typo3EncryptionKey TYPO3 system encryption key (injected via Services.yaml)
+     */
+    public function __construct(
+        private readonly string $typo3EncryptionKey,
+    ) {}
 
     public function encrypt(string $plaintext): string
     {
@@ -40,7 +47,7 @@ final class ProviderEncryptionService implements ProviderEncryptionServiceInterf
             return $plaintext;
         }
 
-        $key = $this->getEncryptionKey();
+        $key = $this->getDerivedKey();
         $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
         $ciphertext = sodium_crypto_secretbox($plaintext, $nonce, $key);
 
@@ -71,7 +78,7 @@ final class ProviderEncryptionService implements ProviderEncryptionServiceInterf
         $nonce = substr($decoded, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
         $cipher = substr($decoded, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
 
-        $key = $this->getEncryptionKey();
+        $key = $this->getDerivedKey();
         $plaintext = sodium_crypto_secretbox_open($cipher, $nonce, $key);
 
         if ($plaintext === false) {
@@ -92,15 +99,13 @@ final class ProviderEncryptionService implements ProviderEncryptionServiceInterf
      * The key is derived from TYPO3's encryptionKey using SHA-256 to ensure
      * we always have exactly 32 bytes (256 bits) for XSalsa20.
      */
-    private function getEncryptionKey(): string
+    private function getDerivedKey(): string
     {
-        if ($this->encryptionKey !== null) {
-            return $this->encryptionKey;
+        if ($this->derivedKey !== null) {
+            return $this->derivedKey;
         }
 
-        $typo3EncryptionKey = $this->getTypo3EncryptionKey();
-
-        if ($typo3EncryptionKey === '') {
+        if ($this->typo3EncryptionKey === '') {
             throw new RuntimeException(
                 'TYPO3 encryptionKey is not configured. Cannot encrypt provider secrets.',
                 1735304802,
@@ -109,28 +114,8 @@ final class ProviderEncryptionService implements ProviderEncryptionServiceInterf
 
         // Derive a 32-byte key using SHA-256
         // Adding a constant domain separator for key derivation
-        $this->encryptionKey = hash('sha256', $typo3EncryptionKey . ':nr_llm_provider_encryption', true);
+        $this->derivedKey = hash('sha256', $this->typo3EncryptionKey . ':nr_llm_provider_encryption', true);
 
-        return $this->encryptionKey;
-    }
-
-    /**
-     * Get TYPO3 encryption key from configuration.
-     */
-    private function getTypo3EncryptionKey(): string
-    {
-        $confVars = $GLOBALS['TYPO3_CONF_VARS'] ?? [];
-        if (!is_array($confVars)) {
-            return '';
-        }
-
-        $sysConf = $confVars['SYS'] ?? [];
-        if (!is_array($sysConf)) {
-            return '';
-        }
-
-        $encryptionKey = $sysConf['encryptionKey'] ?? '';
-
-        return is_string($encryptionKey) ? $encryptionKey : '';
+        return $this->derivedKey;
     }
 }

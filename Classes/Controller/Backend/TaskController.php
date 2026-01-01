@@ -25,6 +25,8 @@ use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Core\Schema\Capability\TcaSchemaCapability;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
@@ -52,6 +54,7 @@ final class TaskController extends ActionController
         private readonly ConnectionPool $connectionPool,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly TcaSchemaFactory $tcaSchemaFactory,
     ) {}
 
     /**
@@ -427,15 +430,19 @@ final class TaskController extends ActionController
      */
     private function detectLabelField(string $table): string
     {
-        // Check TCA for ctrl.label
-        /** @var array<string, array{ctrl?: array{label?: string}}>|null $tca */
-        $tca = $GLOBALS['TCA'] ?? null;
-        $labelField = $tca[$table]['ctrl']['label'] ?? null;
-        if (is_string($labelField)) {
-            return $labelField;
+        // Check TCA schema for label field
+        if ($this->tcaSchemaFactory->has($table)) {
+            $schema = $this->tcaSchemaFactory->get($table);
+            if ($schema->hasCapability(TcaSchemaCapability::Label)) {
+                $labelCapability = $schema->getCapability(TcaSchemaCapability::Label);
+                $labelFieldName = $labelCapability->getPrimaryFieldName();
+                if ($labelFieldName !== null) {
+                    return $labelFieldName;
+                }
+            }
         }
 
-        // Common label field names
+        // Common label field names as fallback
         $commonFields = ['name', 'title', 'header', 'subject', 'username', 'email', 'identifier'];
         $connection = $this->connectionPool->getConnectionByName('Default');
         $columns = $connection->createSchemaManager()->listTableColumns($table);
