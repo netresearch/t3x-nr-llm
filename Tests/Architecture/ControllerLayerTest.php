@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Architecture;
 
-use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\GeminiProvider;
-use Netresearch\NrLlm\Provider\OllamaProvider;
 use Netresearch\NrLlm\Provider\GroqProvider;
 use Netresearch\NrLlm\Provider\MistralProvider;
+use Netresearch\NrLlm\Provider\OllamaProvider;
+use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;

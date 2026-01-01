@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\E2E\Backend;
 
+use Exception;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -735,7 +736,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
 
-        $unicodePrompt = "你是一个有帮助的助手 🎉 Ñoño";
+        $unicodePrompt = '你是一个有帮助的助手 🎉 Ñoño';
 
         $config = new LlmConfiguration();
         $config->setPid(0);
@@ -1678,7 +1679,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
 
-        $unicodePrompt = "你是一个有帮助的助手。🎯 Répondez en français si nécessaire.";
+        $unicodePrompt = '你是一个有帮助的助手。🎯 Répondez en français si nécessaire.';
 
         $config = new LlmConfiguration();
         $config->setPid(0);
@@ -1963,7 +1964,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
             $this->persistenceManager->clearState();
             $found = $this->configurationRepository->findOneByIdentifier($identifier);
             self::assertNotNull($found);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Database constraint violation is acceptable
             self::assertStringContainsStringIgnoringCase('duplicate', $e->getMessage());
         }

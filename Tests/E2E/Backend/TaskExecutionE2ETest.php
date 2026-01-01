@@ -832,8 +832,8 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         // Verify cache tables are excluded
         foreach ($body['tables'] as $table) {
-            self::assertFalse(str_starts_with($table['name'], 'cache_'), 'Cache tables should be excluded');
-            self::assertFalse(str_starts_with($table['name'], 'cf_'), 'CF cache tables should be excluded');
+            self::assertStringStartsNotWith('cache_', $table['name'], 'Cache tables should be excluded');
+            self::assertStringStartsNotWith('cf_', $table['name'], 'CF cache tables should be excluded');
         }
     }
 
@@ -1664,18 +1664,18 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function pathway5_18_complexPromptTemplate(): void
     {
         $template = <<<TEMPLATE
-You are analyzing the following data:
+            You are analyzing the following data:
 
-INPUT:
-{{input}}
+            INPUT:
+            {{input}}
 
-INSTRUCTIONS:
-1. Review the data carefully
-2. Identify key patterns
-3. Provide a summary
+            INSTRUCTIONS:
+            1. Review the data carefully
+            2. Identify key patterns
+            3. Provide a summary
 
-OUTPUT FORMAT: {{format}}
-TEMPLATE;
+            OUTPUT FORMAT: {{format}}
+            TEMPLATE;
 
         $task = new Task();
         $task->setPid(0);

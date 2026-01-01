@@ -44,7 +44,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         ];
 
         $this->subject = $this->createSubjectWithResponse(
-            $this->createJsonResponseMock(['translations' => []])
+            $this->createJsonResponseMock(['translations' => []]),
         );
     }
 
@@ -393,7 +393,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     public function translateHandles401Error(): void
     {
         $subject = $this->createSubjectWithResponse(
-            $this->createJsonResponseMock(['error' => 'Unauthorized'], 401)
+            $this->createJsonResponseMock(['error' => 'Unauthorized'], 401),
         );
 
         $this->expectException(ServiceConfigurationException::class);
@@ -405,7 +405,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     public function translateHandles429RateLimitError(): void
     {
         $subject = $this->createSubjectWithResponse(
-            $this->createJsonResponseMock(['message' => 'Rate limit exceeded'], 429)
+            $this->createJsonResponseMock(['message' => 'Rate limit exceeded'], 429),
         );
 
         $this->expectException(ServiceUnavailableException::class);
@@ -418,7 +418,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     public function translateHandles456QuotaError(): void
     {
         $subject = $this->createSubjectWithResponse(
-            $this->createJsonResponseMock(['message' => 'Quota exceeded'], 456)
+            $this->createJsonResponseMock(['message' => 'Quota exceeded'], 456),
         );
 
         $this->expectException(ServiceUnavailableException::class);

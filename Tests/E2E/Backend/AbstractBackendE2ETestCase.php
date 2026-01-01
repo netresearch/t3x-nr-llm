@@ -139,8 +139,10 @@ abstract class AbstractBackendE2ETestCase extends AbstractFunctionalTestCase
      * Create a controller instance using reflection to bypass Extbase initialization.
      *
      * @template T of object
-     * @param class-string<T> $controllerClass
-     * @param array<string, mixed> $dependencies Property name => value
+     *
+     * @param class-string<T>      $controllerClass
+     * @param array<string, mixed> $dependencies    Property name => value
+     *
      * @return T
      */
     protected function createControllerWithReflection(string $controllerClass, array $dependencies): object

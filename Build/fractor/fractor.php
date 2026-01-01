@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Fractor Configuration - TYPO3 LLM Extension
+ * Fractor Configuration - TYPO3 LLM Extension.
  *
  * Fractor handles configuration file migrations:
  * - Fluid templates

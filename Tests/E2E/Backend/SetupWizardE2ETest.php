@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\E2E\Backend;
 
-use GuzzleHttp\Psr7\Utils;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
@@ -1591,13 +1590,13 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway1_13_saveConfigurationWithSystemPrompt(): void
     {
-        $longSystemPrompt = "You are a helpful AI assistant.\n\n" .
-            "Your role is to assist users with their questions.\n\n" .
-            "Guidelines:\n" .
-            "1. Be concise and accurate\n" .
-            "2. Provide examples when helpful\n" .
-            "3. Ask clarifying questions if needed\n" .
-            "4. Never make up information";
+        $longSystemPrompt = "You are a helpful AI assistant.\n\n"
+            . "Your role is to assist users with their questions.\n\n"
+            . "Guidelines:\n"
+            . "1. Be concise and accurate\n"
+            . "2. Provide examples when helpful\n"
+            . "3. Ask clarifying questions if needed\n"
+            . '4. Never make up information';
 
         $saveRequest = $this->createJsonRequest('/ajax/wizard/save', [
             'provider' => [

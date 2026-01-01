@@ -23,6 +23,8 @@ use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use ReflectionClass;
+use ReflectionException;
+use Throwable;
 
 /**
  * Mutation-killing tests for AbstractProvider.
@@ -50,7 +52,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     /**
      * Invoke a protected/private method via reflection, rethrowing the underlying cause.
      *
-     * @throws \Throwable When the underlying method throws an exception
+     * @throws Throwable When the underlying method throws an exception
      */
     private function invokeMethod(object $object, string $methodName, mixed ...$args): mixed
     {
@@ -59,7 +61,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
 
         try {
             return $method->invoke($object, ...$args);
-        } catch (\ReflectionException $e) {
+        } catch (ReflectionException $e) {
             if ($e->getPrevious() !== null) {
                 throw $e->getPrevious();
             }

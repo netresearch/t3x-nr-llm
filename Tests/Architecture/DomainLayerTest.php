@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Architecture;
 
 use Netresearch\NrLlm\Domain\Model\Provider;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Architectural tests for Domain layer isolation.

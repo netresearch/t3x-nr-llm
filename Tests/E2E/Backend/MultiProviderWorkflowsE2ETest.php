@@ -1371,14 +1371,14 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         // Only one default model allowed
         $defaultModels = array_filter(
             $this->modelRepository->findAll()->toArray(),
-            fn($m) => $m->isDefault()
+            fn($m) => $m->isDefault(),
         );
         self::assertLessThanOrEqual(1, count($defaultModels));
 
         // Only one default configuration allowed
         $defaultConfigs = array_filter(
             $this->configurationRepository->findAll()->toArray(),
-            fn($c) => $c->isDefault()
+            fn($c) => $c->isDefault(),
         );
         self::assertLessThanOrEqual(1, count($defaultConfigs));
     }

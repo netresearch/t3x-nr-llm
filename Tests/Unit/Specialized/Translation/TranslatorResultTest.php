@@ -8,6 +8,7 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionClass;
 
 #[CoversClass(TranslatorResult::class)]
 class TranslatorResultTest extends AbstractUnitTestCase
@@ -59,7 +60,7 @@ class TranslatorResultTest extends AbstractUnitTestCase
         );
 
         // Verify readonly class reflection - class should be readonly
-        $reflection = new \ReflectionClass($result);
+        $reflection = new ReflectionClass($result);
         self::assertTrue($reflection->isReadOnly());
     }
 

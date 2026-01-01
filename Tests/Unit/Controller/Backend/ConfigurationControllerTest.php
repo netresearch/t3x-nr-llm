@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
-use Psr\Http\Message\ResponseInterface;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -20,6 +19,7 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
 use RuntimeException;
 use TYPO3\CMS\Core\Http\ServerRequest;
@@ -94,7 +94,7 @@ final class ConfigurationControllerTest extends TestCase
      */
     private function decodeJsonResponse(ResponseInterface $response): array
     {
-        $data = json_decode((string) $response->getBody(), true);
+        $data = json_decode((string)$response->getBody(), true);
         self::assertIsArray($data);
 
         /** @var array<string, mixed> $data */

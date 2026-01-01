@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service;
 
+use DateTimeImmutable;
 use Netresearch\NrLlm\Service\UsageTrackerService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Override;
@@ -251,8 +252,8 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
     {
         $this->service->trackUsage('translation', 'deepl', ['characters' => 1000, 'cost' => 0.05]);
 
-        $from = new \DateTimeImmutable('today');
-        $to = new \DateTimeImmutable('tomorrow');
+        $from = new DateTimeImmutable('today');
+        $to = new DateTimeImmutable('tomorrow');
 
         $report = $this->service->getUsageReport('translation', $from, $to);
 

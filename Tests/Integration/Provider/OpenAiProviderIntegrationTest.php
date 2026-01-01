@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Integration\Provider;
 
-use Psr\Http\Message\ResponseInterface;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
@@ -14,6 +13,7 @@ use Netresearch\NrLlm\Tests\Integration\AbstractIntegrationTestCase;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Integration tests for OpenAI provider.

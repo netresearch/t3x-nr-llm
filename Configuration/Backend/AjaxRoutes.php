@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use Netresearch\NrLlm\Controller\Backend\TaskController;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
+use Netresearch\NrLlm\Controller\Backend\TaskController;
 
 /**
  * AJAX routes for nr_llm backend module.

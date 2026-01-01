@@ -37,8 +37,6 @@ abstract class AbstractUnitTestCase extends TestCase
     /**
      * Create a stub HTTP client.
      * Use createHttpClientWithExpectations() if you need expects().
-     *
-     * @return ClientInterface&Stub
      */
     protected function createHttpClientMock(): ClientInterface&Stub
     {
