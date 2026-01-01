@@ -6,10 +6,9 @@
 # - PHP 8.5 compatibility
 #
 # Level 10 enforces complete type safety for all mixed types.
-# Baseline ignores specific patterns that cannot be typed (TYPO3 globals, etc.)
+# No baseline - all code is fully type-safe.
 
 includes:
-  - phpstan-baseline.neon
   - ../../.Build/vendor/phpat/phpat/extension.neon
 
 parameters:
@@ -30,9 +29,6 @@ parameters:
     - ../../Configuration
     - ../../Tests
     - ../../ext_localconf.php
-
-  # reportUnmatchedIgnoredErrors: false is needed when using baselines
-  reportUnmatchedIgnoredErrors: false
 
   # PHPat architectural tests configuration
   phpat:
