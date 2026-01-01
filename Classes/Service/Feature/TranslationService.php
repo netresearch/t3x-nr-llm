@@ -333,14 +333,16 @@ class TranslationService
     private function resolveTranslator(array $options): TranslatorInterface
     {
         // Priority 1: Explicit translator specified
-        if (isset($options['translator']) && $options['translator'] !== '') {
-            return $this->translatorRegistry->get($options['translator']);
+        $translator = $options['translator'] ?? '';
+        if (is_string($translator) && $translator !== '') {
+            return $this->translatorRegistry->get($translator);
         }
 
         // Priority 2: Preset specified - check for translator in configuration
-        if (isset($options['preset']) && $options['preset'] !== '') {
+        $preset = $options['preset'] ?? '';
+        if (is_string($preset) && $preset !== '') {
             try {
-                $configuration = $this->configurationService->getConfiguration($options['preset']);
+                $configuration = $this->configurationService->getConfiguration($preset);
                 if ($configuration->getTranslator() !== '') {
                     return $this->translatorRegistry->get($configuration->getTranslator());
                 }
@@ -366,10 +368,10 @@ class TranslationService
         string $targetLanguage,
         array $options,
     ): array {
-        $formality = $options['formality'] ?? 'default';
-        $domain = $options['domain'] ?? 'general';
-        $glossary = $options['glossary'] ?? [];
-        $context = $options['context'] ?? '';
+        $formality = is_string($options['formality'] ?? null) ? $options['formality'] : 'default';
+        $domain = is_string($options['domain'] ?? null) ? $options['domain'] : 'general';
+        $glossary = is_array($options['glossary'] ?? null) ? $options['glossary'] : [];
+        $context = is_string($options['context'] ?? null) ? $options['context'] : '';
         $preserveFormatting = $options['preserve_formatting'] ?? true;
 
         // Build system prompt
@@ -391,15 +393,17 @@ class TranslationService
         }
 
         // Add glossary if provided
-        if (!empty($glossary)) {
+        if ($glossary !== []) {
             $systemPrompt .= "\nUse these exact term translations:\n";
             foreach ($glossary as $term => $translation) {
-                $systemPrompt .= sprintf("- %s → %s\n", $term, $translation);
+                if (is_string($translation) || is_int($translation) || is_float($translation)) {
+                    $systemPrompt .= sprintf("- %s → %s\n", $term, $translation);
+                }
             }
         }
 
         // Add context if provided
-        if (!empty($context)) {
+        if ($context !== '') {
             $systemPrompt .= sprintf("\nContext (for reference only):\n%s\n", $context);
         }
 

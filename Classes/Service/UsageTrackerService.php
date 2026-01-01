@@ -255,7 +255,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
             ->executeQuery()
             ->fetchOne();
 
-        return (float)($result ?? 0);
+        return is_numeric($result) ? (float)$result : 0.0;
     }
 
     /**

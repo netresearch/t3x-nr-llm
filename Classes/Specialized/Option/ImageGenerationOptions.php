@@ -80,12 +80,18 @@ final class ImageGenerationOptions extends AbstractOptions
      */
     public static function fromArray(array $options): static
     {
+        $model = $options['model'] ?? null;
+        $size = $options['size'] ?? null;
+        $quality = $options['quality'] ?? null;
+        $style = $options['style'] ?? null;
+        $format = $options['format'] ?? $options['response_format'] ?? null;
+
         return new self(
-            model: $options['model'] ?? null,
-            size: $options['size'] ?? null,
-            quality: $options['quality'] ?? null,
-            style: $options['style'] ?? null,
-            format: $options['format'] ?? $options['response_format'] ?? null,
+            model: is_string($model) ? $model : null,
+            size: is_string($size) ? $size : null,
+            quality: is_string($quality) ? $quality : null,
+            style: is_string($style) ? $style : null,
+            format: is_string($format) ? $format : null,
         );
     }
 

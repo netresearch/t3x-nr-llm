@@ -49,19 +49,36 @@ final readonly class Segment
      */
     public static function fromWhisperResponse(array $data): self
     {
+        /** @var list<Word>|null $words */
         $words = null;
         if (isset($data['words']) && is_array($data['words'])) {
-            $words = array_map(
-                Word::fromWhisperResponse(...),
-                $data['words'],
-            );
+            $words = [];
+            foreach ($data['words'] as $wordData) {
+                if (is_array($wordData)) {
+                    /** @var array<string, mixed> $wordData */
+                    $words[] = Word::fromWhisperResponse($wordData);
+                }
+            }
+        }
+
+        $text = isset($data['text']) && is_string($data['text']) ? $data['text'] : '';
+        $start = isset($data['start']) && (is_float($data['start']) || is_int($data['start']))
+            ? (float)$data['start']
+            : 0.0;
+        $end = isset($data['end']) && (is_float($data['end']) || is_int($data['end']))
+            ? (float)$data['end']
+            : 0.0;
+
+        $confidence = null;
+        if (isset($data['avg_logprob']) && (is_float($data['avg_logprob']) || is_int($data['avg_logprob']))) {
+            $confidence = exp((float)$data['avg_logprob']);
         }
 
         return new self(
-            text: $data['text'] ?? '',
-            start: (float)($data['start'] ?? 0.0),
-            end: (float)($data['end'] ?? 0.0),
-            confidence: isset($data['avg_logprob']) ? exp((float)$data['avg_logprob']) : null,
+            text: $text,
+            start: $start,
+            end: $end,
+            confidence: $confidence,
             words: $words,
         );
     }

@@ -53,14 +53,22 @@ final class DeepLOptions extends AbstractOptions
      */
     public static function fromArray(array $options): static
     {
+        $formality = $options['formality'] ?? null;
+        $glossaryId = $options['glossary_id'] ?? $options['glossaryId'] ?? null;
+        $preserveFormatting = $options['preserve_formatting'] ?? $options['preserveFormatting'] ?? null;
+        $splitSentences = $options['split_sentences'] ?? $options['splitSentences'] ?? null;
+        $tagHandling = $options['tag_handling'] ?? $options['tagHandling'] ?? null;
+        $ignoreTags = $options['ignore_tags'] ?? $options['ignoreTags'] ?? null;
+        $nonSplittingTags = $options['non_splitting_tags'] ?? $options['nonSplittingTags'] ?? null;
+
         return new self(
-            formality: $options['formality'] ?? null,
-            glossaryId: $options['glossary_id'] ?? $options['glossaryId'] ?? null,
-            preserveFormatting: $options['preserve_formatting'] ?? $options['preserveFormatting'] ?? null,
-            splitSentences: $options['split_sentences'] ?? $options['splitSentences'] ?? null,
-            tagHandling: $options['tag_handling'] ?? $options['tagHandling'] ?? null,
-            ignoreTags: $options['ignore_tags'] ?? $options['ignoreTags'] ?? null,
-            nonSplittingTags: $options['non_splitting_tags'] ?? $options['nonSplittingTags'] ?? null,
+            formality: is_string($formality) ? $formality : null,
+            glossaryId: is_string($glossaryId) ? $glossaryId : null,
+            preserveFormatting: is_bool($preserveFormatting) ? $preserveFormatting : null,
+            splitSentences: is_bool($splitSentences) ? $splitSentences : null,
+            tagHandling: is_string($tagHandling) ? $tagHandling : null,
+            ignoreTags: is_array($ignoreTags) ? array_values(array_filter($ignoreTags, is_string(...))) : null,
+            nonSplittingTags: is_array($nonSplittingTags) ? array_values(array_filter($nonSplittingTags, is_string(...))) : null,
         );
     }
 

@@ -47,8 +47,11 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     private function loadConfiguration(): void
     {
         try {
-            $this->configuration = $this->extensionConfiguration->get('nr_llm');
-            $this->defaultProvider = $this->configuration['defaultProvider'] ?? null;
+            /** @var array<string, mixed> $config */
+            $config = $this->extensionConfiguration->get('nr_llm');
+            $this->configuration = $config;
+            $defaultProvider = $config['defaultProvider'] ?? null;
+            $this->defaultProvider = is_string($defaultProvider) ? $defaultProvider : null;
         } catch (Exception $e) {
             $this->logger->warning('Failed to load extension configuration', ['exception' => $e]);
             $this->configuration = [];
@@ -61,7 +64,9 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $this->providers[$identifier] = $provider;
 
         // Configure provider if configuration exists
-        $providerConfig = $this->configuration['providers'][$identifier] ?? [];
+        /** @var array<string, array<string, mixed>> $providers */
+        $providers = is_array($this->configuration['providers'] ?? null) ? $this->configuration['providers'] : [];
+        $providerConfig = $providers[$identifier] ?? [];
         if ($providerConfig !== []) {
             $provider->configure($providerConfig);
         }
@@ -137,7 +142,8 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     {
         $options ??= new ChatOptions();
         $optionsArray = $options->toArray();
-        $provider = $this->getProvider($optionsArray['provider'] ?? null);
+        $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
+        $provider = $this->getProvider($providerKey);
         unset($optionsArray['provider']);
 
         return $provider->chatCompletion($messages, $optionsArray);
@@ -150,7 +156,8 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     {
         $options ??= new ChatOptions();
         $optionsArray = $options->toArray();
-        $provider = $this->getProvider($optionsArray['provider'] ?? null);
+        $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
+        $provider = $this->getProvider($providerKey);
         unset($optionsArray['provider']);
 
         return $provider->complete($prompt, $optionsArray);
@@ -165,7 +172,8 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     {
         $options ??= new EmbeddingOptions();
         $optionsArray = $options->toArray();
-        $provider = $this->getProvider($optionsArray['provider'] ?? null);
+        $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
+        $provider = $this->getProvider($providerKey);
         unset($optionsArray['provider']);
 
         if (!$provider->supportsFeature('embeddings')) {
@@ -187,7 +195,8 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     {
         $options ??= new VisionOptions();
         $optionsArray = $options->toArray();
-        $provider = $this->getProvider($optionsArray['provider'] ?? null);
+        $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
+        $provider = $this->getProvider($providerKey);
         unset($optionsArray['provider']);
 
         if (!$provider instanceof VisionCapableInterface) {
@@ -211,7 +220,8 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     {
         $options ??= new ChatOptions();
         $optionsArray = $options->toArray();
-        $provider = $this->getProvider($optionsArray['provider'] ?? null);
+        $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
+        $provider = $this->getProvider($providerKey);
         unset($optionsArray['provider']);
 
         if (!$provider instanceof StreamingCapableInterface) {
@@ -234,7 +244,8 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     {
         $options ??= new ToolOptions();
         $optionsArray = $options->toArray();
-        $provider = $this->getProvider($optionsArray['provider'] ?? null);
+        $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
+        $provider = $this->getProvider($providerKey);
         unset($optionsArray['provider']);
 
         if (!$provider instanceof ToolCapableInterface) {
@@ -267,7 +278,9 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function getProviderConfiguration(string $identifier): array
     {
-        return $this->configuration['providers'][$identifier] ?? [];
+        /** @var array<string, array<string, mixed>> $providers */
+        $providers = is_array($this->configuration['providers'] ?? null) ? $this->configuration['providers'] : [];
+        return $providers[$identifier] ?? [];
     }
 
     /**

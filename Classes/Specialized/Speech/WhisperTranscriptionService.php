@@ -204,8 +204,12 @@ final class WhisperTranscriptionService
     {
         try {
             $config = $this->extensionConfiguration->get('nr_llm');
+            if (!is_array($config)) {
+                return;
+            }
 
             // Use OpenAI API key for Whisper
+            /** @var array{providers?: array{openai?: array{apiKey?: string}}, speech?: array{whisper?: array{baseUrl?: string, timeout?: int}}} $config */
             $this->apiKey = (string)($config['providers']['openai']['apiKey'] ?? '');
             $this->baseUrl = (string)($config['speech']['whisper']['baseUrl'] ?? self::API_URL);
             $this->timeout = (int)($config['speech']['whisper']['timeout'] ?? 120);
@@ -316,7 +320,6 @@ final class WhisperTranscriptionService
         TranscriptionOptions $options,
         string $boundary,
     ): string {
-        $optionsArray = $options->toArray();
         $body = '';
 
         // Add file
@@ -328,34 +331,34 @@ final class WhisperTranscriptionService
         $body .= $content . "\r\n";
 
         // Add model
-        $model = $optionsArray['model'] ?? self::DEFAULT_MODEL;
+        $model = $options->model ?? self::DEFAULT_MODEL;
         $body .= "--{$boundary}\r\n";
         $body .= "Content-Disposition: form-data; name=\"model\"\r\n\r\n";
         $body .= $model . "\r\n";
 
         // Add optional parameters
-        if (isset($optionsArray['language'])) {
+        if ($options->language !== null) {
             $body .= "--{$boundary}\r\n";
             $body .= "Content-Disposition: form-data; name=\"language\"\r\n\r\n";
-            $body .= $optionsArray['language'] . "\r\n";
+            $body .= $options->language . "\r\n";
         }
 
-        if (isset($optionsArray['response_format'])) {
+        if ($options->format !== null) {
             $body .= "--{$boundary}\r\n";
             $body .= "Content-Disposition: form-data; name=\"response_format\"\r\n\r\n";
-            $body .= $optionsArray['response_format'] . "\r\n";
+            $body .= $options->format . "\r\n";
         }
 
-        if (isset($optionsArray['prompt'])) {
+        if ($options->prompt !== null) {
             $body .= "--{$boundary}\r\n";
             $body .= "Content-Disposition: form-data; name=\"prompt\"\r\n\r\n";
-            $body .= $optionsArray['prompt'] . "\r\n";
+            $body .= $options->prompt . "\r\n";
         }
 
-        if (isset($optionsArray['temperature'])) {
+        if ($options->temperature !== null) {
             $body .= "--{$boundary}\r\n";
             $body .= "Content-Disposition: form-data; name=\"temperature\"\r\n\r\n";
-            $body .= $optionsArray['temperature'] . "\r\n";
+            $body .= (string)$options->temperature . "\r\n";
         }
 
         $body .= "--{$boundary}--\r\n";
@@ -372,7 +375,6 @@ final class WhisperTranscriptionService
         TranscriptionOptions $options,
         string $boundary,
     ): string {
-        $optionsArray = $options->toArray();
         $body = '';
 
         // Add file content
@@ -382,34 +384,34 @@ final class WhisperTranscriptionService
         $body .= $audioContent . "\r\n";
 
         // Add model
-        $model = $optionsArray['model'] ?? self::DEFAULT_MODEL;
+        $model = $options->model ?? self::DEFAULT_MODEL;
         $body .= "--{$boundary}\r\n";
         $body .= "Content-Disposition: form-data; name=\"model\"\r\n\r\n";
         $body .= $model . "\r\n";
 
         // Add optional parameters (same as file version)
-        if (isset($optionsArray['language'])) {
+        if ($options->language !== null) {
             $body .= "--{$boundary}\r\n";
             $body .= "Content-Disposition: form-data; name=\"language\"\r\n\r\n";
-            $body .= $optionsArray['language'] . "\r\n";
+            $body .= $options->language . "\r\n";
         }
 
-        if (isset($optionsArray['response_format'])) {
+        if ($options->format !== null) {
             $body .= "--{$boundary}\r\n";
             $body .= "Content-Disposition: form-data; name=\"response_format\"\r\n\r\n";
-            $body .= $optionsArray['response_format'] . "\r\n";
+            $body .= $options->format . "\r\n";
         }
 
-        if (isset($optionsArray['prompt'])) {
+        if ($options->prompt !== null) {
             $body .= "--{$boundary}\r\n";
             $body .= "Content-Disposition: form-data; name=\"prompt\"\r\n\r\n";
-            $body .= $optionsArray['prompt'] . "\r\n";
+            $body .= $options->prompt . "\r\n";
         }
 
-        if (isset($optionsArray['temperature'])) {
+        if ($options->temperature !== null) {
             $body .= "--{$boundary}\r\n";
             $body .= "Content-Disposition: form-data; name=\"temperature\"\r\n\r\n";
-            $body .= $optionsArray['temperature'] . "\r\n";
+            $body .= (string)$options->temperature . "\r\n";
         }
 
         $body .= "--{$boundary}--\r\n";
@@ -451,11 +453,15 @@ final class WhisperTranscriptionService
                     return $responseBody;
                 }
 
+                /** @var array<string, mixed> */
                 return json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
             }
 
+            /** @var array{error?: array{message?: string}} $error */
             $error = json_decode($responseBody, true) ?? [];
-            $errorMessage = $error['error']['message'] ?? 'Unknown Whisper API error';
+            $errorMessage = is_string($error['error']['message'] ?? null)
+                ? $error['error']['message']
+                : 'Unknown Whisper API error';
 
             $this->logger->error('Whisper API error', [
                 'status_code' => $statusCode,
@@ -505,16 +511,23 @@ final class WhisperTranscriptionService
         }
 
         // Handle JSON formats
-        $text = $response['text'] ?? '';
-        $language = $response['language'] ?? $options->language ?? 'en';
-        $duration = isset($response['duration']) ? (float)$response['duration'] : null;
+        $text = is_string($response['text'] ?? null) ? $response['text'] : '';
+        $language = is_string($response['language'] ?? null)
+            ? $response['language']
+            : ($options->language ?? 'en');
+        $duration = isset($response['duration']) && is_numeric($response['duration'])
+            ? (float)$response['duration']
+            : null;
 
         // Parse segments for verbose_json
+        /** @var array<int, Segment>|null $segments */
         $segments = null;
-        if ($format === 'verbose_json' && isset($response['segments'])) {
+        if ($format === 'verbose_json' && isset($response['segments']) && is_array($response['segments'])) {
+            /** @var array<int, array<string, mixed>> $responseSegments */
+            $responseSegments = $response['segments'];
             $segments = array_map(
                 Segment::fromWhisperResponse(...),
-                $response['segments'],
+                $responseSegments,
             );
         }
 
@@ -525,7 +538,7 @@ final class WhisperTranscriptionService
             segments: $segments,
             metadata: [
                 'format' => $format,
-                'task' => $response['task'] ?? 'transcribe',
+                'task' => is_string($response['task'] ?? null) ? $response['task'] : 'transcribe',
             ],
         );
     }

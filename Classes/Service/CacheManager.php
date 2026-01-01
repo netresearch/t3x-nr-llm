@@ -52,7 +52,11 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
         }
 
         $data = $cache->get($cacheKey);
-        return is_array($data) ? $data : null;
+        if (!is_array($data)) {
+            return null;
+        }
+        /** @var array<string, mixed> $data */
+        return $data;
     }
 
     /**
@@ -133,7 +137,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
             'nrllm_provider_' . $provider,
         ];
 
-        if (isset($options['model'])) {
+        if (isset($options['model']) && is_string($options['model'])) {
             $tags[] = 'nrllm_model_' . str_replace(['.', '-'], '_', $options['model']);
         }
 
@@ -223,13 +227,14 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
         unset($params['stream']);
         unset($params['user']);
 
+        /** @var array<string, mixed> $params Keys remain strings after ksort */
         return $params;
     }
 
     /**
      * Sort array recursively for consistent hashing.
      *
-     * @param array<string, mixed> $array
+     * @param array<mixed, mixed> $array
      */
     private function sortRecursive(array &$array): void
     {

@@ -30,7 +30,7 @@ final readonly class TestConnectionResponse implements JsonSerializable
     public static function fromResult(array $result): self
     {
         // Models come as id => name map, extract just the IDs
-        $models = isset($result['models']) && is_array($result['models'])
+        $models = isset($result['models'])
             ? array_keys($result['models'])
             : [];
 

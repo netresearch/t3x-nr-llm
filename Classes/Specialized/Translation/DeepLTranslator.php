@@ -114,8 +114,9 @@ final class DeepLTranslator implements TranslatorInterface
         $response = $this->sendRequest('translate', $payload);
 
         // Parse response
+        /** @var array<int, array{text: string, detected_source_language?: string}> $translations */
         $translations = $response['translations'] ?? [];
-        if (empty($translations)) {
+        if ($translations === []) {
             throw new ServiceUnavailableException(
                 'DeepL returned empty translation response',
                 'translation',
@@ -169,6 +170,7 @@ final class DeepLTranslator implements TranslatorInterface
         $response = $this->sendRequest('translate', $payload);
 
         // Parse response
+        /** @var array<int, array{text: string, detected_source_language?: string}> $translations */
         $translations = $response['translations'] ?? [];
         $results = [];
 
@@ -223,8 +225,9 @@ final class DeepLTranslator implements TranslatorInterface
 
         $response = $this->sendRequest('translate', $payload);
 
+        /** @var array<int, array{text: string, detected_source_language?: string}> $translations */
         $translations = $response['translations'] ?? [];
-        if (empty($translations)) {
+        if ($translations === []) {
             return 'en'; // Fallback
         }
 
@@ -265,9 +268,12 @@ final class DeepLTranslator implements TranslatorInterface
 
         $response = $this->sendRequest('usage', [], 'GET');
 
+        $characterCount = $response['character_count'] ?? 0;
+        $characterLimit = $response['character_limit'] ?? 0;
+
         return [
-            'character_count' => $response['character_count'] ?? 0,
-            'character_limit' => $response['character_limit'] ?? 0,
+            'character_count' => is_int($characterCount) ? $characterCount : 0,
+            'character_limit' => is_int($characterLimit) ? $characterLimit : 0,
         ];
     }
 
@@ -282,7 +288,10 @@ final class DeepLTranslator implements TranslatorInterface
 
         $response = $this->sendRequest('glossaries', [], 'GET');
 
-        return $response['glossaries'] ?? [];
+        /** @var array<int, array{glossary_id: string, name: string, source_lang: string, target_lang: string}> $glossaries */
+        $glossaries = $response['glossaries'] ?? [];
+
+        return $glossaries;
     }
 
     /**
@@ -293,14 +302,21 @@ final class DeepLTranslator implements TranslatorInterface
         try {
             $config = $this->extensionConfiguration->get('nr_llm');
 
-            $this->apiKey = (string)($config['translators']['deepl']['apiKey'] ?? '');
-            $this->timeout = (int)($config['translators']['deepl']['timeout'] ?? 30);
+            if (!is_array($config)) {
+                return;
+            }
+
+            /** @var array{translators?: array{deepl?: array{apiKey?: string, timeout?: int, baseUrl?: string}}} $config */
+            $deeplConfig = $config['translators']['deepl'] ?? [];
+
+            $this->apiKey = $deeplConfig['apiKey'] ?? '';
+            $this->timeout = $deeplConfig['timeout'] ?? 30;
 
             // Determine API URL based on API key type (free keys end with :fx)
             if ($this->apiKey !== '' && str_ends_with($this->apiKey, ':fx')) {
                 $this->baseUrl = self::FREE_API_URL;
             } else {
-                $this->baseUrl = (string)($config['translators']['deepl']['baseUrl'] ?? self::PRO_API_URL);
+                $this->baseUrl = $deeplConfig['baseUrl'] ?? self::PRO_API_URL;
             }
         } catch (Exception $e) {
             $this->logger->warning('Failed to load DeepL configuration', [
@@ -369,39 +385,37 @@ final class DeepLTranslator implements TranslatorInterface
             ? $options['deepl']
             : DeepLOptions::fromArray($options);
 
-        $optionsArray = $deepLOptions->toArray();
-
         // Formality (only if supported)
-        if (isset($optionsArray['formality']) && $this->supportsFormality($targetLanguage)) {
-            $payload['formality'] = $this->mapFormality($optionsArray['formality']);
+        if ($deepLOptions->formality !== null && $this->supportsFormality($targetLanguage)) {
+            $payload['formality'] = $this->mapFormality($deepLOptions->formality);
         }
 
         // Glossary
-        if (isset($optionsArray['glossary_id'])) {
-            $payload['glossary_id'] = $optionsArray['glossary_id'];
+        if ($deepLOptions->glossaryId !== null) {
+            $payload['glossary_id'] = $deepLOptions->glossaryId;
         }
 
         // Formatting preservation
-        if (isset($optionsArray['preserve_formatting'])) {
-            $payload['preserve_formatting'] = $optionsArray['preserve_formatting'] ? '1' : '0';
+        if ($deepLOptions->preserveFormatting !== null) {
+            $payload['preserve_formatting'] = $deepLOptions->preserveFormatting ? '1' : '0';
         }
 
         // Tag handling
-        if (isset($optionsArray['tag_handling'])) {
-            $payload['tag_handling'] = $optionsArray['tag_handling'];
+        if ($deepLOptions->tagHandling !== null) {
+            $payload['tag_handling'] = $deepLOptions->tagHandling;
 
-            if (isset($optionsArray['ignore_tags'])) {
-                $payload['ignore_tags'] = implode(',', $optionsArray['ignore_tags']);
+            if ($deepLOptions->ignoreTags !== null) {
+                $payload['ignore_tags'] = implode(',', $deepLOptions->ignoreTags);
             }
 
-            if (isset($optionsArray['non_splitting_tags'])) {
-                $payload['non_splitting_tags'] = implode(',', $optionsArray['non_splitting_tags']);
+            if ($deepLOptions->nonSplittingTags !== null) {
+                $payload['non_splitting_tags'] = implode(',', $deepLOptions->nonSplittingTags);
             }
         }
 
         // Split sentences
-        if (isset($optionsArray['split_sentences'])) {
-            $payload['split_sentences'] = $optionsArray['split_sentences'] ? '1' : '0';
+        if ($deepLOptions->splitSentences !== null) {
+            $payload['split_sentences'] = $deepLOptions->splitSentences ? '1' : '0';
         }
 
         return $payload;
@@ -435,22 +449,20 @@ final class DeepLTranslator implements TranslatorInterface
             ? $options['deepl']
             : DeepLOptions::fromArray($options);
 
-        $optionsArray = $deepLOptions->toArray();
-
-        if (isset($optionsArray['formality']) && $this->supportsFormality($targetLanguage)) {
-            $payload['formality'] = $this->mapFormality($optionsArray['formality']);
+        if ($deepLOptions->formality !== null && $this->supportsFormality($targetLanguage)) {
+            $payload['formality'] = $this->mapFormality($deepLOptions->formality);
         }
 
-        if (isset($optionsArray['glossary_id'])) {
-            $payload['glossary_id'] = $optionsArray['glossary_id'];
+        if ($deepLOptions->glossaryId !== null) {
+            $payload['glossary_id'] = $deepLOptions->glossaryId;
         }
 
-        if (isset($optionsArray['preserve_formatting'])) {
-            $payload['preserve_formatting'] = $optionsArray['preserve_formatting'] ? '1' : '0';
+        if ($deepLOptions->preserveFormatting !== null) {
+            $payload['preserve_formatting'] = $deepLOptions->preserveFormatting ? '1' : '0';
         }
 
-        if (isset($optionsArray['tag_handling'])) {
-            $payload['tag_handling'] = $optionsArray['tag_handling'];
+        if ($deepLOptions->tagHandling !== null) {
+            $payload['tag_handling'] = $deepLOptions->tagHandling;
         }
 
         return $payload;
@@ -511,11 +523,18 @@ final class DeepLTranslator implements TranslatorInterface
             $body = (string)$response->getBody();
 
             if ($statusCode >= 200 && $statusCode < 300) {
-                return json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+                $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+
+                /** @var array<string, mixed> $result */
+                $result = is_array($decoded) ? $decoded : [];
+
+                return $result;
             }
 
-            $error = json_decode($body, true) ?? [];
-            $errorMessage = $error['message'] ?? 'Unknown DeepL API error';
+            $errorData = json_decode($body, true);
+            $errorMessage = is_array($errorData) && isset($errorData['message']) && is_string($errorData['message'])
+                ? $errorData['message']
+                : 'Unknown DeepL API error';
 
             $this->logger->error('DeepL API error', [
                 'status_code' => $statusCode,

@@ -75,13 +75,30 @@ class PromptTemplateService
             $variables,
         );
 
+        // Extract and validate options with type guards
+        $model = $options['model'] ?? null;
+        $model = is_string($model) ? $model : $template->getModel();
+
+        $temperature = $options['temperature'] ?? null;
+        $temperature = is_float($temperature) || is_int($temperature)
+            ? (float)$temperature
+            : $template->getTemperature();
+
+        $maxTokens = $options['max_tokens'] ?? null;
+        $maxTokens = is_int($maxTokens) ? $maxTokens : $template->getMaxTokens();
+
+        $topP = $options['top_p'] ?? null;
+        $topP = is_float($topP) || is_int($topP)
+            ? (float)$topP
+            : $template->getTopP();
+
         return new RenderedPrompt(
             systemPrompt: trim($systemPrompt),
             userPrompt: trim($userPrompt),
-            model: $options['model'] ?? $template->getModel(),
-            temperature: $options['temperature'] ?? $template->getTemperature(),
-            maxTokens: $options['max_tokens'] ?? $template->getMaxTokens(),
-            topP: $options['top_p'] ?? $template->getTopP(),
+            model: $model,
+            temperature: $temperature,
+            maxTokens: $maxTokens,
+            topP: $topP,
             metadata: [
                 'template_id' => $template->getUid(),
                 'template_identifier' => $identifier,
@@ -219,9 +236,19 @@ class PromptTemplateService
         // Simple variable substitution: {{variable}}
         $result = preg_replace_callback(
             '/\{\{(\w+)\}\}/',
-            function ($matches) use ($variables) {
+            static function (array $matches) use ($variables): string {
                 $key = $matches[1];
-                return $variables[$key] ?? '';
+                $value = $variables[$key] ?? '';
+                if (is_string($value)) {
+                    return $value;
+                }
+                if (is_int($value) || is_float($value)) {
+                    return (string)$value;
+                }
+                if (is_array($value)) {
+                    return json_encode($value) ?: '';
+                }
+                return '';
             },
             $template,
         );
@@ -252,9 +279,9 @@ class PromptTemplateService
         // Loop: {{#each items}}{{this}}{{/each}}
         $result = preg_replace_callback(
             '/\{\{#each (\w+)\}\}(.*?)\{\{\/each\}\}/s',
-            function ($matches) use ($variables) {
+            static function (array $matches) use ($variables): string {
                 $key = $matches[1];
-                $template = $matches[2];
+                $itemTemplate = $matches[2];
                 $items = $variables[$key] ?? [];
 
                 if (!is_array($items)) {
@@ -263,8 +290,16 @@ class PromptTemplateService
 
                 $output = '';
                 foreach ($items as $item) {
-                    $itemStr = is_array($item) ? (json_encode($item) ?: '') : (string)$item;
-                    $output .= str_replace('{{this}}', $itemStr, $template);
+                    if (is_array($item)) {
+                        $itemStr = json_encode($item) ?: '';
+                    } elseif (is_string($item)) {
+                        $itemStr = $item;
+                    } elseif (is_int($item) || is_float($item)) {
+                        $itemStr = (string)$item;
+                    } else {
+                        $itemStr = '';
+                    }
+                    $output .= str_replace('{{this}}', $itemStr, $itemTemplate);
                 }
 
                 return $output;

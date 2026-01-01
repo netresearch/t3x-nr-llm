@@ -102,7 +102,10 @@ final class DallEImageService
             : ImageGenerationOptions::fromArray($options);
 
         $optionsArray = $options->toArray();
-        $model = $optionsArray['model'] ?? self::DEFAULT_MODEL;
+        $model = is_string($optionsArray['model'] ?? null) ? $optionsArray['model'] : self::DEFAULT_MODEL;
+        $size = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
+        $quality = is_string($optionsArray['quality'] ?? null) ? $optionsArray['quality'] : 'standard';
+        $style = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
 
         // Validate prompt length
         $this->validatePrompt($prompt, $model);
@@ -114,12 +117,14 @@ final class DallEImageService
         $response = $this->sendRequest('generations', $payload);
 
         // Parse response
-        $data = $response['data'][0] ?? [];
+        /** @var array<int, array{url?: string, b64_json?: string, revised_prompt?: string}> $responseData */
+        $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
+        $data = $responseData[0] ?? [];
 
         // Track usage
         $this->usageTracker->trackUsage('image', 'dall-e:' . $model, [
-            'size' => $optionsArray['size'] ?? self::DEFAULT_SIZE,
-            'quality' => $optionsArray['quality'] ?? 'standard',
+            'size' => $size,
+            'quality' => $quality,
         ]);
 
         return new ImageGenerationResult(
@@ -128,11 +133,11 @@ final class DallEImageService
             prompt: $prompt,
             revisedPrompt: $data['revised_prompt'] ?? null,
             model: $model,
-            size: $optionsArray['size'] ?? self::DEFAULT_SIZE,
+            size: $size,
             provider: 'dall-e',
             metadata: [
-                'quality' => $optionsArray['quality'] ?? 'standard',
-                'style' => $optionsArray['style'] ?? 'vivid',
+                'quality' => $quality,
+                'style' => $style,
             ],
         );
     }
@@ -160,7 +165,10 @@ final class DallEImageService
             : ImageGenerationOptions::fromArray($options);
 
         $optionsArray = $options->toArray();
-        $model = $optionsArray['model'] ?? self::DEFAULT_MODEL;
+        $model = is_string($optionsArray['model'] ?? null) ? $optionsArray['model'] : self::DEFAULT_MODEL;
+        $size = is_string($optionsArray['size'] ?? null) ? $optionsArray['size'] : self::DEFAULT_SIZE;
+        $quality = is_string($optionsArray['quality'] ?? null) ? $optionsArray['quality'] : 'standard';
+        $style = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
 
         // DALL-E 3 only supports n=1, need multiple requests
         if ($model === 'dall-e-3') {
@@ -182,25 +190,27 @@ final class DallEImageService
         $response = $this->sendRequest('generations', $payload);
 
         $results = [];
-        foreach ($response['data'] ?? [] as $data) {
+        /** @var array<int, array{url?: string, b64_json?: string, revised_prompt?: string}> $responseData */
+        $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
+        foreach ($responseData as $data) {
             $results[] = new ImageGenerationResult(
                 url: $data['url'] ?? '',
                 base64: $data['b64_json'] ?? null,
                 prompt: $prompt,
                 revisedPrompt: $data['revised_prompt'] ?? null,
                 model: $model,
-                size: $optionsArray['size'] ?? self::DEFAULT_SIZE,
+                size: $size,
                 provider: 'dall-e',
                 metadata: [
-                    'quality' => $optionsArray['quality'] ?? 'standard',
-                    'style' => $optionsArray['style'] ?? 'vivid',
+                    'quality' => $quality,
+                    'style' => $style,
                 ],
             );
         }
 
         // Track usage
         $this->usageTracker->trackUsage('image', 'dall-e:' . $model, [
-            'size' => $optionsArray['size'] ?? self::DEFAULT_SIZE,
+            'size' => $size,
             'count' => count($results),
         ]);
 
@@ -236,7 +246,9 @@ final class DallEImageService
         ]);
 
         $results = [];
-        foreach ($response['data'] ?? [] as $data) {
+        /** @var array<int, array{url?: string, b64_json?: string}> $responseData */
+        $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
+        foreach ($responseData as $data) {
             $results[] = new ImageGenerationResult(
                 url: $data['url'] ?? '',
                 base64: $data['b64_json'] ?? null,
@@ -288,7 +300,9 @@ final class DallEImageService
             'response_format' => 'url',
         ]);
 
-        $data = $response['data'][0] ?? [];
+        /** @var array<int, array{url?: string, b64_json?: string}> $responseData */
+        $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
+        $data = $responseData[0] ?? [];
 
         $this->usageTracker->trackUsage('image', 'dall-e:edit', [
             'size' => $size,
@@ -332,11 +346,12 @@ final class DallEImageService
     private function loadConfiguration(): void
     {
         try {
+            /** @var array{providers?: array{openai?: array{apiKey?: string}}, image?: array{dalle?: array{baseUrl?: string, timeout?: int}}} $config */
             $config = $this->extensionConfiguration->get('nr_llm');
 
-            $this->apiKey = (string)($config['providers']['openai']['apiKey'] ?? '');
-            $this->baseUrl = (string)($config['image']['dalle']['baseUrl'] ?? self::API_URL);
-            $this->timeout = (int)($config['image']['dalle']['timeout'] ?? 120);
+            $this->apiKey = $config['providers']['openai']['apiKey'] ?? '';
+            $this->baseUrl = $config['image']['dalle']['baseUrl'] ?? self::API_URL;
+            $this->timeout = $config['image']['dalle']['timeout'] ?? 120;
         } catch (Exception $e) {
             $this->logger->warning('Failed to load DALL-E configuration', [
                 'exception' => $e->getMessage(),
@@ -493,6 +508,9 @@ final class DallEImageService
 
         // Add image file
         $imageContent = file_get_contents($imagePath);
+        if ($imageContent === false) {
+            throw new ServiceUnavailableException('Failed to read image file', 'image', ['provider' => 'dall-e']);
+        }
         $body .= "--{$boundary}\r\n";
         $body .= "Content-Disposition: form-data; name=\"image\"; filename=\"image.png\"\r\n";
         $body .= "Content-Type: image/png\r\n\r\n";
@@ -501,6 +519,9 @@ final class DallEImageService
         // Add mask file if provided
         if ($maskPath !== null) {
             $maskContent = file_get_contents($maskPath);
+            if ($maskContent === false) {
+                throw new ServiceUnavailableException('Failed to read mask file', 'image', ['provider' => 'dall-e']);
+            }
             $body .= "--{$boundary}\r\n";
             $body .= "Content-Disposition: form-data; name=\"mask\"; filename=\"mask.png\"\r\n";
             $body .= "Content-Type: image/png\r\n\r\n";
@@ -511,7 +532,7 @@ final class DallEImageService
         foreach ($fields as $name => $value) {
             $body .= "--{$boundary}\r\n";
             $body .= "Content-Disposition: form-data; name=\"{$name}\"\r\n\r\n";
-            $body .= $value . "\r\n";
+            $body .= (is_scalar($value) ? (string)$value : '') . "\r\n";
         }
 
         $body .= "--{$boundary}--\r\n";
@@ -540,9 +561,11 @@ final class DallEImageService
             $responseBody = (string)$response->getBody();
 
             if ($statusCode >= 200 && $statusCode < 300) {
+                /** @var array<string, mixed> */
                 return json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
             }
 
+            /** @var array{error?: array{message?: string}} $error */
             $error = json_decode($responseBody, true) ?? [];
             $errorMessage = $error['error']['message'] ?? 'Unknown DALL-E API error';
 

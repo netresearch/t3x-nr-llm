@@ -50,11 +50,16 @@ final class SpeechSynthesisOptions extends AbstractOptions
      */
     public static function fromArray(array $options): static
     {
+        $model = $options['model'] ?? null;
+        $voice = $options['voice'] ?? null;
+        $format = $options['format'] ?? $options['response_format'] ?? null;
+        $speed = $options['speed'] ?? null;
+
         return new self(
-            model: $options['model'] ?? null,
-            voice: $options['voice'] ?? null,
-            format: $options['format'] ?? $options['response_format'] ?? null,
-            speed: isset($options['speed']) ? (float)$options['speed'] : null,
+            model: is_string($model) ? $model : null,
+            voice: is_string($voice) ? $voice : null,
+            format: is_string($format) ? $format : null,
+            speed: is_float($speed) || is_int($speed) ? (float)$speed : null,
         );
     }
 

@@ -72,18 +72,32 @@ final readonly class LlmTranslator implements TranslatorInterface
         // Build translation prompt
         $prompt = $this->buildPrompt($text, $sourceLanguage, $targetLanguage, $options);
 
+        // Extract and validate options
+        $temperature = isset($options['temperature']) && is_float($options['temperature'])
+            ? $options['temperature']
+            : 0.3;
+        $maxTokens = isset($options['max_tokens']) && is_int($options['max_tokens'])
+            ? $options['max_tokens']
+            : 2000;
+        $provider = isset($options['provider']) && is_string($options['provider'])
+            ? $options['provider']
+            : null;
+        $model = isset($options['model']) && is_string($options['model'])
+            ? $options['model']
+            : null;
+
         // Execute translation
         $chatOptions = new ChatOptions(
-            temperature: $options['temperature'] ?? 0.3,
-            maxTokens: $options['max_tokens'] ?? 2000,
-            provider: $options['provider'] ?? null,
-            model: $options['model'] ?? null,
+            temperature: $temperature,
+            maxTokens: $maxTokens,
+            provider: $provider,
+            model: $model,
         );
 
         $response = $this->llmManager->chat($prompt['messages'], $chatOptions);
 
         // Track usage
-        $providerUsed = $options['provider'] ?? 'default';
+        $providerUsed = $provider ?? 'default';
         $this->usageTracker->trackUsage('translation', 'llm:' . $providerUsed, [
             'tokens' => $response->usage->totalTokens,
             'characters' => mb_strlen($text),
@@ -186,11 +200,20 @@ final readonly class LlmTranslator implements TranslatorInterface
         string $targetLanguage,
         array $options,
     ): array {
-        $formality = $options['formality'] ?? 'default';
-        $domain = $options['domain'] ?? 'general';
-        $glossary = $options['glossary'] ?? [];
-        $context = $options['context'] ?? '';
-        $preserveFormatting = $options['preserve_formatting'] ?? true;
+        $formality = isset($options['formality']) && is_string($options['formality'])
+            ? $options['formality']
+            : 'default';
+        $domain = isset($options['domain']) && is_string($options['domain'])
+            ? $options['domain']
+            : 'general';
+        /** @var array<string, string> $glossary */
+        $glossary = isset($options['glossary']) && is_array($options['glossary'])
+            ? $options['glossary']
+            : [];
+        $context = isset($options['context']) && is_string($options['context'])
+            ? $options['context']
+            : '';
+        $preserveFormatting = !isset($options['preserve_formatting']) || $options['preserve_formatting'] === true;
 
         // Build system prompt
         $systemPrompt = sprintf(
@@ -208,14 +231,14 @@ final readonly class LlmTranslator implements TranslatorInterface
             $systemPrompt .= "Preserve all formatting, HTML tags, markdown, and special characters.\n";
         }
 
-        if (!empty($glossary)) {
+        if ($glossary !== []) {
             $systemPrompt .= "\nUse these exact term translations:\n";
             foreach ($glossary as $term => $translation) {
-                $systemPrompt .= sprintf("- %s → %s\n", $term, $translation);
+                $systemPrompt .= sprintf("- %s → %s\n", (string)$term, (string)$translation);
             }
         }
 
-        if (!empty($context)) {
+        if ($context !== '') {
             $systemPrompt .= sprintf("\nContext (for reference only):\n%s\n", $context);
         }
 

@@ -105,10 +105,14 @@ final class TextToSpeechService
 
         // Build request
         $optionsArray = $options->toArray();
-        $model = $optionsArray['model'] ?? self::DEFAULT_MODEL;
-        $voice = $optionsArray['voice'] ?? self::DEFAULT_VOICE;
-        $format = $optionsArray['response_format'] ?? 'mp3';
-        $speed = $optionsArray['speed'] ?? 1.0;
+        $modelValue = $optionsArray['model'] ?? null;
+        $model = is_string($modelValue) ? $modelValue : self::DEFAULT_MODEL;
+        $voiceValue = $optionsArray['voice'] ?? null;
+        $voice = is_string($voiceValue) ? $voiceValue : self::DEFAULT_VOICE;
+        $formatValue = $optionsArray['response_format'] ?? null;
+        $format = is_string($formatValue) ? $formatValue : 'mp3';
+        $speedValue = $optionsArray['speed'] ?? null;
+        $speed = is_float($speedValue) || is_int($speedValue) ? (float)$speedValue : 1.0;
 
         $payload = [
             'model' => $model,
@@ -248,11 +252,31 @@ final class TextToSpeechService
     {
         try {
             $config = $this->extensionConfiguration->get('nr_llm');
+            if (!is_array($config)) {
+                return;
+            }
 
             // Use OpenAI API key for TTS
-            $this->apiKey = (string)($config['providers']['openai']['apiKey'] ?? '');
-            $this->baseUrl = (string)($config['speech']['tts']['baseUrl'] ?? self::API_URL);
-            $this->timeout = (int)($config['speech']['tts']['timeout'] ?? 60);
+            $providers = $config['providers'] ?? null;
+            if (is_array($providers)) {
+                $openai = $providers['openai'] ?? null;
+                if (is_array($openai)) {
+                    $apiKey = $openai['apiKey'] ?? '';
+                    $this->apiKey = is_string($apiKey) ? $apiKey : '';
+                }
+            }
+
+            // Load speech configuration
+            $speech = $config['speech'] ?? null;
+            if (is_array($speech)) {
+                $tts = $speech['tts'] ?? null;
+                if (is_array($tts)) {
+                    $baseUrl = $tts['baseUrl'] ?? null;
+                    $this->baseUrl = is_string($baseUrl) ? $baseUrl : self::API_URL;
+                    $timeout = $tts['timeout'] ?? null;
+                    $this->timeout = is_int($timeout) ? $timeout : 60;
+                }
+            }
         } catch (Exception $e) {
             $this->logger->warning('Failed to load TTS configuration', [
                 'exception' => $e->getMessage(),
@@ -420,8 +444,17 @@ final class TextToSpeechService
             }
 
             $responseBody = (string)$response->getBody();
-            $error = json_decode($responseBody, true) ?? [];
-            $errorMessage = $error['error']['message'] ?? 'Unknown TTS API error';
+            $decoded = json_decode($responseBody, true);
+            $errorMessage = 'Unknown TTS API error';
+            if (is_array($decoded)) {
+                $errorData = $decoded['error'] ?? null;
+                if (is_array($errorData)) {
+                    $message = $errorData['message'] ?? null;
+                    if (is_string($message)) {
+                        $errorMessage = $message;
+                    }
+                }
+            }
 
             $this->logger->error('TTS API error', [
                 'status_code' => $statusCode,

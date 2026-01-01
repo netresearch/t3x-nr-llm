@@ -31,9 +31,7 @@ final readonly class ModelListResponse implements JsonSerializable
     {
         $items = [];
         foreach ($models as $model) {
-            if ($model instanceof Model) {
-                $items[] = ModelListItemResponse::fromModel($model);
-            }
+            $items[] = ModelListItemResponse::fromModel($model);
         }
 
         return new self(

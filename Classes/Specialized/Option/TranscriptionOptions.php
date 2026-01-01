@@ -44,12 +44,18 @@ final class TranscriptionOptions extends AbstractOptions
      */
     public static function fromArray(array $options): static
     {
+        $model = $options['model'] ?? null;
+        $language = $options['language'] ?? null;
+        $format = $options['format'] ?? $options['response_format'] ?? null;
+        $prompt = $options['prompt'] ?? null;
+        $temperature = $options['temperature'] ?? null;
+
         return new self(
-            model: $options['model'] ?? null,
-            language: $options['language'] ?? null,
-            format: $options['format'] ?? $options['response_format'] ?? null,
-            prompt: $options['prompt'] ?? null,
-            temperature: isset($options['temperature']) ? (float)$options['temperature'] : null,
+            model: is_string($model) ? $model : null,
+            language: is_string($language) ? $language : null,
+            format: is_string($format) ? $format : null,
+            prompt: is_string($prompt) ? $prompt : null,
+            temperature: is_float($temperature) || is_int($temperature) ? (float)$temperature : null,
         );
     }
 

@@ -37,10 +37,11 @@ class CompletionService
         $messages = [];
 
         // Add system prompt if provided
-        if (!empty($optionsArray['system_prompt'])) {
+        $systemPrompt = $optionsArray['system_prompt'] ?? null;
+        if (is_string($systemPrompt) && $systemPrompt !== '') {
             $messages[] = [
                 'role' => 'system',
-                'content' => $optionsArray['system_prompt'],
+                'content' => $systemPrompt,
             ];
         }
 
@@ -50,10 +51,9 @@ class CompletionService
         ];
 
         // Handle response format
-        if (isset($optionsArray['response_format'])) {
-            $normalizedFormat = $this->normalizeResponseFormat(
-                $optionsArray['response_format'],
-            );
+        $responseFormat = $optionsArray['response_format'] ?? null;
+        if (is_string($responseFormat)) {
+            $normalizedFormat = $this->normalizeResponseFormat($responseFormat);
             $options = $options->withResponseFormat(
                 is_string($normalizedFormat) ? $normalizedFormat : 'json',
             );
@@ -107,6 +107,14 @@ class CompletionService
             );
         }
 
+        if (!is_array($decoded)) {
+            throw new InvalidArgumentException(
+                'JSON response must be an object, got ' . gettype($decoded),
+                2805117334,
+            );
+        }
+
+        /** @var array<string, mixed> $decoded */
         return $decoded;
     }
 

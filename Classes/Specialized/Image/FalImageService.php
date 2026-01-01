@@ -118,15 +118,18 @@ final class FalImageService
 
         // Parse response
         $images = $response['images'] ?? [];
-        $image = $images[0] ?? [];
+        /** @var array<string, mixed> $image */
+        $image = is_array($images) && isset($images[0]) && is_array($images[0]) ? $images[0] : [];
 
         // Track usage
         $this->usageTracker->trackUsage('image', 'fal:' . $model, [
             'size' => $options['image_size'] ?? 'square_hd',
         ]);
 
+        $imageUrl = isset($image['url']) && is_string($image['url']) ? $image['url'] : '';
+
         return new ImageGenerationResult(
-            url: $image['url'] ?? '',
+            url: $imageUrl,
             base64: null, // FAL returns URLs, not base64
             prompt: $prompt,
             revisedPrompt: null,
@@ -171,19 +174,27 @@ final class FalImageService
             : $this->sendRequest($modelEndpoint, $payload);
 
         $results = [];
-        foreach ($response['images'] ?? [] as $image) {
-            $results[] = new ImageGenerationResult(
-                url: $image['url'] ?? '',
-                base64: null,
-                prompt: $prompt,
-                revisedPrompt: null,
-                model: $model,
-                size: $this->extractSize($image),
-                provider: 'fal',
-                metadata: [
-                    'seed' => $image['seed'] ?? null,
-                ],
-            );
+        $responseImages = $response['images'] ?? [];
+        if (is_array($responseImages)) {
+            foreach ($responseImages as $imageData) {
+                if (!is_array($imageData)) {
+                    continue;
+                }
+                /** @var array<string, mixed> $imageData */
+                $imageUrl = isset($imageData['url']) && is_string($imageData['url']) ? $imageData['url'] : '';
+                $results[] = new ImageGenerationResult(
+                    url: $imageUrl,
+                    base64: null,
+                    prompt: $prompt,
+                    revisedPrompt: null,
+                    model: $model,
+                    size: $this->extractSize($imageData),
+                    provider: 'fal',
+                    metadata: [
+                        'seed' => $imageData['seed'] ?? null,
+                    ],
+                );
+            }
         }
 
         $this->usageTracker->trackUsage('image', 'fal:' . $model, [
@@ -245,10 +256,31 @@ final class FalImageService
         try {
             $config = $this->extensionConfiguration->get('nr_llm');
 
-            $this->apiKey = (string)($config['image']['fal']['apiKey'] ?? '');
-            $this->baseUrl = (string)($config['image']['fal']['baseUrl'] ?? self::API_URL);
-            $this->timeout = (int)($config['image']['fal']['timeout'] ?? 120);
-            $this->pollInterval = (int)($config['image']['fal']['pollInterval'] ?? 1000);
+            if (!is_array($config)) {
+                return;
+            }
+
+            $imageConfig = $config['image'] ?? null;
+            if (!is_array($imageConfig)) {
+                return;
+            }
+
+            $falConfig = $imageConfig['fal'] ?? null;
+            if (!is_array($falConfig)) {
+                return;
+            }
+
+            $apiKey = $falConfig['apiKey'] ?? '';
+            $this->apiKey = is_string($apiKey) ? $apiKey : '';
+
+            $baseUrl = $falConfig['baseUrl'] ?? self::API_URL;
+            $this->baseUrl = is_string($baseUrl) ? $baseUrl : self::API_URL;
+
+            $timeout = $falConfig['timeout'] ?? 120;
+            $this->timeout = is_int($timeout) ? $timeout : (is_numeric($timeout) ? (int)$timeout : 120);
+
+            $pollInterval = $falConfig['pollInterval'] ?? 1000;
+            $this->pollInterval = is_int($pollInterval) ? $pollInterval : (is_numeric($pollInterval) ? (int)$pollInterval : 1000);
         } catch (Exception $e) {
             $this->logger->warning('Failed to load FAL configuration', [
                 'exception' => $e->getMessage(),
@@ -315,9 +347,11 @@ final class FalImageService
         if (isset($options['image_size'])) {
             $payload['image_size'] = $options['image_size'];
         } elseif (isset($options['width']) && isset($options['height'])) {
+            $width = $options['width'];
+            $height = $options['height'];
             $payload['image_size'] = [
-                'width' => (int)$options['width'],
-                'height' => (int)$options['height'],
+                'width' => is_numeric($width) ? (int)$width : 1024,
+                'height' => is_numeric($height) ? (int)$height : 1024,
             ];
         } else {
             $payload['image_size'] = 'square_hd';
@@ -325,22 +359,26 @@ final class FalImageService
 
         // Number of images
         if (isset($options['num_images'])) {
-            $payload['num_images'] = min((int)$options['num_images'], 4);
+            $numImages = $options['num_images'];
+            $payload['num_images'] = is_numeric($numImages) ? min((int)$numImages, 4) : 1;
         }
 
         // Guidance scale
         if (isset($options['guidance_scale'])) {
-            $payload['guidance_scale'] = (float)$options['guidance_scale'];
+            $guidanceScale = $options['guidance_scale'];
+            $payload['guidance_scale'] = is_numeric($guidanceScale) ? (float)$guidanceScale : 7.5;
         }
 
         // Inference steps
         if (isset($options['num_inference_steps'])) {
-            $payload['num_inference_steps'] = (int)$options['num_inference_steps'];
+            $steps = $options['num_inference_steps'];
+            $payload['num_inference_steps'] = is_numeric($steps) ? (int)$steps : 20;
         }
 
         // Seed
         if (isset($options['seed'])) {
-            $payload['seed'] = (int)$options['seed'];
+            $seed = $options['seed'];
+            $payload['seed'] = is_numeric($seed) ? (int)$seed : 0;
         }
 
         // Negative prompt
@@ -357,7 +395,8 @@ final class FalImageService
         if (isset($options['image_url'])) {
             $payload['image_url'] = $options['image_url'];
             if (isset($options['strength'])) {
-                $payload['strength'] = (float)$options['strength'];
+                $strength = $options['strength'];
+                $payload['strength'] = is_numeric($strength) ? (float)$strength : 0.75;
             }
         }
 
@@ -372,7 +411,11 @@ final class FalImageService
     private function extractSize(array $image): string
     {
         if (isset($image['width']) && isset($image['height'])) {
-            return $image['width'] . 'x' . $image['height'];
+            $width = $image['width'];
+            $height = $image['height'];
+            if (is_scalar($width) && is_scalar($height)) {
+                return (string)$width . 'x' . (string)$height;
+            }
         }
 
         return '1024x1024';
@@ -425,7 +468,7 @@ final class FalImageService
         $submitResponse = $this->executeRequest($request);
 
         $requestId = $submitResponse['request_id'] ?? null;
-        if ($requestId === null) {
+        if (!is_string($requestId) || $requestId === '') {
             throw new ServiceUnavailableException(
                 'FAL queue submission failed: no request_id',
                 'image',
@@ -466,8 +509,10 @@ final class FalImageService
             }
 
             if ($status === 'FAILED') {
+                $errorMessage = $response['error'] ?? 'Unknown error';
+                $errorMessageStr = is_string($errorMessage) ? $errorMessage : 'Unknown error';
                 throw new ServiceUnavailableException(
-                    'FAL generation failed: ' . ($response['error'] ?? 'Unknown error'),
+                    'FAL generation failed: ' . $errorMessageStr,
                     'image',
                     ['provider' => 'fal', 'request_id' => $requestId],
                 );
@@ -499,11 +544,20 @@ final class FalImageService
             $responseBody = (string)$response->getBody();
 
             if ($statusCode >= 200 && $statusCode < 300) {
-                return json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
+                $decoded = json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
+                /** @var array<string, mixed> $result */
+                $result = is_array($decoded) ? $decoded : [];
+
+                return $result;
             }
 
-            $error = json_decode($responseBody, true) ?? [];
-            $errorMessage = $error['detail'] ?? $error['message'] ?? 'Unknown FAL API error';
+            $error = json_decode($responseBody, true);
+            $errorData = is_array($error) ? $error : [];
+            $detail = $errorData['detail'] ?? null;
+            $message = $errorData['message'] ?? null;
+            $errorMessage = (is_string($detail) ? $detail : null)
+                ?? (is_string($message) ? $message : null)
+                ?? 'Unknown FAL API error';
 
             $this->logger->error('FAL API error', [
                 'status_code' => $statusCode,

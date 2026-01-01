@@ -30,10 +30,14 @@ final readonly class Word
      */
     public static function fromWhisperResponse(array $data): self
     {
+        $word = $data['word'] ?? '';
+        $start = $data['start'] ?? 0.0;
+        $end = $data['end'] ?? 0.0;
+
         return new self(
-            word: $data['word'] ?? '',
-            start: (float)($data['start'] ?? 0.0),
-            end: (float)($data['end'] ?? 0.0),
+            word: is_string($word) ? $word : '',
+            start: is_float($start) || is_int($start) ? (float)$start : 0.0,
+            end: is_float($end) || is_int($end) ? (float)$end : 0.0,
         );
     }
 }

@@ -206,7 +206,7 @@ final class OpenRouterProvider extends AbstractProvider implements
                 ];
             }
 
-            /** @var array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}> $models */
+            /** @var array<string, array{name: string, context_length: int, pricing: array{prompt: float, completion: float}, capabilities: array{vision: bool, function_calling: bool}, provider: string}> $models */
             $this->cachedModels = $models;
             return $models;
         } catch (Exception) {
@@ -646,7 +646,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         if ($minContext > 0) {
             $filtered = array_filter(
                 $filtered,
-                static fn($model) => ($model['context_length'] ?? 0) >= $minContext,
+                static fn($model) => $model['context_length'] >= $minContext,
             );
         }
 
@@ -817,6 +817,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     private function handleOpenRouterError(int $statusCode, string $responseBody): never
     {
         $decoded = json_decode($responseBody, true);
+        /** @var array<string, mixed> $decodedArray */
         $decodedArray = is_array($decoded) ? $decoded : [];
         $error = $this->getArray($decodedArray, 'error');
         $message = $this->getString($error, 'message', 'Unknown OpenRouter API error');

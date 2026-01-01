@@ -55,21 +55,22 @@ class EmbeddingService
             throw new InvalidArgumentException('Text cannot be empty', 6048498820);
         }
 
-        $model = $optionsArray['model'] ?? 'default';
-        $provider = $optionsArray['provider'] ?? 'openai';
-        $cacheKey = $this->getCacheKey($text, $model, $provider);
-        $cacheTtl = $optionsArray['cache_ttl'] ?? self::DEFAULT_CACHE_TTL;
+        $model = is_string($optionsArray['model'] ?? null) ? $optionsArray['model'] : 'default';
+        $provider = is_string($optionsArray['provider'] ?? null) ? $optionsArray['provider'] : 'openai';
+        $cacheTtl = is_int($optionsArray['cache_ttl'] ?? null) ? $optionsArray['cache_ttl'] : self::DEFAULT_CACHE_TTL;
 
         // Check cache
         $cached = $this->cacheManager->getCachedEmbeddings($provider, $text, $optionsArray);
         if ($cached !== null) {
+            /** @var array{embeddings: array<int, array<int, float>>, model: string, usage?: array{promptTokens?: int, totalTokens?: int}} $cached */
+            $usageData = $cached['usage'] ?? [];
             return new EmbeddingResponse(
                 embeddings: $cached['embeddings'],
                 model: $cached['model'],
                 usage: new UsageStatistics(
-                    promptTokens: $cached['usage']['promptTokens'] ?? 0,
+                    promptTokens: $usageData['promptTokens'] ?? 0,
                     completionTokens: 0,
-                    totalTokens: $cached['usage']['totalTokens'] ?? 0,
+                    totalTokens: $usageData['totalTokens'] ?? 0,
                 ),
                 provider: $provider,
             );
@@ -217,11 +218,4 @@ class EmbeddingService
         return array_map(static fn($x) => $x / $magnitude, $vector);
     }
 
-    /**
-     * Generate cache key for embedding.
-     */
-    private function getCacheKey(string $text, string $model, string $provider): string
-    {
-        return 'embedding_' . hash('sha256', $provider . '|' . $model . '|' . $text);
-    }
 }
