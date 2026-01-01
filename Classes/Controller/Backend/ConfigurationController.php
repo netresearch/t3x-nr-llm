@@ -9,11 +9,7 @@ use Netresearch\NrLlm\Controller\Backend\Response\ProviderModelsResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TestConfigurationResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
-use Netresearch\NrLlm\Domain\Model\Model;
-use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
-use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -26,20 +22,23 @@ use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
-use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Page\PageRenderer;
-use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
  * Backend controller for LLM configuration management.
+ *
+ * Uses TYPO3 FormEngine for record editing (TCA-based forms).
+ * Custom actions for AJAX operations (toggle active, set default, test).
  */
 #[AsController]
 final class ConfigurationController extends ActionController
 {
+    private const TABLE_NAME = 'tx_nrllm_configuration';
+
     private ModuleTemplate $moduleTemplate;
 
     public function __construct(
@@ -48,7 +47,6 @@ final class ConfigurationController extends ActionController
         private readonly IconFactory $iconFactory,
         private readonly LlmConfigurationService $configurationService,
         private readonly LlmConfigurationRepository $configurationRepository,
-        private readonly ModelRepository $modelRepository,
         private readonly LlmServiceManagerInterface $llmServiceManager,
         private readonly ProviderAdapterRegistry $providerAdapterRegistry,
         private readonly PageRenderer $pageRenderer,
@@ -79,12 +77,25 @@ final class ConfigurationController extends ActionController
      */
     public function listAction(): ResponseInterface
     {
-        // Note: Model and Provider relations are lazy-loaded by Extbase when accessed
         $configurations = $this->configurationRepository->findAll();
+
+        // Build FormEngine URLs for each configuration
+        /** @var array<int, string> $editUrls */
+        $editUrls = [];
+        foreach ($configurations as $config) {
+            /** @var \Netresearch\NrLlm\Domain\Model\LlmConfiguration $config */
+            $uid = $config->getUid();
+            if ($uid === null) {
+                continue;
+            }
+            $editUrls[$uid] = $this->buildEditUrl($uid);
+        }
 
         $this->moduleTemplate->assignMultiple([
             'configurations' => $configurations,
             'providers' => $this->getProviderOptions(),
+            'editUrls' => $editUrls,
+            'newUrl' => $this->buildNewUrl(),
         ]);
 
         // Add shortcut/bookmark button to docheader
@@ -93,205 +104,15 @@ final class ConfigurationController extends ActionController
             displayName: 'LLM - Configurations',
         );
 
-        // Add "New Configuration" button to docheader
+        // Add "New Configuration" button to docheader (links to FormEngine)
         $createButton = $this->componentFactory->createLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.configuration.new', 'NrLlm') ?? 'New Configuration')
             ->setShowLabelText(true)
-            ->setHref((string)$this->uriBuilder->reset()->uriFor('edit'));
+            ->setHref($this->buildNewUrl());
         $this->moduleTemplate->addButtonToButtonBar($createButton);
 
         return $this->moduleTemplate->renderResponse('Backend/Configuration/List');
-    }
-
-    /**
-     * Show edit form for new or existing configuration.
-     */
-    public function editAction(?int $uid = null): ResponseInterface
-    {
-        $configuration = null;
-        if ($uid !== null) {
-            $configuration = $this->configurationRepository->findByUid($uid);
-            if ($configuration === null) {
-                $this->addFlashMessage(
-                    'Configuration not found',
-                    'Error',
-                    ContextualFeedbackSeverity::ERROR,
-                );
-                return new RedirectResponse(
-                    $this->uriBuilder->reset()->uriFor('list'),
-                );
-            }
-        }
-
-        // Load models with hydrated provider relations for dropdown display
-        $models = $this->modelRepository->findActive();
-        $this->hydrateModelsProviderRelations($models);
-
-        $this->moduleTemplate->assignMultiple([
-            'configuration' => $configuration,
-            'models' => $models,
-            'isNew' => $configuration === null,
-        ]);
-
-        // Add shortcut/bookmark button to docheader
-        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-            routeIdentifier: 'nrllm_configurations',
-            displayName: $configuration !== null
-                ? sprintf('LLM - Configuration: %s', $configuration->getName())
-                : 'LLM - New Configuration',
-            arguments: $configuration !== null ? ['uid' => $configuration->getUid()] : [],
-        );
-
-        // Add "Back to List" button to docheader
-        $backButton = $this->componentFactory->createLinkButton()
-            ->setIcon($this->iconFactory->getIcon('actions-view-go-back', IconSize::SMALL))
-            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.back', 'NrLlm') ?? 'Back to List')
-            ->setShowLabelText(true)
-            ->setHref((string)$this->uriBuilder->reset()->uriFor('list'));
-        $this->moduleTemplate->addButtonToButtonBar($backButton);
-
-        return $this->moduleTemplate->renderResponse('Backend/Configuration/Edit');
-    }
-
-    /**
-     * Create new configuration.
-     */
-    public function createAction(): ResponseInterface
-    {
-        $body = $this->request->getParsedBody();
-        $data = $this->extractConfigurationData($body);
-
-        $configuration = new LlmConfiguration();
-        $this->mapDataToConfiguration($configuration, $data);
-
-        // Validate identifier uniqueness
-        if (!$this->configurationService->isIdentifierAvailable($configuration->getIdentifier())) {
-            $this->addFlashMessage(
-                sprintf('Identifier "%s" is already in use', $configuration->getIdentifier()),
-                'Validation Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-            return new RedirectResponse(
-                $this->uriBuilder->reset()->uriFor('edit'),
-            );
-        }
-
-        try {
-            $this->configurationService->create($configuration);
-            $this->addFlashMessage(
-                sprintf('Configuration "%s" created successfully', $configuration->getName()),
-                'Success',
-                ContextualFeedbackSeverity::OK,
-            );
-        } catch (Throwable $e) {
-            $this->addFlashMessage(
-                'Error creating configuration: ' . $e->getMessage(),
-                'Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-        }
-
-        return new RedirectResponse(
-            $this->uriBuilder->reset()->uriFor('list'),
-        );
-    }
-
-    /**
-     * Update existing configuration.
-     */
-    public function updateAction(int $uid): ResponseInterface
-    {
-        $configuration = $this->configurationRepository->findByUid($uid);
-
-        if ($configuration === null) {
-            $this->addFlashMessage(
-                'Configuration not found',
-                'Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-            return new RedirectResponse(
-                $this->uriBuilder->reset()->uriFor('list'),
-            );
-        }
-
-        $body = $this->request->getParsedBody();
-        $data = $this->extractConfigurationData($body);
-
-        // Validate identifier uniqueness (excluding current record)
-        $newIdentifier = $data['identifier'] ?? '';
-        if (is_string($newIdentifier) && $newIdentifier !== $configuration->getIdentifier()
-            && !$this->configurationService->isIdentifierAvailable($newIdentifier, $uid)
-        ) {
-            $this->addFlashMessage(
-                sprintf('Identifier "%s" is already in use', $newIdentifier),
-                'Validation Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-            return new RedirectResponse(
-                $this->uriBuilder->reset()->uriFor('edit', ['uid' => $uid]),
-            );
-        }
-
-        $this->mapDataToConfiguration($configuration, $data);
-
-        try {
-            $this->configurationService->update($configuration);
-            $this->addFlashMessage(
-                sprintf('Configuration "%s" updated successfully', $configuration->getName()),
-                'Success',
-                ContextualFeedbackSeverity::OK,
-            );
-        } catch (Throwable $e) {
-            $this->addFlashMessage(
-                'Error updating configuration: ' . $e->getMessage(),
-                'Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-        }
-
-        return new RedirectResponse(
-            $this->uriBuilder->reset()->uriFor('list'),
-        );
-    }
-
-    /**
-     * Delete configuration.
-     */
-    public function deleteAction(int $uid): ResponseInterface
-    {
-        $configuration = $this->configurationRepository->findByUid($uid);
-
-        if ($configuration === null) {
-            $this->addFlashMessage(
-                'Configuration not found',
-                'Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-            return new RedirectResponse(
-                $this->uriBuilder->reset()->uriFor('list'),
-            );
-        }
-
-        try {
-            $name = $configuration->getName();
-            $this->configurationService->delete($configuration);
-            $this->addFlashMessage(
-                sprintf('Configuration "%s" deleted successfully', $name),
-                'Success',
-                ContextualFeedbackSeverity::OK,
-            );
-        } catch (Throwable $e) {
-            $this->addFlashMessage(
-                'Error deleting configuration: ' . $e->getMessage(),
-                'Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-        }
-
-        return new RedirectResponse(
-            $this->uriBuilder->reset()->uriFor('list'),
-        );
     }
 
     /**
@@ -396,9 +217,6 @@ final class ConfigurationController extends ActionController
             return new JsonResponse((new ErrorResponse('Configuration not found'))->jsonSerialize(), 404);
         }
 
-        // Populate Model→Provider relations for proper provider resolution
-        $this->hydrateConfigurationRelations($configuration);
-
         try {
             $testPrompt = 'Hello, please respond with a brief greeting.';
 
@@ -442,26 +260,33 @@ final class ConfigurationController extends ActionController
     }
 
     /**
-     * Extract configuration data from request body.
-     *
-     * @return array<string, mixed>
+     * Build FormEngine edit URL for a configuration.
      */
-    private function extractConfigurationData(mixed $body): array
+    private function buildEditUrl(int $uid): string
     {
-        if (!is_array($body)) {
-            return [];
-        }
+        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            'edit' => [self::TABLE_NAME => [$uid => 'edit']],
+            'returnUrl' => $this->buildReturnUrl(),
+        ]);
+    }
 
-        $configuration = $body['configuration'] ?? [];
+    /**
+     * Build FormEngine new record URL.
+     */
+    private function buildNewUrl(): string
+    {
+        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            'edit' => [self::TABLE_NAME => [0 => 'new']],
+            'returnUrl' => $this->buildReturnUrl(),
+        ]);
+    }
 
-        if (!is_array($configuration)) {
-            return [];
-        }
-
-        /** @var array<string, mixed> $result */
-        $result = $configuration;
-
-        return $result;
+    /**
+     * Build return URL for FormEngine (back to list).
+     */
+    private function buildReturnUrl(): string
+    {
+        return (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_configurations');
     }
 
     /**
@@ -490,104 +315,5 @@ final class ConfigurationController extends ActionController
         $value = $body[$key] ?? '';
 
         return is_string($value) || is_numeric($value) ? (string)$value : '';
-    }
-
-    /**
-     * Hydrate Model→Provider relations for a configuration.
-     *
-     * Triggers lazy loading of Model and Provider relations for proper resolution.
-     *
-     * @deprecated Relations are now lazy-loaded by Extbase. Will be removed in next major version.
-     */
-    private function hydrateConfigurationRelations(LlmConfiguration $configuration): void
-    {
-        // Relations are lazy-loaded by Extbase when accessed via getLlmModel() / getProvider()
-        // This method is kept for backward compatibility but does nothing.
-    }
-
-    /**
-     * Hydrate Provider relations for a collection of models.
-     *
-     * Triggers lazy loading of Provider relations for display.
-     *
-     * @param iterable<Model> $models
-     *
-     * @deprecated Relations are now lazy-loaded by Extbase. Will be removed in next major version.
-     */
-    private function hydrateModelsProviderRelations(iterable $models): void
-    {
-        // Relations are lazy-loaded by Extbase when accessed via getProvider()
-        // This method is kept for backward compatibility but does nothing.
-    }
-
-    /**
-     * Map form data to configuration entity.
-     *
-     * @param array<string, mixed> $data
-     */
-    private function mapDataToConfiguration(LlmConfiguration $configuration, array $data): void
-    {
-        if (isset($data['identifier']) && is_scalar($data['identifier'])) {
-            $configuration->setIdentifier((string)$data['identifier']);
-        }
-        if (isset($data['name']) && is_scalar($data['name'])) {
-            $configuration->setName((string)$data['name']);
-        }
-        if (isset($data['description']) && is_scalar($data['description'])) {
-            $configuration->setDescription((string)$data['description']);
-        }
-        if (isset($data['modelUid']) && is_numeric($data['modelUid'])) {
-            $modelUid = (int)$data['modelUid'];
-            if ($modelUid > 0) {
-                $model = $this->modelRepository->findByUid($modelUid);
-                if ($model !== null) {
-                    $configuration->setLlmModel($model);
-                }
-            } else {
-                $configuration->setLlmModel(null);
-            }
-        }
-        if (isset($data['translator']) && is_scalar($data['translator'])) {
-            $configuration->setTranslator((string)$data['translator']);
-        }
-        if (isset($data['systemPrompt']) && is_scalar($data['systemPrompt'])) {
-            $configuration->setSystemPrompt((string)$data['systemPrompt']);
-        }
-        if (isset($data['temperature']) && is_numeric($data['temperature'])) {
-            $configuration->setTemperature((float)$data['temperature']);
-        }
-        if (isset($data['maxTokens']) && is_numeric($data['maxTokens'])) {
-            $configuration->setMaxTokens((int)$data['maxTokens']);
-        }
-        if (isset($data['topP']) && is_numeric($data['topP'])) {
-            $configuration->setTopP((float)$data['topP']);
-        }
-        if (isset($data['frequencyPenalty']) && is_numeric($data['frequencyPenalty'])) {
-            $configuration->setFrequencyPenalty((float)$data['frequencyPenalty']);
-        }
-        if (isset($data['presencePenalty']) && is_numeric($data['presencePenalty'])) {
-            $configuration->setPresencePenalty((float)$data['presencePenalty']);
-        }
-        if (isset($data['timeout']) && is_numeric($data['timeout'])) {
-            $configuration->setTimeout((int)$data['timeout']);
-        }
-        if (isset($data['options']) && is_scalar($data['options'])) {
-            $configuration->setOptions((string)$data['options']);
-        }
-        if (isset($data['maxRequestsPerDay']) && is_numeric($data['maxRequestsPerDay'])) {
-            $configuration->setMaxRequestsPerDay((int)$data['maxRequestsPerDay']);
-        }
-        if (isset($data['maxTokensPerDay']) && is_numeric($data['maxTokensPerDay'])) {
-            $configuration->setMaxTokensPerDay((int)$data['maxTokensPerDay']);
-        }
-        if (isset($data['maxCostPerDay']) && is_numeric($data['maxCostPerDay'])) {
-            $configuration->setMaxCostPerDay((float)$data['maxCostPerDay']);
-        }
-        if (isset($data['isActive'])) {
-            $configuration->setIsActive((bool)$data['isActive']);
-        }
-        if (isset($data['isDefault'])) {
-            $configuration->setIsDefault((bool)$data['isDefault']);
-        }
     }
 }

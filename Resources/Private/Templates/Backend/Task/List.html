@@ -23,7 +23,7 @@
                 <core:icon identifier="actions-bolt" size="medium" />
                 Tasks ({totalCount})
             </h1>
-            <a href="{be:moduleLink(route: 'nrllm_tasks', arguments: {action: 'new'})}" class="btn btn-primary">
+            <a href="{newUrl}" class="btn btn-primary">
                 <core:icon identifier="actions-plus" size="small" />
                 Create Task
             </a>
@@ -101,24 +101,14 @@
                                             <td>
                                                 <div class="btn-group btn-group-sm">
                                                     <f:if condition="{task.isActive}">
-                                                        <a href="{be:moduleLink(route: 'nrllm_tasks', arguments: {action: 'executeForm', uid: task.uid})}"
-                                                           class="btn btn-success" title="Execute">
+                                                        <f:link.action action="executeForm" arguments="{uid: task.uid}" class="btn btn-success" title="Execute">
                                                             <core:icon identifier="actions-play" size="small" />
                                                             Run
-                                                        </a>
+                                                        </f:link.action>
                                                     </f:if>
-                                                    <a href="{be:moduleLink(route: 'nrllm_tasks', arguments: {action: 'edit', uid: task.uid})}"
-                                                       class="btn btn-default" title="Edit">
+                                                    <a href="{editUrls.{task.uid}}" class="btn btn-default" title="Edit">
                                                         <core:icon identifier="actions-open" size="small" />
                                                     </a>
-                                                    <f:if condition="!{task.isSystem}">
-                                                        <a href="{be:moduleLink(route: 'nrllm_tasks', arguments: {action: 'delete', uid: task.uid})}"
-                                                           class="btn btn-danger"
-                                                           title="Delete"
-                                                           onclick="return confirm('Delete this task?');">
-                                                            <core:icon identifier="actions-delete" size="small" />
-                                                        </a>
-                                                    </f:if>
                                                 </div>
                                             </td>
                                         </tr>

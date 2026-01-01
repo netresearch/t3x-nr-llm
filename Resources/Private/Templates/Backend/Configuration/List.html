@@ -65,9 +65,9 @@
                                     </td>
                                     <td class="col-control">
                                         <div class="btn-group" role="group">
-                                            <f:link.action action="edit" arguments="{uid: config.uid}" class="btn btn-default btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
+                                            <a href="{editUrls.{config.uid}}" class="btn btn-default btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
                                                 <core:icon identifier="actions-open" size="small" />
-                                            </f:link.action>
+                                            </a>
                                             <button type="button" class="btn btn-default btn-sm js-toggle-active"
                                                     data-uid="{config.uid}"
                                                     title="{f:if(condition: config.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
@@ -88,12 +88,6 @@
                                                     title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testConfiguration')}">
                                                 <core:icon identifier="actions-play" size="small" />
                                             </button>
-                                            <f:link.action action="delete" arguments="{uid: config.uid}"
-                                                           class="btn btn-danger btn-sm"
-                                                           title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:delete')}"
-                                                           additionalAttributes="{onclick: 'return confirm(\'{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:confirmDelete\')}\')'}">
-                                                <core:icon identifier="actions-delete" size="small" />
-                                            </f:link.action>
                                         </div>
                                     </td>
                                 </tr>

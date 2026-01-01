@@ -208,15 +208,3 @@ services:
   Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator:
     public: true
 
-  # ========================================
-  # DTO Factories (for controller form handling)
-  # ========================================
-
-  Netresearch\NrLlm\Controller\Backend\DTO\ModelFormInputFactory:
-    public: true
-
-  Netresearch\NrLlm\Controller\Backend\DTO\ConfigurationFormInputFactory:
-    public: true
-
-  Netresearch\NrLlm\Controller\Backend\DTO\TaskFormInputFactory:
-    public: true

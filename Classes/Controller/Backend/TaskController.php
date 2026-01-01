@@ -9,10 +9,7 @@ use Netresearch\NrLlm\Controller\Backend\DTO\ExecuteTaskRequest;
 use Netresearch\NrLlm\Controller\Backend\DTO\FetchRecordsRequest;
 use Netresearch\NrLlm\Controller\Backend\DTO\LoadRecordDataRequest;
 use Netresearch\NrLlm\Controller\Backend\DTO\RefreshInputRequest;
-use Netresearch\NrLlm\Controller\Backend\DTO\TaskFormInput;
-use Netresearch\NrLlm\Controller\Backend\DTO\TaskFormInputFactory;
 use Netresearch\NrLlm\Domain\Model\Task;
-use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -20,21 +17,23 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
+use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
+use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
-use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
-use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 /**
  * Backend controller for managing one-shot prompt tasks.
+ *
+ * Uses TYPO3 FormEngine for record editing (TCA-based forms).
+ * Custom actions for task execution and AJAX operations.
  *
  * Tasks are simple, predefined prompts for common operations.
  * They are NOT AI agents - they cannot perform multi-step reasoning,
@@ -43,15 +42,14 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 #[AsController]
 final class TaskController extends ActionController
 {
+    private const TABLE_NAME = 'tx_nrllm_task';
+
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly TaskRepository $taskRepository,
-        private readonly LlmConfigurationRepository $configurationRepository,
         private readonly LlmServiceManager $llmServiceManager,
-        private readonly PersistenceManagerInterface $persistenceManager,
         private readonly FlashMessageService $flashMessageService,
         private readonly ConnectionPool $connectionPool,
-        private readonly TaskFormInputFactory $taskFormInputFactory,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
     ) {}
@@ -77,11 +75,19 @@ final class TaskController extends ActionController
             ];
         }
 
+        // Build FormEngine URLs for each task
+        /** @var array<int, string> $editUrls */
+        $editUrls = [];
         foreach ($tasks as $task) {
             // @phpstan-ignore instanceof.alwaysTrue (defensive type guard for iterator)
             if (!$task instanceof Task) {
                 continue;
             }
+            $uid = $task->getUid();
+            if ($uid === null) {
+                continue;
+            }
+            $editUrls[$uid] = $this->buildEditUrl($uid);
             $category = $task->getCategory();
             if (!isset($groupedTasks[$category])) {
                 $groupedTasks[$category] = [
@@ -98,146 +104,11 @@ final class TaskController extends ActionController
         $moduleTemplate->assignMultiple([
             'groupedTasks' => $groupedTasks,
             'totalCount' => $tasks->count(),
+            'editUrls' => $editUrls,
+            'newUrl' => $this->buildNewUrl(),
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Task/List');
-    }
-
-    /**
-     * Show form for creating a new task.
-     */
-    public function newAction(): ResponseInterface
-    {
-        $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
-
-        $moduleTemplate->assignMultiple([
-            'task' => null,
-            'configurations' => $this->configurationRepository->findAll(),
-            'categories' => Task::getCategories(),
-            'inputTypes' => Task::getInputTypes(),
-            'outputFormats' => Task::getOutputFormats(),
-            'isNew' => true,
-        ]);
-
-        return $moduleTemplate->renderResponse('Backend/Task/Edit');
-    }
-
-    /**
-     * Show form for editing an existing task.
-     */
-    public function editAction(int $uid): ResponseInterface
-    {
-        $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
-
-        $task = $this->taskRepository->findByUid($uid);
-        if ($task === null) {
-            $this->enqueueFlashMessage('Task not found.', 'Error', ContextualFeedbackSeverity::ERROR);
-            return new RedirectResponse(
-                $this->uriBuilder->reset()->uriFor('list'),
-            );
-        }
-
-        $moduleTemplate->assignMultiple([
-            'task' => $task,
-            'configurations' => $this->configurationRepository->findAll(),
-            'categories' => Task::getCategories(),
-            'inputTypes' => Task::getInputTypes(),
-            'outputFormats' => Task::getOutputFormats(),
-            'isNew' => false,
-        ]);
-
-        return $moduleTemplate->renderResponse('Backend/Task/Edit');
-    }
-
-    /**
-     * Save task (create or update).
-     */
-    public function saveAction(): ResponseInterface
-    {
-        $input = TaskFormInput::fromRequest($this->request);
-
-        // Validate required fields
-        if ($input->identifier === '' || $input->name === '') {
-            $this->enqueueFlashMessage(
-                'Identifier and name are required.',
-                'Validation Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-            return new RedirectResponse(
-                $input->isUpdate()
-                    ? $this->uriBuilder->reset()->uriFor('edit', ['uid' => $input->uid])
-                    : $this->uriBuilder->reset()->uriFor('new'),
-            );
-        }
-
-        // Check identifier uniqueness
-        if (!$this->taskRepository->isIdentifierUnique($input->identifier, $input->isUpdate() ? $input->uid : null)) {
-            $this->enqueueFlashMessage(
-                'A task with this identifier already exists.',
-                'Validation Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-            return new RedirectResponse(
-                $input->isUpdate()
-                    ? $this->uriBuilder->reset()->uriFor('edit', ['uid' => $input->uid])
-                    : $this->uriBuilder->reset()->uriFor('new'),
-            );
-        }
-
-        if ($input->isUpdate()) {
-            $task = $this->taskRepository->findByUid($input->uid);
-            if ($task === null) {
-                $this->enqueueFlashMessage('Task not found.', 'Error', ContextualFeedbackSeverity::ERROR);
-                return new RedirectResponse($this->uriBuilder->reset()->uriFor('list'));
-            }
-            $this->taskFormInputFactory->updateFromInput($task, $input);
-            $this->taskRepository->update($task);
-            $message = 'Task updated successfully.';
-        } else {
-            $task = $this->taskFormInputFactory->createFromInput($input);
-            $this->taskRepository->add($task);
-            $message = 'Task created successfully.';
-        }
-
-        $this->persistenceManager->persistAll();
-        $this->enqueueFlashMessage($message, 'Success', ContextualFeedbackSeverity::OK);
-
-        return new RedirectResponse($this->uriBuilder->reset()->uriFor('list'));
-    }
-
-    /**
-     * Delete a task.
-     */
-    public function deleteAction(int $uid): ResponseInterface
-    {
-        $task = $this->taskRepository->findByUid($uid);
-
-        if ($task === null) {
-            $this->enqueueFlashMessage('Task not found.', 'Error', ContextualFeedbackSeverity::ERROR);
-            return new RedirectResponse($this->uriBuilder->reset()->uriFor('list'));
-        }
-
-        if ($task->isSystem()) {
-            $this->enqueueFlashMessage(
-                'System tasks cannot be deleted.',
-                'Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-            return new RedirectResponse($this->uriBuilder->reset()->uriFor('list'));
-        }
-
-        $this->taskRepository->remove($task);
-        $this->persistenceManager->persistAll();
-
-        $this->enqueueFlashMessage(
-            sprintf('Task "%s" has been deleted.', $task->getName()),
-            'Deleted',
-            ContextualFeedbackSeverity::OK,
-        );
-
-        return new RedirectResponse($this->uriBuilder->reset()->uriFor('list'));
     }
 
     /**
@@ -287,11 +158,11 @@ final class TaskController extends ActionController
 
         $task = $this->taskRepository->findByUid($dto->uid);
         if ($task === null) {
-            return new JsonResponse(['error' => 'Task not found'], 404);
+            return new JsonResponse(['success' => false, 'error' => 'Task not found'], 404);
         }
 
         if (!$task->isActive()) {
-            return new JsonResponse(['error' => 'Task is not active'], 400);
+            return new JsonResponse(['success' => false, 'error' => 'Task is not active'], 400);
         }
 
         try {
@@ -320,10 +191,12 @@ final class TaskController extends ActionController
                 ],
             ]);
         } catch (Throwable $e) {
+            // Return 200 with success:false so JavaScript can read the error message
+            // HTTP 500 causes TYPO3's AjaxRequest to throw before parsing the JSON
             return new JsonResponse([
                 'success' => false,
                 'error' => $e->getMessage(),
-            ], 500);
+            ]);
         }
     }
 
@@ -496,6 +369,36 @@ final class TaskController extends ActionController
             'inputType' => $task->getInputType(),
             'isEmpty' => $inputData === '' || $inputData === 'No deprecation log file found.',
         ]);
+    }
+
+    /**
+     * Build FormEngine edit URL for a task.
+     */
+    private function buildEditUrl(int $uid): string
+    {
+        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            'edit' => [self::TABLE_NAME => [$uid => 'edit']],
+            'returnUrl' => $this->buildReturnUrl(),
+        ]);
+    }
+
+    /**
+     * Build FormEngine new record URL.
+     */
+    private function buildNewUrl(): string
+    {
+        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            'edit' => [self::TABLE_NAME => [0 => 'new']],
+            'returnUrl' => $this->buildReturnUrl(),
+        ]);
+    }
+
+    /**
+     * Build return URL for FormEngine (back to list).
+     */
+    private function buildReturnUrl(): string
+    {
+        return (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_tasks');
     }
 
     /**

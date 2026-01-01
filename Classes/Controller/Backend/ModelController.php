@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
-use Netresearch\NrLlm\Controller\Backend\DTO\ModelFormInput;
-use Netresearch\NrLlm\Controller\Backend\DTO\ModelFormInputFactory;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ModelListResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
@@ -26,21 +24,24 @@ use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
-use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Page\PageRenderer;
-use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
  * Backend controller for LLM Model management.
+ *
+ * Uses TYPO3 FormEngine for record editing (TCA-based forms).
+ * Custom actions for AJAX operations (toggle active, test model, etc.).
  */
 #[AsController]
 final class ModelController extends ActionController
 {
+    private const TABLE_NAME = 'tx_nrllm_model';
+
     private ModuleTemplate $moduleTemplate;
 
     public function __construct(
@@ -54,7 +55,6 @@ final class ModelController extends ActionController
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly ProviderAdapterRegistry $providerAdapterRegistry,
         private readonly ModelDiscoveryInterface $modelDiscovery,
-        private readonly ModelFormInputFactory $formInputFactory,
     ) {}
 
     protected function initializeAction(): void
@@ -86,12 +86,24 @@ final class ModelController extends ActionController
         $models = $this->modelRepository->findAll();
         $providers = $this->providerRepository->findActive();
 
-        // Note: Provider relations are lazy-loaded by Extbase when accessed via $model->getProvider()
+        // Build FormEngine URLs for each model
+        /** @var array<int, string> $editUrls */
+        $editUrls = [];
+        foreach ($models as $model) {
+            /** @var Model $model */
+            $uid = $model->getUid();
+            if ($uid === null) {
+                continue;
+            }
+            $editUrls[$uid] = $this->buildEditUrl($uid);
+        }
 
         $this->moduleTemplate->assignMultiple([
             'models' => $models,
             'providers' => $providers,
             'capabilities' => Model::getAllCapabilities(),
+            'editUrls' => $editUrls,
+            'newUrl' => $this->buildNewUrl(),
         ]);
 
         // Add shortcut/bookmark button to docheader
@@ -100,223 +112,15 @@ final class ModelController extends ActionController
             displayName: 'LLM - Models',
         );
 
-        // Add "New Model" button to docheader
+        // Add "New Model" button to docheader (links to FormEngine)
         $createButton = $this->componentFactory->createLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.model.new', 'NrLlm') ?? 'New Model')
             ->setShowLabelText(true)
-            ->setHref((string)$this->uriBuilder->reset()->uriFor('edit'));
+            ->setHref($this->buildNewUrl());
         $this->moduleTemplate->addButtonToButtonBar($createButton);
 
         return $this->moduleTemplate->renderResponse('Backend/Model/List');
-    }
-
-    /**
-     * Show edit form for new or existing model.
-     */
-    public function editAction(?int $uid = null): ResponseInterface
-    {
-        $model = null;
-        if ($uid !== null) {
-            $model = $this->modelRepository->findByUid($uid);
-            if ($model === null) {
-                $this->addFlashMessage(
-                    'Model not found',
-                    'Error',
-                    ContextualFeedbackSeverity::ERROR,
-                );
-                return new RedirectResponse(
-                    $this->uriBuilder->reset()->uriFor('list'),
-                );
-            }
-        }
-
-        $selectedCapabilities = $model?->getCapabilitiesArray() ?? [];
-        $this->moduleTemplate->assignMultiple([
-            'model' => $model,
-            'providers' => $this->providerRepository->findActive(),
-            'capabilities' => Model::getAllCapabilities(),
-            'selectedCapabilities' => $selectedCapabilities,
-            'isNew' => $model === null,
-            // Individual capability flags for reliable template rendering
-            'hasChat' => in_array(Model::CAPABILITY_CHAT, $selectedCapabilities, true),
-            'hasCompletion' => in_array(Model::CAPABILITY_COMPLETION, $selectedCapabilities, true),
-            'hasEmbeddings' => in_array(Model::CAPABILITY_EMBEDDINGS, $selectedCapabilities, true),
-            'hasVision' => in_array(Model::CAPABILITY_VISION, $selectedCapabilities, true),
-            'hasStreaming' => in_array(Model::CAPABILITY_STREAMING, $selectedCapabilities, true),
-            'hasTools' => in_array(Model::CAPABILITY_TOOLS, $selectedCapabilities, true),
-            'hasJsonMode' => in_array(Model::CAPABILITY_JSON_MODE, $selectedCapabilities, true),
-            'hasAudio' => in_array(Model::CAPABILITY_AUDIO, $selectedCapabilities, true),
-        ]);
-
-        // Add shortcut/bookmark button to docheader
-        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-            routeIdentifier: 'nrllm_models',
-            displayName: $model !== null
-                ? sprintf('LLM - Model: %s', $model->getName())
-                : 'LLM - New Model',
-            arguments: $model !== null ? ['uid' => $model->getUid()] : [],
-        );
-
-        // Add "Back to List" button to docheader
-        $backButton = $this->componentFactory->createLinkButton()
-            ->setIcon($this->iconFactory->getIcon('actions-view-go-back', IconSize::SMALL))
-            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.back', 'NrLlm') ?? 'Back to List')
-            ->setShowLabelText(true)
-            ->setHref((string)$this->uriBuilder->reset()->uriFor('list'));
-        $this->moduleTemplate->addButtonToButtonBar($backButton);
-
-        // Load ModelForm JavaScript for fetch/detect functionality
-        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/ModelForm.js');
-
-        return $this->moduleTemplate->renderResponse('Backend/Model/Edit');
-    }
-
-    /**
-     * Create new model.
-     */
-    public function createAction(): ResponseInterface
-    {
-        $body = $this->request->getParsedBody();
-        $data = $this->extractModelData($body);
-
-        // Create DTO from form data and use factory to create entity
-        $formInput = ModelFormInput::fromRequestData($data);
-        $model = $this->formInputFactory->createFromInput($formInput);
-
-        // Validate identifier uniqueness
-        if (!$this->modelRepository->isIdentifierUnique($model->getIdentifier())) {
-            $this->addFlashMessage(
-                sprintf('Identifier "%s" is already in use', $model->getIdentifier()),
-                'Validation Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-            return new RedirectResponse(
-                $this->uriBuilder->reset()->uriFor('edit'),
-            );
-        }
-
-        try {
-            $this->modelRepository->add($model);
-            $this->persistenceManager->persistAll();
-            $this->addFlashMessage(
-                sprintf('Model "%s" created successfully', $model->getName()),
-                'Success',
-                ContextualFeedbackSeverity::OK,
-            );
-        } catch (Throwable $e) {
-            $this->addFlashMessage(
-                'Error creating model: ' . $e->getMessage(),
-                'Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-        }
-
-        return new RedirectResponse(
-            $this->uriBuilder->reset()->uriFor('list'),
-        );
-    }
-
-    /**
-     * Update existing model.
-     */
-    public function updateAction(int $uid): ResponseInterface
-    {
-        $model = $this->modelRepository->findByUid($uid);
-
-        if ($model === null) {
-            $this->addFlashMessage(
-                'Model not found',
-                'Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-            return new RedirectResponse(
-                $this->uriBuilder->reset()->uriFor('list'),
-            );
-        }
-
-        $body = $this->request->getParsedBody();
-        $data = $this->extractModelData($body);
-
-        // Create DTO from form data
-        $formInput = ModelFormInput::fromRequestData($data);
-
-        // Validate identifier uniqueness (excluding current record)
-        if ($formInput->identifier !== $model->getIdentifier()
-            && !$this->modelRepository->isIdentifierUnique($formInput->identifier, $uid)
-        ) {
-            $this->addFlashMessage(
-                sprintf('Identifier "%s" is already in use', $formInput->identifier),
-                'Validation Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-            return new RedirectResponse(
-                $this->uriBuilder->reset()->uriFor('edit', ['uid' => $uid]),
-            );
-        }
-
-        // Use factory to update entity from DTO
-        $this->formInputFactory->updateFromInput($model, $formInput);
-
-        try {
-            $this->modelRepository->update($model);
-            $this->persistenceManager->persistAll();
-            $this->addFlashMessage(
-                sprintf('Model "%s" updated successfully', $model->getName()),
-                'Success',
-                ContextualFeedbackSeverity::OK,
-            );
-        } catch (Throwable $e) {
-            $this->addFlashMessage(
-                'Error updating model: ' . $e->getMessage(),
-                'Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-        }
-
-        return new RedirectResponse(
-            $this->uriBuilder->reset()->uriFor('list'),
-        );
-    }
-
-    /**
-     * Delete model.
-     */
-    public function deleteAction(int $uid): ResponseInterface
-    {
-        $model = $this->modelRepository->findByUid($uid);
-
-        if ($model === null) {
-            $this->addFlashMessage(
-                'Model not found',
-                'Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-            return new RedirectResponse(
-                $this->uriBuilder->reset()->uriFor('list'),
-            );
-        }
-
-        try {
-            $name = $model->getName();
-            $this->modelRepository->remove($model);
-            $this->persistenceManager->persistAll();
-            $this->addFlashMessage(
-                sprintf('Model "%s" deleted successfully', $name),
-                'Success',
-                ContextualFeedbackSeverity::OK,
-            );
-        } catch (Throwable $e) {
-            $this->addFlashMessage(
-                'Error deleting model: ' . $e->getMessage(),
-                'Error',
-                ContextualFeedbackSeverity::ERROR,
-            );
-        }
-
-        return new RedirectResponse(
-            $this->uriBuilder->reset()->uriFor('list'),
-        );
     }
 
     /**
@@ -611,26 +415,33 @@ final class ModelController extends ActionController
     }
 
     /**
-     * Extract model data from request body.
-     *
-     * @return array<string, mixed>
+     * Build FormEngine edit URL for a model.
      */
-    private function extractModelData(mixed $body): array
+    private function buildEditUrl(int $uid): string
     {
-        if (!is_array($body)) {
-            return [];
-        }
+        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            'edit' => [self::TABLE_NAME => [$uid => 'edit']],
+            'returnUrl' => $this->buildReturnUrl(),
+        ]);
+    }
 
-        $model = $body['model'] ?? [];
+    /**
+     * Build FormEngine new record URL.
+     */
+    private function buildNewUrl(): string
+    {
+        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
+            'edit' => [self::TABLE_NAME => [0 => 'new']],
+            'returnUrl' => $this->buildReturnUrl(),
+        ]);
+    }
 
-        if (!is_array($model)) {
-            return [];
-        }
-
-        /** @var array<string, mixed> $result */
-        $result = $model;
-
-        return $result;
+    /**
+     * Build return URL for FormEngine (back to list).
+     */
+    private function buildReturnUrl(): string
+    {
+        return (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_models');
     }
 
     /**
