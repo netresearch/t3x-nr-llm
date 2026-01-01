@@ -12,7 +12,7 @@ use Netresearch\NrLlm\Controller\Backend\DTO\LoadRecordDataRequest;
 use Netresearch\NrLlm\Controller\Backend\DTO\RefreshInputRequest;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
-use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -50,7 +50,7 @@ final class TaskController extends ActionController
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly TaskRepository $taskRepository,
-        private readonly LlmServiceManager $llmServiceManager,
+        private readonly LlmServiceManagerInterface $llmServiceManager,
         private readonly FlashMessageService $flashMessageService,
         private readonly ConnectionPool $connectionPool,
         private readonly PageRenderer $pageRenderer,
@@ -83,7 +83,7 @@ final class TaskController extends ActionController
         /** @var array<int, string> $editUrls */
         $editUrls = [];
         foreach ($tasks as $task) {
-            // @phpstan-ignore instanceof.alwaysTrue (defensive type guard for iterator)
+            
             if (!$task instanceof Task) {
                 continue;
             }
