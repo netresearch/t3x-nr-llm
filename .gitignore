@@ -9,6 +9,7 @@ composer.lock
 # IDE and editors
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
 *~
