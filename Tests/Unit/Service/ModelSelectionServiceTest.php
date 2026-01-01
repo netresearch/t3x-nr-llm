@@ -85,7 +85,6 @@ final class ModelSelectionServiceTest extends TestCase
      */
     private function createQueryResult(array $items): QueryResultInterface
     {
-        /** @phpstan-ignore-next-line Anonymous class implementing QueryResultInterface for test */
         return new class ($items) implements QueryResultInterface {
             /** @var array<int, object> */
             private array $items;
