@@ -3,14 +3,14 @@
 .. _start:
 
 ===================
-TYPO3 LLM Extension
+TYPO3 LLM extension
 ===================
 
 :Extension key:
    nr_llm
 
 :Package name:
-   netresearch/nr-llm
+   :composer:`netresearch/nr-llm`
 
 :Version:
    |release|
@@ -39,59 +39,43 @@ and image analysis.
 
 ----
 
-.. container:: row m-0 p-0
+.. card-grid::
+   :columns: 1
+   :columns-md: 2
+   :gap: 4
+   :card-height: 100
 
-   .. container:: col-md-6 pl-0 pr-3 py-3 m-0
+   .. card:: 🚀 Quick start
 
-      .. container:: card px-0 h-100
+      Get started quickly with installation and basic usage examples.
 
-         .. rst-class:: card-header h3
+      .. card-footer:: :ref:`Read more <quickstart>`
+         :button-style: btn btn-primary stretched-link
 
-            .. rubric:: :ref:`Quick Start <quickstart>`
+   .. card:: 🔧 Configuration
 
-         .. container:: card-body
+      Configure API keys, providers, and extension settings.
 
-            Get started quickly with installation and basic usage examples.
+      .. card-footer:: :ref:`Read more <configuration>`
+         :button-style: btn btn-secondary stretched-link
 
-   .. container:: col-md-6 pl-0 pr-3 py-3 m-0
+   .. card:: 👨‍💻 Developer guide
 
-      .. container:: card px-0 h-100
+      Technical documentation for developers integrating LLM capabilities.
 
-         .. rst-class:: card-header h3
+      .. card-footer:: :ref:`Read more <developer>`
+         :button-style: btn btn-secondary stretched-link
 
-            .. rubric:: :ref:`Configuration <configuration>`
+   .. card:: 🏗️ Architecture
 
-         .. container:: card-body
+      Three-tier configuration architecture and service design.
 
-            Configure API keys, providers, and extension settings.
-
-   .. container:: col-md-6 pl-0 pr-3 py-3 m-0
-
-      .. container:: card px-0 h-100
-
-         .. rst-class:: card-header h3
-
-            .. rubric:: :ref:`Developer Guide <developer>`
-
-         .. container:: card-body
-
-            Technical documentation for developers integrating LLM capabilities.
-
-   .. container:: col-md-6 pl-0 pr-3 py-3 m-0
-
-      .. container:: card px-0 h-100
-
-         .. rst-class:: card-header h3
-
-            .. rubric:: :ref:`Architecture <architecture>`
-
-         .. container:: card-body
-
-            Three-tier configuration architecture and service design.
+      .. card-footer:: :ref:`Read more <architecture>`
+         :button-style: btn btn-secondary stretched-link
 
 ----
 
-**Table of Contents**
+**Table of contents**
 
 .. toctree::
    :maxdepth: 2

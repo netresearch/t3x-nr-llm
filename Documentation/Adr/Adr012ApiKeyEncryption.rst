@@ -10,11 +10,15 @@ ADR-012: API key encryption at application level
 :Date: 2024-12-27
 :Authors: Netresearch DTT GmbH
 
+.. _adr-012-context:
+
 Context
 =======
 
 The nr_llm extension stores API keys for various LLM providers (OpenAI, Anthropic, etc.)
 in the database. These credentials are sensitive and require protection.
+
+.. _adr-012-problem-statement:
 
 Problem statement
 -----------------
@@ -32,21 +36,27 @@ However, storing them in plaintext exposes them to:
 - Unauthorized database access
 - Accidental exposure in logs
 
+.. _adr-012-requirements:
+
 Requirements
 ------------
 
-1. API keys must be retrievable (not hashed)
-2. Keys must be encrypted at rest in the database
-3. Encryption must be transparent to the application
-4. Solution must work without external dependencies (self-contained)
-5. Must support key rotation
-6. Backwards compatible with existing plaintext values
+1. API keys must be retrievable (not hashed).
+2. Keys must be encrypted at rest in the database.
+3. Encryption must be transparent to the application.
+4. Solution must work without external dependencies (self-contained).
+5. Must support key rotation.
+6. Backwards compatible with existing plaintext values.
+
+.. _adr-012-decision:
 
 Decision
 ========
 
 Implement application-level encryption using **sodium_crypto_secretbox** (XSalsa20-Poly1305)
 with key derivation from TYPO3's encryptionKey.
+
+.. _adr-012-architecture:
 
 Architecture
 ------------
@@ -76,19 +86,24 @@ Architecture
    │                   tx_nrllm_provider.api_key                      │
    └─────────────────────────────────────────────────────────────────┘
 
+.. _adr-012-key-derivation:
+
 Key derivation
 --------------
 
 .. code-block:: php
+   :caption: Example: Domain-separated key derivation
 
    // Domain-separated key derivation
    $key = hash('sha256', $typo3EncryptionKey . ':nr_llm_provider_encryption', true);
 
-The domain separator :php:`:nr_llm_provider_encryption` ensures:
+The domain separator ``:nr_llm_provider_encryption`` ensures:
 
-- Keys are unique to this use case
-- Same encryptionKey produces different keys for different purposes
-- No collision with other extensions using similar patterns
+- Keys are unique to this use case.
+- Same encryptionKey produces different keys for different purposes.
+- No collision with other extensions using similar patterns.
+
+.. _adr-012-encryption-format:
 
 Encryption format
 -----------------
@@ -103,8 +118,12 @@ Encryption format
    - ciphertext = variable length
    - auth_tag = 16 bytes (Poly1305 MAC, included by sodium)
 
+.. _adr-012-implementation:
+
 Implementation
 ==============
+
+.. _adr-012-files:
 
 Files created/modified
 ----------------------
@@ -118,10 +137,13 @@ Files created/modified
    ":file:`Configuration/TCA/tx_nrllm_provider.php`", "Added hashed => false"
    ":file:`Configuration/Services.yaml`", "Service registration"
 
+.. _adr-012-key-methods:
+
 Key methods
 -----------
 
 .. code-block:: php
+   :caption: Example: Encryption service methods
 
    // ProviderEncryptionService
    public function encrypt(string $plaintext): string;
@@ -134,54 +156,64 @@ Key methods
    public function getDecryptedApiKey(): string;          // Returns decrypted
    public function toAdapterConfig(): array;              // Uses decrypted key
 
+.. _adr-012-consequences:
+
 Consequences
 ============
+
+.. _adr-012-positive:
 
 Positive
 --------
 
-◐ **Encryption at rest:** Database dumps no longer expose plaintext credentials
+◐ **Encryption at rest:** Database dumps no longer expose plaintext credentials.
 
-◐ **Transparent operation:** Encryption/decryption handled automatically
+◐ **Transparent operation:** Encryption/decryption handled automatically.
 
-◐ **No external dependencies:** Uses PHP's built-in sodium extension
+◐ **No external dependencies:** Uses PHP's built-in sodium extension.
 
-◐ **Authenticated encryption:** Tampering is detected (Poly1305 MAC)
+◐ **Authenticated encryption:** Tampering is detected (Poly1305 MAC).
 
-◐ **Backwards compatible:** Unencrypted values work without migration
+◐ **Backwards compatible:** Unencrypted values work without migration.
 
-◐ **Industry standard:** XSalsa20-Poly1305 is used by NaCl/libsodium
+◐ **Industry standard:** XSalsa20-Poly1305 is used by NaCl/libsodium.
+
+.. _adr-012-negative:
 
 Negative
 --------
 
-◑ **Single point of failure:** If encryptionKey is compromised, all keys are exposed
+◑ **Single point of failure:** If encryptionKey is compromised, all keys are exposed.
 
-◑ **No key rotation:** Changing encryptionKey requires re-encryption of all keys
+◑ **No key rotation:** Changing encryptionKey requires re-encryption of all keys.
 
-◑ **In-memory exposure:** Decrypted keys exist briefly in memory
+◑ **In-memory exposure:** Decrypted keys exist briefly in memory.
 
-◑ **Performance overhead:** Encryption/decryption on every save/load (minimal)
+◑ **Performance overhead:** Encryption/decryption on every save/load (minimal).
 
 **Net Score:** +4 (Strong positive)
+
+.. _adr-012-alternatives:
 
 Alternatives considered
 =======================
 
-1. TYPO3 Core password type with custom transformer
+1. TYPO3 Core password type with custom transformer.
    **Rejected:** TCA doesn't support custom encryption transformers for password fields.
 
-2. Defuse PHP Encryption library
+2. Defuse PHP Encryption library.
    **Rejected:** Adds external dependency. Sodium is built into PHP 7.2+.
 
-3. OpenSSL AES-256-GCM
+3. OpenSSL AES-256-GCM.
    **Rejected:** Sodium's API is simpler and less prone to misuse.
 
-4. Database-level encryption (TDE)
+4. Database-level encryption (TDE).
    **Rejected:** Requires database configuration, not portable across environments.
 
-5. External vault (HashiCorp, AWS KMS)
+5. External vault (HashiCorp, AWS KMS).
    **Deferred:** Planned for nr-vault extension. Current solution works standalone.
+
+.. _adr-012-references:
 
 References
 ==========

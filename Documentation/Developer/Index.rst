@@ -3,7 +3,7 @@
 .. _developer:
 
 ===============
-Developer Guide
+Developer guide
 ===============
 
 This guide covers technical details for developers integrating the LLM extension
@@ -13,20 +13,22 @@ into their TYPO3 projects.
    :local:
    :depth: 2
 
-.. _core-concepts:
+.. _developer-core-concepts:
 
-Core Concepts
+Core concepts
 =============
 
-Architecture Overview
+.. _developer-architecture-overview:
+
+Architecture overview
 ---------------------
 
 The extension follows a layered architecture:
 
-1. **Providers** - Handle direct API communication
-2. **LlmServiceManager** - Orchestrates providers and provides unified API
-3. **Feature Services** - High-level services for specific tasks
-4. **Domain Models** - Response objects and value types
+1. **Providers** - Handle direct API communication.
+2. :php:`LlmServiceManager` - Orchestrates providers and provides unified API.
+3. **Feature services** - High-level services for specific tasks.
+4. **Domain models** - Response objects and value types.
 
 .. code-block:: text
 
@@ -49,12 +51,15 @@ The extension follows a layered architecture:
    │    (OpenAI, Claude, Gemini, etc.)       │
    └─────────────────────────────────────────┘
 
-Dependency Injection
+.. _developer-dependency-injection:
+
+Dependency injection
 --------------------
 
 All services are available via dependency injection:
 
 .. code-block:: php
+   :caption: Example: Injecting LLM services
 
    use Netresearch\NrLlm\Service\LlmServiceManager;
    use Netresearch\NrLlm\Service\Feature\CompletionService;
@@ -73,15 +78,18 @@ All services are available via dependency injection:
        ) {}
    }
 
-.. _using-llm-service-manager:
+.. _developer-llm-service-manager:
 
 Using LlmServiceManager
 =======================
 
-Basic Chat
+.. _developer-basic-chat:
+
+Basic chat
 ----------
 
 .. code-block:: php
+   :caption: Example: Basic chat request
 
    $messages = [
        ['role' => 'system', 'content' => 'You are a helpful assistant.'],
@@ -101,10 +109,13 @@ Basic Chat
    $completionTokens = $usage->completionTokens;
    $totalTokens = $usage->totalTokens;
 
-Chat with Options
+.. _developer-chat-options:
+
+Chat with options
 -----------------
 
 .. code-block:: php
+   :caption: Example: Chat with configuration options
 
    use Netresearch\NrLlm\Service\Option\ChatOptions;
 
@@ -126,18 +137,24 @@ Chat with Options
        'presence_penalty' => 0.5,
    ]);
 
-Simple Completion
+.. _developer-simple-completion:
+
+Simple completion
 -----------------
 
 .. code-block:: php
+   :caption: Example: Quick completion from a prompt
 
    // Quick completion from a prompt
    $response = $this->llmManager->complete('Explain recursion in programming');
+
+.. _developer-embeddings:
 
 Embeddings
 ----------
 
 .. code-block:: php
+   :caption: Example: Generating embeddings
 
    // Single text
    $response = $this->llmManager->embed('Hello, world!');
@@ -147,10 +164,13 @@ Embeddings
    $response = $this->llmManager->embed(['Text 1', 'Text 2', 'Text 3']);
    $vectors = $response->embeddings; // array<array<float>>
 
+.. _developer-streaming:
+
 Streaming
 ---------
 
 .. code-block:: php
+   :caption: Example: Streaming chat responses
 
    $stream = $this->llmManager->streamChat($messages);
 
@@ -160,10 +180,13 @@ Streaming
        flush();
    }
 
-Tool/Function Calling
+.. _developer-tool-calling:
+
+Tool/function calling
 ---------------------
 
 .. code-block:: php
+   :caption: Example: Tool/function calling
 
    $tools = [
        [
@@ -224,15 +247,18 @@ Tool/Function Calling
 
    FeatureServices/Index
 
-.. _response-objects:
+.. _developer-response-objects:
 
-Response Objects
+Response objects
 ================
+
+.. _developer-completion-response:
 
 CompletionResponse
 ------------------
 
 .. code-block:: php
+   :caption: Domain/Model/CompletionResponse.php
 
    namespace Netresearch\NrLlm\Domain\Model;
 
@@ -252,10 +278,13 @@ CompletionResponse
        public function getText(): string;       // alias for content
    }
 
+.. _developer-embedding-response:
+
 EmbeddingResponse
 -----------------
 
 .. code-block:: php
+   :caption: Domain/Model/EmbeddingResponse.php
 
    namespace Netresearch\NrLlm\Domain\Model;
 
@@ -271,10 +300,13 @@ EmbeddingResponse
        public static function cosineSimilarity(array $a, array $b): float;
    }
 
+.. _developer-usage-statistics:
+
 UsageStatistics
 ---------------
 
 .. code-block:: php
+   :caption: Domain/Model/UsageStatistics.php
 
    namespace Netresearch\NrLlm\Domain\Model;
 
@@ -286,14 +318,15 @@ UsageStatistics
        public ?float $estimatedCost;
    }
 
-.. _creating-custom-providers:
+.. _developer-custom-providers:
 
-Creating Custom Providers
+Creating custom providers
 =========================
 
 Implement a custom provider by extending :php:`AbstractProvider`:
 
 .. code-block:: php
+   :caption: Example: Custom provider implementation
 
    <?php
 
@@ -341,6 +374,7 @@ Implement a custom provider by extending :php:`AbstractProvider`:
 Register your provider in :file:`Services.yaml`:
 
 .. code-block:: yaml
+   :caption: Configuration/Services.yaml
 
    MyVendor\MyExtension\Provider\MyCustomProvider:
      arguments:
@@ -352,14 +386,15 @@ Register your provider in :file:`Services.yaml`:
        - name: nr_llm.provider
          priority: 50
 
-.. _error-handling:
+.. _developer-error-handling:
 
-Error Handling
+Error handling
 ==============
 
 The extension throws specific exceptions:
 
 .. code-block:: php
+   :caption: Example: Error handling
 
    use Netresearch\NrLlm\Provider\Exception\ProviderException;
    use Netresearch\NrLlm\Provider\Exception\AuthenticationException;
@@ -383,7 +418,7 @@ The extension throws specific exceptions:
        $this->logger->error('Invalid argument: ' . $e->getMessage());
    }
 
-.. _events:
+.. _developer-events:
 
 Events
 ======
@@ -391,6 +426,7 @@ Events
 The extension dispatches PSR-14 events:
 
 .. code-block:: php
+   :caption: Example: Event listener implementation
 
    use Netresearch\NrLlm\Event\BeforeRequestEvent;
    use Netresearch\NrLlm\Event\AfterResponseEvent;
@@ -419,6 +455,7 @@ The extension dispatches PSR-14 events:
 Register in :file:`Services.yaml`:
 
 .. code-block:: yaml
+   :caption: Configuration/Services.yaml
 
    MyVendor\MyExtension\EventListener\MyEventListener:
      tags:
@@ -427,23 +464,23 @@ Register in :file:`Services.yaml`:
          method: 'beforeRequest'
          event: Netresearch\NrLlm\Event\BeforeRequestEvent
 
-.. _best-practices:
+.. _developer-best-practices:
 
-Best Practices
+Best practices
 ==============
 
-1. **Use Feature Services** for common tasks instead of raw :php:`LlmServiceManager`
+1. **Use feature services** for common tasks instead of raw :php:`LlmServiceManager`.
 
-2. **Enable Caching** for deterministic operations like embeddings
+2. **Enable caching** for deterministic operations like embeddings.
 
-3. **Handle Errors** gracefully with proper try-catch blocks
+3. **Handle errors** gracefully with proper try-catch blocks.
 
-4. **Sanitize Input** before sending to LLM providers
+4. **Sanitize input** before sending to LLM providers.
 
-5. **Validate Output** and treat LLM responses as untrusted
+5. **Validate output** and treat LLM responses as untrusted.
 
-6. **Use Streaming** for long responses to improve UX
+6. **Use streaming** for long responses to improve UX.
 
-7. **Set Reasonable Timeouts** based on expected response times
+7. **Set reasonable timeouts** based on expected response times.
 
-8. **Monitor Usage** to control costs and prevent abuse
+8. **Monitor usage** to control costs and prevent abuse.

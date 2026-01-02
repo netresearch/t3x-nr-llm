@@ -1,0 +1,18 @@
+# EditorConfig for TYPO3 Documentation
+# https://docs.typo3.org/m/typo3/docs-how-to-document/main/en-us/Advanced/CodingGuidelines.html
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+max_line_length = 80
+
+[*.rst]
+indent_size = 4
+
+[*.{yaml,yml}]
+indent_size = 2

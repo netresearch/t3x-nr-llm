@@ -6,13 +6,13 @@
 Architecture
 ============
 
-This section describes the architectural design of the TYPO3 LLM Extension.
+This section describes the architectural design of the TYPO3 LLM extension.
 
 .. contents::
    :local:
    :depth: 2
 
-.. _three-tier-architecture:
+.. _architecture-three-tier:
 
 Three-tier configuration architecture
 =====================================
@@ -44,13 +44,17 @@ The extension uses a three-level hierarchical architecture separating concerns:
    │ Fields: endpoint_url, api_key (encrypted), adapter_type, timeout        │
    └─────────────────────────────────────────────────────────────────────────┘
 
+.. _architecture-benefits:
+
 Benefits
 --------
 
-- **Multiple API keys per provider type**: Separate production and development accounts
-- **Custom endpoints**: Azure OpenAI, Ollama, vLLM, local models
-- **Reusable model definitions**: Centralized capabilities and pricing
-- **Clear separation of concerns**: Connection vs capability vs use-case
+- **Multiple API keys per provider type**: Separate production and development accounts.
+- **Custom endpoints**: Azure OpenAI, Ollama, vLLM, local models.
+- **Reusable model definitions**: Centralized capabilities and pricing.
+- **Clear separation of concerns**: Connection vs capability vs use-case.
+
+.. _architecture-provider-layer:
 
 Provider layer
 --------------
@@ -75,10 +79,12 @@ Database table: :sql:`tx_nrllm_provider`
 
 **Key design points:**
 
-- One provider = one API key = one billing relationship
-- Same adapter type can have multiple providers (prod/dev accounts)
-- Adapter type determines the protocol/client class used
-- API keys are encrypted at rest using sodium
+- One provider = one API key = one billing relationship.
+- Same adapter type can have multiple providers (prod/dev accounts).
+- Adapter type determines the protocol/client class used.
+- API keys are encrypted at rest using sodium.
+
+.. _architecture-model-layer:
 
 Model layer
 -----------
@@ -104,10 +110,12 @@ Database table: :sql:`tx_nrllm_model`
 
 **Key design points:**
 
-- Models belong to exactly one provider
-- Capabilities define what the model can do
-- Pricing stored as integers (cents/1M tokens) to avoid float issues
-- Same logical model can exist multiple times (different providers)
+- Models belong to exactly one provider.
+- Capabilities define what the model can do.
+- Pricing stored as integers (cents/1M tokens) to avoid float issues.
+- Same logical model can exist multiple times (different providers).
+
+.. _architecture-configuration-layer:
 
 Configuration layer
 -------------------
@@ -133,14 +141,14 @@ Database table: :sql:`tx_nrllm_configuration`
 
 **Key design points:**
 
-- Configurations reference models, not providers directly
-- All LLM parameters are tunable per use case
-- Same model can be used by multiple configurations
+- Configurations reference models, not providers directly.
+- All LLM parameters are tunable per use case.
+- Same model can be used by multiple configurations.
 
-.. _service-architecture:
+.. _architecture-service-layer:
 
-Service architecture
-====================
+Service layer
+=============
 
 The extension follows a layered service architecture:
 
@@ -170,48 +178,56 @@ The extension follows a layered service architecture:
    │  (OpenAI, Claude, Gemini, Ollama, etc.) │
    └─────────────────────────────────────────┘
 
+.. _architecture-feature-services:
+
 Feature services
 ----------------
 
 High-level services for common AI tasks:
 
-- **CompletionService**: Text generation with format control (JSON, Markdown)
-- **EmbeddingService**: Text-to-vector conversion with caching
-- **VisionService**: Image analysis for alt-text, titles, descriptions
-- **TranslationService**: Language translation with glossaries
+- :php:`CompletionService`: Text generation with format control (JSON, Markdown).
+- :php:`EmbeddingService`: Text-to-vector conversion with caching.
+- :php:`VisionService`: Image analysis for alt-text, titles, descriptions.
+- :php:`TranslationService`: Language translation with glossaries.
+
+.. _architecture-provider-adapters:
 
 Provider adapters
 -----------------
 
 The extension includes adapters for multiple LLM providers:
 
-- **OpenAI** (:php:`OpenAiProvider`): GPT-5.x series, o-series reasoning models
-- **Anthropic** (:php:`ClaudeProvider`): Claude Opus 4.5, Claude Sonnet 4.5, Claude Haiku 4.5
-- **Google** (:php:`GeminiProvider`): Gemini 3 Pro, Gemini 3 Flash, Gemini 2.5 series
-- **Ollama** (:php:`OllamaProvider`): Local model deployment
-- **OpenRouter** (:php:`OpenRouterProvider`): Multi-model routing
-- **Mistral** (:php:`MistralProvider`): Mistral models
-- **Groq** (:php:`GroqProvider`): Fast inference
+- **OpenAI** (:php:`OpenAiProvider`): GPT-5.x series, o-series reasoning models.
+- **Anthropic** (:php:`ClaudeProvider`): Claude Opus 4.5, Claude Sonnet 4.5, Claude Haiku 4.5.
+- **Google** (:php:`GeminiProvider`): Gemini 3 Pro, Gemini 3 Flash, Gemini 2.5 series.
+- **Ollama** (:php:`OllamaProvider`): Local model deployment.
+- **OpenRouter** (:php:`OpenRouterProvider`): Multi-model routing.
+- **Mistral** (:php:`MistralProvider`): Mistral models.
+- **Groq** (:php:`GroqProvider`): Fast inference.
 
-.. _security-architecture:
+.. _architecture-security:
 
-Security architecture
-=====================
+Security
+========
+
+.. _architecture-api-key-encryption:
 
 API key encryption
 ------------------
 
-API keys are encrypted at rest in the database using **sodium_crypto_secretbox** (XSalsa20-Poly1305).
+API keys are encrypted at rest in the database using :php:`sodium_crypto_secretbox` (XSalsa20-Poly1305).
 
-- Keys are derived from TYPO3's ``encryptionKey`` with domain separation
-- Nonce is randomly generated per encryption (24 bytes)
-- Encrypted values are prefixed with ``enc:`` for detection
-- Legacy plaintext values are automatically encrypted on first access
+- Keys are derived from TYPO3's :php:`encryptionKey` with domain separation.
+- Nonce is randomly generated per encryption (24 bytes).
+- Encrypted values are prefixed with ``enc:`` for detection.
+- Legacy plaintext values are automatically encrypted on first access.
 
 For details, see :ref:`adr-012`.
 
+.. _architecture-adapter-types:
+
 Supported adapter types
-=======================
+-----------------------
 
 .. csv-table::
    :header: "Adapter Type", "PHP Class", "Default Endpoint"

@@ -3,16 +3,16 @@
 .. _testing:
 
 =============
-Testing Guide
+Testing guide
 =============
 
-Comprehensive testing guide for the TYPO3 LLM Extension.
+Comprehensive testing guide for the TYPO3 LLM extension.
 
 .. contents::
    :local:
    :depth: 2
 
-.. _test-overview:
+.. _testing-overview:
 
 Overview
 ========
@@ -26,31 +26,34 @@ The extension includes a comprehensive test suite:
    * - Test Type
      - Count
      - Purpose
-   * - Unit Tests
+   * - Unit tests
      - 384
-     - Individual class and method testing
-   * - Integration Tests
+     - Individual class and method testing.
+   * - Integration tests
      - 39
-     - Service interaction and provider testing
-   * - E2E Tests
+     - Service interaction and provider testing.
+   * - E2E tests
      - 11
-     - Full workflow testing with real APIs
-   * - Functional Tests
+     - Full workflow testing with real APIs.
+   * - Functional tests
      - 39
-     - TYPO3 framework integration
-   * - Property Tests
+     - TYPO3 framework integration.
+   * - Property tests
      - 25
-     - Fuzzy/property-based testing
+     - Fuzzy/property-based testing.
 
-.. _running-tests:
+.. _testing-running:
 
-Running Tests
+Running tests
 =============
+
+.. _testing-prerequisites:
 
 Prerequisites
 -------------
 
 .. code-block:: bash
+   :caption: Install development dependencies
 
    # Install development dependencies
    composer install --dev
@@ -58,10 +61,13 @@ Prerequisites
    # Copy PHPUnit configuration
    cp phpunit.xml.dist phpunit.xml
 
-Unit Tests
+.. _testing-unit:
+
+Unit tests
 ----------
 
 .. code-block:: bash
+   :caption: Run unit tests
 
    # Run all unit tests
    composer test:unit
@@ -75,10 +81,13 @@ Unit Tests
    # Run with coverage
    vendor/bin/phpunit --testsuite unit --coverage-html coverage/
 
-Integration Tests
+.. _testing-integration:
+
+Integration tests
 -----------------
 
 .. code-block:: bash
+   :caption: Run integration tests
 
    # Run integration tests (requires mock server or API keys)
    composer test:integration
@@ -86,10 +95,13 @@ Integration Tests
    # With real API (set environment variables first)
    OPENAI_API_KEY=sk-... vendor/bin/phpunit --testsuite integration
 
-Functional Tests
+.. _testing-functional:
+
+Functional tests
 ----------------
 
 .. code-block:: bash
+   :caption: Run functional tests
 
    # Run TYPO3 functional tests
    composer test:functional
@@ -97,10 +109,13 @@ Functional Tests
    # Requires TYPO3 testing framework
    vendor/bin/phpunit --testsuite functional
 
-All Tests
+.. _testing-all:
+
+All tests
 ---------
 
 .. code-block:: bash
+   :caption: Run complete test suite
 
    # Run complete test suite
    composer test
@@ -108,12 +123,13 @@ All Tests
    # With coverage report
    composer test:coverage
 
-.. _test-structure:
+.. _testing-structure:
 
-Test Structure
+Test structure
 ==============
 
 .. code-block:: text
+   :caption: Test directory structure
 
    Tests/
    ├── Unit/
@@ -147,15 +163,18 @@ Test Structure
    └── E2E/
        └── WorkflowTest.php
 
-.. _writing-tests:
+.. _testing-writing:
 
-Writing Tests
+Writing tests
 =============
 
-Unit Test Example
+.. _testing-unit-example:
+
+Unit test example
 -----------------
 
 .. code-block:: php
+   :caption: Example: Unit test
 
    <?php
 
@@ -221,10 +240,13 @@ Unit Test Example
        }
    }
 
-Integration Test Example
+.. _testing-integration-example:
+
+Integration test example
 ------------------------
 
 .. code-block:: php
+   :caption: Example: Integration test
 
    <?php
 
@@ -265,10 +287,13 @@ Integration Test Example
        }
    }
 
-Functional Test Example
+.. _testing-functional-example:
+
+Functional test example
 -----------------------
 
 .. code-block:: php
+   :caption: Example: Functional test
 
    <?php
 
@@ -303,15 +328,18 @@ Functional Test Example
        }
    }
 
-.. _mocking-providers:
+.. _testing-mocking:
 
-Mocking Providers
+Mocking providers
 =================
 
-Using Mock Provider
+.. _testing-mock-provider:
+
+Using mock provider
 -------------------
 
 .. code-block:: php
+   :caption: Example: Mock provider
 
    <?php
 
@@ -335,10 +363,13 @@ Using Mock Provider
        ->method('isConfigured')
        ->willReturn(true);
 
-Using HTTP Mock
+.. _testing-http-mock:
+
+Using HTTP mock
 ---------------
 
 .. code-block:: php
+   :caption: Example: HTTP mock
 
    <?php
 
@@ -372,12 +403,14 @@ Using HTTP Mock
        // ...
    );
 
-.. _test-fixtures:
+.. _testing-fixtures:
 
-Test Fixtures
+Test fixtures
 =============
 
-CSV Fixtures
+.. _testing-csv-fixtures:
+
+CSV fixtures
 ------------
 
 .. code-block:: text
@@ -387,7 +420,9 @@ CSV Fixtures
    "uid","pid","identifier","name","template","variables"
    1,0,"test-template","Test Template","Hello {name}!","name"
 
-JSON Response Fixtures
+.. _testing-json-fixtures:
+
+JSON response fixtures
 ----------------------
 
 .. code-block:: json
@@ -415,17 +450,20 @@ JSON Response Fixtures
      }
    }
 
-.. _mutation-testing:
+.. _testing-mutation:
 
-Mutation Testing
+Mutation testing
 ================
 
 The extension uses Infection for mutation testing to ensure test quality.
 
-Running Mutation Tests
+.. _testing-mutation-running:
+
+Running mutation tests
 ----------------------
 
 .. code-block:: bash
+   :caption: Run mutation tests
 
    # Install Infection
    composer require --dev infection/infection
@@ -436,12 +474,14 @@ Running Mutation Tests
    # With specific configuration
    vendor/bin/infection -c infection.json.dist
 
-Interpreting Results
+.. _testing-mutation-results:
+
+Interpreting results
 --------------------
 
-- **MSI (Mutation Score Indicator)**: Percentage of mutations killed
-- **Target**: >60% MSI indicates good test quality
-- **Current**: 58% MSI (459 tests)
+- **MSI (Mutation Score Indicator)**: Percentage of mutations killed.
+- **Target**: >60% MSI indicates good test quality.
+- **Current**: 58% MSI (459 tests).
 
 .. code-block:: text
 
@@ -449,10 +489,12 @@ Interpreting Results
    Mutation Code Coverage: 85%
    Covered Code MSI: 68%
 
-.. _ci-integration:
+.. _testing-ci:
 
-CI/CD Integration
+CI/CD integration
 =================
+
+.. _testing-ci-github:
 
 GitHub Actions
 --------------
@@ -493,8 +535,10 @@ GitHub Actions
            with:
              files: coverage/clover.xml
 
-GitLab CI
----------
+.. _testing-ci-gitlab:
+
+GitLab CI/CD
+------------
 
 .. code-block:: yaml
    :caption: .gitlab-ci.yml
@@ -506,16 +550,16 @@ GitLab CI
        - composer test
      coverage: '/^\s*Lines:\s*\d+.\d+\%/'
 
-.. _test-best-practices:
+.. _testing-best-practices:
 
-Best Practices
+Best practices
 ==============
 
-1. **Isolate Tests**: Each test should be independent
-2. **Mock External APIs**: Never call real APIs in unit tests
-3. **Use Data Providers**: For testing multiple scenarios
-4. **Test Edge Cases**: Empty inputs, null values, boundaries
-5. **Descriptive Names**: Test method names should describe behavior
-6. **Arrange-Act-Assert**: Follow AAA pattern
-7. **Fast Tests**: Unit tests should complete in milliseconds
-8. **Coverage Goals**: Aim for >80% line coverage
+1. **Isolate tests**: Each test should be independent.
+2. **Mock external APIs**: Never call real APIs in unit tests.
+3. **Use data providers**: For testing multiple scenarios.
+4. **Test edge cases**: Empty inputs, null values, boundaries.
+5. **Descriptive names**: Test method names should describe behavior.
+6. **Arrange-Act-Assert**: Follow AAA pattern.
+7. **Fast tests**: Unit tests should complete in milliseconds.
+8. **Coverage goals**: Aim for >80% line coverage.

@@ -3,10 +3,10 @@
 .. _api-reference:
 
 =============
-API Reference
+API reference
 =============
 
-Complete API reference for the TYPO3 LLM Extension.
+Complete API reference for the TYPO3 LLM extension.
 
 .. contents::
    :local:
@@ -93,7 +93,7 @@ The central service for all LLM operations.
 
 .. _api-feature-services:
 
-Feature Services
+Feature services
 ================
 
 CompletionService
@@ -284,7 +284,7 @@ TranslationService
 
 .. _api-domain-models:
 
-Domain Models
+Domain models
 =============
 
 CompletionResponse
@@ -439,7 +439,7 @@ UsageStatistics
 
 .. _api-options:
 
-Option Classes
+Option classes
 ==============
 
 ChatOptions
@@ -519,7 +519,7 @@ ChatOptions
 
 .. _api-providers:
 
-Provider Interface
+Provider interface
 ==================
 
 .. php:namespace:: Netresearch\NrLlm\Provider\Contract

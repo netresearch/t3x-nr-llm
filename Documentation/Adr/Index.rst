@@ -10,7 +10,9 @@ Architecture Decision Records
 This section documents significant architectural decisions made during the
 development of the TYPO3 LLM Extension.
 
-Symbol Legend
+.. _adr-symbol-legend:
+
+Symbol legend
 =============
 
 Each consequence in the ADRs is marked with severity symbols to indicate impact weight:
@@ -33,7 +35,9 @@ Each consequence in the ADRs is marked with severity symbols to indicate impact 
 
 Net Score indicates the overall impact of the decision (sum of weights).
 
-Decision Records
+.. _adr-decision-records:
+
+Decision records
 ================
 
 .. toctree::

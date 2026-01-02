@@ -10,21 +10,27 @@ ADR-013: Three-level configuration architecture (Provider-Model-Configuration)
 :Date: 2024-12-27
 :Authors: Netresearch DTT GmbH
 
+.. _adr-013-context:
+
 Context
 =======
 
 The nr_llm extension needs to manage LLM configurations for various use cases (chat, translation, embeddings, etc.). Initially, configurations were stored in a single table mixing connection settings, model parameters, and use-case-specific prompts.
+
+.. _adr-013-problem-statement:
 
 Problem statement
 -----------------
 
 A single-table approach creates several issues:
 
-1. **API Key Duplication:** Same API key repeated across multiple configurations
-2. **Model Redundancy:** Model capabilities and pricing duplicated
-3. **Inflexible Connections:** Cannot have multiple API keys for same provider (prod/dev)
-4. **Mixed Concerns:** Connection details, model specs, and prompts intermingled
-5. **Maintenance Burden:** Changing an API key requires updating multiple records
+1. **API Key Duplication:** Same API key repeated across multiple configurations.
+2. **Model Redundancy:** Model capabilities and pricing duplicated.
+3. **Inflexible Connections:** Cannot have multiple API keys for same provider (prod/dev).
+4. **Mixed Concerns:** Connection details, model specs, and prompts intermingled.
+5. **Maintenance Burden:** Changing an API key requires updating multiple records.
+
+.. _adr-013-scenarios:
 
 Real-world scenarios not supported
 ----------------------------------
@@ -38,6 +44,8 @@ Real-world scenarios not supported
    "Cost tracking per API key", "No clear key-to-usage mapping"
    "Model catalog with shared pricing", "Model specs repeated everywhere"
    "Team-specific API keys", "No multi-tenancy support"
+
+.. _adr-013-decision:
 
 Decision
 ========
@@ -69,6 +77,8 @@ Implement a **three-level hierarchical architecture** separating concerns:
    │ Fields: endpoint_url, api_key (encrypted), adapter_type, timeout        │
    └─────────────────────────────────────────────────────────────────────────┘
 
+.. _adr-013-level-1:
+
 Level 1: Provider (Connection Layer)
 ------------------------------------
 
@@ -89,9 +99,11 @@ Represents a specific API connection with credentials.
 
 **Key Design Points:**
 
-- One provider = one API key = one billing relationship
-- Same adapter type can have multiple providers (prod/dev accounts)
-- Adapter type determines the protocol/client class used
+- One provider = one API key = one billing relationship.
+- Same adapter type can have multiple providers (prod/dev accounts).
+- Adapter type determines the protocol/client class used.
+
+.. _adr-013-level-2:
 
 Level 2: Model (Capability Layer)
 ---------------------------------
@@ -114,10 +126,12 @@ Represents a specific model available through a provider.
 
 **Key Design Points:**
 
-- Models belong to exactly one provider
-- Capabilities define what the model can do
-- Pricing stored as integers (cents/1M tokens) to avoid float issues
-- Same logical model can exist multiple times (different providers)
+- Models belong to exactly one provider.
+- Capabilities define what the model can do.
+- Pricing stored as integers (cents/1M tokens) to avoid float issues.
+- Same logical model can exist multiple times (different providers).
+
+.. _adr-013-level-3:
 
 Level 3: Configuration (Use-Case Layer)
 ---------------------------------------
@@ -140,9 +154,11 @@ Represents a specific use case with model and prompt settings.
 
 **Key Design Points:**
 
-- Configurations reference models, not providers directly
-- All LLM parameters are tunable per use case
-- Same model can be used by multiple configurations
+- Configurations reference models, not providers directly.
+- All LLM parameters are tunable per use case.
+- Same model can be used by multiple configurations.
+
+.. _adr-013-relationships:
 
 Relationships
 -------------
@@ -166,13 +182,18 @@ Relationships
    "Model", "Capabilities & pricing", "New model version, pricing update"
    "Configuration", "Use-case behavior", "Prompt tuning, parameter adjustment"
 
+.. _adr-013-implementation:
+
 Implementation
 ==============
+
+.. _adr-013-database:
 
 Database tables
 ---------------
 
 .. code-block:: sql
+   :caption: Example: Database schema
 
    -- Level 1: Providers (connections)
    CREATE TABLE tx_nrllm_provider (
@@ -204,10 +225,13 @@ Database tables
        ...
    );
 
+.. _adr-013-domain-models:
+
 Domain models
 -------------
 
 .. code-block:: php
+   :caption: Example: Domain model classes
 
    // Provider → owns credentials
    class Provider extends AbstractEntity {
@@ -233,10 +257,13 @@ Domain models
        public function getProvider(): ?Provider; // Convenience
    }
 
+.. _adr-013-service-layer:
+
 Service layer access
 --------------------
 
 .. code-block:: php
+   :caption: Example: Using configuration from service layer
 
    // Getting a ready-to-use provider from a configuration
    $config = $configurationRepository->findByIdentifier('blog-summarizer');
@@ -246,6 +273,8 @@ Service layer access
    // Provider adapter handles the actual API call
    $adapter = $providerAdapterRegistry->getAdapter($provider);
    $response = $adapter->chat($messages, $config->toOptions());
+
+.. _adr-013-backend-module:
 
 Backend module structure
 ------------------------
@@ -258,38 +287,46 @@ Backend module structure
    ├── Models         (CRUD, fetch from API)
    └── Configurations (CRUD, prompt testing)
 
+.. _adr-013-consequences:
+
 Consequences
 ============
+
+.. _adr-013-positive:
 
 Positive
 --------
 
-●● **Single Source of Truth:** API key stored once per provider
+●● **Single Source of Truth:** API key stored once per provider.
 
-●● **Flexible Connections:** Multiple providers of same type (prod/dev/backup)
+●● **Flexible Connections:** Multiple providers of same type (prod/dev/backup).
 
-● **Model Catalog:** Centralized model specs and pricing
+● **Model Catalog:** Centralized model specs and pricing.
 
-● **Clear Separation:** Connection vs capability vs use-case concerns
+● **Clear Separation:** Connection vs capability vs use-case concerns.
 
-◐ **Easy Key Rotation:** Update one provider, all configs inherit
+◐ **Easy Key Rotation:** Update one provider, all configs inherit.
 
-◐ **Cost Tracking:** Usage attributable to specific providers
+◐ **Cost Tracking:** Usage attributable to specific providers.
 
-◐ **Multi-Tenancy Ready:** Different API keys per team/project
+◐ **Multi-Tenancy Ready:** Different API keys per team/project.
+
+.. _adr-013-negative:
 
 Negative
 --------
 
-◑ **Increased Complexity:** Three tables instead of one
+◑ **Increased Complexity:** Three tables instead of one.
 
-◑ **More Joins:** Queries must traverse relationships
+◑ **More Joins:** Queries must traverse relationships.
 
-◑ **Migration Required:** Existing data needs transformation
+◑ **Migration Required:** Existing data needs transformation.
 
-◑ **Learning Curve:** Users must understand hierarchy
+◑ **Learning Curve:** Users must understand hierarchy.
 
 **Net Score:** +5 (Strong positive)
+
+.. _adr-013-trade-offs:
 
 Trade-offs
 ----------
@@ -303,37 +340,51 @@ Trade-offs
    "Faster reads", "Smaller storage"
    "Harder maintenance", "Easier updates"
 
+.. _adr-013-alternatives:
+
 Alternatives considered
 =======================
+
+.. _adr-013-alt-two-level:
 
 1. Two-Level (Provider → Configuration)
 ---------------------------------------
 
 **Rejected:** Models would be embedded in configurations, duplicating capabilities/pricing.
 
+.. _adr-013-alt-four-level:
+
 2. Four-Level (Provider → Model → Preset → Configuration)
 ---------------------------------------------------------
 
 **Rejected:** Preset layer adds complexity without clear benefit. Temperature/token settings belong with use-case.
+
+.. _adr-013-alt-single-table:
 
 3. Single Table with JSON Columns
 ---------------------------------
 
 **Rejected:** Loses referential integrity, harder to query, no normalization.
 
+.. _adr-013-alt-inheritance:
+
 4. Configuration Inheritance
 ----------------------------
 
 **Rejected:** Complex to implement, confusing precedence rules.
 
+.. _adr-013-future:
+
 Future considerations
 =====================
 
-1. **Model Auto-Discovery:** Fetch available models from provider APIs
-2. **Cost Aggregation:** Track usage and costs per provider/model
-3. **Fallback Chains:** Configuration → fallback model if primary fails
-4. **Rate Limiting:** Per-provider rate limit tracking
-5. **Health Monitoring:** Provider availability status
+1. **Model Auto-Discovery:** Fetch available models from provider APIs.
+2. **Cost Aggregation:** Track usage and costs per provider/model.
+3. **Fallback Chains:** Configuration → fallback model if primary fails.
+4. **Rate Limiting:** Per-provider rate limit tracking.
+5. **Health Monitoring:** Provider availability status.
+
+.. _adr-013-references:
 
 References
 ==========
