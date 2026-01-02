@@ -99,6 +99,9 @@
         "ci:full": [
             "@ci",
             "@test:functional"
-        ]
+        ],
+        "ddev:test": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer test'",
+        "ddev:test:functional": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer test:functional'",
+        "ddev:ci:full": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer ci:full'"
     }
 }

@@ -108,18 +108,17 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
     #[Test]
     public function testOllamaProviderConnectionWithValidEndpoint(): void
     {
-        $ollamaUrl = $this->getOllamaUrl();
-
         // Skip if Ollama is not available in test environment
-        if (!$this->isOllamaAvailable($ollamaUrl)) {
-            self::markTestSkipped('Ollama service not available at ' . $ollamaUrl);
+        // Tests should be run inside DDEV where 'ollama:11434' resolves
+        if (!$this->isOllamaAvailable()) {
+            self::markTestSkipped('Ollama service not available - run tests inside DDEV: ddev exec composer test:functional');
         }
 
         $provider = new Provider();
         $provider->setIdentifier('ollama-test');
         $provider->setName('Local Ollama');
         $provider->setAdapterType(Provider::ADAPTER_OLLAMA);
-        $provider->setEndpointUrl($ollamaUrl);
+        $provider->setEndpointUrl('http://ollama:11434');
         $provider->setTimeout(10);
         $provider->setIsActive(true);
 
@@ -129,42 +128,9 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
         self::assertArrayHasKey('models', $result);
     }
 
-    /**
-     * Get Ollama URL from environment or DDEV config.
-     *
-     * When running tests on the host, DDEV exposes Ollama on a dynamic port.
-     * Set OLLAMA_URL env var or use `ddev describe` to find the mapped port.
-     */
-    private function getOllamaUrl(): string
+    private function isOllamaAvailable(): bool
     {
-        // Check for explicit environment variable first
-        $envUrl = getenv('OLLAMA_URL');
-        if ($envUrl !== false && $envUrl !== '') {
-            return $envUrl;
-        }
-
-        // Try to get DDEV-exposed port dynamically
-        $ddevDescribe = @shell_exec('ddev describe -j 2>/dev/null');
-        if (is_string($ddevDescribe)) {
-            /** @var array{raw?: array{services?: array{ollama?: array{host_ports?: int|string}}}} $ddevInfo */
-            $ddevInfo = json_decode($ddevDescribe, true);
-            $hostPort = $ddevInfo['raw']['services']['ollama']['host_ports'] ?? null;
-            if ($hostPort !== null && is_numeric($hostPort)) {
-                return 'http://127.0.0.1:' . $hostPort;
-            }
-        }
-
-        // Fallback to Docker-internal hostname (works inside DDEV)
-        return 'http://ollama:11434';
-    }
-
-    private function isOllamaAvailable(string $url): bool
-    {
-        $parsed = parse_url($url);
-        $host = $parsed['host'] ?? 'localhost';
-        $port = $parsed['port'] ?? 11434;
-
-        $socket = @fsockopen($host, $port, $errno, $errstr, 2);
+        $socket = @fsockopen('ollama', 11434, $errno, $errstr, 2);
         if ($socket) {
             fclose($socket);
             return true;
