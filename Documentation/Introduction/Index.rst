@@ -31,14 +31,32 @@ Supported Providers
      - Models
      - Capabilities
    * - OpenAI
-     - GPT-4o, GPT-4o-mini, GPT-4-turbo, o1-preview
+     - GPT-5.x series, o-series reasoning models
      - Chat, Completions, Embeddings, Vision, Streaming, Tools
    * - Anthropic Claude
-     - Claude Opus 4, Claude Sonnet 4, Claude 3.5 Sonnet/Haiku
+     - Claude Opus 4.5, Claude Sonnet 4.5, Claude Haiku 4.5
      - Chat, Completions, Vision, Streaming, Tools
    * - Google Gemini
-     - Gemini 2.0 Flash, Gemini 1.5 Pro/Flash
+     - Gemini 3 Pro, Gemini 3 Flash, Gemini 2.5 series
      - Chat, Completions, Embeddings, Vision, Streaming, Tools
+   * - Ollama
+     - Local models (Llama, Mistral, etc.)
+     - Chat, Embeddings, Streaming (local)
+   * - OpenRouter
+     - Multi-provider access
+     - Chat, Vision, Streaming, Tools
+   * - Mistral
+     - Mistral models
+     - Chat, Embeddings, Streaming
+   * - Groq
+     - Fast inference models
+     - Chat, Streaming (fast inference)
+   * - Azure OpenAI
+     - Same as OpenAI
+     - Same as OpenAI
+   * - Custom
+     - OpenAI-compatible endpoints
+     - Varies by endpoint
 
 Key Features
 ============
@@ -79,6 +97,9 @@ High-level services for common AI tasks:
 
 **TranslationService**
    Language translation with formality control, domain-specific terminology, and glossaries
+
+**PromptTemplateService**
+   Centralized prompt management with variable substitution and versioning
 
 Streaming Support
 -----------------
@@ -169,6 +190,10 @@ To use specific providers, you need:
 - **OpenAI**: API key from https://platform.openai.com
 - **Anthropic Claude**: API key from https://console.anthropic.com
 - **Google Gemini**: API key from https://aistudio.google.com
+- **Ollama**: Local installation from https://ollama.ai (no API key required)
+- **OpenRouter**: API key from https://openrouter.ai
+- **Mistral**: API key from https://console.mistral.ai
+- **Groq**: API key from https://console.groq.com
 
 .. _credits:
 

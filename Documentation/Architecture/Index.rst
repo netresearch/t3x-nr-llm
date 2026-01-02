@@ -31,7 +31,7 @@ The extension uses a three-level hierarchical architecture separating concerns:
                                       │ N:1
    ┌──────────────────────────────────▼──────────────────────────────────────┐
    │ MODEL (Available Models)                                                 │
-   │ "gpt-4o", "claude-3-sonnet", "llama-3.1-70b", "text-embedding-3-large"  │
+   │ "gpt-5", "claude-sonnet-4-5", "llama-70b", "text-embedding-3-large"     │
    │                                                                          │
    │ Fields: model_id, context_length, capabilities, pricing                 │
    │ References: provider_uid → Provider                                      │
@@ -91,10 +91,10 @@ Database table: :sql:`tx_nrllm_model`
    :header: "Field", "Type", "Description"
    :widths: 25, 20, 55
 
-   "identifier", "string", "Unique slug (e.g., ``gpt-4o``, ``claude-sonnet``)"
-   "name", "string", "Display name (e.g., ``GPT-4o (128K)``)"
+   "identifier", "string", "Unique slug (e.g., ``gpt-5``, ``claude-sonnet``)"
+   "name", "string", "Display name (e.g., ``GPT-5 (128K)``)"
    "provider_uid", "int", "Foreign key to Provider"
-   "model_id", "string", "API model identifier (e.g., ``gpt-4o-2024-08-06``)"
+   "model_id", "string", "API model identifier (e.g., ``gpt-5``, ``claude-opus-4-5-20251101``)"
    "context_length", "int", "Token limit (e.g., 128000)"
    "max_output_tokens", "int", "Output limit (e.g., 16384)"
    "capabilities", "CSV", "Supported features: ``chat,vision,streaming,tools``"
@@ -185,9 +185,9 @@ Provider adapters
 
 The extension includes adapters for multiple LLM providers:
 
-- **OpenAI** (:php:`OpenAiProvider`): GPT-5.x, GPT-4o, o-series reasoning models
-- **Anthropic** (:php:`ClaudeProvider`): Claude Opus 4, Claude Sonnet 4
-- **Google** (:php:`GeminiProvider`): Gemini 3.x, Gemini 2.x
+- **OpenAI** (:php:`OpenAiProvider`): GPT-5.x series, o-series reasoning models
+- **Anthropic** (:php:`ClaudeProvider`): Claude Opus 4.5, Claude Sonnet 4.5, Claude Haiku 4.5
+- **Google** (:php:`GeminiProvider`): Gemini 3 Pro, Gemini 3 Flash, Gemini 2.5 series
 - **Ollama** (:php:`OllamaProvider`): Local model deployment
 - **OpenRouter** (:php:`OpenRouterProvider`): Multi-model routing
 - **Mistral** (:php:`MistralProvider`): Mistral models

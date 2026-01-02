@@ -355,7 +355,7 @@ Using HTTP Mock
                    'finish_reason' => 'stop',
                ],
            ],
-           'model' => 'gpt-4',
+           'model' => 'gpt-5',
            'usage' => [
                'prompt_tokens' => 10,
                'completion_tokens' => 5,
@@ -397,7 +397,7 @@ JSON Response Fixtures
      "id": "chatcmpl-123",
      "object": "chat.completion",
      "created": 1677652288,
-     "model": "gpt-4",
+     "model": "gpt-5",
      "choices": [
        {
          "index": 0,

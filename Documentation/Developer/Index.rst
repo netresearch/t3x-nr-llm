@@ -118,7 +118,7 @@ Chat with Options
    // Or using array
    $response = $this->llmManager->chat($messages, [
        'provider' => 'claude',
-       'model' => 'claude-opus-4-20250514',
+       'model' => 'claude-opus-4-5-20251101',
        'temperature' => 1.2,
        'max_tokens' => 2000,
        'top_p' => 0.9,

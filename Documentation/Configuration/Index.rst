@@ -109,22 +109,26 @@ Required fields
 ---------------
 
 identifier
-   Unique slug (e.g., ``gpt-4o``, ``claude-sonnet``)
+   Unique slug (e.g., ``gpt-5``, ``claude-sonnet``)
 
 name
-   Display name (e.g., ``GPT-4o (128K)``)
+   Display name (e.g., ``GPT-5 (128K)``)
 
 provider
    Reference to the parent Provider
 
 model_id
-   The API model identifier (e.g., ``gpt-4o-2024-08-06``, ``claude-3-5-sonnet-20241022``)
+   The API model identifier. Examples vary by provider:
+
+   - OpenAI: ``gpt-5``, ``gpt-5.2-instant``, ``o4-mini``
+   - Anthropic: ``claude-opus-4-5-20251101``, ``claude-sonnet-4-5-20251101``
+   - Google: ``gemini-3-pro-preview``, ``gemini-3-flash-preview``
 
 Optional fields
 ---------------
 
 context_length
-   Maximum context window in tokens (e.g., 128000 for GPT-4o)
+   Maximum context window in tokens (e.g., 128000 for GPT-5)
 
 max_output_tokens
    Maximum output tokens (e.g., 16384)

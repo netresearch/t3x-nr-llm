@@ -56,7 +56,7 @@ Implement a **three-level hierarchical architecture** separating concerns:
                                       │ N:1
    ┌──────────────────────────────────▼──────────────────────────────────────┐
    │ MODEL (Available Models)                                                 │
-   │ "gpt-4o", "claude-3-sonnet", "llama-3.1-70b", "text-embedding-3-large"  │
+   │ "gpt-5", "claude-sonnet-4-5", "llama-70b", "text-embedding-3-large"     │
    │                                                                          │
    │ Fields: model_id, context_length, capabilities, cost_input, cost_output │
    │ References: provider_uid → Provider                                      │
@@ -101,10 +101,10 @@ Represents a specific model available through a provider.
 ::
 
    tx_nrllm_model
-   ├── identifier        -- Unique slug: "gpt-4o", "claude-sonnet"
-   ├── name              -- Display name: "GPT-4o (128K)"
+   ├── identifier        -- Unique slug: "gpt-5", "claude-sonnet"
+   ├── name              -- Display name: "GPT-5 (128K)"
    ├── provider_uid      -- FK → Provider
-   ├── model_id          -- API model identifier: "gpt-4o-2024-08-06"
+   ├── model_id          -- API model identifier: "gpt-5"
    ├── context_length    -- Token limit: 128000
    ├── max_output_tokens -- Output limit: 16384
    ├── capabilities      -- CSV: chat,vision,streaming,tools
