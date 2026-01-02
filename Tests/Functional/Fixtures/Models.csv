@@ -1,6 +1,7 @@
 "tx_nrllm_model"
 ,"uid","pid","identifier","name","description","provider_uid","model_id","context_length","max_output_tokens","capabilities","default_timeout","cost_input","cost_output","is_active","is_default","sorting","deleted","hidden"
-,1,0,"gpt-4o","GPT-4o","OpenAI GPT-4o model",1,"gpt-4o",128000,4096,"chat,vision,tools",120,500,1500,1,1,1,0,0
-,2,0,"gpt-4o-mini","GPT-4o Mini","OpenAI GPT-4o Mini model",1,"gpt-4o-mini",128000,4096,"chat,tools",120,15,60,0,0,2,0,0
-,3,0,"llama3","Llama 3","Local Llama 3 model",1,"llama3:latest",8192,2048,"chat",120,0,0,1,0,3,0,0
+,1,0,"gpt-5","GPT-5","OpenAI GPT-5 flagship model",1,"gpt-5",256000,16384,"chat,vision,tools,reasoning",120,1000,3000,1,1,1,0,0
+,2,0,"o4-mini","O4 Mini","OpenAI O4 Mini reasoning model",2,"o4-mini",128000,8192,"chat,tools,reasoning",120,300,1200,1,0,2,0,0
+,3,0,"llama3.3","Llama 3.3","Local Llama 3.3 70B model",1,"llama3.3:70b",131072,4096,"chat",120,0,0,1,0,3,0,0
 ,4,0,"deleted-model","Deleted Model","Should not appear",1,"deleted-model",4096,1024,"chat",120,0,0,1,0,4,1,0
+,5,0,"gpt-5.2-thinking","GPT-5.2 Thinking","OpenAI GPT-5.2 thinking model (inactive for testing)",2,"gpt-5.2-thinking",256000,32768,"chat,vision,tools,reasoning",120,2000,6000,0,0,5,0,0
