@@ -19,10 +19,10 @@ The recommended way to install this extension is via Composer:
 
 After installation:
 
-1. Activate the extension in **Admin Tools > Extension Manager**
-2. Configure providers and API keys in **Admin Tools > LLM > Providers**
-3. Define available models in **Admin Tools > LLM > Models**
-4. Create configurations in **Admin Tools > LLM > Configurations**
+1. Activate the extension in :guilabel:`Admin Tools > Extension Manager`
+2. Configure providers and API keys in :guilabel:`Admin Tools > LLM > Providers`
+3. Define available models in :guilabel:`Admin Tools > LLM > Models`
+4. Create configurations in :guilabel:`Admin Tools > LLM > Configurations`
 5. Clear caches
 
 .. _composer-installation:
@@ -50,7 +50,7 @@ Installation Steps
 
 2. **Activate the extension**
 
-   Navigate to **Admin Tools > Extension Manager** and activate ``nr_llm``.
+   Navigate to :guilabel:`Admin Tools > Extension Manager` and activate :t3ext:`nr_llm`.
 
 3. **Configure API keys**
 
@@ -70,8 +70,8 @@ Manual Installation
 If you cannot use Composer:
 
 1. Download the extension from the TYPO3 Extension Repository (TER)
-2. Extract to ``typo3conf/ext/nr_llm``
-3. Activate in **Admin Tools > Extension Manager**
+2. Extract to :path:`typo3conf/ext/nr_llm`
+3. Activate in :guilabel:`Admin Tools > Extension Manager`
 4. Configure API keys and settings
 
 .. warning::
@@ -116,7 +116,7 @@ The extension uses TYPO3's caching framework. Default configuration is
 automatically set up, but you can customize it:
 
 .. code-block:: php
-   :caption: config/system/additional.php
+   :caption: :file:`config/system/additional.php`
 
    $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_responses'] = [
        'frontend' => \TYPO3\CMS\Core\Cache\Frontend\VariableFrontend::class,
@@ -166,7 +166,7 @@ Uninstallation
 
 To remove the extension:
 
-1. Deactivate in **Admin Tools > Extension Manager**
+1. Deactivate in :guilabel:`Admin Tools > Extension Manager`
 2. Remove via Composer:
 
    .. code-block:: bash

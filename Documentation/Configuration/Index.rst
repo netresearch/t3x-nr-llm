@@ -19,7 +19,7 @@ TYPO3 Backend Module.
 Backend module
 ==============
 
-Access the LLM management module at **Admin Tools > LLM**.
+Access the LLM management module at :guilabel:`Admin Tools > LLM`.
 
 The backend module provides four sections:
 
@@ -41,7 +41,7 @@ Provider configuration
 ======================
 
 Providers represent API connections with credentials. Create providers in
-**Admin Tools > LLM > Providers**.
+:guilabel:`Admin Tools > LLM > Providers`.
 
 Required fields
 ---------------
@@ -90,7 +90,7 @@ options
 Testing connections
 -------------------
 
-Use the **Test Connection** button to verify provider configuration.
+Use the :guilabel:`Test Connection` button to verify provider configuration.
 The test makes an actual HTTP request to the provider's API and returns:
 
 - Connection status (success/failure)
@@ -103,7 +103,7 @@ Model configuration
 ===================
 
 Models represent specific LLM models available through a provider.
-Create models in **Admin Tools > LLM > Models**.
+Create models in :guilabel:`Admin Tools > LLM > Models`.
 
 Required fields
 ---------------
@@ -155,7 +155,7 @@ is_default
 Fetching models from provider
 -----------------------------
 
-Use the **Fetch Models** action to automatically retrieve available models
+Use the :guilabel:`Fetch Models` action to automatically retrieve available models
 from the provider's API. This populates the model list with the provider's
 current offerings.
 
@@ -165,7 +165,7 @@ LLM configuration
 =================
 
 Configurations define specific use cases with model selection and parameters.
-Create configurations in **Admin Tools > LLM > Configurations**.
+Create configurations in :guilabel:`Admin Tools > LLM > Configurations`.
 
 Required fields
 ---------------

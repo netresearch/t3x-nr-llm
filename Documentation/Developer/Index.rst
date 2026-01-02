@@ -291,7 +291,7 @@ UsageStatistics
 Creating Custom Providers
 =========================
 
-Implement a custom provider by extending ``AbstractProvider``:
+Implement a custom provider by extending :php:`AbstractProvider`:
 
 .. code-block:: php
 
@@ -338,7 +338,7 @@ Implement a custom provider by extending ``AbstractProvider``:
        // Implement other required methods...
    }
 
-Register your provider in ``Services.yaml``:
+Register your provider in :file:`Services.yaml`:
 
 .. code-block:: yaml
 
@@ -416,7 +416,7 @@ The extension dispatches PSR-14 events:
        }
    }
 
-Register in ``Services.yaml``:
+Register in :file:`Services.yaml`:
 
 .. code-block:: yaml
 
@@ -432,7 +432,7 @@ Register in ``Services.yaml``:
 Best Practices
 ==============
 
-1. **Use Feature Services** for common tasks instead of raw ``LlmServiceManager``
+1. **Use Feature Services** for common tasks instead of raw :php:`LlmServiceManager`
 
 2. **Enable Caching** for deterministic operations like embeddings
 

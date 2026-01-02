@@ -357,7 +357,7 @@ Example
        ]
    );
 
-.. _installation:
+.. _feature-services-installation:
 
 Installation
 ============
@@ -365,7 +365,7 @@ Installation
 Dependency Injection
 --------------------
 
-Add to your extension's ``Configuration/Services.yaml``:
+Add to your extension's :file:`Configuration/Services.yaml`:
 
 .. code-block:: yaml
 
@@ -438,7 +438,7 @@ Embedding
 
 - ``embedding.semantic_search`` - Semantic search configuration
 
-.. _testing:
+.. _feature-services-testing:
 
 Testing
 =======
@@ -505,7 +505,7 @@ Use batch methods for better performance:
        $altText = $visionService->generateAltText($url);
    }
 
-.. _configuration:
+.. _feature-services-configuration:
 
 Configuration
 =============
@@ -674,11 +674,11 @@ File Structure
                    ├── VisionServiceTest.php
                    └── EmbeddingServiceTest.php
 
-.. _requirements:
+.. _feature-services-requirements:
 
 Requirements
 ============
 
-- TYPO3 13.4+ / 14.x
+- TYPO3 v14.0+ (v14.x)
 - PHP 8.2+
 - nr-llm core extension (LlmServiceManager)

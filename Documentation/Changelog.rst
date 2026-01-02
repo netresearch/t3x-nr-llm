@@ -24,16 +24,16 @@ Added
 **Core Features**
 
 - Multi-provider support (OpenAI, Anthropic Claude, Google Gemini)
-- Unified API via ``LlmServiceManager``
+- Unified API via :php:`LlmServiceManager`
 - Provider abstraction layer with capability interfaces
-- Typed response objects (``CompletionResponse``, ``EmbeddingResponse``)
+- Typed response objects (:php:`CompletionResponse`, :php:`EmbeddingResponse`)
 
 **Feature Services**
 
-- ``CompletionService``: Text completion with format control (JSON, Markdown)
-- ``EmbeddingService``: Vector generation with caching and similarity calculations
-- ``VisionService``: Image analysis with alt-text, title, description generation
-- ``TranslationService``: Translation with formality control and glossary support
+- :php:`CompletionService`: Text completion with format control (JSON, Markdown)
+- :php:`EmbeddingService`: Vector generation with caching and similarity calculations
+- :php:`VisionService`: Image analysis with alt-text, title, description generation
+- :php:`TranslationService`: Translation with formality control and glossary support
 
 **Provider Capabilities**
 
@@ -46,14 +46,14 @@ Added
 **Infrastructure**
 
 - TYPO3 caching framework integration
-- PSR-14 events (``BeforeRequestEvent``, ``AfterResponseEvent``)
+- PSR-14 events (:php:`BeforeRequestEvent`, :php:`AfterResponseEvent`)
 - Comprehensive exception hierarchy
 - Backend module for provider testing
 - Prompt template management
 
 **Developer Experience**
 
-- Option objects with factory presets (``ChatOptions``)
+- Option objects with factory presets (:php:`ChatOptions`)
 - Full backwards compatibility with array options
 - Extensive PHPDoc documentation
 - Type-safe method signatures
