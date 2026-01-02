@@ -377,9 +377,11 @@ EmbeddingResponse
 
       Get the first embedding vector.
 
-   .. php:method:: static cosineSimilarity(array $a, array $b): float
+   .. php:staticmethod:: cosineSimilarity(array $a, array $b)
 
       Calculate cosine similarity between vectors.
+
+      :returns: float
 
 TranslationResult
 -----------------
@@ -449,25 +451,35 @@ ChatOptions
 
    Typed options for chat operations.
 
-   .. php:method:: static factual(): self
+   .. php:staticmethod:: factual()
 
       Create options optimized for factual responses (temperature: 0.1).
 
-   .. php:method:: static creative(): self
+      :returns: ChatOptions
+
+   .. php:staticmethod:: creative()
 
       Create options for creative content (temperature: 1.2).
 
-   .. php:method:: static balanced(): self
+      :returns: ChatOptions
+
+   .. php:staticmethod:: balanced()
 
       Create balanced options (temperature: 0.7).
 
-   .. php:method:: static json(): self
+      :returns: ChatOptions
+
+   .. php:staticmethod:: json()
 
       Create options for JSON output format.
 
-   .. php:method:: static code(): self
+      :returns: ChatOptions
+
+   .. php:staticmethod:: code()
 
       Create options optimized for code generation.
+
+      :returns: ChatOptions
 
    .. php:method:: withTemperature(float $temperature): self
 
@@ -587,13 +599,13 @@ Exceptions
 
    Thrown when API authentication fails.
 
-   Extends :php:class:`ProviderException`
+   Extends :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
 
 .. php:class:: RateLimitException
 
    Thrown when rate limits are exceeded.
 
-   Extends :php:class:`ProviderException`
+   Extends :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
 
    .. php:method:: getRetryAfter(): int
 
@@ -640,9 +652,11 @@ Events
 
    Dispatched after receiving response from provider.
 
-   .. php:method:: getResponse(): CompletionResponse|EmbeddingResponse
+   .. php:method:: getResponse()
 
       Get the response object.
+
+      :returns: CompletionResponse or EmbeddingResponse
 
    .. php:method:: getProvider(): string
 
