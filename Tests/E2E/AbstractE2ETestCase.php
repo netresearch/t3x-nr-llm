@@ -91,7 +91,7 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
      */
     protected function createOpenAiChatResponse(
         string $content,
-        string $model = 'gpt-4o',
+        string $model = 'gpt-5',
         string $finishReason = 'stop',
         int $promptTokens = 50,
         int $completionTokens = 100,

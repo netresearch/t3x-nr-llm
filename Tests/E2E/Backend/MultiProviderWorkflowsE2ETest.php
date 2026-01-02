@@ -710,7 +710,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $model->setPid(0);
         $model->setIdentifier('chain-test-model-' . time());
         $model->setName('Chain Test Model');
-        $model->setModelId('gpt-4o');
+        $model->setModelId('gpt-5');
         $model->setProvider($addedProvider);
         $model->setIsActive(true);
 

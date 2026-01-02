@@ -134,8 +134,8 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
             'apiKey' => 'sk-test-key',
             'adapterType' => 'openai',
             'models' => [
-                ['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat', 'vision']],
-                ['modelId' => 'gpt-4o-mini', 'name' => 'GPT-4o Mini', 'capabilities' => ['chat']],
+                ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat', 'vision']],
+                ['modelId' => 'o4-mini', 'name' => 'O4 Mini', 'capabilities' => ['chat']],
             ],
         ]);
         $generateResponse = $this->controller->generateAction($generateRequest);
@@ -154,8 +154,8 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
             ],
             'models' => [
                 [
-                    'modelId' => 'gpt-4o',
-                    'name' => 'GPT-4o',
+                    'modelId' => 'gpt-5',
+                    'name' => 'GPT-5',
                     'capabilities' => ['chat', 'vision', 'tools'],
                     'contextLength' => 128000,
                     'maxOutputTokens' => 16384,
@@ -163,8 +163,8 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                     'recommended' => true,
                 ],
                 [
-                    'modelId' => 'gpt-4o-mini',
-                    'name' => 'GPT-4o Mini',
+                    'modelId' => 'o4-mini',
+                    'name' => 'O4 Mini',
                     'capabilities' => ['chat'],
                     'contextLength' => 128000,
                     'maxOutputTokens' => 16384,
@@ -174,7 +174,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
             'configurations' => [
                 [
                     'name' => 'Default Chat',
-                    'modelId' => 'gpt-4o',
+                    'modelId' => 'gpt-5',
                     'temperature' => 0.7,
                     'maxTokens' => 2048,
                     'systemPrompt' => 'You are a helpful assistant.',
@@ -452,8 +452,8 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
             ],
             'models' => [
                 [
-                    'modelId' => 'gpt-4o',
-                    'name' => 'GPT-4o',
+                    'modelId' => 'gpt-5',
+                    'name' => 'GPT-5',
                     'capabilities' => ['chat', 'vision', 'tools'],
                     'contextLength' => 128000,
                     'maxOutputTokens' => 16384,
@@ -461,8 +461,8 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                     'recommended' => true,
                 ],
                 [
-                    'modelId' => 'gpt-4o-mini',
-                    'name' => 'GPT-4o Mini',
+                    'modelId' => 'o4-mini',
+                    'name' => 'O4 Mini',
                     'capabilities' => ['chat'],
                     'contextLength' => 128000,
                     'maxOutputTokens' => 16384,
@@ -479,21 +479,21 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
             'configurations' => [
                 [
                     'name' => 'Creative Writing',
-                    'modelId' => 'gpt-4o',
+                    'modelId' => 'gpt-5',
                     'temperature' => 0.9,
                     'maxTokens' => 4096,
                     'systemPrompt' => 'You are a creative writing assistant.',
                 ],
                 [
                     'name' => 'Code Assistant',
-                    'modelId' => 'gpt-4o',
+                    'modelId' => 'gpt-5',
                     'temperature' => 0.1,
                     'maxTokens' => 8192,
                     'systemPrompt' => 'You are a coding assistant. Be precise and thorough.',
                 ],
                 [
                     'name' => 'Quick Chat',
-                    'modelId' => 'gpt-4o-mini',
+                    'modelId' => 'o4-mini',
                     'temperature' => 0.7,
                     'maxTokens' => 1024,
                 ],
@@ -574,8 +574,8 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
             'adapterType' => 'openai',
             'models' => [
                 [
-                    'modelId' => 'gpt-4o',
-                    'name' => 'GPT-4o',
+                    'modelId' => 'gpt-5',
+                    'name' => 'GPT-5',
                     'description' => 'Most capable model',
                     'capabilities' => ['chat', 'vision', 'tools'],
                     'contextLength' => 128000,
@@ -1159,8 +1159,8 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
             ],
             'models' => [
                 [
-                    'modelId' => 'gpt-4o',
-                    'name' => 'GPT-4o',
+                    'modelId' => 'gpt-5',
+                    'name' => 'GPT-5',
                     'capabilities' => ['chat'],
                     'selected' => true,
                 ],
@@ -1301,7 +1301,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                 'endpoint' => 'https://api.openai.com/v1',
                 'apiKey' => 'sk-multi-1',
             ],
-            'models' => [['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat'], 'selected' => true]],
+            'models' => [['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true]],
             'configurations' => [],
             'pid' => 0,
         ]);
@@ -1485,8 +1485,8 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
             ],
             'models' => [
                 [
-                    'modelId' => 'gpt-4o',
-                    'name' => 'GPT-4o',
+                    'modelId' => 'gpt-5',
+                    'name' => 'GPT-5',
                     'capabilities' => ['chat'],
                     'selected' => true,
                 ],
@@ -1571,12 +1571,12 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                 'apiKey' => 'sk-multi-config',
             ],
             'models' => [
-                ['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat'], 'selected' => true],
+                ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [
-                ['name' => 'Config 1', 'modelId' => 'gpt-4o', 'temperature' => 0.1, 'maxTokens' => 1000, 'selected' => true],
-                ['name' => 'Config 2', 'modelId' => 'gpt-4o', 'temperature' => 0.5, 'maxTokens' => 2000, 'selected' => true],
-                ['name' => 'Config 3', 'modelId' => 'gpt-4o', 'temperature' => 0.9, 'maxTokens' => 4000, 'selected' => true],
+                ['name' => 'Config 1', 'modelId' => 'gpt-5', 'temperature' => 0.1, 'maxTokens' => 1000, 'selected' => true],
+                ['name' => 'Config 2', 'modelId' => 'gpt-5', 'temperature' => 0.5, 'maxTokens' => 2000, 'selected' => true],
+                ['name' => 'Config 3', 'modelId' => 'gpt-5', 'temperature' => 0.9, 'maxTokens' => 4000, 'selected' => true],
             ],
             'pid' => 0,
         ]);
@@ -1606,12 +1606,12 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                 'apiKey' => 'sk-system-prompt',
             ],
             'models' => [
-                ['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat'], 'selected' => true],
+                ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [
                 [
                     'name' => 'With System Prompt',
-                    'modelId' => 'gpt-4o',
+                    'modelId' => 'gpt-5',
                     'temperature' => 0.7,
                     'maxTokens' => 2048,
                     'systemPrompt' => $longSystemPrompt,
@@ -1636,12 +1636,12 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                 'apiKey' => 'sk-default-config',
             ],
             'models' => [
-                ['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat'], 'selected' => true],
+                ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [
                 [
                     'name' => 'Default Config',
-                    'modelId' => 'gpt-4o',
+                    'modelId' => 'gpt-5',
                     'temperature' => 0.7,
                     'maxTokens' => 2048,
                     'isDefault' => true,
@@ -1698,7 +1698,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                 'apiKey' => $specialKey,
             ],
             'models' => [
-                ['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat'], 'selected' => true],
+                ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [],
             'pid' => 0,
@@ -1748,7 +1748,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                 'apiKey' => 'sk-session-test-key',
             ],
             'models' => [
-                ['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat'], 'selected' => true],
+                ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [],
             'pid' => 0,
@@ -1981,8 +1981,8 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                 'apiKey' => 'sk-no-selected',
             ],
             'models' => [
-                ['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat'], 'selected' => false],
-                ['modelId' => 'gpt-4o-mini', 'name' => 'GPT-4o Mini', 'capabilities' => ['chat'], 'selected' => false],
+                ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => false],
+                ['modelId' => 'o4-mini', 'name' => 'O4 Mini', 'capabilities' => ['chat'], 'selected' => false],
             ],
             'configurations' => [],
             'pid' => 0,
@@ -2009,7 +2009,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                 'apiKey' => 'sk-first',
             ],
             'models' => [
-                ['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat'], 'selected' => true],
+                ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [],
             'pid' => 0,
@@ -2026,7 +2026,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                 'apiKey' => 'sk-second',
             ],
             'models' => [
-                ['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat'], 'selected' => true],
+                ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [],
             'pid' => 0,
@@ -2052,12 +2052,12 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                 'apiKey' => 'sk-long-config',
             ],
             'models' => [
-                ['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat'], 'selected' => true],
+                ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [
                 [
                     'name' => $longName,
-                    'modelId' => 'gpt-4o',
+                    'modelId' => 'gpt-5',
                     'temperature' => 0.7,
                     'maxTokens' => 2048,
                     'selected' => true,
@@ -2084,12 +2084,12 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                 'apiKey' => 'sk-unicode-names',
             ],
             'models' => [
-                ['modelId' => 'gpt-4o', 'name' => '模型名称 🤖', 'capabilities' => ['chat'], 'selected' => true],
+                ['modelId' => 'gpt-5', 'name' => '模型名称 🤖', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [
                 [
                     'name' => '配置名称 ⚙️',
-                    'modelId' => 'gpt-4o',
+                    'modelId' => 'gpt-5',
                     'temperature' => 0.7,
                     'maxTokens' => 2048,
                     'selected' => true,
@@ -2123,12 +2123,12 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                     'apiKey' => 'sk-temp-test',
                 ],
                 'models' => [
-                    ['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat'], 'selected' => true],
+                    ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
                 ],
                 'configurations' => [
                     [
                         'name' => 'Temp ' . $temp . ' Config',
-                        'modelId' => 'gpt-4o',
+                        'modelId' => 'gpt-5',
                         'temperature' => $temp,
                         'maxTokens' => 2048,
                         'selected' => true,
@@ -2155,12 +2155,12 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
                 'apiKey' => 'sk-zero-tokens',
             ],
             'models' => [
-                ['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat'], 'selected' => true],
+                ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat'], 'selected' => true],
             ],
             'configurations' => [
                 [
                     'name' => 'Zero Tokens Config',
-                    'modelId' => 'gpt-4o',
+                    'modelId' => 'gpt-5',
                     'temperature' => 0.7,
                     'maxTokens' => 0,
                     'selected' => true,

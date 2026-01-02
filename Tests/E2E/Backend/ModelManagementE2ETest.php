@@ -541,15 +541,15 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     public function identifierUniquenessValidation(): void
     {
         // Existing identifier should not be unique
-        self::assertFalse($this->modelRepository->isIdentifierUnique('gpt-4o'));
+        self::assertFalse($this->modelRepository->isIdentifierUnique('gpt-5'));
 
         // New identifier should be unique
         self::assertTrue($this->modelRepository->isIdentifierUnique('completely-new-identifier'));
 
         // Own identifier should be considered unique when excluding self
-        $model = $this->modelRepository->findOneByIdentifier('gpt-4o');
+        $model = $this->modelRepository->findOneByIdentifier('gpt-5');
         self::assertNotNull($model);
-        self::assertTrue($this->modelRepository->isIdentifierUnique('gpt-4o', $model->getUid()));
+        self::assertTrue($this->modelRepository->isIdentifierUnique('gpt-5', $model->getUid()));
     }
 
     // =========================================================================
@@ -658,7 +658,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway3_14_detectLimits_missingProviderUid(): void
     {
         $request = $this->createFormRequest('/ajax/model/detect-limits', [
-            'modelId' => 'gpt-4o',
+            'modelId' => 'gpt-5',
         ]);
         $response = $this->controller->detectLimitsAction($request);
 
@@ -684,7 +684,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     {
         $request = $this->createFormRequest('/ajax/model/detect-limits', [
             'providerUid' => 99999,
-            'modelId' => 'gpt-4o',
+            'modelId' => 'gpt-5',
         ]);
         $response = $this->controller->detectLimitsAction($request);
 
