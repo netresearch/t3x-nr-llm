@@ -75,10 +75,10 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function findOneByIdentifierReturnsModel(): void
     {
-        $model = $this->repository->findOneByIdentifier('gpt-4o');
+        $model = $this->repository->findOneByIdentifier('gpt-5');
 
         self::assertInstanceOf(Model::class, $model);
-        self::assertSame('gpt-4o', $model->getIdentifier());
+        self::assertSame('gpt-5', $model->getIdentifier());
     }
 
     #[Test]
@@ -246,12 +246,12 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         // Repository uses SQL LIKE to query by capability
         $models = $this->repository->findByCapability('chat');
 
-        // Fixtures have 2 active models with chat capability (gpt-4o and llama3)
+        // Fixtures have 2 active models with chat capability (gpt-5 and llama3)
         self::assertGreaterThan(0, $models->count());
 
         // Verify we got the expected models by UID
         $uids = array_map(fn($m) => $m->getUid(), $models->toArray());
-        self::assertContains(1, $uids, 'Should find gpt-4o (uid=1) with chat capability');
+        self::assertContains(1, $uids, 'Should find gpt-5 (uid=1) with chat capability');
         self::assertContains(3, $uids, 'Should find llama3 (uid=3) with chat capability');
 
         // All returned models should be active
@@ -288,12 +288,12 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
     {
         $models = $this->repository->findVisionModels();
 
-        // Fixtures have 1 active model with vision capability (gpt-4o, uid=1)
+        // Fixtures have 1 active model with vision capability (gpt-5, uid=1)
         self::assertGreaterThan(0, $models->count());
 
         // Verify correct model returned by UID
         $uids = array_map(fn($m) => $m->getUid(), $models->toArray());
-        self::assertContains(1, $uids, 'Should find gpt-4o with vision capability');
+        self::assertContains(1, $uids, 'Should find gpt-5 with vision capability');
     }
 
     // =========================================================================
@@ -311,7 +311,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function isIdentifierUniqueReturnsFalseForExistingIdentifier(): void
     {
-        $result = $this->repository->isIdentifierUnique('gpt-4o');
+        $result = $this->repository->isIdentifierUnique('gpt-5');
 
         self::assertFalse($result);
     }
@@ -319,10 +319,10 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function isIdentifierUniqueExcludesOwnRecord(): void
     {
-        $model = $this->repository->findOneByIdentifier('gpt-4o');
+        $model = $this->repository->findOneByIdentifier('gpt-5');
         self::assertNotNull($model);
 
-        $result = $this->repository->isIdentifierUnique('gpt-4o', $model->getUid());
+        $result = $this->repository->isIdentifierUnique('gpt-5', $model->getUid());
 
         self::assertTrue($result);
     }

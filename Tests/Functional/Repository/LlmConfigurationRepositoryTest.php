@@ -47,7 +47,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->findAll();
 
-        self::assertCount(6, $result);
+        self::assertCount(7, $result);
     }
 
     #[Test]
@@ -59,7 +59,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         self::assertEquals('default-config', $result->getIdentifier());
         self::assertEquals('Default Configuration', $result->getName());
         self::assertNotNull($result->getLlmModel());
-        self::assertEquals('gpt-4o', $result->getModelId());
+        self::assertEquals('gpt-5', $result->getModelId());
     }
 
     #[Test]
@@ -75,7 +75,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->findActive();
 
-        self::assertCount(5, $result);
+        self::assertCount(6, $result);
 
         foreach ($result as $config) {
             self::assertTrue($config->isActive());
@@ -232,7 +232,7 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         self::assertEquals(0.50, $chatOptions->getFrequencyPenalty());
         self::assertEquals(0.50, $chatOptions->getPresencePenalty());
         // creative-config uses model_uid=3 which is llama3 from the fixtures
-        self::assertEquals('llama3:latest', $chatOptions->getModel());
+        self::assertEquals('llama3.3:70b', $chatOptions->getModel());
     }
 
     #[Test]
@@ -250,8 +250,8 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
 
         self::assertEquals(0.30, $options['temperature']);
         self::assertEquals(4000, $options['max_tokens']);
-        // code-review uses model_uid=1 which is gpt-4o from fixtures
-        self::assertEquals('gpt-4o', $options['model']);
+        // code-review uses model_uid=1 which is gpt-5 from fixtures
+        self::assertEquals('gpt-5', $options['model']);
     }
 
     #[Test]

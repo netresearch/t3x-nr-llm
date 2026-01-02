@@ -265,7 +265,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $request = new ServerRequest('POST', '/ajax/nrllm/wizard/generate');
         $request = $request->withHeader('Content-Type', 'application/json');
         $request = $request->withBody(Utils::streamFor(json_encode([
-            'models' => [['modelId' => 'gpt-4o', 'name' => 'GPT-4o']],
+            'models' => [['modelId' => 'gpt-5', 'name' => 'GPT-5']],
         ])));
 
         // Act
@@ -308,7 +308,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
             'apiKey' => 'sk-test',
             'adapterType' => 'openai',
             'models' => [
-                ['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'capabilities' => ['chat']],
+                ['modelId' => 'gpt-5', 'name' => 'GPT-5', 'capabilities' => ['chat']],
             ],
         ])));
 
@@ -372,7 +372,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $request = new ServerRequest('POST', '/ajax/nrllm/wizard/save');
         $request = $request->withHeader('Content-Type', 'application/json');
         $request = $request->withBody(Utils::streamFor(json_encode([
-            'models' => [['modelId' => 'gpt-4o', 'name' => 'GPT-4o', 'selected' => true]],
+            'models' => [['modelId' => 'gpt-5', 'name' => 'GPT-5', 'selected' => true]],
         ])));
 
         // Act
@@ -425,8 +425,8 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
             ],
             'models' => [
                 [
-                    'modelId' => 'gpt-4o',
-                    'name' => 'GPT-4o',
+                    'modelId' => 'gpt-5',
+                    'name' => 'GPT-5',
                     'capabilities' => ['chat', 'vision'],
                     'contextLength' => 128000,
                     'maxOutputTokens' => 16384,
@@ -467,8 +467,8 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
             ],
             'models' => [
                 [
-                    'modelId' => 'gpt-4o-mini',
-                    'name' => 'GPT-4o Mini',
+                    'modelId' => 'o4-mini',
+                    'name' => 'O4 Mini',
                     'capabilities' => ['chat'],
                     'selected' => true,
                 ],
@@ -476,7 +476,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
             'configurations' => [
                 [
                     'name' => 'Fast Chat',
-                    'modelId' => 'gpt-4o-mini',
+                    'modelId' => 'o4-mini',
                     'temperature' => 0.7,
                     'maxTokens' => 1000,
                     'systemPrompt' => 'You are a helpful assistant.',

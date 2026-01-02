@@ -139,13 +139,13 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function toggleActiveReturnsSuccessForInactiveToActive(): void
     {
-        // Arrange: Get model that is currently inactive (uid=2 is inactive per fixture)
-        $model = $this->modelRepository->findByUid(2);
+        // Arrange: Get model that is currently inactive (uid=5 is inactive per fixture)
+        $model = $this->modelRepository->findByUid(5);
         self::assertNotNull($model);
         self::assertFalse($model->isActive());
 
         $request = new ServerRequest('POST', '/ajax/nrllm/model/toggle');
-        $request = $request->withParsedBody(['uid' => 2]);
+        $request = $request->withParsedBody(['uid' => 5]);
 
         // Act
         $response = $this->controller->toggleActiveAction($request);
@@ -159,7 +159,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
 
         // Verify persistence
         $this->persistenceManager->clearState();
-        $reloaded = $this->modelRepository->findByUid(2);
+        $reloaded = $this->modelRepository->findByUid(5);
         self::assertNotNull($reloaded);
         self::assertTrue($reloaded->isActive());
     }
@@ -493,7 +493,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     public function detectLimitsReturnsErrorForMissingProviderUid(): void
     {
         $request = new ServerRequest('POST', '/ajax/nrllm/model/detect-limits');
-        $request = $request->withParsedBody(['modelId' => 'gpt-4o']);
+        $request = $request->withParsedBody(['modelId' => 'gpt-5']);
 
         // Act
         $response = $this->controller->detectLimitsAction($request);
@@ -527,7 +527,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     public function detectLimitsReturnsNotFoundForNonExistentProvider(): void
     {
         $request = new ServerRequest('POST', '/ajax/nrllm/model/detect-limits');
-        $request = $request->withParsedBody(['providerUid' => 999, 'modelId' => 'gpt-4o']);
+        $request = $request->withParsedBody(['providerUid' => 999, 'modelId' => 'gpt-5']);
 
         // Act
         $response = $this->controller->detectLimitsAction($request);
@@ -546,7 +546,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         // Note: Without real API, this will fail with connection error
         // but we verify the controller action flow is correct
         $request = new ServerRequest('POST', '/ajax/nrllm/model/detect-limits');
-        $request = $request->withParsedBody(['providerUid' => 1, 'modelId' => 'gpt-4o']);
+        $request = $request->withParsedBody(['providerUid' => 1, 'modelId' => 'gpt-5']);
 
         // Act
         $response = $this->controller->detectLimitsAction($request);

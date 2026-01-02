@@ -123,7 +123,7 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         $configs = $this->subject->getAccessibleConfigurations();
 
         // Should return all active configurations for admin
-        self::assertCount(5, $configs);
+        self::assertCount(6, $configs);
     }
 
     #[Test]
