@@ -3,7 +3,7 @@
 .. _feature-services:
 
 ================
-Feature Services
+Feature services
 ================
 
 High-level AI services for TYPO3 with prompt engineering and response parsing.
@@ -12,17 +12,22 @@ High-level AI services for TYPO3 with prompt engineering and response parsing.
    :local:
    :depth: 2
 
+.. _feature-services-overview:
+
 Overview
 ========
 
-The Feature Services layer provides domain-specific AI capabilities for TYPO3 extensions.
-Each service wraps the core LlmServiceManager with specialized prompts, response parsing,
+The feature services layer provides domain-specific AI capabilities for TYPO3 extensions.
+Each service wraps the core :php:`LlmServiceManager` with specialized prompts, response parsing,
 and configuration optimized for specific use cases.
+
+.. _feature-services-architecture:
 
 Architecture
 ============
 
 .. code-block:: text
+   :caption: Feature services architecture
 
    ┌─────────────────────────────────────────────────────────┐
    │            Consuming Extensions                          │
@@ -48,34 +53,41 @@ Architecture
    │  (OpenAI, Anthropic, Gemini, etc.)                      │
    └─────────────────────────────────────────────────────────┘
 
-.. _completion-service:
+.. _feature-services-completion:
 
 CompletionService
 =================
 
-**Purpose**: Text generation and completion
+**Purpose**: Text generation and completion.
 
-Use Cases
+.. _feature-services-completion-use-cases:
+
+Use cases
 ---------
 
-- Content generation
-- Rule generation (contexts extension)
-- Content summarization
-- SEO meta generation
+- Content generation.
+- Rule generation (contexts extension).
+- Content summarization.
+- SEO meta generation.
 
-Key Features
+.. _feature-services-completion-features:
+
+Key features
 ------------
 
-- JSON response formatting
-- Markdown generation
-- Factual mode (low creativity)
-- Creative mode (high creativity)
-- System prompt support
+- JSON response formatting.
+- Markdown generation.
+- Factual mode (low creativity).
+- Creative mode (high creativity).
+- System prompt support.
+
+.. _feature-services-completion-example:
 
 Example
 -------
 
 .. code-block:: php
+   :caption: Example: Using CompletionService
 
    use Netresearch\NrLlm\Service\Feature\CompletionService;
 
@@ -90,10 +102,13 @@ Example
 
    echo $completion->text;
 
+.. _feature-services-completion-methods:
+
 Methods
 -------
 
 .. code-block:: php
+   :caption: CompletionService methods
 
    // Standard completion
    $response = $completionService->complete($prompt);
@@ -110,33 +125,40 @@ Methods
    // Creative (high creativity)
    $response = $completionService->completeCreative('Write a haiku about coding');
 
-.. _vision-service:
+.. _feature-services-vision:
 
 VisionService
 =============
 
-**Purpose**: Image analysis and metadata generation
+**Purpose**: Image analysis and metadata generation.
 
-Use Cases
+.. _feature-services-vision-use-cases:
+
+Use cases
 ---------
 
-- Alt text generation (rte-ckeditor-image)
-- SEO title generation
-- Detailed descriptions
-- Custom image analysis
+- Alt text generation (rte-ckeditor-image).
+- SEO title generation.
+- Detailed descriptions.
+- Custom image analysis.
 
-Key Features
+.. _feature-services-vision-features:
+
+Key features
 ------------
 
-- WCAG 2.1 compliant alt text
-- SEO-optimized titles
-- Batch processing
-- Base64 and URL support
+- WCAG 2.1 compliant alt text.
+- SEO-optimized titles.
+- Batch processing.
+- Base64 and URL support.
+
+.. _feature-services-vision-example:
 
 Example
 -------
 
 .. code-block:: php
+   :caption: Example: Using VisionService
 
    use Netresearch\NrLlm\Service\Feature\VisionService;
 
@@ -151,10 +173,13 @@ Example
        'https://example.com/img2.jpg',
    ]);
 
+.. _feature-services-vision-methods:
+
 Methods
 -------
 
 .. code-block:: php
+   :caption: VisionService methods
 
    // Generate WCAG-compliant alt text
    $altText = $visionService->generateAltText('https://example.com/image.jpg');
@@ -171,33 +196,40 @@ Methods
        'What colors are prominent in this image?'
    );
 
-.. _embedding-service:
+.. _feature-services-embedding:
 
 EmbeddingService
 ================
 
-**Purpose**: Text-to-vector conversion and similarity search
+**Purpose**: Text-to-vector conversion and similarity search.
 
-Use Cases
+.. _feature-services-embedding-use-cases:
+
+Use cases
 ---------
 
-- Semantic translation memory (textdb)
-- Content similarity
-- Duplicate detection
-- Semantic search
+- Semantic translation memory (textdb).
+- Content similarity.
+- Duplicate detection.
+- Semantic search.
 
-Key Features
+.. _feature-services-embedding-features:
+
+Key features
 ------------
 
-- Aggressive caching (deterministic)
-- Batch processing
-- Cosine similarity calculations
-- Top-K similarity search
+- Aggressive caching (deterministic).
+- Batch processing.
+- Cosine similarity calculations.
+- Top-K similarity search.
+
+.. _feature-services-embedding-example:
 
 Example
 -------
 
 .. code-block:: php
+   :caption: Example: Using EmbeddingService
 
    use Netresearch\NrLlm\Service\Feature\EmbeddingService;
 
@@ -211,10 +243,13 @@ Example
        topK: 5
    );
 
+.. _feature-services-embedding-methods:
+
 Methods
 -------
 
 .. code-block:: php
+   :caption: EmbeddingService methods
 
    // Generate embedding (cached automatically)
    $vector = $embeddingService->embed('Some text');
@@ -238,33 +273,40 @@ Methods
    // Normalize a vector
    $normalized = $embeddingService->normalize($vector);
 
-.. _translation-service:
+.. _feature-services-translation:
 
 TranslationService
 ==================
 
-**Purpose**: Language translation with quality control
+**Purpose**: Language translation with quality control.
 
-Use Cases
+.. _feature-services-translation-use-cases:
+
+Use cases
 ---------
 
-- Translation suggestions (textdb)
-- Content localization
-- Glossary-aware translation
+- Translation suggestions (textdb).
+- Content localization.
+- Glossary-aware translation.
 
-Key Features
+.. _feature-services-translation-features:
+
+Key features
 ------------
 
-- Language detection
-- Glossary support
-- Formality levels
-- Domain specialization
-- Quality scoring
+- Language detection.
+- Glossary support.
+- Formality levels.
+- Domain specialization.
+- Quality scoring.
+
+.. _feature-services-translation-example:
 
 Example
 -------
 
 .. code-block:: php
+   :caption: Example: Using TranslationService
 
    use Netresearch\NrLlm\Service\Feature\TranslationService;
 
@@ -281,10 +323,13 @@ Example
    echo $result->translation;
    echo $result->confidence;
 
+.. _feature-services-translation-methods:
+
 Methods
 -------
 
 .. code-block:: php
+   :caption: TranslationService methods
 
    // Basic translation
    $result = $translationService->translate('Hello, world!', 'de');
@@ -319,27 +364,32 @@ Methods
    // Quality scoring
    $score = $translationService->scoreTranslationQuality($source, $translation, 'de');
 
-.. _prompt-template-service:
+.. _feature-services-prompt-template:
 
 PromptTemplateService
 =====================
 
-**Purpose**: Centralized prompt management
+**Purpose**: Centralized prompt management.
 
-Key Features
+.. _feature-services-prompt-template-features:
+
+Key features
 ------------
 
-- Database-driven templates
-- Variable substitution
-- Conditional rendering
-- Version control
-- A/B testing
-- Performance tracking
+- Database-driven templates.
+- Variable substitution.
+- Conditional rendering.
+- Version control.
+- A/B testing.
+- Performance tracking.
+
+.. _feature-services-prompt-template-example:
 
 Example
 -------
 
 .. code-block:: php
+   :caption: Example: Using PromptTemplateService
 
    use Netresearch\NrLlm\Service\PromptTemplateService;
 
@@ -362,12 +412,15 @@ Example
 Installation
 ============
 
-Dependency Injection
+.. _feature-services-di:
+
+Dependency injection
 --------------------
 
 Add to your extension's :file:`Configuration/Services.yaml`:
 
 .. code-block:: yaml
+   :caption: Configuration/Services.yaml
 
    services:
      Your\Extension\Service\YourService:
@@ -378,10 +431,13 @@ Add to your extension's :file:`Configuration/Services.yaml`:
          $completionService: '@Netresearch\NrLlm\Service\Feature\CompletionService'
          $embeddingService: '@Netresearch\NrLlm\Service\Feature\EmbeddingService'
 
-Usage in Your Extension
+.. _feature-services-usage:
+
+Usage in your extension
 -----------------------
 
 .. code-block:: php
+   :caption: Example: Using feature services in your extension
 
    <?php
 
@@ -405,48 +461,59 @@ Usage in Your Extension
        }
    }
 
-.. _default-prompts:
+.. _feature-services-default-prompts:
 
-Default Prompts
+Default prompts
 ===============
 
 The extension includes 10 default prompts optimized for common use cases:
 
+.. _feature-services-prompts-vision:
+
 Vision
 ------
 
-- ``vision.alt_text`` - WCAG 2.1 compliant alt text
-- ``vision.seo_title`` - SEO-optimized titles
-- ``vision.description`` - Detailed descriptions
+- ``vision.alt_text`` - WCAG 2.1 compliant alt text.
+- ``vision.seo_title`` - SEO-optimized titles.
+- ``vision.description`` - Detailed descriptions.
+
+.. _feature-services-prompts-translation:
 
 Translation
 -----------
 
-- ``translation.general`` - General purpose translation
-- ``translation.technical`` - Technical documentation
-- ``translation.marketing`` - Marketing copy
+- ``translation.general`` - General purpose translation.
+- ``translation.technical`` - Technical documentation.
+- ``translation.marketing`` - Marketing copy.
+
+.. _feature-services-prompts-completion:
 
 Completion
 ----------
 
-- ``completion.rule_generation`` - TYPO3 contexts rules
-- ``completion.content_summary`` - Content summarization
-- ``completion.seo_meta`` - SEO meta descriptions
+- ``completion.rule_generation`` - TYPO3 contexts rules.
+- ``completion.content_summary`` - Content summarization.
+- ``completion.seo_meta`` - SEO meta descriptions.
+
+.. _feature-services-prompts-embedding:
 
 Embedding
 ---------
 
-- ``embedding.semantic_search`` - Semantic search configuration
+- ``embedding.semantic_search`` - Semantic search configuration.
 
 .. _feature-services-testing:
 
 Testing
 =======
 
-Unit Tests
+.. _feature-services-testing-unit:
+
+Unit tests
 ----------
 
 .. code-block:: bash
+   :caption: Run feature service tests
 
    # Run all tests
    vendor/bin/phpunit Tests/Unit/
@@ -454,10 +521,13 @@ Unit Tests
    # Run specific service tests
    vendor/bin/phpunit Tests/Unit/Service/Feature/CompletionServiceTest.php
 
-Mocking Services
+.. _feature-services-testing-mocking:
+
+Mocking services
 ----------------
 
 .. code-block:: php
+   :caption: Example: Mocking feature services in tests
 
    use Netresearch\NrLlm\Service\Feature\VisionService;
    use PHPUnit\Framework\TestCase;
@@ -477,25 +547,30 @@ Mocking Services
        }
    }
 
-.. _performance:
+.. _feature-services-performance:
 
 Performance
 ===========
 
+.. _feature-services-caching:
+
 Caching
 -------
 
-- **Embeddings**: 24h cache (deterministic)
-- **Vision**: Short cache (subjective)
-- **Translation**: Medium cache (context-dependent)
-- **Completion**: Case-by-case basis
+- **Embeddings**: 24h cache (deterministic).
+- **Vision**: Short cache (subjective).
+- **Translation**: Medium cache (context-dependent).
+- **Completion**: Case-by-case basis.
 
-Batch Processing
+.. _feature-services-batch:
+
+Batch processing
 ----------------
 
 Use batch methods for better performance:
 
 .. code-block:: php
+   :caption: Batch processing example
 
    // Good: Single request for multiple images
    $altTexts = $visionService->generateAltText($imageUrls);
@@ -510,12 +585,15 @@ Use batch methods for better performance:
 Configuration
 =============
 
-Custom Prompts
+.. _feature-services-custom-prompts:
+
+Custom prompts
 --------------
 
 Override default prompts via database or configuration:
 
 .. code-block:: sql
+   :caption: Custom prompt template in database
 
    INSERT INTO tx_nrllm_prompts (
        identifier,
@@ -537,12 +615,15 @@ Override default prompts via database or configuration:
        1
    );
 
-Service Options
+.. _feature-services-service-options:
+
+Service options
 ---------------
 
 All services accept configuration options:
 
 .. code-block:: php
+   :caption: Service options example
 
    $result = $completionService->complete(
        prompt: 'Generate text',
@@ -558,15 +639,18 @@ All services accept configuration options:
        ]
    );
 
-.. _extension-integration:
+.. _feature-services-extension-integration:
 
-Extension Integration Examples
+Extension integration examples
 ==============================
+
+.. _feature-services-integration-ckeditor:
 
 rte-ckeditor-image
 ------------------
 
 .. code-block:: php
+   :caption: Example: CKEditor image integration
 
    use Netresearch\NrLlm\Service\Feature\VisionService;
 
@@ -586,10 +670,13 @@ rte-ckeditor-image
        }
    }
 
+.. _feature-services-integration-textdb:
+
 textdb
 ------
 
 .. code-block:: php
+   :caption: Example: textdb translation integration
 
    use Netresearch\NrLlm\Service\Feature\TranslationService;
    use Netresearch\NrLlm\Service\Feature\EmbeddingService;
@@ -610,10 +697,13 @@ textdb
        }
    }
 
+.. _feature-services-integration-contexts:
+
 contexts
 --------
 
 .. code-block:: php
+   :caption: Example: Contexts rule generation
 
    use Netresearch\NrLlm\Service\Feature\CompletionService;
 
@@ -632,12 +722,13 @@ contexts
        }
    }
 
-.. _file-structure:
+.. _feature-services-file-structure:
 
-File Structure
+File structure
 ==============
 
 .. code-block:: text
+   :caption: Feature services file structure
 
    nr-llm/
    ├── Classes/
@@ -679,6 +770,6 @@ File Structure
 Requirements
 ============
 
-- TYPO3 v14.0+ (v14.x)
-- PHP 8.2+
-- nr-llm core extension (LlmServiceManager)
+- TYPO3 v14.0+ (v14.x).
+- PHP 8.2+.
+- nr-llm core extension (:php:`LlmServiceManager`).
