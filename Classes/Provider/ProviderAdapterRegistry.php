@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
+use Netresearch\NrLlm\Domain\Model\AdapterType;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
@@ -28,15 +29,15 @@ class ProviderAdapterRegistry implements SingletonInterface
      * @var array<string, class-string<AbstractProvider>>
      */
     private const array ADAPTER_CLASS_MAP = [
-        Provider::ADAPTER_OPENAI => OpenAiProvider::class,
-        Provider::ADAPTER_ANTHROPIC => ClaudeProvider::class,
-        Provider::ADAPTER_GEMINI => GeminiProvider::class,
-        Provider::ADAPTER_OPENROUTER => OpenRouterProvider::class,
-        Provider::ADAPTER_MISTRAL => MistralProvider::class,
-        Provider::ADAPTER_GROQ => GroqProvider::class,
-        Provider::ADAPTER_OLLAMA => OllamaProvider::class,
-        Provider::ADAPTER_AZURE_OPENAI => OpenAiProvider::class, // Azure uses OpenAI-compatible API
-        Provider::ADAPTER_CUSTOM => OpenAiProvider::class, // Custom assumes OpenAI-compatible API
+        AdapterType::OpenAI->value => OpenAiProvider::class,
+        AdapterType::Anthropic->value => ClaudeProvider::class,
+        AdapterType::Gemini->value => GeminiProvider::class,
+        AdapterType::OpenRouter->value => OpenRouterProvider::class,
+        AdapterType::Mistral->value => MistralProvider::class,
+        AdapterType::Groq->value => GroqProvider::class,
+        AdapterType::Ollama->value => OllamaProvider::class,
+        AdapterType::AzureOpenAI->value => OpenAiProvider::class, // Azure uses OpenAI-compatible API
+        AdapterType::Custom->value => OpenAiProvider::class, // Custom assumes OpenAI-compatible API
     ];
 
     /**
@@ -197,7 +198,7 @@ class ProviderAdapterRegistry implements SingletonInterface
 
         // Override default model with the specific model ID
         $adapter->configure([
-            'apiKey' => $provider->getApiKey(),
+            'apiKey' => $provider->getDecryptedApiKey(),
             'baseUrl' => $provider->getEffectiveEndpointUrl(),
             'defaultModel' => $model->getModelId(),
             'timeout' => $provider->getApiTimeout(),
@@ -245,7 +246,7 @@ class ProviderAdapterRegistry implements SingletonInterface
     private function buildAdapterConfig(Provider $provider): array
     {
         $config = [
-            'apiKey' => $provider->getApiKey(),
+            'apiKey' => $provider->getDecryptedApiKey(),
             'baseUrl' => $provider->getEffectiveEndpointUrl(),
             'timeout' => $provider->getApiTimeout(),
             'maxRetries' => $provider->getMaxRetries(),

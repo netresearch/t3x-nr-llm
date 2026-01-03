@@ -138,17 +138,6 @@ services:
     public: true
 
   # ========================================
-  # Crypto Services
-  # ========================================
-
-  Netresearch\NrLlm\Service\Crypto\ProviderEncryptionServiceInterface:
-    alias: Netresearch\NrLlm\Service\Crypto\ProviderEncryptionService
-
-  Netresearch\NrLlm\Service\Crypto\ProviderEncryptionService:
-    public: true
-    factory: ['Netresearch\NrLlm\Service\Crypto\ProviderEncryptionServiceFactory', 'create']
-
-  # ========================================
   # Translation Registry
   # ========================================
 

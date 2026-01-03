@@ -97,7 +97,7 @@ final class DomainLayerTest
     }
 
     /**
-     * Provider model has special requirements for encryption.
+     * Provider model has special requirements for vault integration.
      *
      * We limit what it can depend on to prevent other dependencies creeping in.
      */
@@ -109,14 +109,14 @@ final class DomainLayerTest
             ->classes(
                 // Other domain models
                 Selector::inNamespace('Netresearch\NrLlm\Domain\Model'),
-                // Encryption service (required for API key handling)
-                Selector::inNamespace('Netresearch\NrLlm\Service\Crypto'),
+                // Vault service (required for API key handling via nr-vault)
+                Selector::inNamespace('Netresearch\NrVault\Service'),
                 // Extbase infrastructure
                 Selector::inNamespace('TYPO3\CMS\Extbase\DomainObject'),
                 Selector::inNamespace('TYPO3\CMS\Extbase\Persistence'),
                 // TYPO3 utility for service instantiation (necessary evil)
                 Selector::classname(GeneralUtility::class),
             )
-            ->because('Provider has limited additional dependencies for API key encryption.');
+            ->because('Provider has limited additional dependencies for vault integration.');
     }
 }

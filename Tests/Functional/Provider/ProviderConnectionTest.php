@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Provider;
 
+use Netresearch\NrLlm\Domain\Model\AdapterType;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -37,7 +38,7 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
         $provider = new Provider();
         $provider->setIdentifier('test-ollama');
         $provider->setName('Test Ollama');
-        $provider->setAdapterType(Provider::ADAPTER_OLLAMA);
+        $provider->setAdapterType(AdapterType::Ollama);
         $provider->setEndpointUrl('http://ollama:11434');
         $provider->setTimeout(5); // 5 second timeout
         $provider->setMaxRetries(1); // No retries for connection tests
@@ -61,7 +62,7 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
         $provider = new Provider();
         $provider->setIdentifier('test-unreachable');
         $provider->setName('Unreachable Provider');
-        $provider->setAdapterType(Provider::ADAPTER_OPENAI); // Use OpenAI, not Ollama (Ollama has fallback)
+        $provider->setAdapterType(AdapterType::OpenAI); // Use OpenAI, not Ollama (Ollama has fallback)
         // Use non-routable IP (RFC 5737) to avoid DNS resolution delays
         $provider->setEndpointUrl('http://192.0.2.1:11434');
         $provider->setApiKey('fake-key'); // Required for OpenAI
@@ -87,7 +88,7 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
         $provider = new Provider();
         $provider->setIdentifier('ollama-default');
         $provider->setName('Ollama Default');
-        $provider->setAdapterType(Provider::ADAPTER_OLLAMA);
+        $provider->setAdapterType(AdapterType::Ollama);
         // Intentionally NOT setting endpointUrl to test default behavior
         $provider->setTimeout(3);
         $provider->setMaxRetries(1); // No retries for connection tests
@@ -117,7 +118,7 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
         $provider = new Provider();
         $provider->setIdentifier('ollama-test');
         $provider->setName('Local Ollama');
-        $provider->setAdapterType(Provider::ADAPTER_OLLAMA);
+        $provider->setAdapterType(AdapterType::Ollama);
         $provider->setEndpointUrl('http://ollama:11434');
         $provider->setTimeout(10);
         $provider->setIsActive(true);

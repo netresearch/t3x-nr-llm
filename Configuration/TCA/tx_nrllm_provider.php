@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrVault\TCA\VaultFieldHelper;
+
 return [
     'ctrl' => [
         'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider',
@@ -121,24 +123,13 @@ return [
                 'placeholder' => 'Leave empty for default endpoint',
             ],
         ],
-        'api_key' => [
-            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.api_key',
-            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.api_key.description',
-            'config' => [
-                'type' => 'password',
+        'api_key' => VaultFieldHelper::getSecureFieldConfig(
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.api_key',
+            [
+                'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.api_key.description',
                 'size' => 50,
-                'max' => 500,
-                // CRITICAL: API keys must be retrievable, not hashed
-                // The value is encrypted at application level by ProviderEncryptionService
-                'hashed' => false,
-                'fieldControl' => [
-                    'passwordGenerator' => [
-                        'renderType' => 'passwordGenerator',
-                        'disabled' => true,
-                    ],
-                ],
             ],
-        ],
+        ),
         'organization_id' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.organization_id',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.organization_id.description',

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider;
 
 use GuzzleHttp\Client as GuzzleClient;
+use GuzzleHttp\HandlerStack;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -107,7 +108,10 @@ abstract class AbstractProvider implements ProviderInterface
 
     /**
      * Get HTTP client configured with the current timeout.
-     * Creates a new client if timeout has changed.
+     *
+     * Uses TYPO3's HTTP configuration as base (proxy, SSL verification, etc.)
+     * but overrides timeout with provider-specific value. This is necessary
+     * because PSR-18 ClientInterface doesn't support per-request options.
      *
      * @return ClientInterface HTTP client with configured timeout
      */
@@ -115,14 +119,63 @@ abstract class AbstractProvider implements ProviderInterface
     {
         // Create new client if timeout changed or not yet created
         if ($this->configuredHttpClient === null || $this->configuredTimeout !== $this->timeout) {
-            $this->configuredHttpClient = new GuzzleClient([
-                'timeout' => $this->timeout,
-                'connect_timeout' => min($this->timeout, 10), // Connection timeout max 10s
-            ]);
+            $this->configuredHttpClient = $this->createHttpClientWithTimeout($this->timeout);
             $this->configuredTimeout = $this->timeout;
         }
 
         return $this->configuredHttpClient;
+    }
+
+    /**
+     * Create an HTTP client using TYPO3's HTTP config with custom timeout.
+     *
+     * This method uses TYPO3's global HTTP configuration ($GLOBALS['TYPO3_CONF_VARS']['HTTP'])
+     * as the base (inheriting proxy settings, SSL verification, etc.) but overrides the
+     * timeout for provider-specific requirements.
+     *
+     * @internal Direct Guzzle usage is required because PSR-18 doesn't support per-request options
+     */
+    private function createHttpClientWithTimeout(int $timeout): ClientInterface
+    {
+        // Start with TYPO3's global HTTP configuration
+        /** @var array<string, mixed> $typo3ConfVars */
+        $typo3ConfVars = $GLOBALS['TYPO3_CONF_VARS'] ?? [];
+        /** @var array<string, mixed> $httpOptions */
+        $httpOptions = is_array($typo3ConfVars['HTTP'] ?? null) ? $typo3ConfVars['HTTP'] : [];
+
+        // Normalize verify option (can be string path or boolean)
+        if (isset($httpOptions['verify'])) {
+            $verifyValue = $httpOptions['verify'];
+            $httpOptions['verify'] = filter_var(
+                $verifyValue,
+                FILTER_VALIDATE_BOOLEAN,
+                FILTER_NULL_ON_FAILURE,
+            ) ?? $verifyValue;
+        }
+
+        // Set up handler stack from TYPO3 config or create new one
+        $handler = $httpOptions['handler'] ?? null;
+        $stack = $handler instanceof HandlerStack ? $handler : HandlerStack::create();
+
+        // Remove allowed_hosts (that's for TYPO3 internal use)
+        unset($httpOptions['allowed_hosts']);
+
+        // Add any configured middleware handlers
+        if (is_array($handler)) {
+            foreach ($handler as $name => $middlewareHandler) {
+                if (is_callable($middlewareHandler)) {
+                    $stack->push($middlewareHandler, (string)$name);
+                }
+            }
+        }
+
+        $httpOptions['handler'] = $stack;
+
+        // Override with provider-specific timeout
+        $httpOptions['timeout'] = $timeout;
+        $httpOptions['connect_timeout'] = min($timeout, 10);
+
+        return new GuzzleClient($httpOptions);
     }
 
     /**

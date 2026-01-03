@@ -21,6 +21,12 @@
         }
     ],
     "homepage": "https://github.com/netresearch/t3x-nr-llm",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../nr-vault"
+        }
+    ],
     "support": {
         "issues": "https://github.com/netresearch/t3x-nr-llm/issues",
         "source": "https://github.com/netresearch/t3x-nr-llm"
@@ -28,6 +34,7 @@
     "require": {
         "php": "^8.5",
         "typo3/cms-core": "^14.0",
+        "netresearch/nr-vault": "@dev",
         "psr/http-client": "^1.0",
         "psr/http-factory": "^1.0",
         "psr/log": "^2.0 || ^3.0"

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
-use Netresearch\NrLlm\Service\Crypto\ProviderEncryptionService;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use Throwable;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
@@ -18,17 +18,6 @@ use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
  */
 class Provider extends AbstractEntity
 {
-    /** Supported adapter types. */
-    public const ADAPTER_OPENAI = 'openai';
-    public const ADAPTER_ANTHROPIC = 'anthropic';
-    public const ADAPTER_GEMINI = 'gemini';
-    public const ADAPTER_OPENROUTER = 'openrouter';
-    public const ADAPTER_MISTRAL = 'mistral';
-    public const ADAPTER_GROQ = 'groq';
-    public const ADAPTER_OLLAMA = 'ollama';
-    public const ADAPTER_AZURE_OPENAI = 'azure_openai';
-    public const ADAPTER_CUSTOM = 'custom';
-
     protected string $identifier = '';
     protected string $name = '';
     protected string $description = '';
@@ -82,6 +71,16 @@ class Provider extends AbstractEntity
         return $this->adapterType;
     }
 
+    /**
+     * Get the adapter type as enum.
+     *
+     * @return AdapterType|null Null if stored value doesn't match any enum case
+     */
+    public function getAdapterTypeEnum(): ?AdapterType
+    {
+        return AdapterType::tryFrom($this->adapterType);
+    }
+
     public function getEndpointUrl(): string
     {
         return $this->endpointUrl;
@@ -98,8 +97,8 @@ class Provider extends AbstractEntity
     /**
      * Get the decrypted API key for use in API calls.
      *
-     * This method decrypts the stored API key using the ProviderEncryptionService.
-     * The value is decrypted on-demand and not cached to minimize exposure.
+     * This method retrieves the API key from nr-vault using the stored identifier.
+     * The value is retrieved on-demand and not cached to minimize exposure.
      */
     public function getDecryptedApiKey(): string
     {
@@ -108,11 +107,12 @@ class Provider extends AbstractEntity
         }
 
         try {
-            $encryptionService = GeneralUtility::makeInstance(ProviderEncryptionService::class);
-            return $encryptionService->decrypt($this->apiKey);
+            // apiKey contains a vault identifier (e.g., "tx_nrllm_provider__api_key__123")
+            $vault = GeneralUtility::makeInstance(VaultServiceInterface::class);
+            return $vault->retrieve($this->apiKey) ?? '';
         } catch (Throwable) {
-            // If decryption fails, return the raw value (may be stored unencrypted)
-            return $this->apiKey;
+            // If retrieval fails, return empty string
+            return '';
         }
     }
 
@@ -224,9 +224,11 @@ class Provider extends AbstractEntity
         $this->description = $description;
     }
 
-    public function setAdapterType(string $adapterType): void
+    public function setAdapterType(string|AdapterType $adapterType): void
     {
-        $this->adapterType = $adapterType;
+        $this->adapterType = $adapterType instanceof AdapterType
+            ? $adapterType->value
+            : $adapterType;
     }
 
     public function setEndpointUrl(string $endpointUrl): void
@@ -235,31 +237,14 @@ class Provider extends AbstractEntity
     }
 
     /**
-     * Set the API key (will be encrypted before storage).
+     * Set the API key vault identifier.
      *
-     * If the value is already encrypted (starts with 'enc:'), it's stored as-is.
-     * Otherwise, it's encrypted using the ProviderEncryptionService.
+     * The actual secret storage is handled by nr-vault's TCA form element.
+     * This method stores the vault identifier that references the encrypted secret.
      */
     public function setApiKey(string $apiKey): void
     {
-        if ($apiKey === '') {
-            $this->apiKey = '';
-            return;
-        }
-
-        try {
-            $encryptionService = GeneralUtility::makeInstance(ProviderEncryptionService::class);
-
-            // Only encrypt if not already encrypted
-            if (!$encryptionService->isEncrypted($apiKey)) {
-                $this->apiKey = $encryptionService->encrypt($apiKey);
-            } else {
-                $this->apiKey = $apiKey;
-            }
-        } catch (Throwable) {
-            // If encryption fails, store as plaintext (fallback)
-            $this->apiKey = $apiKey;
-        }
+        $this->apiKey = $apiKey;
     }
 
     public function setOrganizationId(string $organizationId): void
@@ -330,18 +315,13 @@ class Provider extends AbstractEntity
     /**
      * Get the default endpoint URL for the adapter type.
      */
-    public static function getDefaultEndpointForAdapter(string $adapterType): string
+    public static function getDefaultEndpointForAdapter(string|AdapterType $adapterType): string
     {
-        return match ($adapterType) {
-            self::ADAPTER_OPENAI => 'https://api.openai.com/v1',
-            self::ADAPTER_ANTHROPIC => 'https://api.anthropic.com/v1',
-            self::ADAPTER_GEMINI => 'https://generativelanguage.googleapis.com/v1beta',
-            self::ADAPTER_OPENROUTER => 'https://openrouter.ai/api/v1',
-            self::ADAPTER_MISTRAL => 'https://api.mistral.ai/v1',
-            self::ADAPTER_GROQ => 'https://api.groq.com/openai/v1',
-            self::ADAPTER_OLLAMA => 'http://localhost:11434/api',
-            default => '',
-        };
+        $type = $adapterType instanceof AdapterType
+            ? $adapterType
+            : AdapterType::tryFrom($adapterType);
+
+        return $type?->defaultEndpoint() ?? '';
     }
 
     /**
@@ -380,17 +360,7 @@ class Provider extends AbstractEntity
      */
     public static function getAdapterTypes(): array
     {
-        return [
-            self::ADAPTER_OPENAI => 'OpenAI',
-            self::ADAPTER_ANTHROPIC => 'Anthropic (Claude)',
-            self::ADAPTER_GEMINI => 'Google Gemini',
-            self::ADAPTER_OPENROUTER => 'OpenRouter',
-            self::ADAPTER_MISTRAL => 'Mistral AI',
-            self::ADAPTER_GROQ => 'Groq',
-            self::ADAPTER_OLLAMA => 'Ollama (Local)',
-            self::ADAPTER_AZURE_OPENAI => 'Azure OpenAI',
-            self::ADAPTER_CUSTOM => 'Custom (OpenAI-compatible)',
-        ];
+        return AdapterType::toSelectArray();
     }
 
     /**
@@ -398,8 +368,7 @@ class Provider extends AbstractEntity
      */
     public function getAdapterName(): string
     {
-        $types = self::getAdapterTypes();
-        return $types[$this->adapterType] ?? $this->adapterType;
+        return $this->getAdapterTypeEnum()?->label() ?? $this->adapterType;
     }
 
     /**

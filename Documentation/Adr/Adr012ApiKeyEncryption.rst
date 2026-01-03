@@ -6,9 +6,17 @@
 ADR-012: API key encryption at application level
 ==================================================
 
-:Status: Accepted
+:Status: Superseded
 :Date: 2024-12-27
+:Superseded: 2025-01 by nr-vault integration
 :Authors: Netresearch DTT GmbH
+
+.. note::
+
+   This ADR documents the original encryption approach which has been replaced.
+   API keys are now stored using the :composer:`netresearch/nr-vault` extension
+   which provides enterprise-grade secrets management with envelope encryption,
+   audit logging, and access control.
 
 .. _adr-012-context:
 
