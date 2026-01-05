@@ -1,0 +1,84 @@
+# GrumPHP Configuration
+# https://github.com/phpro/grumphp
+#
+# Install hooks: .Build/bin/grumphp git:init
+# Run manually: .Build/bin/grumphp run
+
+grumphp:
+    hooks_dir: ~
+    hooks_preset: local
+    stop_on_failure: true
+    ignore_unstaged_changes: false
+    hide_circumvention_tip: false
+    process_timeout: 120
+
+    # Only check files in these paths
+    git_hook_variables:
+        EXEC_GRUMPHP_COMMAND: '.Build/bin/grumphp'
+
+    tasks:
+        # PHP Syntax Check
+        phplint:
+            triggered_by: [php]
+            exclude: ['.Build/']
+
+        # PHP-CS-Fixer (coding standards)
+        phpcsfixer:
+            config: .php-cs-fixer.dist.php
+            triggered_by: [php]
+            diff: true
+
+        # PHPStan (static analysis)
+        phpstan:
+            configuration: Build/phpstan/phpstan.neon
+            triggered_by: [php]
+            memory_limit: '-1'
+
+        # Detect secrets in commits (security)
+        securitychecker_enlightn:
+            lockfile: composer.lock
+            run_always: true
+
+        # Git commit message format
+        git_commit_message:
+            allow_empty_message: false
+            enforce_capitalized_subject: false
+            enforce_no_subject_punctuations: false
+            enforce_no_subject_trailing_period: true
+            enforce_single_lined_subject: true
+            max_body_width: 0
+            max_subject_width: 100
+            matchers:
+                # Conventional commits pattern
+                - '/^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security)(\(.+\))?!?:\s.+/'
+            case_insensitive: true
+
+        # File size limit
+        file_size:
+            max_size: 2M
+            ignore_patterns: []
+
+        # Composer validation
+        composer:
+            file: composer.json
+            no_check_all: true
+            no_check_lock: false
+            no_check_publish: true
+            no_local_repository: false
+            with_dependencies: false
+            strict: false
+
+    # Testsuites for manual runs
+    testsuites:
+        git_pre_commit:
+            tasks:
+                - phplint
+                - phpcsfixer
+                - phpstan
+                - securitychecker_enlightn
+                - file_size
+                - composer
+
+        git_commit_msg:
+            tasks:
+                - git_commit_message
