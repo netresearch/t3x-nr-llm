@@ -1,8 +1,8 @@
 {
     "name": "netresearch/nr-llm",
-    "type": "typo3-cms-extension",
     "description": "TYPO3 extension providing unified AI/LLM provider abstraction layer for TYPO3 projects - by Netresearch",
     "license": "GPL-2.0-or-later",
+    "type": "typo3-cms-extension",
     "keywords": [
         "TYPO3",
         "extension",
@@ -21,38 +21,40 @@
         }
     ],
     "homepage": "https://github.com/netresearch/t3x-nr-llm",
-    "repositories": [
-        {
-            "type": "path",
-            "url": "../nr-vault"
-        }
-    ],
     "support": {
         "issues": "https://github.com/netresearch/t3x-nr-llm/issues",
         "source": "https://github.com/netresearch/t3x-nr-llm"
     },
     "require": {
         "php": "^8.5",
-        "typo3/cms-core": "^14.0",
         "netresearch/nr-vault": "@dev",
         "psr/http-client": "^1.0",
         "psr/http-factory": "^1.0",
-        "psr/log": "^2.0 || ^3.0"
+        "psr/log": "^2.0 || ^3.0",
+        "typo3/cms-core": "^14.0"
     },
     "require-dev": {
         "a9f/typo3-fractor": "^0.5.8",
+        "enlightn/security-checker": "^2.0",
+        "ergebnis/composer-normalize": "^2.0",
         "fakerphp/faker": "^1.24",
         "friendsofphp/php-cs-fixer": "^3.0",
         "giorgiosironi/eris": "^1.0",
-        "phpro/grumphp": "^2.0",
         "infection/infection": "^0.32",
         "phpat/phpat": "^0.12",
+        "phpro/grumphp": "^2.0",
         "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^12.0",
         "rector/rector": "^2.0",
         "ssch/typo3-rector": "^3.0",
         "typo3/testing-framework": "^9.0"
     },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../nr-vault"
+        }
+    ],
     "autoload": {
         "psr-4": {
             "Netresearch\\NrLlm\\": "Classes/"
@@ -64,16 +66,17 @@
         }
     },
     "config": {
-        "vendor-dir": ".Build/vendor",
+        "allow-plugins": {
+            "a9f/fractor-extension-installer": true,
+            "ergebnis/composer-normalize": true,
+            "infection/extension-installer": true,
+            "phpro/grumphp": true,
+            "typo3/class-alias-loader": true,
+            "typo3/cms-composer-installers": true
+        },
         "bin-dir": ".Build/bin",
         "sort-packages": true,
-        "allow-plugins": {
-            "typo3/cms-composer-installers": true,
-            "typo3/class-alias-loader": true,
-            "infection/extension-installer": true,
-            "a9f/fractor-extension-installer": true,
-            "phpro/grumphp": true
-        }
+        "vendor-dir": ".Build/vendor"
     },
     "extra": {
         "typo3/cms": {
@@ -82,22 +85,6 @@
         }
     },
     "scripts": {
-        "test": "phpunit -c phpunit.xml",
-        "test:unit": "phpunit -c phpunit.xml --testsuite unit",
-        "test:integration": "phpunit -c phpunit.xml --testsuite integration",
-        "test:functional": "phpunit -c Build/FunctionalTests.xml",
-        "test:fuzzy": "phpunit -c phpunit.xml --testsuite fuzzy",
-        "test:e2e": "npm run test:e2e",
-        "test:mutation": "infection --configuration=infection.json.dist --threads=4 -s --no-progress",
-        "test:mutation:ci": "infection --configuration=infection.json.dist --threads=4 --logger-github --no-progress",
-        "lint": "php-cs-fixer fix --dry-run --diff",
-        "lint:fix": "php-cs-fixer fix",
-        "phpstan": "phpstan analyse -c Build/phpstan/phpstan.neon",
-        "phpstan:baseline": "phpstan analyse -c Build/phpstan/phpstan.neon --generate-baseline Build/phpstan/phpstan-baseline.neon",
-        "rector": "rector process --config Build/rector/rector.php",
-        "rector:dry": "rector process --config Build/rector/rector.php --dry-run",
-        "fractor": "fractor process --config Build/fractor/fractor.php",
-        "fractor:dry": "fractor process --config Build/fractor/fractor.php --dry-run",
         "ci": [
             "@lint",
             "@phpstan",
@@ -109,8 +96,24 @@
             "@ci",
             "@test:functional"
         ],
+        "ddev:ci:full": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer ci:full'",
         "ddev:test": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer test'",
         "ddev:test:functional": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer test:functional'",
-        "ddev:ci:full": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer ci:full'"
+        "fractor": "fractor process --config Build/fractor/fractor.php",
+        "fractor:dry": "fractor process --config Build/fractor/fractor.php --dry-run",
+        "lint": "php-cs-fixer fix --dry-run --diff",
+        "lint:fix": "php-cs-fixer fix",
+        "phpstan": "phpstan analyse -c Build/phpstan/phpstan.neon",
+        "phpstan:baseline": "phpstan analyse -c Build/phpstan/phpstan.neon --generate-baseline Build/phpstan/phpstan-baseline.neon",
+        "rector": "rector process --config Build/rector/rector.php",
+        "rector:dry": "rector process --config Build/rector/rector.php --dry-run",
+        "test": "phpunit -c phpunit.xml",
+        "test:e2e": "npm run test:e2e",
+        "test:functional": "phpunit -c Build/FunctionalTests.xml",
+        "test:fuzzy": "phpunit -c phpunit.xml --testsuite fuzzy",
+        "test:integration": "phpunit -c phpunit.xml --testsuite integration",
+        "test:mutation": "infection --configuration=infection.json.dist --threads=4 -s --no-progress",
+        "test:mutation:ci": "infection --configuration=infection.json.dist --threads=4 --logger-github --no-progress",
+        "test:unit": "phpunit -c phpunit.xml --testsuite unit"
     }
 }

@@ -54,6 +54,16 @@ grumphp:
             with_dependencies: false
             strict: false
 
+        # Composer normalize (consistent formatting)
+        composer_normalize:
+            indent_size: 4
+            indent_style: space
+
+        # Security vulnerability scanning
+        securitychecker_enlightn:
+            lockfile: composer.lock
+            run_always: true
+
     # Testsuites for manual runs
     testsuites:
         git_pre_commit:
@@ -62,6 +72,8 @@ grumphp:
                 - phpstan
                 - file_size
                 - composer
+                - composer_normalize
+                - securitychecker_enlightn
 
         git_commit_msg:
             tasks:
