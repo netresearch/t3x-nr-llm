@@ -42,6 +42,39 @@ return [
             'llmModel' => [
                 'fieldName' => 'model_uid',
             ],
+            'systemPrompt' => [
+                'fieldName' => 'system_prompt',
+            ],
+            'maxTokens' => [
+                'fieldName' => 'max_tokens',
+            ],
+            'topP' => [
+                'fieldName' => 'top_p',
+            ],
+            'frequencyPenalty' => [
+                'fieldName' => 'frequency_penalty',
+            ],
+            'presencePenalty' => [
+                'fieldName' => 'presence_penalty',
+            ],
+            'maxRequestsPerDay' => [
+                'fieldName' => 'max_requests_per_day',
+            ],
+            'maxTokensPerDay' => [
+                'fieldName' => 'max_tokens_per_day',
+            ],
+            'maxCostPerDay' => [
+                'fieldName' => 'max_cost_per_day',
+            ],
+            'isActive' => [
+                'fieldName' => 'is_active',
+            ],
+            'isDefault' => [
+                'fieldName' => 'is_default',
+            ],
+            'allowedGroups' => [
+                'fieldName' => 'allowed_groups',
+            ],
         ],
     ],
     Task::class => [

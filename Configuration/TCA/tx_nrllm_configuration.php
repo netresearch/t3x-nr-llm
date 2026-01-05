@@ -183,6 +183,7 @@ return [
                 'rows' => 8,
                 'eval' => 'trim',
                 'enableRichtext' => false,
+                'searchable' => false,
             ],
         ],
         'temperature' => [
@@ -277,6 +278,7 @@ return [
                 'rows' => 5,
                 'eval' => 'trim',
                 'placeholder' => '{"stop_sequences": ["\\n\\n"]}',
+                'searchable' => false,
             ],
         ],
         'max_requests_per_day' => [
