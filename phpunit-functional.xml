@@ -19,6 +19,9 @@
         <testsuite name="functional">
             <directory>Tests/Functional</directory>
         </testsuite>
+        <testsuite name="e2e-backend">
+            <directory>Tests/E2E/Backend</directory>
+        </testsuite>
     </testsuites>
 
     <source>

@@ -224,11 +224,17 @@ class Provider extends AbstractEntity
         $this->description = $description;
     }
 
-    public function setAdapterType(string|AdapterType $adapterType): void
+    public function setAdapterType(string $adapterType): void
     {
-        $this->adapterType = $adapterType instanceof AdapterType
-            ? $adapterType->value
-            : $adapterType;
+        $this->adapterType = $adapterType;
+    }
+
+    /**
+     * Set the adapter type from an AdapterType enum.
+     */
+    public function setAdapterTypeEnum(AdapterType $adapterType): void
+    {
+        $this->adapterType = $adapterType->value;
     }
 
     public function setEndpointUrl(string $endpointUrl): void

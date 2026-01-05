@@ -34,6 +34,7 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
      * @var non-empty-string[]
      */
     protected array $testExtensionsToLoad = [
+        'netresearch/nr-vault',
         'netresearch/nr-llm',
     ];
 

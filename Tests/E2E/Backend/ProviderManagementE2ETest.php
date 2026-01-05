@@ -281,23 +281,24 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway2_4_editProviderApiKey(): void
+    public function pathway2_4_editProviderApiKeyIdentifier(): void
     {
         $provider = $this->providerRepository->findByUid(1);
         self::assertNotNull($provider);
 
         $originalKey = $provider->getApiKey();
 
-        // User updates API key
-        $provider->setApiKey('new-api-key-12345');
+        // User updates API key identifier (vault reference)
+        // With nr-vault integration, this field stores a vault identifier, not the actual key
+        $newVaultIdentifier = 'tx_nrllm_provider__api_key__new_test';
+        $provider->setApiKey($newVaultIdentifier);
         $this->providerRepository->update($provider);
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        // Verify key updated (API key is encrypted in DB)
+        // Verify the vault identifier is stored correctly
         $reloaded = $this->providerRepository->findByUid(1);
-        // The decrypted key should match what we set
-        self::assertSame('new-api-key-12345', $reloaded->getDecryptedApiKey());
+        self::assertSame($newVaultIdentifier, $reloaded->getApiKey());
 
         // Restore
         $reloaded->setApiKey($originalKey);

@@ -22,11 +22,9 @@
         <testsuite name="integration">
             <directory>Tests/Integration</directory>
         </testsuite>
-        <testsuite name="functional">
-            <directory>Tests/Functional</directory>
-        </testsuite>
         <testsuite name="e2e">
             <directory>Tests/E2E</directory>
+            <exclude>Tests/E2E/Backend</exclude>
         </testsuite>
         <testsuite name="fuzzy">
             <directory>Tests/Fuzzy</directory>
