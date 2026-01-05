@@ -44,7 +44,7 @@
         "fakerphp/faker": "^1.24",
         "friendsofphp/php-cs-fixer": "^3.0",
         "giorgiosironi/eris": "^1.0",
-        "grumphp/grumphp": "^2.0",
+        "phpro/grumphp": "^2.0",
         "infection/infection": "^0.32",
         "phpat/phpat": "^0.12",
         "phpstan/phpstan": "^2.0",
@@ -72,7 +72,7 @@
             "typo3/class-alias-loader": true,
             "infection/extension-installer": true,
             "a9f/fractor-extension-installer": true,
-            "phpro/grumphp-shim": true
+            "phpro/grumphp": true
         }
     },
     "extra": {

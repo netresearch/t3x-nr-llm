@@ -12,10 +12,6 @@ grumphp:
     hide_circumvention_tip: false
     process_timeout: 120
 
-    # Only check files in these paths
-    git_hook_variables:
-        EXEC_GRUMPHP_COMMAND: '.Build/bin/grumphp'
-
     tasks:
         # PHP Syntax Check
         phplint:
