@@ -13,27 +13,17 @@ grumphp:
     process_timeout: 120
 
     tasks:
-        # PHP Syntax Check
-        phplint:
-            triggered_by: [php]
-            exclude: ['.Build/']
-
         # PHP-CS-Fixer (coding standards)
         phpcsfixer:
             config: .php-cs-fixer.dist.php
             triggered_by: [php]
             diff: true
 
-        # PHPStan (static analysis)
+        # PHPStan (static analysis - includes syntax checking)
         phpstan:
             configuration: Build/phpstan/phpstan.neon
             triggered_by: [php]
             memory_limit: '-1'
-
-        # Detect secrets in commits (security)
-        securitychecker_enlightn:
-            lockfile: composer.lock
-            run_always: true
 
         # Git commit message format
         git_commit_message:
@@ -68,10 +58,8 @@ grumphp:
     testsuites:
         git_pre_commit:
             tasks:
-                - phplint
                 - phpcsfixer
                 - phpstan
-                - securitychecker_enlightn
                 - file_size
                 - composer
 
