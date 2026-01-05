@@ -19,12 +19,30 @@ class SetupWizard {
             configurations: [],
         };
 
+        // Create reusable element for HTML escaping
+        this._escapeEl = document.createElement('div');
+
         // Wait for DOM to be ready before initializing
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => this.init());
         } else {
             this.init();
         }
+    }
+
+    /**
+     * Escape HTML entities to prevent XSS attacks.
+     * External API data (model names, descriptions, etc.) is untrusted content.
+     *
+     * @param {string} text - The text to escape
+     * @returns {string} - HTML-escaped text
+     */
+    escapeHtml(text) {
+        if (typeof text !== 'string') {
+            return '';
+        }
+        this._escapeEl.textContent = text;
+        return this._escapeEl.innerHTML;
     }
 
     init() {
@@ -256,8 +274,9 @@ class SetupWizard {
             }
         } catch (e) {
             document.getElementById('models-loading').style.display = 'none';
+            // SECURITY: Escape error message to prevent XSS
             document.getElementById('models-list').innerHTML =
-                '<div class="alert alert-danger">Failed to discover models: ' + e.message + '</div>';
+                '<div class="alert alert-danger">Failed to discover models: ' + this.escapeHtml(e.message) + '</div>';
         }
     }
 
@@ -266,8 +285,13 @@ class SetupWizard {
         tbody.innerHTML = '';
 
         models.forEach((model, index) => {
+            // SECURITY: Escape all external data to prevent XSS
+            const safeName = this.escapeHtml(model.name);
+            const safeModelId = this.escapeHtml(model.modelId);
+            const safeDescription = model.description ? this.escapeHtml(model.description) : '';
+
             const capabilities = (model.capabilities || ['chat']).map(cap =>
-                `<span class="badge bg-secondary">${cap}</span>`
+                `<span class="badge bg-secondary">${this.escapeHtml(cap)}</span>`
             ).join('');
 
             const contextStr = model.contextLength ?
@@ -280,12 +304,12 @@ class SetupWizard {
                 <td>
                     <input type="checkbox" class="form-check-input model-checkbox"
                            data-index="${index}" ${model.recommended ? 'checked' : ''}
-                           aria-label="Select model ${model.name}">
+                           aria-label="Select model ${safeName}">
                 </td>
                 <td>
-                    <strong>${model.name}</strong>
-                    <div class="small text-muted">${model.modelId}</div>
-                    ${model.description ? `<div class="small text-muted">${model.description}</div>` : ''}
+                    <strong>${safeName}</strong>
+                    <div class="small text-muted">${safeModelId}</div>
+                    ${safeDescription ? `<div class="small text-muted">${safeDescription}</div>` : ''}
                 </td>
                 <td>${contextStr}</td>
                 <td>${capabilities}</td>
@@ -365,8 +389,9 @@ class SetupWizard {
             }
         } catch (e) {
             document.getElementById('configs-loading').style.display = 'none';
+            // SECURITY: Escape error message to prevent XSS
             document.getElementById('configs-list').innerHTML =
-                '<div class="alert alert-danger">Failed to generate configurations: ' + e.message + '</div>';
+                '<div class="alert alert-danger">Failed to generate configurations: ' + this.escapeHtml(e.message) + '</div>';
         }
     }
 
@@ -375,23 +400,30 @@ class SetupWizard {
         container.innerHTML = '';
 
         configurations.forEach((config, index) => {
+            // SECURITY: Escape all external data to prevent XSS
+            const safeName = this.escapeHtml(config.name);
+            const safeDescription = this.escapeHtml(config.description);
+            // temperature and maxTokens are numbers, safe to use directly
+            const safeTemp = parseFloat(config.temperature) || 0;
+            const safeMaxTokens = parseInt(config.maxTokens, 10) || 0;
+
             const col = document.createElement('div');
             col.className = 'col-md-6 mb-3';
             col.innerHTML = `
                 <div class="card config-card selected" data-index="${index}">
                     <div class="card-header">
                         <input type="checkbox" class="form-check-input config-check" checked
-                               aria-label="Select configuration ${config.name}">
-                        <strong>${config.name}</strong>
+                               aria-label="Select configuration ${safeName}">
+                        <strong>${safeName}</strong>
                     </div>
                     <div class="card-body">
-                        <p class="card-text text-muted small">${config.description}</p>
+                        <p class="card-text text-muted small">${safeDescription}</p>
                         <div class="d-flex gap-3 mt-2">
                             <span class="config-temp" title="Temperature">
-                                <span class="badge bg-info">T: ${config.temperature}</span>
+                                <span class="badge bg-info">T: ${safeTemp}</span>
                             </span>
                             <span class="config-tokens" title="Max Tokens">
-                                <span class="badge bg-secondary">${config.maxTokens} tokens</span>
+                                <span class="badge bg-secondary">${safeMaxTokens} tokens</span>
                             </span>
                         </div>
                     </div>
@@ -444,6 +476,11 @@ class SetupWizard {
             endpoint: this.data.endpoint,
         };
 
+        // SECURITY: Escape all external data to prevent XSS
+        const safeProviderName = this.escapeHtml(providerInfo.suggestedName);
+        const safeAdapterType = this.escapeHtml(providerInfo.adapterType);
+        const safeEndpoint = this.escapeHtml(providerInfo.endpoint);
+
         document.getElementById('review-provider').innerHTML = `
             <div class="provider-icon">
                 <span class="icon icon-size-medium">
@@ -455,9 +492,9 @@ class SetupWizard {
                 </span>
             </div>
             <div>
-                <strong>${providerInfo.suggestedName}</strong>
-                <span class="badge bg-secondary ms-2">${providerInfo.adapterType}</span>
-                <div class="small text-muted">${providerInfo.endpoint}</div>
+                <strong>${safeProviderName}</strong>
+                <span class="badge bg-secondary ms-2">${safeAdapterType}</span>
+                <div class="small text-muted">${safeEndpoint}</div>
             </div>
         `;
 
@@ -466,8 +503,8 @@ class SetupWizard {
         const modelsUl = document.getElementById('review-models');
         modelsUl.innerHTML = selectedModels.map(m => `
             <li class="list-group-item">
-                <span class="badge bg-primary">${m.modelId}</span>
-                <span>${m.name}</span>
+                <span class="badge bg-primary">${this.escapeHtml(m.modelId)}</span>
+                <span>${this.escapeHtml(m.name)}</span>
             </li>
         `).join('');
 
@@ -476,8 +513,8 @@ class SetupWizard {
         const configsUl = document.getElementById('review-configs');
         configsUl.innerHTML = selectedConfigs.map(c => `
             <li class="list-group-item">
-                <span class="badge bg-info">${c.identifier}</span>
-                <span>${c.name}</span>
+                <span class="badge bg-info">${this.escapeHtml(c.identifier)}</span>
+                <span>${this.escapeHtml(c.name)}</span>
             </li>
         `).join('');
 

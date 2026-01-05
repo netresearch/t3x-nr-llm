@@ -9,6 +9,9 @@ class TaskExecute {
         this.container = document.querySelector('[data-task-execute]');
         if (!this.container) return;
 
+        // Create reusable element for HTML escaping
+        this._escapeEl = document.createElement('div');
+
         this.taskUid = this.container.dataset.taskUid;
         this.executeUrl = TYPO3.settings.ajaxUrls.nrllm_task_execute;
         this.listTablesUrl = TYPO3.settings.ajaxUrls.nrllm_task_list_tables;
@@ -251,24 +254,29 @@ class TaskExecute {
 
             if (response.success) {
                 // Format output based on format
-                let formattedContent = response.content;
+                // SECURITY: Escape HTML to prevent XSS from untrusted LLM responses
+                const safeContent = this.escapeHtml(response.content);
+                let formattedContent;
                 if (response.outputFormat === 'json') {
                     try {
-                        formattedContent = '<pre>' + JSON.stringify(JSON.parse(response.content), null, 2) + '</pre>';
+                        // Parse and re-stringify to validate JSON, then escape
+                        const formatted = JSON.stringify(JSON.parse(response.content), null, 2);
+                        formattedContent = '<pre>' + this.escapeHtml(formatted) + '</pre>';
                     } catch {
-                        formattedContent = '<pre>' + response.content + '</pre>';
+                        formattedContent = '<pre>' + safeContent + '</pre>';
                     }
                 } else if (response.outputFormat === 'markdown') {
-                    // Basic markdown rendering (could be enhanced)
+                    // Basic markdown rendering with escaped content
+                    // Note: We escape first, then apply safe markdown transformations
                     formattedContent = '<div class="markdown-content">' +
-                        response.content
+                        safeContent
                             .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
                             .replace(/`([^`]+)`/g, '<code>$1</code>')
                             .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
                             .replace(/\n/g, '<br>') +
                         '</div>';
                 } else {
-                    formattedContent = '<pre>' + response.content + '</pre>';
+                    formattedContent = '<pre>' + safeContent + '</pre>';
                 }
 
                 this.outputContent.innerHTML = formattedContent;
@@ -311,6 +319,21 @@ class TaskExecute {
         }).catch(() => {
             Notification.error('Failed', 'Could not copy to clipboard');
         });
+    }
+
+    /**
+     * Escape HTML entities to prevent XSS attacks.
+     * LLM responses are untrusted external content.
+     *
+     * @param {string} text - The text to escape
+     * @returns {string} - HTML-escaped text
+     */
+    escapeHtml(text) {
+        if (typeof text !== 'string') {
+            return '';
+        }
+        this._escapeEl.textContent = text;
+        return this._escapeEl.innerHTML;
     }
 }
 
