@@ -43,22 +43,21 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
-        $provider->configure([
-            'apiKey' => 'sk-test-key',
-            'defaultModel' => 'gpt-4o',
-        ]);
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
-            'providers' => ['openai' => ['apiKey' => 'sk-test']],
+            'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $provider->setHttpClient($httpClient);
         $serviceManager->setDefaultProvider('openai');
 
         $completionService = new CompletionService($serviceManager);
@@ -92,22 +91,21 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
-        $provider->configure([
-            'apiKey' => 'sk-ant-test-key',
-            'defaultModel' => 'claude-sonnet-4-20250514',
-        ]);
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'claude',
-            'providers' => ['claude' => ['apiKey' => 'sk-ant-test']],
+            'providers' => ['claude' => ['apiKeyIdentifier' => 'sk-ant-test']],
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $provider->setHttpClient($httpClient);
         $serviceManager->setDefaultProvider('claude');
 
         $completionService = new CompletionService($serviceManager);
@@ -139,22 +137,21 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($clientSetup['client']);
-        $provider->configure([
-            'apiKey' => 'sk-test-key',
-            'defaultModel' => 'gpt-4o',
-        ]);
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
-            'providers' => ['openai' => ['apiKey' => 'sk-test']],
+            'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $provider->setHttpClient($clientSetup['client']);
         $serviceManager->setDefaultProvider('openai');
 
         // Act: Multi-turn conversation via service manager directly
@@ -197,22 +194,21 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($clientSetup['client']);
-        $provider->configure([
-            'apiKey' => 'sk-test-key',
-            'defaultModel' => 'gpt-4o',
-        ]);
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
-            'providers' => ['openai' => ['apiKey' => 'sk-test']],
+            'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $provider->setHttpClient($clientSetup['client']);
         $serviceManager->setDefaultProvider('openai');
 
         $completionService = new CompletionService($serviceManager);
@@ -252,22 +248,21 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
-        $provider->configure([
-            'apiKey' => 'sk-test-key',
-            'defaultModel' => 'gpt-4o',
-        ]);
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
-            'providers' => ['openai' => ['apiKey' => 'sk-test']],
+            'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $provider->setHttpClient($httpClient);
         $serviceManager->setDefaultProvider('openai');
 
         $completionService = new CompletionService($serviceManager);
@@ -299,22 +294,21 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
-        $provider->configure([
-            'apiKey' => 'sk-test-key',
-            'defaultModel' => 'gpt-4o',
-        ]);
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
-            'providers' => ['openai' => ['apiKey' => 'sk-test']],
+            'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $provider->setHttpClient($httpClient);
         $serviceManager->setDefaultProvider('openai');
 
         $completionService = new CompletionService($serviceManager);
@@ -352,30 +346,24 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $openAiProvider->setHttpClient($openAiClient);
-        $openAiProvider->configure([
-            'apiKey' => 'sk-openai-test',
-            'defaultModel' => 'gpt-4o',
-        ]);
 
         $claudeProvider = new ClaudeProvider(
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $claudeProvider->setHttpClient($claudeClient);
-        $claudeProvider->configure([
-            'apiKey' => 'sk-ant-test',
-            'defaultModel' => 'claude-sonnet-4-20250514',
-        ]);
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
             'providers' => [
-                'openai' => ['apiKey' => 'sk-openai-test'],
-                'claude' => ['apiKey' => 'sk-ant-test'],
+                'openai' => ['apiKeyIdentifier' => 'sk-openai-test'],
+                'claude' => ['apiKeyIdentifier' => 'sk-ant-test'],
             ],
         ]);
 
@@ -383,6 +371,9 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($openAiProvider);
         $serviceManager->registerProvider($claudeProvider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $openAiProvider->setHttpClient($openAiClient);
+        $claudeProvider->setHttpClient($claudeClient);
         $serviceManager->setDefaultProvider('openai');
 
         $completionService = new CompletionService($serviceManager);

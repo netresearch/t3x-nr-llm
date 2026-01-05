@@ -40,15 +40,19 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
 
         $provider->configure([
-            'apiKey' => 'sk-test-' . $this->faker->sha256(),
+            'apiKeyIdentifier' => 'sk-test-' . $this->faker->sha256(),
             'defaultModel' => 'gpt-4o',
             'organizationId' => 'org-test',
             'timeout' => 30,
         ]);
+
+        // setHttpClient must be called AFTER configure() since configure() resets the client
+        $provider->setHttpClient($httpClient);
 
         return $provider;
     }
@@ -287,14 +291,17 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($clientSetup['client']);
 
         $provider->configure([
-            'apiKey' => 'sk-test',
+            'apiKeyIdentifier' => 'sk-test',
             'defaultModel' => 'gpt-4o',
             'timeout' => 30,
         ]);
+
+        $provider->setHttpClient($clientSetup['client']);
 
         $provider->chatCompletion(
             [['role' => 'user', 'content' => 'Hello']],

@@ -23,6 +23,8 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
         $provider->setHttpClient($this->createHttpClientMock());
 
@@ -49,7 +51,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     public function getDefaultModelReturnsDefaultWhenNotConfigured(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         self::assertEquals('claude-sonnet-4-5-20250929', $provider->getDefaultModel());
     }
@@ -59,7 +61,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'defaultModel' => 'claude-opus-4-5-20251124',
         ]);
 
@@ -71,7 +73,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'defaultModel' => '',
         ]);
 
@@ -83,7 +85,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     public function getAvailableModelsReturnsNonEmptyArray(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $models = $provider->getAvailableModels();
 
@@ -193,7 +195,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     public function isAvailableReturnsTrueWhenApiKeySet(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         self::assertTrue($provider->isAvailable());
     }
@@ -202,7 +204,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     public function defaultBaseUrlIsAnthropicApi(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');
@@ -224,7 +226,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     public function embeddingsThrowsUnsupportedFeatureException(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $this->expectException(UnsupportedFeatureException::class);
         $this->expectExceptionMessage('Anthropic Claude does not support embeddings');
@@ -236,7 +238,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     public function getAvailableModelsContainsCorrectModelNames(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $models = $provider->getAvailableModels();
 
@@ -256,7 +258,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'baseUrl' => 'https://custom-api.example.com/v1',
         ]);
 
@@ -280,7 +282,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
     public function getAvailableModelsHasMinimumModels(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $models = $provider->getAvailableModels();
 

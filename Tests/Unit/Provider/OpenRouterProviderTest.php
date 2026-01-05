@@ -33,10 +33,12 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
 
         $this->subject->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'defaultModel' => 'anthropic/claude-3.5-sonnet',
             'siteUrl' => 'https://example.com',
             'appName' => 'Test App',
@@ -129,11 +131,13 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
         $provider->setHttpClient($this->httpClientMock);
 
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'defaultModel' => 'anthropic/claude-3.5-sonnet',
             'routingStrategy' => $strategy,
             'timeout' => 60,

@@ -25,6 +25,11 @@ services:
               source: ../
               target: /var/www/nr_llm
               consistency: cached
+            # nr-vault dependency (path repository)
+            - type: bind
+              source: ../../nr-vault
+              target: /var/www/nr-vault
+              consistency: cached
             # TYPO3 v14 installation volume
             - v14-data:/var/www/html/v14
 volumes:

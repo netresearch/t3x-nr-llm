@@ -38,23 +38,21 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
-        $provider->configure([
-            'apiKey' => 'sk-test-key',
-            'defaultModel' => 'gpt-4o',
-            'embeddingModel' => 'text-embedding-3-small',
-        ]);
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
-            'providers' => ['openai' => ['apiKey' => 'sk-test']],
+            'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $provider->setHttpClient($httpClient);
         $serviceManager->setDefaultProvider('openai');
 
         // Mock cache manager
@@ -81,7 +79,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
-            'providers' => ['openai' => ['apiKey' => 'sk-test']],
+            'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
@@ -158,23 +156,21 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
-        $provider->configure([
-            'apiKey' => 'sk-test-key',
-            'defaultModel' => 'gpt-4o',
-            'embeddingModel' => 'text-embedding-3-small',
-        ]);
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
-            'providers' => ['openai' => ['apiKey' => 'sk-test']],
+            'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $provider->setHttpClient($httpClient);
         $serviceManager->setDefaultProvider('openai');
 
         $cacheManager = self::createStub(CacheManagerInterface::class);
@@ -227,23 +223,21 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
-        $provider->configure([
-            'apiKey' => 'sk-test-key',
-            'defaultModel' => 'gpt-4o',
-            'embeddingModel' => 'text-embedding-3-small',
-        ]);
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'openai',
-            'providers' => ['openai' => ['apiKey' => 'sk-test']],
+            'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
         $serviceManager->registerProvider($provider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $provider->setHttpClient($httpClient);
         $serviceManager->setDefaultProvider('openai');
 
         $cacheManager = self::createStub(CacheManagerInterface::class);

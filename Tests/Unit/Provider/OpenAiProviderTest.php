@@ -35,15 +35,19 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $this->subject->setHttpClient($this->httpClientStub);
 
         $this->subject->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'defaultModel' => 'gpt-4o',
             'baseUrl' => '',
             'timeout' => 30,
         ]);
+
+        // setHttpClient must be called AFTER configure() since configure() resets the client
+        $this->subject->setHttpClient($this->httpClientStub);
     }
 
     /**
@@ -59,15 +63,19 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $subject->setHttpClient($httpClientMock);
 
         $subject->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'defaultModel' => 'gpt-4o',
             'baseUrl' => '',
             'timeout' => 30,
         ]);
+
+        // setHttpClient must be called AFTER configure() since configure() resets the client
+        $subject->setHttpClient($httpClientMock);
 
         return ['subject' => $subject, 'httpClient' => $httpClientMock];
     }
@@ -93,12 +101,14 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     #[Test]
     public function isAvailableReturnsFalseWhenNoApiKey(): void
     {
+        // Use empty secrets array to simulate no API key existing in vault
         $provider = new OpenAiProvider(
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock([]), // Empty = no keys exist
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($this->httpClientStub);
 
         // Without calling configure(), provider has no API key
         self::assertFalse($provider->isAvailable());

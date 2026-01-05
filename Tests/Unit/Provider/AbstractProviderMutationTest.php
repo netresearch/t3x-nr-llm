@@ -14,7 +14,6 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
-use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -43,6 +42,8 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
         $provider->setHttpClient($this->createHttpClientMock());
 
@@ -114,11 +115,13 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
         ]);
+        $provider->setHttpClient($httpClient);
 
         // Use reflection to test sendRequest directly
         $reflection = new ReflectionClass($provider);
@@ -154,11 +157,13 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
         ]);
+        $provider->setHttpClient($httpClient);
 
         $this->expectException(ProviderResponseException::class);
 
@@ -194,12 +199,14 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'maxRetries' => 1,
         ]);
+        $provider->setHttpClient($httpClient);
 
         $this->expectException(ProviderConnectionException::class);
 
@@ -240,12 +247,14 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'baseUrl' => 'https://api.example.com/',
         ]);
+        $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('sendRequest');
@@ -273,12 +282,14 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'baseUrl' => 'https://api.example.com',
         ]);
+        $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('sendRequest');
@@ -310,12 +321,14 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'maxRetries' => 3,
         ]);
+        $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('sendRequest');
@@ -342,12 +355,14 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'maxRetries' => 2,
         ]);
+        $provider->setHttpClient($httpClient);
 
         try {
             $this->invokeMethod($provider, 'sendRequest', '/test', []);
@@ -376,12 +391,14 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'maxRetries' => 3,
         ]);
+        $provider->setHttpClient($httpClient);
 
         try {
             $this->invokeMethod($provider, 'sendRequest', '/test', []);
@@ -455,11 +472,11 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => '',
+            'apiKeyIdentifier' => '',
         ]);
 
         $this->expectException(ProviderConfigurationException::class);
-        $this->expectExceptionMessage('API key is required');
+        $this->expectExceptionMessage('API key identifier is required');
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('validateConfiguration');
@@ -471,7 +488,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
         ]);
 
         // Should not throw - use expectNotToPerformAssertions() instead of assertTrue(true)
@@ -582,7 +599,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $provider->configure(['apiKey' => '']);
+        $provider->configure(['apiKeyIdentifier' => '']);
 
         self::assertFalse($provider->isAvailable());
     }
@@ -592,7 +609,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
 
-        $provider->configure(['apiKey' => 'a']);
+        $provider->configure(['apiKeyIdentifier' => 'a']);
 
         self::assertTrue($provider->isAvailable());
     }
@@ -602,40 +619,8 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
 
     // ===== Additional tests for mutation coverage =====
 
-    #[Test]
-    public function sendRequestSetsAuthorizationHeaderWithBearerPrefix(): void
-    {
-        $capturedHeaders = [];
-        $httpFactory = new HttpFactory();
-
-        $httpClient = self::createStub(ClientInterface::class);
-        $httpClient
-            ->method('sendRequest')
-            ->willReturnCallback(function (RequestInterface $request) use (&$capturedHeaders) {
-                $capturedHeaders = $request->getHeaders();
-
-                return $this->createJsonResponseMock(['ok' => true]);
-            });
-
-        // Use OpenAiProvider because GeminiProvider removes Authorization header
-        $provider = new OpenAiProvider(
-            $httpFactory,
-            $httpFactory,
-            $this->createLoggerMock(),
-        );
-        $provider->setHttpClient($httpClient);
-        $provider->configure([
-            'apiKey' => 'test-api-key-123',
-        ]);
-
-        $reflection = new ReflectionClass($provider);
-        $method = $reflection->getMethod('sendRequest');
-        $method->invoke($provider, '/test', []);
-
-        self::assertArrayHasKey('Authorization', $capturedHeaders);
-        self::assertStringStartsWith('Bearer ', $capturedHeaders['Authorization'][0]);
-        self::assertStringContainsString('test-api-key-123', $capturedHeaders['Authorization'][0]);
-    }
+    // Note: Authorization header test removed - VaultHttpClient now handles authentication
+    // via withAuthentication() instead of the provider setting headers directly.
 
     #[Test]
     public function sendRequestDoesNotSetBodyForGetRequest(): void
@@ -656,11 +641,13 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $httpFactory,
             $httpFactory,
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
         ]);
+        $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('sendRequest');
@@ -689,11 +676,13 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $httpFactory,
             $httpFactory,
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
         ]);
+        $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('sendRequest');
@@ -722,11 +711,13 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $httpFactory,
             $httpFactory,
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
         ]);
+        $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('sendRequest');
@@ -750,12 +741,14 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'maxRetries' => 5,
         ]);
+        $provider->setHttpClient($httpClient);
 
         try {
             $this->invokeMethod($provider, 'sendRequest', '/test', []);
@@ -785,12 +778,14 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'maxRetries' => 2,
         ]);
+        $provider->setHttpClient($httpClient);
 
         try {
             $this->invokeMethod($provider, 'sendRequest', '/test', []);
@@ -819,12 +814,14 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'maxRetries' => 4,
         ]);
+        $provider->setHttpClient($httpClient);
 
         try {
             $this->invokeMethod($provider, 'sendRequest', '/test', []);
@@ -852,12 +849,14 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'maxRetries' => 1,
         ]);
+        $provider->setHttpClient($httpClient);
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('sendRequest');

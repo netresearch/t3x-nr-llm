@@ -32,15 +32,19 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $this->subject->setHttpClient($this->httpClientStub);
 
         $this->subject->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'defaultModel' => 'claude-sonnet-4-20250514',
             'baseUrl' => '',
             'timeout' => 30,
         ]);
+
+        // setHttpClient must be called AFTER configure() since configure() resets the client
+        $this->subject->setHttpClient($this->httpClientStub);
     }
 
     /**
@@ -56,15 +60,19 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $subject->setHttpClient($httpClientMock);
 
         $subject->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'defaultModel' => 'claude-sonnet-4-20250514',
             'baseUrl' => '',
             'timeout' => 30,
         ]);
+
+        // setHttpClient must be called AFTER configure() since configure() resets the client
+        $subject->setHttpClient($httpClientMock);
 
         return ['subject' => $subject, 'httpClient' => $httpClientMock];
     }

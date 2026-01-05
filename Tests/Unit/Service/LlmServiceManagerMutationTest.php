@@ -202,7 +202,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
         $config = [
             'providers' => [
                 'openai' => [
-                    'apiKey' => 'test-key',
+                    'apiKeyIdentifier' => 'test-key',
                     'model' => 'gpt-5.2',
                 ],
             ],
@@ -211,7 +211,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $result = $manager->getProviderConfiguration('openai');
 
-        self::assertEquals(['apiKey' => 'test-key', 'model' => 'gpt-5.2'], $result);
+        self::assertEquals(['apiKeyIdentifier' => 'test-key', 'model' => 'gpt-5.2'], $result);
     }
 
     #[Test]
@@ -222,7 +222,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
         $this->expectException(ProviderException::class);
         $this->expectExceptionMessage('Provider "unknown" not found');
 
-        $manager->configureProvider('unknown', ['apiKey' => 'test']);
+        $manager->configureProvider('unknown', ['apiKeyIdentifier' => 'test']);
     }
 
     #[Test]
@@ -234,10 +234,10 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
         $provider->method('getIdentifier')->willReturn('test');
         $provider->expects(self::atLeastOnce())
             ->method('configure')
-            ->with(['apiKey' => 'new-key']);
+            ->with(['apiKeyIdentifier' => 'new-key']);
 
         $manager->registerProvider($provider);
-        $manager->configureProvider('test', ['apiKey' => 'new-key']);
+        $manager->configureProvider('test', ['apiKeyIdentifier' => 'new-key']);
     }
 
     #[Test]
@@ -245,7 +245,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     {
         $config = [
             'providers' => [
-                'test' => ['apiKey' => 'configured-key'],
+                'test' => ['apiKeyIdentifier' => 'configured-key'],
             ],
         ];
         $manager = $this->createManager($config);
@@ -254,7 +254,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
         $provider->method('getIdentifier')->willReturn('test');
         $provider->expects(self::once())
             ->method('configure')
-            ->with(['apiKey' => 'configured-key']);
+            ->with(['apiKeyIdentifier' => 'configured-key']);
 
         $manager->registerProvider($provider);
     }

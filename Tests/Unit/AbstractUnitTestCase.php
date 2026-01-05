@@ -6,6 +6,9 @@ namespace Netresearch\NrLlm\Tests\Unit;
 
 use Faker\Factory as FakerFactory;
 use Faker\Generator as Faker;
+use Netresearch\NrVault\Http\SecureHttpClientFactory;
+use Netresearch\NrVault\Http\VaultHttpClientInterface;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -123,6 +126,48 @@ abstract class AbstractUnitTestCase extends TestCase
     protected function createLoggerMock(): LoggerInterface
     {
         return self::createStub(LoggerInterface::class);
+    }
+
+    /**
+     * Create a stub VaultService.
+     *
+     * @param array<string, string>|null $secrets Map of identifier => secret value.
+     *                                            If null (default), all keys are considered to exist.
+     *                                            If empty array, no keys exist.
+     */
+    protected function createVaultServiceMock(?array $secrets = null): VaultServiceInterface
+    {
+        $vaultHttpClient = self::createStub(VaultHttpClientInterface::class);
+        $vaultHttpClient->method('withAuthentication')->willReturn($vaultHttpClient);
+        $vaultHttpClient->method('withReason')->willReturn($vaultHttpClient);
+        $vaultHttpClient->method('sendRequest')->willReturnCallback(fn() => $this->createHttpResponseMock(200, '{}'));
+
+        $stub = self::createStub(VaultServiceInterface::class);
+        $stub->method('retrieve')->willReturnCallback(fn(string $id) => $secrets[$id] ?? 'test-secret');
+
+        // If secrets is null, assume all keys exist (for simpler tests)
+        // If secrets is an array, check if the key exists in the array
+        if ($secrets === null) {
+            $stub->method('exists')->willReturn(true);
+        } else {
+            $stub->method('exists')->willReturnCallback(fn(string $id) => isset($secrets[$id]));
+        }
+
+        $stub->method('http')->willReturn($vaultHttpClient);
+
+        return $stub;
+    }
+
+    /**
+     * Create a SecureHttpClientFactory for tests.
+     *
+     * Since SecureHttpClientFactory is final and tests always use setHttpClient()
+     * to inject a mock client, we simply return a real instance here.
+     * The factory's create() method is never called in tests.
+     */
+    protected function createSecureHttpClientFactoryMock(): SecureHttpClientFactory
+    {
+        return new SecureHttpClientFactory();
     }
 
     /**

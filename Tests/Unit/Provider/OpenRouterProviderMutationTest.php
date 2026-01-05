@@ -23,6 +23,8 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
         $provider->setHttpClient($this->createHttpClientMock());
 
@@ -49,7 +51,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     public function getDefaultModelReturnsDefaultChatModelWhenNotConfigured(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         self::assertEquals('anthropic/claude-sonnet-4-5', $provider->getDefaultModel());
     }
@@ -59,7 +61,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'defaultModel' => 'openai/gpt-5.2',
         ]);
 
@@ -71,7 +73,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'siteUrl' => 'https://example.com',
         ]);
 
@@ -86,7 +88,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'appName' => 'My Custom App',
         ]);
 
@@ -102,7 +104,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'routingStrategy' => $strategy,
         ]);
 
@@ -130,7 +132,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'routingStrategy' => 'invalid_strategy',
         ]);
 
@@ -146,7 +148,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'autoFallback' => true,
         ]);
 
@@ -161,7 +163,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'autoFallback' => false,
         ]);
 
@@ -176,7 +178,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'autoFallback' => 'yes', // truthy string
         ]);
 
@@ -191,7 +193,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'fallbackModels' => 'openai/gpt-5.2, anthropic/claude-sonnet-4-5, google/gemini-3-flash',
         ]);
 
@@ -207,7 +209,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'fallbackModels' => ['array', 'of', 'models'], // Not a string
         ]);
 
@@ -222,7 +224,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     public function getAvailableModelsReturnsStaticList(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $models = $provider->getAvailableModels();
 
@@ -332,7 +334,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'fallbackModels' => 'model1, , model2, , model3', // Some empty strings
         ]);
 
@@ -351,7 +353,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'fallbackModels' => '  model1  ,  model2  ', // Whitespace around
         ]);
 
@@ -369,7 +371,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     public function isAvailableReturnsTrueWhenApiKeySet(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         self::assertTrue($provider->isAvailable());
     }
@@ -378,7 +380,7 @@ class OpenRouterProviderMutationTest extends AbstractUnitTestCase
     public function defaultBaseUrlIsOpenRouterApi(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');

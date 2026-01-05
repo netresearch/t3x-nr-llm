@@ -533,7 +533,6 @@ final class OpenRouterProvider extends AbstractProvider implements
 
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json')
-            ->withHeader('Authorization', 'Bearer ' . $this->apiKey)
             ->withHeader('Accept', 'text/event-stream');
 
         // Add OpenRouter-specific headers
@@ -786,8 +785,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
 
         $request = $this->requestFactory->createRequest('POST', $url)
-            ->withHeader('Content-Type', 'application/json')
-            ->withHeader('Authorization', 'Bearer ' . $this->apiKey);
+            ->withHeader('Content-Type', 'application/json');
 
         // Add OpenRouter-specific headers for attribution
         if ($this->siteUrl !== '') {

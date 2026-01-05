@@ -106,7 +106,7 @@ final class GeminiProvider extends AbstractProvider implements
         }
 
         $response = $this->sendRequest(
-            "models/{$model}:generateContent?key=" . $this->apiKey,
+            "models/{$model}:generateContent?key=" . $this->retrieveApiKey(),
             $payload,
         );
 
@@ -166,7 +166,7 @@ final class GeminiProvider extends AbstractProvider implements
         }
 
         $response = $this->sendRequest(
-            "models/{$model}:generateContent?key=" . $this->apiKey,
+            "models/{$model}:generateContent?key=" . $this->retrieveApiKey(),
             $payload,
         );
 
@@ -241,7 +241,7 @@ final class GeminiProvider extends AbstractProvider implements
             ];
 
             $response = $this->sendRequest(
-                "models/{$model}:embedContent?key=" . $this->apiKey,
+                "models/{$model}:embedContent?key=" . $this->retrieveApiKey(),
                 $payload,
             );
 
@@ -323,7 +323,7 @@ final class GeminiProvider extends AbstractProvider implements
         }
 
         $response = $this->sendRequest(
-            "models/{$model}:generateContent?key=" . $this->apiKey,
+            "models/{$model}:generateContent?key=" . $this->retrieveApiKey(),
             $payload,
         );
 
@@ -387,7 +387,7 @@ final class GeminiProvider extends AbstractProvider implements
             $payload['systemInstruction'] = $geminiContents['systemInstruction'];
         }
 
-        $url = rtrim($this->baseUrl, '/') . "/models/{$model}:streamGenerateContent?key=" . $this->apiKey . '&alt=sse';
+        $url = rtrim($this->baseUrl, '/') . "/models/{$model}:streamGenerateContent?key=" . $this->retrieveApiKey() . '&alt=sse';
 
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json')

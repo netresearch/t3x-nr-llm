@@ -9,6 +9,8 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
+use Netresearch\NrVault\Http\SecureHttpClientFactory;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
@@ -58,6 +60,8 @@ class ProviderAdapterRegistry implements SingletonInterface
         private readonly RequestFactoryInterface $requestFactory,
         private readonly StreamFactoryInterface $streamFactory,
         private readonly LoggerInterface $logger,
+        private readonly VaultServiceInterface $vault,
+        private readonly SecureHttpClientFactory $httpClientFactory,
     ) {}
 
     /**
@@ -198,7 +202,7 @@ class ProviderAdapterRegistry implements SingletonInterface
 
         // Override default model with the specific model ID
         $adapter->configure([
-            'apiKey' => $provider->getDecryptedApiKey(),
+            'apiKeyIdentifier' => $provider->getApiKey(),
             'baseUrl' => $provider->getEffectiveEndpointUrl(),
             'defaultModel' => $model->getModelId(),
             'timeout' => $provider->getApiTimeout(),
@@ -233,6 +237,8 @@ class ProviderAdapterRegistry implements SingletonInterface
             $this->requestFactory,
             $this->streamFactory,
             $this->logger,
+            $this->vault,
+            $this->httpClientFactory,
         );
     }
 
@@ -246,7 +252,7 @@ class ProviderAdapterRegistry implements SingletonInterface
     private function buildAdapterConfig(Provider $provider): array
     {
         $config = [
-            'apiKey' => $provider->getDecryptedApiKey(),
+            'apiKeyIdentifier' => $provider->getApiKey(),
             'baseUrl' => $provider->getEffectiveEndpointUrl(),
             'timeout' => $provider->getApiTimeout(),
             'maxRetries' => $provider->getMaxRetries(),

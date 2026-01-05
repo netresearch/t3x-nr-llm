@@ -22,6 +22,8 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
         $provider->setHttpClient($this->createHttpClientMock());
 
@@ -48,7 +50,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     public function getDefaultModelReturnsDefaultChatModelWhenNotConfigured(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         self::assertEquals('gpt-5.2', $provider->getDefaultModel());
     }
@@ -58,7 +60,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'defaultModel' => 'gpt-5.2-pro',
         ]);
 
@@ -70,7 +72,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'defaultModel' => '',
         ]);
 
@@ -82,7 +84,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     public function getAvailableModelsReturnsNonEmptyArray(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $models = $provider->getAvailableModels();
 
@@ -193,7 +195,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     public function isAvailableReturnsTrueWhenApiKeySet(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         self::assertTrue($provider->isAvailable());
     }
@@ -202,7 +204,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     public function defaultBaseUrlIsOpenAiApi(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');
@@ -224,7 +226,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     public function getAvailableModelsContainsCorrectModelNames(): void
     {
         $provider = $this->createProvider();
-        $provider->configure(['apiKey' => $this->randomApiKey()]);
+        $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $models = $provider->getAvailableModels();
 
@@ -240,7 +242,7 @@ class OpenAiProviderMutationTest extends AbstractUnitTestCase
     {
         $provider = $this->createProvider();
         $provider->configure([
-            'apiKey' => $this->randomApiKey(),
+            'apiKeyIdentifier' => $this->randomApiKey(),
             'baseUrl' => 'https://custom-api.example.com/v1',
         ]);
 

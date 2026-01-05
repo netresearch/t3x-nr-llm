@@ -39,14 +39,18 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
 
         $provider->configure([
-            'apiKey' => 'sk-ant-test-' . $this->faker->sha256(),
+            'apiKeyIdentifier' => 'sk-ant-test-' . $this->faker->sha256(),
             'defaultModel' => 'claude-sonnet-4-20250514',
             'timeout' => 30,
         ]);
+
+        // setHttpClient must be called AFTER configure() since configure() resets the client
+        $provider->setHttpClient($httpClient);
 
         return $provider;
     }

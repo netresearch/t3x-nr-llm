@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
-use GuzzleHttp\Client as GuzzleClient;
-use GuzzleHttp\HandlerStack;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -13,6 +11,9 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrVault\Http\SecretPlacement;
+use Netresearch\NrVault\Http\SecureHttpClientFactory;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
@@ -31,7 +32,7 @@ abstract class AbstractProvider implements ProviderInterface
     protected const FEATURE_STREAMING = 'streaming';
     protected const FEATURE_TOOLS = 'tools';
 
-    protected string $apiKey = '';
+    protected string $apiKeyIdentifier = '';
     protected string $baseUrl = '';
     protected string $defaultModel = '';
     protected int $timeout = 30;
@@ -41,12 +42,13 @@ abstract class AbstractProvider implements ProviderInterface
     protected array $supportedFeatures = [];
 
     private ?ClientInterface $configuredHttpClient = null;
-    private int $configuredTimeout = 0;
 
     public function __construct(
         protected readonly RequestFactoryInterface $requestFactory,
         protected readonly StreamFactoryInterface $streamFactory,
         protected readonly LoggerInterface $logger,
+        protected readonly VaultServiceInterface $vault,
+        protected readonly SecureHttpClientFactory $httpClientFactory,
     ) {}
 
     abstract public function getName(): string;
@@ -58,21 +60,21 @@ abstract class AbstractProvider implements ProviderInterface
      */
     public function configure(array $config): void
     {
-        $this->apiKey = $this->getString($config, 'apiKey');
+        $this->apiKeyIdentifier = $this->getString($config, 'apiKeyIdentifier');
         $this->baseUrl = $this->getString($config, 'baseUrl', $this->getDefaultBaseUrl());
         $this->defaultModel = $this->getString($config, 'defaultModel', $this->getDefaultModel());
         $this->timeout = $this->getInt($config, 'timeout', 30);
         $this->maxRetries = $this->getInt($config, 'maxRetries', 3);
 
-        // Note: Configuration is validated lazily when sendRequest() is called.
-        // This allows providers to be registered without throwing during DI initialization.
+        // Reset HTTP client when configuration changes
+        $this->configuredHttpClient = null;
     }
 
     abstract protected function getDefaultBaseUrl(): string;
 
     public function isAvailable(): bool
     {
-        return $this->apiKey !== '';
+        return $this->apiKeyIdentifier !== '' && $this->vault->exists($this->apiKeyIdentifier);
     }
 
     public function supportsFeature(string $feature): bool
@@ -102,80 +104,64 @@ abstract class AbstractProvider implements ProviderInterface
     public function setHttpClient(ClientInterface $client): void
     {
         $this->configuredHttpClient = $client;
-        // Mark as configured so getHttpClient() doesn't recreate it
-        $this->configuredTimeout = $this->timeout;
     }
 
     /**
-     * Get HTTP client configured with the current timeout.
+     * Get HTTP client configured for authenticated requests.
      *
-     * Uses TYPO3's HTTP configuration as base (proxy, SSL verification, etc.)
-     * but overrides timeout with provider-specific value. This is necessary
-     * because PSR-18 ClientInterface doesn't support per-request options.
+     * Uses nr-vault's VaultHttpClient for automatic secret injection
+     * with audit logging.
      *
-     * @return ClientInterface HTTP client with configured timeout
+     * @return ClientInterface HTTP client with authentication configured
      */
     protected function getHttpClient(): ClientInterface
     {
-        // Create new client if timeout changed or not yet created
-        if ($this->configuredHttpClient === null || $this->configuredTimeout !== $this->timeout) {
-            $this->configuredHttpClient = $this->createHttpClientWithTimeout($this->timeout);
-            $this->configuredTimeout = $this->timeout;
+        if ($this->configuredHttpClient !== null) {
+            return $this->configuredHttpClient;
         }
 
-        return $this->configuredHttpClient;
+        return $this->vault->http()->withAuthentication(
+            $this->apiKeyIdentifier,
+            $this->getSecretPlacement(),
+            $this->getSecretPlacementOptions(),
+        );
     }
 
     /**
-     * Create an HTTP client using TYPO3's HTTP config with custom timeout.
+     * Get the secret placement for authentication.
      *
-     * This method uses TYPO3's global HTTP configuration ($GLOBALS['TYPO3_CONF_VARS']['HTTP'])
-     * as the base (inheriting proxy settings, SSL verification, etc.) but overrides the
-     * timeout for provider-specific requirements.
-     *
-     * @internal Direct Guzzle usage is required because PSR-18 doesn't support per-request options
+     * Default is Bearer token. Providers can override for different auth methods.
      */
-    private function createHttpClientWithTimeout(int $timeout): ClientInterface
+    protected function getSecretPlacement(): SecretPlacement
     {
-        // Start with TYPO3's global HTTP configuration
-        /** @var array<string, mixed> $typo3ConfVars */
-        $typo3ConfVars = $GLOBALS['TYPO3_CONF_VARS'] ?? [];
-        /** @var array<string, mixed> $httpOptions */
-        $httpOptions = is_array($typo3ConfVars['HTTP'] ?? null) ? $typo3ConfVars['HTTP'] : [];
+        return SecretPlacement::Bearer;
+    }
 
-        // Normalize verify option (can be string path or boolean)
-        if (isset($httpOptions['verify'])) {
-            $verifyValue = $httpOptions['verify'];
-            $httpOptions['verify'] = filter_var(
-                $verifyValue,
-                FILTER_VALIDATE_BOOLEAN,
-                FILTER_NULL_ON_FAILURE,
-            ) ?? $verifyValue;
+    /**
+     * Get additional options for secret placement.
+     *
+     * Providers can override to specify custom header names, query params, etc.
+     *
+     * @return array{headerName?: string, queryParam?: string, reason?: string}
+     */
+    protected function getSecretPlacementOptions(): array
+    {
+        return ['reason' => sprintf('LLM API call to %s', $this->getName())];
+    }
+
+    /**
+     * Retrieve the API key from vault.
+     *
+     * Use sparingly - prefer letting VaultHttpClient handle authentication.
+     * This is needed for providers that embed the key in URLs (e.g., Gemini).
+     */
+    protected function retrieveApiKey(): string
+    {
+        if ($this->apiKeyIdentifier === '') {
+            return '';
         }
 
-        // Set up handler stack from TYPO3 config or create new one
-        $handler = $httpOptions['handler'] ?? null;
-        $stack = $handler instanceof HandlerStack ? $handler : HandlerStack::create();
-
-        // Remove allowed_hosts (that's for TYPO3 internal use)
-        unset($httpOptions['allowed_hosts']);
-
-        // Add any configured middleware handlers
-        if (is_array($handler)) {
-            foreach ($handler as $name => $middlewareHandler) {
-                if (is_callable($middlewareHandler)) {
-                    $stack->push($middlewareHandler, (string)$name);
-                }
-            }
-        }
-
-        $httpOptions['handler'] = $stack;
-
-        // Override with provider-specific timeout
-        $httpOptions['timeout'] = $timeout;
-        $httpOptions['connect_timeout'] = min($timeout, 10);
-
-        return new GuzzleClient($httpOptions);
+        return $this->vault->retrieve($this->apiKeyIdentifier) ?? '';
     }
 
     /**
@@ -191,8 +177,7 @@ abstract class AbstractProvider implements ProviderInterface
         $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
 
         $request = $this->requestFactory->createRequest($method, $url)
-            ->withHeader('Content-Type', 'application/json')
-            ->withHeader('Authorization', 'Bearer ' . $this->apiKey);
+            ->withHeader('Content-Type', 'application/json');
 
         $request = $this->addProviderSpecificHeaders($request);
 
@@ -286,9 +271,9 @@ abstract class AbstractProvider implements ProviderInterface
 
     protected function validateConfiguration(): void
     {
-        if ($this->apiKey === '') {
+        if ($this->apiKeyIdentifier === '') {
             throw new ProviderConfigurationException(
-                sprintf('API key is required for provider %s', $this->getName()),
+                sprintf('API key identifier is required for provider %s', $this->getName()),
                 1307337100,
             );
         }

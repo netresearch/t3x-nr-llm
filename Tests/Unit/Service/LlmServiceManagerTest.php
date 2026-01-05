@@ -260,7 +260,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
                 'defaultProvider' => 'openai',
                 'providers' => [
                     'openai' => [
-                        'apiKey' => 'sk-test',
+                        'apiKeyIdentifier' => 'sk-test',
                         'defaultModel' => 'gpt-4o',
                     ],
                 ],
@@ -269,7 +269,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager = new LlmServiceManager($extensionConfigStub, $this->loggerStub, $this->adapterRegistryStub);
         $config = $manager->getProviderConfiguration('openai');
 
-        self::assertArrayHasKey('apiKey', $config);
+        self::assertArrayHasKey('apiKeyIdentifier', $config);
         self::assertArrayHasKey('defaultModel', $config);
     }
 
@@ -284,7 +284,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function configureProviderUpdatesConfig(): void
     {
-        $newConfig = ['apiKey' => 'new-key', 'defaultModel' => 'new-model'];
+        $newConfig = ['apiKeyIdentifier' => 'new-key', 'defaultModel' => 'new-model'];
 
         $this->subject->configureProvider('openai', $newConfig);
 

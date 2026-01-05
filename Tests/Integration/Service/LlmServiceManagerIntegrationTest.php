@@ -16,6 +16,7 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
+use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
@@ -44,11 +45,11 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
                 'defaultProvider' => 'openai',
                 'providers' => [
                     'openai' => [
-                        'apiKey' => 'sk-test-openai',
+                        'apiKeyIdentifier' => 'sk-test-openai',
                         'defaultModel' => 'gpt-4o',
                     ],
                     'claude' => [
-                        'apiKey' => 'sk-test-claude',
+                        'apiKeyIdentifier' => 'sk-test-claude',
                         'defaultModel' => 'claude-sonnet-4-20250514',
                     ],
                 ],
@@ -64,9 +65,16 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     }
 
     /**
+     * Create an OpenAI provider with mock HTTP responses.
+     *
+     * Note: setHttpClient must be called AFTER registerProvider() since
+     * registerProvider() calls configure() which resets the client.
+     *
      * @param array<ResponseInterface> $responses
+     *
+     * @return array{provider: OpenAiProvider, httpClient: ClientInterface&Stub}
      */
-    private function createConfiguredOpenAiProvider(array $responses): OpenAiProvider
+    private function createConfiguredOpenAiProvider(array $responses): array
     {
         $httpClient = $this->createHttpClientWithResponses($responses);
 
@@ -74,16 +82,24 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
 
-        return $provider;
+        return ['provider' => $provider, 'httpClient' => $httpClient];
     }
 
     /**
+     * Create a Claude provider with mock HTTP responses.
+     *
+     * Note: setHttpClient must be called AFTER registerProvider() since
+     * registerProvider() calls configure() which resets the client.
+     *
      * @param array<ResponseInterface> $responses
+     *
+     * @return array{provider: ClaudeProvider, httpClient: ClientInterface&Stub}
      */
-    private function createConfiguredClaudeProvider(array $responses): ClaudeProvider
+    private function createConfiguredClaudeProvider(array $responses): array
     {
         $httpClient = $this->createHttpClientWithResponses($responses);
 
@@ -91,16 +107,17 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($httpClient);
 
-        return $provider;
+        return ['provider' => $provider, 'httpClient' => $httpClient];
     }
 
     #[Test]
     public function registerAndRetrieveProvider(): void
     {
-        $provider = $this->createConfiguredOpenAiProvider([]);
+        ['provider' => $provider] = $this->createConfiguredOpenAiProvider([]);
 
         $this->subject->registerProvider($provider);
 
@@ -111,8 +128,8 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function multipleProvidersCanBeRegistered(): void
     {
-        $openAiProvider = $this->createConfiguredOpenAiProvider([]);
-        $claudeProvider = $this->createConfiguredClaudeProvider([]);
+        ['provider' => $openAiProvider] = $this->createConfiguredOpenAiProvider([]);
+        ['provider' => $claudeProvider] = $this->createConfiguredClaudeProvider([]);
 
         $this->subject->registerProvider($openAiProvider);
         $this->subject->registerProvider($claudeProvider);
@@ -127,11 +144,13 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         /** @var array<string, mixed> $responseData */
         $responseData = $this->getOpenAiChatResponse(content: 'OpenAI response');
 
-        $openAiProvider = $this->createConfiguredOpenAiProvider([
+        ['provider' => $openAiProvider, 'httpClient' => $httpClient] = $this->createConfiguredOpenAiProvider([
             $this->createSuccessResponse($responseData),
         ]);
 
         $this->subject->registerProvider($openAiProvider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $openAiProvider->setHttpClient($httpClient);
         $this->subject->setDefaultProvider('openai');
 
         $result = $this->subject->chat([
@@ -150,15 +169,18 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         /** @var array<string, mixed> $claudeResponse */
         $claudeResponse = $this->getClaudeChatResponse(content: 'Claude response');
 
-        $openAiProvider = $this->createConfiguredOpenAiProvider([
+        ['provider' => $openAiProvider, 'httpClient' => $openAiClient] = $this->createConfiguredOpenAiProvider([
             $this->createSuccessResponse($openAiResponse),
         ]);
-        $claudeProvider = $this->createConfiguredClaudeProvider([
+        ['provider' => $claudeProvider, 'httpClient' => $claudeClient] = $this->createConfiguredClaudeProvider([
             $this->createSuccessResponse($claudeResponse),
         ]);
 
         $this->subject->registerProvider($openAiProvider);
         $this->subject->registerProvider($claudeProvider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $openAiProvider->setHttpClient($openAiClient);
+        $claudeProvider->setHttpClient($claudeClient);
         $this->subject->setDefaultProvider('openai');
 
         // Request Claude specifically
@@ -174,13 +196,15 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     public function getAvailableProvidersReturnsOnlyAvailable(): void
     {
         // Create available provider
-        $availableProvider = $this->createConfiguredOpenAiProvider([]);
+        ['provider' => $availableProvider] = $this->createConfiguredOpenAiProvider([]);
 
-        // Create unavailable provider (no API key)
+        // Create unavailable provider (no API key - pass empty array to vault mock)
         $unavailableProvider = new OpenAiProvider(
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
+            $this->createVaultServiceMock([]), // Empty secrets = nothing exists
+            $this->createSecureHttpClientFactoryMock(),
         );
         $unavailableProvider->setHttpClient($this->createHttpClientWithResponses([]));
         // Don't configure it, so it's not available
@@ -196,8 +220,8 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function getProviderListReturnsAllRegisteredProviders(): void
     {
-        $openAiProvider = $this->createConfiguredOpenAiProvider([]);
-        $claudeProvider = $this->createConfiguredClaudeProvider([]);
+        ['provider' => $openAiProvider] = $this->createConfiguredOpenAiProvider([]);
+        ['provider' => $claudeProvider] = $this->createConfiguredClaudeProvider([]);
 
         $this->subject->registerProvider($openAiProvider);
         $this->subject->registerProvider($claudeProvider);
@@ -250,14 +274,17 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
             $this->requestFactory,
             $this->streamFactory,
             $this->createNullLogger(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
         );
-        $provider->setHttpClient($clientSetup['client']);
         $provider->configure([
-            'apiKey' => 'sk-test',
+            'apiKeyIdentifier' => 'sk-test',
             'defaultModel' => 'gpt-4o',
         ]);
 
         $this->subject->registerProvider($provider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $provider->setHttpClient($clientSetup['client']);
         $this->subject->setDefaultProvider('openai');
 
         $this->subject->chat(
@@ -276,7 +303,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     #[Test]
     public function supportsFeatureChecksCorrectProvider(): void
     {
-        $provider = $this->createConfiguredOpenAiProvider([]);
+        ['provider' => $provider] = $this->createConfiguredOpenAiProvider([]);
         $this->subject->registerProvider($provider);
 
         self::assertTrue($this->subject->supportsFeature('vision', 'openai'));
@@ -296,11 +323,13 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         /** @var array<string, mixed> $responseData */
         $responseData = $this->getOpenAiChatResponse(content: 'Completed prompt');
 
-        $provider = $this->createConfiguredOpenAiProvider([
+        ['provider' => $provider, 'httpClient' => $httpClient] = $this->createConfiguredOpenAiProvider([
             $this->createSuccessResponse($responseData),
         ]);
 
         $this->subject->registerProvider($provider);
+        // setHttpClient must be called AFTER registerProvider() since it calls configure()
+        $provider->setHttpClient($httpClient);
         $this->subject->setDefaultProvider('openai');
 
         $result = $this->subject->complete('Tell me a joke');

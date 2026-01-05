@@ -236,7 +236,6 @@ final class GroqProvider extends AbstractProvider implements
 
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json')
-            ->withHeader('Authorization', 'Bearer ' . $this->apiKey)
             ->withHeader('Accept', 'text/event-stream');
 
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR));

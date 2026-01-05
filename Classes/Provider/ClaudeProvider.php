@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrVault\Http\SecretPlacement;
 use Override;
 use Psr\Http\Message\RequestInterface;
 
@@ -49,6 +50,24 @@ final class ClaudeProvider extends AbstractProvider implements
     }
 
     #[Override]
+    protected function getSecretPlacement(): SecretPlacement
+    {
+        return SecretPlacement::Header;
+    }
+
+    /**
+     * @return array{headerName: string, reason: string}
+     */
+    #[Override]
+    protected function getSecretPlacementOptions(): array
+    {
+        return [
+            'headerName' => 'x-api-key',
+            'reason' => sprintf('LLM API call to %s', $this->getName()),
+        ];
+    }
+
+    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_MODEL;
@@ -78,9 +97,7 @@ final class ClaudeProvider extends AbstractProvider implements
     protected function addProviderSpecificHeaders(RequestInterface $request): RequestInterface
     {
         return $request
-            ->withHeader('x-api-key', $this->apiKey)
-            ->withHeader('anthropic-version', self::API_VERSION)
-            ->withoutHeader('Authorization');
+            ->withHeader('anthropic-version', self::API_VERSION);
     }
 
     /**
@@ -397,7 +414,6 @@ final class ClaudeProvider extends AbstractProvider implements
 
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json')
-            ->withHeader('x-api-key', $this->apiKey)
             ->withHeader('anthropic-version', self::API_VERSION)
             ->withHeader('Accept', 'text/event-stream');
 
