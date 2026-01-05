@@ -7,17 +7,30 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Harden Runner
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
       - name: Generate Release Notes
         id: notes
@@ -35,10 +48,55 @@ jobs:
             echo "EOF" >> $GITHUB_OUTPUT
           fi
 
+      - name: Create release archive
+        run: |
+          mkdir -p dist
+          git archive --format=zip --prefix=nr_llm/ HEAD -o dist/nr_llm-${{ steps.version.outputs.version }}.zip
+          git archive --format=tar.gz --prefix=nr_llm/ HEAD -o dist/nr_llm-${{ steps.version.outputs.version }}.tar.gz
+
+      - name: Generate SBOM (SPDX)
+        uses: anchore/sbom-action@a930d0ac434e3182448fe678398ba5713717112a # v0.21.0
+        with:
+          path: .
+          format: spdx-json
+          output-file: dist/nr_llm-${{ steps.version.outputs.version }}.sbom.spdx.json
+
+      - name: Generate SBOM (CycloneDX)
+        uses: anchore/sbom-action@a930d0ac434e3182448fe678398ba5713717112a # v0.21.0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: dist/nr_llm-${{ steps.version.outputs.version }}.sbom.cdx.json
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: Sign artifacts with Cosign (keyless)
+        run: |
+          cd dist
+          for file in *.zip *.tar.gz *.json checksums.txt; do
+            cosign sign-blob --yes "$file" --output-signature "${file}.sig" --output-certificate "${file}.pem"
+          done
+
+      - name: Generate attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/nr_llm-${{ steps.version.outputs.version }}.zip
+            dist/nr_llm-${{ steps.version.outputs.version }}.tar.gz
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           generate_release_notes: true
+          files: |
+            dist/*
           body: |
             ## Changes
             ${{ steps.notes.outputs.notes }}
@@ -48,5 +106,47 @@ jobs:
             ```bash
             composer require netresearch/nr-llm
             ```
+
+            ## Security
+
+            All release artifacts are signed with [Sigstore](https://www.sigstore.dev/) keyless signing.
+
+            ### Verify signatures
+
+            ```bash
+            # Install cosign
+            go install github.com/sigstore/cosign/v2/cmd/cosign@latest
+
+            # Verify artifact signature
+            cosign verify-blob \
+              --certificate nr_llm-${{ steps.version.outputs.version }}.zip.pem \
+              --signature nr_llm-${{ steps.version.outputs.version }}.zip.sig \
+              --certificate-identity-regexp "https://github.com/netresearch/.*" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              nr_llm-${{ steps.version.outputs.version }}.zip
+            ```
+
+            ### Verify checksums
+
+            ```bash
+            sha256sum -c checksums.txt
+            ```
+
+            ## Software Bill of Materials (SBOM)
+
+            SBOMs are provided in both SPDX and CycloneDX formats for supply chain transparency.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  provenance:
+    name: Generate SLSA Provenance
+    needs: release
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: |
+        ${{ needs.release.outputs.version }}
+      upload-assets: true

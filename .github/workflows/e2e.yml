@@ -24,7 +24,13 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Harden Runner
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install DDEV
         run: |
@@ -38,12 +44,14 @@ jobs:
           ddev composer install
 
       - name: Setup TYPO3
+        env:
+          TYPO3_VERSION: ${{ inputs.typo3_version || 'v14' }}
         run: |
-          ddev exec "/var/www/html/${{ inputs.typo3_version || 'v14' }}/vendor/bin/typo3 setup --force --no-interaction"
-          ddev exec "/var/www/html/${{ inputs.typo3_version || 'v14' }}/vendor/bin/typo3 cache:flush"
+          ddev exec "/var/www/html/${TYPO3_VERSION}/vendor/bin/typo3 setup --force --no-interaction"
+          ddev exec "/var/www/html/${TYPO3_VERSION}/vendor/bin/typo3 cache:flush"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -55,14 +63,16 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run Playwright tests
-        run: npm run test:e2e
         env:
-          TYPO3_BASE_URL: https://${{ inputs.typo3_version || 'v14' }}.nr-llm.ddev.site
+          TYPO3_VERSION: ${{ inputs.typo3_version || 'v14' }}
           TYPO3_USERNAME: admin
           TYPO3_PASSWORD: Joh316!!
+        run: |
+          export TYPO3_BASE_URL="https://${TYPO3_VERSION}.nr-llm.ddev.site"
+          npm run test:e2e
 
       - name: Upload test results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: always()
         with:
           name: playwright-report
