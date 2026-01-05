@@ -2,10 +2,12 @@
 
 [![CI](https://github.com/netresearch/t3x-nr-llm/actions/workflows/ci.yml/badge.svg)](https://github.com/netresearch/t3x-nr-llm/actions/workflows/ci.yml)
 [![Documentation](https://github.com/netresearch/t3x-nr-llm/actions/workflows/docs.yml/badge.svg)](https://github.com/netresearch/t3x-nr-llm/actions/workflows/docs.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/netresearch/t3x-nr-llm/badge)](https://securityscorecards.dev/viewer/?uri=github.com/netresearch/t3x-nr-llm)
 [![PHP 8.5+](https://img.shields.io/badge/PHP-8.5%2B-blue.svg)](https://www.php.net/)
 [![TYPO3 v14](https://img.shields.io/badge/TYPO3-v14-orange.svg)](https://typo3.org/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.0-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 
 A unified LLM (Large Language Model) provider abstraction layer for TYPO3 v14.
 
@@ -321,6 +323,59 @@ try {
 ## Documentation
 
 Full documentation available at [Documentation/Index.rst](Documentation/Index.rst)
+
+## Supply Chain Security
+
+This project implements supply chain security best practices:
+
+### SLSA Level 3 Provenance
+
+All releases include [SLSA Level 3](https://slsa.dev) build provenance attestations, providing:
+- **Non-falsifiable provenance**: Cryptographically signed attestations
+- **Isolated build environment**: Builds run in GitHub Actions with no user-controlled steps
+- **Source integrity**: Provenance links artifacts to exact source commit
+
+### Verifying Release Artifacts
+
+```bash
+# Install slsa-verifier
+go install github.com/slsa-framework/slsa-verifier/v2/cli/slsa-verifier@latest
+
+# Download release artifacts
+gh release download v1.0.0 -R netresearch/t3x-nr-llm
+
+# Verify SLSA provenance
+slsa-verifier verify-artifact nr_llm-1.0.0.zip \
+  --provenance-path multiple.intoto.jsonl \
+  --source-uri github.com/netresearch/t3x-nr-llm \
+  --source-tag v1.0.0
+```
+
+### Verifying Signatures (Cosign)
+
+All release artifacts are signed using [Sigstore Cosign](https://www.sigstore.dev/) keyless signing:
+
+```bash
+# Install cosign
+go install github.com/sigstore/cosign/v2/cmd/cosign@latest
+
+# Verify signature
+cosign verify-blob nr_llm-1.0.0.zip \
+  --signature nr_llm-1.0.0.zip.sig \
+  --certificate nr_llm-1.0.0.zip.pem \
+  --certificate-identity-regexp 'https://github.com/netresearch/t3x-nr-llm/' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+```
+
+### Software Bill of Materials (SBOM)
+
+Each release includes SBOMs in both [SPDX](https://spdx.dev/) and [CycloneDX](https://cyclonedx.org/) formats:
+- `nr_llm-X.Y.Z.sbom.spdx.json` - SPDX format
+- `nr_llm-X.Y.Z.sbom.cdx.json` - CycloneDX format
+
+### Checksums
+
+SHA256 checksums for all artifacts are provided in `checksums.txt`, which is also signed.
 
 ## License
 
