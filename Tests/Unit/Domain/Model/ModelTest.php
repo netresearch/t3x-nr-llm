@@ -6,15 +6,15 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\Model;
 
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
-use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
 /**
  * Unit tests for Model domain entity.
+ *
+ * Note: No CoversClass attribute as Domain/Model is excluded from coverage.
  */
-#[CoversClass(Model::class)]
 final class ModelTest extends TestCase
 {
     private function createProviderWithUid(int $uid): Provider
