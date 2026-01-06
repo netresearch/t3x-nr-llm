@@ -63,7 +63,7 @@ jobs:
   npm-licenses:
     name: NPM License Audit
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('package.json') != '' }}
+    # Workflow only triggers on package.json changes, so no need to check file existence
     permissions:
       contents: read
 
