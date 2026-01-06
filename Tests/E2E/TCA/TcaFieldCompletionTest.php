@@ -20,7 +20,7 @@ final class TcaFieldCompletionTest extends TestCase
      * Fields that are exempt from the description requirement.
      * These are either system fields or self-explanatory fields.
      */
-    private const EXEMPT_FIELDS = [
+    private const array EXEMPT_FIELDS = [
         'hidden',      // Core system field with standard label
         'deleted',     // Core system field (not shown in forms)
         'tstamp',      // Core system field (not shown in forms)
