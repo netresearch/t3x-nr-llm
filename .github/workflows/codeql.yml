@@ -25,7 +25,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ['javascript', 'php']
+        # Note: CodeQL only supports C/C++, C#, Go, Java/Kotlin, JavaScript/TypeScript, Python, Ruby, Swift
+        # PHP is not supported by CodeQL
+        language: ['javascript']
 
     steps:
       - name: Harden Runner
