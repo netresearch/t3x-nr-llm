@@ -63,7 +63,7 @@ jobs:
   npm-licenses:
     name: NPM License Audit
     runs-on: ubuntu-latest
-    if: hashFiles('package.json') != ''
+    if: ${{ hashFiles('package.json') != '' }}
     permissions:
       contents: read
 
