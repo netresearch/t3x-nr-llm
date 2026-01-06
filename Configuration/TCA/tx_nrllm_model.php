@@ -76,6 +76,7 @@ return [
         ],
         'name' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.name',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.name.description',
             'config' => [
                 'type' => 'input',
                 'size' => 50,
@@ -235,6 +236,7 @@ return [
         ],
         'is_active' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.is_active',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.is_active.description',
             'config' => [
                 'type' => 'check',
                 'default' => 1,

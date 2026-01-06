@@ -46,6 +46,9 @@
             <trans-unit id="tx_nrllm_configuration.name">
                 <source>Name</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.name.description">
+                <source>Human-readable display name for this configuration</source>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.description">
                 <source>Description</source>
@@ -72,6 +75,9 @@
             <trans-unit id="tx_nrllm_configuration.system_prompt">
                 <source>System Prompt</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.system_prompt.description">
+                <source>Initial instructions to define the AI's behavior and context</source>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.temperature">
                 <source>Temperature</source>
@@ -90,13 +96,22 @@
             <trans-unit id="tx_nrllm_configuration.top_p">
                 <source>Top P</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.top_p.description">
+                <source>Nucleus sampling (0.0-1.0). Lower values focus on more likely tokens.</source>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.frequency_penalty">
                 <source>Frequency Penalty</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.frequency_penalty.description">
+                <source>Reduces repetition based on frequency (-2.0 to 2.0)</source>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.presence_penalty">
                 <source>Presence Penalty</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.presence_penalty.description">
+                <source>Encourages new topics based on token presence (-2.0 to 2.0)</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.options">
@@ -113,20 +128,39 @@
                 <source>Maximum requests per day (0 = unlimited)</source>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_configuration.timeout">
+                <source>Timeout (seconds)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.timeout.description">
+                <source>Maximum time to wait for API response (0 = use model default)</source>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_configuration.max_tokens_per_day">
                 <source>Max Tokens/Day</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.max_tokens_per_day.description">
+                <source>Daily token usage limit (0 = unlimited)</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.max_cost_per_day">
                 <source>Max Cost/Day ($)</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.max_cost_per_day.description">
+                <source>Daily cost limit in dollars (0.00 = unlimited)</source>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.is_active">
                 <source>Active</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.is_active.description">
+                <source>Enable this configuration for use</source>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.is_default">
                 <source>Default Configuration</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.is_default.description">
+                <source>Use as the default configuration when none is specified</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.allowed_groups">
@@ -192,6 +226,9 @@
             <trans-unit id="tx_nrllm_provider.name">
                 <source>Name</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_provider.name.description">
+                <source>Human-readable display name for this provider</source>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_provider.description">
                 <source>Description</source>
@@ -232,6 +269,13 @@
                 <source>Maximum time to wait for the complete API response. Includes connection (max 10s) and model processing time. Large models may need 60-300 seconds.</source>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_provider.api_timeout">
+                <source>API Timeout (seconds)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.api_timeout.description">
+                <source>Connection and read timeout for API requests</source>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_provider.max_retries">
                 <source>Max Retries</source>
             </trans-unit>
@@ -248,6 +292,9 @@
 
             <trans-unit id="tx_nrllm_provider.is_active">
                 <source>Active</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.is_active.description">
+                <source>Enable this provider for use in models</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_provider.priority">
@@ -287,6 +334,9 @@
 
             <trans-unit id="tx_nrllm_model.name">
                 <source>Name</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.name.description">
+                <source>Human-readable display name for this model</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_model.description">
@@ -412,6 +462,9 @@
             <trans-unit id="tx_nrllm_model.is_active">
                 <source>Active</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_model.is_active.description">
+                <source>Enable this model for use in configurations</source>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_model.is_default">
                 <source>Default Model</source>
@@ -434,6 +487,101 @@
 
             <trans-unit id="palette.pricing">
                 <source>Pricing</source>
+            </trans-unit>
+
+            <!-- Task Table -->
+            <trans-unit id="tx_nrllm_task">
+                <source>LLM Task</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.identifier">
+                <source>Identifier</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.identifier.description">
+                <source>Unique technical identifier (lowercase, no spaces)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.name">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.name.description">
+                <source>Human-readable display name for this task</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.description">
+                <source>Description</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.category">
+                <source>Category</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.category.description">
+                <source>Task category for organization and filtering</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.configuration_uid">
+                <source>Configuration</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.configuration_uid.description">
+                <source>LLM configuration to use for this task</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.prompt_template">
+                <source>Prompt Template</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.prompt_template.description">
+                <source>Template with placeholders like {{input}} for the LLM prompt</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.input_type">
+                <source>Input Type</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.input_type.description">
+                <source>Type of input data source for this task</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.input_source">
+                <source>Input Source</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.input_source.description">
+                <source>JSON configuration for the input source</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.output_format">
+                <source>Output Format</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.output_format.description">
+                <source>Expected format of the LLM response</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.is_active">
+                <source>Active</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.is_active.description">
+                <source>Enable this task for execution</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.is_system">
+                <source>System Task</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.is_system.description">
+                <source>System tasks are managed by extensions and should not be modified</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.tab.input_output">
+                <source>Input / Output</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.palette.input">
+                <source>Input Configuration</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.palette.output">
+                <source>Output Configuration</source>
+            </trans-unit>
+
+            <trans-unit id="palette.settings">
+                <source>Settings</source>
             </trans-unit>
         </body>
     </file>

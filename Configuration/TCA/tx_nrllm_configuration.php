@@ -82,6 +82,7 @@ return [
         ],
         'name' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.name',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.name.description',
             'config' => [
                 'type' => 'input',
                 'size' => 50,
@@ -137,22 +138,22 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectCheckBox',
                 'items' => [
-                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.chat', 'value' => 'cap:chat', 'icon' => 'capabilities'],
-                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.completion', 'value' => 'cap:completion', 'icon' => 'capabilities'],
-                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.vision', 'value' => 'cap:vision', 'icon' => 'capabilities'],
-                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.tools', 'value' => 'cap:tools', 'icon' => 'capabilities'],
-                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.json_mode', 'value' => 'cap:json_mode', 'icon' => 'capabilities'],
-                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.streaming', 'value' => 'cap:streaming', 'icon' => 'capabilities'],
-                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.embeddings', 'value' => 'cap:embeddings', 'icon' => 'capabilities'],
-                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.audio', 'value' => 'cap:audio', 'icon' => 'capabilities'],
-                    ['label' => 'OpenAI', 'value' => 'adapter:openai', 'icon' => 'adapters'],
-                    ['label' => 'Anthropic (Claude)', 'value' => 'adapter:anthropic', 'icon' => 'adapters'],
-                    ['label' => 'Google (Gemini)', 'value' => 'adapter:gemini', 'icon' => 'adapters'],
-                    ['label' => 'OpenRouter', 'value' => 'adapter:openrouter', 'icon' => 'adapters'],
-                    ['label' => 'Mistral', 'value' => 'adapter:mistral', 'icon' => 'adapters'],
-                    ['label' => 'Groq', 'value' => 'adapter:groq', 'icon' => 'adapters'],
-                    ['label' => 'Ollama', 'value' => 'adapter:ollama', 'icon' => 'adapters'],
-                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.prefer_lowest_cost', 'value' => 'pref:lowest_cost', 'icon' => 'preferences'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.chat', 'value' => 'cap:chat', 'icon' => 'content-message', 'group' => 'capabilities'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.completion', 'value' => 'cap:completion', 'icon' => 'actions-document-new', 'group' => 'capabilities'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.vision', 'value' => 'cap:vision', 'icon' => 'actions-image', 'group' => 'capabilities'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.tools', 'value' => 'cap:tools', 'icon' => 'actions-wrench', 'group' => 'capabilities'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.json_mode', 'value' => 'cap:json_mode', 'icon' => 'mimetypes-text-js', 'group' => 'capabilities'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.streaming', 'value' => 'cap:streaming', 'icon' => 'actions-play', 'group' => 'capabilities'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.embeddings', 'value' => 'cap:embeddings', 'icon' => 'actions-database', 'group' => 'capabilities'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.audio', 'value' => 'cap:audio', 'icon' => 'mimetypes-media-audio', 'group' => 'capabilities'],
+                    ['label' => 'OpenAI', 'value' => 'adapter:openai', 'icon' => 'EXT:nr_llm/Resources/Public/Icons/provider-openai.svg', 'group' => 'adapters'],
+                    ['label' => 'Anthropic (Claude)', 'value' => 'adapter:anthropic', 'icon' => 'EXT:nr_llm/Resources/Public/Icons/provider-claude.svg', 'group' => 'adapters'],
+                    ['label' => 'Google (Gemini)', 'value' => 'adapter:gemini', 'icon' => 'EXT:nr_llm/Resources/Public/Icons/provider-gemini.svg', 'group' => 'adapters'],
+                    ['label' => 'OpenRouter', 'value' => 'adapter:openrouter', 'icon' => 'EXT:nr_llm/Resources/Public/Icons/provider-openrouter.svg', 'group' => 'adapters'],
+                    ['label' => 'Mistral', 'value' => 'adapter:mistral', 'icon' => 'EXT:nr_llm/Resources/Public/Icons/provider-mistral.svg', 'group' => 'adapters'],
+                    ['label' => 'Groq', 'value' => 'adapter:groq', 'icon' => 'EXT:nr_llm/Resources/Public/Icons/provider-groq.svg', 'group' => 'adapters'],
+                    ['label' => 'Ollama', 'value' => 'adapter:ollama', 'icon' => 'actions-terminal', 'group' => 'adapters'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.prefer_lowest_cost', 'value' => 'pref:lowest_cost', 'icon' => 'actions-money', 'group' => 'preferences'],
                 ],
                 'itemGroups' => [
                     'capabilities' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.criteria.group.capabilities',
@@ -177,6 +178,7 @@ return [
         ],
         'system_prompt' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.system_prompt',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.system_prompt.description',
             'config' => [
                 'type' => 'text',
                 'cols' => 60,
@@ -219,6 +221,7 @@ return [
         ],
         'top_p' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.top_p',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.top_p.description',
             'config' => [
                 'type' => 'number',
                 'format' => 'decimal',
@@ -232,6 +235,7 @@ return [
         ],
         'frequency_penalty' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.frequency_penalty',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.frequency_penalty.description',
             'config' => [
                 'type' => 'number',
                 'format' => 'decimal',
@@ -245,6 +249,7 @@ return [
         ],
         'presence_penalty' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.presence_penalty',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.presence_penalty.description',
             'config' => [
                 'type' => 'number',
                 'format' => 'decimal',
@@ -295,6 +300,7 @@ return [
         ],
         'max_tokens_per_day' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_tokens_per_day',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_tokens_per_day.description',
             'config' => [
                 'type' => 'number',
                 'size' => 10,
@@ -306,6 +312,7 @@ return [
         ],
         'max_cost_per_day' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_cost_per_day',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.max_cost_per_day.description',
             'config' => [
                 'type' => 'number',
                 'format' => 'decimal',
@@ -318,6 +325,7 @@ return [
         ],
         'is_active' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_active',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_active.description',
             'config' => [
                 'type' => 'check',
                 'default' => 1,
@@ -325,6 +333,7 @@ return [
         ],
         'is_default' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_default',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_default.description',
             'config' => [
                 'type' => 'check',
                 'default' => 0,

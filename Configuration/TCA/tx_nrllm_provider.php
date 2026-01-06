@@ -73,6 +73,7 @@ return [
         ],
         'name' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.name',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.name.description',
             'config' => [
                 'type' => 'input',
                 'size' => 50,
@@ -155,6 +156,7 @@ return [
         ],
         'max_retries' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.max_retries',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.max_retries.description',
             'config' => [
                 'type' => 'number',
                 'size' => 5,
@@ -178,6 +180,7 @@ return [
         ],
         'is_active' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.is_active',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_provider.is_active.description',
             'config' => [
                 'type' => 'check',
                 'default' => 1,

@@ -80,6 +80,7 @@ return [
         ],
         'name' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.name',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.name.description',
             'config' => [
                 'type' => 'input',
                 'size' => 50,
@@ -98,6 +99,7 @@ return [
         ],
         'category' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category.description',
             'config' => [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
@@ -138,6 +140,7 @@ return [
         ],
         'input_type' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_type',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_type.description',
             'config' => [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
@@ -164,6 +167,7 @@ return [
         ],
         'output_format' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.output_format',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.output_format.description',
             'config' => [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
@@ -178,6 +182,7 @@ return [
         ],
         'is_active' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.is_active',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.is_active.description',
             'config' => [
                 'type' => 'check',
                 'default' => 1,
