@@ -1153,7 +1153,7 @@ parameters:
 			path: Tests/E2E/Backend/ProviderManagementE2ETest.php
 
 		-
-			message: '#^Cannot call method getDecryptedApiKey\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
+			message: '#^Cannot call method getApiKey\(\) on Netresearch\\NrLlm\\Domain\\Model\\Provider\|null\.$#'
 			identifier: method.nonObject
 			count: 1
 			path: Tests/E2E/Backend/ProviderManagementE2ETest.php

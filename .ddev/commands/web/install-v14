@@ -32,8 +32,9 @@ composer create-project typo3/cms-base-distribution:^14 . --no-interaction --no-
 echo "🔧 Removing platform PHP override..."
 composer config --unset platform.php
 
-# Add extension repository and install
+# Add extension repositories and install
 echo "🔌 Adding nr_llm extension..."
+composer config repositories.nr_vault path "/var/www/nr-vault"
 composer config repositories.nr_llm path "$EXTENSION_PATH"
 composer require netresearch/nr-llm:@dev --no-interaction --no-progress
 

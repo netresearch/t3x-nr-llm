@@ -51,8 +51,8 @@
     },
     "repositories": [
         {
-            "type": "path",
-            "url": "../nr-vault"
+            "type": "vcs",
+            "url": "https://github.com/netresearch/t3x-nr-vault.git"
         }
     ],
     "autoload": {
