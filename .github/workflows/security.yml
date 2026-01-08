@@ -17,6 +17,8 @@ jobs:
   gitleaks:
     name: Secret Scanning
     runs-on: ubuntu-latest
+    # gitleaks-action doesn't support merge_group events
+    if: github.event_name != 'merge_group'
     permissions:
       contents: read
       security-events: write
