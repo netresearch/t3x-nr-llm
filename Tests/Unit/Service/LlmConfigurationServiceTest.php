@@ -1,0 +1,510 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Tests\Unit\Service;
+
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Exception\AccessDeniedException;
+use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
+use Netresearch\NrLlm\Service\LlmConfigurationService;
+use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
+use TYPO3\CMS\Core\Context\AspectInterface;
+use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
+use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
+use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
+use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
+
+#[CoversClass(LlmConfigurationService::class)]
+class LlmConfigurationServiceTest extends AbstractUnitTestCase
+{
+    private LlmConfigurationRepository&MockObject $repositoryMock;
+    private PersistenceManagerInterface&MockObject $persistenceManagerMock;
+    private Context&MockObject $contextMock;
+    private bool $isAdmin = false;
+    private bool $isLoggedIn = true;
+    /** @var array<int> */
+    private array $groupIds = [];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->repositoryMock = $this->createMock(LlmConfigurationRepository::class);
+        $this->persistenceManagerMock = $this->createMock(PersistenceManagerInterface::class);
+        $this->contextMock = $this->createMock(Context::class);
+
+        // Reset user state
+        $this->isAdmin = false;
+        $this->isLoggedIn = true;
+        $this->groupIds = [];
+    }
+
+    private function createSubject(): LlmConfigurationService
+    {
+        return new LlmConfigurationService(
+            $this->repositoryMock,
+            $this->persistenceManagerMock,
+            $this->contextMock,
+        );
+    }
+
+    private function createConfigurationMock(
+        string $identifier = 'test-config',
+        bool $isActive = true,
+        bool $hasRestrictions = false,
+        ?array $groupIds = null,
+    ): LlmConfiguration&MockObject {
+        $config = $this->createMock(LlmConfiguration::class);
+        $config->method('getIdentifier')->willReturn($identifier);
+        $config->method('isActive')->willReturn($isActive);
+        $config->method('hasAccessRestrictions')->willReturn($hasRestrictions);
+
+        if ($groupIds !== null) {
+            $groups = new ObjectStorage();
+            foreach ($groupIds as $id) {
+                $group = $this->createMock(AbstractEntity::class);
+                $group->method('getUid')->willReturn($id);
+                $groups->attach($group);
+            }
+            $config->method('getBeGroups')->willReturn($groups);
+        } else {
+            $config->method('getBeGroups')->willReturn(null);
+        }
+
+        return $config;
+    }
+
+    private function setupAdminUser(): void
+    {
+        $this->isLoggedIn = true;
+        $this->isAdmin = true;
+        $this->groupIds = [];
+        $this->setupContextMock();
+    }
+
+    /**
+     * @param array<int> $groupIds
+     */
+    private function setupNonAdminUser(array $groupIds = []): void
+    {
+        $this->isLoggedIn = true;
+        $this->isAdmin = false;
+        $this->groupIds = $groupIds;
+        $this->setupContextMock();
+    }
+
+    private function setupNoBackendUser(): void
+    {
+        $this->contextMock
+            ->method('getAspect')
+            ->with('backend.user')
+            ->willThrowException(new AspectNotFoundException());
+    }
+
+    private function setupContextMock(): void
+    {
+        // Create an anonymous class that implements AspectInterface
+        $aspectStub = new class ($this->isLoggedIn, $this->isAdmin, $this->groupIds) implements AspectInterface {
+            /**
+             * @param array<int> $groupIds
+             */
+            public function __construct(
+                private bool $isLoggedIn,
+                private bool $isAdmin,
+                private array $groupIds,
+            ) {}
+
+            public function get(string $name): mixed
+            {
+                return match ($name) {
+                    'isLoggedIn' => $this->isLoggedIn,
+                    'isAdmin' => $this->isAdmin,
+                    'groupIds' => $this->groupIds,
+                    default => null,
+                };
+            }
+        };
+
+        $this->contextMock
+            ->method('getAspect')
+            ->with('backend.user')
+            ->willReturn($aspectStub);
+    }
+
+    // ==================== getConfiguration tests ====================
+
+    #[Test]
+    public function getConfigurationReturnsActiveConfiguration(): void
+    {
+        $this->setupAdminUser();
+        $config = $this->createConfigurationMock();
+
+        $this->repositoryMock
+            ->method('findOneByIdentifier')
+            ->with('test-config')
+            ->willReturn($config);
+
+        $subject = $this->createSubject();
+        $result = $subject->getConfiguration('test-config');
+
+        self::assertSame($config, $result);
+    }
+
+    #[Test]
+    public function getConfigurationThrowsWhenNotFound(): void
+    {
+        $this->repositoryMock
+            ->method('findOneByIdentifier')
+            ->willReturn(null);
+
+        $subject = $this->createSubject();
+
+        $this->expectException(ConfigurationNotFoundException::class);
+
+        $subject->getConfiguration('nonexistent');
+    }
+
+    #[Test]
+    public function getConfigurationThrowsWhenNotActive(): void
+    {
+        $config = $this->createConfigurationMock(isActive: false);
+
+        $this->repositoryMock
+            ->method('findOneByIdentifier')
+            ->willReturn($config);
+
+        $subject = $this->createSubject();
+
+        $this->expectException(ConfigurationNotFoundException::class);
+
+        $subject->getConfiguration('test-config');
+    }
+
+    #[Test]
+    public function getConfigurationThrowsWhenAccessDenied(): void
+    {
+        $this->setupNonAdminUser();
+        $config = $this->createConfigurationMock(hasRestrictions: true, groupIds: [5, 6]);
+
+        $this->repositoryMock
+            ->method('findOneByIdentifier')
+            ->willReturn($config);
+
+        $subject = $this->createSubject();
+
+        $this->expectException(AccessDeniedException::class);
+
+        $subject->getConfiguration('test-config');
+    }
+
+    // ==================== getDefaultConfiguration tests ====================
+
+    #[Test]
+    public function getDefaultConfigurationReturnsDefault(): void
+    {
+        $this->setupAdminUser();
+        $config = $this->createConfigurationMock();
+
+        $this->repositoryMock
+            ->method('findDefault')
+            ->willReturn($config);
+
+        $subject = $this->createSubject();
+        $result = $subject->getDefaultConfiguration();
+
+        self::assertSame($config, $result);
+    }
+
+    #[Test]
+    public function getDefaultConfigurationThrowsWhenNotFound(): void
+    {
+        $this->repositoryMock
+            ->method('findDefault')
+            ->willReturn(null);
+
+        $subject = $this->createSubject();
+
+        $this->expectException(ConfigurationNotFoundException::class);
+
+        $subject->getDefaultConfiguration();
+    }
+
+    // ==================== getAccessibleConfigurations tests ====================
+
+    #[Test]
+    public function getAccessibleConfigurationsReturnsAllForAdmin(): void
+    {
+        $this->setupAdminUser();
+
+        $config1 = $this->createConfigurationMock('config1');
+        $config2 = $this->createConfigurationMock('config2');
+
+        $queryResult = $this->createMock(QueryResultInterface::class);
+        $queryResult->method('toArray')->willReturn([$config1, $config2]);
+
+        $this->repositoryMock
+            ->method('findActive')
+            ->willReturn($queryResult);
+
+        $subject = $this->createSubject();
+        $result = $subject->getAccessibleConfigurations();
+
+        self::assertCount(2, $result);
+    }
+
+    #[Test]
+    public function getAccessibleConfigurationsFiltersForNonAdmin(): void
+    {
+        $this->setupNonAdminUser([1, 2, 3]);
+
+        $config1 = $this->createConfigurationMock('config1');
+
+        $queryResult = $this->createMock(QueryResultInterface::class);
+        $queryResult->method('toArray')->willReturn([$config1]);
+
+        $this->repositoryMock
+            ->method('findAccessibleForGroups')
+            ->with([1, 2, 3])
+            ->willReturn($queryResult);
+
+        $subject = $this->createSubject();
+        $result = $subject->getAccessibleConfigurations();
+
+        self::assertCount(1, $result);
+    }
+
+    // ==================== hasAccess tests ====================
+
+    #[Test]
+    public function hasAccessReturnsFalseWhenNoBackendUser(): void
+    {
+        $this->setupNoBackendUser();
+        $config = $this->createConfigurationMock();
+
+        $subject = $this->createSubject();
+        $result = $subject->hasAccess($config);
+
+        self::assertFalse($result);
+    }
+
+    #[Test]
+    public function hasAccessReturnsTrueForAdmin(): void
+    {
+        $this->setupAdminUser();
+        $config = $this->createConfigurationMock(hasRestrictions: true, groupIds: [5]);
+
+        $subject = $this->createSubject();
+        $result = $subject->hasAccess($config);
+
+        self::assertTrue($result);
+    }
+
+    #[Test]
+    public function hasAccessReturnsTrueWhenNoRestrictions(): void
+    {
+        $this->setupNonAdminUser([1, 2]);
+        $config = $this->createConfigurationMock(hasRestrictions: false);
+
+        $subject = $this->createSubject();
+        $result = $subject->hasAccess($config);
+
+        self::assertTrue($result);
+    }
+
+    #[Test]
+    public function hasAccessReturnsTrueWhenUserInAllowedGroup(): void
+    {
+        $this->setupNonAdminUser([1, 2, 3]);
+        $config = $this->createConfigurationMock(hasRestrictions: true, groupIds: [2, 5]);
+
+        $subject = $this->createSubject();
+        $result = $subject->hasAccess($config);
+
+        self::assertTrue($result);
+    }
+
+    #[Test]
+    public function hasAccessReturnsFalseWhenUserNotInAllowedGroup(): void
+    {
+        $this->setupNonAdminUser([1, 2, 3]);
+        $config = $this->createConfigurationMock(hasRestrictions: true, groupIds: [5, 6]);
+
+        $subject = $this->createSubject();
+        $result = $subject->hasAccess($config);
+
+        self::assertFalse($result);
+    }
+
+    // ==================== checkAccess tests ====================
+
+    #[Test]
+    public function checkAccessDoesNotThrowWhenHasAccess(): void
+    {
+        $this->setupAdminUser();
+        $config = $this->createConfigurationMock();
+
+        $subject = $this->createSubject();
+
+        // Should not throw
+        $subject->checkAccess($config);
+
+        self::assertTrue(true);
+    }
+
+    #[Test]
+    public function checkAccessThrowsWhenNoAccess(): void
+    {
+        $this->setupNonAdminUser();
+        $config = $this->createConfigurationMock(hasRestrictions: true, groupIds: [5]);
+
+        $subject = $this->createSubject();
+
+        $this->expectException(AccessDeniedException::class);
+
+        $subject->checkAccess($config);
+    }
+
+    // ==================== setAsDefault tests ====================
+
+    #[Test]
+    public function setAsDefaultUnsetsOthersAndSetsNew(): void
+    {
+        $config = $this->createMock(LlmConfiguration::class);
+        $config->expects(self::once())->method('setIsDefault')->with(true);
+
+        $this->repositoryMock->expects(self::once())->method('unsetAllDefaults');
+        $this->repositoryMock->expects(self::once())->method('update')->with($config);
+        $this->persistenceManagerMock->expects(self::once())->method('persistAll');
+
+        $subject = $this->createSubject();
+        $subject->setAsDefault($config);
+    }
+
+    // ==================== toggleActive tests ====================
+
+    #[Test]
+    public function toggleActiveTogglesStatus(): void
+    {
+        $config = $this->createMock(LlmConfiguration::class);
+        $config->method('isActive')->willReturn(true);
+        $config->expects(self::once())->method('setIsActive')->with(false);
+
+        $this->repositoryMock->expects(self::once())->method('update')->with($config);
+        $this->persistenceManagerMock->expects(self::once())->method('persistAll');
+
+        $subject = $this->createSubject();
+        $subject->toggleActive($config);
+    }
+
+    // ==================== CRUD tests ====================
+
+    #[Test]
+    public function createAddsAndPersists(): void
+    {
+        $config = $this->createMock(LlmConfiguration::class);
+
+        $this->repositoryMock->expects(self::once())->method('add')->with($config);
+        $this->persistenceManagerMock->expects(self::once())->method('persistAll');
+
+        $subject = $this->createSubject();
+        $subject->create($config);
+    }
+
+    #[Test]
+    public function updateUpdatesAndPersists(): void
+    {
+        $config = $this->createMock(LlmConfiguration::class);
+
+        $this->repositoryMock->expects(self::once())->method('update')->with($config);
+        $this->persistenceManagerMock->expects(self::once())->method('persistAll');
+
+        $subject = $this->createSubject();
+        $subject->update($config);
+    }
+
+    #[Test]
+    public function deleteRemovesAndPersists(): void
+    {
+        $config = $this->createMock(LlmConfiguration::class);
+
+        $this->repositoryMock->expects(self::once())->method('remove')->with($config);
+        $this->persistenceManagerMock->expects(self::once())->method('persistAll');
+
+        $subject = $this->createSubject();
+        $subject->delete($config);
+    }
+
+    // ==================== isIdentifierAvailable tests ====================
+
+    #[Test]
+    public function isIdentifierAvailableChecksRepository(): void
+    {
+        $this->repositoryMock
+            ->method('isIdentifierUnique')
+            ->with('new-identifier', 5)
+            ->willReturn(true);
+
+        $subject = $this->createSubject();
+        $result = $subject->isIdentifierAvailable('new-identifier', 5);
+
+        self::assertTrue($result);
+    }
+
+    #[Test]
+    public function isIdentifierAvailableReturnsFalseWhenTaken(): void
+    {
+        $this->repositoryMock
+            ->method('isIdentifierUnique')
+            ->with('existing-identifier', null)
+            ->willReturn(false);
+
+        $subject = $this->createSubject();
+        $result = $subject->isIdentifierAvailable('existing-identifier');
+
+        self::assertFalse($result);
+    }
+
+    // ==================== Edge cases ====================
+
+    #[Test]
+    public function hasAccessHandlesNullBeGroups(): void
+    {
+        $this->setupNonAdminUser([1, 2]);
+
+        $config = $this->createMock(LlmConfiguration::class);
+        $config->method('hasAccessRestrictions')->willReturn(true);
+        $config->method('getBeGroups')->willReturn(null);
+
+        $subject = $this->createSubject();
+        $result = $subject->hasAccess($config);
+
+        // No allowed groups means no access
+        self::assertFalse($result);
+    }
+
+    #[Test]
+    public function getAccessibleConfigurationsHandlesEmptyGroupIds(): void
+    {
+        $this->setupNonAdminUser([]);
+
+        $queryResult = $this->createMock(QueryResultInterface::class);
+        $queryResult->method('toArray')->willReturn([]);
+
+        $this->repositoryMock
+            ->method('findAccessibleForGroups')
+            ->with([])
+            ->willReturn($queryResult);
+
+        $subject = $this->createSubject();
+        $result = $subject->getAccessibleConfigurations();
+
+        self::assertEmpty($result);
+    }
+}
