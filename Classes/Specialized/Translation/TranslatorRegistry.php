@@ -18,7 +18,7 @@ use TYPO3\CMS\Core\SingletonInterface;
  *   $translator = $registry->get('deepl');
  *   $result = $translator->translate('Hello', 'de');
  */
-final class TranslatorRegistry implements SingletonInterface
+final class TranslatorRegistry implements TranslatorRegistryInterface, SingletonInterface
 {
     /** @var array<string, TranslatorInterface> */
     private array $translators = [];

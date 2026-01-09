@@ -1987,18 +1987,6 @@ parameters:
 			path: Tests/Unit/Provider/ResponseParserTraitTest.php
 
 		-
-			message: '#^Parameter \#1 \$llmManager of class Netresearch\\NrLlm\\Service\\Feature\\TranslationService constructor expects Netresearch\\NrLlm\\Service\\LlmServiceManager, Netresearch\\NrLlm\\Service\\LlmServiceManagerInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
-			identifier: argument.type
-			count: 1
-			path: Tests/Unit/Service/Feature/TranslationServiceTest.php
-
-		-
-			message: '#^Parameter \#2 \$translatorRegistry of class Netresearch\\NrLlm\\Service\\Feature\\TranslationService constructor expects Netresearch\\NrLlm\\Specialized\\Translation\\TranslatorRegistry, Netresearch\\NrLlm\\Specialized\\Translation\\TranslatorRegistryInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
-			identifier: argument.type
-			count: 1
-			path: Tests/Unit/Service/Feature/TranslationServiceTest.php
-
-		-
 			message: '#^Parameter \$glossary of class Netresearch\\NrLlm\\Service\\Option\\TranslationOptions constructor expects array\<string, string\>\|null, array\<string, array\<string, string\>\|int\|string\> given\.$#'
 			identifier: argument.type
 			count: 1
@@ -2012,24 +2000,6 @@ parameters:
 
 		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Service\\LlmConfigurationServiceTest\:\:createConfigurationMock\(\) has parameter \$groupIds with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: Tests/Unit/Service/LlmConfigurationServiceTest.php
-
-		-
-			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Service\\LlmConfigurationServiceTest\:\:setupNonAdminUser\(\) has parameter \$groupIds with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: Tests/Unit/Service/LlmConfigurationServiceTest.php
-
-		-
-			message: '#^Method TYPO3\\CMS\\Core\\Context\\AspectInterface@anonymous/Tests/Unit/Service/LlmConfigurationServiceTest\.php\:110\:\:__construct\(\) has parameter \$groupIds with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: Tests/Unit/Service/LlmConfigurationServiceTest.php
-
-		-
-			message: '#^Property Netresearch\\NrLlm\\Tests\\Unit\\Service\\LlmConfigurationServiceTest\:\:\$groupIds type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: Tests/Unit/Service/LlmConfigurationServiceTest.php
@@ -2239,12 +2209,6 @@ parameters:
 			path: Tests/Unit/Specialized/Image/DallEImageServiceTest.php
 
 		-
-			message: '#^Parameter \#5 \$usageTracker of class Netresearch\\NrLlm\\Specialized\\Image\\DallEImageService constructor expects Netresearch\\NrLlm\\Service\\UsageTrackerService, Netresearch\\NrLlm\\Service\\UsageTrackerServiceInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
-			identifier: argument.type
-			count: 4
-			path: Tests/Unit/Specialized/Image/DallEImageServiceTest.php
-
-		-
 			message: '#^Cannot access offset ''count'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -2266,12 +2230,6 @@ parameters:
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Image\\FalImageServiceTest\:\:setupSuccessfulRequest\(\) has parameter \$responseData with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
-			path: Tests/Unit/Specialized/Image/FalImageServiceTest.php
-
-		-
-			message: '#^Parameter \#5 \$usageTracker of class Netresearch\\NrLlm\\Specialized\\Image\\FalImageService constructor expects Netresearch\\NrLlm\\Service\\UsageTrackerService, Netresearch\\NrLlm\\Service\\UsageTrackerServiceInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
-			identifier: argument.type
-			count: 7
 			path: Tests/Unit/Specialized/Image/FalImageServiceTest.php
 
 		-
@@ -2299,12 +2257,6 @@ parameters:
 			path: Tests/Unit/Specialized/Speech/TextToSpeechServiceTest.php
 
 		-
-			message: '#^Parameter \#5 \$usageTracker of class Netresearch\\NrLlm\\Specialized\\Speech\\TextToSpeechService constructor expects Netresearch\\NrLlm\\Service\\UsageTrackerService, Netresearch\\NrLlm\\Service\\UsageTrackerServiceInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
-			identifier: argument.type
-			count: 7
-			path: Tests/Unit/Specialized/Speech/TextToSpeechServiceTest.php
-
-		-
 			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Speech\\WhisperTranscriptionServiceTest\:\:createSubject\(\) has parameter \$config with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -2314,12 +2266,6 @@ parameters:
 			message: '#^Parameter \#1 \$responseBody of method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Speech\\WhisperTranscriptionServiceTest\:\:setupSuccessfulRequest\(\) expects string, string\|false given\.$#'
 			identifier: argument.type
 			count: 15
-			path: Tests/Unit/Specialized/Speech/WhisperTranscriptionServiceTest.php
-
-		-
-			message: '#^Parameter \#5 \$usageTracker of class Netresearch\\NrLlm\\Specialized\\Speech\\WhisperTranscriptionService constructor expects Netresearch\\NrLlm\\Service\\UsageTrackerService, Netresearch\\NrLlm\\Service\\UsageTrackerServiceInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
-			identifier: argument.type
-			count: 4
 			path: Tests/Unit/Specialized/Speech/WhisperTranscriptionServiceTest.php
 
 		-
@@ -2380,12 +2326,6 @@ parameters:
 			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, array\<string, mixed\>\|null given\.$#'
 			identifier: argument.type
 			count: 2
-			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
-
-		-
-			message: '#^Parameter \#2 \$usageTracker of class Netresearch\\NrLlm\\Specialized\\Translation\\LlmTranslator constructor expects Netresearch\\NrLlm\\Service\\UsageTrackerService, Netresearch\\NrLlm\\Service\\UsageTrackerServiceInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
-			identifier: argument.type
-			count: 1
 			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
 
 		-

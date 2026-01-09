@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Translation;
 
-use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
-use Netresearch\NrLlm\Service\UsageTrackerService;
+use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 
 /**
  * LLM-based translator wrapper.
@@ -38,8 +38,8 @@ final readonly class LlmTranslator implements TranslatorInterface
     ];
 
     public function __construct(
-        private LlmServiceManager $llmManager,
-        private UsageTrackerService $usageTracker,
+        private LlmServiceManagerInterface $llmManager,
+        private UsageTrackerServiceInterface $usageTracker,
     ) {}
 
     public function getIdentifier(): string

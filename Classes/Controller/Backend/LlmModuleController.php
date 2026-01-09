@@ -9,7 +9,7 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
-use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
@@ -23,7 +23,7 @@ final class LlmModuleController extends ActionController
 {
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
-        private readonly LlmServiceManager $llmServiceManager,
+        private readonly LlmServiceManagerInterface $llmServiceManager,
         private readonly ProviderRepository $providerRepository,
         private readonly ModelRepository $modelRepository,
         private readonly LlmConfigurationRepository $configurationRepository,
