@@ -61,3 +61,5 @@ Documentation-GENERATED-temp/
 # Public directory (generated at runtime)
 public/
 !public/.git-info.json
+analyze_cov.php
+coverage.xml
