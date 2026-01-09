@@ -1805,3 +1805,591 @@ parameters:
 			identifier: cast.int
 			count: 9
 			path: Tests/Functional/Service/UsageTrackerServiceTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Controller\\Backend\\DTO\\LoadRecordDataRequestTest\:\:fromRequestParsesUidsCorrectly\(\) has parameter \$expectedList with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Unit/Controller/Backend/DTO/LoadRecordDataRequestTest.php
+
+		-
+			message: '#^Cannot access offset ''arguments'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Provider/GeminiProviderTest.php
+
+		-
+			message: '#^Cannot access offset ''name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: Tests/Unit/Provider/GeminiProviderTest.php
+
+		-
+			message: '#^Comparison operation "\>\=" between 0 and 1 is always false\.$#'
+			identifier: greaterOrEqual.alwaysFalse
+			count: 4
+			path: Tests/Unit/Provider/GeminiProviderTest.php
+
+		-
+			message: '#^Cannot access offset ''arguments'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: Tests/Unit/Provider/GroqProviderTest.php
+
+		-
+			message: '#^Cannot access offset ''name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Provider/GroqProviderTest.php
+
+		-
+			message: '#^Cannot access offset ''arguments'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: Tests/Unit/Provider/MistralProviderTest.php
+
+		-
+			message: '#^Cannot access offset ''name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Provider/MistralProviderTest.php
+
+		-
+			message: '#^Offset ''models'' might not exist on array\{success\: true, message\: string, models\?\: array\<string, string\>\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Tests/Unit/Provider/OllamaProviderMutationTest.php
+
+		-
+			message: '#^Offset ''models'' might not exist on array\{success\: true, message\: string, models\?\: array\<string, string\>\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 3
+			path: Tests/Unit/Provider/OllamaProviderTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Provider\\ProviderAdapterRegistryTest\:\:createProviderMock\(\) has parameter \$options with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Unit/Provider/ProviderAdapterRegistryTest.php
+
+		-
+			message: '#^Parameter \#2 \$adapterClass of method Netresearch\\NrLlm\\Provider\\ProviderAdapterRegistry\:\:registerAdapter\(\) expects class\-string\<Netresearch\\NrLlm\\Provider\\AbstractProvider\>, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/Unit/Provider/ProviderAdapterRegistryTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:asArray\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:asFloat\(\)\.$#'
+			identifier: method.notFound
+			count: 4
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:asInt\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:asList\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:asString\(\)\.$#'
+			identifier: method.notFound
+			count: 4
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:decodeJsonResponse\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getArray\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getBool\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getFloat\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getInt\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getList\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getNestedArray\(\)\.$#'
+			identifier: method.notFound
+			count: 4
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getNestedInt\(\)\.$#'
+			identifier: method.notFound
+			count: 4
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getNestedString\(\)\.$#'
+			identifier: method.notFound
+			count: 5
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getNullableInt\(\)\.$#'
+			identifier: method.notFound
+			count: 5
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getNullableString\(\)\.$#'
+			identifier: method.notFound
+			count: 6
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getString\(\)\.$#'
+			identifier: method.notFound
+			count: 5
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertCount\(\) expects Countable\|iterable, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/Unit/Provider/ResponseParserTraitTest.php
+
+		-
+			message: '#^Parameter \#1 \$llmManager of class Netresearch\\NrLlm\\Service\\Feature\\TranslationService constructor expects Netresearch\\NrLlm\\Service\\LlmServiceManager, Netresearch\\NrLlm\\Service\\LlmServiceManagerInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/Unit/Service/Feature/TranslationServiceTest.php
+
+		-
+			message: '#^Parameter \#2 \$translatorRegistry of class Netresearch\\NrLlm\\Service\\Feature\\TranslationService constructor expects Netresearch\\NrLlm\\Specialized\\Translation\\TranslatorRegistry, Netresearch\\NrLlm\\Specialized\\Translation\\TranslatorRegistryInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/Unit/Service/Feature/TranslationServiceTest.php
+
+		-
+			message: '#^Parameter \$glossary of class Netresearch\\NrLlm\\Service\\Option\\TranslationOptions constructor expects array\<string, string\>\|null, array\<string, array\<string, string\>\|int\|string\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/Unit/Service/Feature/TranslationServiceTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertTrue\(\) with true will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Unit/Service/LlmConfigurationServiceTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Service\\LlmConfigurationServiceTest\:\:createConfigurationMock\(\) has parameter \$groupIds with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Unit/Service/LlmConfigurationServiceTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Service\\LlmConfigurationServiceTest\:\:setupNonAdminUser\(\) has parameter \$groupIds with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Unit/Service/LlmConfigurationServiceTest.php
+
+		-
+			message: '#^Method TYPO3\\CMS\\Core\\Context\\AspectInterface@anonymous/Tests/Unit/Service/LlmConfigurationServiceTest\.php\:110\:\:__construct\(\) has parameter \$groupIds with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Unit/Service/LlmConfigurationServiceTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Unit\\Service\\LlmConfigurationServiceTest\:\:\$groupIds type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Unit/Service/LlmConfigurationServiceTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertContainsOnlyInstancesOf\(\) with ''Netresearch\\\\NrLlm\\\\Service\\\\SetupWizard\\\\DTO\\\\SuggestedConfiguration'' and array\<Netresearch\\NrLlm\\Service\\SetupWizard\\DTO\\SuggestedConfiguration\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Unit/Service/SetupWizard/ConfigurationGeneratorTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Unit/Service/SetupWizard/ConfigurationGeneratorTest.php
+
+		-
+			message: '#^Parameter \#2 \$body of method Netresearch\\NrLlm\\Tests\\Unit\\Service\\SetupWizard\\ConfigurationGeneratorTest\:\:createJsonResponseMockForGenerator\(\) expects string, string\|false given\.$#'
+			identifier: argument.type
+			count: 8
+			path: Tests/Unit/Service/SetupWizard/ConfigurationGeneratorTest.php
+
+		-
+			message: '#^Cannot access offset ''modelId'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Service/SetupWizard/DTO/DiscoveredModelTest.php
+
+		-
+			message: '#^Cannot access offset ''name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Service/SetupWizard/DTO/DiscoveredModelTest.php
+
+		-
+			message: '#^Cannot access offset ''identifier'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Service/SetupWizard/DTO/SuggestedConfigurationTest.php
+
+		-
+			message: '#^Cannot access offset ''name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Service/SetupWizard/DTO/SuggestedConfigurationTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertContainsOnlyInstancesOf\(\) with ''Netresearch\\\\NrLlm\\\\Service\\\\SetupWizard\\\\DTO\\\\DiscoveredModel'' and array\<Netresearch\\NrLlm\\Service\\SetupWizard\\DTO\\DiscoveredModel\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Unit/Service/SetupWizard/ModelDiscoveryTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Unit/Service/SetupWizard/ModelDiscoveryTest.php
+
+		-
+			message: '#^Parameter \#2 \$body of method Netresearch\\NrLlm\\Tests\\Unit\\Service\\SetupWizard\\ModelDiscoveryTest\:\:createJsonResponseMockForDiscovery\(\) expects string, string\|false given\.$#'
+			identifier: argument.type
+			count: 14
+			path: Tests/Unit/Service/SetupWizard/ModelDiscoveryTest.php
+
+		-
+			message: '#^Part \$v \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: Tests/Unit/Service/UsageTrackerServiceTest.php
+
+		-
+			message: '#^Offset ''option'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: Tests/Unit/Specialized/Exception/ServiceConfigurationExceptionTest.php
+
+		-
+			message: '#^Offset ''provider'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 3
+			path: Tests/Unit/Specialized/Exception/ServiceConfigurationExceptionTest.php
+
+		-
+			message: '#^Offset ''reason'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 3
+			path: Tests/Unit/Specialized/Exception/ServiceConfigurationExceptionTest.php
+
+		-
+			message: '#^Offset ''limit'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 3
+			path: Tests/Unit/Specialized/Exception/ServiceQuotaExceededExceptionTest.php
+
+		-
+			message: '#^Offset ''quota_type'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: Tests/Unit/Specialized/Exception/ServiceQuotaExceededExceptionTest.php
+
+		-
+			message: '#^Offset ''retry_after'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: Tests/Unit/Specialized/Exception/ServiceQuotaExceededExceptionTest.php
+
+		-
+			message: '#^Offset ''type'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 4
+			path: Tests/Unit/Specialized/Exception/ServiceQuotaExceededExceptionTest.php
+
+		-
+			message: '#^Offset ''used'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: Tests/Unit/Specialized/Exception/ServiceQuotaExceededExceptionTest.php
+
+		-
+			message: '#^Offset ''http_status'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: Tests/Unit/Specialized/Exception/ServiceUnavailableExceptionTest.php
+
+		-
+			message: '#^Offset ''identifier'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Tests/Unit/Specialized/Exception/ServiceUnavailableExceptionTest.php
+
+		-
+			message: '#^Offset ''provider'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: Tests/Unit/Specialized/Exception/ServiceUnavailableExceptionTest.php
+
+		-
+			message: '#^Offset ''reason'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 3
+			path: Tests/Unit/Specialized/Exception/ServiceUnavailableExceptionTest.php
+
+		-
+			message: '#^Offset ''model'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Tests/Unit/Specialized/Exception/SpeechServiceExceptionTest.php
+
+		-
+			message: '#^Offset ''voice'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Tests/Unit/Specialized/Exception/SpeechServiceExceptionTest.php
+
+		-
+			message: '#^Offset ''format'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 3
+			path: Tests/Unit/Specialized/Exception/UnsupportedFormatExceptionTest.php
+
+		-
+			message: '#^Offset ''supported'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: Tests/Unit/Specialized/Exception/UnsupportedFormatExceptionTest.php
+
+		-
+			message: '#^Offset ''type'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: Tests/Unit/Specialized/Exception/UnsupportedFormatExceptionTest.php
+
+		-
+			message: '#^Offset ''direction'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 3
+			path: Tests/Unit/Specialized/Exception/UnsupportedLanguageExceptionTest.php
+
+		-
+			message: '#^Offset ''language'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 3
+			path: Tests/Unit/Specialized/Exception/UnsupportedLanguageExceptionTest.php
+
+		-
+			message: '#^Offset ''supported'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Tests/Unit/Specialized/Exception/UnsupportedLanguageExceptionTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayNotHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, array\<string, mixed\>\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/Unit/Specialized/Exception/UnsupportedLanguageExceptionTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Image\\DallEImageServiceTest\:\:createSubject\(\) has parameter \$config with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Unit/Specialized/Image/DallEImageServiceTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Image\\DallEImageServiceTest\:\:setupSuccessfulRequest\(\) has parameter \$responseData with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Unit/Specialized/Image/DallEImageServiceTest.php
+
+		-
+			message: '#^Parameter \#5 \$usageTracker of class Netresearch\\NrLlm\\Specialized\\Image\\DallEImageService constructor expects Netresearch\\NrLlm\\Service\\UsageTrackerService, Netresearch\\NrLlm\\Service\\UsageTrackerServiceInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
+			identifier: argument.type
+			count: 4
+			path: Tests/Unit/Specialized/Image/DallEImageServiceTest.php
+
+		-
+			message: '#^Cannot access offset ''count'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Specialized/Image/FalImageServiceTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Image\\FalImageServiceTest\:\:createSubject\(\) has parameter \$config with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Unit/Specialized/Image/FalImageServiceTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Image\\FalImageServiceTest\:\:setupQueueSuccessfulRequest\(\) has parameter \$finalResponseData with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Unit/Specialized/Image/FalImageServiceTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Image\\FalImageServiceTest\:\:setupSuccessfulRequest\(\) has parameter \$responseData with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Unit/Specialized/Image/FalImageServiceTest.php
+
+		-
+			message: '#^Parameter \#5 \$usageTracker of class Netresearch\\NrLlm\\Specialized\\Image\\FalImageService constructor expects Netresearch\\NrLlm\\Service\\UsageTrackerService, Netresearch\\NrLlm\\Service\\UsageTrackerServiceInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
+			identifier: argument.type
+			count: 7
+			path: Tests/Unit/Specialized/Image/FalImageServiceTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertContainsOnlyInstancesOf\(\) with ''Netresearch\\\\NrLlm\\\\Specialized\\\\Speech\\\\SpeechSynthesisResult'' and array\<int, Netresearch\\NrLlm\\Specialized\\Speech\\SpeechSynthesisResult\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Unit/Specialized/Speech/TextToSpeechServiceTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, Netresearch\\NrLlm\\Specialized\\Speech\\SpeechSynthesisResult\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 2
+			path: Tests/Unit/Specialized/Speech/TextToSpeechServiceTest.php
+
+		-
+			message: '#^Cannot access offset ''characters'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Specialized/Speech/TextToSpeechServiceTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Speech\\TextToSpeechServiceTest\:\:createSubject\(\) has parameter \$config with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Unit/Specialized/Speech/TextToSpeechServiceTest.php
+
+		-
+			message: '#^Parameter \#5 \$usageTracker of class Netresearch\\NrLlm\\Specialized\\Speech\\TextToSpeechService constructor expects Netresearch\\NrLlm\\Service\\UsageTrackerService, Netresearch\\NrLlm\\Service\\UsageTrackerServiceInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
+			identifier: argument.type
+			count: 7
+			path: Tests/Unit/Specialized/Speech/TextToSpeechServiceTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Speech\\WhisperTranscriptionServiceTest\:\:createSubject\(\) has parameter \$config with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: Tests/Unit/Specialized/Speech/WhisperTranscriptionServiceTest.php
+
+		-
+			message: '#^Parameter \#1 \$responseBody of method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Speech\\WhisperTranscriptionServiceTest\:\:setupSuccessfulRequest\(\) expects string, string\|false given\.$#'
+			identifier: argument.type
+			count: 15
+			path: Tests/Unit/Specialized/Speech/WhisperTranscriptionServiceTest.php
+
+		-
+			message: '#^Parameter \#5 \$usageTracker of class Netresearch\\NrLlm\\Specialized\\Speech\\WhisperTranscriptionService constructor expects Netresearch\\NrLlm\\Service\\UsageTrackerService, Netresearch\\NrLlm\\Service\\UsageTrackerServiceInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
+			identifier: argument.type
+			count: 4
+			path: Tests/Unit/Specialized/Speech/WhisperTranscriptionServiceTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertContainsOnlyInstancesOf\(\) with ''Netresearch\\\\NrLlm\\\\Specialized\\\\Translation\\\\TranslatorResult'' and array\<int, Netresearch\\NrLlm\\Specialized\\Translation\\TranslatorResult\> will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
+
+		-
+			message: '#^Cannot access offset ''characters'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
+
+		-
+			message: '#^Cannot access offset ''completion_tokens'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
+
+		-
+			message: '#^Cannot access offset ''prompt_tokens'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
+
+		-
+			message: '#^Cannot access offset ''tokens'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
+
+		-
+			message: '#^Cannot access offset ''total_tokens'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
+
+		-
+			message: '#^Method Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Translation\\TranslatorTestProvider\:\:getAvailableModels\(\) should return array\<string, string\> but returns array\<int, string\>\.$#'
+			identifier: return.type
+			count: 1
+			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
+
+		-
+			message: '#^Offset ''model'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
+
+		-
+			message: '#^Offset ''usage'' might not exist on array\<string, mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 3
+			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of static method PHPUnit\\Framework\\Assert\:\:assertArrayHasKey\(\) expects array\<mixed\>\|ArrayAccess\<\(int\|string\), mixed\>, array\<string, mixed\>\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
+
+		-
+			message: '#^Parameter \#2 \$usageTracker of class Netresearch\\NrLlm\\Specialized\\Translation\\LlmTranslator constructor expects Netresearch\\NrLlm\\Service\\UsageTrackerService, Netresearch\\NrLlm\\Service\\UsageTrackerServiceInterface&PHPUnit\\Framework\\MockObject\\MockObject given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
+
+		-
+			message: '#^Property Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\Translation\\TranslatorTestProvider\:\:\$callCount is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Tests/Unit/Specialized/Translation/LlmTranslatorTest.php
