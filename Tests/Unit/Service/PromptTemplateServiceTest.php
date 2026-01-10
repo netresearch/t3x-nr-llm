@@ -10,6 +10,7 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Exception\PromptTemplateNotFoundException;
 use Netresearch\NrLlm\Service\PromptTemplateService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -21,6 +22,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     private PromptTemplateRepository&Stub $repositoryStub;
     private PromptTemplateService $subject;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

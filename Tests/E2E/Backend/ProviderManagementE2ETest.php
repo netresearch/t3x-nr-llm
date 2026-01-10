@@ -13,6 +13,7 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * E2E tests for Provider Management user pathways.
@@ -76,7 +77,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     {
         // User navigates to Providers list and sees all configured providers
         $queryResult = $this->providerRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         $providers = $queryResult->toArray();
 
         self::assertNotEmpty($providers, 'Provider list should contain entries from fixtures');
@@ -95,11 +96,11 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway2_1_viewProviderListShowsActiveStatus(): void
     {
         $activeResult = $this->providerRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $activeResult);
+        self::assertInstanceOf(QueryResultInterface::class, $activeResult);
         $activeProviders = $activeResult->toArray();
 
         $allResult = $this->providerRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allResult);
+        self::assertInstanceOf(QueryResultInterface::class, $allResult);
         $allProviders = $allResult->toArray();
 
         // User should see which providers are active vs inactive
@@ -375,7 +376,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function multipleProvidersCanBeActiveSimultaneously(): void
     {
         $activeResult = $this->providerRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $activeResult);
+        self::assertInstanceOf(QueryResultInterface::class, $activeResult);
         $activeProviders = $activeResult->toArray();
 
         // At least one active provider should exist from fixtures
@@ -720,7 +721,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway2_11_providerPriorityOrder(): void
     {
         $activeResult = $this->providerRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $activeResult);
+        self::assertInstanceOf(QueryResultInterface::class, $activeResult);
         /** @var Provider[] $providers */
         $providers = $activeResult->toArray();
         self::assertGreaterThanOrEqual(1, count($providers));
@@ -739,7 +740,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway2_11_changePriority(): void
     {
         $activeResult = $this->providerRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $activeResult);
+        self::assertInstanceOf(QueryResultInterface::class, $activeResult);
         /** @var Provider[] $providers */
         $providers = $activeResult->toArray();
         if (count($providers) < 2) {
@@ -787,9 +788,9 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway2_12_filterByActiveStatus(): void
     {
         $activeProviders = $this->providerRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $activeProviders);
+        self::assertInstanceOf(QueryResultInterface::class, $activeProviders);
         $allProviders = $this->providerRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allProviders);
+        self::assertInstanceOf(QueryResultInterface::class, $allProviders);
 
         foreach ($activeProviders as $provider) {
             self::assertTrue($provider->isActive());
@@ -1004,7 +1005,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway2_14_findProviderByAdapterType(): void
     {
         $activeResult = $this->providerRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $activeResult);
+        self::assertInstanceOf(QueryResultInterface::class, $activeResult);
         /** @var Provider[] $providers */
         $providers = $activeResult->toArray();
         self::assertNotEmpty($providers);
@@ -1025,7 +1026,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     {
         $activeCount = $this->providerRepository->countActive();
         $allResult = $this->providerRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allResult);
+        self::assertInstanceOf(QueryResultInterface::class, $allResult);
         $totalCount = $allResult->count();
 
         // countActive() already returns int, no need to assert

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
@@ -30,6 +31,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
     private LlmTranslator $subject;
     private TranslatorTestProvider $provider;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -527,14 +529,15 @@ class TranslatorTestProvider extends AbstractProvider
         );
     }
 
+    #[Override]
     public function complete(string $prompt, array $options = []): CompletionResponse
     {
         return $this->chatCompletion([['role' => 'user', 'content' => $prompt]], $options);
     }
 
-    public function embeddings(string|array $input, array $options = []): \Netresearch\NrLlm\Domain\Model\EmbeddingResponse
+    public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
-        throw new RuntimeException('Not implemented');
+        throw new RuntimeException('Not implemented', 1441271664);
     }
 
     protected function getDefaultBaseUrl(): string

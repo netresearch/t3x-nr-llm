@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,6 +32,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     private ProviderAdapterRegistry $subject;
     private LoggerInterface&Stub $loggerStub;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

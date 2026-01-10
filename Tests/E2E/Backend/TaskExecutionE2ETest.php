@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\E2E\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\TaskController;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
@@ -15,6 +16,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * E2E tests for Task Management user pathways.
@@ -77,7 +79,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     {
         // User navigates to Tasks list
         $queryResult = $this->taskRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         $tasks = $queryResult->toArray();
 
         self::assertNotEmpty($tasks, 'Task list should contain entries');
@@ -1219,7 +1221,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function pathway5_12_listAllTasks(): void
     {
         $allTasksResult = $this->taskRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allTasksResult);
+        self::assertInstanceOf(QueryResultInterface::class, $allTasksResult);
         $allTasks = $allTasksResult->toArray();
         $activeTasks = $this->taskRepository->findActive()->toArray();
 
@@ -1387,7 +1389,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     {
         $configRepo = $this->get(LlmConfigurationRepository::class);
         self::assertInstanceOf(LlmConfigurationRepository::class, $configRepo);
-        /** @var list<\Netresearch\NrLlm\Domain\Model\LlmConfiguration> $configs */
+        /** @var list<LlmConfiguration> $configs */
         $configs = $configRepo->findActive()->toArray();
 
         if (count($configs) < 2) {
@@ -1518,7 +1520,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function pathway5_16_countAllTasks(): void
     {
         $allTasks = $this->taskRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allTasks);
+        self::assertInstanceOf(QueryResultInterface::class, $allTasks);
         $count = $allTasks->count();
 
         self::assertGreaterThanOrEqual(0, $count);
@@ -1543,7 +1545,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         // Active should be <= total
         $allTasks = $this->taskRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allTasks);
+        self::assertInstanceOf(QueryResultInterface::class, $allTasks);
         $totalCount = $allTasks->count();
         self::assertLessThanOrEqual($totalCount, $activeCount);
     }
@@ -1571,7 +1573,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $systemTasks = $this->taskRepository->findSystemTasks();
         $userTasks = $this->taskRepository->findUserTasks();
         $allTasks = $this->taskRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allTasks);
+        self::assertInstanceOf(QueryResultInterface::class, $allTasks);
 
         $systemCount = $systemTasks->count();
         $userCount = $userTasks->count();
@@ -1866,7 +1868,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $configurationRepository = $this->get(LlmConfigurationRepository::class);
         self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
 
-        /** @var list<\Netresearch\NrLlm\Domain\Model\LlmConfiguration> $configs */
+        /** @var list<LlmConfiguration> $configs */
         $configs = $configurationRepository->findActive()->toArray();
         if (count($configs) < 2) {
             self::markTestSkipped('Need at least 2 configurations');

@@ -12,6 +12,7 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * Functional tests for ModelRepository.
@@ -58,7 +59,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
     public function findAllReturnsAllModels(): void
     {
         $models = $this->repository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $models);
+        self::assertInstanceOf(QueryResultInterface::class, $models);
 
         self::assertGreaterThan(0, $models->count());
     }

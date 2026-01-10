@@ -16,6 +16,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
 
 #[CoversClass(GeminiProvider::class)]
 class GeminiProviderTest extends AbstractUnitTestCase
@@ -916,7 +918,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $sseData = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hello\"}]}}]}\n\n";
         $sseData .= "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\" World\"}]}}]}\n\n";
 
-        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub = self::createStub(StreamInterface::class);
         $readCount = 0;
         $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
@@ -926,7 +928,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
             return $sseData;
         });
 
-        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock
@@ -949,7 +951,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $sseData = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Response\"}]}}]}\n\n";
 
-        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub = self::createStub(StreamInterface::class);
         $readCount = 0;
         $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
@@ -959,7 +961,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
             return $sseData;
         });
 
-        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock
@@ -988,7 +990,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $sseData = "data: {invalid json}\n";
         $sseData .= "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Valid\"}]}}]}\n\n";
 
-        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub = self::createStub(StreamInterface::class);
         $readCount = 0;
         $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
@@ -998,7 +1000,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
             return $sseData;
         });
 
-        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock
@@ -1022,7 +1024,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $sseData = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"\"}]}}]}\n";
         $sseData .= "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Content\"}]}}]}\n\n";
 
-        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub = self::createStub(StreamInterface::class);
         $readCount = 0;
         $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
@@ -1032,7 +1034,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
             return $sseData;
         });
 
-        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock

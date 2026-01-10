@@ -11,6 +11,7 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * Functional tests for ProviderRepository.
@@ -50,7 +51,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
     public function findAllReturnsAllProviders(): void
     {
         $providers = $this->repository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $providers);
+        self::assertInstanceOf(QueryResultInterface::class, $providers);
 
         self::assertGreaterThan(0, $providers->count());
     }
@@ -59,7 +60,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
     public function findAllReturnsProvidersInSortedOrder(): void
     {
         $queryResult = $this->repository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, Provider> $providers */
         $providers = $queryResult->toArray();
 

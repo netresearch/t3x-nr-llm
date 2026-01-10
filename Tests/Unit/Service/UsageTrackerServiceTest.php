@@ -7,7 +7,9 @@ namespace Netresearch\NrLlm\Tests\Unit\Service;
 use DateTime;
 use Doctrine\DBAL\Result;
 use Netresearch\NrLlm\Service\UsageTrackerService;
+use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -18,6 +20,7 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Core\SingletonInterface;
 
 #[CoversClass(UsageTrackerService::class)]
 class UsageTrackerServiceTest extends AbstractUnitTestCase
@@ -29,6 +32,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     private ExpressionBuilder&Stub $exprStub;
     private Result&Stub $resultStub;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -69,7 +73,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
 
     private function setupBackendUser(int $userId = 1): void
     {
-        $aspectStub = new class ($userId) implements AspectInterface {
+        $aspectStub = new readonly class ($userId) implements AspectInterface {
             public function __construct(private int $userId) {}
 
             public function get(string $name): mixed
@@ -492,7 +496,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     {
         $subject = $this->createSubject();
 
-        self::assertInstanceOf(\Netresearch\NrLlm\Service\UsageTrackerServiceInterface::class, $subject);
+        self::assertInstanceOf(UsageTrackerServiceInterface::class, $subject);
     }
 
     #[Test]
@@ -500,6 +504,6 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     {
         $subject = $this->createSubject();
 
-        self::assertInstanceOf(\TYPO3\CMS\Core\SingletonInterface::class, $subject);
+        self::assertInstanceOf(SingletonInterface::class, $subject);
     }
 }

@@ -15,6 +15,7 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * E2E tests for Model Management user pathways.
@@ -83,7 +84,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     {
         // User navigates to Models list
         $queryResult = $this->modelRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         $models = $queryResult->toArray();
 
         self::assertNotEmpty($models, 'Model list should contain entries from fixtures');
@@ -102,7 +103,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     {
         // User sees model capabilities in the list
         $queryResult = $this->modelRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         $models = $queryResult->toArray();
 
         foreach ($models as $model) {
@@ -716,7 +717,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     public function modelProviderRelationshipIntegrity(): void
     {
         $queryResult = $this->modelRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         $models = $queryResult->toArray();
 
         foreach ($models as $model) {
@@ -917,7 +918,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     {
         // Test that existing models can have their capabilities queried
         $queryResult = $this->modelRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         $models = $queryResult->toArray();
         self::assertNotEmpty($models);
 
@@ -1028,7 +1029,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway3_18_modelDefaultTransition(): void
     {
         $queryResult = $this->modelRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         $models = $queryResult->toArray();
         self::assertGreaterThanOrEqual(2, count($models), 'Need at least 2 models');
 

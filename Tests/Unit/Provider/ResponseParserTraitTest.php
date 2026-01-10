@@ -8,43 +8,26 @@ use InvalidArgumentException;
 use JsonException;
 use Netresearch\NrLlm\Provider\ResponseParserTrait;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
  * Test class for ResponseParserTrait.
+ *
+ * Note: We cover the concrete helper class since traits cannot be covered directly.
  */
-#[CoversClass(ResponseParserTrait::class)]
+#[CoversClass(ResponseParserTraitTestSubject::class)]
 class ResponseParserTraitTest extends AbstractUnitTestCase
 {
-    private ResponseParserTraitTestHelper $subject;
+    private ResponseParserTraitTestSubject $subject;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Create anonymous class using the trait
-        $this->subject = new class implements ResponseParserTraitTestHelper {
-            use ResponseParserTrait {
-                getString as public;
-                getInt as public;
-                getFloat as public;
-                getBool as public;
-                getArray as public;
-                getList as public;
-                getNullableString as public;
-                getNullableInt as public;
-                getNestedArray as public;
-                getNestedString as public;
-                getNestedInt as public;
-                asArray as public;
-                asList as public;
-                asString as public;
-                asInt as public;
-                asFloat as public;
-                decodeJsonResponse as public;
-            }
-        };
+        $this->subject = new ResponseParserTraitTestSubject();
     }
 
     // ==================== getString tests ====================
@@ -159,7 +142,7 @@ class ResponseParserTraitTest extends AbstractUnitTestCase
     public function getArrayReturnsDefaultForNonArray(): void
     {
         $data = ['key' => 'string'];
-        self::assertEquals(['default'], $this->subject->getArray($data, 'key', ['default']));
+        self::assertEquals(['fallback' => 'value'], $this->subject->getArray($data, 'key', ['fallback' => 'value']));
     }
 
     // ==================== getList tests ====================
@@ -272,21 +255,21 @@ class ResponseParserTraitTest extends AbstractUnitTestCase
     public function getNestedArrayReturnsDefaultWhenPathNotFound(): void
     {
         $data = ['a' => ['b' => 'value']];
-        self::assertEquals(['default'], $this->subject->getNestedArray($data, 'a.c', ['default']));
+        self::assertEquals(['fallback' => 'value'], $this->subject->getNestedArray($data, 'a.c', ['fallback' => 'value']));
     }
 
     #[Test]
     public function getNestedArrayReturnsDefaultWhenNotArray(): void
     {
         $data = ['a' => ['b' => 'string']];
-        self::assertEquals(['default'], $this->subject->getNestedArray($data, 'a.b', ['default']));
+        self::assertEquals(['fallback' => 'value'], $this->subject->getNestedArray($data, 'a.b', ['fallback' => 'value']));
     }
 
     #[Test]
     public function getNestedArrayReturnsDefaultWhenIntermediateNotArray(): void
     {
         $data = ['a' => 'string'];
-        self::assertEquals(['default'], $this->subject->getNestedArray($data, 'a.b', ['default']));
+        self::assertEquals(['fallback' => 'value'], $this->subject->getNestedArray($data, 'a.b', ['fallback' => 'value']));
     }
 
     // ==================== getNestedString tests ====================
@@ -367,7 +350,7 @@ class ResponseParserTraitTest extends AbstractUnitTestCase
     #[Test]
     public function asArrayReturnsDefaultForNonArray(): void
     {
-        self::assertEquals(['default'], $this->subject->asArray('string', ['default']));
+        self::assertEquals(['fallback' => 'value'], $this->subject->asArray('string', ['fallback' => 'value']));
     }
 
     // ==================== asList tests ====================
@@ -484,95 +467,32 @@ class ResponseParserTraitTest extends AbstractUnitTestCase
 }
 
 /**
- * Helper interface for PHPStan to understand the anonymous class methods.
+ * Concrete test subject class that uses ResponseParserTrait.
+ *
+ * This class exposes the protected trait methods as public for testing.
+ * Using a concrete class allows PHPUnit to properly track code coverage.
  *
  * @internal
  */
-interface ResponseParserTraitTestHelper
+class ResponseParserTraitTestSubject
 {
-    /**
-     * @param array<string, mixed> $data
-     */
-    public function getString(array $data, string $key, string $default = ''): string;
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    public function getInt(array $data, string $key, int $default = 0): int;
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    public function getFloat(array $data, string $key, float $default = 0.0): float;
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    public function getBool(array $data, string $key, bool $default = false): bool;
-
-    /**
-     * @param array<string, mixed> $data
-     * @param array<mixed>         $default
-     *
-     * @return array<mixed>
-     */
-    public function getArray(array $data, string $key, array $default = []): array;
-
-    /**
-     * @param array<string, mixed> $data
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    public function getList(array $data, string $key): array;
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    public function getNullableString(array $data, string $key): ?string;
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    public function getNullableInt(array $data, string $key): ?int;
-
-    /**
-     * @param array<string, mixed> $data
-     * @param array<mixed>         $default
-     *
-     * @return array<mixed>
-     */
-    public function getNestedArray(array $data, string $path, array $default = []): array;
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    public function getNestedString(array $data, string $path, string $default = ''): string;
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    public function getNestedInt(array $data, string $path, int $default = 0): int;
-
-    /**
-     * @param array<mixed> $default
-     *
-     * @return array<mixed>
-     */
-    public function asArray(mixed $value, array $default = []): array;
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    public function asList(mixed $value): array;
-
-    public function asString(mixed $value, string $default = ''): string;
-
-    public function asInt(mixed $value, int $default = 0): int;
-
-    public function asFloat(mixed $value, float $default = 0.0): float;
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function decodeJsonResponse(string $response): array;
+    use ResponseParserTrait {
+        getString as public;
+        getInt as public;
+        getFloat as public;
+        getBool as public;
+        getArray as public;
+        getList as public;
+        getNullableString as public;
+        getNullableInt as public;
+        getNestedArray as public;
+        getNestedString as public;
+        getNestedInt as public;
+        asArray as public;
+        asList as public;
+        asString as public;
+        asInt as public;
+        asFloat as public;
+        decodeJsonResponse as public;
+    }
 }

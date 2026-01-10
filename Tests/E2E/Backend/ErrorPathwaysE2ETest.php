@@ -24,10 +24,12 @@ use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * E2E tests for Error Handling pathways.
@@ -1271,7 +1273,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         self::assertNotFalse($lastModel);
         $lastModelUid = $lastModel->getUid();
         $allModels = $this->modelRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allModels);
+        self::assertInstanceOf(QueryResultInterface::class, $allModels);
         /** @var Model[] $allModelsArray */
         $allModelsArray = $allModels->toArray();
         foreach ($allModelsArray as $m) {
@@ -1301,7 +1303,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         foreach ($errorRequests as $errorReq) {
             $request = $this->createFormRequest('/ajax/test', $errorReq['params']);
             $response = $errorReq['controller']->{$errorReq['method']}($request);
-            self::assertInstanceOf(\Psr\Http\Message\ResponseInterface::class, $response);
+            self::assertInstanceOf(ResponseInterface::class, $response);
 
             $body = json_decode((string)$response->getBody(), true);
             self::assertIsArray($body, 'Response should be JSON array');
@@ -1325,7 +1327,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         foreach ($notFoundRequests as $notFoundReq) {
             $request = $this->createFormRequest('/ajax/test', ['uid' => $notFoundReq['uid']]);
             $response = $notFoundReq['controller']->{$notFoundReq['method']}($request);
-            self::assertInstanceOf(\Psr\Http\Message\ResponseInterface::class, $response);
+            self::assertInstanceOf(ResponseInterface::class, $response);
 
             self::assertSame(404, $response->getStatusCode());
             $body = json_decode((string)$response->getBody(), true);
@@ -1671,7 +1673,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         // Table should still exist
         $allTasksResult = $this->taskRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allTasksResult);
+        self::assertInstanceOf(QueryResultInterface::class, $allTasksResult);
         self::assertGreaterThan(0, count($allTasksResult->toArray()));
     }
 

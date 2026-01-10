@@ -7,6 +7,7 @@ namespace Netresearch\NrLlm\Tests\E2E\Backend;
 use Exception;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
@@ -22,6 +23,7 @@ use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * E2E tests for Configuration Management user pathways.
@@ -115,7 +117,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     {
         // User navigates to Configurations list
         $queryResult = $this->configurationRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configurations */
         $configurations = $queryResult->toArray();
 
@@ -138,7 +140,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway4_1_viewConfigurationListShowsProviderInfo(): void
     {
         $queryResult = $this->configurationRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configurations */
         $configurations = $queryResult->toArray();
 
@@ -223,7 +225,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     {
         // Find a non-default configuration
         $queryResult = $this->configurationRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configs */
         $configs = $queryResult->toArray();
         $nonDefault = null;
@@ -265,7 +267,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway4_3_setDefaultConfiguration_clearsOtherDefaults(): void
     {
         $queryResult = $this->configurationRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configs */
         $configs = $queryResult->toArray();
         if (count($configs) < 2) {
@@ -631,7 +633,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function configurationModelRelationshipIntegrity(): void
     {
         $queryResult = $this->configurationRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configs */
         $configs = $queryResult->toArray();
 
@@ -654,7 +656,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function configurationParametersWithinValidRanges(): void
     {
         $queryResult = $this->configurationRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configs */
         $configs = $queryResult->toArray();
 
@@ -936,7 +938,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway4_13_countActiveConfigurations(): void
     {
         $queryResult = $this->configurationRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         $count = $queryResult->count();
         self::assertGreaterThanOrEqual(0, $count);
 
@@ -1034,8 +1036,8 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function configurationModelChange(): void
     {
         $queryResult = $this->modelRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
-        /** @var array<int, \Netresearch\NrLlm\Domain\Model\Model> $models */
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
+        /** @var array<int, Model> $models */
         $models = $queryResult->toArray();
         if (count($models) < 2) {
             self::markTestSkipped('Need at least 2 models');
@@ -1409,7 +1411,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway4_18_setDefaultResponseStructure(): void
     {
         $queryResult = $this->configurationRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configs */
         $configs = $queryResult->toArray();
         if (count($configs) < 1) {
@@ -1479,7 +1481,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway4_19_countAllConfigurations(): void
     {
         $allConfigs = $this->configurationRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allConfigs);
+        self::assertInstanceOf(QueryResultInterface::class, $allConfigs);
         $count = $allConfigs->count();
 
         self::assertGreaterThanOrEqual(0, $count);
@@ -1496,7 +1498,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway4_19_countActiveConfigurations(): void
     {
         $activeConfigs = $this->configurationRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $activeConfigs);
+        self::assertInstanceOf(QueryResultInterface::class, $activeConfigs);
         $activeCount = $activeConfigs->count();
 
         // All returned should be active
@@ -1507,7 +1509,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
 
         // Active count should be <= total count
         $allConfigs = $this->configurationRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allConfigs);
+        self::assertInstanceOf(QueryResultInterface::class, $allConfigs);
         $totalCount = $allConfigs->count();
         self::assertLessThanOrEqual($totalCount, $activeCount);
     }

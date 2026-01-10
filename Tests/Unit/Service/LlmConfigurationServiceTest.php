@@ -10,6 +10,7 @@ use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -32,6 +33,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     /** @var array<int> */
     private array $groupIds = [];
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -114,7 +116,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     private function setupContextStub(): void
     {
         // Create an anonymous class that implements AspectInterface
-        $aspectStub = new class ($this->isLoggedIn, $this->isAdmin, $this->groupIds) implements AspectInterface {
+        $aspectStub = new readonly class ($this->isLoggedIn, $this->isAdmin, $this->groupIds) implements AspectInterface {
             /**
              * @param array<int> $groupIds
              */

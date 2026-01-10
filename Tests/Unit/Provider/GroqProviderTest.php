@@ -15,6 +15,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
 
 #[CoversClass(GroqProvider::class)]
 class GroqProviderTest extends AbstractUnitTestCase
@@ -657,11 +659,11 @@ class GroqProviderTest extends AbstractUnitTestCase
                          . "data: {\"choices\":[{\"delta\":{\"content\":\" world\"}}]}\n\n"
                          . "data: [DONE]\n";
 
-        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub = self::createStub(StreamInterface::class);
         $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
         $streamStub->method('read')->willReturn($streamContent);
 
-        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
@@ -701,11 +703,11 @@ class GroqProviderTest extends AbstractUnitTestCase
                          . "data: {\"choices\":[{\"delta\":{\"content\":\"Valid\"}}]}\n\n"
                          . "data: [DONE]\n";
 
-        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub = self::createStub(StreamInterface::class);
         $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
         $streamStub->method('read')->willReturn($streamContent);
 
-        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
@@ -746,11 +748,11 @@ class GroqProviderTest extends AbstractUnitTestCase
                          . "data: {\"choices\":[{\"delta\":{\"content\":\"Valid\"}}]}\n\n"
                          . "data: [DONE]\n";
 
-        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub = self::createStub(StreamInterface::class);
         $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
         $streamStub->method('read')->willReturn($streamContent);
 
-        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
@@ -789,11 +791,11 @@ class GroqProviderTest extends AbstractUnitTestCase
         $streamContent = "data: {\"choices\":[{\"delta\":{\"content\":\"Test\"}}]}\n\n"
                          . "data: [DONE]\n";
 
-        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub = self::createStub(StreamInterface::class);
         $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
         $streamStub->method('read')->willReturn($streamContent);
 
-        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
@@ -833,11 +835,11 @@ class GroqProviderTest extends AbstractUnitTestCase
                          . "data: {\"choices\":[{\"delta\":{\"content\":\"Content\"}}]}\n\n"
                          . "data: [DONE]\n";
 
-        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub = self::createStub(StreamInterface::class);
         $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
         $streamStub->method('read')->willReturn($streamContent);
 
-        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub = self::createStub(ResponseInterface::class);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();

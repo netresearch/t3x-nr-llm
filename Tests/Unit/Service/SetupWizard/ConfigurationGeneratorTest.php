@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\SuggestedConfiguration;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -28,6 +29,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     private StreamFactoryInterface&Stub $streamFactoryStub;
     private ConfigurationGenerator $subject;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

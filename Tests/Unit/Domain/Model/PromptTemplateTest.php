@@ -6,6 +6,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\Model;
 
 use Netresearch\NrLlm\Domain\Model\PromptTemplate;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -14,6 +15,7 @@ class PromptTemplateTest extends AbstractUnitTestCase
 {
     private PromptTemplate $subject;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

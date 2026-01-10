@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\E2E\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
@@ -17,6 +19,7 @@ use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * E2E tests for Dashboard user pathways.
@@ -916,7 +919,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         $activeCount = $this->providerRepository->countActive();
         $allProviders = $this->providerRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allProviders);
+        self::assertInstanceOf(QueryResultInterface::class, $allProviders);
         $totalCount = $allProviders->count();
 
         self::assertGreaterThanOrEqual($activeCount, $totalCount);
@@ -928,7 +931,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         $activeCount = $this->modelRepository->countActive();
         $allModels = $this->modelRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allModels);
+        self::assertInstanceOf(QueryResultInterface::class, $allModels);
         $totalCount = $allModels->count();
 
         self::assertGreaterThanOrEqual($activeCount, $totalCount);
@@ -1075,12 +1078,12 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     public function pathway6_12_defaultModelIndicator(): void
     {
         $allModels = $this->modelRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allModels);
+        self::assertInstanceOf(QueryResultInterface::class, $allModels);
         $models = $allModels->toArray();
 
         $defaultCount = 0;
         foreach ($models as $model) {
-            self::assertInstanceOf(\Netresearch\NrLlm\Domain\Model\Model::class, $model);
+            self::assertInstanceOf(Model::class, $model);
             if ($model->isDefault()) {
                 $defaultCount++;
                 self::assertTrue($model->isActive(), 'Default model should be active');
@@ -1095,12 +1098,12 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     public function pathway6_12_defaultConfigurationIndicator(): void
     {
         $allConfigs = $this->configurationRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allConfigs);
+        self::assertInstanceOf(QueryResultInterface::class, $allConfigs);
         $configs = $allConfigs->toArray();
 
         $defaultCount = 0;
         foreach ($configs as $config) {
-            self::assertInstanceOf(\Netresearch\NrLlm\Domain\Model\LlmConfiguration::class, $config);
+            self::assertInstanceOf(LlmConfiguration::class, $config);
             if ($config->isDefault()) {
                 $defaultCount++;
                 self::assertTrue($config->isActive(), 'Default configuration should be active');
@@ -1328,7 +1331,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         $activeCount = $this->providerRepository->countActive();
         $allProviders = $this->providerRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allProviders);
+        self::assertInstanceOf(QueryResultInterface::class, $allProviders);
         $totalCount = $allProviders->count();
 
         self::assertGreaterThanOrEqual($activeCount, $totalCount);
@@ -1339,7 +1342,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         $activeCount = $this->modelRepository->countActive();
         $allModels = $this->modelRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allModels);
+        self::assertInstanceOf(QueryResultInterface::class, $allModels);
         $totalCount = $allModels->count();
 
         self::assertGreaterThanOrEqual($activeCount, $totalCount);
@@ -1350,7 +1353,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         $activeCount = $this->configurationRepository->countActive();
         $allConfigs = $this->configurationRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allConfigs);
+        self::assertInstanceOf(QueryResultInterface::class, $allConfigs);
         $totalCount = $allConfigs->count();
 
         self::assertGreaterThanOrEqual($activeCount, $totalCount);
@@ -1361,7 +1364,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         $activeCount = $this->taskRepository->countActive();
         $allTasks = $this->taskRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allTasks);
+        self::assertInstanceOf(QueryResultInterface::class, $allTasks);
         $totalCount = $allTasks->count();
 
         self::assertGreaterThanOrEqual($activeCount, $totalCount);

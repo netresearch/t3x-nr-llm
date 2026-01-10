@@ -8,6 +8,7 @@ use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
@@ -19,6 +20,7 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * E2E tests for Multi-Provider Workflows.
@@ -90,7 +92,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     private function getActiveProviders(): array
     {
         $queryResult = $this->providerRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, Provider> $providers */
         $providers = $queryResult->toArray();
         return $providers;
@@ -102,7 +104,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     private function getActiveModels(): array
     {
         $queryResult = $this->modelRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, Model> $models */
         $models = $queryResult->toArray();
         return $models;
@@ -114,20 +116,20 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     private function getActiveConfigurations(): array
     {
         $queryResult = $this->configurationRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configurations */
         $configurations = $queryResult->toArray();
         return $configurations;
     }
 
     /**
-     * @return array<int, \Netresearch\NrLlm\Domain\Model\Task>
+     * @return array<int, Task>
      */
     private function getActiveTasks(): array
     {
         $queryResult = $this->taskRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
-        /** @var array<int, \Netresearch\NrLlm\Domain\Model\Task> $tasks */
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
+        /** @var array<int, Task> $tasks */
         $tasks = $queryResult->toArray();
         return $tasks;
     }
@@ -256,7 +258,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($providerUid);
 
         $queryResult = $this->providerRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         $initialActiveCount = $queryResult->count();
 
         // Deactivate provider
@@ -267,7 +269,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
 
         // Provider should no longer be in active list
         $queryResult2 = $this->providerRepository->findActive();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult2);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult2);
         $newActiveCount = $queryResult2->count();
         self::assertSame($initialActiveCount - 1, $newActiveCount);
 
@@ -452,7 +454,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     public function crossProviderDataIntegrity_modelsLinkedCorrectly(): void
     {
         $queryResult = $this->modelRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, Model> $allModels */
         $allModels = $queryResult->toArray();
 
@@ -480,7 +482,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     public function crossProviderDataIntegrity_configurationsLinkedCorrectly(): void
     {
         $queryResult = $this->configurationRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $allConfigs */
         $allConfigs = $queryResult->toArray();
 
@@ -512,8 +514,8 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     public function crossProviderDataIntegrity_tasksLinkedCorrectly(): void
     {
         $queryResult = $this->taskRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
-        /** @var array<int, \Netresearch\NrLlm\Domain\Model\Task> $allTasks */
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
+        /** @var array<int, Task> $allTasks */
         $allTasks = $queryResult->toArray();
 
         foreach ($allTasks as $task) {
@@ -657,7 +659,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             if ($taskConfig !== null) {
                 // Task's configuration might be inactive, so we just check it exists
                 $allConfigsQueryResult = $this->configurationRepository->findAll();
-                self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allConfigsQueryResult);
+                self::assertInstanceOf(QueryResultInterface::class, $allConfigsQueryResult);
                 /** @var array<int, LlmConfiguration> $allConfigs */
                 $allConfigs = $allConfigsQueryResult->toArray();
                 $allConfigUids = array_map(fn(LlmConfiguration $c) => $c->getUid(), $allConfigs);
@@ -743,7 +745,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             // Count total defaults - should be exactly 1
             $defaultCount = 0;
             $queryResult = $this->modelRepository->findAll();
-            self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+            self::assertInstanceOf(QueryResultInterface::class, $queryResult);
             /** @var Model $model */
             foreach ($queryResult as $model) {
                 if ($model->isDefault()) {
@@ -965,17 +967,17 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     public function multiProviderStatistics_globalCounts(): void
     {
         $providerFindAllResult = $this->providerRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $providerFindAllResult);
+        self::assertInstanceOf(QueryResultInterface::class, $providerFindAllResult);
         $totalProviders = $providerFindAllResult->count();
         $activeProviders = $this->providerRepository->findActive()->count();
 
         $modelFindAllResult = $this->modelRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $modelFindAllResult);
+        self::assertInstanceOf(QueryResultInterface::class, $modelFindAllResult);
         $totalModels = $modelFindAllResult->count();
         $activeModels = $this->modelRepository->findActive()->count();
 
         $configFindAllResult = $this->configurationRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $configFindAllResult);
+        self::assertInstanceOf(QueryResultInterface::class, $configFindAllResult);
         $totalConfigs = $configFindAllResult->count();
         $activeConfigs = $this->configurationRepository->findActive()->count();
 
@@ -1148,7 +1150,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
 
         // Configurations using this model should still work
         $queryResult = $this->configurationRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configs */
         $configs = $queryResult->toArray();
         foreach ($configs as $config) {
@@ -1297,7 +1299,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     public function pathway8_11_allModelsHaveValidProvider(): void
     {
         $queryResult = $this->modelRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, Model> $models */
         $models = $queryResult->toArray();
 
@@ -1313,7 +1315,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     public function pathway8_11_allConfigurationsHaveValidModel(): void
     {
         $queryResult = $this->configurationRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configs */
         $configs = $queryResult->toArray();
 
@@ -1331,8 +1333,8 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     public function pathway8_11_taskConfigurationChainValid(): void
     {
         $queryResult = $this->taskRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
-        /** @var array<int, \Netresearch\NrLlm\Domain\Model\Task> $tasks */
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
+        /** @var array<int, Task> $tasks */
         $tasks = $queryResult->toArray();
 
         foreach ($tasks as $task) {
@@ -1414,7 +1416,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     {
         $validTypes = ['openai', 'anthropic', 'ollama', 'google', 'gemini', 'deepseek'];
         $queryResult = $this->providerRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, Provider> $providers */
         $providers = $queryResult->toArray();
 
@@ -1485,7 +1487,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     public function pathway8_14_noOrphanedModels(): void
     {
         $queryResult = $this->modelRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, Model> $models */
         $models = $queryResult->toArray();
 
@@ -1506,7 +1508,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     {
         // Only one default model allowed
         $modelQueryResult = $this->modelRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $modelQueryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $modelQueryResult);
         /** @var array<int, Model> $allModels */
         $allModels = $modelQueryResult->toArray();
         $defaultModels = array_filter(
@@ -1517,7 +1519,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
 
         // Only one default configuration allowed
         $configQueryResult = $this->configurationRepository->findAll();
-        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $configQueryResult);
+        self::assertInstanceOf(QueryResultInterface::class, $configQueryResult);
         /** @var array<int, LlmConfiguration> $allConfigs */
         $allConfigs = $configQueryResult->toArray();
         $defaultConfigs = array_filter(
@@ -1554,7 +1556,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         }
 
         // Tasks
-        /** @var \Netresearch\NrLlm\Domain\Model\Task $task */
+        /** @var Task $task */
         foreach ($this->taskRepository->findAll() as $task) {
             self::assertNotEmpty($task->getIdentifier());
             self::assertNotEmpty($task->getName());
