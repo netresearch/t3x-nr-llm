@@ -67,14 +67,17 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $this->importFixture('Tasks.csv');
 
         // Get repositories
-        $this->providerRepository = $this->get(ProviderRepository::class);
-        self::assertInstanceOf(ProviderRepository::class, $this->providerRepository);
+        $providerRepository = $this->get(ProviderRepository::class);
+        self::assertInstanceOf(ProviderRepository::class, $providerRepository);
+        $this->providerRepository = $providerRepository;
 
-        $this->configurationRepository = $this->get(LlmConfigurationRepository::class);
-        self::assertInstanceOf(LlmConfigurationRepository::class, $this->configurationRepository);
+        $configurationRepository = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
+        $this->configurationRepository = $configurationRepository;
 
-        $this->persistenceManager = $this->get(PersistenceManagerInterface::class);
-        self::assertInstanceOf(PersistenceManagerInterface::class, $this->persistenceManager);
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $this->persistenceManager = $persistenceManager;
 
         // Create controllers
         $this->configController = $this->createConfigurationController();
@@ -205,6 +208,9 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $prop->setValue($object, $value);
     }
 
+    /**
+     * @param array<string, mixed> $parsedBody
+     */
     private function createExtbaseRequest(array $parsedBody = []): ExtbaseRequest
     {
         $serverRequest = new Typo3ServerRequest();
@@ -313,6 +319,8 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $body1 = json_decode((string)$response1->getBody(), true);
         $body2 = json_decode((string)$response2->getBody(), true);
 
+        self::assertIsArray($body1);
+        self::assertIsArray($body2);
         self::assertTrue($body1['success']);
         self::assertTrue($body2['success']);
     }
@@ -329,6 +337,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         // Verify it's default
         $this->persistenceManager->clearState();
         $config1 = $this->configurationRepository->findByUid(1);
+        self::assertNotNull($config1);
         self::assertTrue($config1->isDefault());
 
         // Switch to configuration 2 as default
@@ -342,6 +351,8 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $config1After = $this->configurationRepository->findByUid(1);
         $config2After = $this->configurationRepository->findByUid(2);
 
+        self::assertNotNull($config1After);
+        self::assertNotNull($config2After);
         self::assertFalse($config1After->isDefault());
         self::assertTrue($config2After->isDefault());
     }
@@ -370,6 +381,8 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $body1 = json_decode((string)$response1->getBody(), true);
         $body2 = json_decode((string)$response2->getBody(), true);
 
+        self::assertIsArray($body1);
+        self::assertIsArray($body2);
         self::assertTrue($body1['success']);
         self::assertTrue($body2['success']);
     }
@@ -396,6 +409,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         self::assertSame(200, $response2->getStatusCode());
 
         $body = json_decode((string)$response2->getBody(), true);
+        self::assertIsArray($body);
         self::assertTrue($body['success']);
     }
 
@@ -417,6 +431,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         // Config 2 should be unaffected
         $this->persistenceManager->clearState();
         $config2After = $this->configurationRepository->findByUid(2);
+        self::assertNotNull($config2After);
         self::assertSame($config2->isActive(), $config2After->isActive());
     }
 
@@ -459,8 +474,10 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $response1 = $this->modelController->getByProviderAction($request1);
 
         $body1 = json_decode((string)$response1->getBody(), true);
+        self::assertIsArray($body1);
         self::assertTrue($body1['success']);
         self::assertArrayHasKey('models', $body1);
+        self::assertIsArray($body1['models']);
 
         // Collect model UIDs from provider 1
         $provider1ModelUids = array_column($body1['models'], 'uid');
@@ -471,8 +488,10 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $response2 = $this->modelController->getByProviderAction($request2);
 
         $body2 = json_decode((string)$response2->getBody(), true);
+        self::assertIsArray($body2);
         self::assertTrue($body2['success']);
         self::assertArrayHasKey('models', $body2);
+        self::assertIsArray($body2['models']);
 
         // Collect model UIDs from provider 2
         $provider2ModelUids = array_column($body2['models'], 'uid');
@@ -482,6 +501,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         self::assertEmpty($overlap, 'Models should not overlap between providers');
 
         // Each model should have required fields
+        /** @var array<string, mixed> $model */
         foreach ($body1['models'] as $model) {
             self::assertArrayHasKey('uid', $model);
             self::assertArrayHasKey('identifier', $model);
@@ -521,6 +541,8 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $config1Final = $this->configurationRepository->findByUid(1);
         $config2Final = $this->configurationRepository->findByUid(2);
 
+        self::assertNotNull($config1Final);
+        self::assertNotNull($config2Final);
         self::assertSame($isActive1Initial, $config1Final->isActive());
         self::assertSame($isActive2Initial, $config2Final->isActive());
     }

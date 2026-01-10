@@ -105,6 +105,8 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
 
     /**
      * Create an Extbase request for actions that need $this->request.
+     *
+     * @param array<string, mixed> $parsedBody
      */
     private function createExtbaseRequest(array $parsedBody = []): ExtbaseRequest
     {
@@ -242,9 +244,11 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
 
         if ($response->getStatusCode() === 200 && ($body['success'] ?? false)) {
             self::assertArrayHasKey('usage', $body);
-            self::assertArrayHasKey('promptTokens', $body['usage']);
-            self::assertArrayHasKey('completionTokens', $body['usage']);
-            self::assertArrayHasKey('totalTokens', $body['usage']);
+            $usage = $body['usage'];
+            self::assertIsArray($usage);
+            self::assertArrayHasKey('promptTokens', $usage);
+            self::assertArrayHasKey('completionTokens', $usage);
+            self::assertArrayHasKey('totalTokens', $usage);
         }
     }
 }

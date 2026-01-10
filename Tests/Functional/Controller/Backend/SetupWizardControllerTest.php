@@ -130,8 +130,10 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('provider', $body);
-        self::assertArrayHasKey('adapterType', $body['provider']);
-        self::assertArrayHasKey('suggestedName', $body['provider']);
+        $provider = $body['provider'];
+        self::assertIsArray($provider);
+        self::assertArrayHasKey('adapterType', $provider);
+        self::assertArrayHasKey('suggestedName', $provider);
     }
 
     #[Test]
@@ -342,7 +344,9 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
-        self::assertSame('ollama', $body['provider']['adapterType']);
+        $provider = $body['provider'];
+        self::assertIsArray($provider);
+        self::assertSame('ollama', $provider['adapterType']);
     }
 
     #[Test]
@@ -359,7 +363,9 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
-        self::assertSame('anthropic', $body['provider']['adapterType']);
+        $provider = $body['provider'];
+        self::assertIsArray($provider);
+        self::assertSame('anthropic', $provider['adapterType']);
     }
 
     // -------------------------------------------------------------------------
@@ -447,9 +453,11 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('provider', $body);
-        self::assertArrayHasKey('uid', $body['provider']);
+        $provider = $body['provider'];
+        self::assertIsArray($provider);
+        self::assertArrayHasKey('uid', $provider);
         self::assertArrayHasKey('modelsCount', $body);
-        self::assertGreaterThan(0, $body['provider']['uid']);
+        self::assertGreaterThan(0, $provider['uid']);
         self::assertSame(1, $body['modelsCount']);
     }
 

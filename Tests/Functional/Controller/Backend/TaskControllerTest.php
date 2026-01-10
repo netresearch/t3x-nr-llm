@@ -212,11 +212,13 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         self::assertIsArray($body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('tables', $body);
-        self::assertIsArray($body['tables']);
+        $tables = $body['tables'];
+        self::assertIsArray($tables);
 
         // Verify table structure
-        if (count($body['tables']) > 0) {
-            $firstTable = $body['tables'][0];
+        if (count($tables) > 0) {
+            $firstTable = $tables[0];
+            self::assertIsArray($firstTable);
             self::assertArrayHasKey('name', $firstTable);
             self::assertArrayHasKey('label', $firstTable);
         }
@@ -235,8 +237,11 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         self::assertTrue($body['success']);
 
         // Verify cache tables are excluded
-        $tableNames = array_column($body['tables'], 'name');
+        $tables = $body['tables'];
+        self::assertIsArray($tables);
+        $tableNames = array_column($tables, 'name');
         foreach ($tableNames as $tableName) {
+            self::assertIsString($tableName);
             self::assertStringStartsNotWith('cache_', $tableName);
             self::assertStringStartsNotWith('cf_', $tableName);
         }
@@ -255,7 +260,9 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         self::assertTrue($body['success']);
 
         // Verify our extension table is present
-        $tableNames = array_column($body['tables'], 'name');
+        $tables = $body['tables'];
+        self::assertIsArray($tables);
+        $tableNames = array_column($tables, 'name');
         self::assertContains('tx_nrllm_task', $tableNames);
     }
 
@@ -302,8 +309,11 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         self::assertTrue($body['success']);
 
         // Verify record structure
-        if (count($body['records']) > 0) {
-            $firstRecord = $body['records'][0];
+        $records = $body['records'];
+        self::assertIsArray($records);
+        if (count($records) > 0) {
+            $firstRecord = $records[0];
+            self::assertIsArray($firstRecord);
             self::assertArrayHasKey('uid', $firstRecord);
             self::assertArrayHasKey('label', $firstRecord);
             self::assertIsInt($firstRecord['uid']);
@@ -376,7 +386,9 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertTrue($body['success']);
-        self::assertLessThanOrEqual(2, count($body['records']));
+        $records = $body['records'];
+        self::assertIsArray($records);
+        self::assertLessThanOrEqual(2, count($records));
     }
 
     #[Test]
@@ -500,7 +512,9 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         self::assertGreaterThan(0, $body['recordCount']);
 
         // Verify data is valid JSON
-        $parsedData = json_decode((string)$body['data'], true);
+        $data = $body['data'];
+        self::assertIsString($data);
+        $parsedData = json_decode($data, true);
         self::assertIsArray($parsedData);
     }
 
@@ -631,7 +645,9 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         // When there are error entries, they should be included
         // (error_only=true filters to only error entries)
         if (!$body['isEmpty']) {
-            self::assertStringContainsString('[ERROR]', $body['inputData']);
+            $inputData = $body['inputData'];
+            self::assertIsString($inputData);
+            self::assertStringContainsString('[ERROR]', $inputData);
         }
     }
 
@@ -728,12 +744,15 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         self::assertSame(1, $body['recordCount']);
 
         // Verify data is properly formatted JSON
-        $parsedData = json_decode((string)$body['data'], true);
+        $data = $body['data'];
+        self::assertIsString($data);
+        $parsedData = json_decode($data, true);
         self::assertIsArray($parsedData);
         self::assertCount(1, $parsedData);
 
         // Verify the record contains expected fields
         $record = $parsedData[0];
+        self::assertIsArray($record);
         self::assertArrayHasKey('uid', $record);
         self::assertArrayHasKey('identifier', $record);
         self::assertArrayHasKey('name', $record);
