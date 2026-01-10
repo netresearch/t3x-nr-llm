@@ -9,15 +9,16 @@ use JsonException;
 use Netresearch\NrLlm\Provider\ResponseParserTrait;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Override;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
  * Test class for ResponseParserTrait.
  *
- * Note: We cover the concrete helper class since traits cannot be covered directly.
+ * Note: Traits and test helper classes cannot be covered directly in PHPUnit.
+ * The trait's functionality is indirectly covered through AbstractProvider tests.
  */
-#[CoversClass(ResponseParserTraitTestSubject::class)]
+#[CoversNothing]
 class ResponseParserTraitTest extends AbstractUnitTestCase
 {
     private ResponseParserTraitTestSubject $subject;
