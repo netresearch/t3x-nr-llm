@@ -106,6 +106,7 @@ abstract class AbstractBackendE2ETestCase extends AbstractFunctionalTestCase
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertTrue($body['success'] ?? false, 'Response should indicate success');
 
         return $body;
@@ -125,6 +126,7 @@ abstract class AbstractBackendE2ETestCase extends AbstractFunctionalTestCase
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success'] ?? true, 'Response should indicate failure');
         self::assertArrayHasKey('error', $body);
 

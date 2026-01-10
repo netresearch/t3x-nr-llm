@@ -42,14 +42,17 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     {
         parent::setUp();
 
-        $this->modelRepository = $this->get(ModelRepository::class);
-        self::assertInstanceOf(ModelRepository::class, $this->modelRepository);
+        $modelRepository = $this->get(ModelRepository::class);
+        self::assertInstanceOf(ModelRepository::class, $modelRepository);
+        $this->modelRepository = $modelRepository;
 
-        $this->providerRepository = $this->get(ProviderRepository::class);
-        self::assertInstanceOf(ProviderRepository::class, $this->providerRepository);
+        $providerRepository = $this->get(ProviderRepository::class);
+        self::assertInstanceOf(ProviderRepository::class, $providerRepository);
+        $this->providerRepository = $providerRepository;
 
-        $this->persistenceManager = $this->get(PersistenceManagerInterface::class);
-        self::assertInstanceOf(PersistenceManagerInterface::class, $this->persistenceManager);
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $this->persistenceManager = $persistenceManager;
 
         $this->controller = $this->createController();
     }
@@ -79,17 +82,18 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway3_1_viewModelList(): void
     {
         // User navigates to Models list
-        $models = $this->modelRepository->findAll()->toArray();
+        $queryResult = $this->modelRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        $models = $queryResult->toArray();
 
         self::assertNotEmpty($models, 'Model list should contain entries from fixtures');
 
         // Verify each model has required display information
         foreach ($models as $model) {
+            self::assertInstanceOf(Model::class, $model);
             self::assertNotEmpty($model->getName(), 'Model should have a name');
             self::assertNotEmpty($model->getModelId(), 'Model should have a model ID');
             self::assertNotNull($model->getProvider(), 'Model should have a provider');
-            self::assertIsBool($model->isActive());
-            self::assertIsBool($model->isDefault());
         }
     }
 
@@ -97,12 +101,17 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway3_1_viewModelListShowsCapabilities(): void
     {
         // User sees model capabilities in the list
-        $models = $this->modelRepository->findAll()->toArray();
+        $queryResult = $this->modelRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        $models = $queryResult->toArray();
 
         foreach ($models as $model) {
+            self::assertInstanceOf(Model::class, $model);
             // Context length and max tokens should be visible
-            self::assertIsInt($model->getContextLength());
-            self::assertIsInt($model->getMaxOutputTokens());
+            $contextLength = $model->getContextLength();
+            $maxOutputTokens = $model->getMaxOutputTokens();
+            self::assertGreaterThanOrEqual(0, $contextLength);
+            self::assertGreaterThanOrEqual(0, $maxOutputTokens);
         }
     }
 
@@ -147,12 +156,11 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     {
         $counts = $this->modelRepository->countByProvider();
 
-        self::assertIsArray($counts);
         self::assertNotEmpty($counts);
 
         // User sees count for each provider
         foreach ($counts as $providerUid => $count) {
-            self::assertIsInt($providerUid);
+            self::assertGreaterThan(0, $providerUid);
             self::assertGreaterThan(0, $count);
         }
     }
@@ -167,6 +175,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
         $modelUid = $model->getUid();
+        self::assertNotNull($modelUid);
 
         // User clicks toggle to deactivate
         $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $modelUid]);
@@ -174,6 +183,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
 
         $body = $this->assertSuccessResponse($response);
         self::assertArrayHasKey('isActive', $body);
+        /** @var array{isActive: bool} $body */
         self::assertFalse($body['isActive']);
 
         // Verify in database
@@ -185,6 +195,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         // Reactivate
         $response2 = $this->controller->toggleActiveAction($request);
         $body2 = $this->assertSuccessResponse($response2);
+        /** @var array{isActive: bool} $body2 */
         self::assertTrue($body2['isActive']);
     }
 
@@ -401,6 +412,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
 
         // Verify changes
         $reloaded = $this->modelRepository->findByUid(1);
+        self::assertNotNull($reloaded);
         self::assertSame('Updated Model Name', $reloaded->getName());
         self::assertSame(200000, $reloaded->getContextLength());
 
@@ -435,10 +447,15 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertIsArray($body['models']);
 
         // Each model should have expected structure
-        foreach ($body['models'] as $model) {
-            self::assertArrayHasKey('uid', $model);
-            self::assertArrayHasKey('name', $model);
-            self::assertArrayHasKey('modelId', $model);
+        /** @var array<string, mixed> $body */
+        $modelsData = $body['models'];
+        self::assertIsArray($modelsData);
+        foreach ($modelsData as $modelItem) {
+            self::assertIsArray($modelItem);
+            /** @var array<string, mixed> $modelItem */
+            self::assertArrayHasKey('uid', $modelItem);
+            self::assertArrayHasKey('name', $modelItem);
+            self::assertArrayHasKey('modelId', $modelItem);
         }
     }
 
@@ -698,9 +715,12 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function modelProviderRelationshipIntegrity(): void
     {
-        $models = $this->modelRepository->findActive()->toArray();
+        $queryResult = $this->modelRepository->findActive();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        $models = $queryResult->toArray();
 
         foreach ($models as $model) {
+            self::assertInstanceOf(Model::class, $model);
             $provider = $model->getProvider();
             self::assertNotNull($provider, "Model {$model->getName()} must have a provider");
             self::assertNotNull($provider->getUid(), 'Provider must have UID');
@@ -712,6 +732,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     public function modelHasRequiredFields(): void
     {
         foreach ($this->modelRepository->findAll() as $model) {
+            self::assertInstanceOf(Model::class, $model);
             self::assertNotNull($model->getUid());
             self::assertNotEmpty($model->getIdentifier(), 'Model must have identifier');
             self::assertNotEmpty($model->getName(), 'Model must have name');
@@ -723,6 +744,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     public function modelParametersWithinValidRanges(): void
     {
         foreach ($this->modelRepository->findAll() as $model) {
+            self::assertInstanceOf(Model::class, $model);
             // Context length should be positive
             $contextLength = $model->getContextLength();
             self::assertGreaterThanOrEqual(0, $contextLength, 'Context length should be >= 0');
@@ -738,6 +760,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     {
         $defaults = [];
         foreach ($this->modelRepository->findAll() as $model) {
+            self::assertInstanceOf(Model::class, $model);
             if ($model->isDefault()) {
                 $defaults[] = $model;
             }
@@ -757,6 +780,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
         $modelUid = $model->getUid();
+        self::assertNotNull($modelUid);
 
         $initialState = $model->isActive();
         $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $modelUid]);
@@ -770,6 +794,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         // After even number of toggles, should be back to initial state
         $this->persistenceManager->clearState();
         $final = $this->modelRepository->findByUid($modelUid);
+        self::assertNotNull($final);
         self::assertSame($initialState, $final->isActive());
     }
 
@@ -802,9 +827,11 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
         $modelUid = $model->getUid();
+        self::assertNotNull($modelUid);
         $provider = $model->getProvider();
         self::assertNotNull($provider);
         $providerUid = $provider->getUid();
+        self::assertNotNull($providerUid);
 
         // Deactivate model
         $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $modelUid]);
@@ -831,7 +858,6 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($model);
 
         $contextLength = $model->getContextLength();
-        self::assertIsInt($contextLength);
         self::assertGreaterThanOrEqual(0, $contextLength);
     }
 
@@ -842,7 +868,6 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($model);
 
         $maxOutputTokens = $model->getMaxOutputTokens();
-        self::assertIsInt($maxOutputTokens);
         self::assertGreaterThanOrEqual(0, $maxOutputTokens);
     }
 
@@ -883,24 +908,30 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($model);
 
         $capabilities = $model->getCapabilitiesArray();
-        self::assertIsArray($capabilities);
+        // Just verify it returns (can be empty array)
+        self::assertGreaterThanOrEqual(0, count($capabilities));
     }
 
     #[Test]
     public function pathway3_16_modelCapabilitiesHandling(): void
     {
         // Test that existing models can have their capabilities queried
-        $models = $this->modelRepository->findActive()->toArray();
+        $queryResult = $this->modelRepository->findActive();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        $models = $queryResult->toArray();
         self::assertNotEmpty($models);
 
         foreach ($models as $model) {
+            self::assertInstanceOf(Model::class, $model);
             // getCapabilities returns string (possibly empty)
             $capabilities = $model->getCapabilities();
-            self::assertIsString($capabilities);
+            // Just verify it's accessible (can be empty string)
+            self::assertSame($capabilities, $model->getCapabilities());
 
             // getCapabilitiesArray returns array
             $capArray = $model->getCapabilitiesArray();
-            self::assertIsArray($capArray);
+            // Just verify it's accessible (can be empty array)
+            self::assertGreaterThanOrEqual(0, count($capArray));
         }
     }
 
@@ -923,7 +954,6 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway3_17_countActiveModels(): void
     {
         $count = $this->modelRepository->countActive();
-        self::assertIsInt($count);
         self::assertGreaterThanOrEqual(0, $count);
 
         $active = $this->modelRepository->findActive();
@@ -971,14 +1001,17 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
 
         $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
         self::assertNotNull($added);
+        $addedUid = $added->getUid();
+        self::assertNotNull($addedUid);
 
         // Toggle off
-        $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $added->getUid()]);
+        $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $addedUid]);
         $this->controller->toggleActiveAction($request);
         $this->persistenceManager->clearState();
 
         // Verify deactivated
-        $reloaded = $this->modelRepository->findByUid($added->getUid());
+        $reloaded = $this->modelRepository->findByUid($addedUid);
+        self::assertNotNull($reloaded);
         self::assertFalse($reloaded->isActive());
 
         // Toggle back on
@@ -986,35 +1019,51 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         // Verify reactivated
-        $reloaded2 = $this->modelRepository->findByUid($added->getUid());
+        $reloaded2 = $this->modelRepository->findByUid($addedUid);
+        self::assertNotNull($reloaded2);
         self::assertTrue($reloaded2->isActive());
     }
 
     #[Test]
     public function pathway3_18_modelDefaultTransition(): void
     {
-        $models = $this->modelRepository->findActive()->toArray();
+        $queryResult = $this->modelRepository->findActive();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        $models = $queryResult->toArray();
         self::assertGreaterThanOrEqual(2, count($models), 'Need at least 2 models');
 
+        $firstModel = $models[0];
+        $secondModel = $models[1];
+        self::assertInstanceOf(Model::class, $firstModel);
+        self::assertInstanceOf(Model::class, $secondModel);
+
+        $firstUid = $firstModel->getUid();
+        $secondUid = $secondModel->getUid();
+        self::assertNotNull($firstUid);
+        self::assertNotNull($secondUid);
+
         // Set first as default
-        $request1 = $this->createFormRequest('/ajax/model/setdefault', ['uid' => $models[0]->getUid()]);
+        $request1 = $this->createFormRequest('/ajax/model/setdefault', ['uid' => $firstUid]);
         $this->controller->setDefaultAction($request1);
         $this->persistenceManager->clearState();
 
         // Verify first is default
-        $first = $this->modelRepository->findByUid($models[0]->getUid());
+        $first = $this->modelRepository->findByUid($firstUid);
+        self::assertNotNull($first);
         self::assertTrue($first->isDefault());
 
         // Set second as default
-        $request2 = $this->createFormRequest('/ajax/model/setdefault', ['uid' => $models[1]->getUid()]);
+        $request2 = $this->createFormRequest('/ajax/model/setdefault', ['uid' => $secondUid]);
         $this->controller->setDefaultAction($request2);
         $this->persistenceManager->clearState();
 
         // Verify second is now default and first is not
-        $first = $this->modelRepository->findByUid($models[0]->getUid());
-        $second = $this->modelRepository->findByUid($models[1]->getUid());
-        self::assertFalse($first->isDefault());
-        self::assertTrue($second->isDefault());
+        $firstReloaded = $this->modelRepository->findByUid($firstUid);
+        $secondReloaded = $this->modelRepository->findByUid($secondUid);
+        self::assertNotNull($firstReloaded);
+        self::assertNotNull($secondReloaded);
+        self::assertFalse($firstReloaded->isDefault());
+        self::assertTrue($secondReloaded->isDefault());
     }
 
     // =========================================================================

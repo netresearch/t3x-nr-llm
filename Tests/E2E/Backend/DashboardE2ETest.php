@@ -39,17 +39,21 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         parent::setUp();
 
-        $this->providerRepository = $this->get(ProviderRepository::class);
-        self::assertInstanceOf(ProviderRepository::class, $this->providerRepository);
+        $providerRepository = $this->get(ProviderRepository::class);
+        self::assertInstanceOf(ProviderRepository::class, $providerRepository);
+        $this->providerRepository = $providerRepository;
 
-        $this->modelRepository = $this->get(ModelRepository::class);
-        self::assertInstanceOf(ModelRepository::class, $this->modelRepository);
+        $modelRepository = $this->get(ModelRepository::class);
+        self::assertInstanceOf(ModelRepository::class, $modelRepository);
+        $this->modelRepository = $modelRepository;
 
-        $this->configurationRepository = $this->get(LlmConfigurationRepository::class);
-        self::assertInstanceOf(LlmConfigurationRepository::class, $this->configurationRepository);
+        $configurationRepository = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
+        $this->configurationRepository = $configurationRepository;
 
-        $this->taskRepository = $this->get(TaskRepository::class);
-        self::assertInstanceOf(TaskRepository::class, $this->taskRepository);
+        $taskRepository = $this->get(TaskRepository::class);
+        self::assertInstanceOf(TaskRepository::class, $taskRepository);
+        $this->taskRepository = $taskRepository;
 
         $this->controller = $this->createController();
     }
@@ -68,6 +72,9 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         ]);
     }
 
+    /**
+     * @param array<string, mixed> $parsedBody
+     */
     private function createDashboardExtbaseRequest(array $parsedBody = []): ExtbaseRequest
     {
         $serverRequest = new Typo3ServerRequest();
@@ -132,8 +139,8 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             $capabilities = [];
             foreach ($models as $model) {
                 // Each model has capability flags
-                self::assertIsInt($model->getContextLength());
-                self::assertIsInt($model->getMaxOutputTokens());
+                self::assertGreaterThanOrEqual(0, $model->getContextLength());
+                self::assertGreaterThanOrEqual(0, $model->getMaxOutputTokens());
             }
         }
     }
@@ -255,9 +262,12 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         if ($body['success'] ?? false) {
             // Usage statistics should be present
             self::assertArrayHasKey('usage', $body);
-            self::assertArrayHasKey('promptTokens', $body['usage']);
-            self::assertArrayHasKey('completionTokens', $body['usage']);
-            self::assertArrayHasKey('totalTokens', $body['usage']);
+            $usage = $body['usage'];
+            self::assertIsArray($usage);
+            /** @var array<string, mixed> $usage */
+            self::assertArrayHasKey('promptTokens', $usage);
+            self::assertArrayHasKey('completionTokens', $usage);
+            self::assertArrayHasKey('totalTokens', $usage);
         }
     }
 
@@ -329,18 +339,23 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         if ($provider !== null) {
             $provider->setIsActive(false);
             $this->providerRepository->update($provider);
-            $this->get(PersistenceManagerInterface::class)->persistAll();
-            $this->get(PersistenceManagerInterface::class)->clearState();
+            $persistenceManager = $this->get(PersistenceManagerInterface::class);
+            self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+            $persistenceManager->persistAll();
+            $persistenceManager->clearState();
 
             // Dashboard active count should decrease
             $newCount = $this->providerRepository->findActive()->count();
             self::assertSame($initialCount - 1, $newCount);
 
             // Reactivate for cleanup
-            $provider = $this->providerRepository->findByUid($provider->getUid());
-            $provider->setIsActive(true);
-            $this->providerRepository->update($provider);
-            $this->get(PersistenceManagerInterface::class)->persistAll();
+            $providerUid = $provider->getUid();
+            self::assertNotNull($providerUid);
+            $reloadedProvider = $this->providerRepository->findByUid($providerUid);
+            self::assertNotNull($reloadedProvider);
+            $reloadedProvider->setIsActive(true);
+            $this->providerRepository->update($reloadedProvider);
+            $persistenceManager->persistAll();
         }
     }
 
@@ -503,17 +518,22 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         // Get initial state
         $providers = $this->providerRepository->findActive()->toArray();
+        /** @var array<int, bool> $originalStates */
         $originalStates = [];
 
         // Deactivate all providers
         foreach ($providers as $provider) {
-            $originalStates[$provider->getUid()] = $provider->isActive();
+            $providerUid = $provider->getUid();
+            self::assertNotNull($providerUid);
+            $originalStates[$providerUid] = $provider->isActive();
             $provider->setIsActive(false);
             $this->providerRepository->update($provider);
         }
 
-        $this->get(PersistenceManagerInterface::class)->persistAll();
-        $this->get(PersistenceManagerInterface::class)->clearState();
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $persistenceManager->persistAll();
+        $persistenceManager->clearState();
 
         // Dashboard should show 0 active providers
         $activeCount = $this->providerRepository->findActive()->count();
@@ -521,14 +541,17 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
         // Restore original states
         foreach ($providers as $provider) {
-            $provider = $this->providerRepository->findByUid($provider->getUid());
-            if (isset($originalStates[$provider->getUid()])) {
-                $provider->setIsActive($originalStates[$provider->getUid()]);
-                $this->providerRepository->update($provider);
+            $providerUid = $provider->getUid();
+            self::assertNotNull($providerUid);
+            $reloadedProvider = $this->providerRepository->findByUid($providerUid);
+            self::assertNotNull($reloadedProvider);
+            if (isset($originalStates[$providerUid])) {
+                $reloadedProvider->setIsActive($originalStates[$providerUid]);
+                $this->providerRepository->update($reloadedProvider);
             }
         }
 
-        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $persistenceManager->persistAll();
     }
 
     #[Test]
@@ -536,17 +559,22 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         // Get initial state
         $models = $this->modelRepository->findActive()->toArray();
+        /** @var array<int, bool> $originalStates */
         $originalStates = [];
 
         // Deactivate all models
         foreach ($models as $model) {
-            $originalStates[$model->getUid()] = $model->isActive();
+            $modelUid = $model->getUid();
+            self::assertNotNull($modelUid);
+            $originalStates[$modelUid] = $model->isActive();
             $model->setIsActive(false);
             $this->modelRepository->update($model);
         }
 
-        $this->get(PersistenceManagerInterface::class)->persistAll();
-        $this->get(PersistenceManagerInterface::class)->clearState();
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $persistenceManager->persistAll();
+        $persistenceManager->clearState();
 
         // Dashboard should show 0 active models
         $activeCount = $this->modelRepository->findActive()->count();
@@ -554,14 +582,17 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
         // Restore original states
         foreach ($models as $model) {
-            $model = $this->modelRepository->findByUid($model->getUid());
-            if (isset($originalStates[$model->getUid()])) {
-                $model->setIsActive($originalStates[$model->getUid()]);
-                $this->modelRepository->update($model);
+            $modelUid = $model->getUid();
+            self::assertNotNull($modelUid);
+            $reloadedModel = $this->modelRepository->findByUid($modelUid);
+            self::assertNotNull($reloadedModel);
+            if (isset($originalStates[$modelUid])) {
+                $reloadedModel->setIsActive($originalStates[$modelUid]);
+                $this->modelRepository->update($reloadedModel);
             }
         }
 
-        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $persistenceManager->persistAll();
     }
 
     #[Test]
@@ -569,17 +600,22 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         // Get initial state
         $configs = $this->configurationRepository->findActive()->toArray();
+        /** @var array<int, bool> $originalStates */
         $originalStates = [];
 
         // Deactivate all configurations
         foreach ($configs as $config) {
-            $originalStates[$config->getUid()] = $config->isActive();
+            $configUid = $config->getUid();
+            self::assertNotNull($configUid);
+            $originalStates[$configUid] = $config->isActive();
             $config->setIsActive(false);
             $this->configurationRepository->update($config);
         }
 
-        $this->get(PersistenceManagerInterface::class)->persistAll();
-        $this->get(PersistenceManagerInterface::class)->clearState();
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $persistenceManager->persistAll();
+        $persistenceManager->clearState();
 
         // Dashboard should show 0 active configurations
         $activeCount = $this->configurationRepository->findActive()->count();
@@ -587,14 +623,17 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
         // Restore original states
         foreach ($configs as $config) {
-            $config = $this->configurationRepository->findByUid($config->getUid());
-            if (isset($originalStates[$config->getUid()])) {
-                $config->setIsActive($originalStates[$config->getUid()]);
-                $this->configurationRepository->update($config);
+            $configUid = $config->getUid();
+            self::assertNotNull($configUid);
+            $reloadedConfig = $this->configurationRepository->findByUid($configUid);
+            self::assertNotNull($reloadedConfig);
+            if (isset($originalStates[$configUid])) {
+                $reloadedConfig->setIsActive($originalStates[$configUid]);
+                $this->configurationRepository->update($reloadedConfig);
             }
         }
 
-        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $persistenceManager->persistAll();
     }
 
     // =========================================================================
@@ -609,7 +648,8 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
         foreach ($providers as $provider) {
             // Each provider has API key status (may be configured or empty)
-            self::assertIsString($provider->getApiKey());
+            // getApiKey() returns string, so we just verify it's accessible
+            $provider->getApiKey();
             self::assertTrue($provider->isActive(), 'Dashboard shows only active providers');
             // Provider name must be configured
             self::assertNotEmpty($provider->getName(), 'Provider should have name configured');
@@ -626,8 +666,10 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $originalApiKey = $provider->getApiKey();
         $provider->setApiKey('');
         $this->providerRepository->update($provider);
-        $this->get(PersistenceManagerInterface::class)->persistAll();
-        $this->get(PersistenceManagerInterface::class)->clearState();
+        $persistenceManager1 = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager1);
+        $persistenceManager1->persistAll();
+        $persistenceManager1->clearState();
 
         // Test with provider that has no API key
         $request = $this->createDashboardExtbaseRequest([
@@ -644,10 +686,15 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         self::assertIsArray($body);
 
         // Restore API key
-        $provider = $this->providerRepository->findByUid($provider->getUid());
-        $provider->setApiKey($originalApiKey);
-        $this->providerRepository->update($provider);
-        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $providerUid = $provider->getUid();
+        self::assertNotNull($providerUid);
+        $reloadedProvider = $this->providerRepository->findByUid($providerUid);
+        self::assertNotNull($reloadedProvider);
+        $reloadedProvider->setApiKey($originalApiKey);
+        $this->providerRepository->update($reloadedProvider);
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $persistenceManager->persistAll();
     }
 
     // =========================================================================
@@ -662,8 +709,8 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         foreach ($models as $model) {
             // Dashboard shows model capabilities
             self::assertNotEmpty($model->getModelId());
-            self::assertIsInt($model->getContextLength());
-            self::assertIsInt($model->getMaxOutputTokens());
+            self::assertGreaterThanOrEqual(0, $model->getContextLength());
+            self::assertGreaterThanOrEqual(0, $model->getMaxOutputTokens());
             self::assertNotNull($model->getProvider());
         }
     }
@@ -692,7 +739,9 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
             // All models should belong to this provider
             foreach ($models as $model) {
-                self::assertSame($provider->getUid(), $model->getProvider()->getUid());
+                $modelProvider = $model->getProvider();
+                self::assertNotNull($modelProvider);
+                self::assertSame($provider->getUid(), $modelProvider->getUid());
             }
         }
     }
@@ -752,14 +801,18 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         foreach ($models as $model) {
             $provider = $model->getProvider();
             self::assertNotNull($provider);
-            self::assertNotNull($this->providerRepository->findByUid($provider->getUid()));
+            $providerUid = $provider->getUid();
+            self::assertNotNull($providerUid);
+            self::assertNotNull($this->providerRepository->findByUid($providerUid));
         }
 
         // Every configuration with a linked model should reference a valid model
         foreach ($configs as $config) {
             $model = $config->getLlmModel();
             if ($model !== null) {
-                self::assertNotNull($this->modelRepository->findByUid($model->getUid()));
+                $modelUid = $model->getUid();
+                self::assertNotNull($modelUid);
+                self::assertNotNull($this->modelRepository->findByUid($modelUid));
             }
         }
     }
@@ -800,7 +853,8 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
             $response = $this->controller->executeTestAction();
             $body = json_decode((string)$response->getBody(), true);
-
+            self::assertIsArray($body);
+            /** @var array<string, mixed> $body */
             $results[$provider->getIdentifier()] = [
                 'status' => $response->getStatusCode(),
                 'success' => $body['success'] ?? false,
@@ -861,7 +915,9 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     public function pathway6_8_dashboardProviderStats(): void
     {
         $activeCount = $this->providerRepository->countActive();
-        $totalCount = $this->providerRepository->findAll()->count();
+        $allProviders = $this->providerRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allProviders);
+        $totalCount = $allProviders->count();
 
         self::assertGreaterThanOrEqual($activeCount, $totalCount);
         self::assertGreaterThanOrEqual(0, $activeCount);
@@ -871,7 +927,9 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     public function pathway6_8_dashboardModelStats(): void
     {
         $activeCount = $this->modelRepository->countActive();
-        $totalCount = $this->modelRepository->findAll()->count();
+        $allModels = $this->modelRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allModels);
+        $totalCount = $allModels->count();
 
         self::assertGreaterThanOrEqual($activeCount, $totalCount);
         self::assertGreaterThanOrEqual(0, $activeCount);
@@ -897,7 +955,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             foreach ($models as $model) {
                 // getCapabilitiesArray returns parsed array
                 $capabilities = $model->getCapabilitiesArray();
-                self::assertIsArray($capabilities);
+                self::assertGreaterThanOrEqual(0, count($capabilities));
             }
         }
     }
@@ -910,11 +968,10 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         foreach ($models as $model) {
             // getCapabilitiesArray returns parsed array
             $capabilities = $model->getCapabilitiesArray();
-            self::assertIsArray($capabilities);
+            self::assertGreaterThanOrEqual(0, count($capabilities));
 
             // If has capabilities, they should be valid strings
             foreach ($capabilities as $capability) {
-                self::assertIsString($capability);
                 self::assertNotEmpty($capability);
             }
         }
@@ -942,11 +999,11 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $configs = $this->configurationRepository->findActive();
         $tasks = $this->taskRepository->findActive();
 
-        // All entities should be iterable
-        self::assertIsIterable($providers);
-        self::assertIsIterable($models);
-        self::assertIsIterable($configs);
-        self::assertIsIterable($tasks);
+        // All entities should be countable
+        self::assertGreaterThanOrEqual(0, $providers->count());
+        self::assertGreaterThanOrEqual(0, $models->count());
+        self::assertGreaterThanOrEqual(0, $configs->count());
+        self::assertGreaterThanOrEqual(0, $tasks->count());
     }
 
     // =========================================================================
@@ -1017,10 +1074,13 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway6_12_defaultModelIndicator(): void
     {
-        $models = $this->modelRepository->findAll()->toArray();
+        $allModels = $this->modelRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allModels);
+        $models = $allModels->toArray();
 
         $defaultCount = 0;
         foreach ($models as $model) {
+            self::assertInstanceOf(\Netresearch\NrLlm\Domain\Model\Model::class, $model);
             if ($model->isDefault()) {
                 $defaultCount++;
                 self::assertTrue($model->isActive(), 'Default model should be active');
@@ -1034,10 +1094,13 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway6_12_defaultConfigurationIndicator(): void
     {
-        $configs = $this->configurationRepository->findAll()->toArray();
+        $allConfigs = $this->configurationRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allConfigs);
+        $configs = $allConfigs->toArray();
 
         $defaultCount = 0;
         foreach ($configs as $config) {
+            self::assertInstanceOf(\Netresearch\NrLlm\Domain\Model\LlmConfiguration::class, $config);
             if ($config->isDefault()) {
                 $defaultCount++;
                 self::assertTrue($config->isActive(), 'Default configuration should be active');
@@ -1181,22 +1244,18 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         // Provider count should be available
         $providerCount = $this->providerRepository->countActive();
-        self::assertIsInt($providerCount);
         self::assertGreaterThanOrEqual(0, $providerCount);
 
         // Model count should be available
         $modelCount = $this->modelRepository->countActive();
-        self::assertIsInt($modelCount);
         self::assertGreaterThanOrEqual(0, $modelCount);
 
         // Configuration count should be available
         $configCount = $this->configurationRepository->countActive();
-        self::assertIsInt($configCount);
         self::assertGreaterThanOrEqual(0, $configCount);
 
         // Task count should be available
         $taskCount = $this->taskRepository->countActive();
-        self::assertIsInt($taskCount);
         self::assertGreaterThanOrEqual(0, $taskCount);
     }
 
@@ -1236,7 +1295,6 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         // Even if no providers, dashboard methods should not crash
         $count = $this->providerRepository->countActive();
-        self::assertIsInt($count);
         self::assertGreaterThanOrEqual(0, $count);
     }
 
@@ -1244,7 +1302,6 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     public function pathway6_16_dashboardHandlesEmptyModels(): void
     {
         $count = $this->modelRepository->countActive();
-        self::assertIsInt($count);
         self::assertGreaterThanOrEqual(0, $count);
     }
 
@@ -1252,7 +1309,6 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     public function pathway6_16_dashboardHandlesEmptyConfigurations(): void
     {
         $count = $this->configurationRepository->countActive();
-        self::assertIsInt($count);
         self::assertGreaterThanOrEqual(0, $count);
     }
 
@@ -1260,7 +1316,6 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     public function pathway6_16_dashboardHandlesEmptyTasks(): void
     {
         $count = $this->taskRepository->countActive();
-        self::assertIsInt($count);
         self::assertGreaterThanOrEqual(0, $count);
     }
 
@@ -1272,7 +1327,9 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     public function pathway6_17_activeVsTotalProviderCount(): void
     {
         $activeCount = $this->providerRepository->countActive();
-        $totalCount = $this->providerRepository->findAll()->count();
+        $allProviders = $this->providerRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allProviders);
+        $totalCount = $allProviders->count();
 
         self::assertGreaterThanOrEqual($activeCount, $totalCount);
     }
@@ -1281,7 +1338,9 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     public function pathway6_17_activeVsTotalModelCount(): void
     {
         $activeCount = $this->modelRepository->countActive();
-        $totalCount = $this->modelRepository->findAll()->count();
+        $allModels = $this->modelRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allModels);
+        $totalCount = $allModels->count();
 
         self::assertGreaterThanOrEqual($activeCount, $totalCount);
     }
@@ -1290,7 +1349,9 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     public function pathway6_17_activeVsTotalConfigurationCount(): void
     {
         $activeCount = $this->configurationRepository->countActive();
-        $totalCount = $this->configurationRepository->findAll()->count();
+        $allConfigs = $this->configurationRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allConfigs);
+        $totalCount = $allConfigs->count();
 
         self::assertGreaterThanOrEqual($activeCount, $totalCount);
     }
@@ -1299,7 +1360,9 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     public function pathway6_17_activeVsTotalTaskCount(): void
     {
         $activeCount = $this->taskRepository->countActive();
-        $totalCount = $this->taskRepository->findAll()->count();
+        $allTasks = $this->taskRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allTasks);
+        $totalCount = $allTasks->count();
 
         self::assertGreaterThanOrEqual($activeCount, $totalCount);
     }

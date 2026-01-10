@@ -48,17 +48,21 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     {
         parent::setUp();
 
-        $this->configurationRepository = $this->get(LlmConfigurationRepository::class);
-        self::assertInstanceOf(LlmConfigurationRepository::class, $this->configurationRepository);
+        $configurationRepository = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
+        $this->configurationRepository = $configurationRepository;
 
-        $this->modelRepository = $this->get(ModelRepository::class);
-        self::assertInstanceOf(ModelRepository::class, $this->modelRepository);
+        $modelRepository = $this->get(ModelRepository::class);
+        self::assertInstanceOf(ModelRepository::class, $modelRepository);
+        $this->modelRepository = $modelRepository;
 
-        $this->providerRepository = $this->get(ProviderRepository::class);
-        self::assertInstanceOf(ProviderRepository::class, $this->providerRepository);
+        $providerRepository = $this->get(ProviderRepository::class);
+        self::assertInstanceOf(ProviderRepository::class, $providerRepository);
+        $this->providerRepository = $providerRepository;
 
-        $this->persistenceManager = $this->get(PersistenceManagerInterface::class);
-        self::assertInstanceOf(PersistenceManagerInterface::class, $this->persistenceManager);
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $this->persistenceManager = $persistenceManager;
 
         $this->controller = $this->createController();
     }
@@ -110,7 +114,10 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway4_1_viewConfigurationList(): void
     {
         // User navigates to Configurations list
-        $configurations = $this->configurationRepository->findAll()->toArray();
+        $queryResult = $this->configurationRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        /** @var array<int, LlmConfiguration> $configurations */
+        $configurations = $queryResult->toArray();
 
         self::assertNotEmpty($configurations, 'Configuration list should contain entries');
 
@@ -118,18 +125,22 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         foreach ($configurations as $config) {
             self::assertNotEmpty($config->getName(), 'Configuration should have a name');
             self::assertNotNull($config->getLlmModel(), 'Configuration should have a model');
-            self::assertIsBool($config->isActive());
-            self::assertIsBool($config->isDefault());
-            // Temperature and max tokens should be visible
-            self::assertIsFloat($config->getTemperature());
-            self::assertIsInt($config->getMaxTokens());
+            // isActive() and isDefault() return bool, getTemperature() returns float, getMaxTokens() returns int
+            // Verify values are accessible (types are enforced by domain model)
+            $config->isActive();
+            $config->isDefault();
+            self::assertGreaterThanOrEqual(0.0, $config->getTemperature());
+            self::assertGreaterThanOrEqual(0, $config->getMaxTokens());
         }
     }
 
     #[Test]
     public function pathway4_1_viewConfigurationListShowsProviderInfo(): void
     {
-        $configurations = $this->configurationRepository->findAll()->toArray();
+        $queryResult = $this->configurationRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        /** @var array<int, LlmConfiguration> $configurations */
+        $configurations = $queryResult->toArray();
 
         foreach ($configurations as $config) {
             $model = $config->getLlmModel();
@@ -151,6 +162,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
         $configUid = $config->getUid();
+        self::assertNotNull($configUid);
 
         // User clicks toggle to deactivate
         $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => $configUid]);
@@ -163,6 +175,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         // Verify in database
         $this->persistenceManager->clearState();
         $reloaded = $this->configurationRepository->findByUid($configUid);
+        self::assertNotNull($reloaded);
         self::assertFalse($reloaded->isActive());
 
         // Reactivate
@@ -209,7 +222,10 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway4_3_setDefaultConfiguration(): void
     {
         // Find a non-default configuration
-        $configs = $this->configurationRepository->findActive()->toArray();
+        $queryResult = $this->configurationRepository->findActive();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        /** @var array<int, LlmConfiguration> $configs */
+        $configs = $queryResult->toArray();
         $nonDefault = null;
         foreach ($configs as $config) {
             if (!$config->isDefault()) {
@@ -248,24 +264,32 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway4_3_setDefaultConfiguration_clearsOtherDefaults(): void
     {
-        $configs = $this->configurationRepository->findActive()->toArray();
+        $queryResult = $this->configurationRepository->findActive();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        /** @var array<int, LlmConfiguration> $configs */
+        $configs = $queryResult->toArray();
         if (count($configs) < 2) {
             self::markTestSkipped('Need at least 2 configurations');
         }
 
+        $uid0 = $configs[0]->getUid();
+        $uid1 = $configs[1]->getUid();
+        self::assertNotNull($uid0);
+        self::assertNotNull($uid1);
+
         // Set first as default
-        $request1 = $this->createFormRequest('/ajax/config/setdefault', ['uid' => $configs[0]->getUid()]);
+        $request1 = $this->createFormRequest('/ajax/config/setdefault', ['uid' => $uid0]);
         $this->controller->setDefaultAction($request1);
         $this->persistenceManager->clearState();
 
         // Set second as default
-        $request2 = $this->createFormRequest('/ajax/config/setdefault', ['uid' => $configs[1]->getUid()]);
+        $request2 = $this->createFormRequest('/ajax/config/setdefault', ['uid' => $uid1]);
         $this->controller->setDefaultAction($request2);
         $this->persistenceManager->clearState();
 
         // Only second should be default
-        $reloaded1 = $this->configurationRepository->findByUid($configs[0]->getUid());
-        $reloaded2 = $this->configurationRepository->findByUid($configs[1]->getUid());
+        $reloaded1 = $this->configurationRepository->findByUid($uid0);
+        $reloaded2 = $this->configurationRepository->findByUid($uid1);
 
         self::assertFalse($reloaded1?->isDefault());
         self::assertTrue($reloaded2?->isDefault());
@@ -383,6 +407,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         $retrieved = $this->configurationRepository->findOneByIdentifier('temp-test-config');
+        self::assertNotNull($retrieved);
         self::assertSame(1.5, $retrieved->getTemperature());
     }
 
@@ -395,10 +420,14 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     {
         $original = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($original);
+        $originalUid = $original->getUid();
+        self::assertNotNull($originalUid);
 
         // Clone by creating new config with same values but different identifier
         $clone = new LlmConfiguration();
-        $clone->setPid($original->getPid());
+        $pid = $original->getPid();
+        self::assertNotNull($pid);
+        $clone->setPid($pid);
         $clone->setIdentifier('cloned-' . $original->getIdentifier());
         $clone->setName('Clone of ' . $original->getName());
         $clone->setLlmModel($original->getLlmModel());
@@ -420,7 +449,8 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertSame($original->getMaxTokens(), $retrieved->getMaxTokens());
 
         // Original should be unchanged
-        $originalReloaded = $this->configurationRepository->findByUid($original->getUid());
+        $originalReloaded = $this->configurationRepository->findByUid($originalUid);
+        self::assertNotNull($originalReloaded);
         self::assertSame($original->getName(), $originalReloaded->getName());
     }
 
@@ -600,7 +630,10 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function configurationModelRelationshipIntegrity(): void
     {
-        $configs = $this->configurationRepository->findActive()->toArray();
+        $queryResult = $this->configurationRepository->findActive();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        /** @var array<int, LlmConfiguration> $configs */
+        $configs = $queryResult->toArray();
 
         foreach ($configs as $config) {
             $model = $config->getLlmModel();
@@ -620,7 +653,10 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function configurationParametersWithinValidRanges(): void
     {
-        $configs = $this->configurationRepository->findAll()->toArray();
+        $queryResult = $this->configurationRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        /** @var array<int, LlmConfiguration> $configs */
+        $configs = $queryResult->toArray();
 
         foreach ($configs as $config) {
             // Temperature should be 0-2
@@ -638,6 +674,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function onlyOneDefaultConfigurationAllowed(): void
     {
         $defaults = [];
+        /** @var LlmConfiguration $config */
         foreach ($this->configurationRepository->findAll() as $config) {
             if ($config->isDefault()) {
                 $defaults[] = $config;
@@ -658,6 +695,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
         $configUid = $config->getUid();
+        self::assertNotNull($configUid);
 
         $initialState = $config->isActive();
         $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => $configUid]);
@@ -671,6 +709,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         // After even number of toggles, should be back to initial state
         $this->persistenceManager->clearState();
         $final = $this->configurationRepository->findByUid($configUid);
+        self::assertNotNull($final);
         self::assertSame($initialState, $final->isActive());
     }
 
@@ -781,6 +820,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         $retrieved = $this->configurationRepository->findOneByIdentifier($config->getIdentifier());
+        self::assertNotNull($retrieved);
         self::assertSame(0.0, $retrieved->getTemperature());
     }
 
@@ -804,6 +844,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         $retrieved = $this->configurationRepository->findOneByIdentifier($config->getIdentifier());
+        self::assertNotNull($retrieved);
         self::assertSame(2.0, $retrieved->getTemperature());
     }
 
@@ -827,6 +868,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         $retrieved = $this->configurationRepository->findOneByIdentifier($config->getIdentifier());
+        self::assertNotNull($retrieved);
         self::assertSame(1, $retrieved->getMaxTokens());
     }
 
@@ -850,6 +892,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         $retrieved = $this->configurationRepository->findOneByIdentifier($config->getIdentifier());
+        self::assertNotNull($retrieved);
         self::assertSame(128000, $retrieved->getMaxTokens());
     }
 
@@ -892,11 +935,14 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway4_13_countActiveConfigurations(): void
     {
-        $count = $this->configurationRepository->findActive()->count();
+        $queryResult = $this->configurationRepository->findActive();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        $count = $queryResult->count();
         self::assertGreaterThanOrEqual(0, $count);
 
         // Count via iteration should match
         $iterCount = 0;
+        /** @var LlmConfiguration $config */
         foreach ($this->configurationRepository->findAll() as $config) {
             if ($config->isActive()) {
                 $iterCount++;
@@ -929,10 +975,14 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         $retrieved = $this->configurationRepository->findOneByIdentifier($config->getIdentifier());
+        self::assertNotNull($retrieved);
         self::assertFalse($retrieved->isActive());
 
+        $retrievedUid = $retrieved->getUid();
+        self::assertNotNull($retrievedUid);
+
         // Activate via toggle
-        $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => $retrieved->getUid()]);
+        $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => $retrievedUid]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -947,7 +997,9 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         if ($default === null) {
             $config = $this->configurationRepository->findActive()->getFirst();
             self::assertNotNull($config);
-            $request = $this->createFormRequest('/ajax/config/setdefault', ['uid' => $config->getUid()]);
+            $configUid = $config->getUid();
+            self::assertNotNull($configUid);
+            $request = $this->createFormRequest('/ajax/config/setdefault', ['uid' => $configUid]);
             $this->controller->setDefaultAction($request);
             $this->persistenceManager->clearState();
             $default = $this->configurationRepository->findDefault();
@@ -955,6 +1007,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
 
         self::assertNotNull($default);
         $defaultUid = $default->getUid();
+        self::assertNotNull($defaultUid);
 
         // Deactivate the default
         $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => $defaultUid]);
@@ -966,6 +1019,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         // Configuration should still be default but inactive
         $this->persistenceManager->clearState();
         $reloaded = $this->configurationRepository->findByUid($defaultUid);
+        self::assertNotNull($reloaded);
         self::assertFalse($reloaded->isActive());
 
         // Reactivate for cleanup
@@ -979,13 +1033,18 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function configurationModelChange(): void
     {
-        $models = $this->modelRepository->findActive()->toArray();
+        $queryResult = $this->modelRepository->findActive();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        /** @var array<int, \Netresearch\NrLlm\Domain\Model\Model> $models */
+        $models = $queryResult->toArray();
         if (count($models) < 2) {
             self::markTestSkipped('Need at least 2 models');
         }
 
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
+        $configUid = $config->getUid();
+        self::assertNotNull($configUid);
 
         $originalModel = $config->getLlmModel();
         $newModel = $models[0]->getUid() === $originalModel?->getUid() ? $models[1] : $models[0];
@@ -997,8 +1056,11 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         // Verify change
-        $reloaded = $this->configurationRepository->findByUid($config->getUid());
-        self::assertSame($newModel->getUid(), $reloaded->getLlmModel()->getUid());
+        $reloaded = $this->configurationRepository->findByUid($configUid);
+        self::assertNotNull($reloaded);
+        $reloadedModel = $reloaded->getLlmModel();
+        self::assertNotNull($reloadedModel);
+        self::assertSame($newModel->getUid(), $reloadedModel->getUid());
 
         // Restore
         $reloaded->setLlmModel($originalModel);
@@ -1011,6 +1073,8 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     {
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
+        $configUid = $config->getUid();
+        self::assertNotNull($configUid);
 
         $model = $config->getLlmModel();
         if ($model === null) {
@@ -1026,7 +1090,8 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         // Configuration should still reference the model
-        $reloadedConfig = $this->configurationRepository->findByUid($config->getUid());
+        $reloadedConfig = $this->configurationRepository->findByUid($configUid);
+        self::assertNotNull($reloadedConfig);
         $reloadedModel = $reloadedConfig->getLlmModel();
         self::assertNotNull($reloadedModel);
         self::assertFalse($reloadedModel->isActive());
@@ -1300,6 +1365,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
 
         $originalModelUid = $config->getLlmModel()?->getUid();
         $configUid = $config->getUid();
+        self::assertNotNull($configUid);
 
         // Update temperature
         $config->setTemperature(1.5);
@@ -1342,12 +1408,17 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway4_18_setDefaultResponseStructure(): void
     {
-        $configs = $this->configurationRepository->findActive()->toArray();
+        $queryResult = $this->configurationRepository->findActive();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $queryResult);
+        /** @var array<int, LlmConfiguration> $configs */
+        $configs = $queryResult->toArray();
         if (count($configs) < 1) {
             self::markTestSkipped('Need at least 1 configuration');
         }
 
-        $request = $this->createFormRequest('/ajax/config/setdefault', ['uid' => $configs[0]->getUid()]);
+        $uid = $configs[0]->getUid();
+        self::assertNotNull($uid);
+        $request = $this->createFormRequest('/ajax/config/setdefault', ['uid' => $uid]);
         $response = $this->controller->setDefaultAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -1408,6 +1479,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway4_19_countAllConfigurations(): void
     {
         $allConfigs = $this->configurationRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allConfigs);
         $count = $allConfigs->count();
 
         self::assertGreaterThanOrEqual(0, $count);
@@ -1424,15 +1496,19 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway4_19_countActiveConfigurations(): void
     {
         $activeConfigs = $this->configurationRepository->findActive();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $activeConfigs);
         $activeCount = $activeConfigs->count();
 
         // All returned should be active
+        /** @var LlmConfiguration $config */
         foreach ($activeConfigs as $config) {
             self::assertTrue($config->isActive());
         }
 
         // Active count should be <= total count
-        $totalCount = $this->configurationRepository->findAll()->count();
+        $allConfigs = $this->configurationRepository->findAll();
+        self::assertInstanceOf(\TYPO3\CMS\Extbase\Persistence\QueryResultInterface::class, $allConfigs);
+        $totalCount = $allConfigs->count();
         self::assertLessThanOrEqual($totalCount, $activeCount);
     }
 
@@ -1441,6 +1517,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     {
         // Should have at most one default
         $defaultCount = 0;
+        /** @var LlmConfiguration $config */
         foreach ($this->configurationRepository->findAll() as $config) {
             if ($config->isDefault()) {
                 $defaultCount++;
@@ -1557,7 +1634,6 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($retrieved);
 
         $options = $retrieved->toOptionsArray();
-        self::assertIsArray($options);
         self::assertArrayHasKey('temperature', $options);
         self::assertArrayHasKey('max_tokens', $options);
         self::assertArrayHasKey('system_prompt', $options);
