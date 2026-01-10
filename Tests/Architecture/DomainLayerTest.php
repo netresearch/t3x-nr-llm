@@ -86,6 +86,11 @@ final class DomainLayerTest
             ->classes(
                 // Other domain models (for relations)
                 Selector::inNamespace('Netresearch\NrLlm\Domain\Model'),
+                // Domain enums (type-safe constants)
+                Selector::inNamespace('Netresearch\NrLlm\Domain\Enum'),
+                // Domain DTOs and Value Objects
+                Selector::inNamespace('Netresearch\NrLlm\Domain\DTO'),
+                Selector::inNamespace('Netresearch\NrLlm\Domain\ValueObject'),
                 // Value objects and service options
                 Selector::inNamespace('Netresearch\NrLlm\Service\Option'),
                 // Extbase base classes (required for entity functionality)

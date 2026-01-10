@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria;
+use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
@@ -26,12 +28,17 @@ class LlmConfiguration extends AbstractEntity
     /** Reference to database Model entity. */
     protected ?Model $llmModel = null;
 
-    /** Dynamic model selection mode. */
+    /**
+     * Dynamic model selection mode.
+     *
+     * @deprecated Use ModelSelectionMode enum instead
+     */
     public const SELECTION_MODE_FIXED = 'fixed';
+    /** @deprecated Use ModelSelectionMode enum instead */
     public const SELECTION_MODE_CRITERIA = 'criteria';
 
     /** Selection mode: 'fixed' (specific model) or 'criteria' (dynamic). */
-    protected string $modelSelectionMode = self::SELECTION_MODE_FIXED;
+    protected string $modelSelectionMode = ModelSelectionMode::FIXED->value;
 
     /** JSON-encoded criteria for dynamic model selection. */
     protected string $modelSelectionCriteria = '';
@@ -104,6 +111,14 @@ class LlmConfiguration extends AbstractEntity
         return $this->modelSelectionMode;
     }
 
+    /**
+     * Get model selection mode as enum.
+     */
+    public function getModelSelectionModeEnum(): ?ModelSelectionMode
+    {
+        return ModelSelectionMode::tryFrom($this->modelSelectionMode);
+    }
+
     public function getModelSelectionCriteria(): string
     {
         return $this->modelSelectionCriteria;
@@ -128,11 +143,19 @@ class LlmConfiguration extends AbstractEntity
     }
 
     /**
+     * Get model selection criteria as DTO.
+     */
+    public function getModelSelectionCriteriaDTO(): ModelSelectionCriteria
+    {
+        return ModelSelectionCriteria::fromJson($this->modelSelectionCriteria);
+    }
+
+    /**
      * Check if using criteria-based model selection.
      */
     public function usesCriteriaSelection(): bool
     {
-        return $this->modelSelectionMode === self::SELECTION_MODE_CRITERIA;
+        return $this->modelSelectionMode === ModelSelectionMode::CRITERIA->value;
     }
 
     /**
@@ -327,10 +350,14 @@ class LlmConfiguration extends AbstractEntity
         $this->llmModel = $llmModel;
     }
 
-    public function setModelSelectionMode(string $modelSelectionMode): void
+    public function setModelSelectionMode(string|ModelSelectionMode $modelSelectionMode): void
     {
-        if (!in_array($modelSelectionMode, [self::SELECTION_MODE_FIXED, self::SELECTION_MODE_CRITERIA], true)) {
-            $modelSelectionMode = self::SELECTION_MODE_FIXED;
+        if ($modelSelectionMode instanceof ModelSelectionMode) {
+            $this->modelSelectionMode = $modelSelectionMode->value;
+            return;
+        }
+        if (!ModelSelectionMode::isValid($modelSelectionMode)) {
+            $modelSelectionMode = ModelSelectionMode::FIXED->value;
         }
         $this->modelSelectionMode = $modelSelectionMode;
     }
@@ -348,6 +375,14 @@ class LlmConfiguration extends AbstractEntity
     public function setModelSelectionCriteriaArray(array $criteria): void
     {
         $this->modelSelectionCriteria = json_encode($criteria, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * Set model selection criteria from DTO.
+     */
+    public function setModelSelectionCriteriaDTO(ModelSelectionCriteria $criteria): void
+    {
+        $this->modelSelectionCriteria = $criteria->toJson();
     }
 
     public function setTranslator(string $translator): void
