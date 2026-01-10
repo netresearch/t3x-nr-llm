@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use Netresearch\NrLlm\Domain\Enum\TaskCategory;
+use Netresearch\NrLlm\Domain\Enum\TaskInputType;
+use Netresearch\NrLlm\Domain\Enum\TaskOutputFormat;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
 /**
@@ -19,24 +22,47 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
  */
 class Task extends AbstractEntity
 {
-    // Input types
+    /**
+     * Input types.
+     *
+     * @deprecated Use TaskInputType enum instead
+     */
     public const INPUT_MANUAL = 'manual';
+    /** @deprecated Use TaskInputType enum instead */
     public const INPUT_SYSLOG = 'syslog';
+    /** @deprecated Use TaskInputType enum instead */
     public const INPUT_DEPRECATION_LOG = 'deprecation_log';
+    /** @deprecated Use TaskInputType enum instead */
     public const INPUT_TABLE = 'table';
+    /** @deprecated Use TaskInputType enum instead */
     public const INPUT_FILE = 'file';
 
-    // Output formats
+    /**
+     * Output formats.
+     *
+     * @deprecated Use TaskOutputFormat enum instead
+     */
     public const OUTPUT_MARKDOWN = 'markdown';
+    /** @deprecated Use TaskOutputFormat enum instead */
     public const OUTPUT_JSON = 'json';
+    /** @deprecated Use TaskOutputFormat enum instead */
     public const OUTPUT_PLAIN = 'plain';
+    /** @deprecated Use TaskOutputFormat enum instead */
     public const OUTPUT_HTML = 'html';
 
-    // Categories
+    /**
+     * Categories.
+     *
+     * @deprecated Use TaskCategory enum instead
+     */
     public const CATEGORY_LOG_ANALYSIS = 'log_analysis';
+    /** @deprecated Use TaskCategory enum instead */
     public const CATEGORY_CONTENT = 'content';
+    /** @deprecated Use TaskCategory enum instead */
     public const CATEGORY_SYSTEM = 'system';
+    /** @deprecated Use TaskCategory enum instead */
     public const CATEGORY_DEVELOPER = 'developer';
+    /** @deprecated Use TaskCategory enum instead */
     public const CATEGORY_GENERAL = 'general';
 
     protected string $identifier = '';
@@ -78,6 +104,14 @@ class Task extends AbstractEntity
         return $this->category;
     }
 
+    /**
+     * Get category as enum.
+     */
+    public function getCategoryEnum(): ?TaskCategory
+    {
+        return TaskCategory::tryFrom($this->category);
+    }
+
     public function getConfiguration(): ?LlmConfiguration
     {
         return $this->configuration;
@@ -91,6 +125,14 @@ class Task extends AbstractEntity
     public function getInputType(): string
     {
         return $this->inputType;
+    }
+
+    /**
+     * Get input type as enum.
+     */
+    public function getInputTypeEnum(): ?TaskInputType
+    {
+        return TaskInputType::tryFrom($this->inputType);
     }
 
     public function getInputSource(): string
@@ -119,6 +161,14 @@ class Task extends AbstractEntity
     public function getOutputFormat(): string
     {
         return $this->outputFormat;
+    }
+
+    /**
+     * Get output format as enum.
+     */
+    public function getOutputFormatEnum(): ?TaskOutputFormat
+    {
+        return TaskOutputFormat::tryFrom($this->outputFormat);
     }
 
     public function getIsActive(): bool
@@ -175,9 +225,9 @@ class Task extends AbstractEntity
         $this->description = $description;
     }
 
-    public function setCategory(string $category): void
+    public function setCategory(string|TaskCategory $category): void
     {
-        $this->category = $category;
+        $this->category = $category instanceof TaskCategory ? $category->value : $category;
     }
 
     public function setConfiguration(?LlmConfiguration $configuration): void
@@ -190,9 +240,9 @@ class Task extends AbstractEntity
         $this->promptTemplate = $promptTemplate;
     }
 
-    public function setInputType(string $inputType): void
+    public function setInputType(string|TaskInputType $inputType): void
     {
-        $this->inputType = $inputType;
+        $this->inputType = $inputType instanceof TaskInputType ? $inputType->value : $inputType;
     }
 
     public function setInputSource(string $inputSource): void
@@ -210,9 +260,9 @@ class Task extends AbstractEntity
         $this->inputSource = json_encode($inputSource, JSON_THROW_ON_ERROR);
     }
 
-    public function setOutputFormat(string $outputFormat): void
+    public function setOutputFormat(string|TaskOutputFormat $outputFormat): void
     {
-        $this->outputFormat = $outputFormat;
+        $this->outputFormat = $outputFormat instanceof TaskOutputFormat ? $outputFormat->value : $outputFormat;
     }
 
     public function setIsActive(bool $isActive): void
@@ -255,7 +305,7 @@ class Task extends AbstractEntity
      */
     public function requiresManualInput(): bool
     {
-        return $this->inputType === self::INPUT_MANUAL;
+        return $this->inputType === TaskInputType::MANUAL->value;
     }
 
     /**
@@ -266,11 +316,11 @@ class Task extends AbstractEntity
     public static function getInputTypes(): array
     {
         return [
-            self::INPUT_MANUAL => 'Manual Input',
-            self::INPUT_SYSLOG => 'System Log (sys_log)',
-            self::INPUT_DEPRECATION_LOG => 'Deprecation Log',
-            self::INPUT_TABLE => 'Database Table',
-            self::INPUT_FILE => 'File',
+            TaskInputType::MANUAL->value => 'Manual Input',
+            TaskInputType::SYSLOG->value => 'System Log (sys_log)',
+            TaskInputType::DEPRECATION_LOG->value => 'Deprecation Log',
+            TaskInputType::TABLE->value => 'Database Table',
+            TaskInputType::FILE->value => 'File',
         ];
     }
 
@@ -282,10 +332,10 @@ class Task extends AbstractEntity
     public static function getOutputFormats(): array
     {
         return [
-            self::OUTPUT_MARKDOWN => 'Markdown',
-            self::OUTPUT_JSON => 'JSON',
-            self::OUTPUT_PLAIN => 'Plain Text',
-            self::OUTPUT_HTML => 'HTML',
+            TaskOutputFormat::MARKDOWN->value => 'Markdown',
+            TaskOutputFormat::JSON->value => 'JSON',
+            TaskOutputFormat::PLAIN->value => 'Plain Text',
+            TaskOutputFormat::HTML->value => 'HTML',
         ];
     }
 
@@ -297,11 +347,11 @@ class Task extends AbstractEntity
     public static function getCategories(): array
     {
         return [
-            self::CATEGORY_LOG_ANALYSIS => 'Log Analysis',
-            self::CATEGORY_CONTENT => 'Content Operations',
-            self::CATEGORY_SYSTEM => 'System Health',
-            self::CATEGORY_DEVELOPER => 'Developer Assistance',
-            self::CATEGORY_GENERAL => 'General',
+            TaskCategory::LOG_ANALYSIS->value => 'Log Analysis',
+            TaskCategory::CONTENT->value => 'Content Operations',
+            TaskCategory::SYSTEM->value => 'System Health',
+            TaskCategory::DEVELOPER->value => 'Developer Assistance',
+            TaskCategory::GENERAL->value => 'General',
         ];
     }
 }

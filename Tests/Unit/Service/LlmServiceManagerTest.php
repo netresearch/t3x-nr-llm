@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service;
 
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -338,9 +339,10 @@ class TestableProvider extends AbstractProvider
     }
 
     #[Override]
-    public function supportsFeature(string $feature): bool
+    public function supportsFeature(string|ModelCapability $feature): bool
     {
-        return in_array($feature, ['chat', 'embeddings', 'vision'], true);
+        $featureValue = $feature instanceof ModelCapability ? $feature->value : $feature;
+        return in_array($featureValue, ['chat', 'embeddings', 'vision'], true);
     }
 
     public function chatCompletion(array $messages, array $options = []): CompletionResponse

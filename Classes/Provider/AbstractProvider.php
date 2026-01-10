@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -25,11 +26,21 @@ abstract class AbstractProvider implements ProviderInterface
 {
     use ResponseParserTrait;
 
+    /**
+     * Feature constants for provider capabilities.
+     *
+     * @deprecated Use ModelCapability enum instead
+     */
     protected const FEATURE_CHAT = 'chat';
+    /** @deprecated Use ModelCapability enum instead */
     protected const FEATURE_COMPLETION = 'completion';
+    /** @deprecated Use ModelCapability enum instead */
     protected const FEATURE_EMBEDDINGS = 'embeddings';
+    /** @deprecated Use ModelCapability enum instead */
     protected const FEATURE_VISION = 'vision';
+    /** @deprecated Use ModelCapability enum instead */
     protected const FEATURE_STREAMING = 'streaming';
+    /** @deprecated Use ModelCapability enum instead */
     protected const FEATURE_TOOLS = 'tools';
 
     protected string $apiKeyIdentifier = '';
@@ -77,9 +88,10 @@ abstract class AbstractProvider implements ProviderInterface
         return $this->apiKeyIdentifier !== '' && $this->vault->exists($this->apiKeyIdentifier);
     }
 
-    public function supportsFeature(string $feature): bool
+    public function supportsFeature(string|ModelCapability $feature): bool
     {
-        return in_array($feature, $this->supportedFeatures, true);
+        $featureValue = $feature instanceof ModelCapability ? $feature->value : $feature;
+        return in_array($featureValue, $this->supportedFeatures, true);
     }
 
     public function complete(string $prompt, array $options = []): CompletionResponse

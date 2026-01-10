@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Contract;
 
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
@@ -23,7 +24,7 @@ interface ProviderInterface
 
     public function isAvailable(): bool;
 
-    public function supportsFeature(string $feature): bool;
+    public function supportsFeature(string|ModelCapability $feature): bool;
 
     /**
      * @param array<int, array{role: string, content: string}> $messages

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
 /**
@@ -14,14 +15,25 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
  */
 class Model extends AbstractEntity
 {
-    /** Capability constants. */
+    /**
+     * Capability constants.
+     *
+     * @deprecated Use ModelCapability enum instead
+     */
     public const CAPABILITY_CHAT = 'chat';
+    /** @deprecated Use ModelCapability enum instead */
     public const CAPABILITY_COMPLETION = 'completion';
+    /** @deprecated Use ModelCapability enum instead */
     public const CAPABILITY_EMBEDDINGS = 'embeddings';
+    /** @deprecated Use ModelCapability enum instead */
     public const CAPABILITY_VISION = 'vision';
+    /** @deprecated Use ModelCapability enum instead */
     public const CAPABILITY_STREAMING = 'streaming';
+    /** @deprecated Use ModelCapability enum instead */
     public const CAPABILITY_TOOLS = 'tools';
+    /** @deprecated Use ModelCapability enum instead */
     public const CAPABILITY_JSON_MODE = 'json_mode';
+    /** @deprecated Use ModelCapability enum instead */
     public const CAPABILITY_AUDIO = 'audio';
 
     protected string $identifier = '';
@@ -97,6 +109,23 @@ class Model extends AbstractEntity
             return [];
         }
         return array_map(trim(...), explode(',', $this->capabilities));
+    }
+
+    /**
+     * Get capabilities as enum array.
+     *
+     * @return list<ModelCapability>
+     */
+    public function getCapabilitiesAsEnums(): array
+    {
+        $enums = [];
+        foreach ($this->getCapabilitiesArray() as $capability) {
+            $enum = ModelCapability::tryFrom($capability);
+            if ($enum !== null) {
+                $enums[] = $enum;
+            }
+        }
+        return $enums;
     }
 
     public function getDefaultTimeout(): int
@@ -277,19 +306,21 @@ class Model extends AbstractEntity
     /**
      * Check if model has a specific capability.
      */
-    public function hasCapability(string $capability): bool
+    public function hasCapability(string|ModelCapability $capability): bool
     {
-        return in_array($capability, $this->getCapabilitiesArray(), true);
+        $capabilityValue = $capability instanceof ModelCapability ? $capability->value : $capability;
+        return in_array($capabilityValue, $this->getCapabilitiesArray(), true);
     }
 
     /**
      * Add a capability.
      */
-    public function addCapability(string $capability): void
+    public function addCapability(string|ModelCapability $capability): void
     {
+        $capabilityValue = $capability instanceof ModelCapability ? $capability->value : $capability;
         $caps = $this->getCapabilitiesArray();
-        if (!in_array($capability, $caps, true)) {
-            $caps[] = $capability;
+        if (!in_array($capabilityValue, $caps, true)) {
+            $caps[] = $capabilityValue;
             $this->setCapabilitiesArray($caps);
         }
     }
@@ -297,53 +328,54 @@ class Model extends AbstractEntity
     /**
      * Remove a capability.
      */
-    public function removeCapability(string $capability): void
+    public function removeCapability(string|ModelCapability $capability): void
     {
+        $capabilityValue = $capability instanceof ModelCapability ? $capability->value : $capability;
         $caps = array_filter(
             $this->getCapabilitiesArray(),
-            static fn(string $cap): bool => $cap !== $capability,
+            static fn(string $cap): bool => $cap !== $capabilityValue,
         );
         $this->setCapabilitiesArray($caps);
     }
 
     public function supportsChat(): bool
     {
-        return $this->hasCapability(self::CAPABILITY_CHAT);
+        return $this->hasCapability(ModelCapability::CHAT);
     }
 
     public function supportsCompletion(): bool
     {
-        return $this->hasCapability(self::CAPABILITY_COMPLETION);
+        return $this->hasCapability(ModelCapability::COMPLETION);
     }
 
     public function supportsEmbeddings(): bool
     {
-        return $this->hasCapability(self::CAPABILITY_EMBEDDINGS);
+        return $this->hasCapability(ModelCapability::EMBEDDINGS);
     }
 
     public function supportsVision(): bool
     {
-        return $this->hasCapability(self::CAPABILITY_VISION);
+        return $this->hasCapability(ModelCapability::VISION);
     }
 
     public function supportsStreaming(): bool
     {
-        return $this->hasCapability(self::CAPABILITY_STREAMING);
+        return $this->hasCapability(ModelCapability::STREAMING);
     }
 
     public function supportsTools(): bool
     {
-        return $this->hasCapability(self::CAPABILITY_TOOLS);
+        return $this->hasCapability(ModelCapability::TOOLS);
     }
 
     public function supportsJsonMode(): bool
     {
-        return $this->hasCapability(self::CAPABILITY_JSON_MODE);
+        return $this->hasCapability(ModelCapability::JSON_MODE);
     }
 
     public function supportsAudio(): bool
     {
-        return $this->hasCapability(self::CAPABILITY_AUDIO);
+        return $this->hasCapability(ModelCapability::AUDIO);
     }
 
     // ========================================
@@ -358,14 +390,14 @@ class Model extends AbstractEntity
     public static function getAllCapabilities(): array
     {
         return [
-            self::CAPABILITY_CHAT => 'Chat',
-            self::CAPABILITY_COMPLETION => 'Completion',
-            self::CAPABILITY_EMBEDDINGS => 'Embeddings',
-            self::CAPABILITY_VISION => 'Vision',
-            self::CAPABILITY_STREAMING => 'Streaming',
-            self::CAPABILITY_TOOLS => 'Tool Use',
-            self::CAPABILITY_JSON_MODE => 'JSON Mode',
-            self::CAPABILITY_AUDIO => 'Audio',
+            ModelCapability::CHAT->value => 'Chat',
+            ModelCapability::COMPLETION->value => 'Completion',
+            ModelCapability::EMBEDDINGS->value => 'Embeddings',
+            ModelCapability::VISION->value => 'Vision',
+            ModelCapability::STREAMING->value => 'Streaming',
+            ModelCapability::TOOLS->value => 'Tool Use',
+            ModelCapability::JSON_MODE->value => 'JSON Mode',
+            ModelCapability::AUDIO->value => 'Audio',
         ];
     }
 
