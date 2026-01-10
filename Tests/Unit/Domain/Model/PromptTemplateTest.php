@@ -7,10 +7,13 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\Model;
 use Netresearch\NrLlm\Domain\Model\PromptTemplate;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Override;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
-#[CoversClass(PromptTemplate::class)]
+/**
+ * Note: Domain models are excluded from coverage in phpunit.xml.
+ */
+#[CoversNothing]
 class PromptTemplateTest extends AbstractUnitTestCase
 {
     private PromptTemplate $subject;
