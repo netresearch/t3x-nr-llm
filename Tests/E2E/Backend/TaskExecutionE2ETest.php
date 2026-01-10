@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\E2E\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\TaskController;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
@@ -15,6 +16,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * E2E tests for Task Management user pathways.
@@ -38,11 +40,13 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     {
         parent::setUp();
 
-        $this->taskRepository = $this->get(TaskRepository::class);
-        self::assertInstanceOf(TaskRepository::class, $this->taskRepository);
+        $taskRepository = $this->get(TaskRepository::class);
+        self::assertInstanceOf(TaskRepository::class, $taskRepository);
+        $this->taskRepository = $taskRepository;
 
-        $this->persistenceManager = $this->get(PersistenceManagerInterface::class);
-        self::assertInstanceOf(PersistenceManagerInterface::class, $this->persistenceManager);
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $this->persistenceManager = $persistenceManager;
 
         $this->controller = $this->createController();
     }
@@ -74,12 +78,15 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function pathway5_1_viewTaskList(): void
     {
         // User navigates to Tasks list
-        $tasks = $this->taskRepository->findAll()->toArray();
+        $queryResult = $this->taskRepository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
+        $tasks = $queryResult->toArray();
 
         self::assertNotEmpty($tasks, 'Task list should contain entries');
 
         // Verify tasks have required display information
         foreach ($tasks as $task) {
+            self::assertInstanceOf(Task::class, $task);
             self::assertNotEmpty($task->getName(), 'Task should have a name');
             self::assertNotEmpty($task->getIdentifier(), 'Task should have an identifier');
             self::assertNotEmpty($task->getCategory(), 'Task should have a category');
@@ -92,12 +99,10 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     {
         $counts = $this->taskRepository->countByCategory();
 
-        self::assertIsArray($counts);
         self::assertNotEmpty($counts);
 
         // User sees tasks organized by category
         foreach ($counts as $category => $count) {
-            self::assertIsString($category);
             self::assertGreaterThan(0, $count);
 
             // Verify we can retrieve tasks for each category
@@ -195,8 +200,11 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         if ($body['success'] ?? false) {
             // Should include token usage information
             self::assertArrayHasKey('usage', $body);
-            self::assertArrayHasKey('promptTokens', $body['usage']);
-            self::assertArrayHasKey('completionTokens', $body['usage']);
+            $usage = $body['usage'];
+            self::assertIsArray($usage);
+            /** @var array<string, mixed> $usage */
+            self::assertArrayHasKey('promptTokens', $usage);
+            self::assertArrayHasKey('completionTokens', $usage);
         }
     }
 
@@ -395,6 +403,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     {
         // Get an LLM configuration to link
         $configRepo = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(LlmConfigurationRepository::class, $configRepo);
         $config = $configRepo->findActive()->getFirst();
 
         $task = new Task();
@@ -627,8 +636,10 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         if ($body['success'] ?? false) {
             self::assertArrayHasKey('records', $body);
+            $records = $body['records'];
+            self::assertIsArray($records);
             // Should respect limit
-            self::assertLessThanOrEqual(5, count($body['records']));
+            self::assertLessThanOrEqual(5, count($records));
         }
     }
 
@@ -665,7 +676,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         // Deactivate the task
         $task->setIsActive(false);
         $this->taskRepository->update($task);
-        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $persistenceManager->persistAll();
 
         // Try to execute the inactive task
         $request = $this->createFormRequest('/ajax/task/execute', [
@@ -686,7 +699,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($task);
         $task->setIsActive(true);
         $this->taskRepository->update($task);
-        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $persistenceManager2 = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager2);
+        $persistenceManager2->persistAll();
     }
 
     #[Test]
@@ -703,8 +718,10 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         $task->setIsActive(false);
         $this->taskRepository->update($task);
-        $this->get(PersistenceManagerInterface::class)->persistAll();
-        $this->get(PersistenceManagerInterface::class)->clearState();
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $persistenceManager->persistAll();
+        $persistenceManager->clearState();
 
         // Active count should decrease
         $newActiveCount = $this->taskRepository->findActive()->count();
@@ -715,7 +732,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($task);
         $task->setIsActive(true);
         $this->taskRepository->update($task);
-        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $persistenceManager2 = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager2);
+        $persistenceManager2->persistAll();
     }
 
     // =========================================================================
@@ -751,7 +770,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setPid(0);
 
         $this->taskRepository->add($task);
-        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $persistenceManager->persistAll();
 
         $taskUid = $task->getUid();
         self::assertNotNull($taskUid);
@@ -828,11 +849,16 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertSame(200, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertTrue($body['success']);
         self::assertArrayHasKey('tables', $body);
+        $tables = $body['tables'];
+        self::assertIsArray($tables);
 
         // Verify cache tables are excluded
-        foreach ($body['tables'] as $table) {
+        foreach ($tables as $table) {
+            self::assertIsArray($table);
+            /** @var array{name: string, label?: string} $table */
             self::assertStringStartsNotWith('cache_', $table['name'], 'Cache tables should be excluded');
             self::assertStringStartsNotWith('cf_', $table['name'], 'CF cache tables should be excluded');
         }
@@ -846,9 +872,13 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertSame(200, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
+        $tables = $body['tables'];
+        self::assertIsArray($tables);
+        /** @var list<array{name: string, label?: string}> $tables */
 
         // Verify internal tables are excluded
-        $tableNames = array_column($body['tables'], 'name');
+        $tableNames = array_column($tables, 'name');
         self::assertNotContains('sys_refindex', $tableNames);
         self::assertNotContains('sys_registry', $tableNames);
         self::assertNotContains('sys_history', $tableNames);
@@ -1066,12 +1096,10 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     {
         $counts = $this->taskRepository->countByCategory();
 
-        self::assertIsArray($counts);
         self::assertNotEmpty($counts);
 
         // Verify each category has valid tasks
         foreach ($counts as $category => $count) {
-            self::assertIsString($category);
             self::assertGreaterThan(0, $count);
 
             $tasksInCategory = $this->taskRepository->findByCategory($category);
@@ -1192,7 +1220,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway5_12_listAllTasks(): void
     {
-        $allTasks = $this->taskRepository->findAll()->toArray();
+        $allTasksResult = $this->taskRepository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $allTasksResult);
+        $allTasks = $allTasksResult->toArray();
         $activeTasks = $this->taskRepository->findActive()->toArray();
 
         // All tasks should include active and inactive
@@ -1248,6 +1278,8 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         // Missing UID returns 404 (task not found)
         self::assertContains($response->getStatusCode(), [400, 404]);
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
         self::assertArrayHasKey('error', $body);
     }
@@ -1264,6 +1296,8 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         // Zero UID should be treated as invalid
         self::assertContains($response->getStatusCode(), [400, 404]);
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
     }
 
@@ -1279,6 +1313,8 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         // Negative UID should be treated as invalid
         self::assertContains($response->getStatusCode(), [400, 404]);
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
     }
 
@@ -1290,6 +1326,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function pathway5_14_taskWithConfiguration(): void
     {
         $configRepo = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(LlmConfigurationRepository::class, $configRepo);
         $config = $configRepo->findActive()->getFirst();
 
         $task = new Task();
@@ -1316,8 +1353,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($retrieved);
 
         if ($config !== null) {
-            self::assertNotNull($retrieved->getConfiguration());
-            self::assertSame($config->getUid(), $retrieved->getConfiguration()->getUid());
+            $retrievedConfig = $retrieved->getConfiguration();
+            self::assertNotNull($retrievedConfig);
+            self::assertSame($config->getUid(), $retrievedConfig->getUid());
         }
     }
 
@@ -1350,6 +1388,8 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function pathway5_14_changeTaskConfiguration(): void
     {
         $configRepo = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(LlmConfigurationRepository::class, $configRepo);
+        /** @var list<LlmConfiguration> $configs */
         $configs = $configRepo->findActive()->toArray();
 
         if (count($configs) < 2) {
@@ -1371,7 +1411,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $reloaded = $this->taskRepository->findByUid($task->getUid());
+        $taskUid = $task->getUid();
+        self::assertNotNull($taskUid);
+        $reloaded = $this->taskRepository->findByUid($taskUid);
         self::assertNotNull($reloaded);
         self::assertSame($newConfig->getUid(), $reloaded->getConfiguration()?->getUid());
 
@@ -1433,13 +1475,17 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertArrayHasKey('success', $body);
         self::assertTrue($body['success']);
         self::assertArrayHasKey('tables', $body);
-        self::assertIsArray($body['tables']);
+        $tables = $body['tables'];
+        self::assertIsArray($tables);
 
         // Each table should have name and label
-        foreach ($body['tables'] as $table) {
+        foreach ($tables as $table) {
+            self::assertIsArray($table);
+            /** @var array<string, mixed> $table */
             self::assertArrayHasKey('name', $table);
             self::assertArrayHasKey('label', $table);
         }
@@ -1474,6 +1520,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function pathway5_16_countAllTasks(): void
     {
         $allTasks = $this->taskRepository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $allTasks);
         $count = $allTasks->count();
 
         self::assertGreaterThanOrEqual(0, $count);
@@ -1497,7 +1544,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         }
 
         // Active should be <= total
-        $totalCount = $this->taskRepository->findAll()->count();
+        $allTasks = $this->taskRepository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $allTasks);
+        $totalCount = $allTasks->count();
         self::assertLessThanOrEqual($totalCount, $activeCount);
     }
 
@@ -1524,6 +1573,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $systemTasks = $this->taskRepository->findSystemTasks();
         $userTasks = $this->taskRepository->findUserTasks();
         $allTasks = $this->taskRepository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $allTasks);
 
         $systemCount = $systemTasks->count();
         $userCount = $userTasks->count();
@@ -1627,8 +1677,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
             self::assertNotEmpty($task->getInputType());
             self::assertNotEmpty($task->getOutputFormat());
             self::assertNotEmpty($task->getPromptTemplate());
-            self::assertIsBool($task->isActive());
-            self::assertIsBool($task->isSystem());
+            // isActive() and isSystem() are tested implicitly by calling them (always return bool)
         }
     }
 
@@ -1819,6 +1868,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $configurationRepository = $this->get(LlmConfigurationRepository::class);
         self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
 
+        /** @var list<LlmConfiguration> $configs */
         $configs = $configurationRepository->findActive()->toArray();
         if (count($configs) < 2) {
             self::markTestSkipped('Need at least 2 configurations');
@@ -1842,7 +1892,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         $retrieved = $this->taskRepository->findOneByIdentifier($task->getIdentifier());
         self::assertNotNull($retrieved);
-        self::assertSame($configs[0]->getUid(), $retrieved->getConfiguration()->getUid());
+        $retrievedConfig = $retrieved->getConfiguration();
+        self::assertNotNull($retrievedConfig);
+        self::assertSame($configs[0]->getUid(), $retrievedConfig->getUid());
 
         // Change configuration
         $retrieved->setConfiguration($configs[1]);
@@ -1852,7 +1904,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         $updated = $this->taskRepository->findOneByIdentifier($task->getIdentifier());
         self::assertNotNull($updated);
-        self::assertSame($configs[1]->getUid(), $updated->getConfiguration()->getUid());
+        $updatedConfig = $updated->getConfiguration();
+        self::assertNotNull($updatedConfig);
+        self::assertSame($configs[1]->getUid(), $updatedConfig->getUid());
     }
 
     // =========================================================================

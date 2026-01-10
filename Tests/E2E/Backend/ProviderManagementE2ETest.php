@@ -13,6 +13,7 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * E2E tests for Provider Management user pathways.
@@ -37,28 +38,34 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     {
         parent::setUp();
 
-        $this->providerRepository = $this->get(ProviderRepository::class);
-        self::assertInstanceOf(ProviderRepository::class, $this->providerRepository);
+        $providerRepository = $this->get(ProviderRepository::class);
+        self::assertInstanceOf(ProviderRepository::class, $providerRepository);
+        $this->providerRepository = $providerRepository;
 
-        $this->modelRepository = $this->get(ModelRepository::class);
-        self::assertInstanceOf(ModelRepository::class, $this->modelRepository);
+        $modelRepository = $this->get(ModelRepository::class);
+        self::assertInstanceOf(ModelRepository::class, $modelRepository);
+        $this->modelRepository = $modelRepository;
 
-        $this->persistenceManager = $this->get(PersistenceManagerInterface::class);
-        self::assertInstanceOf(PersistenceManagerInterface::class, $this->persistenceManager);
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $this->persistenceManager = $persistenceManager;
 
         $this->controller = $this->createController();
     }
 
     private function createController(): ProviderController
     {
-        $providerAdapterRegistry = $this->get(ProviderAdapterRegistry::class);
-        self::assertInstanceOf(ProviderAdapterRegistry::class, $providerAdapterRegistry);
+        $registry = $this->get(ProviderAdapterRegistry::class);
+        self::assertInstanceOf(ProviderAdapterRegistry::class, $registry);
 
-        return $this->createControllerWithReflection(ProviderController::class, [
+        $controller = $this->createControllerWithReflection(ProviderController::class, [
             'providerRepository' => $this->providerRepository,
-            'providerAdapterRegistry' => $providerAdapterRegistry,
+            'providerAdapterRegistry' => $registry,
             'persistenceManager' => $this->persistenceManager,
         ]);
+        self::assertInstanceOf(ProviderController::class, $controller);
+
+        return $controller;
     }
 
     // =========================================================================
@@ -69,24 +76,32 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway2_1_viewProviderList(): void
     {
         // User navigates to Providers list and sees all configured providers
-        $providers = $this->providerRepository->findAll()->toArray();
+        $queryResult = $this->providerRepository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
+        $providers = $queryResult->toArray();
 
         self::assertNotEmpty($providers, 'Provider list should contain entries from fixtures');
 
         // Verify each provider has required display information
         foreach ($providers as $provider) {
+            self::assertInstanceOf(Provider::class, $provider);
             self::assertNotEmpty($provider->getName(), 'Provider should have a name');
             self::assertNotEmpty($provider->getAdapterType(), 'Provider should have an adapter type');
-            // Status indicators should be available
-            self::assertIsBool($provider->isActive());
+            // Status indicators should be available (isActive() already returns bool, no assertion needed)
+            $provider->isActive();
         }
     }
 
     #[Test]
     public function pathway2_1_viewProviderListShowsActiveStatus(): void
     {
-        $activeProviders = $this->providerRepository->findActive()->toArray();
-        $allProviders = $this->providerRepository->findAll()->toArray();
+        $activeResult = $this->providerRepository->findActive();
+        self::assertInstanceOf(QueryResultInterface::class, $activeResult);
+        $activeProviders = $activeResult->toArray();
+
+        $allResult = $this->providerRepository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $allResult);
+        $allProviders = $allResult->toArray();
 
         // User should see which providers are active vs inactive
         self::assertNotEmpty($activeProviders, 'Should have active providers');
@@ -119,6 +134,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
         $providerUid = $provider->getUid();
+        self::assertNotNull($providerUid);
 
         // Step 1: User clicks toggle to deactivate
         $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $providerUid]);
@@ -126,6 +142,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 
         $body = $this->assertSuccessResponse($response);
         self::assertArrayHasKey('isActive', $body);
+        self::assertIsBool($body['isActive']);
         self::assertFalse($body['isActive'], 'Provider should now be inactive');
 
         // Verify in database
@@ -139,11 +156,14 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $response2 = $this->controller->toggleActiveAction($request2);
 
         $body2 = $this->assertSuccessResponse($response2);
+        self::assertArrayHasKey('isActive', $body2);
+        self::assertIsBool($body2['isActive']);
         self::assertTrue($body2['isActive'], 'Provider should now be active again');
 
         // Verify final state
         $this->persistenceManager->clearState();
         $finalState = $this->providerRepository->findByUid($providerUid);
+        self::assertNotNull($finalState);
         self::assertTrue($finalState->isActive());
     }
 
@@ -153,6 +173,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
         $providerUid = $provider->getUid();
+        self::assertNotNull($providerUid);
 
         $initialActiveCount = $this->providerRepository->findActive()->count();
 
@@ -266,6 +287,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 
         // Verify changes persisted
         $reloaded = $this->providerRepository->findByUid(1);
+        self::assertNotNull($reloaded);
         self::assertSame('Updated Provider Name', $reloaded->getName());
         self::assertSame(60, $reloaded->getTimeout());
 
@@ -298,6 +320,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 
         // Verify the vault identifier is stored correctly
         $reloaded = $this->providerRepository->findByUid(1);
+        self::assertNotNull($reloaded);
         self::assertSame($newVaultIdentifier, $reloaded->getApiKey());
 
         // Restore
@@ -328,6 +351,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $addedProvider = $this->providerRepository->findOneByIdentifier('test-delete-provider');
         self::assertNotNull($addedProvider);
         $providerUid = $addedProvider->getUid();
+        self::assertNotNull($providerUid);
 
         $countBefore = $this->providerRepository->countActive();
 
@@ -351,7 +375,9 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function multipleProvidersCanBeActiveSimultaneously(): void
     {
-        $activeProviders = $this->providerRepository->findActive()->toArray();
+        $activeResult = $this->providerRepository->findActive();
+        self::assertInstanceOf(QueryResultInterface::class, $activeResult);
+        $activeProviders = $activeResult->toArray();
 
         // At least one active provider should exist from fixtures
         self::assertGreaterThanOrEqual(1, count($activeProviders), 'Should have at least one active provider');
@@ -479,6 +505,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
         $providerUid = $provider->getUid();
+        self::assertNotNull($providerUid);
 
         // Get model count before deactivation
         $modelsBefore = $this->modelRepository->findByProvider($provider)->count();
@@ -508,11 +535,16 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $supportedTypes = ['openai', 'anthropic', 'ollama', 'google', 'gemini', 'deepseek'];
 
         foreach ($this->providerRepository->findAll() as $provider) {
+            self::assertInstanceOf(Provider::class, $provider);
             // Each provider should have a known adapter type
             self::assertContains(
                 $provider->getAdapterType(),
                 $supportedTypes,
-                "Provider {$provider->getName()} has unknown adapter type: {$provider->getAdapterType()}",
+                sprintf(
+                    'Provider %s has unknown adapter type: %s',
+                    $provider->getName(),
+                    $provider->getAdapterType(),
+                ),
             );
         }
     }
@@ -543,6 +575,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function providerHasRequiredFields(): void
     {
         foreach ($this->providerRepository->findAll() as $provider) {
+            self::assertInstanceOf(Provider::class, $provider);
             self::assertNotNull($provider->getUid());
             self::assertNotEmpty($provider->getIdentifier(), 'Provider must have identifier');
             self::assertNotEmpty($provider->getName(), 'Provider must have name');
@@ -577,6 +610,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
         $providerUid = $provider->getUid();
+        self::assertNotNull($providerUid);
 
         $initialState = $provider->isActive();
         $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $providerUid]);
@@ -590,6 +624,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         // After even number of toggles, should be back to initial state
         $this->persistenceManager->clearState();
         $final = $this->providerRepository->findByUid($providerUid);
+        self::assertNotNull($final);
         self::assertSame($initialState, $final->isActive());
     }
 
@@ -622,9 +657,8 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
-        // Provider should have endpoint URL accessible
+        // Provider should have endpoint URL accessible (getEndpointUrl() already returns string)
         $endpointUrl = $provider->getEndpointUrl();
-        self::assertIsString($endpointUrl);
 
         // If endpoint is set, it should be a valid URL format
         if (!empty($endpointUrl)) {
@@ -658,6 +692,8 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
+        $providerUid = $provider->getUid();
+        self::assertNotNull($providerUid);
 
         $originalTimeout = $provider->getTimeout();
 
@@ -667,7 +703,8 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $reloaded = $this->providerRepository->findByUid($provider->getUid());
+        $reloaded = $this->providerRepository->findByUid($providerUid);
+        self::assertNotNull($reloaded);
         self::assertSame(120, $reloaded->getTimeout());
 
         // Restore
@@ -683,11 +720,14 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_11_providerPriorityOrder(): void
     {
-        $providers = $this->providerRepository->findActive()->toArray();
+        $activeResult = $this->providerRepository->findActive();
+        self::assertInstanceOf(QueryResultInterface::class, $activeResult);
+        /** @var Provider[] $providers */
+        $providers = $activeResult->toArray();
         self::assertGreaterThanOrEqual(1, count($providers));
 
         // Verify providers can be sorted by priority
-        usort($providers, fn($a, $b) => $b->getPriority() <=> $a->getPriority());
+        usort($providers, fn(Provider $a, Provider $b) => $b->getPriority() <=> $a->getPriority());
 
         // First element should have highest priority
         $highest = $this->providerRepository->findHighestPriority();
@@ -699,13 +739,20 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_11_changePriority(): void
     {
-        $providers = $this->providerRepository->findActive()->toArray();
+        $activeResult = $this->providerRepository->findActive();
+        self::assertInstanceOf(QueryResultInterface::class, $activeResult);
+        /** @var Provider[] $providers */
+        $providers = $activeResult->toArray();
         if (count($providers) < 2) {
             self::markTestSkipped('Need at least 2 providers');
         }
 
         $provider1 = $providers[0];
         $provider2 = $providers[1];
+        $provider1Uid = $provider1->getUid();
+        $provider2Uid = $provider2->getUid();
+        self::assertNotNull($provider1Uid);
+        self::assertNotNull($provider2Uid);
         $originalPriority1 = $provider1->getPriority();
         $originalPriority2 = $provider2->getPriority();
 
@@ -718,8 +765,10 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         // Verify swap
-        $reloaded1 = $this->providerRepository->findByUid($provider1->getUid());
-        $reloaded2 = $this->providerRepository->findByUid($provider2->getUid());
+        $reloaded1 = $this->providerRepository->findByUid($provider1Uid);
+        $reloaded2 = $this->providerRepository->findByUid($provider2Uid);
+        self::assertNotNull($reloaded1);
+        self::assertNotNull($reloaded2);
         self::assertSame($originalPriority2, $reloaded1->getPriority());
         self::assertSame($originalPriority1, $reloaded2->getPriority());
 
@@ -739,7 +788,9 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway2_12_filterByActiveStatus(): void
     {
         $activeProviders = $this->providerRepository->findActive();
+        self::assertInstanceOf(QueryResultInterface::class, $activeProviders);
         $allProviders = $this->providerRepository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $allProviders);
 
         foreach ($activeProviders as $provider) {
             self::assertTrue($provider->isActive());
@@ -864,6 +915,8 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
+        self::assertArrayHasKey('isActive', $body);
+        self::assertIsBool($body['isActive']);
         self::assertTrue($body['isActive']);
     }
 
@@ -872,17 +925,20 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
+        $providerUid = $provider->getUid();
+        self::assertNotNull($providerUid);
 
         $models = $this->modelRepository->findByProvider($provider);
         $modelCount = $models->count();
 
         // Toggle provider
-        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $provider->getUid()]);
+        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $providerUid]);
         $this->controller->toggleActiveAction($request);
         $this->persistenceManager->clearState();
 
         // Models should still exist
-        $reloaded = $this->providerRepository->findByUid($provider->getUid());
+        $reloaded = $this->providerRepository->findByUid($providerUid);
+        self::assertNotNull($reloaded);
         $modelsAfter = $this->modelRepository->findByProvider($reloaded);
         self::assertSame($modelCount, $modelsAfter->count());
 
@@ -948,7 +1004,10 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_14_findProviderByAdapterType(): void
     {
-        $providers = $this->providerRepository->findActive()->toArray();
+        $activeResult = $this->providerRepository->findActive();
+        self::assertInstanceOf(QueryResultInterface::class, $activeResult);
+        /** @var Provider[] $providers */
+        $providers = $activeResult->toArray();
         self::assertNotEmpty($providers);
 
         $firstProvider = $providers[0];
@@ -966,10 +1025,11 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway2_14_countProviders(): void
     {
         $activeCount = $this->providerRepository->countActive();
-        $totalCount = $this->providerRepository->findAll()->count();
+        $allResult = $this->providerRepository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $allResult);
+        $totalCount = $allResult->count();
 
-        self::assertIsInt($activeCount);
-        self::assertIsInt($totalCount);
+        // countActive() already returns int, no need to assert
         self::assertGreaterThanOrEqual($activeCount, $totalCount);
     }
 
@@ -1000,14 +1060,17 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 
         $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
         self::assertNotNull($added);
+        $addedUid = $added->getUid();
+        self::assertNotNull($addedUid);
 
         // Toggle to inactive
-        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $added->getUid()]);
+        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $addedUid]);
         $this->controller->toggleActiveAction($request);
         $this->persistenceManager->clearState();
 
         // Verify deactivated
-        $reloaded = $this->providerRepository->findByUid($added->getUid());
+        $reloaded = $this->providerRepository->findByUid($addedUid);
+        self::assertNotNull($reloaded);
         self::assertFalse($reloaded->isActive());
 
         // Toggle back to active
@@ -1015,7 +1078,8 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         // Verify reactivated
-        $reloaded2 = $this->providerRepository->findByUid($added->getUid());
+        $reloaded2 = $this->providerRepository->findByUid($addedUid);
+        self::assertNotNull($reloaded2);
         self::assertTrue($reloaded2->isActive());
     }
 
@@ -1024,6 +1088,8 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     {
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
+        $providerUid = $provider->getUid();
+        self::assertNotNull($providerUid);
 
         $models = $this->modelRepository->findByProvider($provider);
 
@@ -1032,7 +1098,9 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 
         // All models should reference this provider
         foreach ($models as $model) {
-            self::assertSame($provider->getUid(), $model->getProvider()->getUid());
+            $modelProvider = $model->getProvider();
+            self::assertNotNull($modelProvider);
+            self::assertSame($providerUid, $modelProvider->getUid());
         }
     }
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized\Speech;
 
 use Exception;
-use Netresearch\NrLlm\Service\UsageTrackerService;
+use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Exception\UnsupportedFormatException;
@@ -57,7 +57,7 @@ final class WhisperTranscriptionService
         private readonly RequestFactoryInterface $requestFactory,
         private readonly StreamFactoryInterface $streamFactory,
         private readonly ExtensionConfiguration $extensionConfiguration,
-        private readonly UsageTrackerService $usageTracker,
+        private readonly UsageTrackerServiceInterface $usageTracker,
         private readonly LoggerInterface $logger,
     ) {
         $this->loadConfiguration();

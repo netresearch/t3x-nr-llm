@@ -11,6 +11,7 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * Functional tests for ProviderRepository.
@@ -50,6 +51,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
     public function findAllReturnsAllProviders(): void
     {
         $providers = $this->repository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $providers);
 
         self::assertGreaterThan(0, $providers->count());
     }
@@ -57,10 +59,14 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function findAllReturnsProvidersInSortedOrder(): void
     {
-        $providers = $this->repository->findAll()->toArray();
+        $queryResult = $this->repository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $queryResult);
+        /** @var array<int, Provider> $providers */
+        $providers = $queryResult->toArray();
 
         // Should be sorted by sorting, then name
-        $names = array_map(fn(Provider $p) => $p->getName(), $providers);
+        /** @var array<int, string> $names */
+        $names = array_map(static fn(Provider $p): string => $p->getName(), $providers);
 
         // Verify it's sorted (at least first few items)
         if (count($names) > 1) {
@@ -165,6 +171,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
         // Verify it's the highest priority by checking against all active
         $allActive = $this->repository->findActiveByPriority();
         $firstActive = $allActive->getFirst();
+        self::assertNotNull($firstActive);
         self::assertSame($provider->getUid(), $firstActive->getUid());
     }
 
@@ -172,6 +179,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
     public function findHighestPriorityReturnsNullWhenNoActiveProviders(): void
     {
         // Deactivate all providers
+        /** @var Provider $provider */
         foreach ($this->repository->findAll() as $provider) {
             $provider->setIsActive(false);
             $this->repository->update($provider);
@@ -212,13 +220,11 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
     {
         $counts = $this->repository->countByAdapterType();
 
-        self::assertIsArray($counts);
         // Should have at least one adapter type
         self::assertNotEmpty($counts);
 
         // All counts should be positive
-        foreach ($counts as $type => $count) {
-            self::assertIsString($type);
+        foreach ($counts as $count) {
             self::assertGreaterThan(0, $count);
         }
     }

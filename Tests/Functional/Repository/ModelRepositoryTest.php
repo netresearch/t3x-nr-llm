@@ -12,6 +12,7 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * Functional tests for ModelRepository.
@@ -58,6 +59,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
     public function findAllReturnsAllModels(): void
     {
         $models = $this->repository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $models);
 
         self::assertGreaterThan(0, $models->count());
     }
@@ -140,11 +142,9 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
     {
         $counts = $this->repository->countByProvider();
 
-        self::assertIsArray($counts);
         self::assertNotEmpty($counts);
 
-        foreach ($counts as $providerUid => $count) {
-            self::assertIsInt($providerUid);
+        foreach ($counts as $count) {
             self::assertGreaterThan(0, $count);
         }
     }
@@ -240,8 +240,10 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         // Verify data is in the database via direct SQL
         $connection = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_model');
         $row = $connection->select(['capabilities'], 'tx_nrllm_model', ['uid' => 1])->fetchAssociative();
-        self::assertNotFalse($row);
-        self::assertStringContainsString('chat', $row['capabilities'], 'Database should have capabilities');
+        self::assertIsArray($row);
+        $capabilities = $row['capabilities'];
+        self::assertIsString($capabilities);
+        self::assertStringContainsString('chat', $capabilities, 'Database should have capabilities');
 
         // Repository uses SQL LIKE to query by capability
         $models = $this->repository->findByCapability('chat');

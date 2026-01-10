@@ -65,8 +65,9 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $this->importFixture('Tasks.csv');
 
         // Get services from container
-        $this->configurationRepository = $this->get(LlmConfigurationRepository::class);
-        self::assertInstanceOf(LlmConfigurationRepository::class, $this->configurationRepository);
+        $configurationRepository = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
+        $this->configurationRepository = $configurationRepository;
 
         // Create controllers
         $this->configController = $this->createConfigurationController();
@@ -174,6 +175,9 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $prop->setValue($object, $value);
     }
 
+    /**
+     * @param array<string, mixed> $parsedBody
+     */
     private function createExtbaseRequest(array $parsedBody = []): ExtbaseRequest
     {
         $serverRequest = new Typo3ServerRequest();
@@ -455,15 +459,18 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
             $method = $testCase['method'];
             $response = $this->configController->$method($request);
             $body = json_decode((string)$response->getBody(), true);
+            self::assertIsArray($body);
 
             if (isset($body['error'])) {
+                $error = $body['error'];
+                self::assertIsString($error);
                 // Error should not contain stack traces or internal details
-                self::assertStringNotContainsString('Exception', $body['error']);
-                self::assertStringNotContainsString('Stack trace', $body['error']);
-                self::assertStringNotContainsString('.php', $body['error']);
+                self::assertStringNotContainsString('Exception', $error);
+                self::assertStringNotContainsString('Stack trace', $error);
+                self::assertStringNotContainsString('.php', $error);
 
                 // Error should be meaningful
-                self::assertGreaterThan(5, strlen((string)$body['error']), 'Error message should be descriptive');
+                self::assertGreaterThan(5, strlen($error), 'Error message should be descriptive');
             }
         }
     }
@@ -482,9 +489,11 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
 
         // If there's an error, it should be sanitized
         if (isset($body['error'])) {
+            $error = $body['error'];
+            self::assertIsString($error);
             // Should not expose internal class names or line numbers
-            self::assertDoesNotMatchRegularExpression('/line \d+/', $body['error']);
-            self::assertDoesNotMatchRegularExpression('/\.php:\d+/', $body['error']);
+            self::assertDoesNotMatchRegularExpression('/line \d+/', $error);
+            self::assertDoesNotMatchRegularExpression('/\.php:\d+/', $error);
         }
     }
 }

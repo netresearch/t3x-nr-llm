@@ -8,12 +8,12 @@ use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
-use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
-use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistry;
+use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 
 /**
@@ -32,8 +32,8 @@ class TranslationService
     private const array SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
     public function __construct(
-        private readonly LlmServiceManager $llmManager,
-        private readonly TranslatorRegistry $translatorRegistry,
+        private readonly LlmServiceManagerInterface $llmManager,
+        private readonly TranslatorRegistryInterface $translatorRegistry,
         private readonly LlmConfigurationService $configurationService,
     ) {}
 

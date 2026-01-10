@@ -24,10 +24,12 @@ use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * E2E tests for Error Handling pathways.
@@ -59,20 +61,25 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
     {
         parent::setUp();
 
-        $this->providerRepository = $this->get(ProviderRepository::class);
-        self::assertInstanceOf(ProviderRepository::class, $this->providerRepository);
+        $providerRepository = $this->get(ProviderRepository::class);
+        self::assertInstanceOf(ProviderRepository::class, $providerRepository);
+        $this->providerRepository = $providerRepository;
 
-        $this->modelRepository = $this->get(ModelRepository::class);
-        self::assertInstanceOf(ModelRepository::class, $this->modelRepository);
+        $modelRepository = $this->get(ModelRepository::class);
+        self::assertInstanceOf(ModelRepository::class, $modelRepository);
+        $this->modelRepository = $modelRepository;
 
-        $this->configurationRepository = $this->get(LlmConfigurationRepository::class);
-        self::assertInstanceOf(LlmConfigurationRepository::class, $this->configurationRepository);
+        $configurationRepository = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
+        $this->configurationRepository = $configurationRepository;
 
-        $this->taskRepository = $this->get(TaskRepository::class);
-        self::assertInstanceOf(TaskRepository::class, $this->taskRepository);
+        $taskRepository = $this->get(TaskRepository::class);
+        self::assertInstanceOf(TaskRepository::class, $taskRepository);
+        $this->taskRepository = $taskRepository;
 
-        $this->persistenceManager = $this->get(PersistenceManagerInterface::class);
-        self::assertInstanceOf(PersistenceManagerInterface::class, $this->persistenceManager);
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $this->persistenceManager = $persistenceManager;
 
         $this->providerController = $this->createProviderController();
         $this->modelController = $this->createModelController();
@@ -160,6 +167,9 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         ]);
     }
 
+    /**
+     * @param array<string, mixed> $parsedBody
+     */
     private function createDashboardExtbaseRequest(array $parsedBody = []): ExtbaseRequest
     {
         $serverRequest = new Typo3ServerRequest();
@@ -334,11 +344,13 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertArrayHasKey('success', $body);
         self::assertArrayHasKey('message', $body);
 
         // If rate limited (429), message should indicate this
         if ($response->getStatusCode() === 429) {
+            self::assertIsString($body['message']);
             self::assertStringContainsStringIgnoringCase('rate', $body['message']);
         }
     }
@@ -477,8 +489,10 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
         self::assertArrayHasKey('error', $body);
+        self::assertIsString($body['error']);
         self::assertStringContainsStringIgnoringCase('provider', $body['error']);
     }
 
@@ -827,23 +841,25 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
+        $providerUid = $provider->getUid();
+        self::assertNotNull($providerUid);
         $originalState = $provider->isActive();
 
         // Perform multiple rapid toggles
         for ($i = 0; $i < 5; $i++) {
-            $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $provider->getUid()]);
+            $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $providerUid]);
             $response = $this->providerController->toggleActiveAction($request);
             self::assertSame(200, $response->getStatusCode());
         }
 
         // After odd number of toggles, state should be opposite of original
         $this->persistenceManager->clearState();
-        $provider = $this->providerRepository->findByUid($provider->getUid());
-        self::assertNotNull($provider);
-        self::assertNotSame($originalState, $provider->isActive());
+        $reloadedProvider = $this->providerRepository->findByUid($providerUid);
+        self::assertNotNull($reloadedProvider);
+        self::assertNotSame($originalState, $reloadedProvider->isActive());
 
         // Restore original state
-        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $provider->getUid()]);
+        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $providerUid]);
         $this->providerController->toggleActiveAction($request);
     }
 
@@ -953,9 +969,12 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         self::assertNotEmpty($models);
 
         // Record initial states
+        /** @var array<int, bool> $initialStates */
         $initialStates = [];
         foreach ($models as $model) {
-            $initialStates[$model->getUid()] = $model->isActive();
+            $modelUid = $model->getUid();
+            self::assertNotNull($modelUid);
+            $initialStates[$modelUid] = $model->isActive();
         }
 
         // Failed toggle on non-existent
@@ -983,7 +1002,10 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $response = $this->providerController->toggleActiveAction($request);
 
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertArrayHasKey('error', $body);
+        self::assertIsString($body['error']);
         self::assertNotEmpty($body['error']);
         // Should not contain stack trace or technical details
         self::assertStringNotContainsString('Exception', $body['error']);
@@ -998,7 +1020,10 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(404, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertArrayHasKey('error', $body);
+        self::assertIsString($body['error']);
         self::assertStringContainsStringIgnoringCase('not found', $body['error']);
     }
 
@@ -1010,6 +1035,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $response = $this->providerController->testConnectionAction($request);
 
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertArrayHasKey('error', $body);
         // Message should indicate what's wrong
         self::assertNotEmpty($body['error']);
@@ -1026,9 +1053,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $providerCount = $this->providerRepository->countActive();
         $modelCount = $this->modelRepository->countActive();
 
-        // Counts should be valid numbers
-        self::assertIsInt($providerCount);
-        self::assertIsInt($modelCount);
+        // Counts should be valid non-negative numbers
         self::assertGreaterThanOrEqual(0, $providerCount);
         self::assertGreaterThanOrEqual(0, $modelCount);
     }
@@ -1039,13 +1064,18 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
+        $providerUid = $provider->getUid();
+        self::assertNotNull($providerUid);
+
         $models = $this->modelRepository->findByProvider($provider);
         if ($models->count() === 0) {
             self::markTestSkipped('Provider has no models');
         }
 
         $model = $models->getFirst();
+        self::assertNotNull($model);
         $modelUid = $model->getUid();
+        self::assertNotNull($modelUid);
 
         // Deactivate provider
         $provider->setIsActive(false);
@@ -1060,9 +1090,10 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         self::assertSame(200, $response->getStatusCode());
 
         // Restore provider
-        $provider = $this->providerRepository->findByUid($provider->getUid());
-        $provider->setIsActive(true);
-        $this->providerRepository->update($provider);
+        $reloadedProvider = $this->providerRepository->findByUid($providerUid);
+        self::assertNotNull($reloadedProvider);
+        $reloadedProvider->setIsActive(true);
+        $this->providerRepository->update($reloadedProvider);
         $this->persistenceManager->persistAll();
     }
 
@@ -1080,6 +1111,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         self::assertSame(400, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
     }
 
@@ -1129,6 +1161,9 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(404, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
+        self::assertIsString($body['error']);
         self::assertStringContainsStringIgnoringCase('not found', $body['error']);
     }
 
@@ -1196,18 +1231,21 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
 
+        $modelUid = $model->getUid();
+        self::assertNotNull($modelUid);
         $originalState = $model->isActive();
 
         // Perform 10 rapid toggles
         for ($i = 0; $i < 10; $i++) {
-            $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $model->getUid()]);
+            $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $modelUid]);
             $response = $this->modelController->toggleActiveAction($request);
             self::assertSame(200, $response->getStatusCode());
         }
 
         // After even number of toggles, state should match original
         $this->persistenceManager->clearState();
-        $reloaded = $this->modelRepository->findByUid($model->getUid());
+        $reloaded = $this->modelRepository->findByUid($modelUid);
+        self::assertNotNull($reloaded);
         self::assertSame($originalState, $reloaded->isActive());
     }
 
@@ -1221,7 +1259,9 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         // Set each model as default in sequence
         foreach ($models as $model) {
-            $request = $this->createFormRequest('/ajax/model/setdefault', ['uid' => $model->getUid()]);
+            $modelUid = $model->getUid();
+            self::assertNotNull($modelUid);
+            $request = $this->createFormRequest('/ajax/model/setdefault', ['uid' => $modelUid]);
             $response = $this->modelController->setDefaultAction($request);
             self::assertSame(200, $response->getStatusCode());
         }
@@ -1230,10 +1270,16 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
         $defaultCount = 0;
         $lastModel = end($models);
-        foreach ($this->modelRepository->findAll() as $m) {
+        self::assertNotFalse($lastModel);
+        $lastModelUid = $lastModel->getUid();
+        $allModels = $this->modelRepository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $allModels);
+        /** @var Model[] $allModelsArray */
+        $allModelsArray = $allModels->toArray();
+        foreach ($allModelsArray as $m) {
             if ($m->isDefault()) {
                 $defaultCount++;
-                self::assertSame($lastModel->getUid(), $m->getUid());
+                self::assertSame($lastModelUid, $m->getUid());
             }
         }
         self::assertSame(1, $defaultCount);
@@ -1246,6 +1292,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway7_14_allErrorsHaveSuccessField(): void
     {
+        /** @var list<array{controller: ProviderController|ModelController, method: string, params: array<string, mixed>}> $errorRequests */
         $errorRequests = [
             ['controller' => $this->providerController, 'method' => 'toggleActiveAction', 'params' => []],
             ['controller' => $this->modelController, 'method' => 'toggleActiveAction', 'params' => []],
@@ -1256,9 +1303,11 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         foreach ($errorRequests as $errorReq) {
             $request = $this->createFormRequest('/ajax/test', $errorReq['params']);
             $response = $errorReq['controller']->{$errorReq['method']}($request);
+            self::assertInstanceOf(ResponseInterface::class, $response);
 
             $body = json_decode((string)$response->getBody(), true);
             self::assertIsArray($body, 'Response should be JSON array');
+            /** @var array<string, mixed> $body */
             self::assertArrayHasKey('success', $body, 'All responses should have success field');
             self::assertFalse($body['success'], 'Error responses should have success=false');
         }
@@ -1268,6 +1317,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
     public function pathway7_14_allErrorsHaveErrorField(): void
     {
         // Not found errors
+        /** @var list<array{controller: ProviderController|ModelController, method: string, uid: int}> $notFoundRequests */
         $notFoundRequests = [
             ['controller' => $this->providerController, 'method' => 'toggleActiveAction', 'uid' => 99999],
             ['controller' => $this->modelController, 'method' => 'toggleActiveAction', 'uid' => 99999],
@@ -1277,9 +1327,12 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         foreach ($notFoundRequests as $notFoundReq) {
             $request = $this->createFormRequest('/ajax/test', ['uid' => $notFoundReq['uid']]);
             $response = $notFoundReq['controller']->{$notFoundReq['method']}($request);
+            self::assertInstanceOf(ResponseInterface::class, $response);
 
             self::assertSame(404, $response->getStatusCode());
             $body = json_decode((string)$response->getBody(), true);
+            self::assertIsArray($body);
+            /** @var array<string, mixed> $body */
             self::assertArrayHasKey('error', $body, 'Error responses should have error field');
             self::assertNotEmpty($body['error'], 'Error field should not be empty');
         }
@@ -1370,7 +1423,10 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(404, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
+        self::assertIsString($body['error']);
         self::assertStringContainsStringIgnoringCase('not found', $body['error']);
     }
 
@@ -1385,6 +1441,9 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(404, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
+        self::assertIsString($body['error']);
         self::assertStringContainsStringIgnoringCase('not found', $body['error']);
     }
 
@@ -1402,6 +1461,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(400, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
     }
 
@@ -1417,6 +1478,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(400, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
         self::assertArrayHasKey('error', $body);
     }
@@ -1429,6 +1492,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(400, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
     }
 
@@ -1440,6 +1505,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(400, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
     }
 
@@ -1451,6 +1518,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(404, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
     }
 
@@ -1467,6 +1536,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         // Missing uid returns 404 (task not found for uid=0)
         self::assertContains($response->getStatusCode(), [400, 404]);
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
     }
 
@@ -1478,6 +1549,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(404, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
     }
 
@@ -1508,7 +1581,10 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(400, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
+        self::assertIsString($body['error']);
         self::assertStringContainsStringIgnoringCase('not active', $body['error']);
     }
 
@@ -1520,6 +1596,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         self::assertSame(404, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        /** @var array<string, mixed> $body */
         self::assertFalse($body['success']);
     }
 
@@ -1594,8 +1672,9 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         self::assertNotEmpty($added->getName());
 
         // Table should still exist
-        $allTasks = $this->taskRepository->findAll();
-        self::assertGreaterThan(0, $allTasks->count());
+        $allTasksResult = $this->taskRepository->findAll();
+        self::assertInstanceOf(QueryResultInterface::class, $allTasksResult);
+        self::assertGreaterThan(0, count($allTasksResult->toArray()));
     }
 
     // =========================================================================
@@ -1608,6 +1687,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
         $providerUid = $provider->getUid();
+        self::assertNotNull($providerUid);
         $initialState = $provider->isActive();
 
         $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $providerUid]);
@@ -1621,6 +1701,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         // After even number of toggles, should be back to initial
         $this->persistenceManager->clearState();
         $final = $this->providerRepository->findByUid($providerUid);
+        self::assertNotNull($final);
         self::assertSame($initialState, $final->isActive());
     }
 
@@ -1630,6 +1711,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
         $modelUid = $model->getUid();
+        self::assertNotNull($modelUid);
         $initialState = $model->isActive();
 
         $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $modelUid]);
@@ -1643,6 +1725,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         // After even number of toggles, should be back to initial
         $this->persistenceManager->clearState();
         $final = $this->modelRepository->findByUid($modelUid);
+        self::assertNotNull($final);
         self::assertSame($initialState, $final->isActive());
     }
 
@@ -1652,6 +1735,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
         $configUid = $config->getUid();
+        self::assertNotNull($configUid);
         $initialState = $config->isActive();
 
         $request = $this->createFormRequest('/ajax/configuration/toggle', ['uid' => $configUid]);
@@ -1665,6 +1749,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         // After even number of toggles, should be back to initial
         $this->persistenceManager->clearState();
         $final = $this->configurationRepository->findByUid($configUid);
+        self::assertNotNull($final);
         self::assertSame($initialState, $final->isActive());
     }
 

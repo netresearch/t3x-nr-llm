@@ -41,17 +41,21 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         parent::setUp();
 
         // Get repositories for verification
-        $this->providerRepository = $this->get(ProviderRepository::class);
-        self::assertInstanceOf(ProviderRepository::class, $this->providerRepository);
+        $providerRepository = $this->get(ProviderRepository::class);
+        self::assertInstanceOf(ProviderRepository::class, $providerRepository);
+        $this->providerRepository = $providerRepository;
 
-        $this->modelRepository = $this->get(ModelRepository::class);
-        self::assertInstanceOf(ModelRepository::class, $this->modelRepository);
+        $modelRepository = $this->get(ModelRepository::class);
+        self::assertInstanceOf(ModelRepository::class, $modelRepository);
+        $this->modelRepository = $modelRepository;
 
-        $this->configurationRepository = $this->get(LlmConfigurationRepository::class);
-        self::assertInstanceOf(LlmConfigurationRepository::class, $this->configurationRepository);
+        $configurationRepository = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
+        $this->configurationRepository = $configurationRepository;
 
-        $this->persistenceManager = $this->get(PersistenceManagerInterface::class);
-        self::assertInstanceOf(PersistenceManagerInterface::class, $this->persistenceManager);
+        $persistenceManager = $this->get(PersistenceManagerInterface::class);
+        self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
+        $this->persistenceManager = $persistenceManager;
 
         // Create controller
         $this->controller = $this->createController();
@@ -98,8 +102,10 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         $detectBody = $this->assertSuccessResponse($detectResponse);
         self::assertArrayHasKey('provider', $detectBody);
-        self::assertSame('openai', $detectBody['provider']['adapterType']);
-        self::assertNotEmpty($detectBody['provider']['suggestedName']);
+        /** @var array{adapterType: string, suggestedName: string} $provider */
+        $provider = $detectBody['provider'];
+        self::assertSame('openai', $provider['adapterType']);
+        self::assertNotEmpty($provider['suggestedName']);
 
         // Step 2: Test connection with API key
         $testRequest = $this->createFormRequest('/ajax/wizard/test', [
@@ -187,7 +193,10 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         $saveBody = $this->assertSuccessResponse($saveResponse);
         self::assertArrayHasKey('provider', $saveBody);
-        self::assertArrayHasKey('uid', $saveBody['provider']);
+        self::assertIsArray($saveBody['provider']);
+        /** @var array{uid: int} $savedProvider */
+        $savedProvider = $saveBody['provider'];
+        self::assertArrayHasKey('uid', $savedProvider);
         self::assertArrayHasKey('modelsCount', $saveBody);
         self::assertSame(2, $saveBody['modelsCount']);
 
@@ -198,7 +207,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         self::assertSame($initialProviderCount + 1, $newProviderCount, 'One new provider should be created');
 
         // Verify the provider was created correctly
-        $newProvider = $this->providerRepository->findByUid($saveBody['provider']['uid']);
+        $newProvider = $this->providerRepository->findByUid($savedProvider['uid']);
         self::assertNotNull($newProvider);
         self::assertSame('OpenAI Production', $newProvider->getName());
         self::assertSame('openai', $newProvider->getAdapterType());
@@ -217,7 +226,10 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         $detectResponse = $this->controller->detectAction($detectRequest);
 
         $detectBody = $this->assertSuccessResponse($detectResponse);
-        self::assertSame('ollama', $detectBody['provider']['adapterType']);
+        self::assertArrayHasKey('provider', $detectBody);
+        /** @var array{adapterType: string} $detectedProvider */
+        $detectedProvider = $detectBody['provider'];
+        self::assertSame('ollama', $detectedProvider['adapterType']);
 
         // Step 2-4: Skip test/discover for local Ollama (no auth required)
 
@@ -262,7 +274,10 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         $detectResponse = $this->controller->detectAction($detectRequest);
 
         $detectBody = $this->assertSuccessResponse($detectResponse);
-        self::assertSame('anthropic', $detectBody['provider']['adapterType']);
+        $provider = $detectBody['provider'];
+        self::assertIsArray($provider);
+        /** @var array{adapterType: string} $provider */
+        self::assertSame('anthropic', $provider['adapterType']);
 
         // Step 5: Save with Claude models
         $saveRequest = $this->createJsonRequest('/ajax/wizard/save', [
@@ -333,7 +348,9 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Verify existing providers are unaffected
         foreach ($initialProviders as $existingProvider) {
-            $reloaded = $this->providerRepository->findByUid($existingProvider->getUid());
+            $uid = $existingProvider->getUid();
+            self::assertNotNull($uid);
+            $reloaded = $this->providerRepository->findByUid($uid);
             self::assertNotNull($reloaded, 'Existing provider should still exist');
             self::assertTrue($reloaded->isActive(), 'Existing provider should still be active');
         }
@@ -531,6 +548,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Each discovered model should have required fields
         foreach ($body['models'] as $model) {
+            self::assertIsArray($model);
             self::assertArrayHasKey('modelId', $model);
             self::assertArrayHasKey('name', $model);
         }
@@ -723,8 +741,11 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         $body = $this->assertSuccessResponse($detectResponse);
         self::assertArrayHasKey('provider', $body);
+        $provider = $body['provider'];
+        self::assertIsArray($provider);
+        /** @var array{adapterType: string} $provider */
         // Google API can be detected as either 'google' or 'gemini' adapter type
-        self::assertContains($body['provider']['adapterType'], ['google', 'gemini']);
+        self::assertContains($provider['adapterType'], ['google', 'gemini']);
     }
 
     #[Test]
@@ -737,8 +758,11 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         $body = $this->assertSuccessResponse($detectResponse);
         self::assertArrayHasKey('provider', $body);
+        $provider = $body['provider'];
+        self::assertIsArray($provider);
+        /** @var array{adapterType: string} $provider */
         // DeepSeek uses OpenAI-compatible API
-        self::assertContains($body['provider']['adapterType'], ['deepseek', 'openai']);
+        self::assertContains($provider['adapterType'], ['deepseek', 'openai']);
     }
 
     // =========================================================================
@@ -854,7 +878,10 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Verify the provider was created with the correct PID
         $this->persistenceManager->clearState();
-        $provider = $this->providerRepository->findByUid($body['provider']['uid']);
+        $savedProvider = $body['provider'];
+        self::assertIsArray($savedProvider);
+        /** @var array{uid: int} $savedProvider */
+        $provider = $this->providerRepository->findByUid($savedProvider['uid']);
         self::assertNotNull($provider);
         self::assertSame($customPid, $provider->getPid());
     }
@@ -954,7 +981,10 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Verify unicode is preserved
         $this->persistenceManager->clearState();
-        $provider = $this->providerRepository->findByUid($body['provider']['uid']);
+        $savedProvider = $body['provider'];
+        self::assertIsArray($savedProvider);
+        /** @var array{uid: int} $savedProvider */
+        $provider = $this->providerRepository->findByUid($savedProvider['uid']);
         self::assertNotNull($provider);
         self::assertSame('日本語プロバイダー 🚀', $provider->getName());
     }
@@ -1170,7 +1200,10 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         ]);
         $response1 = $this->controller->saveAction($saveRequest1);
         $body1 = $this->assertSuccessResponse($response1);
-        $providerUid = $body1['provider']['uid'];
+        $savedProvider = $body1['provider'];
+        self::assertIsArray($savedProvider);
+        /** @var array{uid: int} $savedProvider */
+        $providerUid = $savedProvider['uid'];
 
         $this->persistenceManager->clearState();
 
@@ -1709,7 +1742,10 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Verify API key was stored
         $this->persistenceManager->clearState();
-        $provider = $this->providerRepository->findByUid($body['provider']['uid']);
+        $savedProvider = $body['provider'];
+        self::assertIsArray($savedProvider);
+        /** @var array{uid: int} $savedProvider */
+        $provider = $this->providerRepository->findByUid($savedProvider['uid']);
         self::assertNotNull($provider);
         self::assertNotEmpty($provider->getApiKey());
     }
@@ -2103,7 +2139,10 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 
         // Verify unicode was preserved
         $this->persistenceManager->clearState();
-        $provider = $this->providerRepository->findByUid($body['provider']['uid']);
+        $savedProvider = $body['provider'];
+        self::assertIsArray($savedProvider);
+        /** @var array{uid: int} $savedProvider */
+        $provider = $this->providerRepository->findByUid($savedProvider['uid']);
         self::assertNotNull($provider);
         self::assertStringContainsString('🚀', $provider->getName());
     }

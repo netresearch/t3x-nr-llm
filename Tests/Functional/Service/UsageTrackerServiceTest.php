@@ -88,7 +88,13 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
             ],
         )->fetchAssociative();
 
-        self::assertNotFalse($row);
+        self::assertIsArray($row);
+        self::assertArrayHasKey('request_count', $row);
+        self::assertArrayHasKey('characters_used', $row);
+        self::assertArrayHasKey('estimated_cost', $row);
+        self::assertIsNumeric($row['request_count']);
+        self::assertIsNumeric($row['characters_used']);
+        self::assertIsNumeric($row['estimated_cost']);
         self::assertSame(2, (int)$row['request_count']);
         self::assertSame(1250, (int)$row['characters_used']);
         self::assertEqualsWithDelta(0.0625, (float)$row['estimated_cost'], 0.0001);
@@ -137,7 +143,9 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
             ['service_type' => 'completion'],
         )->fetchAssociative();
 
-        self::assertNotFalse($row);
+        self::assertIsArray($row);
+        self::assertArrayHasKey('tokens_used', $row);
+        self::assertIsNumeric($row['tokens_used']);
         self::assertSame(1500, (int)$row['tokens_used']);
     }
 
@@ -157,7 +165,9 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
             ['service_type' => 'speech'],
         )->fetchAssociative();
 
-        self::assertNotFalse($row);
+        self::assertIsArray($row);
+        self::assertArrayHasKey('audio_seconds_used', $row);
+        self::assertIsNumeric($row['audio_seconds_used']);
         self::assertSame(120, (int)$row['audio_seconds_used']);
     }
 
@@ -177,7 +187,9 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
             ['service_type' => 'image'],
         )->fetchAssociative();
 
-        self::assertNotFalse($row);
+        self::assertIsArray($row);
+        self::assertArrayHasKey('images_generated', $row);
+        self::assertIsNumeric($row['images_generated']);
         self::assertSame(4, (int)$row['images_generated']);
     }
 
@@ -198,7 +210,9 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
             ['service_type' => 'translation'],
         )->fetchAssociative();
 
-        self::assertNotFalse($row);
+        self::assertIsArray($row);
+        self::assertArrayHasKey('configuration_uid', $row);
+        self::assertIsNumeric($row['configuration_uid']);
         self::assertSame(42, (int)$row['configuration_uid']);
     }
 
@@ -214,7 +228,13 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
             ['service_type' => 'test'],
         )->fetchAssociative();
 
-        self::assertNotFalse($row);
+        self::assertIsArray($row);
+        self::assertArrayHasKey('request_count', $row);
+        self::assertArrayHasKey('tokens_used', $row);
+        self::assertArrayHasKey('characters_used', $row);
+        self::assertIsNumeric($row['request_count']);
+        self::assertIsNumeric($row['tokens_used']);
+        self::assertIsNumeric($row['characters_used']);
         self::assertSame(1, (int)$row['request_count']);
         self::assertSame(0, (int)$row['tokens_used']);
         self::assertSame(0, (int)$row['characters_used']);
@@ -257,7 +277,8 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
 
         $report = $this->service->getUsageReport('translation', $from, $to);
 
-        self::assertIsArray($report);
+        // Verify the report is returned (type is already array from service)
+        self::assertNotEmpty($report);
     }
 
     #[Test]

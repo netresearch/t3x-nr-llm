@@ -93,7 +93,7 @@ final readonly class SpeechSynthesisResult
      */
     public function saveToFile(string $path): bool
     {
-        $result = file_put_contents($path, $this->audioContent);
+        $result = @file_put_contents($path, $this->audioContent);
         return $result !== false;
     }
 

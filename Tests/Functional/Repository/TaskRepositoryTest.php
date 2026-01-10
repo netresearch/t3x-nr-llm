@@ -132,12 +132,10 @@ final class TaskRepositoryTest extends AbstractFunctionalTestCase
     {
         $counts = $this->repository->countByCategory();
 
-        self::assertIsArray($counts);
         self::assertNotEmpty($counts);
 
         // All counts should be positive
-        foreach ($counts as $category => $count) {
-            self::assertIsString($category);
+        foreach ($counts as $count) {
             self::assertGreaterThan(0, $count);
         }
     }

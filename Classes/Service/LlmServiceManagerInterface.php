@@ -24,6 +24,8 @@ interface LlmServiceManagerInterface
 {
     public function registerProvider(ProviderInterface $provider): void;
 
+    public function hasAvailableProvider(): bool;
+
     public function getProvider(?string $identifier = null): ProviderInterface;
 
     /**
