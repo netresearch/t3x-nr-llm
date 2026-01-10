@@ -10,7 +10,7 @@ use Netresearch\NrLlm\Service\UsageTrackerService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use TYPO3\CMS\Core\Context\AspectInterface;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
@@ -22,48 +22,48 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 #[CoversClass(UsageTrackerService::class)]
 class UsageTrackerServiceTest extends AbstractUnitTestCase
 {
-    private ConnectionPool&MockObject $connectionPoolMock;
-    private Context&MockObject $contextMock;
-    private QueryBuilder&MockObject $queryBuilderMock;
-    private Connection&MockObject $connectionMock;
-    private ExpressionBuilder&MockObject $exprMock;
-    private Result&MockObject $resultMock;
+    private ConnectionPool&Stub $connectionPoolStub;
+    private Context&Stub $contextStub;
+    private QueryBuilder&Stub $queryBuilderStub;
+    private Connection&Stub $connectionStub;
+    private ExpressionBuilder&Stub $exprStub;
+    private Result&Stub $resultStub;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->connectionPoolMock = $this->createMock(ConnectionPool::class);
-        $this->contextMock = $this->createMock(Context::class);
-        $this->queryBuilderMock = $this->createMock(QueryBuilder::class);
-        $this->connectionMock = $this->createMock(Connection::class);
-        $this->exprMock = $this->createMock(ExpressionBuilder::class);
-        $this->resultMock = $this->createMock(Result::class);
+        $this->connectionPoolStub = self::createStub(ConnectionPool::class);
+        $this->contextStub = self::createStub(Context::class);
+        $this->queryBuilderStub = self::createStub(QueryBuilder::class);
+        $this->connectionStub = self::createStub(Connection::class);
+        $this->exprStub = self::createStub(ExpressionBuilder::class);
+        $this->resultStub = self::createStub(Result::class);
 
         // Configure query builder chain
-        $this->queryBuilderMock->method('select')->willReturnSelf();
-        $this->queryBuilderMock->method('addSelectLiteral')->willReturnSelf();
-        $this->queryBuilderMock->method('from')->willReturnSelf();
-        $this->queryBuilderMock->method('where')->willReturnSelf();
-        $this->queryBuilderMock->method('groupBy')->willReturnSelf();
-        $this->queryBuilderMock->method('expr')->willReturn($this->exprMock);
-        $this->queryBuilderMock->method('createNamedParameter')->willReturnCallback(fn($v) => "'$v'");
-        $this->queryBuilderMock->method('executeQuery')->willReturn($this->resultMock);
+        $this->queryBuilderStub->method('select')->willReturnSelf();
+        $this->queryBuilderStub->method('addSelectLiteral')->willReturnSelf();
+        $this->queryBuilderStub->method('from')->willReturnSelf();
+        $this->queryBuilderStub->method('where')->willReturnSelf();
+        $this->queryBuilderStub->method('groupBy')->willReturnSelf();
+        $this->queryBuilderStub->method('expr')->willReturn($this->exprStub);
+        $this->queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $this->queryBuilderStub->method('executeQuery')->willReturn($this->resultStub);
 
         // Configure expression builder
-        $this->exprMock->method('eq')->willReturn('eq_expr');
-        $this->exprMock->method('gte')->willReturn('gte_expr');
-        $this->exprMock->method('lte')->willReturn('lte_expr');
+        $this->exprStub->method('eq')->willReturn('eq_expr');
+        $this->exprStub->method('gte')->willReturn('gte_expr');
+        $this->exprStub->method('lte')->willReturn('lte_expr');
 
         // Configure connection
-        $this->connectionMock->method('createQueryBuilder')->willReturn($this->queryBuilderMock);
+        $this->connectionStub->method('createQueryBuilder')->willReturn($this->queryBuilderStub);
     }
 
     private function createSubject(): UsageTrackerService
     {
         return new UsageTrackerService(
-            $this->connectionPoolMock,
-            $this->contextMock,
+            $this->connectionPoolStub,
+            $this->contextStub,
         );
     }
 
@@ -81,7 +81,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             }
         };
 
-        $this->contextMock
+        $this->contextStub
             ->method('getAspect')
             ->with('backend.user')
             ->willReturn($aspectStub);
@@ -89,7 +89,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
 
     private function setupNoBackendUser(): void
     {
-        $this->contextMock
+        $this->contextStub
             ->method('getAspect')
             ->with('backend.user')
             ->willThrowException(new AspectNotFoundException());
@@ -102,14 +102,20 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     {
         $this->setupBackendUser(5);
 
-        $this->connectionPoolMock
-            ->method('getConnectionForTable')
-            ->willReturn($this->connectionMock);
+        $resultStub = self::createStub(Result::class);
+        $resultStub->method('fetchOne')->willReturn(false);
 
-        // No existing record
-        $this->resultMock->method('fetchOne')->willReturn(false);
+        $queryBuilderStub = self::createStub(QueryBuilder::class);
+        $queryBuilderStub->method('select')->willReturnSelf();
+        $queryBuilderStub->method('from')->willReturnSelf();
+        $queryBuilderStub->method('where')->willReturnSelf();
+        $queryBuilderStub->method('expr')->willReturn($this->exprStub);
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
-        $this->connectionMock
+        $connectionMock = $this->createMock(Connection::class);
+        $connectionMock->method('createQueryBuilder')->willReturn($queryBuilderStub);
+        $connectionMock
             ->expects(self::once())
             ->method('insert')
             ->with(
@@ -121,7 +127,12 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
                         && $data['be_user'] === 5),
             );
 
-        $subject = $this->createSubject();
+        $connectionPoolStub = self::createStub(ConnectionPool::class);
+        $connectionPoolStub
+            ->method('getConnectionForTable')
+            ->willReturn($connectionMock);
+
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextStub);
         $subject->trackUsage('translation', 'deepl', ['characters' => 1000]);
     }
 
@@ -130,14 +141,20 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     {
         $this->setupBackendUser(5);
 
-        $this->connectionPoolMock
-            ->method('getConnectionForTable')
-            ->willReturn($this->connectionMock);
+        $resultStub = self::createStub(Result::class);
+        $resultStub->method('fetchOne')->willReturn(123);
 
-        // Existing record found
-        $this->resultMock->method('fetchOne')->willReturn(123);
+        $queryBuilderStub = self::createStub(QueryBuilder::class);
+        $queryBuilderStub->method('select')->willReturnSelf();
+        $queryBuilderStub->method('from')->willReturnSelf();
+        $queryBuilderStub->method('where')->willReturnSelf();
+        $queryBuilderStub->method('expr')->willReturn($this->exprStub);
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
-        $this->connectionMock
+        $connectionMock = $this->createMock(Connection::class);
+        $connectionMock->method('createQueryBuilder')->willReturn($queryBuilderStub);
+        $connectionMock
             ->expects(self::once())
             ->method('executeStatement')
             ->with(
@@ -146,7 +163,12 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
                         && $params['uid'] === 123),
             );
 
-        $subject = $this->createSubject();
+        $connectionPoolStub = self::createStub(ConnectionPool::class);
+        $connectionPoolStub
+            ->method('getConnectionForTable')
+            ->willReturn($connectionMock);
+
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextStub);
         $subject->trackUsage('chat', 'openai', ['tokens' => 500]);
     }
 
@@ -155,13 +177,20 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     {
         $this->setupBackendUser();
 
-        $this->connectionPoolMock
-            ->method('getConnectionForTable')
-            ->willReturn($this->connectionMock);
+        $resultStub = self::createStub(Result::class);
+        $resultStub->method('fetchOne')->willReturn(false);
 
-        $this->resultMock->method('fetchOne')->willReturn(false);
+        $queryBuilderStub = self::createStub(QueryBuilder::class);
+        $queryBuilderStub->method('select')->willReturnSelf();
+        $queryBuilderStub->method('from')->willReturnSelf();
+        $queryBuilderStub->method('where')->willReturnSelf();
+        $queryBuilderStub->method('expr')->willReturn($this->exprStub);
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
-        $this->connectionMock
+        $connectionMock = $this->createMock(Connection::class);
+        $connectionMock->method('createQueryBuilder')->willReturn($queryBuilderStub);
+        $connectionMock
             ->expects(self::once())
             ->method('insert')
             ->with(
@@ -169,7 +198,12 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
                 self::callback(fn(array $data) => $data['configuration_uid'] === 42),
             );
 
-        $subject = $this->createSubject();
+        $connectionPoolStub = self::createStub(ConnectionPool::class);
+        $connectionPoolStub
+            ->method('getConnectionForTable')
+            ->willReturn($connectionMock);
+
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextStub);
         $subject->trackUsage('image', 'dall-e', ['images' => 1], 42);
     }
 
@@ -178,11 +212,16 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     {
         $this->setupBackendUser();
 
-        $this->connectionPoolMock
-            ->method('getConnectionForTable')
-            ->willReturn($this->connectionMock);
+        $resultStub = self::createStub(Result::class);
+        $resultStub->method('fetchOne')->willReturn(false);
 
-        $this->resultMock->method('fetchOne')->willReturn(false);
+        $queryBuilderStub = self::createStub(QueryBuilder::class);
+        $queryBuilderStub->method('select')->willReturnSelf();
+        $queryBuilderStub->method('from')->willReturnSelf();
+        $queryBuilderStub->method('where')->willReturnSelf();
+        $queryBuilderStub->method('expr')->willReturn($this->exprStub);
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
         $metrics = [
             'tokens' => 100,
@@ -192,7 +231,9 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             'cost' => 0.05,
         ];
 
-        $this->connectionMock
+        $connectionMock = $this->createMock(Connection::class);
+        $connectionMock->method('createQueryBuilder')->willReturn($queryBuilderStub);
+        $connectionMock
             ->expects(self::once())
             ->method('insert')
             ->with(
@@ -204,7 +245,12 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
                         && $data['estimated_cost'] === $metrics['cost']),
             );
 
-        $subject = $this->createSubject();
+        $connectionPoolStub = self::createStub(ConnectionPool::class);
+        $connectionPoolStub
+            ->method('getConnectionForTable')
+            ->willReturn($connectionMock);
+
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextStub);
         $subject->trackUsage('mixed', 'provider', $metrics);
     }
 
@@ -213,13 +259,20 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     {
         $this->setupNoBackendUser();
 
-        $this->connectionPoolMock
-            ->method('getConnectionForTable')
-            ->willReturn($this->connectionMock);
+        $resultStub = self::createStub(Result::class);
+        $resultStub->method('fetchOne')->willReturn(false);
 
-        $this->resultMock->method('fetchOne')->willReturn(false);
+        $queryBuilderStub = self::createStub(QueryBuilder::class);
+        $queryBuilderStub->method('select')->willReturnSelf();
+        $queryBuilderStub->method('from')->willReturnSelf();
+        $queryBuilderStub->method('where')->willReturnSelf();
+        $queryBuilderStub->method('expr')->willReturn($this->exprStub);
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
 
-        $this->connectionMock
+        $connectionMock = $this->createMock(Connection::class);
+        $connectionMock->method('createQueryBuilder')->willReturn($queryBuilderStub);
+        $connectionMock
             ->expects(self::once())
             ->method('insert')
             ->with(
@@ -227,7 +280,12 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
                 self::callback(fn(array $data) => $data['be_user'] === 0),
             );
 
-        $subject = $this->createSubject();
+        $connectionPoolStub = self::createStub(ConnectionPool::class);
+        $connectionPoolStub
+            ->method('getConnectionForTable')
+            ->willReturn($connectionMock);
+
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextStub);
         $subject->trackUsage('translation', 'deepl', []);
     }
 
@@ -236,9 +294,9 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     #[Test]
     public function getUsageReportReturnsAggregatedData(): void
     {
-        $this->connectionPoolMock
+        $this->connectionPoolStub
             ->method('getQueryBuilderForTable')
-            ->willReturn($this->queryBuilderMock);
+            ->willReturn($this->queryBuilderStub);
 
         $expectedData = [
             [
@@ -261,7 +319,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->resultMock->method('fetchAllAssociative')->willReturn($expectedData);
+        $this->resultStub->method('fetchAllAssociative')->willReturn($expectedData);
 
         $subject = $this->createSubject();
         $result = $subject->getUsageReport(
@@ -278,11 +336,11 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     #[Test]
     public function getUsageReportReturnsEmptyArrayWhenNoData(): void
     {
-        $this->connectionPoolMock
+        $this->connectionPoolStub
             ->method('getQueryBuilderForTable')
-            ->willReturn($this->queryBuilderMock);
+            ->willReturn($this->queryBuilderStub);
 
-        $this->resultMock->method('fetchAllAssociative')->willReturn([]);
+        $this->resultStub->method('fetchAllAssociative')->willReturn([]);
 
         $subject = $this->createSubject();
         $result = $subject->getUsageReport(
@@ -299,9 +357,9 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     #[Test]
     public function getUserUsageReturnsUserAggregatedData(): void
     {
-        $this->connectionPoolMock
+        $this->connectionPoolStub
             ->method('getQueryBuilderForTable')
-            ->willReturn($this->queryBuilderMock);
+            ->willReturn($this->queryBuilderStub);
 
         $expectedData = [
             [
@@ -318,7 +376,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->resultMock->method('fetchAllAssociative')->willReturn($expectedData);
+        $this->resultStub->method('fetchAllAssociative')->willReturn($expectedData);
 
         $subject = $this->createSubject();
         $result = $subject->getUserUsage(
@@ -339,9 +397,9 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     {
         $this->setupBackendUser(5);
 
-        $this->connectionPoolMock
+        $this->connectionPoolStub
             ->method('getQueryBuilderForTable')
-            ->willReturn($this->queryBuilderMock);
+            ->willReturn($this->queryBuilderStub);
 
         $expectedData = [
             'request_count' => 10,
@@ -352,7 +410,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             'estimated_cost' => 0.10,
         ];
 
-        $this->resultMock->method('fetchAssociative')->willReturn($expectedData);
+        $this->resultStub->method('fetchAssociative')->willReturn($expectedData);
 
         $subject = $this->createSubject();
         $result = $subject->getTodayUsage('chat', 'openai');
@@ -368,11 +426,11 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     {
         $this->setupBackendUser();
 
-        $this->connectionPoolMock
+        $this->connectionPoolStub
             ->method('getQueryBuilderForTable')
-            ->willReturn($this->queryBuilderMock);
+            ->willReturn($this->queryBuilderStub);
 
-        $this->resultMock->method('fetchAssociative')->willReturn(false);
+        $this->resultStub->method('fetchAssociative')->willReturn(false);
 
         $subject = $this->createSubject();
         $result = $subject->getTodayUsage('chat', 'openai');
@@ -385,11 +443,11 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     #[Test]
     public function getCurrentMonthCostReturnsTotalCost(): void
     {
-        $this->connectionPoolMock
+        $this->connectionPoolStub
             ->method('getQueryBuilderForTable')
-            ->willReturn($this->queryBuilderMock);
+            ->willReturn($this->queryBuilderStub);
 
-        $this->resultMock->method('fetchOne')->willReturn('25.50');
+        $this->resultStub->method('fetchOne')->willReturn('25.50');
 
         $subject = $this->createSubject();
         $result = $subject->getCurrentMonthCost();
@@ -400,11 +458,11 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     #[Test]
     public function getCurrentMonthCostReturnsZeroWhenNoData(): void
     {
-        $this->connectionPoolMock
+        $this->connectionPoolStub
             ->method('getQueryBuilderForTable')
-            ->willReturn($this->queryBuilderMock);
+            ->willReturn($this->queryBuilderStub);
 
-        $this->resultMock->method('fetchOne')->willReturn(null);
+        $this->resultStub->method('fetchOne')->willReturn(null);
 
         $subject = $this->createSubject();
         $result = $subject->getCurrentMonthCost();
@@ -415,11 +473,11 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     #[Test]
     public function getCurrentMonthCostReturnsZeroForNonNumericResult(): void
     {
-        $this->connectionPoolMock
+        $this->connectionPoolStub
             ->method('getQueryBuilderForTable')
-            ->willReturn($this->queryBuilderMock);
+            ->willReturn($this->queryBuilderStub);
 
-        $this->resultMock->method('fetchOne')->willReturn(false);
+        $this->resultStub->method('fetchOne')->willReturn(false);
 
         $subject = $this->createSubject();
         $result = $subject->getCurrentMonthCost();

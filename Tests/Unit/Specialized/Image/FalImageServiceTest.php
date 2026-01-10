@@ -12,7 +12,7 @@ use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
@@ -26,25 +26,28 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(FalImageService::class)]
 class FalImageServiceTest extends AbstractUnitTestCase
 {
-    private ClientInterface&MockObject $httpClientMock;
-    private RequestFactoryInterface&MockObject $requestFactoryMock;
-    private StreamFactoryInterface&MockObject $streamFactoryMock;
-    private ExtensionConfiguration&MockObject $extensionConfigMock;
-    private UsageTrackerServiceInterface&MockObject $usageTrackerMock;
-    private LoggerInterface&MockObject $loggerMock;
+    private ClientInterface&Stub $httpClientStub;
+    private RequestFactoryInterface&Stub $requestFactoryStub;
+    private StreamFactoryInterface&Stub $streamFactoryStub;
+    private ExtensionConfiguration&Stub $extensionConfigStub;
+    private UsageTrackerServiceInterface&Stub $usageTrackerStub;
+    private LoggerInterface&Stub $loggerStub;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->httpClientMock = $this->createMock(ClientInterface::class);
-        $this->requestFactoryMock = $this->createMock(RequestFactoryInterface::class);
-        $this->streamFactoryMock = $this->createMock(StreamFactoryInterface::class);
-        $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $this->usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
-        $this->loggerMock = $this->createMock(LoggerInterface::class);
+        $this->httpClientStub = self::createStub(ClientInterface::class);
+        $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
+        $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
+        $this->extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
+        $this->loggerStub = self::createStub(LoggerInterface::class);
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     private function createSubject(array $config = []): FalImageService
     {
         $defaultConfig = [
@@ -55,24 +58,24 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn(array_replace_recursive($defaultConfig, $config));
 
         return new FalImageService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
     }
 
     private function createSubjectWithoutApiKey(): FalImageService
     {
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -82,112 +85,118 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ]);
 
         return new FalImageService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
     }
 
+    /**
+     * @param array<string, mixed> $responseData
+     */
     private function setupSuccessfulRequest(array $responseData): void
     {
-        $requestMock = $this->createMock(RequestInterface::class);
-        $requestMock->method('withHeader')->willReturnSelf();
-        $requestMock->method('withBody')->willReturnSelf();
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
-            ->willReturn($requestMock);
+            ->willReturn($requestStub);
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $responseBodyMock = $this->createMock(StreamInterface::class);
-        $responseBodyMock->method('__toString')->willReturn(json_encode($responseData));
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn((string)json_encode($responseData));
 
-        $responseMock = $this->createMock(ResponseInterface::class);
-        $responseMock->method('getStatusCode')->willReturn(200);
-        $responseMock->method('getBody')->willReturn($responseBodyMock);
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
     }
 
+    /**
+     * @param array<string, mixed> $finalResponseData
+     */
     private function setupQueueSuccessfulRequest(array $finalResponseData): void
     {
-        $requestMock = $this->createMock(RequestInterface::class);
-        $requestMock->method('withHeader')->willReturnSelf();
-        $requestMock->method('withBody')->willReturnSelf();
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
-            ->willReturn($requestMock);
+            ->willReturn($requestStub);
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
         // Create response bodies for: queue submit, status poll, result fetch
-        $queueSubmitBody = $this->createMock(StreamInterface::class);
-        $queueSubmitBody->method('__toString')->willReturn(json_encode(['request_id' => 'test-request-123']));
+        $queueSubmitBody = self::createStub(StreamInterface::class);
+        $queueSubmitBody->method('__toString')->willReturn((string)json_encode(['request_id' => 'test-request-123']));
 
-        $statusBody = $this->createMock(StreamInterface::class);
-        $statusBody->method('__toString')->willReturn(json_encode(['status' => 'COMPLETED']));
+        $statusBody = self::createStub(StreamInterface::class);
+        $statusBody->method('__toString')->willReturn((string)json_encode(['status' => 'COMPLETED']));
 
-        $resultBody = $this->createMock(StreamInterface::class);
-        $resultBody->method('__toString')->willReturn(json_encode($finalResponseData));
+        $resultBody = self::createStub(StreamInterface::class);
+        $resultBody->method('__toString')->willReturn((string)json_encode($finalResponseData));
 
         // Set up responses in order: submit, status, result
-        $queueSubmitResponse = $this->createMock(ResponseInterface::class);
+        $queueSubmitResponse = self::createStub(ResponseInterface::class);
         $queueSubmitResponse->method('getStatusCode')->willReturn(200);
         $queueSubmitResponse->method('getBody')->willReturn($queueSubmitBody);
 
-        $statusResponse = $this->createMock(ResponseInterface::class);
+        $statusResponse = self::createStub(ResponseInterface::class);
         $statusResponse->method('getStatusCode')->willReturn(200);
         $statusResponse->method('getBody')->willReturn($statusBody);
 
-        $resultResponse = $this->createMock(ResponseInterface::class);
+        $resultResponse = self::createStub(ResponseInterface::class);
         $resultResponse->method('getStatusCode')->willReturn(200);
         $resultResponse->method('getBody')->willReturn($resultBody);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturnOnConsecutiveCalls($queueSubmitResponse, $statusResponse, $resultResponse);
     }
 
     private function setupFailedRequest(int $statusCode, string $errorMessage = 'API Error'): void
     {
-        $requestMock = $this->createMock(RequestInterface::class);
-        $requestMock->method('withHeader')->willReturnSelf();
-        $requestMock->method('withBody')->willReturnSelf();
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
-            ->willReturn($requestMock);
+            ->willReturn($requestStub);
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $responseBodyMock = $this->createMock(StreamInterface::class);
-        $responseBodyMock->method('__toString')->willReturn(json_encode([
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn((string)json_encode([
             'detail' => $errorMessage,
         ]));
 
-        $responseMock = $this->createMock(ResponseInterface::class);
-        $responseMock->method('getStatusCode')->willReturn($statusCode);
-        $responseMock->method('getBody')->willReturn($responseBodyMock);
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn($statusCode);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
     }
 
     // ==================== isAvailable tests ====================
@@ -275,15 +284,35 @@ class FalImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function generateTracksUsage(): void
     {
-        $subject = $this->createSubject();
         $this->setupSuccessfulRequest([
             'images' => [['url' => 'https://example.com/image.png']],
         ]);
 
-        $this->usageTrackerMock
+        $this->extensionConfigStub
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'image' => [
+                    'fal' => [
+                        'apiKey' => 'test-api-key',
+                    ],
+                ],
+            ]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
             ->expects(self::once())
             ->method('trackUsage')
             ->with('image', 'fal:flux-schnell', self::anything());
+
+        $subject = new FalImageService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
 
         $subject->generate('A sunset');
     }
@@ -416,17 +445,37 @@ class FalImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function generateMultipleTracksUsage(): void
     {
-        $subject = $this->createSubject();
         $this->setupSuccessfulRequest([
             'images' => [
                 ['url' => 'https://example.com/image.png'],
             ],
         ]);
 
-        $this->usageTrackerMock
+        $this->extensionConfigStub
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'image' => [
+                    'fal' => [
+                        'apiKey' => 'test-api-key',
+                    ],
+                ],
+            ]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
             ->expects(self::once())
             ->method('trackUsage')
-            ->with('image', 'fal:flux-schnell', self::callback(fn($data) => isset($data['count'])));
+            ->with('image', 'fal:flux-schnell', self::callback(fn($data) => is_array($data) && isset($data['count'])));
+
+        $subject = new FalImageService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
 
         $subject->generateMultiple('A sunset', 1);
     }
@@ -547,18 +596,18 @@ class FalImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesInvalidConfig(): void
     {
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
         $subject = new FalImageService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
 
         self::assertFalse($subject->isAvailable());
@@ -567,18 +616,18 @@ class FalImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesMissingImageConfig(): void
     {
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn([]);
 
         $subject = new FalImageService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
 
         self::assertFalse($subject->isAvailable());
@@ -587,18 +636,18 @@ class FalImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesMissingFalConfig(): void
     {
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn(['image' => []]);
 
         $subject = new FalImageService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
 
         self::assertFalse($subject->isAvailable());
@@ -626,21 +675,23 @@ class FalImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesExceptionGracefully(): void
     {
-        $this->extensionConfigMock
+        $extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $extensionConfigStub
             ->method('get')
             ->willThrowException(new RuntimeException('Config error'));
 
-        $this->loggerMock
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock
             ->expects(self::once())
             ->method('warning');
 
         $subject = new FalImageService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $extensionConfigStub,
+            $this->usageTrackerStub,
+            $loggerMock,
         );
 
         self::assertFalse($subject->isAvailable());
@@ -649,7 +700,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesNumericTypes(): void
     {
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -663,12 +714,12 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ]);
 
         $subject = new FalImageService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
 
         self::assertTrue($subject->isAvailable());

@@ -381,8 +381,10 @@ class GeminiProviderTest extends AbstractUnitTestCase
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertNotNull($result->toolCalls);
         self::assertCount(1, $result->toolCalls);
-        self::assertEquals('get_weather', $result->toolCalls[0]['function']['name']);
-        self::assertEquals(['location' => 'London'], $result->toolCalls[0]['function']['arguments']);
+        /** @var array{function: array{name: string, arguments: array<string, string>}} $toolCall */
+        $toolCall = $result->toolCalls[0];
+        self::assertEquals('get_weather', $toolCall['function']['name']);
+        self::assertEquals(['location' => 'London'], $toolCall['function']['arguments']);
     }
 
     #[Test]
@@ -748,7 +750,9 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $result = $subject->chatCompletionWithTools($messages, $tools);
 
         self::assertNotNull($result->toolCalls);
-        self::assertEquals('get_weather', $result->toolCalls[0]['function']['name']);
+        /** @var array{function: array{name: string}} $toolCall */
+        $toolCall = $result->toolCalls[0];
+        self::assertEquals('get_weather', $toolCall['function']['name']);
     }
 
     #[Test]
@@ -912,23 +916,23 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $sseData = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hello\"}]}}]}\n\n";
         $sseData .= "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\" World\"}]}}]}\n\n";
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
         $readCount = 0;
-        $streamMock->method('eof')->willReturnCallback(function () use (&$readCount) {
-            return $readCount >= 1;
+        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
+            return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
-        $streamMock->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
+        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
             $readCount++;
             return $sseData;
         });
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock
             ->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $chunks = [];
         foreach ($subject->streamChatCompletion([['role' => 'user', 'content' => 'Hi']]) as $chunk) {
@@ -945,23 +949,23 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $sseData = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Response\"}]}}]}\n\n";
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
         $readCount = 0;
-        $streamMock->method('eof')->willReturnCallback(function () use (&$readCount) {
-            return $readCount >= 1;
+        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
+            return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
-        $streamMock->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
+        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
             $readCount++;
             return $sseData;
         });
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock
             ->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $messages = [
             ['role' => 'system', 'content' => 'Be helpful.'],
@@ -984,23 +988,23 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $sseData = "data: {invalid json}\n";
         $sseData .= "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Valid\"}]}}]}\n\n";
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
         $readCount = 0;
-        $streamMock->method('eof')->willReturnCallback(function () use (&$readCount) {
-            return $readCount >= 1;
+        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
+            return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
-        $streamMock->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
+        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
             $readCount++;
             return $sseData;
         });
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock
             ->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $chunks = [];
         foreach ($subject->streamChatCompletion([['role' => 'user', 'content' => 'test']]) as $chunk) {
@@ -1018,23 +1022,23 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $sseData = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"\"}]}}]}\n";
         $sseData .= "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Content\"}]}}]}\n\n";
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
         $readCount = 0;
-        $streamMock->method('eof')->willReturnCallback(function () use (&$readCount) {
-            return $readCount >= 1;
+        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
+            return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
-        $streamMock->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
+        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
             $readCount++;
             return $sseData;
         });
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock
             ->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $chunks = [];
         foreach ($subject->streamChatCompletion([['role' => 'user', 'content' => 'test']]) as $chunk) {

@@ -13,7 +13,7 @@ use Netresearch\NrLlm\Specialized\Speech\TextToSpeechService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
@@ -27,25 +27,28 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(TextToSpeechService::class)]
 class TextToSpeechServiceTest extends AbstractUnitTestCase
 {
-    private ClientInterface&MockObject $httpClientMock;
-    private RequestFactoryInterface&MockObject $requestFactoryMock;
-    private StreamFactoryInterface&MockObject $streamFactoryMock;
-    private ExtensionConfiguration&MockObject $extensionConfigMock;
-    private UsageTrackerServiceInterface&MockObject $usageTrackerMock;
-    private LoggerInterface&MockObject $loggerMock;
+    private ClientInterface&Stub $httpClientStub;
+    private RequestFactoryInterface&Stub $requestFactoryStub;
+    private StreamFactoryInterface&Stub $streamFactoryStub;
+    private ExtensionConfiguration&Stub $extensionConfigStub;
+    private UsageTrackerServiceInterface&Stub $usageTrackerStub;
+    private LoggerInterface&Stub $loggerStub;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->httpClientMock = $this->createMock(ClientInterface::class);
-        $this->requestFactoryMock = $this->createMock(RequestFactoryInterface::class);
-        $this->streamFactoryMock = $this->createMock(StreamFactoryInterface::class);
-        $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $this->usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
-        $this->loggerMock = $this->createMock(LoggerInterface::class);
+        $this->httpClientStub = self::createStub(ClientInterface::class);
+        $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
+        $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
+        $this->extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
+        $this->loggerStub = self::createStub(LoggerInterface::class);
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     private function createSubject(array $config = []): TextToSpeechService
     {
         $defaultConfig = [
@@ -56,24 +59,24 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn(array_merge($defaultConfig, $config));
 
         return new TextToSpeechService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
     }
 
     private function createSubjectWithoutApiKey(): TextToSpeechService
     {
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -81,69 +84,69 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ]);
 
         return new TextToSpeechService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
     }
 
     private function setupSuccessfulRequest(string $audioContent = 'audio-binary-content'): void
     {
-        $requestMock = $this->createMock(RequestInterface::class);
-        $requestMock->method('withHeader')->willReturnSelf();
-        $requestMock->method('withBody')->willReturnSelf();
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
-            ->willReturn($requestMock);
+            ->willReturn($requestStub);
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $responseBodyMock = $this->createMock(StreamInterface::class);
-        $responseBodyMock->method('__toString')->willReturn($audioContent);
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn($audioContent);
 
-        $responseMock = $this->createMock(ResponseInterface::class);
-        $responseMock->method('getStatusCode')->willReturn(200);
-        $responseMock->method('getBody')->willReturn($responseBodyMock);
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
     }
 
     private function setupFailedRequest(int $statusCode, string $errorMessage = 'API Error'): void
     {
-        $requestMock = $this->createMock(RequestInterface::class);
-        $requestMock->method('withHeader')->willReturnSelf();
-        $requestMock->method('withBody')->willReturnSelf();
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
-            ->willReturn($requestMock);
+            ->willReturn($requestStub);
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $responseBodyMock = $this->createMock(StreamInterface::class);
-        $responseBodyMock->method('__toString')->willReturn(json_encode([
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn(json_encode([
             'error' => ['message' => $errorMessage],
         ]));
 
-        $responseMock = $this->createMock(ResponseInterface::class);
-        $responseMock->method('getStatusCode')->willReturn($statusCode);
-        $responseMock->method('getBody')->willReturn($responseBodyMock);
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn($statusCode);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
     }
 
     // ==================== isAvailable tests ====================
@@ -266,17 +269,37 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     #[Test]
     public function synthesizeTracksUsage(): void
     {
-        $subject = $this->createSubject();
         $this->setupSuccessfulRequest();
 
-        $this->usageTrackerMock
+        $this->extensionConfigStub
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'providers' => [
+                    'openai' => [
+                        'apiKey' => 'test-api-key',
+                    ],
+                ],
+            ]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
             ->expects(self::once())
             ->method('trackUsage')
             ->with(
                 'speech',
                 self::stringStartsWith('tts:'),
-                self::callback(fn($data) => isset($data['characters'])),
+                self::callback(fn($data) => is_array($data) && isset($data['characters'])),
             );
+
+        $subject = new TextToSpeechService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
 
         $subject->synthesize('Test text');
     }
@@ -362,7 +385,6 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
 
         $result = $subject->synthesizeLong('Short text');
 
-        self::assertIsArray($result);
         self::assertCount(1, $result);
         self::assertInstanceOf(SpeechSynthesisResult::class, $result[0]);
     }
@@ -370,42 +392,40 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     #[Test]
     public function synthesizeLongSplitsLongText(): void
     {
-        $subject = $this->createSubject();
-        $this->setupSuccessfulRequest();
-
         // Create text longer than 4096 characters
         $longText = str_repeat('Hello world. ', 400); // ~5200 chars
 
-        // Reset mock for multiple calls
-        $this->httpClientMock = $this->createMock(ClientInterface::class);
+        // Create fresh stubs for multiple calls
+        $httpClientStub = self::createStub(ClientInterface::class);
+        $requestFactoryStub = self::createStub(RequestFactoryInterface::class);
+        $streamFactoryStub = self::createStub(StreamFactoryInterface::class);
+        $extensionConfigStub = self::createStub(ExtensionConfiguration::class);
 
-        $requestMock = $this->createMock(RequestInterface::class);
-        $requestMock->method('withHeader')->willReturnSelf();
-        $requestMock->method('withBody')->willReturnSelf();
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
 
-        $this->requestFactoryMock
+        $requestFactoryStub
             ->method('createRequest')
-            ->willReturn($requestMock);
+            ->willReturn($requestStub);
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $responseBodyMock = $this->createMock(StreamInterface::class);
-        $responseBodyMock->method('__toString')->willReturn('audio-chunk');
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn('audio-chunk');
 
-        $responseMock = $this->createMock(ResponseInterface::class);
-        $responseMock->method('getStatusCode')->willReturn(200);
-        $responseMock->method('getBody')->willReturn($responseBodyMock);
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
 
-        $this->httpClientMock
+        $httpClientStub
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
-        // Need to recreate subject with new mock
-        $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $this->extensionConfigMock
+        $extensionConfigStub
             ->method('get')
             ->willReturn([
                 'providers' => [
@@ -416,17 +436,16 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ]);
 
         $subject = new TextToSpeechService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $httpClientStub,
+            $requestFactoryStub,
+            $streamFactoryStub,
+            $extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
 
         $result = $subject->synthesizeLong($longText);
 
-        self::assertIsArray($result);
         self::assertGreaterThan(1, count($result));
     }
 
@@ -481,18 +500,18 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesInvalidConfig(): void
     {
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
         $subject = new TextToSpeechService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
 
         self::assertFalse($subject->isAvailable());
@@ -524,21 +543,23 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesExceptionGracefully(): void
     {
-        $this->extensionConfigMock
+        $extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $extensionConfigStub
             ->method('get')
             ->willThrowException(new RuntimeException('Config error'));
 
-        $this->loggerMock
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock
             ->expects(self::once())
             ->method('warning');
 
         $subject = new TextToSpeechService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $extensionConfigStub,
+            $this->usageTrackerStub,
+            $loggerMock,
         );
 
         self::assertFalse($subject->isAvailable());
@@ -559,7 +580,6 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
 
         // Should return multiple results
         self::assertGreaterThan(1, count($result));
-        self::assertContainsOnlyInstancesOf(SpeechSynthesisResult::class, $result);
     }
 
     #[Test]
@@ -612,28 +632,28 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     {
         $subject = $this->createSubject();
 
-        $requestMock = $this->createMock(RequestInterface::class);
-        $requestMock->method('withHeader')->willReturnSelf();
-        $requestMock->method('withBody')->willReturnSelf();
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
-            ->willReturn($requestMock);
+            ->willReturn($requestStub);
 
-        $bodyMock = $this->createMock(StreamInterface::class);
-        $bodyMock->method('__toString')->willReturn('{}');
+        $bodyStub = self::createStub(StreamInterface::class);
+        $bodyStub->method('__toString')->willReturn('{}');
 
-        $this->streamFactoryMock
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($bodyMock);
+            ->willReturn($bodyStub);
 
-        $responseMock = $this->createMock(ResponseInterface::class);
-        $responseMock->method('getStatusCode')->willReturn(429);
-        $responseMock->method('getBody')->willReturn($bodyMock);
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(429);
+        $responseStub->method('getBody')->willReturn($bodyStub);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $this->expectException(ServiceUnavailableException::class);
         $this->expectExceptionMessage('rate limit exceeded');
@@ -646,28 +666,28 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     {
         $subject = $this->createSubject();
 
-        $requestMock = $this->createMock(RequestInterface::class);
-        $requestMock->method('withHeader')->willReturnSelf();
-        $requestMock->method('withBody')->willReturnSelf();
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
-            ->willReturn($requestMock);
+            ->willReturn($requestStub);
 
-        $bodyMock = $this->createMock(StreamInterface::class);
-        $bodyMock->method('__toString')->willReturn('{"error": {"message": "Server error"}}');
+        $bodyStub = self::createStub(StreamInterface::class);
+        $bodyStub->method('__toString')->willReturn('{"error": {"message": "Server error"}}');
 
-        $this->streamFactoryMock
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($bodyMock);
+            ->willReturn($bodyStub);
 
-        $responseMock = $this->createMock(ResponseInterface::class);
-        $responseMock->method('getStatusCode')->willReturn(500);
-        $responseMock->method('getBody')->willReturn($bodyMock);
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(500);
+        $responseStub->method('getBody')->willReturn($bodyStub);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $this->expectException(ServiceUnavailableException::class);
         $this->expectExceptionMessage('Server error');
@@ -699,18 +719,18 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesNonArrayConfig(): void
     {
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
         $subject = new TextToSpeechService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
 
         self::assertFalse($subject->isAvailable());
@@ -719,7 +739,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesNonArrayProviders(): void
     {
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -727,12 +747,12 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ]);
 
         $subject = new TextToSpeechService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
 
         self::assertFalse($subject->isAvailable());

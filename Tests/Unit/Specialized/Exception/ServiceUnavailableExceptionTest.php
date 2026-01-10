@@ -19,6 +19,7 @@ class ServiceUnavailableExceptionTest extends AbstractUnitTestCase
 
         self::assertStringContainsString('Deepl service is not configured', $exception->getMessage());
         self::assertEquals('translation', $exception->service);
+        self::assertNotNull($exception->context);
         self::assertEquals('not_configured', $exception->context['reason']);
         self::assertEquals('deepl', $exception->context['provider']);
     }
@@ -39,6 +40,7 @@ class ServiceUnavailableExceptionTest extends AbstractUnitTestCase
         self::assertStringContainsString('Dalle service is currently unavailable', $exception->getMessage());
         self::assertStringNotContainsString('HTTP', $exception->getMessage());
         self::assertEquals('image', $exception->service);
+        self::assertNotNull($exception->context);
         self::assertEquals('service_down', $exception->context['reason']);
         self::assertEquals('dalle', $exception->context['provider']);
         self::assertNull($exception->context['http_status']);
@@ -50,6 +52,7 @@ class ServiceUnavailableExceptionTest extends AbstractUnitTestCase
         $exception = ServiceUnavailableException::serviceDown('translation', 'deepl', 503);
 
         self::assertStringContainsString('HTTP 503', $exception->getMessage());
+        self::assertNotNull($exception->context);
         self::assertEquals(503, $exception->context['http_status']);
     }
 
@@ -70,6 +73,7 @@ class ServiceUnavailableExceptionTest extends AbstractUnitTestCase
 
         self::assertStringContainsString('Translator "my-translator" not found', $exception->getMessage());
         self::assertEquals('translation', $exception->service);
+        self::assertNotNull($exception->context);
         self::assertEquals('not_found', $exception->context['reason']);
         self::assertEquals('my-translator', $exception->context['identifier']);
     }

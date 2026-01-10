@@ -121,6 +121,7 @@ class SuggestedConfigurationTest extends AbstractUnitTestCase
         self::assertIsString($json);
         self::assertJson($json);
 
+        /** @var array{identifier: string, name: string} $decoded */
         $decoded = json_decode($json, true);
         self::assertEquals('json-test', $decoded['identifier']);
         self::assertEquals('JSON Test', $decoded['name']);

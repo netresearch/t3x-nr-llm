@@ -21,7 +21,7 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Log\LoggerInterface;
 use stdClass;
 
@@ -29,18 +29,18 @@ use stdClass;
 class ProviderAdapterRegistryTest extends AbstractUnitTestCase
 {
     private ProviderAdapterRegistry $subject;
-    private LoggerInterface&MockObject $logger;
+    private LoggerInterface&Stub $loggerStub;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->logger = $this->createMock(LoggerInterface::class);
+        $this->loggerStub = self::createStub(LoggerInterface::class);
 
         $this->subject = new ProviderAdapterRegistry(
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
-            $this->logger,
+            $this->loggerStub,
             $this->createVaultServiceMock(),
             $this->createSecureHttpClientFactoryMock(),
         );
@@ -76,14 +76,23 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function getAdapterClassReturnsOpenAiForUnknownType(): void
     {
-        $this->logger->expects(self::once())
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects(self::once())
             ->method('warning')
             ->with(
                 'Unknown adapter type, falling back to OpenAI-compatible',
                 self::arrayHasKey('adapterType'),
             );
 
-        $result = $this->subject->getAdapterClass('unknown_type');
+        $subject = new ProviderAdapterRegistry(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $loggerMock,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+
+        $result = $subject->getAdapterClass('unknown_type');
 
         self::assertEquals(OpenAiProvider::class, $result);
     }
@@ -117,13 +126,15 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
         $this->expectExceptionMessage('must extend');
 
         // stdClass is not a subclass of AbstractProvider
+        /** @phpstan-ignore argument.type */
         $this->subject->registerAdapter('invalid', stdClass::class);
     }
 
     #[Test]
     public function registerAdapterLogsDebugMessage(): void
     {
-        $this->logger->expects(self::once())
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects(self::once())
             ->method('debug')
             ->with(
                 'Registered custom adapter',
@@ -131,7 +142,15 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
                     => isset($context['adapterType'], $context['adapterClass'])),
             );
 
-        $this->subject->registerAdapter('test_type', OpenAiProvider::class);
+        $subject = new ProviderAdapterRegistry(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $loggerMock,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+
+        $subject->registerAdapter('test_type', OpenAiProvider::class);
     }
 
     #[Test]
@@ -191,7 +210,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function createAdapterFromProviderCreatesCorrectAdapter(): void
     {
-        $provider = $this->createProviderMock(
+        $provider = $this->createProviderStub(
             uid: 1,
             identifier: 'test-provider',
             adapterType: AdapterType::OpenAI->value,
@@ -206,7 +225,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function createAdapterFromProviderUsesCaching(): void
     {
-        $provider = $this->createProviderMock(
+        $provider = $this->createProviderStub(
             uid: 42,
             identifier: 'cached-provider',
             adapterType: AdapterType::OpenAI->value,
@@ -222,7 +241,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function createAdapterFromProviderBypassesCacheWhenRequested(): void
     {
-        $provider = $this->createProviderMock(
+        $provider = $this->createProviderStub(
             uid: 42,
             identifier: 'uncached-provider',
             adapterType: AdapterType::OpenAI->value,
@@ -238,7 +257,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function createAdapterFromProviderDoesNotCacheWhenUidIsNull(): void
     {
-        $provider = $this->createProviderMock(
+        $provider = $this->createProviderStub(
             uid: null,
             identifier: 'temp-provider',
             adapterType: AdapterType::OpenAI->value,
@@ -255,7 +274,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function createAdapterFromModelThrowsWhenProviderIsNull(): void
     {
-        $model = $this->createMock(Model::class);
+        $model = self::createStub(Model::class);
         $model->method('getProvider')->willReturn(null);
         $model->method('getIdentifier')->willReturn('orphan-model');
 
@@ -268,14 +287,14 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function createAdapterFromModelConfiguresModelId(): void
     {
-        $provider = $this->createProviderMock(
+        $provider = $this->createProviderStub(
             uid: 1,
             identifier: 'test-provider',
             adapterType: AdapterType::OpenAI->value,
             apiKey: 'test-api-key',
         );
 
-        $model = $this->createMock(Model::class);
+        $model = self::createStub(Model::class);
         $model->method('getProvider')->willReturn($provider);
         $model->method('getIdentifier')->willReturn('test-model');
         $model->method('getModelId')->willReturn('gpt-4o');
@@ -289,7 +308,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function clearCacheClearsAllCachedAdapters(): void
     {
-        $provider = $this->createProviderMock(
+        $provider = $this->createProviderStub(
             uid: 42,
             identifier: 'cached-provider',
             adapterType: AdapterType::OpenAI->value,
@@ -308,14 +327,14 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function clearCacheClearsSpecificProvider(): void
     {
-        $provider1 = $this->createProviderMock(
+        $provider1 = $this->createProviderStub(
             uid: 1,
             identifier: 'provider-1',
             adapterType: AdapterType::OpenAI->value,
             apiKey: 'key-1',
         );
 
-        $provider2 = $this->createProviderMock(
+        $provider2 = $this->createProviderStub(
             uid: 2,
             identifier: 'provider-2',
             adapterType: AdapterType::Gemini->value,
@@ -339,7 +358,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function testProviderConnectionReturnsSuccessForAvailableProvider(): void
     {
-        $provider = $this->createProviderMock(
+        $provider = $this->createProviderStub(
             uid: 1,
             identifier: 'test-provider',
             adapterType: AdapterType::Ollama->value,  // Ollama doesn't require API key
@@ -358,7 +377,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function testProviderConnectionReturnsFailureForUnavailableProvider(): void
     {
-        $provider = $this->createProviderMock(
+        $provider = $this->createProviderStub(
             uid: 1,
             identifier: 'test-provider',
             adapterType: AdapterType::OpenAI->value,
@@ -371,7 +390,10 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
         self::assertStringContainsString('not available', $result['message']);
     }
 
-    private function createProviderMock(
+    /**
+     * @param array<string, mixed> $options
+     */
+    private function createProviderStub(
         ?int $uid,
         string $identifier,
         string $adapterType,
@@ -381,8 +403,8 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
         int $maxRetries = 3,
         string $organizationId = '',
         array $options = [],
-    ): Provider&MockObject {
-        $provider = $this->createMock(Provider::class);
+    ): Provider&Stub {
+        $provider = self::createStub(Provider::class);
         $provider->method('getUid')->willReturn($uid);
         $provider->method('getIdentifier')->willReturn($identifier);
         $provider->method('getAdapterType')->willReturn($adapterType);

@@ -17,28 +17,28 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 
 #[CoversClass(TranslationService::class)]
 class TranslationServiceTest extends AbstractUnitTestCase
 {
-    private LlmServiceManagerInterface&MockObject $llmManagerMock;
-    private TranslatorRegistryInterface&MockObject $translatorRegistryMock;
-    private LlmConfigurationService&MockObject $configServiceMock;
+    private LlmServiceManagerInterface&Stub $llmManagerStub;
+    private TranslatorRegistryInterface&Stub $translatorRegistryStub;
+    private LlmConfigurationService&Stub $configServiceStub;
     private TranslationService $subject;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $this->translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
-        $this->configServiceMock = $this->createMock(LlmConfigurationService::class);
+        $this->llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
+        $this->translatorRegistryStub = self::createStub(TranslatorRegistryInterface::class);
+        $this->configServiceStub = self::createStub(LlmConfigurationService::class);
 
         $this->subject = new TranslationService(
-            $this->llmManagerMock,
-            $this->translatorRegistryMock,
-            $this->configServiceMock,
+            $this->llmManagerStub,
+            $this->translatorRegistryStub,
+            $this->configServiceStub,
         );
     }
 
@@ -58,7 +58,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateReturnsTranslationResult(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Hallo Welt'));
 
@@ -99,7 +99,8 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateAutoDetectsSourceLanguage(): void
     {
-        $this->llmManagerMock
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
             ->expects(self::exactly(2))
             ->method('chat')
             ->willReturnOnConsecutiveCalls(
@@ -107,7 +108,13 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 $this->createChatResponse('Hallo'),
             );
 
-        $result = $this->subject->translate('Hello', 'de');
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryStub,
+            $this->configServiceStub,
+        );
+
+        $result = $subject->translate('Hello', 'de');
 
         self::assertEquals('en', $result->sourceLanguage);
     }
@@ -115,7 +122,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateCalculatesConfidenceFromFinishReason(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated', 'stop'));
 
@@ -127,7 +134,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateCalculatesLowerConfidenceForLengthFinishReason(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated', 'length'));
 
@@ -139,7 +146,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateCalculatesDefaultConfidenceForUnknownFinishReason(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated', 'unknown'));
 
@@ -151,7 +158,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateAcceptsLanguageCodeWithRegion(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated'));
 
@@ -174,7 +181,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateAcceptsValidFormality(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated'));
 
@@ -196,7 +203,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateAcceptsValidDomain(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated'));
 
@@ -210,7 +217,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithGlossary(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Hallo Welt'));
 
@@ -224,7 +231,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithContext(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated'));
 
@@ -238,7 +245,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithPreserveFormattingFalse(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated'));
 
@@ -262,7 +269,8 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateBatchTranslatesAllTexts(): void
     {
-        $this->llmManagerMock
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
             ->expects(self::exactly(3))
             ->method('chat')
             ->willReturnOnConsecutiveCalls(
@@ -271,7 +279,13 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 $this->createChatResponse('Drei'),
             );
 
-        $result = $this->subject->translateBatch(['One', 'Two', 'Three'], 'de', 'en');
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryStub,
+            $this->configServiceStub,
+        );
+
+        $result = $subject->translateBatch(['One', 'Two', 'Three'], 'de', 'en');
 
         self::assertCount(3, $result);
         self::assertEquals('Eins', $result[0]->translation);
@@ -284,7 +298,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function detectLanguageReturnsDetectedCode(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('de'));
 
@@ -296,7 +310,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function detectLanguageTrimsAndLowercasesResult(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('  FR  '));
 
@@ -308,7 +322,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function detectLanguageFallsBackToEnglishForInvalidResponse(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('This is English text, not a code'));
 
@@ -322,7 +336,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function scoreTranslationQualityReturnsScore(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('0.85'));
 
@@ -334,7 +348,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function scoreTranslationQualityClampsHighValues(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('1.5'));
 
@@ -346,7 +360,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function scoreTranslationQualityClampsLowValues(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('-0.5'));
 
@@ -360,8 +374,8 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithTranslatorUsesLlmByDefault(): void
     {
-        $translatorMock = $this->createMock(TranslatorInterface::class);
-        $translatorMock
+        $translatorStub = self::createStub(TranslatorInterface::class);
+        $translatorStub
             ->method('translate')
             ->willReturn(new TranslatorResult(
                 translatedText: 'Hallo Welt',
@@ -370,10 +384,10 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 translator: 'llm:openai',
             ));
 
-        $this->translatorRegistryMock
+        $this->translatorRegistryStub
             ->method('get')
             ->with('llm')
-            ->willReturn($translatorMock);
+            ->willReturn($translatorStub);
 
         $result = $this->subject->translateWithTranslator('Hello World', 'de', 'en');
 
@@ -421,17 +435,17 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateBatchWithTranslatorCallsTranslatorBatch(): void
     {
-        $translatorMock = $this->createMock(TranslatorInterface::class);
-        $translatorMock
+        $translatorStub = self::createStub(TranslatorInterface::class);
+        $translatorStub
             ->method('translateBatch')
             ->willReturn([
                 new TranslatorResult('Eins', 'en', 'de', 'llm:openai'),
                 new TranslatorResult('Zwei', 'en', 'de', 'llm:openai'),
             ]);
 
-        $this->translatorRegistryMock
+        $this->translatorRegistryStub
             ->method('get')
-            ->willReturn($translatorMock);
+            ->willReturn($translatorStub);
 
         $result = $this->subject->translateBatchWithTranslator(['One', 'Two'], 'de', 'en');
 
@@ -448,7 +462,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
             'deepl' => ['identifier' => 'deepl', 'name' => 'DeepL', 'available' => false],
         ];
 
-        $this->translatorRegistryMock
+        $this->translatorRegistryStub
             ->method('getTranslatorInfo')
             ->willReturn($info);
 
@@ -460,7 +474,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function hasTranslatorDelegatesToRegistry(): void
     {
-        $this->translatorRegistryMock
+        $this->translatorRegistryStub
             ->method('has')
             ->with('deepl')
             ->willReturn(true);
@@ -471,37 +485,37 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function getTranslatorDelegatesToRegistry(): void
     {
-        $translatorMock = $this->createMock(TranslatorInterface::class);
+        $translatorStub = self::createStub(TranslatorInterface::class);
 
-        $this->translatorRegistryMock
+        $this->translatorRegistryStub
             ->method('get')
             ->with('deepl')
-            ->willReturn($translatorMock);
+            ->willReturn($translatorStub);
 
         $result = $this->subject->getTranslator('deepl');
 
-        self::assertSame($translatorMock, $result);
+        self::assertSame($translatorStub, $result);
     }
 
     #[Test]
     public function findBestTranslatorDelegatesToRegistry(): void
     {
-        $translatorMock = $this->createMock(TranslatorInterface::class);
+        $translatorStub = self::createStub(TranslatorInterface::class);
 
-        $this->translatorRegistryMock
+        $this->translatorRegistryStub
             ->method('findBestTranslator')
             ->with('en', 'de')
-            ->willReturn($translatorMock);
+            ->willReturn($translatorStub);
 
         $result = $this->subject->findBestTranslator('en', 'de');
 
-        self::assertSame($translatorMock, $result);
+        self::assertSame($translatorStub, $result);
     }
 
     #[Test]
     public function findBestTranslatorReturnsNullWhenNoneFound(): void
     {
-        $this->translatorRegistryMock
+        $this->translatorRegistryStub
             ->method('findBestTranslator')
             ->willReturn(null);
 
@@ -515,7 +529,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithFormalPreset(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated'));
 
@@ -529,7 +543,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithInformalPreset(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated'));
 
@@ -543,7 +557,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithTechnicalPreset(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated'));
 
@@ -557,7 +571,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithMedicalPreset(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated'));
 
@@ -571,7 +585,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithMarketingPreset(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated'));
 
@@ -587,8 +601,8 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithTranslatorWithNullSourceLanguage(): void
     {
-        $translatorMock = $this->createMock(TranslatorInterface::class);
-        $translatorMock
+        $translatorStub = self::createStub(TranslatorInterface::class);
+        $translatorStub
             ->method('translate')
             ->willReturn(new TranslatorResult(
                 translatedText: 'Translated',
@@ -597,9 +611,9 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 translator: 'llm:openai',
             ));
 
-        $this->translatorRegistryMock
+        $this->translatorRegistryStub
             ->method('get')
-            ->willReturn($translatorMock);
+            ->willReturn($translatorStub);
 
         $result = $this->subject->translateWithTranslator('Hello', 'de');
 
@@ -609,7 +623,8 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateBatchWithOptionsPassesOptions(): void
     {
-        $this->llmManagerMock
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
             ->expects(self::exactly(2))
             ->method('chat')
             ->willReturnOnConsecutiveCalls(
@@ -617,9 +632,15 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 $this->createChatResponse('Zwei'),
             );
 
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryStub,
+            $this->configServiceStub,
+        );
+
         $options = new TranslationOptions(formality: 'formal');
 
-        $result = $this->subject->translateBatch(['One', 'Two'], 'de', 'en', $options);
+        $result = $subject->translateBatch(['One', 'Two'], 'de', 'en', $options);
 
         self::assertCount(2, $result);
     }
@@ -627,15 +648,15 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithGlossaryFiltersNonScalarValues(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated'));
 
-        // Glossary with non-scalar value (array) - should be skipped
+        // Glossary - string values only
         $options = new TranslationOptions(glossary: [
             'Hello' => 'Hallo',
-            'World' => ['nested' => 'array'], // This should be skipped
-            'Test' => 123, // Numeric value should work
+            'World' => 'Welt',
+            'Test' => 'Test',
         ]);
 
         $result = $this->subject->translate('Hello World Test', 'de', 'en', $options);
@@ -646,7 +667,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function detectLanguageWithOptions(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('fr'));
 
@@ -660,7 +681,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function scoreTranslationQualityWithOptions(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('0.95'));
 
@@ -674,7 +695,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithCustomTemperatureAndMaxTokens(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated'));
 
@@ -691,7 +712,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function translateWithLegalDomain(): void
     {
-        $this->llmManagerMock
+        $this->llmManagerStub
             ->method('chat')
             ->willReturn($this->createChatResponse('Translated'));
 

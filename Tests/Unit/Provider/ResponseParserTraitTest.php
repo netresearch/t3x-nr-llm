@@ -17,14 +17,14 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversClass(ResponseParserTrait::class)]
 class ResponseParserTraitTest extends AbstractUnitTestCase
 {
-    private object $subject;
+    private ResponseParserTraitTestHelper $subject;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         // Create anonymous class using the trait
-        $this->subject = new class {
+        $this->subject = new class implements ResponseParserTraitTestHelper {
             use ResponseParserTrait {
                 getString as public;
                 getInt as public;
@@ -481,4 +481,98 @@ class ResponseParserTraitTest extends AbstractUnitTestCase
 
         $this->subject->decodeJsonResponse('"just a string"');
     }
+}
+
+/**
+ * Helper interface for PHPStan to understand the anonymous class methods.
+ *
+ * @internal
+ */
+interface ResponseParserTraitTestHelper
+{
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function getString(array $data, string $key, string $default = ''): string;
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function getInt(array $data, string $key, int $default = 0): int;
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function getFloat(array $data, string $key, float $default = 0.0): float;
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function getBool(array $data, string $key, bool $default = false): bool;
+
+    /**
+     * @param array<string, mixed> $data
+     * @param array<mixed>         $default
+     *
+     * @return array<mixed>
+     */
+    public function getArray(array $data, string $key, array $default = []): array;
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getList(array $data, string $key): array;
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function getNullableString(array $data, string $key): ?string;
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function getNullableInt(array $data, string $key): ?int;
+
+    /**
+     * @param array<string, mixed> $data
+     * @param array<mixed>         $default
+     *
+     * @return array<mixed>
+     */
+    public function getNestedArray(array $data, string $path, array $default = []): array;
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function getNestedString(array $data, string $path, string $default = ''): string;
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function getNestedInt(array $data, string $path, int $default = 0): int;
+
+    /**
+     * @param array<mixed> $default
+     *
+     * @return array<mixed>
+     */
+    public function asArray(mixed $value, array $default = []): array;
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function asList(mixed $value): array;
+
+    public function asString(mixed $value, string $default = ''): string;
+
+    public function asInt(mixed $value, int $default = 0): int;
+
+    public function asFloat(mixed $value, float $default = 0.0): float;
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function decodeJsonResponse(string $response): array;
 }

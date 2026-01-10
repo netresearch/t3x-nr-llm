@@ -37,6 +37,7 @@ class SpeechServiceExceptionTest extends AbstractUnitTestCase
 
         self::assertEquals('TTS generation failed', $exception->getMessage());
         self::assertEquals('speech', $exception->service);
+        self::assertNotNull($exception->context);
         self::assertEquals('alloy', $exception->context['voice']);
         self::assertEquals('tts-1', $exception->context['model']);
     }

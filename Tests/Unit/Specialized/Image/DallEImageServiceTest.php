@@ -13,7 +13,7 @@ use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
@@ -27,24 +27,24 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(DallEImageService::class)]
 class DallEImageServiceTest extends AbstractUnitTestCase
 {
-    private ClientInterface&MockObject $httpClientMock;
-    private RequestFactoryInterface&MockObject $requestFactoryMock;
-    private StreamFactoryInterface&MockObject $streamFactoryMock;
-    private ExtensionConfiguration&MockObject $extensionConfigMock;
-    private UsageTrackerServiceInterface&MockObject $usageTrackerMock;
-    private LoggerInterface&MockObject $loggerMock;
+    private ClientInterface&Stub $httpClientStub;
+    private RequestFactoryInterface&Stub $requestFactoryStub;
+    private StreamFactoryInterface&Stub $streamFactoryStub;
+    private ExtensionConfiguration&Stub $extensionConfigStub;
+    private UsageTrackerServiceInterface&Stub $usageTrackerStub;
+    private LoggerInterface&Stub $loggerStub;
     private ?string $tempFile = null;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->httpClientMock = $this->createMock(ClientInterface::class);
-        $this->requestFactoryMock = $this->createMock(RequestFactoryInterface::class);
-        $this->streamFactoryMock = $this->createMock(StreamFactoryInterface::class);
-        $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
-        $this->usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
-        $this->loggerMock = $this->createMock(LoggerInterface::class);
+        $this->httpClientStub = self::createStub(ClientInterface::class);
+        $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
+        $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
+        $this->extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
+        $this->loggerStub = self::createStub(LoggerInterface::class);
     }
 
     protected function tearDown(): void
@@ -55,6 +55,9 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         parent::tearDown();
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     private function createSubject(array $config = []): DallEImageService
     {
         $defaultConfig = [
@@ -65,24 +68,24 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn(array_merge($defaultConfig, $config));
 
         return new DallEImageService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
     }
 
     private function createSubjectWithoutApiKey(): DallEImageService
     {
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -90,12 +93,12 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ]);
 
         return new DallEImageService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
     }
 
@@ -108,60 +111,63 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         return $this->tempFile;
     }
 
+    /**
+     * @param array<string, mixed> $responseData
+     */
     private function setupSuccessfulRequest(array $responseData): void
     {
-        $requestMock = $this->createMock(RequestInterface::class);
-        $requestMock->method('withHeader')->willReturnSelf();
-        $requestMock->method('withBody')->willReturnSelf();
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
-            ->willReturn($requestMock);
+            ->willReturn($requestStub);
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $responseBodyMock = $this->createMock(StreamInterface::class);
-        $responseBodyMock->method('__toString')->willReturn(json_encode($responseData));
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn(json_encode($responseData));
 
-        $responseMock = $this->createMock(ResponseInterface::class);
-        $responseMock->method('getStatusCode')->willReturn(200);
-        $responseMock->method('getBody')->willReturn($responseBodyMock);
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
     }
 
     private function setupFailedRequest(int $statusCode, string $errorMessage = 'API Error'): void
     {
-        $requestMock = $this->createMock(RequestInterface::class);
-        $requestMock->method('withHeader')->willReturnSelf();
-        $requestMock->method('withBody')->willReturnSelf();
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
-            ->willReturn($requestMock);
+            ->willReturn($requestStub);
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $responseBodyMock = $this->createMock(StreamInterface::class);
-        $responseBodyMock->method('__toString')->willReturn(json_encode([
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn(json_encode([
             'error' => ['message' => $errorMessage],
         ]));
 
-        $responseMock = $this->createMock(ResponseInterface::class);
-        $responseMock->method('getStatusCode')->willReturn($statusCode);
-        $responseMock->method('getBody')->willReturn($responseBodyMock);
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn($statusCode);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
     }
 
     // ==================== isAvailable tests ====================
@@ -289,15 +295,35 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function generateTracksUsage(): void
     {
-        $subject = $this->createSubject();
         $this->setupSuccessfulRequest([
             'data' => [['url' => 'https://example.com/image.png']],
         ]);
 
-        $this->usageTrackerMock
+        $this->extensionConfigStub
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'providers' => [
+                    'openai' => [
+                        'apiKey' => 'test-api-key',
+                    ],
+                ],
+            ]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
             ->expects(self::once())
             ->method('trackUsage')
             ->with('image', 'dall-e:dall-e-3', self::anything());
+
+        $subject = new DallEImageService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
 
         $subject->generate('A cat');
     }
@@ -484,16 +510,36 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function createVariationsTracksUsage(): void
     {
-        $subject = $this->createSubject();
         $imageFile = $this->createTestImageFile();
         $this->setupSuccessfulRequest([
             'data' => [['url' => 'https://example.com/variation.png']],
         ]);
 
-        $this->usageTrackerMock
+        $this->extensionConfigStub
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'providers' => [
+                    'openai' => [
+                        'apiKey' => 'test-api-key',
+                    ],
+                ],
+            ]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
             ->expects(self::once())
             ->method('trackUsage')
             ->with('image', 'dall-e:variations', self::anything());
+
+        $subject = new DallEImageService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
 
         $subject->createVariations($imageFile);
     }
@@ -544,16 +590,36 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function editTracksUsage(): void
     {
-        $subject = $this->createSubject();
         $imageFile = $this->createTestImageFile();
         $this->setupSuccessfulRequest([
             'data' => [['url' => 'https://example.com/edited.png']],
         ]);
 
-        $this->usageTrackerMock
+        $this->extensionConfigStub
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'providers' => [
+                    'openai' => [
+                        'apiKey' => 'test-api-key',
+                    ],
+                ],
+            ]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
             ->expects(self::once())
             ->method('trackUsage')
             ->with('image', 'dall-e:edit', self::anything());
+
+        $subject = new DallEImageService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
 
         $subject->edit($imageFile, 'Add a hat');
     }
@@ -620,18 +686,18 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesInvalidConfig(): void
     {
-        $this->extensionConfigMock
+        $this->extensionConfigStub
             ->method('get')
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
         $subject = new DallEImageService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $this->loggerStub,
         );
 
         self::assertFalse($subject->isAvailable());
@@ -662,21 +728,23 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesExceptionGracefully(): void
     {
-        $this->extensionConfigMock
+        $extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $extensionConfigStub
             ->method('get')
             ->willThrowException(new RuntimeException('Config error'));
 
-        $this->loggerMock
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock
             ->expects(self::once())
             ->method('warning');
 
         $subject = new DallEImageService(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
-            $this->extensionConfigMock,
-            $this->usageTrackerMock,
-            $this->loggerMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $extensionConfigStub,
+            $this->usageTrackerStub,
+            $loggerMock,
         );
 
         self::assertFalse($subject->isAvailable());

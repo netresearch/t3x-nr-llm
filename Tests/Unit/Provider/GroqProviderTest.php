@@ -266,8 +266,10 @@ class GroqProviderTest extends AbstractUnitTestCase
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertNotNull($result->toolCalls);
         self::assertCount(1, $result->toolCalls);
-        self::assertEquals('get_weather', $result->toolCalls[0]['function']['name']);
-        self::assertEquals(['location' => 'London'], $result->toolCalls[0]['function']['arguments']);
+        /** @var array{function: array{name: string, arguments: array<string, string>}} $toolCall */
+        $toolCall = $result->toolCalls[0];
+        self::assertEquals('get_weather', $toolCall['function']['name']);
+        self::assertEquals(['location' => 'London'], $toolCall['function']['arguments']);
     }
 
     #[Test]
@@ -503,7 +505,9 @@ class GroqProviderTest extends AbstractUnitTestCase
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertNotNull($result->toolCalls);
         // Invalid JSON should result in empty array for arguments
-        self::assertEquals([], $result->toolCalls[0]['function']['arguments']);
+        /** @var array{function: array{arguments: array<mixed>}} $toolCall */
+        $toolCall = $result->toolCalls[0];
+        self::assertEquals([], $toolCall['function']['arguments']);
     }
 
     #[Test]
@@ -653,17 +657,17 @@ class GroqProviderTest extends AbstractUnitTestCase
                          . "data: {\"choices\":[{\"delta\":{\"content\":\" world\"}}]}\n\n"
                          . "data: [DONE]\n";
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $streamMock->method('eof')->willReturnOnConsecutiveCalls(false, true);
-        $streamMock->method('read')->willReturn($streamContent);
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
+        $streamStub->method('read')->willReturn($streamContent);
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
         $httpClientMock->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $subject->setHttpClient($httpClientMock);
 
@@ -697,17 +701,17 @@ class GroqProviderTest extends AbstractUnitTestCase
                          . "data: {\"choices\":[{\"delta\":{\"content\":\"Valid\"}}]}\n\n"
                          . "data: [DONE]\n";
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $streamMock->method('eof')->willReturnOnConsecutiveCalls(false, true);
-        $streamMock->method('read')->willReturn($streamContent);
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
+        $streamStub->method('read')->willReturn($streamContent);
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
         $httpClientMock->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $subject->setHttpClient($httpClientMock);
 
@@ -742,17 +746,17 @@ class GroqProviderTest extends AbstractUnitTestCase
                          . "data: {\"choices\":[{\"delta\":{\"content\":\"Valid\"}}]}\n\n"
                          . "data: [DONE]\n";
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $streamMock->method('eof')->willReturnOnConsecutiveCalls(false, true);
-        $streamMock->method('read')->willReturn($streamContent);
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
+        $streamStub->method('read')->willReturn($streamContent);
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
         $httpClientMock->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $subject->setHttpClient($httpClientMock);
 
@@ -785,17 +789,17 @@ class GroqProviderTest extends AbstractUnitTestCase
         $streamContent = "data: {\"choices\":[{\"delta\":{\"content\":\"Test\"}}]}\n\n"
                          . "data: [DONE]\n";
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $streamMock->method('eof')->willReturnOnConsecutiveCalls(false, true);
-        $streamMock->method('read')->willReturn($streamContent);
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
+        $streamStub->method('read')->willReturn($streamContent);
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
         $httpClientMock->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $subject->setHttpClient($httpClientMock);
 
@@ -829,17 +833,17 @@ class GroqProviderTest extends AbstractUnitTestCase
                          . "data: {\"choices\":[{\"delta\":{\"content\":\"Content\"}}]}\n\n"
                          . "data: [DONE]\n";
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $streamMock->method('eof')->willReturnOnConsecutiveCalls(false, true);
-        $streamMock->method('read')->willReturn($streamContent);
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
+        $streamStub->method('read')->willReturn($streamContent);
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
         $httpClientMock->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $subject->setHttpClient($httpClientMock);
 

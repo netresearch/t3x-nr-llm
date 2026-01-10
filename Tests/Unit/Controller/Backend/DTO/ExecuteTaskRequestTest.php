@@ -64,7 +64,7 @@ class ExecuteTaskRequestTest extends AbstractUnitTestCase
     #[Test]
     public function fromRequestHandlesNullBody(): void
     {
-        $serverRequest = $this->createMock(ServerRequestInterface::class);
+        $serverRequest = self::createStub(ServerRequestInterface::class);
         $serverRequest->method('getParsedBody')->willReturn(null);
 
         $request = ExecuteTaskRequest::fromRequest($serverRequest);
@@ -133,7 +133,7 @@ class ExecuteTaskRequestTest extends AbstractUnitTestCase
      */
     private function createServerRequestMock(array $body): ServerRequestInterface
     {
-        $request = $this->createMock(ServerRequestInterface::class);
+        $request = self::createStub(ServerRequestInterface::class);
         $request->method('getParsedBody')->willReturn($body);
         return $request;
     }

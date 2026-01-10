@@ -242,6 +242,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         self::assertTrue($result['success']);
         self::assertStringContainsString('2 models', $result['message']);
+        /** @var array{success: true, message: string, models: array<string, string>} $result */
         self::assertArrayHasKey('models', $result);
         self::assertCount(2, $result['models']);
     }
@@ -472,6 +473,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
         $result = $subject->testConnection();
 
         self::assertTrue($result['success']);
+        /** @var array{success: true, models: array<string, string>} $result */
         self::assertCount(2, $result['models']);
         self::assertArrayNotHasKey('', $result['models']);
     }
@@ -499,21 +501,21 @@ class OllamaProviderTest extends AbstractUnitTestCase
                          . "{\"message\":{\"content\":\" world\"},\"done\":false}\n"
                          . "{\"message\":{\"content\":\"!\"},\"done\":true}\n";
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $streamMock->method('eof')->willReturnOnConsecutiveCalls(false, false, false, true);
-        $streamMock->method('read')->willReturnOnConsecutiveCalls(
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, false, false, true);
+        $streamStub->method('read')->willReturnOnConsecutiveCalls(
             "{\"message\":{\"content\":\"Hello\"},\"done\":false}\n",
             "{\"message\":{\"content\":\" world\"},\"done\":false}\n",
             "{\"message\":{\"content\":\"!\"},\"done\":true}\n",
         );
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
         $httpClientMock->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $subject->setHttpClient($httpClientMock);
 
@@ -543,17 +545,17 @@ class OllamaProviderTest extends AbstractUnitTestCase
             'timeout' => 30,
         ]);
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $streamMock->method('eof')->willReturnOnConsecutiveCalls(false, true);
-        $streamMock->method('read')->willReturn("{\"message\":{\"content\":\"Test\"},\"done\":true}\n");
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
+        $streamStub->method('read')->willReturn("{\"message\":{\"content\":\"Test\"},\"done\":true}\n");
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
         $httpClientMock->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $subject->setHttpClient($httpClientMock);
 
@@ -583,17 +585,17 @@ class OllamaProviderTest extends AbstractUnitTestCase
             'timeout' => 30,
         ]);
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $streamMock->method('eof')->willReturnOnConsecutiveCalls(false, true);
-        $streamMock->method('read')->willReturn("\n\n{\"message\":{\"content\":\"Test\"},\"done\":true}\n");
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
+        $streamStub->method('read')->willReturn("\n\n{\"message\":{\"content\":\"Test\"},\"done\":true}\n");
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
         $httpClientMock->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $subject->setHttpClient($httpClientMock);
 
@@ -623,17 +625,17 @@ class OllamaProviderTest extends AbstractUnitTestCase
             'timeout' => 30,
         ]);
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $streamMock->method('eof')->willReturnOnConsecutiveCalls(false, true);
-        $streamMock->method('read')->willReturn("invalid-json\n{\"message\":{\"content\":\"Valid\"},\"done\":true}\n");
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
+        $streamStub->method('read')->willReturn("invalid-json\n{\"message\":{\"content\":\"Valid\"},\"done\":true}\n");
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
         $httpClientMock->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $subject->setHttpClient($httpClientMock);
 
@@ -663,17 +665,17 @@ class OllamaProviderTest extends AbstractUnitTestCase
             'timeout' => 30,
         ]);
 
-        $streamMock = $this->createMock(\Psr\Http\Message\StreamInterface::class);
-        $streamMock->method('eof')->willReturnOnConsecutiveCalls(false, true);
-        $streamMock->method('read')->willReturn("{\"message\":{\"content\":\"\"},\"done\":false}\n{\"message\":{\"content\":\"Test\"},\"done\":true}\n");
+        $streamStub = self::createStub(\Psr\Http\Message\StreamInterface::class);
+        $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
+        $streamStub->method('read')->willReturn("{\"message\":{\"content\":\"\"},\"done\":false}\n{\"message\":{\"content\":\"Test\"},\"done\":true}\n");
 
-        $responseMock = $this->createMock(\Psr\Http\Message\ResponseInterface::class);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
         $httpClientMock->expects(self::once())
             ->method('sendRequest')
-            ->willReturn($responseMock);
+            ->willReturn($responseStub);
 
         $subject->setHttpClient($httpClientMock);
 

@@ -9,6 +9,7 @@ use Faker\Generator as Faker;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -26,7 +27,12 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * Abstract base class for unit tests.
  *
  * Provides common mocking utilities and test helpers.
+ *
+ * @note AllowMockObjectsWithoutExpectations is set because many tests
+ *       create mocks in setUp() that may or may not have expectations
+ *       configured depending on the specific test method.
  */
+#[AllowMockObjectsWithoutExpectations]
 abstract class AbstractUnitTestCase extends TestCase
 {
     protected Faker $faker;

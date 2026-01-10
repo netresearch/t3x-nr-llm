@@ -11,7 +11,7 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\SuggestedConfiguration;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -23,36 +23,36 @@ use RuntimeException;
 #[CoversClass(SuggestedConfiguration::class)]
 class ConfigurationGeneratorTest extends AbstractUnitTestCase
 {
-    private ClientInterface&MockObject $httpClientMock;
-    private RequestFactoryInterface&MockObject $requestFactoryMock;
-    private StreamFactoryInterface&MockObject $streamFactoryMock;
+    private ClientInterface&Stub $httpClientStub;
+    private RequestFactoryInterface&Stub $requestFactoryStub;
+    private StreamFactoryInterface&Stub $streamFactoryStub;
     private ConfigurationGenerator $subject;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->httpClientMock = $this->createMock(ClientInterface::class);
-        $this->requestFactoryMock = $this->createMock(RequestFactoryInterface::class);
-        $this->streamFactoryMock = $this->createMock(StreamFactoryInterface::class);
+        $this->httpClientStub = self::createStub(ClientInterface::class);
+        $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
+        $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
 
         $this->subject = new ConfigurationGenerator(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
         );
     }
 
-    private function createJsonResponseMockForGenerator(int $statusCode, string $body): ResponseInterface&MockObject
+    private function createJsonResponseStubForGenerator(int $statusCode, string $body): ResponseInterface&Stub
     {
-        $streamMock = $this->createMock(StreamInterface::class);
-        $streamMock->method('getContents')->willReturn($body);
+        $streamStub = self::createStub(StreamInterface::class);
+        $streamStub->method('getContents')->willReturn($body);
 
-        $responseMock = $this->createMock(ResponseInterface::class);
-        $responseMock->method('getStatusCode')->willReturn($statusCode);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn($statusCode);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
-        return $responseMock;
+        return $responseStub;
     }
 
     private function createOpenAiProvider(): DetectedProvider
@@ -117,7 +117,6 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', []);
 
         self::assertNotEmpty($result);
-        self::assertContainsOnlyInstancesOf(SuggestedConfiguration::class, $result);
     }
 
     #[Test]
@@ -126,18 +125,18 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $provider = $this->createOpenAiProvider();
         $models = $this->createTestModels();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForGenerator(500, '{}'));
+            ->willReturn($this->createJsonResponseStubForGenerator(500, '{}'));
 
         $result = $this->subject->generate($provider, 'test-key', $models);
 
@@ -152,16 +151,16 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $provider = $this->createOpenAiProvider();
         $models = $this->createTestModels();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $llmResponse = json_encode([
+        $llmResponse = (string)json_encode([
             'choices' => [
                 [
                     'message' => [
@@ -180,9 +179,9 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForGenerator(200, $llmResponse));
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
 
         $result = $this->subject->generate($provider, 'test-key', $models);
 
@@ -208,16 +207,16 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ),
         ];
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $llmResponse = json_encode([
+        $llmResponse = (string)json_encode([
             'content' => [
                 [
                     'type' => 'text',
@@ -235,9 +234,9 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForGenerator(200, $llmResponse));
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
 
         $result = $this->subject->generate($provider, 'test-key', $models);
 
@@ -260,16 +259,16 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ),
         ];
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $llmResponse = json_encode([
+        $llmResponse = (string)json_encode([
             'candidates' => [
                 [
                     'content' => [
@@ -292,9 +291,9 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForGenerator(200, $llmResponse));
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
 
         $result = $this->subject->generate($provider, 'test-key', $models);
 
@@ -308,16 +307,16 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $provider = $this->createOpenAiProvider();
         $models = $this->createTestModels();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $jsonContent = json_encode([
+        $jsonContent = (string)json_encode([
             [
                 'identifier' => 'markdown-config',
                 'name' => 'Markdown Config',
@@ -328,7 +327,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $llmResponse = json_encode([
+        $llmResponse = (string)json_encode([
             'choices' => [
                 [
                     'message' => [
@@ -338,9 +337,9 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForGenerator(200, $llmResponse));
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
 
         $result = $this->subject->generate($provider, 'test-key', $models);
 
@@ -354,16 +353,16 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $provider = $this->createOpenAiProvider();
         $models = $this->createTestModels();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $llmResponse = json_encode([
+        $llmResponse = (string)json_encode([
             'choices' => [
                 [
                     'message' => [
@@ -384,9 +383,9 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForGenerator(200, $llmResponse));
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
 
         $result = $this->subject->generate($provider, 'test-key', $models);
 
@@ -400,16 +399,16 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $provider = $this->createOpenAiProvider();
         $models = $this->createTestModels();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $llmResponse = json_encode([
+        $llmResponse = (string)json_encode([
             'choices' => [
                 [
                     'message' => [
@@ -426,9 +425,9 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForGenerator(200, $llmResponse));
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
 
         $result = $this->subject->generate($provider, 'test-key', $models);
 
@@ -459,19 +458,19 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ),
         ];
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
         // Return fallback by making API fail
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForGenerator(500, '{}'));
+            ->willReturn($this->createJsonResponseStubForGenerator(500, '{}'));
 
         $result = $this->subject->generate($provider, 'test-key', $models);
 
@@ -495,18 +494,18 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ),
         ];
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForGenerator(500, '{}'));
+            ->willReturn($this->createJsonResponseStubForGenerator(500, '{}'));
 
         $result = $this->subject->generate($provider, 'test-key', $models);
 
@@ -520,16 +519,16 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $provider = $this->createOpenAiProvider();
         $models = $this->createTestModels();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $llmResponse = json_encode([
+        $llmResponse = (string)json_encode([
             'choices' => [
                 [
                     'message' => [
@@ -539,9 +538,9 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForGenerator(200, $llmResponse));
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
 
         $result = $this->subject->generate($provider, 'test-key', $models);
 
@@ -556,16 +555,16 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $provider = $this->createOpenAiProvider();
         $models = $this->createTestModels();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $llmResponse = json_encode([
+        $llmResponse = (string)json_encode([
             'choices' => [
                 [
                     'message' => [
@@ -575,9 +574,9 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForGenerator(200, $llmResponse));
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
 
         $result = $this->subject->generate($provider, 'test-key', $models);
 
@@ -591,16 +590,16 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $provider = $this->createOpenAiProvider();
         $models = $this->createTestModels();
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willThrowException(new RuntimeException('Network error'));
 
@@ -650,7 +649,6 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         $array = $config->toArray();
 
-        self::assertIsArray($array);
         self::assertEquals('test-config', $array['identifier']);
         self::assertEquals('Test Configuration', $array['name']);
         self::assertEquals(0.7, $array['temperature']);

@@ -19,6 +19,7 @@ class ServiceQuotaExceededExceptionTest extends AbstractUnitTestCase
 
         self::assertEquals('Rate limit exceeded', $exception->getMessage());
         self::assertEquals('chat', $exception->service);
+        self::assertNotNull($exception->context);
         self::assertEquals('rate_limit', $exception->context['type']);
         self::assertNull($exception->context['retry_after']);
     }
@@ -30,6 +31,7 @@ class ServiceQuotaExceededExceptionTest extends AbstractUnitTestCase
 
         self::assertStringContainsString('Retry after 60 seconds', $exception->getMessage());
         self::assertEquals('translation', $exception->service);
+        self::assertNotNull($exception->context);
         self::assertEquals('rate_limit', $exception->context['type']);
         self::assertEquals(60, $exception->context['retry_after']);
     }
@@ -41,6 +43,7 @@ class ServiceQuotaExceededExceptionTest extends AbstractUnitTestCase
 
         self::assertEquals('Characters quota exceeded', $exception->getMessage());
         self::assertEquals('translation', $exception->service);
+        self::assertNotNull($exception->context);
         self::assertEquals('quota', $exception->context['type']);
         self::assertEquals('characters', $exception->context['quota_type']);
         self::assertNull($exception->context['limit']);
@@ -56,6 +59,7 @@ class ServiceQuotaExceededExceptionTest extends AbstractUnitTestCase
         self::assertStringContainsString('used: 150000', $exception->getMessage());
         self::assertStringContainsString('limit: 100000', $exception->getMessage());
         self::assertEquals('chat', $exception->service);
+        self::assertNotNull($exception->context);
         self::assertEquals('quota', $exception->context['type']);
         self::assertEquals('tokens', $exception->context['quota_type']);
         self::assertEquals(100000, $exception->context['limit']);
@@ -69,6 +73,7 @@ class ServiceQuotaExceededExceptionTest extends AbstractUnitTestCase
 
         self::assertStringContainsString('used: 120.75', $exception->getMessage());
         self::assertStringContainsString('limit: 100.5', $exception->getMessage());
+        self::assertNotNull($exception->context);
         self::assertEquals(100.5, $exception->context['limit']);
         self::assertEquals(120.75, $exception->context['used']);
     }

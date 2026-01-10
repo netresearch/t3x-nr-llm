@@ -120,6 +120,7 @@ class DiscoveredModelTest extends AbstractUnitTestCase
         self::assertIsString($json);
         self::assertJson($json);
 
+        /** @var array{modelId: string, name: string} $decoded */
         $decoded = json_decode($json, true);
         self::assertEquals('test-model', $decoded['modelId']);
         self::assertEquals('Test Model', $decoded['name']);

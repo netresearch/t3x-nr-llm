@@ -19,33 +19,33 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function processReturnsEarlyWhenManagerNotRegistered(): void
     {
-        $container = $this->createMock(ContainerBuilder::class);
-        $container->method('has')
+        $containerMock = $this->createMock(ContainerBuilder::class);
+        $containerMock->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(false);
 
-        $container->expects(self::never())
+        $containerMock->expects(self::never())
             ->method('findDefinition');
 
         $compilerPass = new ProviderCompilerPass();
-        $compilerPass->process($container);
+        $compilerPass->process($containerMock);
     }
 
     #[Test]
     public function processRegistersTaggedProviders(): void
     {
-        $container = $this->createMock(ContainerBuilder::class);
-        $definition = $this->createMock(Definition::class);
+        $containerStub = self::createStub(ContainerBuilder::class);
+        $definitionMock = $this->createMock(Definition::class);
 
-        $container->method('has')
+        $containerStub->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $container->method('findDefinition')
+        $containerStub->method('findDefinition')
             ->with(LlmServiceManager::class)
-            ->willReturn($definition);
+            ->willReturn($definitionMock);
 
-        $container->method('findTaggedServiceIds')
+        $containerStub->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.openai' => [['priority' => 10]],
@@ -53,29 +53,32 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
             ]);
 
         // Expect providers registered in priority order (higher first)
-        $definition->expects(self::exactly(2))
+        $definitionMock->expects(self::exactly(2))
             ->method('addMethodCall')
-            ->with('registerProvider', self::isType('array'));
+            ->with(
+                self::identicalTo('registerProvider'),
+                self::callback(static fn(mixed $arg): bool => is_array($arg)),
+            );
 
         $compilerPass = new ProviderCompilerPass();
-        $compilerPass->process($container);
+        $compilerPass->process($containerStub);
     }
 
     #[Test]
     public function processSortsProvidersByPriority(): void
     {
-        $container = $this->createMock(ContainerBuilder::class);
-        $definition = $this->createMock(Definition::class);
+        $containerStub = self::createStub(ContainerBuilder::class);
+        $definitionMock = $this->createMock(Definition::class);
 
-        $container->method('has')
+        $containerStub->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $container->method('findDefinition')
+        $containerStub->method('findDefinition')
             ->with(LlmServiceManager::class)
-            ->willReturn($definition);
+            ->willReturn($definitionMock);
 
-        $container->method('findTaggedServiceIds')
+        $containerStub->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.low' => [['priority' => 5]],
@@ -84,15 +87,15 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
             ]);
 
         $registrationOrder = [];
-        $definition->expects(self::exactly(3))
+        $definitionMock->expects(self::exactly(3))
             ->method('addMethodCall')
-            ->willReturnCallback(function (string $method, array $args) use (&$registrationOrder, $definition): Definition {
+            ->willReturnCallback(function (string $method, array $args) use (&$registrationOrder, $definitionMock): Definition {
                 $registrationOrder[] = $args[0];
-                return $definition;
+                return $definitionMock;
             });
 
         $compilerPass = new ProviderCompilerPass();
-        $compilerPass->process($container);
+        $compilerPass->process($containerStub);
 
         // Verify order: high (100), medium (50), low (5)
         self::assertInstanceOf(Reference::class, $registrationOrder[0]);
@@ -103,114 +106,123 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function processHandlesEmptyTaggedServices(): void
     {
-        $container = $this->createMock(ContainerBuilder::class);
-        $definition = $this->createMock(Definition::class);
+        $containerStub = self::createStub(ContainerBuilder::class);
+        $definitionMock = $this->createMock(Definition::class);
 
-        $container->method('has')
+        $containerStub->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $container->method('findDefinition')
+        $containerStub->method('findDefinition')
             ->with(LlmServiceManager::class)
-            ->willReturn($definition);
+            ->willReturn($definitionMock);
 
-        $container->method('findTaggedServiceIds')
+        $containerStub->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([]);
 
-        $definition->expects(self::never())
+        $definitionMock->expects(self::never())
             ->method('addMethodCall');
 
         $compilerPass = new ProviderCompilerPass();
-        $compilerPass->process($container);
+        $compilerPass->process($containerStub);
     }
 
     #[Test]
     public function processHandlesProvidersWithoutPriority(): void
     {
-        $container = $this->createMock(ContainerBuilder::class);
-        $definition = $this->createMock(Definition::class);
+        $containerStub = self::createStub(ContainerBuilder::class);
+        $definitionMock = $this->createMock(Definition::class);
 
-        $container->method('has')
+        $containerStub->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $container->method('findDefinition')
+        $containerStub->method('findDefinition')
             ->with(LlmServiceManager::class)
-            ->willReturn($definition);
+            ->willReturn($definitionMock);
 
         // Empty tag array means no priority specified
-        $container->method('findTaggedServiceIds')
+        $containerStub->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.a' => [],
                 'provider.b' => [[]],
             ]);
 
-        $definition->expects(self::exactly(2))
+        $definitionMock->expects(self::exactly(2))
             ->method('addMethodCall')
-            ->with('registerProvider', self::isType('array'));
+            ->with(
+                self::identicalTo('registerProvider'),
+                self::callback(static fn(mixed $arg): bool => is_array($arg)),
+            );
 
         $compilerPass = new ProviderCompilerPass();
-        $compilerPass->process($container);
+        $compilerPass->process($containerStub);
     }
 
     #[Test]
     public function processHandlesNonArrayTagData(): void
     {
-        $container = $this->createMock(ContainerBuilder::class);
-        $definition = $this->createMock(Definition::class);
+        $containerStub = self::createStub(ContainerBuilder::class);
+        $definitionMock = $this->createMock(Definition::class);
 
-        $container->method('has')
+        $containerStub->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $container->method('findDefinition')
+        $containerStub->method('findDefinition')
             ->with(LlmServiceManager::class)
-            ->willReturn($definition);
+            ->willReturn($definitionMock);
 
         // Tags with non-array first element
-        $container->method('findTaggedServiceIds')
+        $containerStub->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.a' => ['not_an_array'],
             ]);
 
-        $definition->expects(self::once())
+        $definitionMock->expects(self::once())
             ->method('addMethodCall')
-            ->with('registerProvider', self::isType('array'));
+            ->with(
+                self::identicalTo('registerProvider'),
+                self::callback(static fn(mixed $arg): bool => is_array($arg)),
+            );
 
         $compilerPass = new ProviderCompilerPass();
-        $compilerPass->process($container);
+        $compilerPass->process($containerStub);
     }
 
     #[Test]
     public function processHandlesNonIntPriority(): void
     {
-        $container = $this->createMock(ContainerBuilder::class);
-        $definition = $this->createMock(Definition::class);
+        $containerStub = self::createStub(ContainerBuilder::class);
+        $definitionMock = $this->createMock(Definition::class);
 
-        $container->method('has')
+        $containerStub->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $container->method('findDefinition')
+        $containerStub->method('findDefinition')
             ->with(LlmServiceManager::class)
-            ->willReturn($definition);
+            ->willReturn($definitionMock);
 
         // Priority as string, should be treated as 0
-        $container->method('findTaggedServiceIds')
+        $containerStub->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.a' => [['priority' => 'high']],
                 'provider.b' => [['priority' => 10]],
             ]);
 
-        $definition->expects(self::exactly(2))
+        $definitionMock->expects(self::exactly(2))
             ->method('addMethodCall')
-            ->with('registerProvider', self::isType('array'));
+            ->with(
+                self::identicalTo('registerProvider'),
+                self::callback(static fn(mixed $arg): bool => is_array($arg)),
+            );
 
         $compilerPass = new ProviderCompilerPass();
-        $compilerPass->process($container);
+        $compilerPass->process($containerStub);
     }
 }

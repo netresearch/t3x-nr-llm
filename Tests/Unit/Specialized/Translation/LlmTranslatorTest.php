@@ -16,7 +16,7 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
@@ -26,7 +26,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 class LlmTranslatorTest extends AbstractUnitTestCase
 {
     private LlmServiceManager $llmManager;
-    private UsageTrackerServiceInterface&MockObject $usageTrackerMock;
+    private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LlmTranslator $subject;
     private TranslatorTestProvider $provider;
 
@@ -54,11 +54,11 @@ class LlmTranslatorTest extends AbstractUnitTestCase
         $this->provider = new TranslatorTestProvider();
         $this->llmManager->registerProvider($this->provider);
 
-        $this->usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
 
         $this->subject = new LlmTranslator(
             $this->llmManager,
-            $this->usageTrackerMock,
+            $this->usageTrackerStub,
         );
     }
 
@@ -134,16 +134,22 @@ class LlmTranslatorTest extends AbstractUnitTestCase
     {
         $this->setResponse('Translated text');
 
-        $this->usageTrackerMock
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
             ->expects(self::once())
             ->method('trackUsage')
             ->with(
                 'translation',
                 self::stringStartsWith('llm:'),
-                self::callback(fn($data) => isset($data['tokens']) && isset($data['characters'])),
+                self::callback(fn($data) => is_array($data) && isset($data['tokens'], $data['characters'])),
             );
 
-        $this->subject->translate('Test text', 'de', 'en');
+        $subject = new LlmTranslator(
+            $this->llmManager,
+            $usageTrackerMock,
+        );
+
+        $subject->translate('Test text', 'de', 'en');
     }
 
     #[Test]
@@ -183,12 +189,15 @@ class LlmTranslatorTest extends AbstractUnitTestCase
 
         $result = $this->subject->translate('Test', 'de', 'en');
 
+        self::assertNotNull($result->metadata);
         self::assertArrayHasKey('model', $result->metadata);
         self::assertArrayHasKey('usage', $result->metadata);
         self::assertEquals('gpt-5.2', $result->metadata['model']);
-        self::assertEquals(100, $result->metadata['usage']['prompt_tokens']);
-        self::assertEquals(50, $result->metadata['usage']['completion_tokens']);
-        self::assertEquals(150, $result->metadata['usage']['total_tokens']);
+        /** @var array{prompt_tokens: int, completion_tokens: int, total_tokens: int} $usage */
+        $usage = $result->metadata['usage'];
+        self::assertEquals(100, $usage['prompt_tokens']);
+        self::assertEquals(50, $usage['completion_tokens']);
+        self::assertEquals(150, $usage['total_tokens']);
     }
 
     #[Test]
@@ -228,7 +237,6 @@ class LlmTranslatorTest extends AbstractUnitTestCase
         $result = $this->subject->translateBatch(['Text 1', 'Text 2', 'Text 3'], 'de', 'en');
 
         self::assertCount(3, $result);
-        self::assertContainsOnlyInstancesOf(TranslatorResult::class, $result);
     }
 
     // ==================== detectLanguage tests ====================
@@ -482,7 +490,6 @@ class TranslatorTestProvider extends AbstractProvider
     public ?CompletionResponse $nextResponse = null;
     /** @var array<CompletionResponse> */
     public array $responseQueue = [];
-    private int $callCount = 0;
 
     public function __construct()
     {
@@ -535,8 +542,11 @@ class TranslatorTestProvider extends AbstractProvider
         return 'https://api.openai.com/v1';
     }
 
+    /**
+     * @return array<string, string>
+     */
     public function getAvailableModels(): array
     {
-        return ['gpt-5.2', 'gpt-5.1'];
+        return ['gpt-5.2' => 'GPT 5.2', 'gpt-5.1' => 'GPT 5.1'];
     }
 }

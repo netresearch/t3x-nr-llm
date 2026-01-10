@@ -10,7 +10,7 @@ use Netresearch\NrLlm\Service\SetupWizard\ModelDiscovery;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -23,36 +23,36 @@ use RuntimeException;
 #[CoversClass(DetectedProvider::class)]
 class ModelDiscoveryTest extends AbstractUnitTestCase
 {
-    private ClientInterface&MockObject $httpClientMock;
-    private RequestFactoryInterface&MockObject $requestFactoryMock;
-    private StreamFactoryInterface&MockObject $streamFactoryMock;
+    private ClientInterface&Stub $httpClientStub;
+    private RequestFactoryInterface&Stub $requestFactoryStub;
+    private StreamFactoryInterface&Stub $streamFactoryStub;
     private ModelDiscovery $subject;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->httpClientMock = $this->createMock(ClientInterface::class);
-        $this->requestFactoryMock = $this->createMock(RequestFactoryInterface::class);
-        $this->streamFactoryMock = $this->createMock(StreamFactoryInterface::class);
+        $this->httpClientStub = self::createStub(ClientInterface::class);
+        $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
+        $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
 
         $this->subject = new ModelDiscovery(
-            $this->httpClientMock,
-            $this->requestFactoryMock,
-            $this->streamFactoryMock,
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
         );
     }
 
-    private function createJsonResponseMockForDiscovery(int $statusCode, string $body): ResponseInterface&MockObject
+    private function createJsonResponseStubForDiscovery(int $statusCode, string $body): ResponseInterface&Stub
     {
-        $streamMock = $this->createMock(StreamInterface::class);
-        $streamMock->method('getContents')->willReturn($body);
+        $streamStub = self::createStub(StreamInterface::class);
+        $streamStub->method('getContents')->willReturn($body);
 
-        $responseMock = $this->createMock(ResponseInterface::class);
-        $responseMock->method('getStatusCode')->willReturn($statusCode);
-        $responseMock->method('getBody')->willReturn($streamMock);
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn($statusCode);
+        $responseStub->method('getBody')->willReturn($streamStub);
 
-        return $responseMock;
+        return $responseStub;
     }
 
     // ==================== testConnection tests ====================
@@ -66,13 +66,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'OpenAI',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(200, '{"data": []}'));
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{"data": []}'));
 
         $result = $this->subject->testConnection($provider, 'test-api-key');
 
@@ -89,13 +89,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Anthropic',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(200, '{}'));
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{}'));
 
         $result = $this->subject->testConnection($provider, 'test-api-key');
 
@@ -111,13 +111,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Google Gemini',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(200, '{}'));
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{}'));
 
         $result = $this->subject->testConnection($provider, 'test-api-key');
 
@@ -133,13 +133,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Ollama',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(200, '{}'));
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{}'));
 
         $result = $this->subject->testConnection($provider, '');
 
@@ -155,13 +155,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'OpenAI',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(401, '{"error": "unauthorized"}'));
+            ->willReturn($this->createJsonResponseStubForDiscovery(401, '{"error": "unauthorized"}'));
 
         $result = $this->subject->testConnection($provider, 'invalid-key');
 
@@ -178,13 +178,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'OpenAI',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(500, '{"error": "server error"}'));
+            ->willReturn($this->createJsonResponseStubForDiscovery(500, '{"error": "server error"}'));
 
         $result = $this->subject->testConnection($provider, 'test-key');
 
@@ -201,11 +201,11 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'OpenAI',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willThrowException(new RuntimeException('Network error'));
 
@@ -226,11 +226,11 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'OpenAI',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = json_encode([
+        $apiResponse = (string)json_encode([
             'data' => [
                 ['id' => 'gpt-5.2'],
                 ['id' => 'gpt-4o'],
@@ -238,14 +238,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(200, $apiResponse));
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, $apiResponse));
 
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        self::assertContainsOnlyInstancesOf(DiscoveredModel::class, $models);
     }
 
     #[Test]
@@ -257,13 +256,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'OpenAI',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(500, '{}'));
+            ->willReturn($this->createJsonResponseStubForDiscovery(500, '{}'));
 
         $models = $this->subject->discover($provider, 'test-key');
 
@@ -298,11 +297,11 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Google Gemini',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = json_encode([
+        $apiResponse = (string)json_encode([
             'models' => [
                 [
                     'name' => 'models/gemini-3-flash',
@@ -321,9 +320,9 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(200, $apiResponse));
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, $apiResponse));
 
         $models = $this->subject->discover($provider, 'test-key');
 
@@ -341,13 +340,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Google Gemini',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(500, '{}'));
+            ->willReturn($this->createJsonResponseStubForDiscovery(500, '{}'));
 
         $models = $this->subject->discover($provider, 'test-key');
 
@@ -363,36 +362,36 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Ollama',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
         // First call: /api/tags, second call: /api/show
-        $tagsResponse = json_encode([
+        $tagsResponse = (string)json_encode([
             'models' => [
                 ['name' => 'llama3:latest'],
                 ['name' => 'qwen:latest'],
             ],
         ]);
 
-        $showResponse = json_encode([
+        $showResponse = (string)json_encode([
             'model_info' => [
                 'context_length' => 32768,
             ],
             'parameters' => 'num_ctx 32768',
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturnOnConsecutiveCalls(
-                $this->createJsonResponseMockForDiscovery(200, $tagsResponse),
-                $this->createJsonResponseMockForDiscovery(200, $showResponse),
-                $this->createJsonResponseMockForDiscovery(200, $showResponse),
+                $this->createJsonResponseStubForDiscovery(200, $tagsResponse),
+                $this->createJsonResponseStubForDiscovery(200, $showResponse),
+                $this->createJsonResponseStubForDiscovery(200, $showResponse),
             );
 
         $models = $this->subject->discover($provider, '');
@@ -411,13 +410,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Ollama',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(500, '{}'));
+            ->willReturn($this->createJsonResponseStubForDiscovery(500, '{}'));
 
         $models = $this->subject->discover($provider, '');
 
@@ -433,11 +432,11 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'OpenRouter',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = json_encode([
+        $apiResponse = (string)json_encode([
             'data' => [
                 [
                     'id' => 'anthropic/claude-3-opus',
@@ -452,9 +451,9 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(200, $apiResponse));
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, $apiResponse));
 
         $models = $this->subject->discover($provider, 'test-key');
 
@@ -471,20 +470,20 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Mistral AI',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = json_encode([
+        $apiResponse = (string)json_encode([
             'data' => [
                 ['id' => 'mistral-large-latest'],
                 ['id' => 'mistral-medium-latest'],
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(200, $apiResponse));
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, $apiResponse));
 
         $models = $this->subject->discover($provider, 'test-key');
 
@@ -500,13 +499,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Mistral AI',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(500, '{}'));
+            ->willReturn($this->createJsonResponseStubForDiscovery(500, '{}'));
 
         $models = $this->subject->discover($provider, 'test-key');
 
@@ -524,11 +523,11 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Groq',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = json_encode([
+        $apiResponse = (string)json_encode([
             'data' => [
                 [
                     'id' => 'llama-3.1-70b-versatile',
@@ -537,9 +536,9 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(200, $apiResponse));
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, $apiResponse));
 
         $models = $this->subject->discover($provider, 'test-key');
 
@@ -556,13 +555,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Groq',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(500, '{}'));
+            ->willReturn($this->createJsonResponseStubForDiscovery(500, '{}'));
 
         $models = $this->subject->discover($provider, 'test-key');
 
@@ -596,11 +595,11 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'OpenAI',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = json_encode([
+        $apiResponse = (string)json_encode([
             'data' => [
                 ['id' => 'gpt-5.2'],
                 ['id' => 'text-davinci-003'], // Should be filtered out
@@ -609,9 +608,9 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ],
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(200, $apiResponse));
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, $apiResponse));
 
         $models = $this->subject->discover($provider, 'test-key');
 
@@ -631,17 +630,17 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'OpenAI',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $apiResponse = json_encode([
+        $apiResponse = (string)json_encode([
             'data' => 'invalid', // Not an array
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
-            ->willReturn($this->createJsonResponseMockForDiscovery(200, $apiResponse));
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, $apiResponse));
 
         $models = $this->subject->discover($provider, 'test-key');
 
@@ -660,31 +659,31 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Ollama',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $tagsResponse = json_encode([
+        $tagsResponse = (string)json_encode([
             'models' => [
                 ['name' => 'llava:latest'],
             ],
         ]);
 
-        $showResponse = json_encode([
+        $showResponse = (string)json_encode([
             'model_info' => [],
             'parameters' => '',
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturnOnConsecutiveCalls(
-                $this->createJsonResponseMockForDiscovery(200, $tagsResponse),
-                $this->createJsonResponseMockForDiscovery(200, $showResponse),
+                $this->createJsonResponseStubForDiscovery(200, $tagsResponse),
+                $this->createJsonResponseStubForDiscovery(200, $showResponse),
             );
 
         $models = $this->subject->discover($provider, '');
@@ -702,31 +701,31 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Ollama',
         );
 
-        $this->requestFactoryMock
+        $this->requestFactoryStub
             ->method('createRequest')
             ->willReturn($this->createRequestMock());
 
-        $streamMock = $this->createMock(StreamInterface::class);
-        $this->streamFactoryMock
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamMock);
+            ->willReturn($streamStub);
 
-        $tagsResponse = json_encode([
+        $tagsResponse = (string)json_encode([
             'models' => [
                 ['name' => 'qwen2:latest'],
             ],
         ]);
 
-        $showResponse = json_encode([
+        $showResponse = (string)json_encode([
             'model_info' => [],
             'parameters' => 'num_ctx 32768',
         ]);
 
-        $this->httpClientMock
+        $this->httpClientStub
             ->method('sendRequest')
             ->willReturnOnConsecutiveCalls(
-                $this->createJsonResponseMockForDiscovery(200, $tagsResponse),
-                $this->createJsonResponseMockForDiscovery(200, $showResponse),
+                $this->createJsonResponseStubForDiscovery(200, $tagsResponse),
+                $this->createJsonResponseStubForDiscovery(200, $showResponse),
             );
 
         $models = $this->subject->discover($provider, '');
@@ -776,7 +775,6 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $array = $model->toArray();
 
-        self::assertIsArray($array);
         self::assertEquals('test-model', $array['modelId']);
         self::assertEquals('Test Model', $array['name']);
         self::assertEquals('A test model', $array['description']);

@@ -87,7 +87,7 @@ class LoadRecordDataRequestTest extends AbstractUnitTestCase
     #[Test]
     public function fromRequestHandlesNullBody(): void
     {
-        $serverRequest = $this->createMock(ServerRequestInterface::class);
+        $serverRequest = self::createStub(ServerRequestInterface::class);
         $serverRequest->method('getParsedBody')->willReturn(null);
 
         $request = LoadRecordDataRequest::fromRequest($serverRequest);
@@ -145,6 +145,9 @@ class LoadRecordDataRequestTest extends AbstractUnitTestCase
         self::assertFalse($request->isValid());
     }
 
+    /**
+     * @param list<int> $expectedList
+     */
     #[Test]
     #[DataProvider('uidParsingProvider')]
     public function fromRequestParsesUidsCorrectly(string $uids, array $expectedList): void
@@ -182,7 +185,7 @@ class LoadRecordDataRequestTest extends AbstractUnitTestCase
      */
     private function createServerRequestMock(array $body): ServerRequestInterface
     {
-        $request = $this->createMock(ServerRequestInterface::class);
+        $request = self::createStub(ServerRequestInterface::class);
         $request->method('getParsedBody')->willReturn($body);
         return $request;
     }

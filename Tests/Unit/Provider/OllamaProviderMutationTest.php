@@ -290,6 +290,7 @@ class OllamaProviderMutationTest extends AbstractUnitTestCase
 
         self::assertTrue($result['success']);
         self::assertStringContainsString('3 models', $result['message']);
+        /** @var array{success: true, message: string, models: array<string, string>} $result */
         self::assertArrayHasKey('models', $result);
         self::assertCount(3, $result['models']);
     }

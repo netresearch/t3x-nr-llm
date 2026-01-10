@@ -19,6 +19,7 @@ class ServiceConfigurationExceptionTest extends AbstractUnitTestCase
 
         self::assertStringContainsString('Deepl API authentication failed', $exception->getMessage());
         self::assertEquals('translation', $exception->service);
+        self::assertNotNull($exception->context);
         self::assertEquals('invalid_api_key', $exception->context['reason']);
         self::assertEquals('deepl', $exception->context['provider']);
     }
@@ -38,6 +39,7 @@ class ServiceConfigurationExceptionTest extends AbstractUnitTestCase
 
         self::assertStringContainsString('Dalle requires configuration option "api_key"', $exception->getMessage());
         self::assertEquals('image', $exception->service);
+        self::assertNotNull($exception->context);
         self::assertEquals('missing_option', $exception->context['reason']);
         self::assertEquals('dalle', $exception->context['provider']);
         self::assertEquals('api_key', $exception->context['option']);
@@ -56,6 +58,7 @@ class ServiceConfigurationExceptionTest extends AbstractUnitTestCase
         self::assertStringContainsString('Deepl configuration error for "target_language"', $exception->getMessage());
         self::assertStringContainsString('must be a valid ISO language code', $exception->getMessage());
         self::assertEquals('translation', $exception->service);
+        self::assertNotNull($exception->context);
         self::assertEquals('invalid_value', $exception->context['reason']);
         self::assertEquals('deepl', $exception->context['provider']);
         self::assertEquals('target_language', $exception->context['option']);
