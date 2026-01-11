@@ -81,7 +81,7 @@ jobs:
         run: |
           cd dist
           for file in *.zip *.tar.gz *.json checksums.txt; do
-            cosign sign-blob --yes "$file" --output-signature "${file}.sig" --output-certificate "${file}.pem"
+            cosign sign-blob --yes "$file" --bundle "${file}.bundle"
           done
 
       - name: Generate attestation
@@ -119,8 +119,7 @@ jobs:
 
             # Verify artifact signature
             cosign verify-blob \
-              --certificate nr_llm-${{ steps.version.outputs.version }}.zip.pem \
-              --signature nr_llm-${{ steps.version.outputs.version }}.zip.sig \
+              --bundle nr_llm-${{ steps.version.outputs.version }}.zip.bundle \
               --certificate-identity-regexp "https://github.com/netresearch/.*" \
               --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
               nr_llm-${{ steps.version.outputs.version }}.zip
