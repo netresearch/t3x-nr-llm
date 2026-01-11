@@ -43,6 +43,7 @@ return [
         ],
     ],
     // Provider management - child of main module
+    // Note: AJAX actions (toggleActive, testConnection) are registered via AjaxRoutes.php
     'nrllm_providers' => [
         'parent' => 'nrllm',
         'access' => 'admin',
@@ -53,16 +54,11 @@ return [
         'controllerActions' => [
             ProviderController::class => [
                 'list',
-                'edit',
-                'create',
-                'update',
-                'delete',
-                'toggleActive',
-                'testConnection',
             ],
         ],
     ],
     // Model management - child of main module
+    // Note: AJAX actions (toggleActive, setDefault, etc.) are registered via AjaxRoutes.php
     'nrllm_models' => [
         'parent' => 'nrllm',
         'access' => 'admin',
@@ -73,17 +69,11 @@ return [
         'controllerActions' => [
             ModelController::class => [
                 'list',
-                'edit',
-                'create',
-                'update',
-                'delete',
-                'toggleActive',
-                'setDefault',
-                'getByProvider',
             ],
         ],
     ],
     // Configuration management - child of main module
+    // Note: AJAX actions (toggleActive, setDefault, testConfiguration) are registered via AjaxRoutes.php
     'nrllm_configurations' => [
         'parent' => 'nrllm',
         'access' => 'admin',
@@ -94,14 +84,11 @@ return [
         'controllerActions' => [
             ConfigurationController::class => [
                 'list',
-                'edit',
-                'create',
-                'update',
-                'delete',
             ],
         ],
     ],
     // Task management - child of main module
+    // Note: new/edit/save/delete use FormEngine (record_edit route), AJAX actions via AjaxRoutes.php
     'nrllm_tasks' => [
         'parent' => 'nrllm',
         'access' => 'admin',
@@ -112,15 +99,12 @@ return [
         'controllerActions' => [
             TaskController::class => [
                 'list',
-                'new',
-                'edit',
-                'save',
-                'delete',
                 'executeForm',
             ],
         ],
     ],
     // Setup wizard - child of main module
+    // Note: AJAX actions (detect, test, discover, generate, save) are registered via AjaxRoutes.php
     'nrllm_wizard' => [
         'parent' => 'nrllm',
         'access' => 'admin',
@@ -131,11 +115,6 @@ return [
         'controllerActions' => [
             SetupWizardController::class => [
                 'index',
-                'detect',
-                'test',
-                'discover',
-                'generate',
-                'save',
             ],
         ],
     ],
