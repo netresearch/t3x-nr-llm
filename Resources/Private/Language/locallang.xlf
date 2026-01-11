@@ -264,6 +264,122 @@
             <trans-unit id="error">
                 <source>Error</source>
             </trans-unit>
+
+            <!-- Button labels for accessibility -->
+            <trans-unit id="setDefault">
+                <source>Set as Default</source>
+            </trans-unit>
+            <trans-unit id="testModel">
+                <source>Test Model</source>
+            </trans-unit>
+            <trans-unit id="testConfiguration">
+                <source>Test Configuration</source>
+            </trans-unit>
+            <trans-unit id="filterModelsLabel">
+                <source>Filter models by provider</source>
+            </trans-unit>
+            <trans-unit id="filterByProvider">
+                <source>Filter by Provider</source>
+            </trans-unit>
+            <trans-unit id="allProviders">
+                <source>All Providers</source>
+            </trans-unit>
+
+            <!-- Model List -->
+            <trans-unit id="model.list.title">
+                <source>LLM Models</source>
+            </trans-unit>
+            <trans-unit id="model.field.capabilities">
+                <source>Capabilities</source>
+            </trans-unit>
+            <trans-unit id="model.field.context">
+                <source>Context</source>
+            </trans-unit>
+            <trans-unit id="model.field.status">
+                <source>Status</source>
+            </trans-unit>
+            <trans-unit id="modelTest">
+                <source>Model Test</source>
+            </trans-unit>
+            <trans-unit id="model">
+                <source>Model</source>
+            </trans-unit>
+            <trans-unit id="testingModel">
+                <source>Testing model...</source>
+            </trans-unit>
+            <trans-unit id="model.empty.title">
+                <source>No Models Configured</source>
+            </trans-unit>
+            <trans-unit id="model.empty.message">
+                <source>No models configured yet. Create your first model to start using LLM services.</source>
+            </trans-unit>
+            <trans-unit id="model.empty.providerRequired">
+                <source>You need to create a provider first before adding models.</source>
+            </trans-unit>
+            <trans-unit id="noProvider">
+                <source>No provider</source>
+            </trans-unit>
+            <trans-unit id="default">
+                <source>Default</source>
+            </trans-unit>
+            <trans-unit id="note">
+                <source>Note</source>
+            </trans-unit>
+
+            <!-- Configuration List -->
+            <trans-unit id="configuration.list.title">
+                <source>LLM Configurations</source>
+            </trans-unit>
+            <trans-unit id="configuration.field.name">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="configuration.field.identifier">
+                <source>Identifier</source>
+            </trans-unit>
+            <trans-unit id="configuration.field.provider">
+                <source>Provider</source>
+            </trans-unit>
+            <trans-unit id="configuration.field.model">
+                <source>Model</source>
+            </trans-unit>
+            <trans-unit id="configuration.field.status">
+                <source>Status</source>
+            </trans-unit>
+            <trans-unit id="configuration.empty.title">
+                <source>No Configurations Found</source>
+            </trans-unit>
+            <trans-unit id="configuration.empty.message">
+                <source>No LLM configurations found yet. Create your first configuration to get started.</source>
+            </trans-unit>
+            <trans-unit id="notConfigured">
+                <source>Not configured</source>
+            </trans-unit>
+            <trans-unit id="testResult">
+                <source>Test Result</source>
+            </trans-unit>
+            <trans-unit id="testingConfiguration">
+                <source>Testing configuration...</source>
+            </trans-unit>
+            <trans-unit id="configurationWorking">
+                <source>Configuration is working.</source>
+            </trans-unit>
+            <trans-unit id="response">
+                <source>Response</source>
+            </trans-unit>
+            <trans-unit id="tokensUsed">
+                <source>Tokens used</source>
+            </trans-unit>
+
+            <!-- Button actions -->
+            <trans-unit id="btn.provider.new">
+                <source>New Provider</source>
+            </trans-unit>
+            <trans-unit id="btn.model.new">
+                <source>New Model</source>
+            </trans-unit>
+            <trans-unit id="btn.configuration.new">
+                <source>New Configuration</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>
