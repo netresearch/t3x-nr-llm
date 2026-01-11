@@ -160,13 +160,31 @@ jobs:
       - name: Install tailor
         run: composer global require typo3/tailor --no-progress
 
+      - name: Create TER package
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          # Create zip archive for TER (excluding dev files)
+          zip -r "nr_llm_$VERSION.zip" . \
+            -x "*.git*" \
+            -x "*.github*" \
+            -x "Tests/*" \
+            -x "Build/*" \
+            -x ".php-cs-fixer*" \
+            -x "phpstan*" \
+            -x "phpunit*" \
+            -x "grumphp*" \
+            -x "rector*" \
+            -x "*.dist" \
+            -x "Makefile"
+
       - name: Upload to TER
         env:
           TYPO3_API_TOKEN: ${{ secrets.TYPO3_API_TOKEN }}
           VERSION: ${{ needs.release.outputs.version }}
         run: |
           ~/.composer/vendor/bin/tailor ter:publish "$VERSION" \
-            --artefact=. \
+            --artefact="nr_llm_$VERSION.zip" \
             --comment="Release $VERSION"
 
   provenance:
