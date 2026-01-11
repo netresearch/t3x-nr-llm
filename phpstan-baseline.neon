@@ -1,2 +1,9 @@
 parameters:
-	ignoreErrors: []
+	ignoreErrors:
+		# ext_emconf.php uses standard TYPO3 patterns with $_EXTKEY global
+		-
+			identifier: offsetAccess.nonOffsetAccessible
+			path: ext_emconf.php
+		-
+			identifier: variable.undefined
+			path: ext_emconf.php
