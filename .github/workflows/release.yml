@@ -138,6 +138,38 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  ter:
+    name: Upload to TER
+    needs: release
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.ref_name, '-') }}  # Skip pre-releases (e.g., v0.1.0-beta)
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a # v2.32.0
+        with:
+          php-version: '8.2'
+
+      - name: Install tailor
+        run: composer global require typo3/tailor --no-progress
+
+      - name: Upload to TER
+        env:
+          TYPO3_API_TOKEN: ${{ secrets.TYPO3_API_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          ~/.composer/vendor/bin/tailor ter:publish "$VERSION" \
+            --artefact=. \
+            --comment="Release $VERSION"
+
   provenance:
     name: Generate SLSA Provenance
     needs: release
