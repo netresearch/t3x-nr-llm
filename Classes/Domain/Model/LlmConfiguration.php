@@ -350,12 +350,8 @@ class LlmConfiguration extends AbstractEntity
         $this->llmModel = $llmModel;
     }
 
-    public function setModelSelectionMode(string|ModelSelectionMode $modelSelectionMode): void
+    public function setModelSelectionMode(string $modelSelectionMode): void
     {
-        if ($modelSelectionMode instanceof ModelSelectionMode) {
-            $this->modelSelectionMode = $modelSelectionMode->value;
-            return;
-        }
         if (!ModelSelectionMode::isValid($modelSelectionMode)) {
             $modelSelectionMode = ModelSelectionMode::FIXED->value;
         }

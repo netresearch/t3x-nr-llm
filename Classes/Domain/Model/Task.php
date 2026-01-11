@@ -225,9 +225,9 @@ class Task extends AbstractEntity
         $this->description = $description;
     }
 
-    public function setCategory(string|TaskCategory $category): void
+    public function setCategory(string $category): void
     {
-        $this->category = $category instanceof TaskCategory ? $category->value : $category;
+        $this->category = $category;
     }
 
     public function setConfiguration(?LlmConfiguration $configuration): void
@@ -240,9 +240,9 @@ class Task extends AbstractEntity
         $this->promptTemplate = $promptTemplate;
     }
 
-    public function setInputType(string|TaskInputType $inputType): void
+    public function setInputType(string $inputType): void
     {
-        $this->inputType = $inputType instanceof TaskInputType ? $inputType->value : $inputType;
+        $this->inputType = $inputType;
     }
 
     public function setInputSource(string $inputSource): void
@@ -260,9 +260,9 @@ class Task extends AbstractEntity
         $this->inputSource = json_encode($inputSource, JSON_THROW_ON_ERROR);
     }
 
-    public function setOutputFormat(string|TaskOutputFormat $outputFormat): void
+    public function setOutputFormat(string $outputFormat): void
     {
-        $this->outputFormat = $outputFormat instanceof TaskOutputFormat ? $outputFormat->value : $outputFormat;
+        $this->outputFormat = $outputFormat;
     }
 
     public function setIsActive(bool $isActive): void

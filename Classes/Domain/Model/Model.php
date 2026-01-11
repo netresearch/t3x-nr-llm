@@ -306,21 +306,19 @@ class Model extends AbstractEntity
     /**
      * Check if model has a specific capability.
      */
-    public function hasCapability(string|ModelCapability $capability): bool
+    public function hasCapability(string $capability): bool
     {
-        $capabilityValue = $capability instanceof ModelCapability ? $capability->value : $capability;
-        return in_array($capabilityValue, $this->getCapabilitiesArray(), true);
+        return in_array($capability, $this->getCapabilitiesArray(), true);
     }
 
     /**
      * Add a capability.
      */
-    public function addCapability(string|ModelCapability $capability): void
+    public function addCapability(string $capability): void
     {
-        $capabilityValue = $capability instanceof ModelCapability ? $capability->value : $capability;
         $caps = $this->getCapabilitiesArray();
-        if (!in_array($capabilityValue, $caps, true)) {
-            $caps[] = $capabilityValue;
+        if (!in_array($capability, $caps, true)) {
+            $caps[] = $capability;
             $this->setCapabilitiesArray($caps);
         }
     }
@@ -328,54 +326,53 @@ class Model extends AbstractEntity
     /**
      * Remove a capability.
      */
-    public function removeCapability(string|ModelCapability $capability): void
+    public function removeCapability(string $capability): void
     {
-        $capabilityValue = $capability instanceof ModelCapability ? $capability->value : $capability;
         $caps = array_filter(
             $this->getCapabilitiesArray(),
-            static fn(string $cap): bool => $cap !== $capabilityValue,
+            static fn(string $cap): bool => $cap !== $capability,
         );
         $this->setCapabilitiesArray($caps);
     }
 
     public function supportsChat(): bool
     {
-        return $this->hasCapability(ModelCapability::CHAT);
+        return $this->hasCapability(ModelCapability::CHAT->value);
     }
 
     public function supportsCompletion(): bool
     {
-        return $this->hasCapability(ModelCapability::COMPLETION);
+        return $this->hasCapability(ModelCapability::COMPLETION->value);
     }
 
     public function supportsEmbeddings(): bool
     {
-        return $this->hasCapability(ModelCapability::EMBEDDINGS);
+        return $this->hasCapability(ModelCapability::EMBEDDINGS->value);
     }
 
     public function supportsVision(): bool
     {
-        return $this->hasCapability(ModelCapability::VISION);
+        return $this->hasCapability(ModelCapability::VISION->value);
     }
 
     public function supportsStreaming(): bool
     {
-        return $this->hasCapability(ModelCapability::STREAMING);
+        return $this->hasCapability(ModelCapability::STREAMING->value);
     }
 
     public function supportsTools(): bool
     {
-        return $this->hasCapability(ModelCapability::TOOLS);
+        return $this->hasCapability(ModelCapability::TOOLS->value);
     }
 
     public function supportsJsonMode(): bool
     {
-        return $this->hasCapability(ModelCapability::JSON_MODE);
+        return $this->hasCapability(ModelCapability::JSON_MODE->value);
     }
 
     public function supportsAudio(): bool
     {
-        return $this->hasCapability(ModelCapability::AUDIO);
+        return $this->hasCapability(ModelCapability::AUDIO->value);
     }
 
     // ========================================
