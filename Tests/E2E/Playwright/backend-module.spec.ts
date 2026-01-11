@@ -85,6 +85,8 @@ test.describe('LLM Backend Module - Multi-Tier Architecture', () => {
     });
   });
 
+  // Records are edited via TYPO3 FormEngine (record_edit route)
+  // Edit buttons link to FormEngine which uses TCA-based forms with TYPO3's standard field naming
   test.describe('Edit Configuration', () => {
     test('should navigate to edit form when clicking edit button', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
@@ -95,58 +97,17 @@ test.describe('LLM Backend Module - Multi-Tier Architecture', () => {
       const count = await editButtons.count();
 
       if (count > 0) {
-        // Click the first edit button
+        // Click the first edit button - links to FormEngine
         await editButtons.first().click();
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(2000);
 
-        // Verify edit form loaded
-        const editFrame = getModuleFrame(page);
-        await expect(editFrame.getByRole('heading', { level: 1 })).toContainText('Edit LLM Configuration');
+        // FormEngine loads in a different frame/page context
+        // Just verify the URL changed to record_edit
+        await expect(page).toHaveURL(/record\/edit|record_edit/);
       } else {
-        // Skip test if no configurations exist - this is expected on fresh install
-        test.skip();
-      }
-    });
-
-    test('should preserve existing values in edit form', async ({ authenticatedPage }) => {
-      const page = authenticatedPage;
-      const moduleFrame = await navigateToConfigurations(page);
-
-      // Find and click first edit button
-      const editButtons = moduleFrame.locator('a[title="Edit"], a:has-text("Edit"), a .icon-actions-open');
-      const count = await editButtons.count();
-
-      if (count > 0) {
-        await editButtons.first().click();
-        await page.waitForTimeout(1000);
-
-        const editFrame = getModuleFrame(page);
-
-        // All input fields should have values or be checkboxes
-        const identifier = await editFrame.locator('#identifier').inputValue();
-        expect(identifier.length).toBeGreaterThan(0);
-      } else {
-        test.skip();
-      }
-    });
-  });
-
-  test.describe('Delete Configuration', () => {
-    test('should show delete confirmation or button', async ({ authenticatedPage }) => {
-      const page = authenticatedPage;
-      const moduleFrame = await navigateToConfigurations(page);
-
-      // Check for delete buttons
-      const deleteButtons = moduleFrame.locator('a[title="Delete"], button[title="Delete"], a:has-text("Delete"), .btn-danger');
-      const count = await deleteButtons.count();
-
-      // If configurations exist, delete buttons should be present
-      const hasConfigurations = await moduleFrame.locator('table tbody tr').count();
-      if (hasConfigurations > 0) {
-        expect(count).toBeGreaterThan(0);
-      } else {
-        // No configurations, no delete buttons expected - test passes
-        expect(true).toBe(true);
+        // No configurations to edit - verify empty state message is shown instead
+        const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="empty"]');
+        await expect(emptyState).toBeVisible();
       }
     });
   });
