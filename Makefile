@@ -1,7 +1,7 @@
 # Makefile for nr_llm TYPO3 extension development
 # Generated according to TYPO3 DDEV Skill best practices
 
-.PHONY: help setup up down restart install seed seed-tasks ollama test test-unit test-integration test-functional test-fuzzy test-e2e coverage mutation lint lint-fix phpstan rector docs clean ci
+.PHONY: help setup up down restart install sync seed seed-tasks ollama test test-unit test-integration test-functional test-fuzzy test-e2e coverage mutation lint lint-fix phpstan rector docs clean ci
 
 # Default target
 help:
@@ -17,6 +17,7 @@ help:
 	@echo "  down        Stop DDEV environment"
 	@echo "  restart     Restart DDEV environment"
 	@echo "  install     Install TYPO3 v14 with extension"
+	@echo "  sync        Sync database schema (run extension:setup)"
 	@echo "  seed        Import Ollama seed data (provider, models, configs)"
 	@echo "  seed-tasks  Import task seed data (one-shot prompts)"
 	@echo "  ollama      Check Ollama status and available models"
@@ -61,6 +62,8 @@ setup: up install ollama
 # Environment targets
 up:
 	ddev start
+	@echo "🔄 Syncing database schema..."
+	@ddev exec -d /var/www/html/v14 vendor/bin/typo3 extension:setup 2>/dev/null || echo "   ⚠️ v14 not installed. Run 'make install' first."
 
 down:
 	ddev stop
@@ -70,6 +73,10 @@ restart:
 
 install:
 	ddev install-v14
+
+sync:
+	ddev exec -d /var/www/html/v14 vendor/bin/typo3 extension:setup
+	ddev exec -d /var/www/html/v14 vendor/bin/typo3 cache:flush
 
 seed:
 	ddev seed-ollama
