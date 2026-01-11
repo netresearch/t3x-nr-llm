@@ -2,7 +2,7 @@ import { test, expect, navigateToProviders, navigateToModels, navigateToConfigur
 
 test.describe('Action Buttons', () => {
   test.describe('Provider Test Connection Button', () => {
-    test('should have test connection button for providers', async ({ authenticatedPage }) => {
+    test('should have test connection button for providers or show empty state', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToProviders(page);
 
@@ -15,8 +15,9 @@ test.describe('Action Buttons', () => {
         const testButton = moduleFrame.locator('.js-test-connection').first();
         await expect(testButton).toBeVisible();
       } else {
-        // No providers configured, skip test
-        test.skip();
+        // No providers configured - verify empty state is shown
+        const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
+        await expect(emptyState).toBeVisible();
       }
     });
 
@@ -47,7 +48,7 @@ test.describe('Action Buttons', () => {
       // Note: We may not catch the initial load messages due to timing
     });
 
-    test('should show modal when clicking test connection button', async ({ authenticatedPage }) => {
+    test('should show modal when clicking test connection button or verify no providers', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToProviders(page);
 
@@ -56,7 +57,11 @@ test.describe('Action Buttons', () => {
       const hasButton = await testButton.count() > 0;
 
       if (!hasButton) {
-        test.skip();
+        // No test button means no providers - verify empty state
+        const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
+        const hasEmptyState = await emptyState.count() > 0;
+        // Either empty state or just no providers in table
+        expect(hasEmptyState || await moduleFrame.locator('table tbody tr').count() === 0).toBe(true);
         return;
       }
 
@@ -99,7 +104,7 @@ test.describe('Action Buttons', () => {
   });
 
   test.describe('Model Test Button', () => {
-    test('should have test model button', async ({ authenticatedPage }) => {
+    test('should have test model button or show empty state', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToModels(page);
 
@@ -108,22 +113,24 @@ test.describe('Action Buttons', () => {
       const count = await modelRows.count();
 
       if (count > 0) {
-        // Find test button
+        // Find test button - models should have test buttons
         const testButton = moduleFrame.locator('.js-test-model').first();
         const hasButton = await testButton.count() > 0;
 
         if (hasButton) {
           await expect(testButton).toBeVisible();
         }
+        // If no test button but rows exist, test passes (button might be hidden for some models)
       } else {
-        // No models configured, skip test
-        test.skip();
+        // No models configured - verify empty state is shown
+        const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
+        await expect(emptyState).toBeVisible();
       }
     });
   });
 
   test.describe('Configuration Test Button', () => {
-    test('should have test configuration button', async ({ authenticatedPage }) => {
+    test('should have test configuration button or show empty state', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToConfigurations(page);
 
@@ -139,13 +146,15 @@ test.describe('Action Buttons', () => {
         if (hasButton) {
           await expect(testButton).toBeVisible();
         }
+        // If no test button but rows exist, test passes (button might be hidden for some configs)
       } else {
-        // No configurations, skip test
-        test.skip();
+        // No configurations - verify empty state is shown
+        const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
+        await expect(emptyState).toBeVisible();
       }
     });
 
-    test('should show modal when clicking test config button', async ({ authenticatedPage }) => {
+    test('should show modal when clicking test config button or verify no configs', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToConfigurations(page);
 
@@ -154,7 +163,10 @@ test.describe('Action Buttons', () => {
       const hasButton = await testButton.count() > 0;
 
       if (!hasButton) {
-        test.skip();
+        // No test button - verify empty state or no configs in table
+        const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
+        const hasEmptyState = await emptyState.count() > 0;
+        expect(hasEmptyState || await moduleFrame.locator('table tbody tr').count() === 0).toBe(true);
         return;
       }
 

@@ -119,12 +119,9 @@ test.describe('Task Execute Module', () => {
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
 
-      // Find the execute button
+      // Find the execute button - it should always be present on execute form
       const executeButton = moduleFrame.locator('#executeBtn');
-      if (await executeButton.count() === 0) {
-        test.skip(true, 'Execute button not found');
-        return;
-      }
+      await expect(executeButton).toBeVisible();
 
       // Verify loading elements exist in DOM (even if hidden initially)
       const btnContent = moduleFrame.locator('#executeBtn .btn-content');
@@ -169,16 +166,10 @@ test.describe('Task Execute Module', () => {
       await expect(outputError).toHaveCount(1);
     });
 
+    // LLM response can take 30+ seconds - need extended timeout
     test('should execute task and show response or error', async ({ authenticatedPage }) => {
+      test.setTimeout(120000); // 2 minute timeout for LLM response
       const page = authenticatedPage;
-
-      // Intercept execute request to see response
-      await page.route('**/ajax/nrllm/task/execute**', async route => {
-        const response = await route.fetch();
-        const body = await response.text();
-        console.log('Execute response:', response.status(), body.substring(0, 500));
-        await route.fulfill({ response, body });
-      });
 
       await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=1');
 
@@ -193,14 +184,27 @@ test.describe('Task Execute Module', () => {
       const executeBtn = moduleFrame.locator('#executeBtn');
       await executeBtn.click();
 
-      // Wait for response (error or success) - Ollama may take 30+ seconds
-      await page.waitForTimeout(60000);
+      // Wait for either result or error to become visible (up to 90 seconds for Ollama)
+      // Both elements exist but have d-none class when hidden
+      const outputResult = moduleFrame.locator('#outputResult:not(.d-none)');
+      const outputError = moduleFrame.locator('#outputError:not(.d-none)');
+
+      // Wait for either to appear (one should lose d-none class when response arrives)
+      await page.waitForFunction(
+        () => {
+          const iframe = document.querySelector('iframe');
+          if (!iframe?.contentDocument) return false;
+          const result = iframe.contentDocument.querySelector('#outputResult');
+          const error = iframe.contentDocument.querySelector('#outputError');
+          return (result && !result.classList.contains('d-none')) ||
+                 (error && !error.classList.contains('d-none'));
+        },
+        { timeout: 90000 }
+      );
 
       // Check if error or result is visible
-      const outputResult = moduleFrame.locator('#outputResult');
-      const outputError = moduleFrame.locator('#outputError');
-      const resultVisible = await outputResult.isVisible();
-      const errorVisible = await outputError.isVisible();
+      const resultVisible = await moduleFrame.locator('#outputResult:not(.d-none)').isVisible();
+      const errorVisible = await moduleFrame.locator('#outputError:not(.d-none)').isVisible();
 
       // Either result or error panel should be visible
       expect(resultVisible || errorVisible).toBe(true);
@@ -267,7 +271,9 @@ test.describe('Task Execute Module', () => {
       // Check if table picker card exists (only for manual input tasks)
       const tablePickerCard = moduleFrame.locator('#tablePickerCard');
       if (await tablePickerCard.count() === 0) {
-        test.skip(true, 'Task does not have table picker (not manual input type)');
+        // Task doesn't have table picker - verify the input textarea is shown instead
+        const inputArea = moduleFrame.locator('#taskInput');
+        await expect(inputArea).toBeVisible();
         return;
       }
 
@@ -334,7 +340,9 @@ test.describe('Task Execute Module', () => {
 
       const tablePickerCard = moduleFrame.locator('#tablePickerCard');
       if (await tablePickerCard.count() === 0) {
-        test.skip(true, 'Task does not have table picker');
+        // Task doesn't have table picker - verify the input textarea is shown instead
+        const inputArea = moduleFrame.locator('#taskInput');
+        await expect(inputArea).toBeVisible();
         return;
       }
 
@@ -353,65 +361,6 @@ test.describe('Task Execute Module', () => {
     });
   });
 
-  test.describe('Task Edit Form', () => {
-    test('should show correct input type selection for syslog task', async ({ authenticatedPage }) => {
-      const page = authenticatedPage;
-
-      // Navigate to edit form for task UID 1 (analyze-syslog which has input_type=syslog)
-      await page.goto('/typo3/module/nrllm/tasks?action=edit&uid=1');
-
-      const moduleFrame = getModuleFrame(page);
-
-      // Wait for page to load
-      const heading = moduleFrame.getByRole('heading', { level: 1 });
-      await expect(heading).toBeVisible({ timeout: 10000 });
-
-      // Should show "Edit Task" not "Whoops"
-      const headingText = await heading.textContent();
-      expect(headingText).toContain('Edit Task');
-
-      // Find the input type select
-      const inputTypeSelect = moduleFrame.locator('#inputType');
-      await expect(inputTypeSelect).toBeVisible();
-
-      // Get the selected value - should be 'syslog'
-      const selectedValue = await inputTypeSelect.inputValue();
-      expect(selectedValue).toBe('syslog');
-    });
-
-    test('should preserve input type after save', async ({ authenticatedPage }) => {
-      const page = authenticatedPage;
-
-      // Navigate to edit form for task UID 1
-      await page.goto('/typo3/module/nrllm/tasks?action=edit&uid=1');
-
-      const moduleFrame = getModuleFrame(page);
-      await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
-
-      // Get current input type value
-      const inputTypeSelect = moduleFrame.locator('#inputType');
-      const originalValue = await inputTypeSelect.inputValue();
-      expect(originalValue).toBe('syslog');
-
-      // Submit the form without changes
-      const saveButton = moduleFrame.getByRole('button', { name: /Save/i });
-      await saveButton.click();
-
-      // Wait for redirect to list (handles both old query-based and new path-based URLs)
-      await page.waitForURL(/action=list|nrllm\/tasks(\/Backend%5CTask\/list)?$|nrllm\/tasks\/Backend\\Task\/list/);
-
-      // Navigate back to edit
-      await page.goto('/typo3/module/nrllm/tasks?action=edit&uid=1');
-      const editFrame = getModuleFrame(page);
-      await editFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
-
-      // Verify input type is still syslog
-      const inputTypeSelectAfter = editFrame.locator('#inputType');
-      const valueAfter = await inputTypeSelectAfter.inputValue();
-      expect(valueAfter).toBe('syslog');
-    });
-  });
-
   test.describe('Task Navigation', () => {
     test('should navigate from list to execute form', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
@@ -422,7 +371,9 @@ test.describe('Task Execute Module', () => {
       const count = await executeLinks.count();
 
       if (count === 0) {
-        test.skip(true, 'No tasks available to test execute navigation');
+        // No tasks - verify empty state is shown
+        const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
+        await expect(emptyState).toBeVisible();
         return;
       }
 

@@ -69,7 +69,7 @@ test.describe('Model List Module', () => {
   });
 
   test.describe('Model Actions', () => {
-    test('should navigate to edit form when clicking edit', async ({ authenticatedPage }) => {
+    test('should navigate to edit form when clicking edit or show empty state', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToModels(page);
 
@@ -77,7 +77,9 @@ test.describe('Model List Module', () => {
       const count = await editButtons.count();
 
       if (count === 0) {
-        test.skip(true, 'No models available to test edit');
+        // No models - verify empty state is shown
+        const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
+        await expect(emptyState).toBeVisible();
         return;
       }
 
@@ -85,10 +87,8 @@ test.describe('Model List Module', () => {
       await editButtons.first().click();
       await page.waitForTimeout(1000);
 
-      // Should navigate to edit form
-      const formFrame = getModuleFrame(page);
-      const formHeading = formFrame.getByRole('heading', { level: 1 });
-      await expect(formHeading).toContainText(/Edit|Model/);
+      // Should navigate to edit form (FormEngine)
+      await expect(page).toHaveURL(/record\/edit|record_edit/);
     });
 
     test('should navigate to create form when clicking new', async ({ authenticatedPage }) => {
@@ -98,19 +98,15 @@ test.describe('Model List Module', () => {
       const createButton = moduleFrame.locator('a:has-text("New"), a:has-text("Create")');
       const count = await createButton.count();
 
-      if (count === 0) {
-        test.skip(true, 'No create button found');
-        return;
-      }
+      // Create button should always be present
+      expect(count).toBeGreaterThan(0);
 
       // Click create button
       await createButton.first().click();
       await page.waitForTimeout(1000);
 
-      // Should navigate to create form
-      const formFrame = getModuleFrame(page);
-      const formHeading = formFrame.getByRole('heading', { level: 1 });
-      await expect(formHeading).toContainText(/New|Create|Model/);
+      // Should navigate to create form (FormEngine)
+      await expect(page).toHaveURL(/record\/edit|record_edit/);
     });
   });
 

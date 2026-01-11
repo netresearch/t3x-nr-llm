@@ -122,7 +122,8 @@ abstract class AbstractProvider implements ProviderInterface
      * Get HTTP client configured for authenticated requests.
      *
      * Uses nr-vault's VaultHttpClient for automatic secret injection
-     * with audit logging.
+     * with audit logging. For providers without API keys (like Ollama),
+     * uses the httpClientFactory directly.
      *
      * @return ClientInterface HTTP client with authentication configured
      */
@@ -130,6 +131,11 @@ abstract class AbstractProvider implements ProviderInterface
     {
         if ($this->configuredHttpClient !== null) {
             return $this->configuredHttpClient;
+        }
+
+        // For providers without API key, use httpClientFactory directly
+        if ($this->apiKeyIdentifier === '') {
+            return $this->httpClientFactory->create();
         }
 
         return $this->vault->http()->withAuthentication(
