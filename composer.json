@@ -27,7 +27,7 @@
     },
     "require": {
         "php": "^8.5",
-        "netresearch/nr-vault": "@dev",
+        "netresearch/nr-vault": "^0.3.0",
         "psr/http-client": "^1.0",
         "psr/http-factory": "^1.0",
         "psr/log": "^2.0 || ^3.0",
@@ -49,12 +49,6 @@
         "ssch/typo3-rector": "^3.0",
         "typo3/testing-framework": "^9.0"
     },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/netresearch/t3x-nr-vault.git"
-        }
-    ],
     "autoload": {
         "psr-4": {
             "Netresearch\\NrLlm\\": "Classes/"
