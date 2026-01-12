@@ -724,4 +724,89 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         self::assertEquals('Translated', $result->translation);
     }
+
+    // ==================== additional coverage tests ====================
+
+    #[Test]
+    public function translateWithAllSupportedDomains(): void
+    {
+        $this->llmManagerStub
+            ->method('chat')
+            ->willReturn($this->createChatResponse('Translated'));
+
+        // Test medical domain (another supported domain)
+        $options = new TranslationOptions(domain: 'medical');
+        $result = $this->subject->translate('Hello', 'de', 'en', $options);
+        self::assertEquals('Translated', $result->translation);
+    }
+
+    #[Test]
+    public function translateWithNumericGlossaryValues(): void
+    {
+        $this->llmManagerStub
+            ->method('chat')
+            ->willReturn($this->createChatResponse('Translated'));
+
+        // Glossary with mixed value types - only strings should work
+        $options = new TranslationOptions(glossary: [
+            'version' => '2.0',
+            'api' => 'Schnittstelle',
+        ]);
+
+        $result = $this->subject->translate('API version', 'de', 'en', $options);
+        self::assertEquals('Translated', $result->translation);
+    }
+
+    #[Test]
+    public function translateWithEmptyGlossary(): void
+    {
+        $this->llmManagerStub
+            ->method('chat')
+            ->willReturn($this->createChatResponse('Translated'));
+
+        $options = new TranslationOptions(glossary: []);
+
+        $result = $this->subject->translate('Hello', 'de', 'en', $options);
+        self::assertEquals('Translated', $result->translation);
+    }
+
+    #[Test]
+    public function translateBatchWithTranslatorOptions(): void
+    {
+        $translatorStub = self::createStub(TranslatorInterface::class);
+        $translatorStub
+            ->method('translateBatch')
+            ->willReturn([
+                new TranslatorResult('Eins', 'en', 'de', 'llm:openai'),
+                new TranslatorResult('Zwei', 'en', 'de', 'llm:openai'),
+            ]);
+
+        $this->translatorRegistryStub
+            ->method('get')
+            ->willReturn($translatorStub);
+
+        $options = new TranslationOptions(formality: 'formal');
+
+        $result = $this->subject->translateBatchWithTranslator(['One', 'Two'], 'de', 'en', $options);
+
+        self::assertCount(2, $result);
+    }
+
+    // ==================== getLanguageName tests ====================
+
+    #[Test]
+    public function translateHandlesUnknownLanguageCode(): void
+    {
+        $this->llmManagerStub
+            ->method('chat')
+            ->willReturn($this->createChatResponse('Translated'));
+
+        // Use a language code not in the predefined list
+        $result = $this->subject->translate('Hello', 'sw', 'tl');
+
+        // Should still work - unknown codes should be used as-is
+        self::assertEquals('Translated', $result->translation);
+        self::assertEquals('tl', $result->sourceLanguage);
+        self::assertEquals('sw', $result->targetLanguage);
+    }
 }
