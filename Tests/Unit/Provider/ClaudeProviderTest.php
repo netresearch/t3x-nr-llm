@@ -17,6 +17,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 
 #[CoversClass(ClaudeProvider::class)]
@@ -602,7 +603,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         });
         $stream->method('read')->willReturn($streamData);
 
-        $response = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $response = self::createStub(ResponseInterface::class);
         $response->method('getBody')->willReturn($stream);
 
         $this->httpClientStub
@@ -635,7 +636,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         });
         $stream->method('read')->willReturn($streamData);
 
-        $response = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $response = self::createStub(ResponseInterface::class);
         $response->method('getBody')->willReturn($stream);
 
         $this->httpClientStub
@@ -661,7 +662,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         });
         $stream->method('read')->willReturn($streamData);
 
-        $response = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $response = self::createStub(ResponseInterface::class);
         $response->method('getBody')->willReturn($stream);
 
         $this->httpClientStub

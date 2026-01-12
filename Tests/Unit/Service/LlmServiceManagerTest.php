@@ -9,9 +9,12 @@ use Generator;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Provider\AbstractProvider;
+use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
@@ -510,8 +513,8 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function getAdapterFromModelDelegatesToRegistry(): void
     {
-        $model = self::createStub(\Netresearch\NrLlm\Domain\Model\Model::class);
-        $mockAdapter = self::createStub(\Netresearch\NrLlm\Provider\Contract\ProviderInterface::class);
+        $model = self::createStub(Model::class);
+        $mockAdapter = self::createStub(ProviderInterface::class);
 
         $registryMock = $this->createMock(ProviderAdapterRegistry::class);
         $registryMock->expects(self::once())
@@ -529,12 +532,12 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function getAdapterFromConfigurationDelegatesToRegistry(): void
     {
-        $model = self::createStub(\Netresearch\NrLlm\Domain\Model\Model::class);
-        $config = self::createStub(\Netresearch\NrLlm\Domain\Model\LlmConfiguration::class);
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
 
-        $mockAdapter = self::createStub(\Netresearch\NrLlm\Provider\Contract\ProviderInterface::class);
+        $mockAdapter = self::createStub(ProviderInterface::class);
 
         $registryMock = $this->createMock(ProviderAdapterRegistry::class);
         $registryMock->expects(self::once())
@@ -552,7 +555,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function getAdapterFromConfigurationThrowsWhenNoModel(): void
     {
-        $config = self::createStub(\Netresearch\NrLlm\Domain\Model\LlmConfiguration::class);
+        $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn(null);
         $config->method('getIdentifier')->willReturn('orphan-config');
 
@@ -565,8 +568,8 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function chatWithConfigurationUsesAdapter(): void
     {
-        $model = self::createStub(\Netresearch\NrLlm\Domain\Model\Model::class);
-        $config = self::createStub(\Netresearch\NrLlm\Domain\Model\LlmConfiguration::class);
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
         $config->method('toOptionsArray')->willReturn(['temperature' => 0.7, 'provider' => 'test']);
@@ -579,7 +582,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $mockAdapter = $this->createMock(\Netresearch\NrLlm\Provider\Contract\ProviderInterface::class);
+        $mockAdapter = $this->createMock(ProviderInterface::class);
         $mockAdapter->expects(self::once())
             ->method('chatCompletion')
             ->with(
@@ -604,8 +607,8 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function completeWithConfigurationUsesAdapter(): void
     {
-        $model = self::createStub(\Netresearch\NrLlm\Domain\Model\Model::class);
-        $config = self::createStub(\Netresearch\NrLlm\Domain\Model\LlmConfiguration::class);
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
         $config->method('toOptionsArray')->willReturn(['temperature' => 0.5]);
@@ -618,7 +621,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             provider: 'test',
         );
 
-        $mockAdapter = $this->createMock(\Netresearch\NrLlm\Provider\Contract\ProviderInterface::class);
+        $mockAdapter = $this->createMock(ProviderInterface::class);
         $mockAdapter->expects(self::once())
             ->method('complete')
             ->with('Test prompt', ['temperature' => 0.5])
@@ -637,14 +640,14 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function streamChatWithConfigurationUsesAdapter(): void
     {
-        $model = self::createStub(\Netresearch\NrLlm\Domain\Model\Model::class);
-        $config = self::createStub(\Netresearch\NrLlm\Domain\Model\LlmConfiguration::class);
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
         $config->method('toOptionsArray')->willReturn(['temperature' => 0.5]);
 
         // Create a streaming-capable mock adapter
-        $mockAdapter = new class implements \Netresearch\NrLlm\Provider\Contract\ProviderInterface, StreamingCapableInterface {
+        $mockAdapter = new class implements ProviderInterface, StreamingCapableInterface {
             public function getIdentifier(): string
             {
                 return 'mock';
@@ -657,22 +660,22 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             {
                 return true;
             }
-            public function supportsFeature(string|\Netresearch\NrLlm\Domain\Enum\ModelCapability $feature): bool
+            public function supportsFeature(string|ModelCapability $feature): bool
             {
                 return true;
             }
             public function configure(array $config): void {}
             public function chatCompletion(array $messages, array $options = []): CompletionResponse
             {
-                throw new RuntimeException('Not implemented');
+                throw new RuntimeException('Not implemented', 3106251534);
             }
             public function complete(string $prompt, array $options = []): CompletionResponse
             {
-                throw new RuntimeException('Not implemented');
+                throw new RuntimeException('Not implemented', 7104913232);
             }
             public function embeddings(string|array $input, array $options = []): EmbeddingResponse
             {
-                throw new RuntimeException('Not implemented');
+                throw new RuntimeException('Not implemented', 5854205295);
             }
             public function getAvailableModels(): array
             {
@@ -715,14 +718,14 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function streamChatWithConfigurationThrowsWhenNotSupported(): void
     {
-        $model = self::createStub(\Netresearch\NrLlm\Domain\Model\Model::class);
-        $config = self::createStub(\Netresearch\NrLlm\Domain\Model\LlmConfiguration::class);
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn($model);
         $config->method('getIdentifier')->willReturn('test-config');
         $config->method('toOptionsArray')->willReturn([]);
 
         // Create a non-streaming mock adapter
-        $mockAdapter = self::createStub(\Netresearch\NrLlm\Provider\Contract\ProviderInterface::class);
+        $mockAdapter = self::createStub(ProviderInterface::class);
         $mockAdapter->method('getIdentifier')->willReturn('non-streaming');
 
         $registryMock = self::createStub(ProviderAdapterRegistry::class);
@@ -966,8 +969,9 @@ class TestableNoEmbeddingsProvider extends TestableProvider
         return in_array($featureValue, ['chat'], true);
     }
 
+    #[Override]
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
-        throw new UnsupportedFeatureException('Provider "limited" does not support embeddings');
+        throw new UnsupportedFeatureException('Provider "limited" does not support embeddings', 4932152837);
     }
 }

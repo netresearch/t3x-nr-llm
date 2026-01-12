@@ -18,6 +18,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 
 #[CoversClass(OpenAiProvider::class)]
@@ -552,7 +553,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         });
         $stream->method('read')->willReturn($streamData);
 
-        $response = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $response = self::createStub(ResponseInterface::class);
         $response->method('getBody')->willReturn($stream);
 
         $this->httpClientStub
@@ -581,7 +582,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         });
         $stream->method('read')->willReturn($streamData);
 
-        $response = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $response = self::createStub(ResponseInterface::class);
         $response->method('getBody')->willReturn($stream);
 
         $this->httpClientStub
@@ -697,7 +698,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $stream = self::createStub(StreamInterface::class);
         $stream->method('__toString')->willReturn($errorResponse);
 
-        $response = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $response = self::createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(404);
         $response->method('getBody')->willReturn($stream);
 
@@ -720,7 +721,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $stream = self::createStub(StreamInterface::class);
         $stream->method('__toString')->willReturn($errorResponse);
 
-        $response = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $response = self::createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(429);
         $response->method('getBody')->willReturn($stream);
 
@@ -743,7 +744,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $stream = self::createStub(StreamInterface::class);
         $stream->method('__toString')->willReturn($errorResponse);
 
-        $response = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $response = self::createStub(ResponseInterface::class);
         $response->method('getStatusCode')->willReturn(400);
         $response->method('getBody')->willReturn($stream);
 

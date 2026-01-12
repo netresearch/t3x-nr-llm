@@ -16,6 +16,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 
 #[CoversClass(OpenRouterProvider::class)]
@@ -97,7 +99,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     ): OpenRouterProvider {
         $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock->method('sendRequest')
-            ->willReturnCallback(function (\Psr\Http\Message\RequestInterface $request) use ($modelsResponse, $chatResponse) {
+            ->willReturnCallback(function (RequestInterface $request) use ($modelsResponse, $chatResponse) {
                 $uri = (string)$request->getUri();
                 if (str_contains($uri, '/models')) {
                     return $this->createJsonResponseMock($modelsResponse);
@@ -1087,7 +1089,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         });
         $stream->method('read')->willReturn($streamData);
 
-        $response = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $response = self::createStub(ResponseInterface::class);
         $response->method('getBody')->willReturn($stream);
 
         $this->httpClientMock
@@ -1119,7 +1121,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         });
         $stream->method('read')->willReturn($streamData);
 
-        $response = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $response = self::createStub(ResponseInterface::class);
         $response->method('getBody')->willReturn($stream);
 
         $this->httpClientMock
@@ -1147,7 +1149,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         });
         $stream->method('read')->willReturn($streamData);
 
-        $response = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $response = self::createStub(ResponseInterface::class);
         $response->method('getBody')->willReturn($stream);
 
         $this->httpClientMock
