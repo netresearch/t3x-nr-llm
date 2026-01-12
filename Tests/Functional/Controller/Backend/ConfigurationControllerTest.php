@@ -365,6 +365,64 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         self::assertSame('Configuration not found', $body['error']);
     }
 
+    #[Test]
+    public function testConfigurationReturnsErrorForConfigurationWithoutModel(): void
+    {
+        // Arrange: Use configuration without model assigned (uid=8)
+        $configuration = $this->configurationRepository->findByUid(8);
+        self::assertNotNull($configuration);
+        self::assertNull($configuration->getLlmModel());
+
+        $request = new ServerRequest('POST', '/ajax/nrllm/config/test');
+        $request = $request->withParsedBody(['uid' => 8]);
+
+        // Act
+        $response = $this->controller->testConfigurationAction($request);
+
+        // Assert
+        self::assertSame(400, $response->getStatusCode());
+        $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertFalse($body['success']);
+        self::assertSame('Configuration has no model assigned', $body['error']);
+    }
+
+    #[Test]
+    public function toggleActiveHandlesNonNumericUidAsZero(): void
+    {
+        // Non-numeric string should be treated as 0
+        $request = new ServerRequest('POST', '/ajax/nrllm/config/toggle');
+        $request = $request->withParsedBody(['uid' => 'invalid']);
+
+        // Act
+        $response = $this->controller->toggleActiveAction($request);
+
+        // Assert: treated as missing UID
+        self::assertSame(400, $response->getStatusCode());
+        $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertFalse($body['success']);
+        self::assertSame('No configuration UID specified', $body['error']);
+    }
+
+    #[Test]
+    public function getModelsHandlesNumericProviderValue(): void
+    {
+        // Numeric value should be converted to string
+        $request = new ServerRequest('POST', '/ajax/nrllm/config/get-models');
+        $request = $request->withParsedBody(['provider' => 12345]);
+
+        // Act
+        $response = $this->controller->getModelsAction($request);
+
+        // Assert: numeric value converted to string but not found
+        self::assertSame(404, $response->getStatusCode());
+        $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertFalse($body['success']);
+        self::assertSame('Provider not available', $body['error']);
+    }
+
     // -------------------------------------------------------------------------
     // Get Models by Provider (getModelsAction)
     // -------------------------------------------------------------------------

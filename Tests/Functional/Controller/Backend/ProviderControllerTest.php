@@ -251,4 +251,57 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
         self::assertIsArray($body);
         self::assertTrue($body['success']);
     }
+
+    #[Test]
+    public function toggleActiveHandlesNonNumericUidAsZero(): void
+    {
+        // Non-numeric string should be treated as 0
+        $request = new ServerRequest('POST', '/ajax/nrllm/provider/toggle');
+        $request = $request->withParsedBody(['uid' => 'invalid-string']);
+
+        // Act
+        $response = $this->controller->toggleActiveAction($request);
+
+        // Assert: treated as missing UID
+        self::assertSame(400, $response->getStatusCode());
+        $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertFalse($body['success']);
+        self::assertSame('No provider UID specified', $body['error']);
+    }
+
+    #[Test]
+    public function testConnectionHandlesNumericStringUid(): void
+    {
+        // UID passed as string
+        $request = new ServerRequest('POST', '/ajax/nrllm/provider/test');
+        $request = $request->withParsedBody(['uid' => '1']);
+
+        // Act
+        $response = $this->controller->testConnectionAction($request);
+
+        // Assert - response is either success or failure but handles string conversion
+        self::assertContains($response->getStatusCode(), [200, 500]);
+        $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertArrayHasKey('success', $body);
+    }
+
+    #[Test]
+    public function testConnectionHandlesNonNumericUidAsZero(): void
+    {
+        // Non-numeric string should be treated as 0
+        $request = new ServerRequest('POST', '/ajax/nrllm/provider/test');
+        $request = $request->withParsedBody(['uid' => 'not-a-number']);
+
+        // Act
+        $response = $this->controller->testConnectionAction($request);
+
+        // Assert: treated as missing UID
+        self::assertSame(400, $response->getStatusCode());
+        $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertFalse($body['success']);
+        self::assertSame('No provider UID specified', $body['error']);
+    }
 }
