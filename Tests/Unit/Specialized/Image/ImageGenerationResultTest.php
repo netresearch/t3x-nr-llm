@@ -356,4 +356,174 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
 
         self::assertNull($result->getBinaryContent());
     }
+
+    #[Test]
+    public function wasPromptRevisedReturnsFalseWhenEmpty(): void
+    {
+        $result = new ImageGenerationResult(
+            url: '',
+            base64: null,
+            prompt: 'A cat',
+            revisedPrompt: '',
+            model: 'test',
+            size: '1024x1024',
+            provider: 'test',
+        );
+
+        self::assertFalse($result->wasPromptRevised());
+    }
+
+    #[Test]
+    public function toDataUrlWithCustomMimeType(): void
+    {
+        $base64 = base64_encode('fake image data');
+        $result = new ImageGenerationResult(
+            url: '',
+            base64: $base64,
+            prompt: 'test',
+            revisedPrompt: null,
+            model: 'test',
+            size: '1024x1024',
+            provider: 'test',
+        );
+
+        $dataUrl = $result->toDataUrl('image/jpeg');
+
+        self::assertNotNull($dataUrl);
+        self::assertStringStartsWith('data:image/jpeg;base64,', $dataUrl);
+    }
+
+    #[Test]
+    public function getDimensionsHandlesSingleValueSize(): void
+    {
+        $result = new ImageGenerationResult(
+            url: '',
+            base64: null,
+            prompt: 'test',
+            revisedPrompt: null,
+            model: 'test',
+            size: '1024', // No 'x' separator - should use same value for both
+            provider: 'test',
+        );
+
+        $dimensions = $result->getDimensions();
+
+        self::assertEquals(1024, $dimensions['width']);
+        self::assertEquals(1024, $dimensions['height']);
+    }
+
+    #[Test]
+    public function getBinaryContentReturnsNullForInvalidBase64(): void
+    {
+        $result = new ImageGenerationResult(
+            url: '',
+            base64: '!@#$%^&*()_+invalid_base64_that_cannot_decode',
+            prompt: 'test',
+            revisedPrompt: null,
+            model: 'test',
+            size: '1024x1024',
+            provider: 'test',
+        );
+
+        // Invalid base64 should return null
+        self::assertNull($result->getBinaryContent());
+    }
+
+    #[Test]
+    public function saveToFileSavesBase64Content(): void
+    {
+        $originalData = 'This is fake PNG image data for testing';
+        $base64 = base64_encode($originalData);
+        $tempFile = sys_get_temp_dir() . '/test_image_' . uniqid() . '.png';
+
+        try {
+            $result = new ImageGenerationResult(
+                url: 'https://example.com/fallback.png',
+                base64: $base64,
+                prompt: 'test',
+                revisedPrompt: null,
+                model: 'test',
+                size: '1024x1024',
+                provider: 'test',
+            );
+
+            $success = $result->saveToFile($tempFile);
+
+            self::assertTrue($success);
+            self::assertFileExists($tempFile);
+            self::assertEquals($originalData, file_get_contents($tempFile));
+        } finally {
+            if (file_exists($tempFile)) {
+                unlink($tempFile);
+            }
+        }
+    }
+
+    #[Test]
+    public function saveToFileReturnsFalseForInvalidUrl(): void
+    {
+        $tempFile = sys_get_temp_dir() . '/test_image_' . uniqid() . '.png';
+
+        try {
+            $result = new ImageGenerationResult(
+                url: 'https://invalid-url-that-does-not-exist.test/image.png',
+                base64: null,
+                prompt: 'test',
+                revisedPrompt: null,
+                model: 'test',
+                size: '1024x1024',
+                provider: 'test',
+            );
+
+            $success = $result->saveToFile($tempFile);
+
+            // Should return false as URL download fails
+            self::assertFalse($success);
+        } finally {
+            if (file_exists($tempFile)) {
+                unlink($tempFile);
+            }
+        }
+    }
+
+    #[Test]
+    public function downloadFromUrlReturnsNullForInvalidUrl(): void
+    {
+        $result = new ImageGenerationResult(
+            url: 'https://invalid-url-that-does-not-exist.test/image.png',
+            base64: null,
+            prompt: 'test',
+            revisedPrompt: null,
+            model: 'test',
+            size: '1024x1024',
+            provider: 'test',
+        );
+
+        // Should return null as URL download fails
+        self::assertNull($result->downloadFromUrl());
+    }
+
+    #[Test]
+    public function saveToFileReturnsFalseForInvalidPath(): void
+    {
+        $originalData = 'test data';
+        $base64 = base64_encode($originalData);
+        // Use a path that cannot be written to
+        $invalidPath = '/nonexistent/directory/that/cannot/exist/image.png';
+
+        $result = new ImageGenerationResult(
+            url: 'https://example.com/image.png',
+            base64: $base64,
+            prompt: 'test',
+            revisedPrompt: null,
+            model: 'test',
+            size: '1024x1024',
+            provider: 'test',
+        );
+
+        $success = $result->saveToFile($invalidPath);
+
+        // Should return false as path is invalid
+        self::assertFalse($success);
+    }
 }

@@ -482,6 +482,143 @@ class LlmTranslatorTest extends AbstractUnitTestCase
 
         self::assertNull($result->getConfidencePercent());
     }
+
+    // ==================== buildPrompt options tests ====================
+
+    #[Test]
+    public function translateWithFormalityOption(): void
+    {
+        $this->setResponse('Sehr geehrte Damen und Herren');
+
+        $result = $this->subject->translate(
+            'Dear Sir or Madam',
+            'de',
+            'en',
+            ['formality' => 'formal'],
+        );
+
+        self::assertInstanceOf(TranslatorResult::class, $result);
+        self::assertEquals('Sehr geehrte Damen und Herren', $result->translatedText);
+    }
+
+    #[Test]
+    public function translateWithDomainOption(): void
+    {
+        $this->setResponse('Medical translation');
+
+        $result = $this->subject->translate(
+            'Test medical text',
+            'de',
+            'en',
+            ['domain' => 'medical'],
+        );
+
+        self::assertInstanceOf(TranslatorResult::class, $result);
+    }
+
+    #[Test]
+    public function translateWithGlossaryOption(): void
+    {
+        $this->setResponse('Translation with glossary');
+
+        $result = $this->subject->translate(
+            'Original text',
+            'de',
+            'en',
+            ['glossary' => ['term1' => 'Begriff1', 'term2' => 'Begriff2']],
+        );
+
+        self::assertInstanceOf(TranslatorResult::class, $result);
+    }
+
+    #[Test]
+    public function translateWithContextOption(): void
+    {
+        $this->setResponse('Contextual translation');
+
+        $result = $this->subject->translate(
+            'Text to translate',
+            'de',
+            'en',
+            ['context' => 'This is an informal chat message'],
+        );
+
+        self::assertInstanceOf(TranslatorResult::class, $result);
+    }
+
+    #[Test]
+    public function translateWithPreserveFormattingFalse(): void
+    {
+        $this->setResponse('Plain text translation');
+
+        $result = $this->subject->translate(
+            '<p>Text with HTML</p>',
+            'de',
+            'en',
+            ['preserve_formatting' => false],
+        );
+
+        self::assertInstanceOf(TranslatorResult::class, $result);
+    }
+
+    #[Test]
+    public function translateWithAllOptions(): void
+    {
+        $this->setResponse('Comprehensive translation');
+
+        $result = $this->subject->translate(
+            'Complex text',
+            'de',
+            'en',
+            [
+                'formality' => 'informal',
+                'domain' => 'technical',
+                'glossary' => ['API' => 'Schnittstelle'],
+                'context' => 'Technical documentation',
+                'preserve_formatting' => true,
+                'temperature' => 0.5,
+                'max_tokens' => 1000,
+                'provider' => 'openai',
+                'model' => 'gpt-5.2',
+            ],
+        );
+
+        self::assertInstanceOf(TranslatorResult::class, $result);
+    }
+
+    #[Test]
+    public function translateWithNumericOptionsAsStrings(): void
+    {
+        $this->setResponse('Translation');
+
+        // These should fall back to defaults because they're strings, not correct types
+        $result = $this->subject->translate(
+            'Text',
+            'de',
+            'en',
+            [
+                'temperature' => 'invalid',
+                'max_tokens' => 'invalid',
+            ],
+        );
+
+        self::assertInstanceOf(TranslatorResult::class, $result);
+    }
+
+    #[Test]
+    public function translateWithUnknownLanguageUsesCodeDirectly(): void
+    {
+        $this->setResponse('Translated');
+
+        $result = $this->subject->translate(
+            'Hello',
+            'xyz', // Unknown language code
+            'abc', // Unknown language code
+        );
+
+        self::assertEquals('abc', $result->sourceLanguage);
+        self::assertEquals('xyz', $result->targetLanguage);
+    }
 }
 
 /**

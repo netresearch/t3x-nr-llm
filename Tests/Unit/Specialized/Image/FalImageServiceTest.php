@@ -726,4 +726,242 @@ class FalImageServiceTest extends AbstractUnitTestCase
 
         self::assertTrue($subject->isAvailable());
     }
+
+    // ==================== Queue error handling tests ====================
+
+    #[Test]
+    public function generateWithQueueThrowsWhenNoRequestIdReturned(): void
+    {
+        $subject = $this->createSubject();
+
+        // Setup queue submit response without request_id
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $queueSubmitBody = self::createStub(StreamInterface::class);
+        $queueSubmitBody->method('__toString')->willReturn((string)json_encode(['status' => 'queued']));
+
+        $queueSubmitResponse = self::createStub(ResponseInterface::class);
+        $queueSubmitResponse->method('getStatusCode')->willReturn(200);
+        $queueSubmitResponse->method('getBody')->willReturn($queueSubmitBody);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($queueSubmitResponse);
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('no request_id');
+
+        $subject->generate('A sunset', 'sdxl'); // sdxl uses queue
+    }
+
+    #[Test]
+    public function generateWithQueueThrowsWhenStatusFailed(): void
+    {
+        $subject = $this->createSubject();
+
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        // Queue submit returns request_id
+        $queueSubmitBody = self::createStub(StreamInterface::class);
+        $queueSubmitBody->method('__toString')->willReturn((string)json_encode(['request_id' => 'test-123']));
+
+        $queueSubmitResponse = self::createStub(ResponseInterface::class);
+        $queueSubmitResponse->method('getStatusCode')->willReturn(200);
+        $queueSubmitResponse->method('getBody')->willReturn($queueSubmitBody);
+
+        // Status poll returns FAILED
+        $statusBody = self::createStub(StreamInterface::class);
+        $statusBody->method('__toString')->willReturn((string)json_encode([
+            'status' => 'FAILED',
+            'error' => 'Generation failed due to content policy',
+        ]));
+
+        $statusResponse = self::createStub(ResponseInterface::class);
+        $statusResponse->method('getStatusCode')->willReturn(200);
+        $statusResponse->method('getBody')->willReturn($statusBody);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturnOnConsecutiveCalls($queueSubmitResponse, $statusResponse);
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('FAL generation failed');
+
+        $subject->generate('A sunset', 'sdxl');
+    }
+
+    #[Test]
+    public function generateThrowsOnConnectionError(): void
+    {
+        $subject = $this->createSubject();
+
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects(self::once())->method('error');
+
+        $httpClientStub = self::createStub(ClientInterface::class);
+        $httpClientStub
+            ->method('sendRequest')
+            ->willThrowException(new RuntimeException('Connection timeout'));
+
+        $this->extensionConfigStub
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'image' => [
+                    'fal' => [
+                        'apiKey' => 'test-api-key',
+                    ],
+                ],
+            ]);
+
+        $subject = new FalImageService(
+            $httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigStub,
+            $this->usageTrackerStub,
+            $loggerMock,
+        );
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('Failed to connect to FAL API');
+
+        $subject->generate('A sunset');
+    }
+
+    #[Test]
+    public function generateHandlesErrorWithMessageInsteadOfDetail(): void
+    {
+        $subject = $this->createSubject();
+
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn((string)json_encode([
+            'message' => 'Invalid model specified',
+        ]));
+
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(400);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($responseStub);
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('Invalid model specified');
+
+        $subject->generate('A sunset');
+    }
+
+    #[Test]
+    public function generateHandlesNonImageData(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'images' => 'not-an-array',
+            'seed' => 12345,
+        ]);
+
+        $result = $subject->generate('A beautiful sunset');
+
+        // Should handle gracefully - no URL
+        self::assertInstanceOf(ImageGenerationResult::class, $result);
+        self::assertEquals('', $result->url);
+    }
+
+    #[Test]
+    public function generateWithNumImagesOption(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'images' => [
+                ['url' => 'https://example.com/image.png', 'width' => 1024, 'height' => 1024],
+            ],
+        ]);
+
+        $result = $subject->generate('A sunset', 'flux-schnell', [
+            'num_images' => '2', // String, should be converted
+        ]);
+
+        self::assertInstanceOf(ImageGenerationResult::class, $result);
+    }
+
+    #[Test]
+    public function generateMultipleWithQueuedModel(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupQueueSuccessfulRequest([
+            'images' => [
+                ['url' => 'https://example.com/image1.png', 'width' => 1024, 'height' => 1024],
+                ['url' => 'https://example.com/image2.png', 'width' => 1024, 'height' => 1024],
+            ],
+        ]);
+
+        $results = $subject->generateMultiple('A sunset', 2, 'flux-pro');
+
+        self::assertCount(2, $results);
+    }
+
+    #[Test]
+    public function generateMultipleEnforcesMinimumCount(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'images' => [
+                ['url' => 'https://example.com/image.png'],
+            ],
+        ]);
+
+        $results = $subject->generateMultiple('A sunset', 0); // Should be set to 1
+
+        self::assertCount(1, $results);
+    }
 }
