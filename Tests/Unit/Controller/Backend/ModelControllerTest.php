@@ -914,4 +914,96 @@ final class ModelControllerTest extends TestCase
         self::assertIsString($data['error']);
         self::assertStringContainsString('API unavailable', $data['error']);
     }
+
+    // Edge case tests for non-array body
+
+    #[Test]
+    public function toggleActiveActionWithNonArrayBodyReturnsError(): void
+    {
+        $request = (new ServerRequest('/ajax/test', 'POST'))
+            // @phpstan-ignore-next-line Intentionally passing invalid type to test error handling
+            ->withParsedBody('not an array');
+
+        $response = $this->subject->toggleActiveAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function setDefaultActionWithNonArrayBodyReturnsError(): void
+    {
+        $request = (new ServerRequest('/ajax/test', 'POST'))
+            // @phpstan-ignore-next-line Intentionally passing invalid type to test error handling
+            ->withParsedBody('not an array');
+
+        $response = $this->subject->setDefaultAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function getByProviderActionWithNonArrayBodyReturnsError(): void
+    {
+        $request = (new ServerRequest('/ajax/test', 'POST'))
+            // @phpstan-ignore-next-line Intentionally passing invalid type to test error handling
+            ->withParsedBody('not an array');
+
+        $response = $this->subject->getByProviderAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function testModelActionWithNonArrayBodyReturnsError(): void
+    {
+        $request = (new ServerRequest('/ajax/test', 'POST'))
+            // @phpstan-ignore-next-line Intentionally passing invalid type to test error handling
+            ->withParsedBody('not an array');
+
+        $response = $this->subject->testModelAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function fetchAvailableModelsActionWithNonArrayBodyReturnsError(): void
+    {
+        $request = (new ServerRequest('/ajax/test', 'POST'))
+            // @phpstan-ignore-next-line Intentionally passing invalid type to test error handling
+            ->withParsedBody('not an array');
+
+        $response = $this->subject->fetchAvailableModelsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function detectLimitsActionWithNonArrayBodyReturnsError(): void
+    {
+        $request = (new ServerRequest('/ajax/test', 'POST'))
+            // @phpstan-ignore-next-line Intentionally passing invalid type to test error handling
+            ->withParsedBody('not an array');
+
+        $response = $this->subject->detectLimitsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
 }
