@@ -316,4 +316,78 @@ final class ProviderControllerTest extends TestCase
         self::assertIsString($data['error']);
         self::assertStringContainsString('Connection failed', $data['error']);
     }
+
+    #[Test]
+    public function toggleActiveActionWithNonArrayBodyReturnsError(): void
+    {
+        $request = (new ServerRequest('/ajax/test', 'POST'))
+            // @phpstan-ignore-next-line Intentionally passing invalid type to test error handling
+            ->withParsedBody('not an array');
+
+        $response = $this->subject->toggleActiveAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function toggleActiveActionWithNonNumericUidReturnsError(): void
+    {
+        $request = $this->createRequest(['uid' => 'not-a-number']);
+
+        $response = $this->subject->toggleActiveAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function testConnectionActionWithNonArrayBodyReturnsError(): void
+    {
+        $request = (new ServerRequest('/ajax/test', 'POST'))
+            // @phpstan-ignore-next-line Intentionally passing invalid type to test error handling
+            ->withParsedBody('not an array');
+
+        $response = $this->subject->testConnectionAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function testConnectionActionReturnsFailureResult(): void
+    {
+        $provider = $this->createProvider(1, true);
+
+        $this->providerRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(1)
+            ->willReturn($provider);
+
+        $this->providerAdapterRegistry
+            ->expects(self::once())
+            ->method('testProviderConnection')
+            ->with($provider)
+            ->willReturn([
+                'success' => false,
+                'message' => 'Invalid API key',
+                'models' => [],
+            ]);
+
+        $request = $this->createRequest(['uid' => 1]);
+        $response = $this->subject->testConnectionAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertFalse($data['success']);
+        self::assertEquals('Invalid API key', $data['message']);
+    }
 }

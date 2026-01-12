@@ -557,4 +557,115 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
     }
+
+    // -------------------------------------------------------------------------
+    // Edge Cases
+    // -------------------------------------------------------------------------
+
+    #[Test]
+    public function testModelReturnsErrorForModelWithoutProvider(): void
+    {
+        // Model uid=6 has no provider (provider_uid = 0)
+        $request = new ServerRequest('POST', '/ajax/nrllm/model/test');
+        $request = $request->withParsedBody(['uid' => 6]);
+
+        // Act
+        $response = $this->controller->testModelAction($request);
+
+        // Assert
+        self::assertSame(400, $response->getStatusCode());
+        $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertFalse($body['success']);
+        self::assertSame('Model has no provider configured', $body['error']);
+    }
+
+    #[Test]
+    public function toggleActiveHandlesNonNumericUidAsZero(): void
+    {
+        // Non-numeric string should be treated as 0
+        $request = new ServerRequest('POST', '/ajax/nrllm/model/toggle');
+        $request = $request->withParsedBody(['uid' => 'invalid']);
+
+        // Act
+        $response = $this->controller->toggleActiveAction($request);
+
+        // Assert: treated as missing UID
+        self::assertSame(400, $response->getStatusCode());
+        $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertFalse($body['success']);
+        self::assertSame('No model UID specified', $body['error']);
+    }
+
+    #[Test]
+    public function setDefaultHandlesNonNumericUidAsZero(): void
+    {
+        // Non-numeric string should be treated as 0
+        $request = new ServerRequest('POST', '/ajax/nrllm/model/set-default');
+        $request = $request->withParsedBody(['uid' => 'not-a-number']);
+
+        // Act
+        $response = $this->controller->setDefaultAction($request);
+
+        // Assert: treated as missing UID
+        self::assertSame(400, $response->getStatusCode());
+        $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertFalse($body['success']);
+        self::assertSame('No model UID specified', $body['error']);
+    }
+
+    #[Test]
+    public function testModelHandlesNonNumericUidAsZero(): void
+    {
+        // Non-numeric string should be treated as 0
+        $request = new ServerRequest('POST', '/ajax/nrllm/model/test');
+        $request = $request->withParsedBody(['uid' => 'abc']);
+
+        // Act
+        $response = $this->controller->testModelAction($request);
+
+        // Assert: treated as missing UID
+        self::assertSame(400, $response->getStatusCode());
+        $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertFalse($body['success']);
+        self::assertSame('No model UID specified', $body['error']);
+    }
+
+    #[Test]
+    public function detectLimitsHandlesWhitespaceModelIdAsMissing(): void
+    {
+        // Model ID with only whitespace should be treated as missing
+        $request = new ServerRequest('POST', '/ajax/nrllm/model/detect-limits');
+        $request = $request->withParsedBody(['providerUid' => 1, 'modelId' => '   ']);
+
+        // Act
+        $response = $this->controller->detectLimitsAction($request);
+
+        // Assert
+        self::assertSame(400, $response->getStatusCode());
+        $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertFalse($body['success']);
+        self::assertSame('No model ID specified', $body['error']);
+    }
+
+    #[Test]
+    public function getByProviderHandlesNumericStringProviderUid(): void
+    {
+        // Provider UID passed as string
+        $request = new ServerRequest('POST', '/ajax/nrllm/model/get-by-provider');
+        $request = $request->withParsedBody(['providerUid' => '1']);
+
+        // Act
+        $response = $this->controller->getByProviderAction($request);
+
+        // Assert
+        self::assertSame(200, $response->getStatusCode());
+        $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertTrue($body['success']);
+    }
 }

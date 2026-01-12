@@ -5,3 +5,4 @@
 ,3,0,"llama3.3","Llama 3.3","Local Llama 3.3 70B model",1,"llama3.3:70b",131072,4096,"chat",120,0,0,1,0,3,0,0
 ,4,0,"deleted-model","Deleted Model","Should not appear",1,"deleted-model",4096,1024,"chat",120,0,0,1,0,4,1,0
 ,5,0,"gpt-5.2-thinking","GPT-5.2 Thinking","OpenAI GPT-5.2 thinking model (inactive for testing)",2,"gpt-5.2-thinking",256000,32768,"chat,vision,tools,reasoning",120,2000,6000,0,0,5,0,0
+,6,0,"orphan-model","Orphan Model","Model without provider for testing",0,"orphan-model",4096,1024,"chat",60,0,0,1,0,6,0,0

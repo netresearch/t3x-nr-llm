@@ -441,6 +441,47 @@ final class ModelSelectionServiceTest extends TestCase
         self::assertEmpty($result);
     }
 
+    // resolveModel tests
+
+    #[Test]
+    public function resolveModelReturnsCriteriaMatchWhenUsingCriteriaMode(): void
+    {
+        $model = $this->createModel(1, 'chat,vision');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResult([$model]));
+
+        $configuration = self::createStub(LlmConfiguration::class);
+        $configuration->method('usesCriteriaSelection')->willReturn(true);
+        $configuration->method('getModelSelectionCriteriaArray')->willReturn([
+            'capabilities' => ['chat'],
+        ]);
+
+        $result = $this->subject->resolveModel($configuration);
+
+        self::assertSame($model, $result);
+    }
+
+    #[Test]
+    public function sortCandidatesHandlesZeroCostAsUnknown(): void
+    {
+        $model1 = $this->createModel(1, 'chat', 'openai', 8000, 0, 0, 50);  // Unknown cost
+        $model2 = $this->createModel(2, 'chat', 'openai', 8000, 100, 200, 50);  // Known cost
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResult([$model1, $model2]));
+
+        $result = $this->subject->findMatchingModel([
+            'capabilities' => ['chat'],
+            'preferLowestCost' => true,
+        ]);
+
+        // Model 2 should be preferred (known cost vs unknown which is treated as highest)
+        self::assertSame($model2, $result);
+    }
+
     // getSelectionModes tests
 
     #[Test]

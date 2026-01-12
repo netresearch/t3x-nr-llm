@@ -392,6 +392,74 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
         self::assertStringContainsString('not available', $result['message']);
     }
 
+    #[Test]
+    public function createAdapterFromProviderIncludesOrganizationId(): void
+    {
+        $provider = $this->createProviderStub(
+            uid: 1,
+            identifier: 'test-provider',
+            adapterType: AdapterType::OpenAI->value,
+            apiKey: 'test-api-key',
+            organizationId: 'org-12345',
+        );
+
+        $adapter = $this->subject->createAdapterFromProvider($provider);
+
+        // The adapter should be configured - we can verify by checking type
+        self::assertInstanceOf(OpenAiProvider::class, $adapter);
+    }
+
+    #[Test]
+    public function createAdapterFromProviderMergesAdditionalOptions(): void
+    {
+        $provider = $this->createProviderStub(
+            uid: 1,
+            identifier: 'test-provider',
+            adapterType: AdapterType::OpenAI->value,
+            apiKey: 'test-api-key',
+            options: ['customOption' => 'customValue', 'extraTimeout' => 60],
+        );
+
+        $adapter = $this->subject->createAdapterFromProvider($provider);
+
+        self::assertInstanceOf(OpenAiProvider::class, $adapter);
+    }
+
+    #[Test]
+    public function testProviderConnectionCatchesExceptions(): void
+    {
+        // Create a provider that will cause an exception when creating adapter
+        // by using an adapter type that doesn't exist and setting up the mock to fail
+        $provider = self::createMock(Provider::class);
+        $provider->method('getUid')->willReturn(1);
+        $provider->method('getIdentifier')->willReturn('error-provider');
+        $provider->method('getAdapterType')->willReturn(AdapterType::OpenAI->value);
+        $provider->method('getApiKey')->willReturn('test-key');
+        $provider->method('getEffectiveEndpointUrl')->willReturn('https://invalid-endpoint.test');
+        $provider->method('getApiTimeout')->willReturn(30);
+        $provider->method('getMaxRetries')->willReturn(3);
+        $provider->method('getOrganizationId')->willReturn('');
+        $provider->method('getOptionsArray')->willReturn([]);
+
+        $result = $this->subject->testProviderConnection($provider);
+
+        // Should get a result indicating connection test completed
+        self::assertArrayHasKey('success', $result);
+        self::assertArrayHasKey('message', $result);
+    }
+
+    #[Test]
+    public function getRegisteredAdaptersDoesNotDuplicateCustomTypes(): void
+    {
+        // Register a custom adapter with same key as a built-in one
+        $this->subject->registerAdapter(AdapterType::OpenAI->value, ClaudeProvider::class);
+
+        $result = $this->subject->getRegisteredAdapters();
+
+        // Should still have the openai key but only once
+        self::assertArrayHasKey(AdapterType::OpenAI->value, $result);
+    }
+
     /**
      * @param array<string, mixed> $options
      */

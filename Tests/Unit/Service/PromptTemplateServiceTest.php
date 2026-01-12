@@ -570,4 +570,5 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
 
         self::assertEmpty($result);
     }
+
 }

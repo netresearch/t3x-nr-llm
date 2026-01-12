@@ -547,4 +547,124 @@ final class ConfigurationControllerTest extends TestCase
         self::assertIsString($data['error']);
         self::assertStringContainsString('API error', $data['error']);
     }
+
+    #[Test]
+    public function testConfigurationActionReturnsErrorWhenNoModelAssigned(): void
+    {
+        // Create configuration without a model
+        $configuration = $this->createConfiguration(1, true);
+
+        $this->configurationRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(1)
+            ->willReturn($configuration);
+
+        $request = $this->createRequest(['uid' => 1]);
+        $response = $this->subject->testConfigurationAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+        self::assertIsString($data['error']);
+        self::assertStringContainsString('no model assigned', $data['error']);
+    }
+
+    #[Test]
+    public function toggleActiveActionWithNonArrayBodyReturnsError(): void
+    {
+        $request = (new ServerRequest('/ajax/test', 'POST'))
+            // @phpstan-ignore-next-line Intentionally passing invalid type to test error handling
+            ->withParsedBody('not an array');
+
+        $response = $this->subject->toggleActiveAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function toggleActiveActionWithNonNumericUidReturnsError(): void
+    {
+        $request = $this->createRequest(['uid' => 'not-a-number']);
+
+        $response = $this->subject->toggleActiveAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function setDefaultActionWithNonArrayBodyReturnsError(): void
+    {
+        $request = (new ServerRequest('/ajax/test', 'POST'))
+            // @phpstan-ignore-next-line Intentionally passing invalid type to test error handling
+            ->withParsedBody('not an array');
+
+        $response = $this->subject->setDefaultAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function getModelsActionWithNonArrayBodyReturnsError(): void
+    {
+        $request = (new ServerRequest('/ajax/test', 'POST'))
+            // @phpstan-ignore-next-line Intentionally passing invalid type to test error handling
+            ->withParsedBody('not an array');
+
+        $response = $this->subject->getModelsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function testConfigurationActionWithNonArrayBodyReturnsError(): void
+    {
+        $request = (new ServerRequest('/ajax/test', 'POST'))
+            // @phpstan-ignore-next-line Intentionally passing invalid type to test error handling
+            ->withParsedBody('not an array');
+
+        $response = $this->subject->testConfigurationAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function getModelsActionWithNumericProviderKeyWorks(): void
+    {
+        $provider = $this->createMock(ProviderInterface::class);
+        $provider->method('getAvailableModels')
+            ->willReturn(['gpt-4' => 'GPT-4']);
+        $provider->method('getDefaultModel')
+            ->willReturn('gpt-4');
+
+        $this->llmServiceManager
+            ->expects(self::once())
+            ->method('getAvailableProviders')
+            ->willReturn(['123' => $provider]);
+
+        // Provider key sent as numeric value (from form)
+        $request = $this->createRequest(['provider' => 123]);
+        $response = $this->subject->getModelsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+    }
 }

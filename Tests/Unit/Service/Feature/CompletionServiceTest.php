@@ -247,6 +247,331 @@ class CompletionServiceTest extends AbstractUnitTestCase
         self::assertFalse($result->isComplete());
     }
 
+    #[Test]
+    public function validateOptionsThrowsOnInvalidTopP(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('top_p must be between 0 and 1');
+
+        $this->subject->complete('Test', new ChatOptions(topP: 1.5));
+    }
+
+    #[Test]
+    public function completeJsonThrowsOnNonObjectResponse(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('"just a string"');
+
+        $llmManagerMock
+            ->method('chat')
+            ->willReturn($mockResponse);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('JSON response must be an object');
+
+        $subject->completeJson('Test');
+    }
+
+    #[Test]
+    public function completeMarkdownReturnsMarkdownContent(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $markdownContent = "# Header\n\n- List item 1\n- List item 2";
+        $mockResponse = $this->createMockResponse($markdownContent);
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(function (ChatOptions $options): bool {
+                    // Verify markdown format is requested
+                    $systemPrompt = $options->getSystemPrompt() ?? '';
+                    return str_contains($systemPrompt, 'Markdown');
+                }),
+            )
+            ->willReturn($mockResponse);
+
+        $result = $subject->completeMarkdown('Test');
+
+        self::assertSame($markdownContent, $result);
+    }
+
+    #[Test]
+    public function completeWithStopSequences(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('Response');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::isInstanceOf(ChatOptions::class),
+            )
+            ->willReturn($mockResponse);
+
+        $options = new ChatOptions(stopSequences: ['END', 'STOP']);
+        $result = $subject->complete('Test prompt', $options);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function completeWithJsonResponseFormat(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('{"key": "value"}');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->willReturn($mockResponse);
+
+        $options = new ChatOptions(responseFormat: 'json');
+        $result = $subject->complete('Return JSON', $options);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function completeWithTextResponseFormat(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('Plain text');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->willReturn($mockResponse);
+
+        $options = new ChatOptions(responseFormat: 'text');
+        $result = $subject->complete('Return text', $options);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function completeFactualWithCustomTemperature(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('Factual response');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(fn(ChatOptions $opts) => $opts->getTemperature() === 0.5),
+            )
+            ->willReturn($mockResponse);
+
+        // When temperature is already set, completeFactual should use it
+        $options = new ChatOptions(temperature: 0.5);
+        $subject->completeFactual('Test', $options);
+    }
+
+    #[Test]
+    public function completeFactualWithCustomTopP(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('Factual response');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(fn(ChatOptions $opts) => $opts->getTopP() === 0.5),
+            )
+            ->willReturn($mockResponse);
+
+        // When topP is already set, completeFactual should use it
+        $options = new ChatOptions(topP: 0.5);
+        $subject->completeFactual('Test', $options);
+    }
+
+    #[Test]
+    public function completeCreativeWithCustomTemperature(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('Creative response');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(fn(ChatOptions $opts) => $opts->getTemperature() === 0.8),
+            )
+            ->willReturn($mockResponse);
+
+        // When temperature is already set, completeCreative should use it
+        $options = new ChatOptions(temperature: 0.8);
+        $subject->completeCreative('Test', $options);
+    }
+
+    #[Test]
+    public function completeCreativeWithCustomTopPAndPresencePenalty(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('Creative response');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(fn(ChatOptions $opts) => $opts->getTopP() === 0.8 && $opts->getPresencePenalty() === 0.3),
+            )
+            ->willReturn($mockResponse);
+
+        // When topP and presencePenalty are already set, completeCreative should use them
+        $options = new ChatOptions(topP: 0.8, presencePenalty: 0.3);
+        $subject->completeCreative('Test', $options);
+    }
+
+    #[Test]
+    public function completeMarkdownWithExistingSystemPrompt(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('# Markdown');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(function (ChatOptions $options): bool {
+                    $systemPrompt = $options->getSystemPrompt() ?? '';
+                    return str_contains($systemPrompt, 'Custom instruction')
+                        && str_contains($systemPrompt, 'Markdown');
+                }),
+            )
+            ->willReturn($mockResponse);
+
+        $options = new ChatOptions(systemPrompt: 'Custom instruction');
+        $subject->completeMarkdown('Test', $options);
+    }
+
+    #[Test]
+    public function validateOptionsAcceptsZeroTemperature(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('Response');
+        $llmManagerMock->method('chat')->willReturn($mockResponse);
+
+        $result = $subject->complete('Test', new ChatOptions(temperature: 0.0));
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function validateOptionsAcceptsMaxTemperature(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('Response');
+        $llmManagerMock->method('chat')->willReturn($mockResponse);
+
+        $result = $subject->complete('Test', new ChatOptions(temperature: 2.0));
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function validateOptionsAcceptsZeroTopP(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('Response');
+        $llmManagerMock->method('chat')->willReturn($mockResponse);
+
+        $result = $subject->complete('Test', new ChatOptions(topP: 0.0));
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function validateOptionsAcceptsMaxTopP(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('Response');
+        $llmManagerMock->method('chat')->willReturn($mockResponse);
+
+        $result = $subject->complete('Test', new ChatOptions(topP: 1.0));
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function completeJsonThrowsOnInvalidJsonSyntax(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        // Return malformed JSON
+        $mockResponse = $this->createMockResponse('{ invalid json syntax }');
+
+        $llmManagerMock
+            ->method('chat')
+            ->willReturn($mockResponse);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Failed to decode JSON response');
+
+        $subject->completeJson('Test');
+    }
+
+    #[Test]
+    public function completeJsonParsesValidJsonObject(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $jsonContent = '{"name": "test", "value": 123, "nested": {"key": "value"}}';
+        $mockResponse = $this->createMockResponse($jsonContent);
+
+        $llmManagerMock
+            ->method('chat')
+            ->willReturn($mockResponse);
+
+        $result = $subject->completeJson('Return JSON');
+
+        self::assertEquals('test', $result['name']);
+        self::assertEquals(123, $result['value']);
+        self::assertIsArray($result['nested']);
+    }
+
+    #[Test]
+    public function completeJsonThrowsOnJsonNull(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        // Return valid JSON but null
+        $mockResponse = $this->createMockResponse('null');
+
+        $llmManagerMock
+            ->method('chat')
+            ->willReturn($mockResponse);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('JSON response must be an object');
+
+        $subject->completeJson('Test');
+    }
+
     /**
      * Create mock CompletionResponse.
      */
