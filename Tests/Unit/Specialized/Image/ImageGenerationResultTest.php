@@ -9,6 +9,7 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\WithoutErrorHandler;
 
 #[CoversClass(ImageGenerationResult::class)]
 class ImageGenerationResultTest extends AbstractUnitTestCase
@@ -504,11 +505,12 @@ class ImageGenerationResultTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    #[WithoutErrorHandler]
     public function saveToFileReturnsFalseForInvalidPath(): void
     {
         $originalData = 'test data';
         $base64 = base64_encode($originalData);
-        // Use a path that cannot be written to
+        // Use a path that cannot be written to - suppress expected PHP warning
         $invalidPath = '/nonexistent/directory/that/cannot/exist/image.png';
 
         $result = new ImageGenerationResult(
