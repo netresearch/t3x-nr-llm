@@ -87,7 +87,7 @@ final readonly class ImageGenerationResult
             }
         }
 
-        $result = file_put_contents($path, $content);
+        $result = @file_put_contents($path, $content);
         return $result !== false;
     }
 
