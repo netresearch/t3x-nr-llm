@@ -1,0 +1,17 @@
+#!/bin/bash
+
+## Description: Install all supported TYPO3 versions with nr_llm extension
+## Usage: install-all
+## Example: ddev install-all
+
+set -e
+
+echo "📦 Installing all supported TYPO3 versions..."
+echo ""
+
+# nr_llm requires PHP 8.5 and TYPO3 v14 only
+echo "Installing TYPO3 v14..."
+/mnt/ddev_config/commands/web/install-v14
+
+echo ""
+echo "✅ All TYPO3 versions installed successfully!"
