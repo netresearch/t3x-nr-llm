@@ -1,7 +1,7 @@
 # Makefile for nr_llm TYPO3 extension development
 # Generated according to TYPO3 DDEV Skill best practices
 
-.PHONY: help setup up down restart install sync seed seed-tasks ollama test test-unit test-integration test-functional test-fuzzy test-e2e coverage mutation lint lint-fix phpstan rector docs clean ci
+.PHONY: help up start down restart install install-all sync seed seed-tasks ollama test test-unit test-integration test-functional test-fuzzy test-e2e coverage mutation lint lint-fix phpstan rector docs clean ci
 
 # Default target
 help:
@@ -10,13 +10,14 @@ help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Quick Start:"
-	@echo "  setup       Full setup: start DDEV, install TYPO3, pull LLM model"
+	@echo "  up          ONE COMMAND - complete setup (DDEV + TYPO3 + docs + Ollama)"
 	@echo ""
 	@echo "Environment:"
-	@echo "  up          Start DDEV environment"
+	@echo "  start       Start DDEV only (no installation)"
 	@echo "  down        Stop DDEV environment"
 	@echo "  restart     Restart DDEV environment"
 	@echo "  install     Install TYPO3 v14 with extension"
+	@echo "  install-all Install all supported TYPO3 versions (v14)"
 	@echo "  sync        Sync database schema (run extension:setup)"
 	@echo "  seed        Import Ollama seed data (provider, models, configs)"
 	@echo "  seed-tasks  Import task seed data (one-shot prompts)"
@@ -46,8 +47,8 @@ help:
 	@echo "Maintenance:"
 	@echo "  clean       Remove generated files"
 
-# Quick start - complete setup in one command
-setup: up install ollama
+# ONE COMMAND - complete setup
+up: start install docs ollama
 	@echo ""
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "✅ Setup complete!"
@@ -55,15 +56,15 @@ setup: up install ollama
 	@echo "🌐 TYPO3 Backend: https://v14.nr-llm.ddev.site/typo3/"
 	@echo "   Username: admin | Password: Joh316!!"
 	@echo ""
+	@echo "📚 Documentation: https://docs.nr-llm.ddev.site/"
+	@echo ""
 	@echo "🤖 LLM ready: Local Ollama with qwen3:0.6b"
 	@echo "   Test: ddev ollama chat"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Environment targets
-up:
+start:
 	ddev start
-	@echo "🔄 Syncing database schema..."
-	@ddev exec -d /var/www/html/v14 vendor/bin/typo3 extension:setup 2>/dev/null || echo "   ⚠️ v14 not installed. Run 'make install' first."
 
 down:
 	ddev stop
@@ -73,6 +74,9 @@ restart:
 
 install:
 	ddev install-v14
+
+install-all:
+	ddev install-all
 
 sync:
 	ddev exec -d /var/www/html/v14 vendor/bin/typo3 extension:setup

@@ -13,8 +13,9 @@ EXTENSION_PATH="/var/www/nr_llm"
 echo "🚀 Installing TYPO3 v14 with nr_llm extension..."
 echo ""
 
-# Clean and create installation directory
+# Ensure proper ownership of installation directory (volume may be root-owned initially)
 echo "📁 Creating installation directory..."
+sudo chown -R "$(id -u):$(id -g)" "$INSTALL_DIR" 2>/dev/null || true
 rm -rf "$INSTALL_DIR"/* "$INSTALL_DIR"/.[!.]* 2>/dev/null || true
 mkdir -p "$INSTALL_DIR"
 
