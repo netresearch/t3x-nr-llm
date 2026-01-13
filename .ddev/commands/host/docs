@@ -7,27 +7,54 @@
 
 set -e
 
-EXTENSION_PATH="$(dirname "$(dirname "$(dirname "$0")")")/.."
-cd "$EXTENSION_PATH"
+PROJECT_DIR="$(dirname "$(dirname "$(dirname "$0")")")/.."
+cd "$PROJECT_DIR"
 
-# Check for --clean flag
-if [[ "$1" == "--clean" ]]; then
-    echo "🧹 Cleaning previous documentation build..."
-    rm -rf Documentation-GENERATED-temp
+DOC_SOURCE="${PROJECT_DIR}/Documentation"
+DOC_OUTPUT="${PROJECT_DIR}/Documentation-GENERATED-temp"
+
+echo "📚 Rendering TYPO3 Extension Documentation"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check if Documentation directory exists
+if [ ! -d "$DOC_SOURCE" ]; then
+    echo "❌ Error: Documentation directory not found"
+    echo "💡 Tip: Create a Documentation/ directory with Index.rst to get started"
+    exit 1
 fi
 
-echo "📚 Rendering documentation..."
+# Check for --clean flag or clean previous output
+if [[ "$1" == "--clean" ]] || [ -d "$DOC_OUTPUT" ]; then
+    echo "🧹 Cleaning previous documentation build..."
+    rm -rf "$DOC_OUTPUT"
+fi
+
+echo "📖 Source:  Documentation/"
+echo "📦 Output:  Documentation-GENERATED-temp/"
+echo ""
+
+# Render documentation using TYPO3's official docker image
+echo "🔨 Rendering documentation with TYPO3 render-guides..."
 echo ""
 
 docker run --rm \
     -v "$(pwd):/project" \
-    -v "$(pwd)/Documentation-GENERATED-temp:/project/Documentation-GENERATED-temp" \
+    --user "$(id -u):$(id -g)" \
     ghcr.io/typo3-documentation/render-guides:latest \
-    --config Documentation
+    --config=/project/Documentation \
+    --output=/project/Documentation-GENERATED-temp \
+    --no-progress 2>&1
 
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ Documentation rendered successfully!"
-echo ""
-echo "📖 View at: https://docs.nr-llm.ddev.site/"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "✅ Documentation rendered successfully!"
+    echo ""
+    echo "📖 View at: https://docs.nr-llm.ddev.site/"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+else
+    echo ""
+    echo "❌ Documentation rendering failed"
+    echo "💡 Check your .rst files for syntax errors"
+    exit 1
+fi
