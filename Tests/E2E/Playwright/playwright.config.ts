@@ -11,11 +11,12 @@ export default defineConfig({
     ['list'],
   ],
   use: {
+    // Default to DDEV for local dev; CI sets TYPO3_BASE_URL to localhost
     baseURL: process.env.TYPO3_BASE_URL || 'https://v14.nr-llm.ddev.site',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    ignoreHTTPSErrors: true,
+    ignoreHTTPSErrors: true, // For DDEV with self-signed certificates
   },
   projects: [
     {

@@ -67,11 +67,16 @@ Options:
                       Options: sqlite, mysql, mariadb, postgres
     -x                Extra options to pass to PHPUnit
 
+Environment:
+    TYPO3_BASE_URL    Base URL for Playwright tests (default: https://v14.nr-llm.ddev.site)
+
 Examples:
     $(basename "$0") unit
     $(basename "$0") -p 8.5 functional
     $(basename "$0") -x "--filter=testSpecificTest" unit
     $(basename "$0") ci
+    $(basename "$0") playwright                                        # Uses DDEV (default)
+    TYPO3_BASE_URL=http://localhost:8080 $(basename "$0") playwright   # Custom URL
 
 EOF
 }
@@ -168,10 +173,32 @@ run_e2e_tests() {
 #
 # Run Playwright E2E tests
 #
+# Requires a running TYPO3 instance. Use one of:
+# - DDEV locally: TYPO3_BASE_URL=https://v14.nr-llm.ddev.site ./Build/Scripts/runTests.sh playwright
+# - CI: The GitHub Actions workflow handles TYPO3 setup automatically
+#
 run_playwright_tests() {
+    local typo3_base_url="${TYPO3_BASE_URL:-https://v14.nr-llm.ddev.site}"
+
     info "Running Playwright E2E tests..."
     check_node_dependencies
-    cd "${ROOT_DIR}" && npm run test:e2e
+
+    # Check if TYPO3 is accessible
+    info "Checking TYPO3 at ${typo3_base_url}..."
+    if ! curl -sk "${typo3_base_url}/typo3/" > /dev/null 2>&1; then
+        warning "TYPO3 not responding at ${typo3_base_url}"
+        warning "Make sure TYPO3 is running (e.g., 'ddev start' for local development)"
+        warning "Or set TYPO3_BASE_URL environment variable to the correct URL"
+    fi
+
+    # Set the base URL for Playwright
+    export TYPO3_BASE_URL="${typo3_base_url}"
+
+    # Run Playwright tests
+    info "Executing Playwright tests against ${TYPO3_BASE_URL}..."
+    cd "${ROOT_DIR}"
+
+    npm run test:e2e
     success "Playwright tests completed"
 }
 
