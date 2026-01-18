@@ -1,0 +1,18 @@
+# Gitleaks configuration for nr_llm
+# See: https://github.com/gitleaks/gitleaks#configuration
+
+# Extend the default config
+[extend]
+useDefault = true
+
+# Global allowlist for false positives
+[allowlist]
+description = "Global allowlist for CI test values"
+# Allow obvious test encryption keys (sequential hex patterns)
+regexes = [
+  '''0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef''',
+]
+# Paths that may contain intentional test credentials
+paths = [
+  '''.github/workflows/e2e\.yml''',
+]

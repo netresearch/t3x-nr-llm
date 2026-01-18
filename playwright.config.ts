@@ -20,11 +20,12 @@ export default defineConfig({
     timeout: 10000,
   },
   use: {
+    // Default to DDEV for local dev; CI sets TYPO3_BASE_URL to localhost
     baseURL: process.env.TYPO3_BASE_URL || 'https://v14.nr-llm.ddev.site',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    ignoreHTTPSErrors: true, // DDEV uses self-signed certificates
+    ignoreHTTPSErrors: true, // For DDEV with self-signed certificates
   },
   projects: [
     {

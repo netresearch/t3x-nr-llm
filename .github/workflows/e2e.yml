@@ -2,14 +2,6 @@ name: E2E Tests
 
 on:
   workflow_dispatch:
-    inputs:
-      typo3_version:
-        description: 'TYPO3 version to test'
-        required: true
-        default: 'v14'
-        type: choice
-        options:
-          - v14
   schedule:
     # Run E2E tests weekly on Sunday at 2:00 AM UTC
     - cron: '0 2 * * 0'
@@ -21,7 +13,23 @@ jobs:
   e2e:
     name: Playwright E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+
+    services:
+      db:
+        image: mariadb:11.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: typo3
+          MYSQL_CHARSET: utf8mb4
+          MYSQL_COLLATION: utf8mb4_unicode_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       - name: Harden Runner
@@ -32,26 +40,96 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Install DDEV
-        run: |
-          curl -fsSL https://apt.fury.io/drud/gpg.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/ddev.gpg > /dev/null
-          echo "deb [signed-by=/etc/apt/trusted.gpg.d/ddev.gpg] https://apt.fury.io/drud/ * *" | sudo tee /etc/apt/sources.list.d/ddev.list
-          sudo apt-get update && sudo apt-get install -y ddev
+      - name: Setup PHP
+        uses: shivammathur/setup-php@db91e1a0e48e84637d325a7ee4d2677e146ceec4 # v2.36.0
+        with:
+          php-version: '8.5'
+          extensions: mysqli, pdo_mysql, gd, intl, curl, zip
+          coverage: none
 
-      - name: Start DDEV
-        run: |
-          ddev start
-          ddev composer install
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.json') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress
 
       - name: Setup TYPO3
-        env:
-          TYPO3_VERSION: ${{ inputs.typo3_version || 'v14' }}
         run: |
-          ddev exec "/var/www/html/${TYPO3_VERSION}/vendor/bin/typo3 setup --force --no-interaction"
-          ddev exec "/var/www/html/${TYPO3_VERSION}/vendor/bin/typo3 cache:flush"
+          # Create necessary directories
+          mkdir -p .Build/Web/typo3conf
+          mkdir -p .Build/Web/typo3temp/var/cache
+          mkdir -p .Build/Web/typo3temp/var/log
+          mkdir -p .Build/Web/fileadmin
+
+          # Create LocalConfiguration.php
+          cat > .Build/Web/typo3conf/LocalConfiguration.php << 'EOF'
+          <?php
+          return [
+              'BE' => [
+                  'debug' => true,
+                  // Password: 'password' (test-only, for CI debugging)
+                  'installToolPassword' => '$argon2i$v=19$m=65536,t=16,p=1$M3QuMy5OdGlXTkxmTy56Zg$3A4Exo3BxTgTjLSaR4xaoIgd3gfWBPjXfYu7NdnVmzU',
+                  'passwordHashing' => [
+                      'className' => \TYPO3\CMS\Core\Crypto\PasswordHashing\Argon2iPasswordHash::class,
+                      'options' => [],
+                  ],
+              ],
+              'DB' => [
+                  'Connections' => [
+                      'Default' => [
+                          'charset' => 'utf8mb4',
+                          'driver' => 'mysqli',
+                          'host' => '127.0.0.1',
+                          'port' => 3306,
+                          'dbname' => 'typo3',
+                          'user' => 'root',
+                          'password' => 'root',
+                      ],
+                  ],
+              ],
+              'FE' => [
+                  'debug' => true,
+              ],
+              'SYS' => [
+                  'devIPmask' => '*',
+                  'displayErrors' => 1,
+                  'encryptionKey' => '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+                  'exceptionalErrors' => 4096,
+                  'sitename' => 'nr_llm E2E Tests',
+                  'trustedHostsPattern' => 'localhost|127\\.0\\.0\\.1',
+              ],
+          ];
+          EOF
+
+          # Wait for database to be ready (extra safety beyond GitHub Services health check)
+          for i in {1..30}; do
+            if mysqladmin ping -h127.0.0.1 -uroot -proot --silent 2>/dev/null; then
+              echo "Database is ready."
+              break
+            fi
+            echo "Waiting for database to be ready... (attempt $i/30)"
+            sleep 2
+          done
+
+          # Setup database schema
+          .Build/bin/typo3 extension:setup --no-interaction
+
+          # Create admin user (password: 'Joh316!!' - test-only, for CI debugging)
+          .Build/bin/typo3 backend:user:create --username=admin --password='Joh316!!' --admin --no-interaction
+
+          # Flush caches
+          .Build/bin/typo3 cache:flush
 
       - name: Setup Node.js
-        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -62,14 +140,31 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Start PHP server
+        run: |
+          php -S 0.0.0.0:8080 -t .Build/Web > /tmp/php-server.log 2>&1 &
+          echo $! > /tmp/php-server.pid
+
+          # Wait for server to become ready (up to 30 seconds)
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/typo3/ > /dev/null 2>&1; then
+              echo "PHP server is up (checked after ${i}s)."
+              break
+            fi
+            sleep 1
+          done
+
+          # Verify server is running after retries
+          if ! curl -sf http://localhost:8080/typo3/ > /dev/null 2>&1; then
+            echo "PHP server failed to start within timeout. Server log:"
+            cat /tmp/php-server.log
+            exit 1
+          fi
+
       - name: Run Playwright tests
         env:
-          TYPO3_VERSION: ${{ inputs.typo3_version || 'v14' }}
-          TYPO3_USERNAME: admin
-          TYPO3_PASSWORD: Joh316!!
-        run: |
-          export TYPO3_BASE_URL="https://${TYPO3_VERSION}.nr-llm.ddev.site"
-          npm run test:e2e
+          TYPO3_BASE_URL: http://localhost:8080
+        run: npm run test:e2e
 
       - name: Upload test results
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -81,6 +176,17 @@ jobs:
             Tests/E2E/Playwright/test-results/
           retention-days: 7
 
-      - name: Stop DDEV
+      - name: Upload PHP server logs
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: failure()
+        with:
+          name: php-server-logs
+          path: /tmp/php-server.log
+          retention-days: 3
+
+      - name: Stop PHP server
         if: always()
-        run: ddev stop
+        run: |
+          if [ -f /tmp/php-server.pid ]; then
+            kill $(cat /tmp/php-server.pid) 2>/dev/null || true
+          fi
