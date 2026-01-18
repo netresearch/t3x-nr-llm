@@ -2,14 +2,6 @@ name: E2E Tests
 
 on:
   workflow_dispatch:
-    inputs:
-      typo3_version:
-        description: 'TYPO3 version to test'
-        required: true
-        default: 'v14'
-        type: choice
-        options:
-          - v14
   schedule:
     # Run E2E tests weekly on Sunday at 2:00 AM UTC
     - cron: '0 2 * * 0'
@@ -29,6 +21,8 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: typo3
+          MYSQL_CHARSET: utf8mb4
+          MYSQL_COLLATION: utf8mb4_unicode_ci
         ports:
           - 3306:3306
         options: >-
@@ -39,17 +33,17 @@ jobs:
 
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: audit
 
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a # v2.32.0
+        uses: shivammathur/setup-php@db91e1a0e48e84637d325a7ee4d2677e146ceec4 # v2.36.0
         with:
-          php-version: '8.4'
+          php-version: '8.5'
           extensions: mysqli, pdo_mysql, gd, intl, curl, zip
           coverage: none
 
@@ -81,6 +75,7 @@ jobs:
           return [
               'BE' => [
                   'debug' => true,
+                  // Password: 'password' (test-only, for CI debugging)
                   'installToolPassword' => '$argon2i$v=19$m=65536,t=16,p=1$M3QuMy5OdGlXTkxmTy56Zg$3A4Exo3BxTgTjLSaR4xaoIgd3gfWBPjXfYu7NdnVmzU',
                   'passwordHashing' => [
                       'className' => \TYPO3\CMS\Core\Crypto\PasswordHashing\Argon2iPasswordHash::class,
@@ -106,27 +101,37 @@ jobs:
               'SYS' => [
                   'devIPmask' => '*',
                   'displayErrors' => 1,
-                  'encryptionKey' => 'e2e-ci-test-encryption-key-not-for-production-1234567890abcdef',
+                  'encryptionKey' => '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
                   'exceptionalErrors' => 4096,
                   'sitename' => 'nr_llm E2E Tests',
-                  'trustedHostsPattern' => '.*',
+                  'trustedHostsPattern' => 'localhost|127\\.0\\.0\\.1',
               ],
           ];
           EOF
 
+          # Wait for database to be ready (extra safety beyond GitHub Services health check)
+          for i in {1..30}; do
+            if mysqladmin ping -h127.0.0.1 -uroot -proot --silent 2>/dev/null; then
+              echo "Database is ready."
+              break
+            fi
+            echo "Waiting for database to be ready... (attempt $i/30)"
+            sleep 2
+          done
+
           # Setup database schema
           .Build/bin/typo3 extension:setup --no-interaction
 
-          # Create admin user
+          # Create admin user (password: 'Joh316!!' - test-only, for CI debugging)
           .Build/bin/typo3 backend:user:create --username=admin --password='Joh316!!' --admin --no-interaction
 
           # Flush caches
           .Build/bin/typo3 cache:flush
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
-          node-version: '22'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install npm dependencies
@@ -139,9 +144,22 @@ jobs:
         run: |
           php -S 0.0.0.0:8080 -t .Build/Web > /tmp/php-server.log 2>&1 &
           echo $! > /tmp/php-server.pid
-          sleep 3
-          # Verify server is running
-          curl -s http://localhost:8080/ > /dev/null || (cat /tmp/php-server.log && exit 1)
+
+          # Wait for server to become ready (up to 30 seconds)
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/typo3/ > /dev/null 2>&1; then
+              echo "PHP server is up (checked after ${i}s)."
+              break
+            fi
+            sleep 1
+          done
+
+          # Verify server is running after retries
+          if ! curl -sf http://localhost:8080/typo3/ > /dev/null 2>&1; then
+            echo "PHP server failed to start within timeout. Server log:"
+            cat /tmp/php-server.log
+            exit 1
+          fi
 
       - name: Run Playwright tests
         env:
@@ -149,7 +167,7 @@ jobs:
         run: npm run test:e2e
 
       - name: Upload test results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: always()
         with:
           name: playwright-report
@@ -159,7 +177,7 @@ jobs:
           retention-days: 7
 
       - name: Upload PHP server logs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: failure()
         with:
           name: php-server-logs

@@ -184,11 +184,24 @@ run_playwright_tests() {
     check_node_dependencies
 
     # Check if TYPO3 is accessible
+    # Use -k only for https URLs (self-signed certificates in DDEV)
     info "Checking TYPO3 at ${typo3_base_url}..."
-    if ! curl -sk "${typo3_base_url}/typo3/" > /dev/null 2>&1; then
+    local curl_opts="-s"
+    if [[ "${typo3_base_url}" == https://* ]]; then
+        curl_opts="-sk"
+    fi
+
+    if ! curl ${curl_opts} "${typo3_base_url}/typo3/" > /dev/null 2>&1; then
         warning "TYPO3 not responding at ${typo3_base_url}"
         warning "Make sure TYPO3 is running (e.g., 'ddev start' for local development)"
         warning "Or set TYPO3_BASE_URL environment variable to the correct URL"
+        if [[ "${PLAYWRIGHT_FORCE:-0}" != "1" ]]; then
+            error "Aborting Playwright tests because TYPO3 is not accessible."
+            echo "Set PLAYWRIGHT_FORCE=1 to run Playwright tests even if TYPO3 is unavailable." >&2
+            exit 1
+        else
+            warning "Continuing with Playwright tests despite TYPO3 being unavailable because PLAYWRIGHT_FORCE=1 is set"
+        fi
     fi
 
     # Set the base URL for Playwright
