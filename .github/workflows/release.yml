@@ -55,14 +55,14 @@ jobs:
           git archive --format=tar.gz --prefix=nr_llm/ HEAD -o dist/nr_llm-${{ steps.version.outputs.version }}.tar.gz
 
       - name: Generate SBOM (SPDX)
-        uses: anchore/sbom-action@a930d0ac434e3182448fe678398ba5713717112a # v0.21.0
+        uses: anchore/sbom-action@0b82b0b1a22399a1c542d4d656f70cd903571b5c # v0.21.1
         with:
           path: .
           format: spdx-json
           output-file: dist/nr_llm-${{ steps.version.outputs.version }}.sbom.spdx.json
 
       - name: Generate SBOM (CycloneDX)
-        uses: anchore/sbom-action@a930d0ac434e3182448fe678398ba5713717112a # v0.21.0
+        uses: anchore/sbom-action@0b82b0b1a22399a1c542d4d656f70cd903571b5c # v0.21.1
         with:
           path: .
           format: cyclonedx-json
