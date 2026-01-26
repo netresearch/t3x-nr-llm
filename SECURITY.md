@@ -11,7 +11,7 @@
 If you discover a security vulnerability in this extension, please report it responsibly:
 
 1. **Do NOT** open a public GitHub issue
-2. Email security concerns to: security@netresearch.de
+2. Use GitHub's private vulnerability reporting: https://github.com/netresearch/t3x-nr-llm/security/advisories/new
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce
