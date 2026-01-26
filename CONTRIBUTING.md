@@ -89,7 +89,7 @@ npm run test:e2e
 - **Escape all output** - use `htmlspecialchars()` for HTML, Fluid auto-escaping
 - **Validate all input** - use DTOs with type-safe extraction
 - **Use parameterized queries** - Extbase Query or QueryBuilder
-- **Report vulnerabilities** privately via security@netresearch.de
+- **Report vulnerabilities** privately via [GitHub Security Advisories](https://github.com/netresearch/t3x-nr-llm/security/advisories/new)
 
 See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
