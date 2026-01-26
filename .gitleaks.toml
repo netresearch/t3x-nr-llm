@@ -15,5 +15,5 @@ regexes = [
 # Paths that may contain intentional test credentials
 paths = [
   '''.github/workflows/e2e\.yml''',
-  '''Tests/E2E/.*''',
+  '''^Tests/E2E/.*''',
 ]
