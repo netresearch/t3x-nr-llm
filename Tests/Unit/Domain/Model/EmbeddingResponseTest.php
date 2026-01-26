@@ -19,7 +19,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
      */
     private function createSampleEmbedding(int $dimensions = 1536): array
     {
-        return array_map(fn() => (mt_rand() / getrandmax()) * 2 - 1, range(1, $dimensions));
+        return array_map(fn() => random_int(-1_000_000, 1_000_000) / 1_000_000, range(1, $dimensions));
     }
 
     #[Test]
