@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Render Documentation
-        uses: typo3-documentation/render-guides@4434f670ae2d520d9163f299494fdd3afbac5de5 # 0.35.1
+        uses: typo3-documentation/render-guides@c4a29ab3c1e900192b9c5f76f0071afa0a8dbcb4 # 0.36.0
         with:
           source-path: Documentation
           output-path: Documentation-GENERATED-temp
