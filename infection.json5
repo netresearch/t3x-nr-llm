@@ -25,7 +25,7 @@
         "configDir": ".",
         "customPath": ".Build/bin/phpunit"
     },
-    "minMsi": 55,
-    "minCoveredMsi": 58,
+    "minMsi": 70,
+    "minCoveredMsi": 74,
     "tmpDir": ".Build/cache/infection"
 }
