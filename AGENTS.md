@@ -67,14 +67,17 @@ feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security(scope)?: m
 
 ## Testing Requirements
 
+Tests run in Docker containers using TYPO3 core-testing images for consistent environments.
+
 | Test Type | Location | Command | When Required |
 |-----------|----------|---------|---------------|
-| Unit | `Tests/Unit/` | `composer test:unit` | All new code |
-| Integration | `Tests/Integration/` | `composer test:integration` | API interactions |
-| Functional | `Tests/Functional/` | `composer test:functional` | TYPO3 integration |
-| Fuzzy | `Tests/Fuzzy/` | `composer test:fuzzy` | Input validation |
-| Mutation | - | `composer test:mutation` | Critical paths |
-| E2E | `Tests/E2E/` | `npm run test:e2e` | UI workflows |
+| Unit | `Tests/Unit/` | `./Build/Scripts/runTests.sh -s unit` | All new code |
+| Integration | `Tests/Integration/` | `./Build/Scripts/runTests.sh -s integration` | API interactions |
+| Functional | `Tests/Functional/` | `./Build/Scripts/runTests.sh -s functional` | TYPO3 integration |
+| Fuzzy | `Tests/Fuzzy/` | `./Build/Scripts/runTests.sh -s fuzzy` | Input validation |
+| Mutation | - | `./Build/Scripts/runTests.sh -s mutation` | Critical paths |
+| E2E | `Tests/E2E/` | `./Build/Scripts/runTests.sh -s e2e` | UI workflows |
+| Architecture | `Tests/Architecture/` | `./Build/Scripts/runTests.sh -s architecture` | Layer constraints |
 
 **Coverage requirements:**
 - Minimum MSI: 70%
@@ -105,14 +108,19 @@ To add a new LLM provider:
 ## Running Quality Checks
 
 ```bash
-# All CI checks
-composer ci
+# Docker-based test runner (recommended)
+./Build/Scripts/runTests.sh -s unit        # Unit tests
+./Build/Scripts/runTests.sh -s functional  # Functional tests
+./Build/Scripts/runTests.sh -s phpstan     # Static analysis
+./Build/Scripts/runTests.sh -s cgl         # PHP-CS-Fixer (check)
+./Build/Scripts/runTests.sh -s cgl         # PHP-CS-Fixer (fix, without -n)
+./Build/Scripts/runTests.sh -s rector -n   # Rector (dry-run)
 
-# Individual checks
+# Composer scripts (local PHP, for quick checks)
+composer ci            # All CI checks
 composer lint          # PHP-CS-Fixer (dry-run)
 composer phpstan       # Static analysis
 composer test:unit     # Unit tests
-composer rector:dry    # Rector (dry-run)
 
 # Fix formatting
 composer lint:fix
@@ -140,19 +148,21 @@ Workflows in `.github/workflows/`:
 
 ```bash
 # Development
-ddev start                     # Start DDEV environment
-composer install               # Install dependencies
-composer ci                    # Run all CI checks
+ddev start                              # Start DDEV environment
+composer install                        # Install dependencies
+./Build/Scripts/runTests.sh -s unit     # Run unit tests
 
-# Testing
-composer test:unit             # Fast unit tests
-composer test:mutation         # Mutation testing
-npm run test:e2e               # Playwright E2E
+# Testing (Docker-based, recommended)
+./Build/Scripts/runTests.sh -s unit            # Unit tests
+./Build/Scripts/runTests.sh -s functional      # Functional tests
+./Build/Scripts/runTests.sh -s functional -d mariadb  # With MariaDB
+./Build/Scripts/runTests.sh -s mutation        # Mutation testing
+./Build/Scripts/runTests.sh -s e2e             # Playwright E2E
 
 # Maintenance
-composer rector                # Apply Rector fixes
-composer lint:fix              # Fix code style
-.Build/bin/grumphp git:init    # Install git hooks
+./Build/Scripts/runTests.sh -s rector          # Apply Rector fixes
+./Build/Scripts/runTests.sh -s cgl             # Fix code style
+.Build/bin/grumphp git:init                    # Install git hooks
 ```
 
 ## Contact
