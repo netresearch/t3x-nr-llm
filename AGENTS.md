@@ -112,8 +112,8 @@ To add a new LLM provider:
 ./Build/Scripts/runTests.sh -s unit        # Unit tests
 ./Build/Scripts/runTests.sh -s functional  # Functional tests
 ./Build/Scripts/runTests.sh -s phpstan     # Static analysis
-./Build/Scripts/runTests.sh -s cgl         # PHP-CS-Fixer (check)
-./Build/Scripts/runTests.sh -s cgl         # PHP-CS-Fixer (fix, without -n)
+./Build/Scripts/runTests.sh -s cgl -n      # PHP-CS-Fixer (check, dry-run)
+./Build/Scripts/runTests.sh -s cgl         # PHP-CS-Fixer (fix)
 ./Build/Scripts/runTests.sh -s rector -n   # Rector (dry-run)
 
 # Composer scripts (local PHP, for quick checks)

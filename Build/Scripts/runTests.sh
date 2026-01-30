@@ -52,11 +52,13 @@ waitForHttp() {
 }
 
 cleanUp() {
-    ATTACHED_CONTAINERS=$(${CONTAINER_BIN} ps --filter network=${NETWORK} --format='{{.Names}}' 2>/dev/null)
-    for ATTACHED_CONTAINER in ${ATTACHED_CONTAINERS}; do
-        ${CONTAINER_BIN} rm -f ${ATTACHED_CONTAINER} >/dev/null 2>&1
-    done
-    ${CONTAINER_BIN} network rm ${NETWORK} >/dev/null 2>&1
+    if [ -n "${NETWORK:-}" ] && [ -n "${CONTAINER_BIN:-}" ]; then
+        ATTACHED_CONTAINERS=$(${CONTAINER_BIN} ps --filter network=${NETWORK} --format='{{.Names}}' 2>/dev/null)
+        for ATTACHED_CONTAINER in ${ATTACHED_CONTAINERS}; do
+            ${CONTAINER_BIN} rm -f ${ATTACHED_CONTAINER} >/dev/null 2>&1
+        done
+        ${CONTAINER_BIN} network rm ${NETWORK} >/dev/null 2>&1
+    fi
 }
 
 cleanCacheFiles() {
@@ -131,7 +133,7 @@ Options:
             - cgl: PHP CS Fixer check/fix
             - clean: Clean temporary files
             - composer: Run composer commands
-            - composerUpdate: Update dependencies
+            - composerUpdate: Clean install dependencies (removes vendor/)
             - e2e: Playwright E2E tests (requires running TYPO3)
             - functional: PHP functional tests
             - functionalParallel: Parallel functional tests (faster)
@@ -203,6 +205,7 @@ CGLCHECK_DRY_RUN=0
 CI_PARAMS="${CI_PARAMS:-}"
 CONTAINER_BIN=""
 CONTAINER_HOST="host.docker.internal"
+SUITE_EXIT_CODE=0
 
 # Parse options
 OPTIND=1
@@ -266,7 +269,7 @@ fi
 
 # Container images
 IMAGE_PHP="${TYPO3_IMAGE_PREFIX}core-testing-$(echo "php${PHP_VERSION}" | sed -e 's/\.//'):latest"
-IMAGE_ALPINE="${IMAGE_PREFIX}alpine:3.8"
+IMAGE_ALPINE="${IMAGE_PREFIX}alpine:3.20"
 IMAGE_MARIADB="docker.io/mariadb:${DBMS_VERSION}"
 IMAGE_MYSQL="docker.io/mysql:${DBMS_VERSION}"
 IMAGE_POSTGRES="docker.io/postgres:${DBMS_VERSION}-alpine"
@@ -274,9 +277,12 @@ IMAGE_PLAYWRIGHT="mcr.microsoft.com/playwright:v1.57.0-noble"
 
 shift $((OPTIND - 1))
 
-SUFFIX=$(echo $RANDOM)
+SUFFIX="$(date +%s)-${RANDOM}"
 NETWORK="nr-llm-${SUFFIX}"
-${CONTAINER_BIN} network create ${NETWORK} >/dev/null
+if ! ${CONTAINER_BIN} network create ${NETWORK} >/dev/null 2>&1; then
+    echo "Failed to create container network '${NETWORK}'. Ensure ${CONTAINER_BIN} daemon is running." >&2
+    exit 1
+fi
 
 if [ ${CONTAINER_BIN} = "docker" ]; then
     CONTAINER_COMMON_PARAMS="${CONTAINER_INTERACTIVE} --rm --network ${NETWORK} --add-host "${CONTAINER_HOST}:host-gateway" ${USERSET} -v ${ROOT_DIR}:${ROOT_DIR} -w ${ROOT_DIR}"
@@ -315,6 +321,7 @@ case ${TEST_SUITE} in
         ;;
     clean)
         cleanCacheFiles
+        SUITE_EXIT_CODE=0
         ;;
     composer)
         COMMAND=(composer "$@")
@@ -411,7 +418,8 @@ case ${TEST_SUITE} in
         if [ "${CI}" == "true" ]; then
             PARALLEL_JOBS=4
         else
-            PARALLEL_JOBS="\$(((\$(nproc) + 1) / 2))"
+            # Use half of available CPUs for local runs
+            PARALLEL_JOBS=$(( ($(nproc) + 1) / 2 ))
         fi
 
         COMMAND="find Tests/Functional -name '*Test.php' | xargs -P${PARALLEL_JOBS} -I{} php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/phpunit -c Build/FunctionalTests.xml {}"
@@ -475,6 +483,7 @@ case ${TEST_SUITE} in
     update)
         echo "> Updating ${TYPO3_IMAGE_PREFIX}core-testing-* images..."
         ${CONTAINER_BIN} images "${TYPO3_IMAGE_PREFIX}core-testing-*" --format "{{.Repository}}:{{.Tag}}" | xargs -I {} ${CONTAINER_BIN} pull {}
+        SUITE_EXIT_CODE=$?
         ;;
     *)
         loadHelp
