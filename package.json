@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "E2E tests for nr_llm TYPO3 extension",
   "private": true,
+  "engines": {
+    "node": ">=22.18.0 <23.0.0",
+    "npm": ">=11.5.2"
+  },
   "scripts": {
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
@@ -14,7 +18,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.0",
-    "@playwright/test": "^1.49.0",
+    "@playwright/test": "^1.57.0",
     "@types/node": "^22.10.2"
   }
 }
