@@ -2,443 +2,519 @@
 
 #
 # TYPO3 Extension Test Runner - nr_llm
-# Based on TYPO3 Best Practices: https://github.com/TYPO3BestPractices/tea
+# Docker/podman-based test orchestration following TYPO3 core conventions.
 #
-# This script provides a unified interface for running various test suites
-# and quality tools for the nr_llm extension.
-#
-# Usage: ./Build/Scripts/runTests.sh [options]
+# Reference: https://github.com/TYPO3BestPractices/tea
+# Template: https://github.com/netresearch/typo3-testing-skill
 #
 
-set -e
+trap 'cleanUp;exit 2' SIGINT
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+waitFor() {
+    local HOST=${1}
+    local PORT=${2}
+    local TESTCOMMAND="
+        COUNT=0;
+        while ! nc -z ${HOST} ${PORT}; do
+            if [ \"\${COUNT}\" -gt 10 ]; then
+              echo \"Can not connect to ${HOST} port ${PORT}. Aborting.\";
+              exit 1;
+            fi;
+            sleep 1;
+            COUNT=\$((COUNT + 1));
+        done;
+    "
+    ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name wait-for-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${IMAGE_ALPINE} /bin/sh -c "${TESTCOMMAND}"
+    if [[ $? -gt 0 ]]; then
+        kill -SIGINT -$$
+    fi
+}
 
-# Extension root directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+waitForHttp() {
+    local URL=${1}
+    local MAX_ATTEMPTS=${2:-30}
+    local TESTCOMMAND="
+        COUNT=0;
+        while ! wget -q --spider ${URL} 2>/dev/null; do
+            if [ \"\${COUNT}\" -gt ${MAX_ATTEMPTS} ]; then
+              echo \"HTTP endpoint ${URL} not available after ${MAX_ATTEMPTS} attempts. Aborting.\";
+              exit 1;
+            fi;
+            sleep 1;
+            COUNT=\$((COUNT + 1));
+        done;
+        echo \"HTTP endpoint ${URL} is ready.\";
+    "
+    ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name wait-for-http-${SUFFIX} ${IMAGE_ALPINE} /bin/sh -c "${TESTCOMMAND}"
+    if [[ $? -gt 0 ]]; then
+        kill -SIGINT -$$
+    fi
+}
 
-# Composer binary
-COMPOSER_BIN="${ROOT_DIR}/.Build/bin"
-VENDOR_BIN="${ROOT_DIR}/.Build/bin"
+cleanUp() {
+    if [ -n "${NETWORK:-}" ] && [ -n "${CONTAINER_BIN:-}" ]; then
+        ATTACHED_CONTAINERS=$(${CONTAINER_BIN} ps --filter network=${NETWORK} --format='{{.Names}}' 2>/dev/null)
+        for ATTACHED_CONTAINER in ${ATTACHED_CONTAINERS}; do
+            ${CONTAINER_BIN} rm -f ${ATTACHED_CONTAINER} >/dev/null 2>&1
+        done
+        ${CONTAINER_BIN} network rm ${NETWORK} >/dev/null 2>&1
+    fi
+}
 
-# Default values
-PHP_VERSION="${PHP_VERSION:-8.5}"
-DBMS="${DBMS:-sqlite}"
-EXTRA_TEST_OPTIONS=""
+cleanCacheFiles() {
+    echo -n "Clean caches ... "
+    rm -rf \
+        .Build/.cache \
+        .Build/cache \
+        .php-cs-fixer.cache
+    echo "done"
+}
 
-#
-# Print usage information
-#
-usage() {
-    cat << EOF
-TYPO3 Extension Test Runner - nr_llm
+handleDbmsOptions() {
+    case ${DBMS} in
+        mariadb)
+            [ -z "${DATABASE_DRIVER}" ] && DATABASE_DRIVER="mysqli"
+            if [ "${DATABASE_DRIVER}" != "mysqli" ] && [ "${DATABASE_DRIVER}" != "pdo_mysql" ]; then
+                echo "Invalid combination -d ${DBMS} -a ${DATABASE_DRIVER}" >&2
+                exit 1
+            fi
+            [ -z "${DBMS_VERSION}" ] && DBMS_VERSION="11.4"
+            if ! [[ ${DBMS_VERSION} =~ ^(10.5|10.6|10.11|11.0|11.4)$ ]]; then
+                echo "Invalid combination -d ${DBMS} -i ${DBMS_VERSION}" >&2
+                exit 1
+            fi
+            ;;
+        mysql)
+            [ -z "${DATABASE_DRIVER}" ] && DATABASE_DRIVER="mysqli"
+            if [ "${DATABASE_DRIVER}" != "mysqli" ] && [ "${DATABASE_DRIVER}" != "pdo_mysql" ]; then
+                echo "Invalid combination -d ${DBMS} -a ${DATABASE_DRIVER}" >&2
+                exit 1
+            fi
+            [ -z "${DBMS_VERSION}" ] && DBMS_VERSION="8.4"
+            if ! [[ ${DBMS_VERSION} =~ ^(8.0|8.4|9.0)$ ]]; then
+                echo "Invalid combination -d ${DBMS} -i ${DBMS_VERSION}" >&2
+                exit 1
+            fi
+            ;;
+        postgres)
+            if [ -n "${DATABASE_DRIVER}" ]; then
+                echo "Invalid combination -d ${DBMS} -a ${DATABASE_DRIVER}" >&2
+                exit 1
+            fi
+            [ -z "${DBMS_VERSION}" ] && DBMS_VERSION="16"
+            if ! [[ ${DBMS_VERSION} =~ ^(12|13|14|15|16|17)$ ]]; then
+                echo "Invalid combination -d ${DBMS} -i ${DBMS_VERSION}" >&2
+                exit 1
+            fi
+            ;;
+        sqlite)
+            if [ -n "${DATABASE_DRIVER}" ]; then
+                echo "Invalid combination -d ${DBMS} -a ${DATABASE_DRIVER}" >&2
+                exit 1
+            fi
+            ;;
+        *)
+            echo "Invalid option -d ${DBMS}" >&2
+            exit 1
+            ;;
+    esac
+}
 
-Usage: $(basename "$0") [OPTIONS] <COMMAND>
+loadHelp() {
+    read -r -d '' HELP <<EOF
+nr_llm - TYPO3 Extension Test Runner
+Execute tests in Docker containers using TYPO3 core-testing images.
 
-Commands:
-    unit              Run unit tests
-    functional        Run functional tests
-    integration       Run integration tests
-    fuzzy             Run property-based (fuzzy) tests
-    e2e               Run E2E tests (PHP-based)
-    playwright        Run Playwright E2E tests
-    accessibility     Run accessibility tests with axe-core
-    mutation          Run mutation tests with Infection
-    phpstan           Run PHPStan static analysis
-    lint              Run PHP-CS-Fixer in dry-run mode
-    lint:fix          Run PHP-CS-Fixer and apply fixes
-    rector            Run Rector in dry-run mode
-    rector:fix        Run Rector and apply changes
-    ci                Run full CI suite (lint, phpstan, unit, integration, fuzzy)
-    ci:full           Run full CI suite including functional tests
-    all               Run all tests and quality checks
+Usage: $0 [options] [file]
 
 Options:
-    -h, --help        Show this help message
-    -v, --verbose     Verbose output
-    -p, --php         PHP version (default: ${PHP_VERSION})
-    -d, --dbms        Database system for functional tests (default: ${DBMS})
-                      Options: sqlite, mysql, mariadb, postgres
-    -x                Extra options to pass to PHPUnit
+    -s <...>
+        Specifies which test suite to run
+            - cgl: PHP CS Fixer check/fix
+            - clean: Clean temporary files
+            - composer: Run composer commands
+            - composerUpdate: Clean install dependencies (removes vendor/)
+            - e2e: Playwright E2E tests (requires running TYPO3)
+            - functional: PHP functional tests
+            - functionalParallel: Parallel functional tests (faster)
+            - functionalCoverage: Functional tests with coverage
+            - integration: Integration tests
+            - lint: PHP linting
+            - phpstan: PHPStan static analysis
+            - rector: Rector code upgrades
+            - unit: PHP unit tests (default)
+            - unitCoverage: Unit tests with coverage
+            - fuzzy: Property-based (fuzzy) tests
+            - mutation: Mutation testing
+            - architecture: Architecture tests (PHPat via PHPStan)
 
-Environment:
-    TYPO3_BASE_URL    Base URL for Playwright tests (default: https://v14.nr-llm.ddev.site)
+    -d <sqlite|mariadb|mysql|postgres>
+        Database for functional tests (default: sqlite)
+
+    -i version
+        Database version (mariadb: 11.4, mysql: 8.4, postgres: 16)
+
+    -p <8.2|8.3|8.4|8.5>
+        PHP version (default: 8.5)
+
+    -x
+        Enable Xdebug for debugging
+
+    -n
+        Dry-run mode (for cgl, rector)
+
+    -h
+        Show this help
 
 Examples:
-    $(basename "$0") unit
-    $(basename "$0") -p 8.5 functional
-    $(basename "$0") -x "--filter=testSpecificTest" unit
-    $(basename "$0") ci
-    $(basename "$0") playwright                                        # Uses DDEV (default)
-    TYPO3_BASE_URL=http://localhost:8080 $(basename "$0") playwright   # Custom URL
+    # Run unit tests
+    ./Build/Scripts/runTests.sh -s unit
 
+    # Run functional tests with MariaDB
+    ./Build/Scripts/runTests.sh -s functional -d mariadb
+
+    # Run PHPStan analysis
+    ./Build/Scripts/runTests.sh -s phpstan
+
+    # Run E2E tests (requires ddev or TYPO3_BASE_URL)
+    ddev start && ./Build/Scripts/runTests.sh -s e2e
+
+E2E Tests:
+    E2E tests require a running TYPO3 instance.
+    Options:
+        1. Start ddev: ddev start && ./Build/Scripts/runTests.sh -s e2e
+        2. Set URL: TYPO3_BASE_URL=https://your-typo3.local ./Build/Scripts/runTests.sh -s e2e
 EOF
 }
 
-#
-# Print colored message
-#
-info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
+# Check container runtime
+if ! type "docker" >/dev/null 2>&1 && ! type "podman" >/dev/null 2>&1; then
+    echo "This script requires docker or podman." >&2
+    exit 1
+fi
 
-success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
+# Option defaults
+TEST_SUITE="unit"
+DATABASE_DRIVER=""
+DBMS="sqlite"
+DBMS_VERSION=""
+PHP_VERSION="8.5"
+PHP_XDEBUG_ON=0
+PHP_XDEBUG_PORT=9003
+CGLCHECK_DRY_RUN=0
+CI_PARAMS="${CI_PARAMS:-}"
+CONTAINER_BIN=""
+CONTAINER_HOST="host.docker.internal"
+SUITE_EXIT_CODE=0
 
-warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
+# Parse options
+OPTIND=1
+while getopts "a:b:d:i:s:p:xy:nhu" OPT; do
+    case ${OPT} in
+        a) DATABASE_DRIVER=${OPTARG} ;;
+        s) TEST_SUITE=${OPTARG} ;;
+        b) CONTAINER_BIN=${OPTARG} ;;
+        d) DBMS=${OPTARG} ;;
+        i) DBMS_VERSION=${OPTARG} ;;
+        p) PHP_VERSION=${OPTARG} ;;
+        x) PHP_XDEBUG_ON=1 ;;
+        y) PHP_XDEBUG_PORT=${OPTARG} ;;
+        n) CGLCHECK_DRY_RUN=1 ;;
+        h) loadHelp; echo "${HELP}"; exit 0 ;;
+        u) TEST_SUITE=update ;;
+        \?) exit 1 ;;
+    esac
+done
 
-error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+handleDbmsOptions
 
-#
-# Check if composer dependencies are installed
-#
-check_dependencies() {
-    if [[ ! -d "${ROOT_DIR}/.Build/vendor" ]]; then
-        error "Dependencies not installed. Run 'composer install' first."
-        exit 1
+# Extension version for Composer
+COMPOSER_ROOT_VERSION="0.1.x-dev"
+
+HOST_UID=$(id -u)
+USERSET=""
+if [ $(uname) != "Darwin" ]; then
+    USERSET="--user $HOST_UID"
+fi
+
+# Navigate to project root
+THIS_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
+cd "$THIS_SCRIPT_DIR" || exit 1
+cd ../../ || exit 1
+ROOT_DIR="${PWD}"
+
+# Create cache directories
+mkdir -p .Build/.cache
+mkdir -p .Build/Web/typo3temp/var/tests
+
+IMAGE_PREFIX="docker.io/"
+TYPO3_IMAGE_PREFIX="ghcr.io/typo3/"
+CONTAINER_INTERACTIVE="-it --init"
+
+IS_CORE_CI=0
+if [ "${CI}" == "true" ] || ! [ -t 0 ]; then
+    IS_CORE_CI=1
+    IMAGE_PREFIX=""
+    CONTAINER_INTERACTIVE=""
+fi
+
+# Determine container binary
+if [[ -z "${CONTAINER_BIN}" ]]; then
+    if type "podman" >/dev/null 2>&1; then
+        CONTAINER_BIN="podman"
+    elif type "docker" >/dev/null 2>&1; then
+        CONTAINER_BIN="docker"
     fi
-}
+fi
 
-#
-# Check if node dependencies are installed (for Playwright)
-#
-check_node_dependencies() {
-    if [[ ! -d "${ROOT_DIR}/node_modules" ]]; then
-        warning "Node dependencies not installed. Running 'npm install'..."
-        cd "${ROOT_DIR}" && npm install
-    fi
-}
+# Container images
+IMAGE_PHP="${TYPO3_IMAGE_PREFIX}core-testing-$(echo "php${PHP_VERSION}" | sed -e 's/\.//'):latest"
+IMAGE_ALPINE="${IMAGE_PREFIX}alpine:3.20"
+IMAGE_MARIADB="docker.io/mariadb:${DBMS_VERSION}"
+IMAGE_MYSQL="docker.io/mysql:${DBMS_VERSION}"
+IMAGE_POSTGRES="docker.io/postgres:${DBMS_VERSION}-alpine"
+IMAGE_PLAYWRIGHT="mcr.microsoft.com/playwright:v1.57.0-noble"
 
-#
-# Run unit tests
-#
-run_unit_tests() {
-    info "Running unit tests..."
-    check_dependencies
-    "${VENDOR_BIN}/phpunit" -c "${ROOT_DIR}/phpunit.xml" --testsuite unit ${EXTRA_TEST_OPTIONS}
-    success "Unit tests completed"
-}
+shift $((OPTIND - 1))
 
-#
-# Run functional tests
-#
-run_functional_tests() {
-    info "Running functional tests with DBMS=${DBMS}..."
-    check_dependencies
-    "${VENDOR_BIN}/phpunit" -c "${ROOT_DIR}/Build/FunctionalTests.xml" ${EXTRA_TEST_OPTIONS}
-    success "Functional tests completed"
-}
+SUFFIX="$(date +%s)-${RANDOM}"
+NETWORK="nr-llm-${SUFFIX}"
+if ! ${CONTAINER_BIN} network create ${NETWORK} >/dev/null 2>&1; then
+    echo "Failed to create container network '${NETWORK}'. Ensure ${CONTAINER_BIN} daemon is running." >&2
+    exit 1
+fi
 
-#
-# Run integration tests
-#
-run_integration_tests() {
-    info "Running integration tests..."
-    check_dependencies
-    "${VENDOR_BIN}/phpunit" -c "${ROOT_DIR}/phpunit.xml" --testsuite integration ${EXTRA_TEST_OPTIONS}
-    success "Integration tests completed"
-}
+if [ ${CONTAINER_BIN} = "docker" ]; then
+    CONTAINER_COMMON_PARAMS="${CONTAINER_INTERACTIVE} --rm --network ${NETWORK} --add-host "${CONTAINER_HOST}:host-gateway" ${USERSET} -v ${ROOT_DIR}:${ROOT_DIR} -w ${ROOT_DIR}"
+else
+    CONTAINER_HOST="host.containers.internal"
+    CONTAINER_COMMON_PARAMS="${CONTAINER_INTERACTIVE} ${CI_PARAMS} --rm --network ${NETWORK} -v ${ROOT_DIR}:${ROOT_DIR} -w ${ROOT_DIR}"
+fi
 
-#
-# Run fuzzy (property-based) tests
-#
-run_fuzzy_tests() {
-    info "Running fuzzy (property-based) tests..."
-    check_dependencies
-    "${VENDOR_BIN}/phpunit" -c "${ROOT_DIR}/phpunit.xml" --testsuite fuzzy ${EXTRA_TEST_OPTIONS}
-    success "Fuzzy tests completed"
-}
+if [ ${PHP_XDEBUG_ON} -eq 0 ]; then
+    XDEBUG_MODE="-e XDEBUG_MODE=off"
+    XDEBUG_CONFIG=" "
+else
+    XDEBUG_MODE="-e XDEBUG_MODE=debug -e XDEBUG_TRIGGER=foo"
+    XDEBUG_CONFIG="client_port=${PHP_XDEBUG_PORT} client_host=${CONTAINER_HOST}"
+fi
 
-#
-# Run E2E tests (PHP-based)
-#
-run_e2e_tests() {
-    info "Running E2E tests (PHP-based)..."
-    check_dependencies
-    "${VENDOR_BIN}/phpunit" -c "${ROOT_DIR}/phpunit.xml" --testsuite e2e ${EXTRA_TEST_OPTIONS}
-    success "E2E tests completed"
-}
+# PHP performance options
+PHP_OPCACHE_OPTS="-d opcache.enable_cli=1 -d opcache.jit=1255 -d opcache.jit_buffer_size=128M"
 
-#
-# Run Playwright E2E tests
-#
-# Requires a running TYPO3 instance. Use one of:
-# - DDEV locally: TYPO3_BASE_URL=https://v14.nr-llm.ddev.site ./Build/Scripts/runTests.sh playwright
-# - CI: The GitHub Actions workflow handles TYPO3 setup automatically
-#
-run_playwright_tests() {
-    local typo3_base_url="${TYPO3_BASE_URL:-https://v14.nr-llm.ddev.site}"
-
-    info "Running Playwright E2E tests..."
-    check_node_dependencies
-
-    # Check if TYPO3 is accessible
-    # Use -k only for https URLs (self-signed certificates in DDEV)
-    info "Checking TYPO3 at ${typo3_base_url}..."
-    local curl_opts="-s"
-    if [[ "${typo3_base_url}" == https://* ]]; then
-        curl_opts="-sk"
-    fi
-
-    if ! curl ${curl_opts} "${typo3_base_url}/typo3/" > /dev/null 2>&1; then
-        warning "TYPO3 not responding at ${typo3_base_url}"
-        warning "Make sure TYPO3 is running (e.g., 'ddev start' for local development)"
-        warning "Or set TYPO3_BASE_URL environment variable to the correct URL"
-        if [[ "${PLAYWRIGHT_FORCE:-0}" != "1" ]]; then
-            error "Aborting Playwright tests because TYPO3 is not accessible."
-            echo "Set PLAYWRIGHT_FORCE=1 to run Playwright tests even if TYPO3 is unavailable." >&2
-            exit 1
+# Suite execution
+case ${TEST_SUITE} in
+    architecture)
+        # Architecture tests are run via PHPStan with phpat extension
+        COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/phpstan analyse -c Build/phpstan/phpstan.neon"
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name architecture-${SUFFIX} -e COMPOSER_ROOT_VERSION=${COMPOSER_ROOT_VERSION} ${IMAGE_PHP} /bin/sh -c "${COMMAND}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    cgl)
+        if [ "${CGLCHECK_DRY_RUN}" -eq 1 ]; then
+            COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/php-cs-fixer fix -v --dry-run --diff"
         else
-            warning "Continuing with Playwright tests despite TYPO3 being unavailable because PLAYWRIGHT_FORCE=1 is set"
+            COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/php-cs-fixer fix -v"
         fi
-    fi
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name cgl-${SUFFIX} -e COMPOSER_CACHE_DIR=.Build/.cache/composer -e COMPOSER_ROOT_VERSION=${COMPOSER_ROOT_VERSION} ${IMAGE_PHP} /bin/sh -c "${COMMAND}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    clean)
+        cleanCacheFiles
+        SUITE_EXIT_CODE=0
+        ;;
+    composer)
+        COMMAND=(composer "$@")
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name composer-${SUFFIX} -e COMPOSER_CACHE_DIR=.Build/.cache/composer -e COMPOSER_ROOT_VERSION=${COMPOSER_ROOT_VERSION} ${IMAGE_PHP} "${COMMAND[@]}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    composerUpdate)
+        rm -rf .Build/bin/ .Build/vendor ./composer.lock
+        COMMAND=(composer install --no-ansi --no-interaction --no-progress)
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name composer-${SUFFIX} -e COMPOSER_CACHE_DIR=.Build/.cache/composer -e COMPOSER_ROOT_VERSION=${COMPOSER_ROOT_VERSION} ${IMAGE_PHP} "${COMMAND[@]}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    e2e)
+        if [ -n "${TYPO3_BASE_URL:-}" ]; then
+            echo "Using TYPO3_BASE_URL from environment: ${TYPO3_BASE_URL}"
+        elif type "ddev" >/dev/null 2>&1 && ddev describe >/dev/null 2>&1; then
+            TYPO3_BASE_URL="https://v14.nr-llm.ddev.site"
+            echo "Using ddev TYPO3 URL: ${TYPO3_BASE_URL}"
+        else
+            TYPO3_BASE_URL="https://v14.nr-llm.ddev.site"
+            echo "Warning: No TYPO3 instance detected."
+            echo "E2E tests require a running TYPO3 instance."
+            echo "  1. Start ddev: ddev start"
+            echo "  2. Or set: TYPO3_BASE_URL=https://your-typo3.local $0 -s e2e"
+        fi
 
-    # Set the base URL for Playwright
-    export TYPO3_BASE_URL="${typo3_base_url}"
+        mkdir -p .Build/.cache/npm
+        mkdir -p node_modules
 
-    # Run Playwright tests
-    info "Executing Playwright tests against ${TYPO3_BASE_URL}..."
-    cd "${ROOT_DIR}"
+        # Check for permission issues (root-owned files from previous container runs)
+        if [ -d "node_modules" ] && [ "$(find node_modules -maxdepth 1 -user root 2>/dev/null | head -1)" ]; then
+            echo "Error: node_modules contains root-owned files."
+            echo "Please remove and retry: sudo rm -rf node_modules"
+            exit 1
+        fi
 
-    npm run test:e2e
-    success "Playwright tests completed"
-}
+        # Connect to ddev network if available
+        DDEV_PARAMS=""
+        if type "ddev" >/dev/null 2>&1 && ddev describe >/dev/null 2>&1; then
+            ROUTER_IP=$(${CONTAINER_BIN} inspect ddev-router --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
+            if [ -n "${ROUTER_IP}" ]; then
+                DDEV_PARAMS="--network ddev_default"
+                DDEV_PARAMS="${DDEV_PARAMS} --add-host v14.nr-llm.ddev.site:${ROUTER_IP}"
+                echo "Connecting to ddev network (router IP: ${ROUTER_IP})"
+            fi
+        fi
 
-#
-# Run accessibility tests
-#
-run_accessibility_tests() {
-    info "Running accessibility tests with axe-core..."
-    check_node_dependencies
-    cd "${ROOT_DIR}" && npx playwright test --grep "@accessibility"
-    success "Accessibility tests completed"
-}
+        COMMAND="npm ci && npx playwright test $*"
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} ${DDEV_PARAMS} --name e2e-${SUFFIX} \
+            -e TYPO3_BASE_URL="${TYPO3_BASE_URL}" \
+            -e CI="${CI:-}" \
+            -e npm_config_cache="${ROOT_DIR}/.Build/.cache/npm" \
+            ${IMAGE_PLAYWRIGHT} /bin/bash -c "${COMMAND}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    functional)
+        COMMAND=(php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/phpunit -c Build/FunctionalTests.xml --exclude-group not-${DBMS} "$@")
 
-#
-# Run mutation tests
-#
-run_mutation_tests() {
-    info "Running mutation tests with Infection..."
-    check_dependencies
-    "${VENDOR_BIN}/infection" --configuration="${ROOT_DIR}/infection.json.dist" --threads=4 -s --no-progress
-    success "Mutation tests completed"
-}
-
-#
-# Run PHPStan
-#
-run_phpstan() {
-    info "Running PHPStan static analysis..."
-    check_dependencies
-    "${VENDOR_BIN}/phpstan" analyse -c "${ROOT_DIR}/Build/phpstan/phpstan.neon"
-    success "PHPStan analysis completed"
-}
-
-#
-# Run PHP-CS-Fixer (dry-run)
-#
-run_lint() {
-    info "Running PHP-CS-Fixer (dry-run)..."
-    check_dependencies
-    "${VENDOR_BIN}/php-cs-fixer" fix --dry-run --diff
-    success "Lint check completed"
-}
-
-#
-# Run PHP-CS-Fixer (fix)
-#
-run_lint_fix() {
-    info "Running PHP-CS-Fixer (applying fixes)..."
-    check_dependencies
-    "${VENDOR_BIN}/php-cs-fixer" fix
-    success "Lint fixes applied"
-}
-
-#
-# Run Rector (dry-run)
-#
-run_rector() {
-    info "Running Rector (dry-run)..."
-    check_dependencies
-    "${VENDOR_BIN}/rector" process --config "${ROOT_DIR}/Build/rector/rector.php" --dry-run
-    success "Rector analysis completed"
-}
-
-#
-# Run Rector (fix)
-#
-run_rector_fix() {
-    info "Running Rector (applying changes)..."
-    check_dependencies
-    "${VENDOR_BIN}/rector" process --config "${ROOT_DIR}/Build/rector/rector.php"
-    success "Rector changes applied"
-}
-
-#
-# Run CI suite
-#
-run_ci() {
-    info "Running CI suite..."
-    run_lint
-    run_phpstan
-    run_unit_tests
-    run_integration_tests
-    run_fuzzy_tests
-    success "CI suite completed"
-}
-
-#
-# Run full CI suite
-#
-run_ci_full() {
-    info "Running full CI suite..."
-    run_ci
-    run_functional_tests
-    success "Full CI suite completed"
-}
-
-#
-# Run all tests and checks
-#
-run_all() {
-    info "Running all tests and quality checks..."
-    run_lint
-    run_phpstan
-    run_rector
-    run_unit_tests
-    run_integration_tests
-    run_fuzzy_tests
-    run_functional_tests
-    run_mutation_tests
-    success "All tests and checks completed"
-}
-
-#
-# Parse command line arguments
-#
-parse_args() {
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            -h|--help)
-                usage
-                exit 0
+        case ${DBMS} in
+            mariadb)
+                echo "Using driver: ${DATABASE_DRIVER}"
+                ${CONTAINER_BIN} run --rm ${CI_PARAMS} --name mariadb-func-${SUFFIX} --network ${NETWORK} -d -e MYSQL_ROOT_PASSWORD=funcp --tmpfs /var/lib/mysql/:rw,noexec,nosuid ${IMAGE_MARIADB} >/dev/null
+                waitFor mariadb-func-${SUFFIX} 3306
+                CONTAINERPARAMS="-e typo3DatabaseDriver=${DATABASE_DRIVER} -e typo3DatabaseName=func_test -e typo3DatabaseUsername=root -e typo3DatabaseHost=mariadb-func-${SUFFIX} -e typo3DatabasePassword=funcp"
+                ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name functional-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${CONTAINERPARAMS} ${IMAGE_PHP} "${COMMAND[@]}"
+                SUITE_EXIT_CODE=$?
                 ;;
-            -v|--verbose)
-                set -x
-                shift
+            mysql)
+                echo "Using driver: ${DATABASE_DRIVER}"
+                ${CONTAINER_BIN} run --rm ${CI_PARAMS} --name mysql-func-${SUFFIX} --network ${NETWORK} -d -e MYSQL_ROOT_PASSWORD=funcp --tmpfs /var/lib/mysql/:rw,noexec,nosuid ${IMAGE_MYSQL} >/dev/null
+                waitFor mysql-func-${SUFFIX} 3306
+                CONTAINERPARAMS="-e typo3DatabaseDriver=${DATABASE_DRIVER} -e typo3DatabaseName=func_test -e typo3DatabaseUsername=root -e typo3DatabaseHost=mysql-func-${SUFFIX} -e typo3DatabasePassword=funcp"
+                ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name functional-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${CONTAINERPARAMS} ${IMAGE_PHP} "${COMMAND[@]}"
+                SUITE_EXIT_CODE=$?
                 ;;
-            -p|--php)
-                PHP_VERSION="$2"
-                shift 2
+            postgres)
+                ${CONTAINER_BIN} run --rm ${CI_PARAMS} --name postgres-func-${SUFFIX} --network ${NETWORK} -d -e POSTGRES_PASSWORD=funcp -e POSTGRES_USER=funcu --tmpfs /var/lib/postgresql/data:rw,noexec,nosuid ${IMAGE_POSTGRES} >/dev/null
+                waitFor postgres-func-${SUFFIX} 5432
+                CONTAINERPARAMS="-e typo3DatabaseDriver=pdo_pgsql -e typo3DatabaseName=bamboo -e typo3DatabaseUsername=funcu -e typo3DatabaseHost=postgres-func-${SUFFIX} -e typo3DatabasePassword=funcp"
+                ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name functional-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${CONTAINERPARAMS} ${IMAGE_PHP} "${COMMAND[@]}"
+                SUITE_EXIT_CODE=$?
                 ;;
-            -d|--dbms)
-                DBMS="$2"
-                shift 2
-                ;;
-            -x)
-                EXTRA_TEST_OPTIONS="$2"
-                shift 2
-                ;;
-            unit)
-                run_unit_tests
-                exit 0
-                ;;
-            functional)
-                run_functional_tests
-                exit 0
-                ;;
-            integration)
-                run_integration_tests
-                exit 0
-                ;;
-            fuzzy)
-                run_fuzzy_tests
-                exit 0
-                ;;
-            e2e)
-                run_e2e_tests
-                exit 0
-                ;;
-            playwright)
-                run_playwright_tests
-                exit 0
-                ;;
-            accessibility)
-                run_accessibility_tests
-                exit 0
-                ;;
-            mutation)
-                run_mutation_tests
-                exit 0
-                ;;
-            phpstan)
-                run_phpstan
-                exit 0
-                ;;
-            lint)
-                run_lint
-                exit 0
-                ;;
-            lint:fix)
-                run_lint_fix
-                exit 0
-                ;;
-            rector)
-                run_rector
-                exit 0
-                ;;
-            rector:fix)
-                run_rector_fix
-                exit 0
-                ;;
-            ci)
-                run_ci
-                exit 0
-                ;;
-            ci:full)
-                run_ci_full
-                exit 0
-                ;;
-            all)
-                run_all
-                exit 0
-                ;;
-            *)
-                error "Unknown option or command: $1"
-                usage
-                exit 1
+            sqlite)
+                mkdir -p "${ROOT_DIR}/.Build/Web/typo3temp/var/tests/functional-sqlite-dbs/"
+                CONTAINERPARAMS="-e typo3DatabaseDriver=pdo_sqlite --tmpfs ${ROOT_DIR}/.Build/Web/typo3temp/var/tests/functional-sqlite-dbs/:rw,noexec,nosuid"
+                ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name functional-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${CONTAINERPARAMS} ${IMAGE_PHP} "${COMMAND[@]}"
+                SUITE_EXIT_CODE=$?
                 ;;
         esac
-    done
+        ;;
+    functionalParallel)
+        mkdir -p "${ROOT_DIR}/.Build/Web/typo3temp/var/tests/functional-sqlite-dbs/"
 
-    # No command provided
-    usage
-    exit 1
-}
+        if [ "${CI}" == "true" ]; then
+            PARALLEL_JOBS=4
+        else
+            # Use half of available CPUs for local runs
+            PARALLEL_JOBS=$(( ($(nproc) + 1) / 2 ))
+        fi
 
-#
-# Main entry point
-#
-main() {
-    cd "${ROOT_DIR}"
-
-    if [[ $# -eq 0 ]]; then
-        usage
+        COMMAND="find Tests/Functional -name '*Test.php' | xargs -P${PARALLEL_JOBS} -I{} php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/phpunit -c Build/FunctionalTests.xml {}"
+        CONTAINERPARAMS="-e typo3DatabaseDriver=pdo_sqlite --tmpfs ${ROOT_DIR}/.Build/Web/typo3temp/var/tests/functional-sqlite-dbs/:rw,noexec,nosuid"
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name functional-parallel-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${CONTAINERPARAMS} ${IMAGE_PHP} /bin/sh -c "${COMMAND}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    functionalCoverage)
+        mkdir -p .Build/coverage
+        COMMAND=(php -d opcache.enable_cli=1 .Build/bin/phpunit -c Build/FunctionalTests.xml --coverage-clover=.Build/coverage/functional.xml --coverage-html=.Build/coverage/html-functional --coverage-text "$@")
+        mkdir -p "${ROOT_DIR}/.Build/Web/typo3temp/var/tests/functional-sqlite-dbs/"
+        CONTAINERPARAMS="-e typo3DatabaseDriver=pdo_sqlite --tmpfs ${ROOT_DIR}/.Build/Web/typo3temp/var/tests/functional-sqlite-dbs/:rw,noexec,nosuid"
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name functional-coverage-${SUFFIX} -e XDEBUG_MODE=coverage ${CONTAINERPARAMS} ${IMAGE_PHP} "${COMMAND[@]}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    fuzzy)
+        COMMAND=(php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/phpunit -c phpunit.xml --testsuite fuzzy "$@")
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name fuzzy-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${IMAGE_PHP} "${COMMAND[@]}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    integration)
+        COMMAND=(php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/phpunit -c phpunit.xml --testsuite integration "$@")
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name integration-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${IMAGE_PHP} "${COMMAND[@]}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    lint)
+        COMMAND="find . -name \\*.php ! -path \"./.Build/\\*\" -print0 | xargs -0 -n1 -P\$(nproc) php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off -l >/dev/null"
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name lint-${SUFFIX} ${IMAGE_PHP} /bin/sh -c "${COMMAND}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    mutation)
+        COMMAND=(php -d opcache.enable_cli=1 .Build/bin/infection --configuration=infection.json.dist --threads=4 "$@")
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name mutation-${SUFFIX} -e XDEBUG_MODE=coverage ${IMAGE_PHP} "${COMMAND[@]}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    phpstan)
+        COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/phpstan analyse -c Build/phpstan/phpstan.neon"
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name phpstan-${SUFFIX} -e COMPOSER_ROOT_VERSION=${COMPOSER_ROOT_VERSION} ${IMAGE_PHP} /bin/sh -c "${COMMAND}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    rector)
+        if [ "${CGLCHECK_DRY_RUN}" -eq 1 ]; then
+            COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/rector process --config Build/rector/rector.php --dry-run"
+        else
+            COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/rector process --config Build/rector/rector.php"
+        fi
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name rector-${SUFFIX} -e COMPOSER_ROOT_VERSION=${COMPOSER_ROOT_VERSION} ${IMAGE_PHP} /bin/sh -c "${COMMAND}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    unit)
+        COMMAND=(php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/phpunit -c phpunit.xml --testsuite unit "$@")
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name unit-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${IMAGE_PHP} "${COMMAND[@]}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    unitCoverage)
+        mkdir -p .Build/coverage
+        COMMAND=(php -d opcache.enable_cli=1 .Build/bin/phpunit -c phpunit.xml --testsuite unit --coverage-clover=.Build/coverage/unit.xml --coverage-html=.Build/coverage/html-unit --coverage-text "$@")
+        ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name unit-coverage-${SUFFIX} -e XDEBUG_MODE=coverage ${IMAGE_PHP} "${COMMAND[@]}"
+        SUITE_EXIT_CODE=$?
+        ;;
+    update)
+        echo "> Updating ${TYPO3_IMAGE_PREFIX}core-testing-* images..."
+        ${CONTAINER_BIN} images "${TYPO3_IMAGE_PREFIX}core-testing-*" --format "{{.Repository}}:{{.Tag}}" | xargs -I {} ${CONTAINER_BIN} pull {}
+        SUITE_EXIT_CODE=$?
+        ;;
+    *)
+        loadHelp
+        echo "Invalid -s option: ${TEST_SUITE}" >&2
+        echo "${HELP}" >&2
         exit 1
-    fi
+        ;;
+esac
 
-    parse_args "$@"
-}
+cleanUp
 
-main "$@"
+# Print summary
+echo "" >&2
+echo "###########################################################################" >&2
+echo "Result of ${TEST_SUITE}" >&2
+echo "Container runtime: ${CONTAINER_BIN}" >&2
+if [[ ${IS_CORE_CI} -eq 1 ]]; then
+    echo "Environment: CI" >&2
+else
+    echo "Environment: local" >&2
+fi
+echo "PHP: ${PHP_VERSION}" >&2
+if [[ ${TEST_SUITE} =~ ^functional ]]; then
+    echo "DBMS: ${DBMS}" >&2
+fi
+if [[ ${SUITE_EXIT_CODE} -eq 0 ]]; then
+    echo "SUCCESS" >&2
+else
+    echo "FAILURE" >&2
+fi
+echo "###########################################################################" >&2
+echo "" >&2
+
+exit $SUITE_EXIT_CODE
