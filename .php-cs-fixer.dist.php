@@ -18,6 +18,7 @@ $finder = (new Finder())
     ->exclude([
         '.Build',
         '.ddev',
+        'config',
         'Documentation-GENERATED-temp',
         'var',
     ])

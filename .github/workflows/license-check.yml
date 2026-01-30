@@ -15,6 +15,7 @@ on:
       - 'composer.lock'
       - 'package.json'
       - 'package-lock.json'
+  merge_group:
   schedule:
     # Run weekly on Monday at 9:00 AM UTC
     - cron: '0 9 * * 1'
