@@ -264,6 +264,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $mockResponse = $this->createMockResponse('"just a string"');
 
         $llmManagerMock
+            ->expects(self::atLeastOnce())
             ->method('chat')
             ->willReturn($mockResponse);
 
@@ -471,7 +472,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
         $mockResponse = $this->createMockResponse('Response');
-        $llmManagerMock->method('chat')->willReturn($mockResponse);
+        $llmManagerMock->expects(self::atLeastOnce())->method('chat')->willReturn($mockResponse);
 
         $result = $subject->complete('Test', new ChatOptions(temperature: 0.0));
 
@@ -484,7 +485,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
         $mockResponse = $this->createMockResponse('Response');
-        $llmManagerMock->method('chat')->willReturn($mockResponse);
+        $llmManagerMock->expects(self::atLeastOnce())->method('chat')->willReturn($mockResponse);
 
         $result = $subject->complete('Test', new ChatOptions(temperature: 2.0));
 
@@ -497,7 +498,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
         $mockResponse = $this->createMockResponse('Response');
-        $llmManagerMock->method('chat')->willReturn($mockResponse);
+        $llmManagerMock->expects(self::atLeastOnce())->method('chat')->willReturn($mockResponse);
 
         $result = $subject->complete('Test', new ChatOptions(topP: 0.0));
 
@@ -510,7 +511,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
         $mockResponse = $this->createMockResponse('Response');
-        $llmManagerMock->method('chat')->willReturn($mockResponse);
+        $llmManagerMock->expects(self::atLeastOnce())->method('chat')->willReturn($mockResponse);
 
         $result = $subject->complete('Test', new ChatOptions(topP: 1.0));
 
@@ -526,6 +527,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $mockResponse = $this->createMockResponse('{ invalid json syntax }');
 
         $llmManagerMock
+            ->expects(self::atLeastOnce())
             ->method('chat')
             ->willReturn($mockResponse);
 
@@ -544,6 +546,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $mockResponse = $this->createMockResponse($jsonContent);
 
         $llmManagerMock
+            ->expects(self::atLeastOnce())
             ->method('chat')
             ->willReturn($mockResponse);
 
@@ -563,6 +566,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $mockResponse = $this->createMockResponse('null');
 
         $llmManagerMock
+            ->expects(self::atLeastOnce())
             ->method('chat')
             ->willReturn($mockResponse);
 

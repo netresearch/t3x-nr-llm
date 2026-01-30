@@ -428,9 +428,8 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     #[Test]
     public function testProviderConnectionCatchesExceptions(): void
     {
-        // Create a provider that will cause an exception when creating adapter
-        // by using an adapter type that doesn't exist and setting up the mock to fail
-        $provider = self::createMock(Provider::class);
+        // Create a provider stub (no expectations needed, just return values)
+        $provider = self::createStub(Provider::class);
         $provider->method('getUid')->willReturn(1);
         $provider->method('getIdentifier')->willReturn('error-provider');
         $provider->method('getAdapterType')->willReturn(AdapterType::OpenAI->value);
