@@ -14,7 +14,7 @@ use PHPUnit\Framework\Attributes\Test;
 /**
  * Property-based tests for CompletionResponse.
  */
-#[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
+#[CoversNothing] // Domain/Model excluded from coverage in Build/UnitTests.xml
 class CompletionResponseFuzzyTest extends AbstractFuzzyTestCase
 {
     #[Test]

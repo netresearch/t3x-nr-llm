@@ -11,7 +11,7 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
-#[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
+#[CoversNothing] // Domain/Model excluded from coverage in Build/UnitTests.xml
 class EmbeddingResponseTest extends AbstractUnitTestCase
 {
     /**

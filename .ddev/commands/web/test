@@ -13,4 +13,4 @@ cd /var/www/nr_llm
 echo "=== Running nr_llm tests ==="
 
 # Run tests with any passed arguments
-.Build/bin/phpunit -c phpunit.xml "$@"
+.Build/bin/phpunit -c Build/UnitTests.xml "$@"

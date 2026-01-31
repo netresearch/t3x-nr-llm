@@ -11,7 +11,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
-#[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
+#[CoversNothing] // Domain/Model excluded from coverage in Build/UnitTests.xml
 class CompletionResponseTest extends AbstractUnitTestCase
 {
     #[Test]

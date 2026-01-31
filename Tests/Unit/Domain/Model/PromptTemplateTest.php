@@ -11,7 +11,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * Note: Domain models are excluded from coverage in phpunit.xml.
+ * Note: Domain models are excluded from coverage in Build/UnitTests.xml.
  */
 #[CoversNothing]
 class PromptTemplateTest extends AbstractUnitTestCase

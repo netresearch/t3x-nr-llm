@@ -101,13 +101,13 @@
         "phpstan:baseline": "phpstan analyse -c Build/phpstan/phpstan.neon --generate-baseline Build/phpstan/phpstan-baseline.neon",
         "rector": "rector process --config Build/rector/rector.php",
         "rector:dry": "rector process --config Build/rector/rector.php --dry-run",
-        "test": "phpunit -c phpunit.xml",
+        "test": "phpunit -c Build/UnitTests.xml",
         "test:e2e": "npm run test:e2e",
         "test:functional": "phpunit -c Build/FunctionalTests.xml",
-        "test:fuzzy": "phpunit -c phpunit.xml --testsuite fuzzy",
-        "test:integration": "phpunit -c phpunit.xml --testsuite integration",
+        "test:fuzzy": "phpunit -c Build/UnitTests.xml --testsuite fuzzy",
+        "test:integration": "phpunit -c Build/UnitTests.xml --testsuite integration",
         "test:mutation": "infection --configuration=infection.json.dist --threads=4 -s --no-progress",
         "test:mutation:ci": "infection --configuration=infection.json.dist --threads=4 --logger-github --no-progress",
-        "test:unit": "phpunit -c phpunit.xml --testsuite unit"
+        "test:unit": "phpunit -c Build/UnitTests.xml --testsuite unit"
     }
 }

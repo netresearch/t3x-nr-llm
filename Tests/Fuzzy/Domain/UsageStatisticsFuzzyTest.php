@@ -13,7 +13,7 @@ use PHPUnit\Framework\Attributes\Test;
 /**
  * Property-based tests for UsageStatistics.
  */
-#[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
+#[CoversNothing] // Domain/Model excluded from coverage in Build/UnitTests.xml
 class UsageStatisticsFuzzyTest extends AbstractFuzzyTestCase
 {
     #[Test]

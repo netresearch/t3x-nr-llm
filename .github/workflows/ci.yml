@@ -121,7 +121,7 @@ jobs:
         run: composer install --prefer-dist --no-progress
 
       - name: Run PHPUnit with coverage
-        run: .Build/bin/phpunit -c phpunit.xml --coverage-clover=coverage.xml
+        run: .Build/bin/phpunit -c Build/UnitTests.xml --coverage-clover=coverage.xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2

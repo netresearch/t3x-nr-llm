@@ -92,47 +92,49 @@ ollama:
 	@echo "🤖 Ollama Status:"
 	@ddev ollama list || echo "   Model not yet pulled. Run: ddev ollama pull"
 
-# Testing targets
+# Testing targets (Docker-based, CI-compatible)
 test:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c phpunit.xml --testsuite unit,integration,fuzzy"
+	./Build/Scripts/runTests.sh -s unit
+	./Build/Scripts/runTests.sh -s integration
+	./Build/Scripts/runTests.sh -s fuzzy
 
 test-unit:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c phpunit.xml --testsuite unit"
+	./Build/Scripts/runTests.sh -s unit
 
 test-integration:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c phpunit.xml --testsuite integration"
+	./Build/Scripts/runTests.sh -s integration
 
 test-func:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c Build/FunctionalTests.xml"
+	./Build/Scripts/runTests.sh -s functional
 
 test-fuzzy:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c phpunit.xml --testsuite fuzzy"
+	./Build/Scripts/runTests.sh -s fuzzy
 
 test-e2e:
-	cd Tests/E2E/Playwright && npm run test
+	./Build/Scripts/runTests.sh -s e2e
 
 coverage:
-	ddev exec "cd /var/www/nr_llm && XDEBUG_MODE=coverage .Build/bin/phpunit -c phpunit.xml --coverage-html .Build/coverage"
-	@echo "Coverage report: .Build/coverage/index.html"
+	./Build/Scripts/runTests.sh -s unitcoverage
+	@echo "Coverage report: .Build/coverage/html-unit/index.html"
 
 mutation:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/infection --configuration=infection.json.dist --threads=4 --show-mutations --no-progress"
+	./Build/Scripts/runTests.sh -s mutation
 
-# Quality targets
+# Quality targets (Docker-based, CI-compatible)
 lint:
-	ddev lint
+	./Build/Scripts/runTests.sh -s cgl -n
 
 lint-fix:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/php-cs-fixer fix"
+	./Build/Scripts/runTests.sh -s cgl
 
 phpstan:
-	ddev phpstan
+	./Build/Scripts/runTests.sh -s phpstan
 
 rector:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/rector process --config Build/rector/rector.php --dry-run"
+	./Build/Scripts/runTests.sh -s rector -n
 
 rector-fix:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/rector process --config Build/rector/rector.php"
+	./Build/Scripts/runTests.sh -s rector
 
 ci: lint phpstan test-unit test-integration test-fuzzy
 	@echo "✅ All CI checks passed"

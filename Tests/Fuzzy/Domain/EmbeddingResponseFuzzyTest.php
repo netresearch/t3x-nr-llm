@@ -14,7 +14,7 @@ use PHPUnit\Framework\Attributes\Test;
 /**
  * Property-based tests for EmbeddingResponse.
  */
-#[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
+#[CoversNothing] // Domain/Model excluded from coverage in Build/UnitTests.xml
 class EmbeddingResponseFuzzyTest extends AbstractFuzzyTestCase
 {
     #[Test]

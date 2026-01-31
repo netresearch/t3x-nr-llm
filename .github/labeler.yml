@@ -12,7 +12,7 @@ tests:
   - changed-files:
       - any-glob-to-any-file:
           - 'Tests/**'
-          - 'phpunit.xml'
+          - 'Build/UnitTests.xml'
 
 ci:
   - changed-files:

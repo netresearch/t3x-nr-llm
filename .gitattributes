@@ -29,6 +29,6 @@
 /.gitignore export-ignore
 /.php-cs-fixer.dist.php export-ignore
 /.php-cs-fixer.cache export-ignore
-/phpunit.xml export-ignore
+/Build/UnitTests.xml export-ignore
 /infection.json5 export-ignore
 /Build export-ignore
