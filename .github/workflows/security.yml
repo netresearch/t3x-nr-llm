@@ -17,8 +17,8 @@ jobs:
   gitleaks:
     name: Secret Scanning
     runs-on: ubuntu-latest
-    # gitleaks-action doesn't support merge_group events
-    if: github.event_name != 'merge_group'
+    # gitleaks-action requires GITLEAKS_LICENSE which is unavailable to Dependabot PRs
+    if: github.event_name != 'merge_group' && !(github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]')
     permissions:
       contents: read
       security-events: write
