@@ -34,7 +34,8 @@ async function loginToBackend(page: Page): Promise<void> {
   await page.click('button[type="submit"]');
 
   // Wait for backend to load (module menu should be visible)
-  await page.waitForSelector('.scaffold-modulemenu', { state: 'visible', timeout: 15000 });
+  // TYPO3 v14 uses '.modulemenu' class (not '.scaffold-modulemenu' from earlier versions)
+  await page.waitForSelector('.modulemenu', { state: 'visible', timeout: 15000 });
 }
 
 /**
