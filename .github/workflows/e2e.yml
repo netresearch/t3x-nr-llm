@@ -89,6 +89,10 @@ jobs:
             --no-interaction \
             --force
 
+          # Configure trustedHostsPattern for PHP built-in server
+          mkdir -p config/system
+          printf '<?php\n$GLOBALS["TYPO3_CONF_VARS"]["SYS"]["trustedHostsPattern"] = ".*";\n$GLOBALS["TYPO3_CONF_VARS"]["SYS"]["displayErrors"] = 1;\n$GLOBALS["TYPO3_CONF_VARS"]["SYS"]["devIPmask"] = "*";\n$GLOBALS["TYPO3_CONF_VARS"]["BE"]["debug"] = true;\n' > config/system/additional.php
+
           # Flush caches
           .Build/bin/typo3 cache:flush
 
