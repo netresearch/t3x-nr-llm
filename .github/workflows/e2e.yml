@@ -113,12 +113,27 @@ jobs:
 
       - name: Start PHP server
         run: |
-          php -S 0.0.0.0:8080 -t .Build/Web > /tmp/php-server.log 2>&1 &
+          # Create router script for PHP built-in server (replaces .htaccess rewriting)
+          cat > /tmp/typo3-router.php << 'ROUTER'
+          <?php
+          $uri = urldecode(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
+          $docRoot = $_SERVER['DOCUMENT_ROOT'];
+          $path = $docRoot . $uri;
+          // Serve existing files directly (JS, CSS, images, etc.)
+          if ($uri !== '/' && file_exists($path) && is_file($path)) {
+              return false;
+          }
+          // All other requests go through the TYPO3 entry point
+          $_SERVER['SCRIPT_NAME'] = '/index.php';
+          require $docRoot . '/index.php';
+          ROUTER
+
+          php -S 0.0.0.0:8080 -t .Build/Web /tmp/typo3-router.php > /tmp/php-server.log 2>&1 &
           echo $! > /tmp/php-server.pid
 
           # Wait for server to become ready (up to 30 seconds)
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:8080/typo3/ > /dev/null 2>&1; then
+            if curl -sf http://localhost:8080/typo3/login > /dev/null 2>&1; then
               echo "PHP server is up (checked after ${i}s)."
               break
             fi
@@ -126,16 +141,14 @@ jobs:
           done
 
           # Verify server is running after retries
-          if ! curl -sf http://localhost:8080/typo3/ > /dev/null 2>&1; then
+          if ! curl -sf http://localhost:8080/typo3/login > /dev/null 2>&1; then
             echo "PHP server failed to start within timeout. Server log:"
             cat /tmp/php-server.log
+            echo "---"
+            echo "Trying to get response body:"
+            curl -v http://localhost:8080/typo3/login 2>&1 | head -50
             exit 1
           fi
-
-          # Debug: verify login page loads and check response
-          echo "--- Login page response (first 50 lines) ---"
-          curl -s http://localhost:8080/typo3/login | head -50
-          echo "---"
 
       - name: Run Playwright tests
         env:
