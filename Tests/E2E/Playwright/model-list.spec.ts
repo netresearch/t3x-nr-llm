@@ -20,13 +20,16 @@ test.describe('Model List Module', () => {
       await expect(heading).toContainText('Model');
     });
 
-    test('should display model list table', async ({ authenticatedPage }) => {
+    test('should display model list table or empty state', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToModels(page);
 
-      // Check for table or list structure
-      const table = moduleFrame.locator('table.table, .record-list');
-      await expect(table).toBeVisible();
+      // Check for table (when models exist) or empty state infobox (fresh install)
+      const hasTable = await moduleFrame.locator('table.table, .record-list').isVisible();
+      const hasEmptyState = await moduleFrame.locator('.callout, [class*="infobox"]').first().isVisible();
+
+      // Either a model table or the empty state infobox should be visible
+      expect(hasTable || hasEmptyState).toBe(true);
     });
 
     test('should have create new model button', async ({ authenticatedPage }) => {

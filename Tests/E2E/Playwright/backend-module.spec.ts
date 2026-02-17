@@ -105,9 +105,10 @@ test.describe('LLM Backend Module - Multi-Tier Architecture', () => {
         // Just verify the URL changed to record_edit
         await expect(page).toHaveURL(/record\/edit|record_edit/);
       } else {
-        // No configurations to edit - verify empty state message is shown instead
-        const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="empty"]');
-        await expect(emptyState).toBeVisible();
+        // No configurations to edit - verify empty state is shown
+        // TYPO3 v14 f:be.infobox renders as <div class="callout callout-info">
+        const emptyState = moduleFrame.locator('.callout, [class*="infobox"]');
+        await expect(emptyState.first()).toBeVisible();
       }
     });
   });
