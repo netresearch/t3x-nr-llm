@@ -13,7 +13,7 @@ jobs:
   e2e:
     name: Playwright E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     services:
       db:
@@ -89,6 +89,9 @@ jobs:
             --no-interaction \
             --force
 
+          # Activate the extension (creates extension-specific tables/modules)
+          .Build/bin/typo3 extension:setup --no-interaction
+
           # Configure trustedHostsPattern for PHP built-in server
           mkdir -p config/system
           printf '<?php\n$GLOBALS["TYPO3_CONF_VARS"]["SYS"]["trustedHostsPattern"] = ".*";\n$GLOBALS["TYPO3_CONF_VARS"]["SYS"]["displayErrors"] = 1;\n$GLOBALS["TYPO3_CONF_VARS"]["SYS"]["devIPmask"] = "*";\n$GLOBALS["TYPO3_CONF_VARS"]["BE"]["debug"] = true;\n' > config/system/additional.php
@@ -128,6 +131,11 @@ jobs:
             cat /tmp/php-server.log
             exit 1
           fi
+
+          # Debug: verify login page loads and check response
+          echo "--- Login page response (first 50 lines) ---"
+          curl -s http://localhost:8080/typo3/login | head -50
+          echo "---"
 
       - name: Run Playwright tests
         env:
