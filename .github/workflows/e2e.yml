@@ -63,52 +63,6 @@ jobs:
 
       - name: Setup TYPO3
         run: |
-          # Create necessary directories
-          mkdir -p .Build/Web/typo3conf
-          mkdir -p .Build/Web/typo3temp/var/cache
-          mkdir -p .Build/Web/typo3temp/var/log
-          mkdir -p .Build/Web/fileadmin
-
-          # Create LocalConfiguration.php
-          cat > .Build/Web/typo3conf/LocalConfiguration.php << 'EOF'
-          <?php
-          return [
-              'BE' => [
-                  'debug' => true,
-                  // Password: 'password' (test-only, for CI debugging)
-                  'installToolPassword' => '$argon2i$v=19$m=65536,t=16,p=1$M3QuMy5OdGlXTkxmTy56Zg$3A4Exo3BxTgTjLSaR4xaoIgd3gfWBPjXfYu7NdnVmzU',
-                  'passwordHashing' => [
-                      'className' => \TYPO3\CMS\Core\Crypto\PasswordHashing\Argon2iPasswordHash::class,
-                      'options' => [],
-                  ],
-              ],
-              'DB' => [
-                  'Connections' => [
-                      'Default' => [
-                          'charset' => 'utf8mb4',
-                          'driver' => 'mysqli',
-                          'host' => '127.0.0.1',
-                          'port' => 3306,
-                          'dbname' => 'typo3',
-                          'user' => 'root',
-                          'password' => 'root',
-                      ],
-                  ],
-              ],
-              'FE' => [
-                  'debug' => true,
-              ],
-              'SYS' => [
-                  'devIPmask' => '*',
-                  'displayErrors' => 1,
-                  'encryptionKey' => '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-                  'exceptionalErrors' => 4096,
-                  'sitename' => 'nr_llm E2E Tests',
-                  'trustedHostsPattern' => 'localhost|127\\.0\\.0\\.1',
-              ],
-          ];
-          EOF
-
           # Wait for database to be ready (extra safety beyond GitHub Services health check)
           for i in {1..30}; do
             if mysqladmin ping -h127.0.0.1 -uroot -proot --silent 2>/dev/null; then
@@ -119,11 +73,21 @@ jobs:
             sleep 2
           done
 
-          # Setup database schema
-          .Build/bin/typo3 extension:setup --no-interaction
-
-          # Create admin user (password: 'Joh316!!' - test-only, for CI debugging)
-          .Build/bin/typo3 backend:user:create --username=admin --password='Joh316!!' --admin --no-interaction
+          # Use TYPO3 setup command to create full schema + admin user
+          .Build/bin/typo3 setup \
+            --driver=mysqli \
+            --host=127.0.0.1 \
+            --port=3306 \
+            --dbname=typo3 \
+            --username=root \
+            --password=root \
+            --admin-username=admin \
+            --admin-user-password='Joh316!!' \
+            --admin-email=admin@example.com \
+            --project-name='nr_llm E2E Tests' \
+            --server-type=other \
+            --no-interaction \
+            --force
 
           # Flush caches
           .Build/bin/typo3 cache:flush
