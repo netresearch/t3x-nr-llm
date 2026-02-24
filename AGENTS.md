@@ -168,5 +168,5 @@ composer install                        # Install dependencies
 ## Contact
 
 - **Issues**: https://github.com/netresearch/t3x-nr-llm/issues
-- **Security**: security@netresearch.de
-- **Maintainer**: Netresearch DTT GmbH (typo3@netresearch.de)
+- **Security**: [GitHub Security Advisories](https://github.com/netresearch/t3x-nr-llm/security/advisories/new)
+- **Maintainer**: [https://github.com/netresearch/t3x-nr-llm](https://github.com/netresearch/t3x-nr-llm))
