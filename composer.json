@@ -80,34 +80,34 @@
     },
     "scripts": {
         "ci": [
-            "@lint",
-            "@phpstan",
-            "@test:unit",
-            "@test:integration",
-            "@test:fuzzy"
+            "@ci:test:php:cgl",
+            "@ci:test:php:phpstan",
+            "@ci:test:php:unit",
+            "@ci:test:php:integration",
+            "@ci:test:php:fuzzy"
         ],
+        "ci:cgl": "php-cs-fixer fix",
         "ci:full": [
             "@ci",
-            "@test:functional"
+            "@ci:test:php:functional"
         ],
+        "ci:test:php:cgl": "@ci:cgl -- --dry-run --diff",
+        "ci:test:php:functional": "phpunit -c Build/FunctionalTests.xml",
+        "ci:test:php:fuzzy": "phpunit -c phpunit.xml --testsuite fuzzy",
+        "ci:test:php:integration": "phpunit -c phpunit.xml --testsuite integration",
+        "ci:test:php:mutation": "infection --configuration=infection.json.dist --threads=4 -s --no-progress",
+        "ci:test:php:mutation:ci": "infection --configuration=infection.json.dist --threads=4 --logger-github --no-progress",
+        "ci:test:php:phpstan": "phpstan analyse -c Build/phpstan/phpstan.neon",
+        "ci:test:php:phpstan:baseline": "phpstan analyse -c Build/phpstan/phpstan.neon --generate-baseline Build/phpstan/phpstan-baseline.neon",
+        "ci:test:php:rector": "rector process --config Build/rector/rector.php --dry-run",
+        "ci:test:php:unit": "phpunit -c phpunit.xml --testsuite unit",
         "ddev:ci:full": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer ci:full'",
         "ddev:test": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer test'",
-        "ddev:test:functional": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer test:functional'",
+        "ddev:test:functional": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer ci:test:php:functional'",
         "fractor": "fractor process --config Build/fractor/fractor.php",
         "fractor:dry": "fractor process --config Build/fractor/fractor.php --dry-run",
-        "lint": "php-cs-fixer fix --dry-run --diff",
-        "lint:fix": "php-cs-fixer fix",
-        "phpstan": "phpstan analyse -c Build/phpstan/phpstan.neon",
-        "phpstan:baseline": "phpstan analyse -c Build/phpstan/phpstan.neon --generate-baseline Build/phpstan/phpstan-baseline.neon",
         "rector": "rector process --config Build/rector/rector.php",
-        "rector:dry": "rector process --config Build/rector/rector.php --dry-run",
         "test": "phpunit -c phpunit.xml",
-        "test:e2e": "npm run test:e2e",
-        "test:functional": "phpunit -c Build/FunctionalTests.xml",
-        "test:fuzzy": "phpunit -c phpunit.xml --testsuite fuzzy",
-        "test:integration": "phpunit -c phpunit.xml --testsuite integration",
-        "test:mutation": "infection --configuration=infection.json.dist --threads=4 -s --no-progress",
-        "test:mutation:ci": "infection --configuration=infection.json.dist --threads=4 --logger-github --no-progress",
-        "test:unit": "phpunit -c phpunit.xml --testsuite unit"
+        "test:e2e": "npm run test:e2e"
     }
 }

@@ -117,13 +117,13 @@ To add a new LLM provider:
 ./Build/Scripts/runTests.sh -s rector -n   # Rector (dry-run)
 
 # Composer scripts (local PHP, for quick checks)
-composer ci            # All CI checks
-composer lint          # PHP-CS-Fixer (dry-run)
-composer phpstan       # Static analysis
-composer test:unit     # Unit tests
+composer ci                    # All CI checks
+composer ci:test:php:cgl       # PHP-CS-Fixer (dry-run)
+composer ci:test:php:phpstan   # Static analysis
+composer ci:test:php:unit      # Unit tests
 
 # Fix formatting
-composer lint:fix
+composer ci:cgl
 composer rector
 ```
 

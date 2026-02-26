@@ -77,8 +77,8 @@ final readonly class MyRequest
 ## Commands
 
 ```bash
-composer phpstan       # Static analysis (level 10)
-composer lint          # PHP-CS-Fixer dry-run
-composer lint:fix      # Apply fixes
-composer rector:dry    # Check for modernization opportunities
+composer ci:test:php:phpstan   # Static analysis (level 10)
+composer ci:test:php:cgl       # PHP-CS-Fixer dry-run
+composer ci:cgl                # Apply fixes
+composer ci:test:php:rector    # Check for modernization opportunities
 ```

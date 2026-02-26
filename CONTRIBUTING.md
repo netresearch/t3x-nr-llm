@@ -59,19 +59,19 @@ ddev exec ".Build/bin/rector process --config=Build/rector/rector.php --dry-run"
 
 ```bash
 # Unit tests
-composer test:unit
+composer ci:test:php:unit
 
 # Integration tests
-composer test:integration
+composer ci:test:php:integration
 
 # Functional tests (requires DDEV)
-ddev exec "composer test:functional"
+ddev exec "composer ci:test:php:functional"
 
 # Fuzzy/Property-based tests
-composer test:fuzzy
+composer ci:test:php:fuzzy
 
 # Mutation tests (code quality)
-composer test:mutation
+composer ci:test:php:mutation
 
 # E2E tests (requires DDEV + Playwright)
 npm run test:e2e

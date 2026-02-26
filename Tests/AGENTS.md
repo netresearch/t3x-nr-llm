@@ -33,11 +33,11 @@ Tests/
 ## Running Tests
 
 ```bash
-composer test:unit          # Unit tests only
-composer test:integration   # Integration tests
-composer test:functional    # Functional tests (requires DDEV or SQLite)
-composer test:fuzzy         # Property-based tests
-composer test:mutation      # Mutation testing (MSI >= 70%)
+composer ci:test:php:unit          # Unit tests only
+composer ci:test:php:integration   # Integration tests
+composer ci:test:php:functional    # Functional tests (requires DDEV or SQLite)
+composer ci:test:php:fuzzy         # Property-based tests
+composer ci:test:php:mutation      # Mutation testing (MSI >= 70%)
 npm run test:e2e            # Playwright E2E tests
 composer ci                 # All CI checks
 ```

@@ -1,7 +1,7 @@
 # Makefile for nr_llm TYPO3 extension development
 # Generated according to TYPO3 DDEV Skill best practices
 
-.PHONY: help up start down restart install install-all sync seed seed-tasks ollama test test-unit test-integration test-functional test-fuzzy test-e2e coverage mutation lint lint-fix phpstan rector docs clean ci
+.PHONY: help up start down restart install install-all sync seed seed-tasks ollama test test-unit test-integration test-functional test-fuzzy test-e2e coverage mutation cgl cgl-fix phpstan rector rector-fix docs clean ci ci-full
 
 # Default target
 help:
@@ -119,26 +119,26 @@ mutation:
 	ddev exec "cd /var/www/nr_llm && .Build/bin/infection --configuration=infection.json.dist --threads=4 --show-mutations --no-progress"
 
 # Quality targets
-lint:
-	ddev lint
+cgl: ## Check code style (dry-run)
+	composer ci:test:php:cgl
 
-lint-fix:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/php-cs-fixer fix"
+cgl-fix: ## Fix code style
+	composer ci:cgl
 
-phpstan:
-	ddev phpstan
+phpstan: ## Run PHPStan static analysis
+	composer ci:test:php:phpstan
 
-rector:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/rector process --config Build/rector/rector.php --dry-run"
+rector: ## Run Rector dry-run
+	composer ci:test:php:rector
 
 rector-fix:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/rector process --config Build/rector/rector.php"
+	composer rector
 
-ci: lint phpstan test-unit test-integration test-fuzzy
-	@echo "✅ All CI checks passed"
+ci: cgl phpstan test-unit test-integration test-fuzzy
+	@echo "All CI checks passed"
 
 ci-full: ci test-func
-	@echo "✅ Full CI checks passed (including functional tests)"
+	@echo "Full CI checks passed (including functional tests)"
 
 # Documentation targets
 docs:

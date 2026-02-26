@@ -11,7 +11,3 @@ jobs:
     with:
       php-versions: '["8.5"]'
       typo3-versions: '["^14.0"]'
-      cgl-command: composer lint
-      phpstan-command: composer phpstan -- --error-format=github
-      rector-command: composer rector:dry
-      unit-test-command: composer test:unit
