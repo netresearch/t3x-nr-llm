@@ -15,5 +15,3 @@ jobs:
       phpstan-command: composer phpstan -- --error-format=github
       rector-command: composer rector:dry
       unit-test-command: composer test:unit
-      run-functional-tests: true
-      functional-test-command: composer test:functional
