@@ -91,7 +91,7 @@
             "@ci",
             "@ci:test:php:functional"
         ],
-        "ci:test:php:cgl": "@ci:cgl -- --dry-run --diff",
+        "ci:test:php:cgl": "php-cs-fixer fix --dry-run --diff",
         "ci:test:php:functional": "phpunit -c Build/FunctionalTests.xml",
         "ci:test:php:fuzzy": "phpunit -c phpunit.xml --testsuite fuzzy",
         "ci:test:php:integration": "phpunit -c phpunit.xml --testsuite integration",
