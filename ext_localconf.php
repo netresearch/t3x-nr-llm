@@ -12,7 +12,7 @@ use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 defined('TYPO3') or die();
 
 (static function (): void {
-    // Cache configuration is in Configuration/Caching.php (TYPO3 v14+)
+    // Cache configuration is in Configuration/Caching.php (TYPO3 v13+)
 
     // Register TypoScript
     ExtensionManagementUtility::addTypoScriptSetup(
