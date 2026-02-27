@@ -205,8 +205,8 @@ Chatbots and assistants
 Requirements
 ============
 
-- **PHP**: 8.5 or higher.
-- **TYPO3**: v14.0 or higher.
+- **PHP**: 8.2 or higher.
+- **TYPO3**: v13.4 or higher.
 - **HTTP client**: PSR-18 compatible (e.g., :composer:`guzzlehttp/guzzle`).
 
 .. _introduction-provider-requirements:

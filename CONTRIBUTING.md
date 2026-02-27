@@ -6,7 +6,7 @@ Thank you for your interest in contributing to the TYPO3 LLM extension!
 
 ### Prerequisites
 
-- PHP 8.5+
+- PHP 8.2+
 - [DDEV](https://ddev.readthedocs.io/) for local development
 - Composer
 - Node.js 20+ (for E2E tests)
