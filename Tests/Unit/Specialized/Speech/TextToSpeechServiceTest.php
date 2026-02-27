@@ -16,7 +16,6 @@ use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
 use Netresearch\NrLlm\Specialized\Speech\SpeechSynthesisResult;
 use Netresearch\NrLlm\Specialized\Speech\TextToSpeechService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -40,7 +39,6 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LoggerInterface&Stub $loggerStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

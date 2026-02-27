@@ -12,7 +12,6 @@ namespace Netresearch\NrLlm\Tests\E2E;
 use GuzzleHttp\Psr7\HttpFactory;
 use GuzzleHttp\Psr7\Response;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -34,7 +33,6 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
     protected StreamFactoryInterface $streamFactory;
     protected NullLogger $logger;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

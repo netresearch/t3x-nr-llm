@@ -16,7 +16,6 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Option\DeepLOptions;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -36,7 +35,6 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
     private array $defaultConfig;
     private UsageTrackerServiceInterface $usageTrackerStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

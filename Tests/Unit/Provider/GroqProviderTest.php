@@ -14,7 +14,6 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\GroqProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -29,7 +28,6 @@ class GroqProviderTest extends AbstractUnitTestCase
     private GroqProvider $subject;
     private ClientInterface&Stub $httpClientStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

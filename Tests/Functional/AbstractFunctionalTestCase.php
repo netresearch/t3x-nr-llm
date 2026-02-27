@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional;
 
-use Override;
 use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
@@ -58,7 +57,6 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
 
     private bool $skipped = false;
 
-    #[Override]
     protected function setUp(): void
     {
         // Check if we can run functional tests
@@ -78,7 +76,6 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
         }
     }
 
-    #[Override]
     protected function tearDown(): void
     {
         if ($this->skipped) {

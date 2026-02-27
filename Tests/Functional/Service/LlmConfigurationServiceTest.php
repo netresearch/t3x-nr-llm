@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -30,7 +29,6 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
     private LlmConfigurationService $subject;
     private LlmConfigurationRepository $repository;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -47,7 +45,6 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         $this->importFixture('BeUsers.csv');
     }
 
-    #[Override]
     protected function tearDown(): void
     {
         unset($GLOBALS['BE_USER']);

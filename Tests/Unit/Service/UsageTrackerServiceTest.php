@@ -14,7 +14,6 @@ use Doctrine\DBAL\Result;
 use Netresearch\NrLlm\Service\UsageTrackerService;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -37,7 +36,6 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     private ExpressionBuilder&Stub $exprStub;
     private Result&Stub $resultStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

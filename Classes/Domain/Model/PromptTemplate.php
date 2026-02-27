@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
-use Override;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
 /**
@@ -184,7 +183,6 @@ class PromptTemplate extends AbstractEntity
         }
     }
 
-    #[Override]
     public function setPid(int $pid): void
     {
         $this->pid = $pid;

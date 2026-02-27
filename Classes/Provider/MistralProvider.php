@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
-use Override;
 
 /**
  * Mistral AI Provider.
@@ -74,7 +73,6 @@ final class MistralProvider extends AbstractProvider implements
         return 'https://api.mistral.ai/v1';
     }
 
-    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_CHAT_MODEL;

@@ -29,7 +29,6 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
@@ -45,7 +44,6 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     private ProviderAdapterRegistry $adapterRegistryStub;
     private TestableProvider $provider;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -777,13 +775,11 @@ class TestableProvider extends AbstractProvider
         return $this->id;
     }
 
-    #[Override]
     public function isAvailable(): bool
     {
         return $this->available;
     }
 
-    #[Override]
     public function supportsFeature(string|ModelCapability $feature): bool
     {
         $featureValue = $feature instanceof ModelCapability ? $feature->value : $feature;
@@ -802,7 +798,6 @@ class TestableProvider extends AbstractProvider
         );
     }
 
-    #[Override]
     public function complete(string $prompt, array $options = []): CompletionResponse
     {
         return $this->chatCompletion([['role' => 'user', 'content' => $prompt]], $options);
@@ -824,13 +819,11 @@ class TestableProvider extends AbstractProvider
         return ['gpt-4o' => 'GPT-4o', 'gpt-4o-mini' => 'GPT-4o Mini'];
     }
 
-    #[Override]
     public function getDefaultModel(): string
     {
         return 'gpt-4o';
     }
 
-    #[Override]
     public function configure(array $config): void
     {
         $this->lastConfiguration = $config;
@@ -966,7 +959,6 @@ class TestableNoEmbeddingsProvider extends TestableProvider
         parent::__construct('limited', 'Limited Provider', true);
     }
 
-    #[Override]
     public function supportsFeature(string|ModelCapability $feature): bool
     {
         $featureValue = $feature instanceof ModelCapability ? $feature->value : $feature;
@@ -974,7 +966,6 @@ class TestableNoEmbeddingsProvider extends TestableProvider
         return in_array($featureValue, ['chat'], true);
     }
 
-    #[Override]
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
         throw new UnsupportedFeatureException('Provider "limited" does not support embeddings', 4932152837);

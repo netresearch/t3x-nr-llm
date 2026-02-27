@@ -15,7 +15,6 @@ use JsonException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
-use Override;
 
 /**
  * Groq Provider.
@@ -82,7 +81,6 @@ final class GroqProvider extends AbstractProvider implements
         return 'https://api.groq.com/openai/v1';
     }
 
-    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_CHAT_MODEL;

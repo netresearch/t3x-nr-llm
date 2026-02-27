@@ -20,7 +20,6 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -33,7 +32,6 @@ class TranslationServiceTest extends AbstractUnitTestCase
     private LlmConfigurationService&Stub $configServiceStub;
     private TranslationService $subject;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

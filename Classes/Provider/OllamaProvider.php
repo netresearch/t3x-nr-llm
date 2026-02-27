@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
-use Override;
 use Throwable;
 
 /**
@@ -52,20 +51,17 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         return 'http://localhost:11434';
     }
 
-    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_MODEL;
     }
 
-    #[Override]
     public function isAvailable(): bool
     {
         // Ollama doesn't require an API key
         return $this->baseUrl !== '';
     }
 
-    #[Override]
     protected function validateConfiguration(): void
     {
         // Ollama doesn't require API key validation
@@ -277,7 +273,6 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
      *
      * @return array{success: bool, message: string, models?: array<string, string>}
      */
-    #[Override]
     public function testConnection(): array
     {
         // Make actual HTTP request - do NOT catch exceptions

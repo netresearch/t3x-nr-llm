@@ -12,7 +12,6 @@ namespace Netresearch\NrLlm\Tests\Functional\Service;
 use DateTimeImmutable;
 use Netresearch\NrLlm\Service\UsageTrackerService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -30,7 +29,6 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
 
     private const TABLE = 'tx_nrllm_service_usage';
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

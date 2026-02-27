@@ -17,7 +17,6 @@ use Netresearch\NrLlm\Specialized\Option\TranscriptionOptions;
 use Netresearch\NrLlm\Specialized\Speech\TranscriptionResult;
 use Netresearch\NrLlm\Specialized\Speech\WhisperTranscriptionService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -42,7 +41,6 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     private LoggerInterface&Stub $loggerStub;
     private ?string $tempFile = null;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

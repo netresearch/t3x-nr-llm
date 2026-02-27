@@ -16,7 +16,6 @@ use Netresearch\NrLlm\Service\Feature\CompletionService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -27,7 +26,6 @@ class CompletionServiceTest extends AbstractUnitTestCase
     private CompletionService $subject;
     private LlmServiceManagerInterface $llmManagerStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

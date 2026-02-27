@@ -19,7 +19,6 @@ use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
-use Override;
 
 /**
  * OpenRouter Provider.
@@ -103,7 +102,6 @@ final class OpenRouterProvider extends AbstractProvider implements
         return 'https://openrouter.ai/api/v1';
     }
 
-    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_CHAT_MODEL;
@@ -114,7 +112,6 @@ final class OpenRouterProvider extends AbstractProvider implements
      *
      * @param array<string, mixed> $config
      */
-    #[Override]
     public function configure(array $config): void
     {
         parent::configure($config);

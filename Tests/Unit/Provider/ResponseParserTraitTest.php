@@ -13,7 +13,6 @@ use InvalidArgumentException;
 use JsonException;
 use Netresearch\NrLlm\Provider\ResponseParserTrait;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -28,7 +27,6 @@ class ResponseParserTraitTest extends AbstractUnitTestCase
 {
     private ResponseParserTraitTestSubject $subject;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

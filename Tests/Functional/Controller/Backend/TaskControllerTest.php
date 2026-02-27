@@ -14,7 +14,6 @@ use Netresearch\NrLlm\Controller\Backend\TaskController;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
@@ -39,7 +38,6 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
     private TaskController $controller;
     private TaskRepository $taskRepository;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

@@ -22,7 +22,6 @@ use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
@@ -59,7 +58,6 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
     private LlmModuleController $llmModuleController;
     private LlmConfigurationRepository $configurationRepository;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

@@ -16,7 +16,6 @@ use Netresearch\NrLlm\Specialized\Image\DallEImageService;
 use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
 use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -41,7 +40,6 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     private LoggerInterface&Stub $loggerStub;
     private ?string $tempFile = null;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

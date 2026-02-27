@@ -11,7 +11,6 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\SetupWizard;
 
 use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -20,7 +19,6 @@ class ProviderDetectorTest extends AbstractUnitTestCase
 {
     private ProviderDetector $subject;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

@@ -21,7 +21,6 @@ use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
@@ -44,7 +43,6 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     private PersistenceManagerInterface $persistenceManager;
     private ConfigurationController $configurationController;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

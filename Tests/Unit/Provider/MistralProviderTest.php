@@ -14,7 +14,6 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\MistralProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -29,7 +28,6 @@ class MistralProviderTest extends AbstractUnitTestCase
     private MistralProvider $subject;
     private ClientInterface&Stub $httpClientStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

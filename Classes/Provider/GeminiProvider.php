@@ -17,7 +17,6 @@ use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
-use Override;
 use Psr\Http\Message\RequestInterface;
 
 final class GeminiProvider extends AbstractProvider implements
@@ -53,7 +52,6 @@ final class GeminiProvider extends AbstractProvider implements
         return 'https://generativelanguage.googleapis.com/v1beta';
     }
 
-    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_MODEL;
@@ -443,7 +441,6 @@ final class GeminiProvider extends AbstractProvider implements
         return true;
     }
 
-    #[Override]
     protected function addProviderSpecificHeaders(RequestInterface $request): RequestInterface
     {
         // Gemini uses API key in URL, not headers

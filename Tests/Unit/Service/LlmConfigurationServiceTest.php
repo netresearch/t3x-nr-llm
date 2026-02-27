@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -38,7 +37,6 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     /** @var array<int> */
     private array $groupIds = [];
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

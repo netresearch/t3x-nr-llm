@@ -17,7 +17,6 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManager;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
@@ -42,7 +41,6 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     private LlmConfigurationRepository $configurationRepository;
     private TaskRepository $taskRepository;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
