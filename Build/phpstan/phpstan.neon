@@ -3,7 +3,7 @@
 #
 # This configuration enforces:
 # - Level 10 maximum analysis (strictest type checking)
-# - PHP 8.5 compatibility
+# - PHP 8.2+ compatibility
 #
 # Level 10 enforces complete type safety for all mixed types.
 # Baseline used for new test files pending type improvements.
@@ -13,8 +13,8 @@ includes:
   - ../../.Build/vendor/phpat/phpat/extension.neon
 
 parameters:
-  # PHP 8.5 (TYPO3 v14 minimum)
-  phpVersion: 80500
+  # PHP 8.2 (TYPO3 v13.4 minimum)
+  phpVersion: 80200
 
   # Parallel execution (optimize for your CI environment)
   parallel:
