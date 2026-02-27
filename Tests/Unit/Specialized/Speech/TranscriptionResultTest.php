@@ -159,8 +159,9 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             'perfect confidence' => [1.0, '100.0%'],
             'low confidence' => [0.5, '50.0%'],
             'zero confidence' => [0.0, '0.0%'],
-            // 0.8765*100=87.6499... in IEEE 754, number_format truncates to 87.6
-            'precise value' => [0.8765, '87.6%'],
+            // Use a value that avoids IEEE 754 rounding boundary differences across PHP versions
+            // (0.8765*100 rounds differently on PHP 8.2/8.3 vs 8.4/8.5)
+            'precise value' => [0.8756, '87.6%'],
         ];
     }
 
