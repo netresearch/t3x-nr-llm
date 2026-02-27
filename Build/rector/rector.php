@@ -7,8 +7,8 @@ declare(strict_types=1);
  * Based on TYPO3 Best Practices: https://github.com/TYPO3BestPractices/tea.
  *
  * This configuration enables:
- * - Automated TYPO3 v14 migrations
- * - PHP 8.5 modernization
+ * - Automated TYPO3 v13/v14 migrations
+ * - PHP 8.2+ modernization
  * - PHPUnit 12 test modernization
  * - Code quality improvements
  * - ExtEmConf automatic maintenance
@@ -32,8 +32,8 @@ return RectorConfig::configure()
         __DIR__ . '/../../ext_emconf.php',
         __DIR__ . '/../../ext_localconf.php',
     ])
-    // PHP 8.5 - TYPO3 v14 minimum
-    ->withPhpVersion(PhpVersion::PHP_85)
+    // PHP 8.2 - TYPO3 v13.4 minimum
+    ->withPhpVersion(PhpVersion::PHP_82)
     // Enable all PHP sets for modernization
     ->withPhpSets(true)
     ->withSets([
@@ -57,8 +57,8 @@ return RectorConfig::configure()
     ])
     // ExtEmConfRector: Automatically maintains ext_emconf.php
     ->withConfiguredRule(ExtEmConfRector::class, [
-        ExtEmConfRector::PHP_VERSION_CONSTRAINT => '8.5.0-8.99.99',
-        ExtEmConfRector::TYPO3_VERSION_CONSTRAINT => '14.0.0-14.99.99',
+        ExtEmConfRector::PHP_VERSION_CONSTRAINT => '8.2.0-8.99.99',
+        ExtEmConfRector::TYPO3_VERSION_CONSTRAINT => '13.4.0-14.99.99',
         ExtEmConfRector::ADDITIONAL_VALUES_TO_BE_REMOVED => [],
     ])
     // Skip specific rules and files that cause issues
