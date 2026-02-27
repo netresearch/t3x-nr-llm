@@ -27,7 +27,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
-use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
 use TYPO3\CMS\Core\Imaging\IconFactory;
@@ -94,9 +93,6 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleTemplateFactory);
 
-        $componentFactory = $this->get(ComponentFactory::class);
-        self::assertInstanceOf(ComponentFactory::class, $componentFactory);
-
         $iconFactory = $this->get(IconFactory::class);
         self::assertInstanceOf(IconFactory::class, $iconFactory);
 
@@ -117,7 +113,6 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
 
         return new ConfigurationController(
             $moduleTemplateFactory,
-            $componentFactory,
             $iconFactory,
             $configurationService,
             $this->configurationRepository,
@@ -132,9 +127,6 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
     {
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleTemplateFactory);
-
-        $componentFactory = $this->get(ComponentFactory::class);
-        self::assertInstanceOf(ComponentFactory::class, $componentFactory);
 
         $iconFactory = $this->get(IconFactory::class);
         self::assertInstanceOf(IconFactory::class, $iconFactory);
@@ -153,7 +145,6 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
 
         return new ProviderController(
             $moduleTemplateFactory,
-            $componentFactory,
             $iconFactory,
             $this->providerRepository,
             $providerAdapterRegistry,

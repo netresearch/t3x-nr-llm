@@ -26,7 +26,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
-use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
@@ -60,7 +59,6 @@ final class SetupWizardController extends ActionController
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly IconFactory $iconFactory,
-        private readonly ComponentFactory $componentFactory,
     ) {}
 
     protected function initializeAction(): void
@@ -96,18 +94,20 @@ final class SetupWizardController extends ActionController
         $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
 
         // Add refresh button
-        $refreshButton = $this->componentFactory->createLinkButton()
+        $refreshButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-refresh', IconSize::SMALL))
             ->setTitle('Refresh')
             ->setShowLabelText(true)
             ->setHref((string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'));
         $buttonBar->addButton($refreshButton);
 
-        // Add shortcut/bookmark button to docheader
-        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-            routeIdentifier: 'nrllm_wizard',
-            displayName: 'LLM - Setup Wizard',
-        );
+        // Add shortcut/bookmark button to docheader (v14+)
+        if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) { // @phpstan-ignore function.alreadyNarrowedType
+            $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+                routeIdentifier: 'nrllm_wizard',
+                displayName: 'LLM - Setup Wizard',
+            );
+        }
 
         // Provide adapter types for the form
         $this->moduleTemplate->assignMultiple([
