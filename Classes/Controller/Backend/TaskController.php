@@ -50,7 +50,7 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 #[AsController]
 final class TaskController extends ActionController
 {
-    private const string TABLE_NAME = 'tx_nrllm_task';
+    private const TABLE_NAME = 'tx_nrllm_task';
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,

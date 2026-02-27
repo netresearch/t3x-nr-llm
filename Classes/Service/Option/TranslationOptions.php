@@ -16,8 +16,8 @@ namespace Netresearch\NrLlm\Service\Option;
  */
 class TranslationOptions extends AbstractOptions
 {
-    private const array FORMALITIES = ['default', 'formal', 'informal'];
-    private const array DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
+    private const FORMALITIES = ['default', 'formal', 'informal'];
+    private const DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
     public function __construct(
         private ?string $formality = null,

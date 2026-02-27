@@ -19,7 +19,7 @@ namespace Netresearch\NrLlm\Service\Option;
  */
 class ChatOptions extends AbstractOptions
 {
-    private const array RESPONSE_FORMATS = ['text', 'json', 'markdown'];
+    private const RESPONSE_FORMATS = ['text', 'json', 'markdown'];
 
     public function __construct(
         private ?float $temperature = null,

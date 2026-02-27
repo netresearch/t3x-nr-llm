@@ -78,7 +78,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
 
     private function setupBackendUser(int $userId = 1): void
     {
-        $aspectStub = new readonly class ($userId) implements AspectInterface {
+        $aspectStub = new class ($userId) implements AspectInterface {
             public function __construct(private int $userId) {}
 
             public function get(string $name): mixed

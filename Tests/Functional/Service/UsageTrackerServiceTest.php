@@ -28,7 +28,7 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
     private UsageTrackerService $service;
     private ConnectionPool $connectionPool;
 
-    private const string TABLE = 'tx_nrllm_service_usage';
+    private const TABLE = 'tx_nrllm_service_usage';
 
     #[Override]
     protected function setUp(): void

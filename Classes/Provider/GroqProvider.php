@@ -43,10 +43,10 @@ final class GroqProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const string DEFAULT_CHAT_MODEL = 'llama-3.3-70b-versatile';
+    private const DEFAULT_CHAT_MODEL = 'llama-3.3-70b-versatile';
 
     /** @var array<string, string> */
-    private const array MODELS = [
+    private const MODELS = [
         // Llama 3.3
         'llama-3.3-70b-versatile' => 'Llama 3.3 70B Versatile',
         'llama-3.3-70b-specdec' => 'Llama 3.3 70B SpecDec (Fast)',

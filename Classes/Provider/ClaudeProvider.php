@@ -36,8 +36,8 @@ final class ClaudeProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const string DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
-    private const string API_VERSION = '2023-06-01';
+    private const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
+    private const API_VERSION = '2023-06-01';
 
     public function getName(): string
     {

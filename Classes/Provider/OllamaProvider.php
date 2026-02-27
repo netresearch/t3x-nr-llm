@@ -35,7 +35,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         self::FEATURE_STREAMING,
     ];
 
-    private const string DEFAULT_MODEL = 'llama3.2';
+    private const DEFAULT_MODEL = 'llama3.2';
 
     public function getName(): string
     {

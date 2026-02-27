@@ -23,7 +23,7 @@ use TYPO3\CMS\Core\SingletonInterface;
  */
 final readonly class UsageTrackerService implements UsageTrackerServiceInterface, SingletonInterface
 {
-    private const string TABLE = 'tx_nrllm_service_usage';
+    private const TABLE = 'tx_nrllm_service_usage';
 
     public function __construct(
         private ConnectionPool $connectionPool,

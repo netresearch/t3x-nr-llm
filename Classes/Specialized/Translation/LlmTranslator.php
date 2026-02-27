@@ -24,13 +24,13 @@ use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
  */
 final readonly class LlmTranslator implements TranslatorInterface
 {
-    private const array SUPPORTED_LANGUAGES = [
+    private const SUPPORTED_LANGUAGES = [
         'en', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'pl', 'ru', 'ja', 'zh', 'ko',
         'ar', 'cs', 'da', 'fi', 'el', 'hu', 'id', 'no', 'ro', 'sk', 'sv', 'th',
         'tr', 'uk', 'vi', 'bg', 'hr', 'et', 'lv', 'lt', 'sl', 'he', 'hi', 'ms',
     ];
 
-    private const array LANGUAGE_NAMES = [
+    private const LANGUAGE_NAMES = [
         'en' => 'English', 'de' => 'German', 'fr' => 'French', 'es' => 'Spanish',
         'it' => 'Italian', 'pt' => 'Portuguese', 'nl' => 'Dutch', 'pl' => 'Polish',
         'ru' => 'Russian', 'ja' => 'Japanese', 'zh' => 'Chinese', 'ko' => 'Korean',

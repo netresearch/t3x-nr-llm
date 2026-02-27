@@ -33,8 +33,8 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
  */
 class TranslationService
 {
-    private const array SUPPORTED_FORMALITIES = ['default', 'formal', 'informal'];
-    private const array SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
+    private const SUPPORTED_FORMALITIES = ['default', 'formal', 'informal'];
+    private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
     public function __construct(
         private readonly LlmServiceManagerInterface $llmManager,

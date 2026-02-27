@@ -40,7 +40,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class ProviderController extends ActionController
 {
-    private const string TABLE_NAME = 'tx_nrllm_provider';
+    private const TABLE_NAME = 'tx_nrllm_provider';
 
     private ModuleTemplate $moduleTemplate;
 

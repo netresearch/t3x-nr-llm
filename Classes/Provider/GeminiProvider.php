@@ -35,8 +35,8 @@ final class GeminiProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const string DEFAULT_MODEL = 'gemini-3-flash-preview';
-    private const string EMBEDDING_MODEL = 'text-embedding-004';
+    private const DEFAULT_MODEL = 'gemini-3-flash-preview';
+    private const EMBEDDING_MODEL = 'text-embedding-004';
 
     public function getName(): string
     {

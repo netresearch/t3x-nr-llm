@@ -16,9 +16,9 @@ use Netresearch\NrLlm\Service\Option\AbstractOptions;
  */
 final class SpeechSynthesisOptions extends AbstractOptions
 {
-    private const array VALID_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
-    private const array VALID_MODELS = ['tts-1', 'tts-1-hd'];
-    private const array VALID_FORMATS = ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'];
+    private const VALID_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+    private const VALID_MODELS = ['tts-1', 'tts-1-hd'];
+    private const VALID_FORMATS = ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'];
 
     public function __construct(
         public readonly ?string $model = 'tts-1',

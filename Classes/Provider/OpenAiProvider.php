@@ -35,8 +35,8 @@ final class OpenAiProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const string DEFAULT_CHAT_MODEL = 'gpt-5.2';
-    private const string DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
+    private const DEFAULT_CHAT_MODEL = 'gpt-5.2';
+    private const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 
     public function getName(): string
     {

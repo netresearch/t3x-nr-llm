@@ -20,7 +20,7 @@ use JsonSerializable;
  */
 final readonly class ChatMessage implements JsonSerializable
 {
-    private const array VALID_ROLES = ['system', 'user', 'assistant', 'tool'];
+    private const VALID_ROLES = ['system', 'user', 'assistant', 'tool'];
 
     /**
      * @param string $role    The message role (system, user, assistant, tool)

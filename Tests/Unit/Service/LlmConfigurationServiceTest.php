@@ -121,7 +121,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     private function setupContextStub(): void
     {
         // Create an anonymous class that implements AspectInterface
-        $aspectStub = new readonly class ($this->isLoggedIn, $this->isAdmin, $this->groupIds) implements AspectInterface {
+        $aspectStub = new class ($this->isLoggedIn, $this->isAdmin, $this->groupIds) implements AspectInterface {
             /**
              * @param array<int> $groupIds
              */

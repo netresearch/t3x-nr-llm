@@ -45,7 +45,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class ModelController extends ActionController
 {
-    private const string TABLE_NAME = 'tx_nrllm_model';
+    private const TABLE_NAME = 'tx_nrllm_model';
 
     private ModuleTemplate $moduleTemplate;
 

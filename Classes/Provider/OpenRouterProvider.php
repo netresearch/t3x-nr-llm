@@ -51,11 +51,11 @@ final class OpenRouterProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const string DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4-5';
-    private const string DEFAULT_EMBEDDING_MODEL = 'openai/text-embedding-3-small';
+    private const DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4-5';
+    private const DEFAULT_EMBEDDING_MODEL = 'openai/text-embedding-3-small';
 
     /** @var array<int, string> */
-    private const array ROUTING_STRATEGIES = [
+    private const ROUTING_STRATEGIES = [
         'cost_optimized',
         'performance',
         'balanced',

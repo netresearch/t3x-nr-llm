@@ -20,7 +20,7 @@ use Override;
  */
 class ToolOptions extends ChatOptions
 {
-    private const array TOOL_CHOICES = ['auto', 'none', 'required'];
+    private const TOOL_CHOICES = ['auto', 'none', 'required'];
 
     /**
      * @param array<int, string>|null $stopSequences

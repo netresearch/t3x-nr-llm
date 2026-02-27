@@ -26,7 +26,7 @@ use Throwable;
  */
 final readonly class ConfigurationGenerator
 {
-    private const string SYSTEM_PROMPT = <<<'PROMPT'
+    private const SYSTEM_PROMPT = <<<'PROMPT'
         You are an expert at configuring LLM integrations. Generate practical configuration presets for common business use cases.
 
         For each configuration, provide:

@@ -17,12 +17,12 @@ use Netresearch\NrLlm\Service\Option\AbstractOptions;
  */
 final class ImageGenerationOptions extends AbstractOptions
 {
-    private const array VALID_MODELS = ['dall-e-2', 'dall-e-3'];
-    private const array VALID_QUALITIES = ['standard', 'hd'];
-    private const array VALID_STYLES = ['vivid', 'natural'];
-    private const array VALID_FORMATS = ['url', 'b64_json'];
-    private const array VALID_SIZES_DALLE3 = ['1024x1024', '1792x1024', '1024x1792'];
-    private const array VALID_SIZES_DALLE2 = ['256x256', '512x512', '1024x1024'];
+    private const VALID_MODELS = ['dall-e-2', 'dall-e-3'];
+    private const VALID_QUALITIES = ['standard', 'hd'];
+    private const VALID_STYLES = ['vivid', 'natural'];
+    private const VALID_FORMATS = ['url', 'b64_json'];
+    private const VALID_SIZES_DALLE3 = ['1024x1024', '1792x1024', '1024x1792'];
+    private const VALID_SIZES_DALLE2 = ['256x256', '512x512', '1024x1024'];
 
     public function __construct(
         public readonly ?string $model = 'dall-e-3',
