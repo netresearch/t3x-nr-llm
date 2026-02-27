@@ -43,7 +43,7 @@ final class LlmModuleController extends ActionController
         $moduleTemplate->makeDocHeaderModuleMenu();
 
         // Add shortcut/bookmark button to docheader (v14+)
-        if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) { // @phpstan-ignore function.alreadyNarrowedType
+        if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
             $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
                 routeIdentifier: 'nrllm',
                 displayName: 'LLM - Dashboard',
@@ -96,7 +96,7 @@ final class LlmModuleController extends ActionController
         $moduleTemplate->makeDocHeaderModuleMenu();
 
         // Add shortcut/bookmark button to docheader (v14+)
-        if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) { // @phpstan-ignore function.alreadyNarrowedType
+        if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
             $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
                 routeIdentifier: 'nrllm',
                 displayName: 'LLM - Test',

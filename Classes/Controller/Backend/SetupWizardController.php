@@ -102,7 +102,7 @@ final class SetupWizardController extends ActionController
         $buttonBar->addButton($refreshButton);
 
         // Add shortcut/bookmark button to docheader (v14+)
-        if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) { // @phpstan-ignore function.alreadyNarrowedType
+        if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
             $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
                 routeIdentifier: 'nrllm_wizard',
                 displayName: 'LLM - Setup Wizard',

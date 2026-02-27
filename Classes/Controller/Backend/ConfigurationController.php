@@ -103,7 +103,7 @@ final class ConfigurationController extends ActionController
         ]);
 
         // Add shortcut/bookmark button to docheader (v14+)
-        if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) { // @phpstan-ignore function.alreadyNarrowedType
+        if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
             $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
                 routeIdentifier: 'nrllm_configurations',
                 displayName: 'LLM - Configurations',
