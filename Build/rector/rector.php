@@ -34,8 +34,8 @@ return RectorConfig::configure()
     ])
     // PHP 8.2 - TYPO3 v13.4 minimum
     ->withPhpVersion(PhpVersion::PHP_82)
-    // Enable all PHP sets for modernization
-    ->withPhpSets(true)
+    // Enable PHP 8.2 migration sets
+    ->withPhpSets(php82: true)
     ->withSets([
         // PHPUnit 12 Sets - modernize tests
         PHPUnitSetList::PHPUNIT_110,
