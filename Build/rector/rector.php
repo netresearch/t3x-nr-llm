@@ -44,8 +44,8 @@ return RectorConfig::configure()
         Typo3SetList::CODE_QUALITY,
         Typo3SetList::GENERAL,
 
-        // TYPO3 v14 migration
-        Typo3LevelSetList::UP_TO_TYPO3_14,
+        // TYPO3 v13 migration (v14 set adds ComponentFactory/cache imports not yet needed)
+        Typo3LevelSetList::UP_TO_TYPO3_13,
     ])
     // PHPStan integration for better analysis
     ->withPHPStanConfigs([

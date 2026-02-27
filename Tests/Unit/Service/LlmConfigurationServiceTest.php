@@ -124,9 +124,9 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
              * @param array<int> $groupIds
              */
             public function __construct(
-                private bool $isLoggedIn,
-                private bool $isAdmin,
-                private array $groupIds,
+                private readonly bool $isLoggedIn,
+                private readonly bool $isAdmin,
+                private readonly array $groupIds,
             ) {}
 
             public function get(string $name): mixed

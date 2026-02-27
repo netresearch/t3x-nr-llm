@@ -159,7 +159,7 @@ class TranscriptionResultTest extends AbstractUnitTestCase
             'perfect confidence' => [1.0, '100.0%'],
             'low confidence' => [0.5, '50.0%'],
             'zero confidence' => [0.0, '0.0%'],
-            // number_format uses banker's rounding: 87.65 rounds to 87.6
+            // 0.8765*100=87.6499... in IEEE 754, number_format truncates to 87.6
             'precise value' => [0.8765, '87.6%'],
         ];
     }

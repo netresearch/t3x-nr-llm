@@ -7,3 +7,12 @@ parameters:
 		-
 			identifier: variable.undefined
 			path: ext_emconf.php
+		# PHPUnit 12: MockObject::method() returns InvocationStubber which lacks with().
+		# The correct pattern is expects()->method()->with(), but createMock() chaining
+		# via method()->with()->willReturn() is common and works at runtime.
+		-
+			message: '#Call to an undefined method PHPUnit\\Framework\\MockObject\\Builder\\InvocationStubber::with\(\)#'
+			reportUnmatched: false
+		-
+			message: '#Cannot call method willReturn\(\) on mixed#'
+			reportUnmatched: false
