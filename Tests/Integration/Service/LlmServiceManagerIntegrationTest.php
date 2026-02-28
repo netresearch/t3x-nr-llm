@@ -17,7 +17,6 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Integration\AbstractIntegrationTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -38,7 +37,6 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     private ExtensionConfiguration&Stub $extensionConfigStub;
     private ProviderAdapterRegistry&Stub $adapterRegistryStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

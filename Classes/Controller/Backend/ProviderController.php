@@ -20,7 +20,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
-use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
@@ -40,13 +39,12 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class ProviderController extends ActionController
 {
-    private const string TABLE_NAME = 'tx_nrllm_provider';
+    private const TABLE_NAME = 'tx_nrllm_provider';
 
     private ModuleTemplate $moduleTemplate;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
-        private readonly ComponentFactory $componentFactory,
         private readonly IconFactory $iconFactory,
         private readonly ProviderRepository $providerRepository,
         private readonly ProviderAdapterRegistry $providerAdapterRegistry,
@@ -99,19 +97,22 @@ final class ProviderController extends ActionController
             'newUrl' => $this->buildNewUrl(),
         ]);
 
-        // Add shortcut/bookmark button to docheader
-        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-            routeIdentifier: 'nrllm_providers',
-            displayName: 'LLM - Providers',
-        );
+        // Add shortcut/bookmark button to docheader (v14+)
+        if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
+            $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+                routeIdentifier: 'nrllm_providers',
+                displayName: 'LLM - Providers',
+            );
+        }
 
         // Add "New Provider" button to docheader (links to FormEngine)
-        $createButton = $this->componentFactory->createLinkButton()
+        $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
+        $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.provider.new', 'NrLlm') ?? 'New Provider')
             ->setShowLabelText(true)
             ->setHref($this->buildNewUrl());
-        $this->moduleTemplate->addButtonToButtonBar($createButton);
+        $buttonBar->addButton($createButton);
 
         return $this->moduleTemplate->renderResponse('Backend/Provider/List');
     }

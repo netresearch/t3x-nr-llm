@@ -19,7 +19,6 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrVault\Http\SecretPlacement;
-use Override;
 use Psr\Http\Message\RequestInterface;
 
 final class ClaudeProvider extends AbstractProvider implements
@@ -36,8 +35,8 @@ final class ClaudeProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const string DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
-    private const string API_VERSION = '2023-06-01';
+    private const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
+    private const API_VERSION = '2023-06-01';
 
     public function getName(): string
     {
@@ -54,7 +53,6 @@ final class ClaudeProvider extends AbstractProvider implements
         return 'https://api.anthropic.com/v1';
     }
 
-    #[Override]
     protected function getSecretPlacement(): SecretPlacement
     {
         return SecretPlacement::Header;
@@ -63,7 +61,6 @@ final class ClaudeProvider extends AbstractProvider implements
     /**
      * @return array{headerName: string, reason: string}
      */
-    #[Override]
     protected function getSecretPlacementOptions(): array
     {
         return [
@@ -72,7 +69,6 @@ final class ClaudeProvider extends AbstractProvider implements
         ];
     }
 
-    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_MODEL;
@@ -98,7 +94,6 @@ final class ClaudeProvider extends AbstractProvider implements
         ];
     }
 
-    #[Override]
     protected function addProviderSpecificHeaders(RequestInterface $request): RequestInterface
     {
         return $request

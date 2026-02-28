@@ -512,8 +512,8 @@ GitHub Actions
 
        strategy:
          matrix:
-           php: ['8.5']
-           typo3: ['14.0']
+           php: ['8.2', '8.3', '8.4', '8.5']
+           typo3: ['13.4', '14.0']
 
        steps:
          - uses: actions/checkout@v4
@@ -544,7 +544,7 @@ GitLab CI/CD
    :caption: .gitlab-ci.yml
 
    test:
-     image: php:8.5
+     image: php:8.2
      script:
        - composer install
        - composer test

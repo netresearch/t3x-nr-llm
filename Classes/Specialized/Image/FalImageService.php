@@ -38,11 +38,11 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  */
 final class FalImageService
 {
-    private const string API_URL = 'https://fal.run';
-    private const string QUEUE_API_URL = 'https://queue.fal.run';
+    private const API_URL = 'https://fal.run';
+    private const QUEUE_API_URL = 'https://queue.fal.run';
 
     /** Default model endpoints. */
-    private const array MODELS = [
+    private const MODELS = [
         'flux-pro' => 'fal-ai/flux-pro',
         'flux-dev' => 'fal-ai/flux/dev',
         'flux-schnell' => 'fal-ai/flux/schnell',
@@ -52,7 +52,7 @@ final class FalImageService
     ];
 
     /** Standard aspect ratios. */
-    private const array ASPECT_RATIOS = [
+    private const ASPECT_RATIOS = [
         'square' => '1:1',
         'landscape' => '16:9',
         'portrait' => '9:16',

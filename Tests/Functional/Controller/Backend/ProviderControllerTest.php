@@ -14,7 +14,6 @@ use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
@@ -38,7 +37,6 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
     private ProviderRepository $providerRepository;
     private PersistenceManagerInterface $persistenceManager;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,7 +30,6 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     private ClaudeProvider $subject;
     private ClientInterface&Stub $httpClientStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

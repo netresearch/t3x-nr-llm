@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -33,7 +32,6 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     /** @var ClientInterface&Stub */
     private ClientInterface $httpClientMock;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

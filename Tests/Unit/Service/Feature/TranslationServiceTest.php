@@ -10,7 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Feature\TranslationService;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
@@ -20,31 +22,33 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
+use ReflectionClass;
 
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(TranslationService::class)]
 class TranslationServiceTest extends AbstractUnitTestCase
 {
     private LlmServiceManagerInterface&Stub $llmManagerStub;
-    private TranslatorRegistryInterface&Stub $translatorRegistryStub;
+    private TranslatorRegistryInterface&MockObject $translatorRegistryMock;
     private LlmConfigurationService&Stub $configServiceStub;
     private TranslationService $subject;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $this->translatorRegistryStub = self::createStub(TranslatorRegistryInterface::class);
+        $this->translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
         $this->configServiceStub = self::createStub(LlmConfigurationService::class);
 
         $this->subject = new TranslationService(
             $this->llmManagerStub,
-            $this->translatorRegistryStub,
+            $this->translatorRegistryMock,
             $this->configServiceStub,
         );
     }
@@ -117,7 +121,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $subject = new TranslationService(
             $llmManagerMock,
-            $this->translatorRegistryStub,
+            $this->translatorRegistryMock,
             $this->configServiceStub,
         );
 
@@ -288,7 +292,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $subject = new TranslationService(
             $llmManagerMock,
-            $this->translatorRegistryStub,
+            $this->translatorRegistryMock,
             $this->configServiceStub,
         );
 
@@ -391,7 +395,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 translator: 'llm:openai',
             ));
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('get')
             ->with('llm')
             ->willReturn($translatorStub);
@@ -450,7 +454,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 new TranslatorResult('Zwei', 'en', 'de', 'llm:openai'),
             ]);
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('get')
             ->willReturn($translatorStub);
 
@@ -469,7 +473,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
             'deepl' => ['identifier' => 'deepl', 'name' => 'DeepL', 'available' => false],
         ];
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('getTranslatorInfo')
             ->willReturn($info);
 
@@ -481,7 +485,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function hasTranslatorDelegatesToRegistry(): void
     {
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('has')
             ->with('deepl')
             ->willReturn(true);
@@ -494,7 +498,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $translatorStub = self::createStub(TranslatorInterface::class);
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('get')
             ->with('deepl')
             ->willReturn($translatorStub);
@@ -509,7 +513,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $translatorStub = self::createStub(TranslatorInterface::class);
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('findBestTranslator')
             ->with('en', 'de')
             ->willReturn($translatorStub);
@@ -522,7 +526,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function findBestTranslatorReturnsNullWhenNoneFound(): void
     {
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('findBestTranslator')
             ->willReturn(null);
 
@@ -618,7 +622,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 translator: 'llm:openai',
             ));
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('get')
             ->willReturn($translatorStub);
 
@@ -641,7 +645,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $subject = new TranslationService(
             $llmManagerMock,
-            $this->translatorRegistryStub,
+            $this->translatorRegistryMock,
             $this->configServiceStub,
         );
 
@@ -786,7 +790,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 new TranslatorResult('Zwei', 'en', 'de', 'llm:openai'),
             ]);
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('get')
             ->willReturn($translatorStub);
 
@@ -813,5 +817,235 @@ class TranslationServiceTest extends AbstractUnitTestCase
         self::assertEquals('Translated', $result->translation);
         self::assertEquals('tl', $result->sourceLanguage);
         self::assertEquals('sw', $result->targetLanguage);
+    }
+
+    // ==================== resolveTranslator preset path tests ====================
+
+    #[Test]
+    public function resolveTranslatorUsesExplicitTranslatorKeyInOptions(): void
+    {
+        $translatorStub = self::createStub(TranslatorInterface::class);
+        $translatorStub
+            ->method('translate')
+            ->willReturn(new TranslatorResult(
+                translatedText: 'Tiefe Übersetzung',
+                sourceLanguage: 'en',
+                targetLanguage: 'de',
+                translator: 'deepl',
+            ));
+
+        $this->translatorRegistryMock
+            ->expects(self::once())
+            ->method('get')
+            ->with('deepl')
+            ->willReturn($translatorStub);
+
+        // Use reflection to call resolveTranslator directly with 'translator' key
+        $reflection = new ReflectionClass($this->subject);
+        $method = $reflection->getMethod('resolveTranslator');
+        $result = $method->invoke($this->subject, ['translator' => 'deepl']);
+
+        self::assertSame($translatorStub, $result);
+    }
+
+    #[Test]
+    public function resolveTranslatorUsesPresetTranslatorWhenConfigurationFound(): void
+    {
+        $configServiceMock = $this->createMock(LlmConfigurationService::class);
+        $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
+
+        $configurationStub = self::createStub(LlmConfiguration::class);
+        $configurationStub->method('getTranslator')->willReturn('deepl');
+
+        $configServiceMock
+            ->method('getConfiguration')
+            ->with('my-preset')
+            ->willReturn($configurationStub);
+
+        $translatorStub = self::createStub(TranslatorInterface::class);
+
+        $translatorRegistryMock
+            ->expects(self::once())
+            ->method('get')
+            ->with('deepl')
+            ->willReturn($translatorStub);
+
+        $subject = new TranslationService(
+            $this->llmManagerStub,
+            $translatorRegistryMock,
+            $configServiceMock,
+        );
+
+        $reflection = new ReflectionClass($subject);
+        $method = $reflection->getMethod('resolveTranslator');
+        $result = $method->invoke($subject, ['preset' => 'my-preset']);
+
+        self::assertSame($translatorStub, $result);
+    }
+
+    #[Test]
+    public function resolveTranslatorFallsBackToLlmWhenPresetConfigurationNotFound(): void
+    {
+        $configServiceMock = $this->createMock(LlmConfigurationService::class);
+        $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
+
+        $configServiceMock
+            ->method('getConfiguration')
+            ->willThrowException(new ConfigurationNotFoundException('Not found', 1234));
+
+        $translatorStub = self::createStub(TranslatorInterface::class);
+
+        $translatorRegistryMock
+            ->expects(self::once())
+            ->method('get')
+            ->with('llm')
+            ->willReturn($translatorStub);
+
+        $subject = new TranslationService(
+            $this->llmManagerStub,
+            $translatorRegistryMock,
+            $configServiceMock,
+        );
+
+        $reflection = new ReflectionClass($subject);
+        $method = $reflection->getMethod('resolveTranslator');
+        $result = $method->invoke($subject, ['preset' => 'missing-preset']);
+
+        self::assertSame($translatorStub, $result);
+    }
+
+    #[Test]
+    public function resolveTranslatorFallsBackToLlmWhenPresetHasNoTranslator(): void
+    {
+        $configServiceMock = $this->createMock(LlmConfigurationService::class);
+        $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
+
+        // Configuration found but translator field is empty string
+        $configurationStub = self::createStub(LlmConfiguration::class);
+        $configurationStub->method('getTranslator')->willReturn('');
+
+        $configServiceMock
+            ->method('getConfiguration')
+            ->willReturn($configurationStub);
+
+        $translatorStub = self::createStub(TranslatorInterface::class);
+
+        $translatorRegistryMock
+            ->expects(self::once())
+            ->method('get')
+            ->with('llm')
+            ->willReturn($translatorStub);
+
+        $subject = new TranslationService(
+            $this->llmManagerStub,
+            $translatorRegistryMock,
+            $configServiceMock,
+        );
+
+        $reflection = new ReflectionClass($subject);
+        $method = $reflection->getMethod('resolveTranslator');
+        $result = $method->invoke($subject, ['preset' => 'preset-without-translator']);
+
+        self::assertSame($translatorStub, $result);
+    }
+
+    #[Test]
+    public function translateBatchWithTranslatorWithNullSourceLanguage(): void
+    {
+        $translatorStub = self::createStub(TranslatorInterface::class);
+        $translatorStub
+            ->method('translateBatch')
+            ->willReturn([
+                new TranslatorResult('Hallo', 'auto', 'de', 'llm'),
+                new TranslatorResult('Welt', 'auto', 'de', 'llm'),
+            ]);
+
+        $this->translatorRegistryMock
+            ->method('get')
+            ->willReturn($translatorStub);
+
+        $result = $this->subject->translateBatchWithTranslator(['Hello', 'World'], 'de', null);
+
+        self::assertCount(2, $result);
+    }
+
+    #[Test]
+    public function translateWithInformalFormalityProducesCorrectPromptTone(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->method('chat')
+            ->willReturn($this->createChatResponse('Translated'));
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+        );
+
+        $options = new TranslationOptions(formality: 'informal');
+        $result = $subject->translate('Hello', 'de', 'en', $options);
+
+        self::assertEquals('Translated', $result->translation);
+    }
+
+    #[Test]
+    public function translateWithGeneralDomainProducesResult(): void
+    {
+        $this->llmManagerStub
+            ->method('chat')
+            ->willReturn($this->createChatResponse('Translated'));
+
+        $options = new TranslationOptions(domain: 'general');
+        $result = $this->subject->translate('Hello', 'de', 'en', $options);
+
+        self::assertEquals('Translated', $result->translation);
+    }
+
+    // ==================== validateOptions private method coverage ====================
+
+    #[Test]
+    public function validateOptionsThrowsOnInvalidFormality(): void
+    {
+        // TranslationOptions validates formality at construction, so invalid values
+        // cannot be passed through it. We use reflection to call validateOptions()
+        // directly with a raw options array containing an unsupported formality value,
+        // covering lines 463-469 in TranslationService.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(6448506079);
+
+        $reflection = new ReflectionClass($this->subject);
+        $method = $reflection->getMethod('validateOptions');
+        $method->invoke($this->subject, ['formality' => 'very-formal']);
+    }
+
+    #[Test]
+    public function validateOptionsThrowsOnInvalidDomain(): void
+    {
+        // TranslationOptions validates domain at construction, so invalid values
+        // cannot be passed through it. We use reflection to call validateOptions()
+        // directly with a raw options array containing an unsupported domain value,
+        // covering lines 475-481 in TranslationService.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(3885497401);
+
+        $reflection = new ReflectionClass($this->subject);
+        $method = $reflection->getMethod('validateOptions');
+        $method->invoke($this->subject, ['domain' => 'unknown-domain']);
+    }
+
+    #[Test]
+    public function validateOptionsThrowsOnNonArrayGlossary(): void
+    {
+        // TranslationOptions only accepts array glossary at construction, so a
+        // non-array glossary cannot reach validateOptions() through normal flow.
+        // We use reflection to invoke validateOptions() with a non-array glossary,
+        // covering line 486 in TranslationService.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(8571915742);
+
+        $reflection = new ReflectionClass($this->subject);
+        $method = $reflection->getMethod('validateOptions');
+        $method->invoke($this->subject, ['glossary' => 'not-an-array']);
     }
 }

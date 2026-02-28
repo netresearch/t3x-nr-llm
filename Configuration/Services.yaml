@@ -76,13 +76,6 @@ services:
         priority: 40
 
   # ========================================
-  # Provider Registry (handles auto-registration)
-  # ========================================
-
-  Netresearch\NrLlm\Provider\ProviderRegistry:
-    public: false
-
-  # ========================================
   # Provider Adapter Registry (database-backed providers)
   # ========================================
 

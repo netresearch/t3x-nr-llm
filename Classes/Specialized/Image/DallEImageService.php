@@ -38,12 +38,12 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  */
 final class DallEImageService
 {
-    private const string API_URL = 'https://api.openai.com/v1/images';
-    private const string DEFAULT_MODEL = 'dall-e-3';
-    private const string DEFAULT_SIZE = '1024x1024';
+    private const API_URL = 'https://api.openai.com/v1/images';
+    private const DEFAULT_MODEL = 'dall-e-3';
+    private const DEFAULT_SIZE = '1024x1024';
 
     /** Model capabilities. */
-    private const array MODEL_CAPABILITIES = [
+    private const MODEL_CAPABILITIES = [
         'dall-e-2' => [
             'sizes' => ['256x256', '512x512', '1024x1024'],
             'max_prompt_length' => 1000,

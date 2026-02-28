@@ -4,7 +4,7 @@
 
 ## Overview
 
-PHP 8.5+ source code with strict typing, PSR-12 compliance, and PHPStan level 10.
+PHP 8.2+ source code with strict typing, PSR-12 compliance, and PHPStan level 10.
 
 ## Architecture
 

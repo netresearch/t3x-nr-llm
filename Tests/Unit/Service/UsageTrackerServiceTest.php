@@ -14,9 +14,10 @@ use Doctrine\DBAL\Result;
 use Netresearch\NrLlm\Service\UsageTrackerService;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use TYPO3\CMS\Core\Context\AspectInterface;
 use TYPO3\CMS\Core\Context\Context;
@@ -27,23 +28,23 @@ use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\SingletonInterface;
 
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(UsageTrackerService::class)]
 class UsageTrackerServiceTest extends AbstractUnitTestCase
 {
     private ConnectionPool&Stub $connectionPoolStub;
-    private Context&Stub $contextStub;
+    private Context&MockObject $contextMock;
     private QueryBuilder&Stub $queryBuilderStub;
     private Connection&Stub $connectionStub;
     private ExpressionBuilder&Stub $exprStub;
     private Result&Stub $resultStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->connectionPoolStub = self::createStub(ConnectionPool::class);
-        $this->contextStub = self::createStub(Context::class);
+        $this->contextMock = $this->createMock(Context::class);
         $this->queryBuilderStub = self::createStub(QueryBuilder::class);
         $this->connectionStub = self::createStub(Connection::class);
         $this->exprStub = self::createStub(ExpressionBuilder::class);
@@ -72,14 +73,14 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     {
         return new UsageTrackerService(
             $this->connectionPoolStub,
-            $this->contextStub,
+            $this->contextMock,
         );
     }
 
     private function setupBackendUser(int $userId = 1): void
     {
-        $aspectStub = new readonly class ($userId) implements AspectInterface {
-            public function __construct(private int $userId) {}
+        $aspectStub = new class ($userId) implements AspectInterface {
+            public function __construct(private readonly int $userId) {}
 
             public function get(string $name): mixed
             {
@@ -90,7 +91,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             }
         };
 
-        $this->contextStub
+        $this->contextMock
             ->method('getAspect')
             ->with('backend.user')
             ->willReturn($aspectStub);
@@ -98,7 +99,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
 
     private function setupNoBackendUser(): void
     {
-        $this->contextStub
+        $this->contextMock
             ->method('getAspect')
             ->with('backend.user')
             ->willThrowException(new AspectNotFoundException());
@@ -141,7 +142,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('getConnectionForTable')
             ->willReturn($connectionMock);
 
-        $subject = new UsageTrackerService($connectionPoolStub, $this->contextStub);
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextMock);
         $subject->trackUsage('translation', 'deepl', ['characters' => 1000]);
     }
 
@@ -177,7 +178,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('getConnectionForTable')
             ->willReturn($connectionMock);
 
-        $subject = new UsageTrackerService($connectionPoolStub, $this->contextStub);
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextMock);
         $subject->trackUsage('chat', 'openai', ['tokens' => 500]);
     }
 
@@ -212,7 +213,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('getConnectionForTable')
             ->willReturn($connectionMock);
 
-        $subject = new UsageTrackerService($connectionPoolStub, $this->contextStub);
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextMock);
         $subject->trackUsage('image', 'dall-e', ['images' => 1], 42);
     }
 
@@ -259,7 +260,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('getConnectionForTable')
             ->willReturn($connectionMock);
 
-        $subject = new UsageTrackerService($connectionPoolStub, $this->contextStub);
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextMock);
         $subject->trackUsage('mixed', 'provider', $metrics);
     }
 
@@ -294,7 +295,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('getConnectionForTable')
             ->willReturn($connectionMock);
 
-        $subject = new UsageTrackerService($connectionPoolStub, $this->contextStub);
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextMock);
         $subject->trackUsage('translation', 'deepl', []);
     }
 

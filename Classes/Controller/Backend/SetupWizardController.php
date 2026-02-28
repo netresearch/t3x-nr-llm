@@ -26,7 +26,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
-use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
@@ -35,6 +34,7 @@ use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
  * Backend controller for LLM Setup Wizard.
@@ -60,7 +60,6 @@ final class SetupWizardController extends ActionController
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly IconFactory $iconFactory,
-        private readonly ComponentFactory $componentFactory,
     ) {}
 
     protected function initializeAction(): void
@@ -96,18 +95,20 @@ final class SetupWizardController extends ActionController
         $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
 
         // Add refresh button
-        $refreshButton = $this->componentFactory->createLinkButton()
+        $refreshButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-refresh', IconSize::SMALL))
-            ->setTitle('Refresh')
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.refresh', 'NrLlm') ?? 'Refresh')
             ->setShowLabelText(true)
             ->setHref((string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'));
         $buttonBar->addButton($refreshButton);
 
-        // Add shortcut/bookmark button to docheader
-        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-            routeIdentifier: 'nrllm_wizard',
-            displayName: 'LLM - Setup Wizard',
-        );
+        // Add shortcut/bookmark button to docheader (v14+)
+        if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
+            $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+                routeIdentifier: 'nrllm_wizard',
+                displayName: 'LLM - Setup Wizard',
+            );
+        }
 
         // Provide adapter types for the form
         $this->moduleTemplate->assignMultiple([

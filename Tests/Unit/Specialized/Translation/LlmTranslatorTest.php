@@ -19,7 +19,6 @@ use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Translation\LlmTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -36,7 +35,6 @@ class LlmTranslatorTest extends AbstractUnitTestCase
     private LlmTranslator $subject;
     private TranslatorTestProvider $provider;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -650,7 +648,6 @@ class TranslatorTestProvider extends AbstractProvider
         return 'openai';
     }
 
-    #[Override]
     public function isAvailable(): bool
     {
         return true;
@@ -671,7 +668,6 @@ class TranslatorTestProvider extends AbstractProvider
         );
     }
 
-    #[Override]
     public function complete(string $prompt, array $options = []): CompletionResponse
     {
         return $this->chatCompletion([['role' => 'user', 'content' => $prompt]], $options);

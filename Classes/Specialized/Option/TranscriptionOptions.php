@@ -16,7 +16,7 @@ use Netresearch\NrLlm\Service\Option\AbstractOptions;
  */
 final class TranscriptionOptions extends AbstractOptions
 {
-    private const array VALID_FORMATS = ['json', 'text', 'srt', 'vtt', 'verbose_json'];
+    private const VALID_FORMATS = ['json', 'text', 'srt', 'vtt', 'verbose_json'];
 
     public function __construct(
         public readonly ?string $model = 'whisper-1',

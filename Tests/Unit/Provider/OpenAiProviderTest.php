@@ -16,7 +16,6 @@ use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -32,7 +31,6 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     private OpenAiProvider $subject;
     private ClientInterface&Stub $httpClientStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -791,5 +789,377 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function supportsFeatureReturnsTrueForEmbeddings(): void
     {
         self::assertTrue($this->subject->supportsFeature('embeddings'));
+    }
+
+    #[Test]
+    public function testConnectionReturnsSuccessWithModelList(): void
+    {
+        $apiResponse = [
+            'object' => 'list',
+            'data' => [
+                ['id' => 'gpt-5.2', 'object' => 'model'],
+                ['id' => 'gpt-4o', 'object' => 'model'],
+                ['id' => 'gpt-4o-mini', 'object' => 'model'],
+            ],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->testConnection();
+
+        self::assertTrue($result['success']);
+        self::assertStringContainsString('Connection successful', $result['message']);
+        self::assertStringContainsString('3 models', $result['message']);
+        self::assertArrayHasKey('models', $result);
+        assert(isset($result['models']));
+        self::assertArrayHasKey('gpt-5.2', $result['models']);
+        self::assertArrayHasKey('gpt-4o', $result['models']);
+    }
+
+    #[Test]
+    public function testConnectionReturnsEmptyModelsWhenDataIsEmpty(): void
+    {
+        $apiResponse = [
+            'object' => 'list',
+            'data' => [],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->testConnection();
+
+        self::assertTrue($result['success']);
+        self::assertStringContainsString('0 models', $result['message']);
+        self::assertArrayHasKey('models', $result);
+        assert(isset($result['models']));
+        self::assertEmpty($result['models']);
+    }
+
+    #[Test]
+    public function testConnectionSkipsModelsWithoutId(): void
+    {
+        $apiResponse = [
+            'object' => 'list',
+            'data' => [
+                ['id' => 'gpt-5.2', 'object' => 'model'],
+                ['object' => 'model'], // No id field
+                ['id' => '', 'object' => 'model'], // Empty id
+            ],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->testConnection();
+
+        self::assertTrue($result['success']);
+        self::assertArrayHasKey('models', $result);
+        assert(isset($result['models']));
+        self::assertCount(1, $result['models']);
+        self::assertArrayHasKey('gpt-5.2', $result['models']);
+    }
+
+    #[Test]
+    public function testConnectionThrowsProviderResponseExceptionOn401(): void
+    {
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createErrorResponseMock(401, 'Invalid API key'));
+
+        $this->expectException(ProviderResponseException::class);
+
+        $this->subject->testConnection();
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsReturnsNullToolCallsWhenNoneInResponse(): void
+    {
+        $messages = [['role' => 'user', 'content' => 'Hello']];
+        $tools = [
+            ['type' => 'function', 'function' => ['name' => 'test', 'parameters' => []]],
+        ];
+
+        // Response has no tool_calls key at all (not even empty)
+        $apiResponse = [
+            'id' => 'chatcmpl-test',
+            'model' => 'gpt-4o',
+            'choices' => [
+                [
+                    'message' => ['content' => 'Hello! How can I help?'],
+                    'finish_reason' => 'stop',
+                ],
+            ],
+            'usage' => ['prompt_tokens' => 5, 'completion_tokens' => 8, 'total_tokens' => 13],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertNull($result->toolCalls);
+        self::assertEquals('Hello! How can I help?', $result->content);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsWithInvalidJsonArgumentsUsesEmptyArray(): void
+    {
+        $messages = [['role' => 'user', 'content' => 'Get weather']];
+        $tools = [
+            ['type' => 'function', 'function' => ['name' => 'get_weather', 'parameters' => []]],
+        ];
+
+        $apiResponse = [
+            'id' => 'chatcmpl-test',
+            'model' => 'gpt-4o',
+            'choices' => [
+                [
+                    'message' => [
+                        'content' => '',
+                        'tool_calls' => [
+                            [
+                                'id' => 'call_abc',
+                                'type' => 'function',
+                                'function' => [
+                                    'name' => 'get_weather',
+                                    'arguments' => '{invalid json}',
+                                ],
+                            ],
+                        ],
+                    ],
+                    'finish_reason' => 'tool_calls',
+                ],
+            ],
+            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertNotNull($result->toolCalls);
+        /** @var array{function: array{name: string, arguments: array<string, mixed>}} $toolCall */
+        $toolCall = $result->toolCalls[0];
+        // Invalid JSON arguments should fall back to empty array
+        self::assertEquals([], $toolCall['function']['arguments']);
+    }
+
+    #[Test]
+    public function embeddingsWithArrayInputReturnsMultipleVectors(): void
+    {
+        ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
+
+        $texts = ['First text', 'Second text', 'Third text'];
+
+        $apiResponse = [
+            'object' => 'list',
+            'data' => [
+                ['embedding' => array_fill(0, 1536, 0.1), 'index' => 0],
+                ['embedding' => array_fill(0, 1536, 0.2), 'index' => 1],
+                ['embedding' => array_fill(0, 1536, 0.3), 'index' => 2],
+            ],
+            'model' => 'text-embedding-3-small',
+            'usage' => ['prompt_tokens' => 30, 'total_tokens' => 30],
+        ];
+
+        $httpClientMock
+            ->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $subject->embeddings($texts);
+
+        self::assertInstanceOf(EmbeddingResponse::class, $result);
+        self::assertCount(3, $result->embeddings);
+        self::assertEquals('text-embedding-3-small', $result->model);
+    }
+
+    #[Test]
+    public function streamChatCompletionHandlesEmptyContentInDelta(): void
+    {
+        // SSE stream with a chunk that has no content (e.g., role delta)
+        $streamData = "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n"
+            . "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n"
+            . "data: [DONE]\n\n";
+
+        $stream = self::createStub(StreamInterface::class);
+        $eofCallCount = 0;
+        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount) {
+            return ++$eofCallCount > 1;
+        });
+        $stream->method('read')->willReturn($streamData);
+
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getBody')->willReturn($stream);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($response);
+
+        $chunks = [];
+        foreach ($this->subject->streamChatCompletion([['role' => 'user', 'content' => 'test']]) as $chunk) {
+            $chunks[] = $chunk;
+        }
+
+        // Only chunks with non-empty content should be yielded
+        self::assertEquals(['Hello'], $chunks);
+    }
+
+    #[Test]
+    public function streamChatCompletionHandlesNonDataLines(): void
+    {
+        // SSE stream with comment line and event line (not data:)
+        $streamData = ": keep-alive\n\n"
+            . "event: message\n"
+            . "data: {\"choices\":[{\"delta\":{\"content\":\"World\"}}]}\n\n"
+            . "data: [DONE]\n\n";
+
+        $stream = self::createStub(StreamInterface::class);
+        $eofCallCount = 0;
+        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount) {
+            return ++$eofCallCount > 1;
+        });
+        $stream->method('read')->willReturn($streamData);
+
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getBody')->willReturn($stream);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($response);
+
+        $chunks = [];
+        foreach ($this->subject->streamChatCompletion([['role' => 'user', 'content' => 'test']]) as $chunk) {
+            $chunks[] = $chunk;
+        }
+
+        self::assertEquals(['World'], $chunks);
+    }
+
+    #[Test]
+    public function chatCompletionWithTopPOption(): void
+    {
+        $apiResponse = [
+            'id' => 'test',
+            'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
+            'model' => 'gpt-4o',
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion(
+            [['role' => 'user', 'content' => 'test']],
+            ['top_p' => 0.9],
+        );
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function chatCompletionWithFrequencyPenaltyOption(): void
+    {
+        $apiResponse = [
+            'id' => 'test',
+            'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
+            'model' => 'gpt-4o',
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion(
+            [['role' => 'user', 'content' => 'test']],
+            ['frequency_penalty' => 0.5],
+        );
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function chatCompletionWithPresencePenaltyOption(): void
+    {
+        $apiResponse = [
+            'id' => 'test',
+            'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
+            'model' => 'gpt-4o',
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion(
+            [['role' => 'user', 'content' => 'test']],
+            ['presence_penalty' => 0.3],
+        );
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function chatCompletionWithStopOption(): void
+    {
+        $apiResponse = [
+            'id' => 'test',
+            'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
+            'model' => 'gpt-4o',
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion(
+            [['role' => 'user', 'content' => 'test']],
+            ['stop' => ['END', 'STOP']],
+        );
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function analyzeImageWithCustomModel(): void
+    {
+        $content = [
+            ['type' => 'text', 'text' => 'What is this?'],
+            ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/img.jpg']],
+        ];
+
+        $apiResponse = [
+            'id' => 'test',
+            'model' => 'gpt-4o',
+            'choices' => [
+                [
+                    'message' => ['content' => 'An image of something'],
+                    'finish_reason' => 'stop',
+                ],
+            ],
+            'usage' => ['prompt_tokens' => 50, 'completion_tokens' => 10, 'total_tokens' => 60],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->analyzeImage($content, ['model' => 'gpt-4o', 'max_tokens' => 100]);
+
+        self::assertInstanceOf(VisionResponse::class, $result);
+        self::assertEquals('An image of something', $result->description);
     }
 }

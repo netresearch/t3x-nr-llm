@@ -11,7 +11,6 @@ namespace Netresearch\NrLlm\Tests\Unit\Service;
 
 use Netresearch\NrLlm\Service\CacheManager;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -27,7 +26,6 @@ class CacheManagerTest extends AbstractUnitTestCase
     /** @var FrontendInterface&Stub */
     private FrontendInterface $cacheFrontendStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

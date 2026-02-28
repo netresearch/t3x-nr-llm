@@ -36,6 +36,7 @@ use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
+use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
  * Backend controller for managing one-shot prompt tasks.
@@ -50,7 +51,7 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 #[AsController]
 final class TaskController extends ActionController
 {
-    private const string TABLE_NAME = 'tx_nrllm_task';
+    private const TABLE_NAME = 'tx_nrllm_task';
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -130,7 +131,11 @@ final class TaskController extends ActionController
 
         $task = $this->taskRepository->findByUid($uid);
         if ($task === null) {
-            $this->enqueueFlashMessage('Task not found.', 'Error', ContextualFeedbackSeverity::ERROR);
+            $this->enqueueFlashMessage(
+                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.notFound', 'NrLlm') ?? 'Task not found.',
+                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.error', 'NrLlm') ?? 'Error',
+                ContextualFeedbackSeverity::ERROR,
+            );
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('list'));
         }
 
@@ -509,16 +514,16 @@ final class TaskController extends ActionController
 
             $time = date('Y-m-d H:i:s', $tstamp);
             $type = match ($typeValue) {
-                1 => 'DB',
-                2 => 'FILE',
-                3 => 'CACHE',
-                4 => 'EXTENSION',
-                5 => 'ERROR',
-                254 => 'SETTING',
-                255 => 'LOGIN',
-                default => 'OTHER',
+                1 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.db', 'NrLlm') ?? 'DB',
+                2 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.file', 'NrLlm') ?? 'FILE',
+                3 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.cache', 'NrLlm') ?? 'CACHE',
+                4 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.extension', 'NrLlm') ?? 'EXTENSION',
+                5 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.error', 'NrLlm') ?? 'ERROR',
+                254 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.setting', 'NrLlm') ?? 'SETTING',
+                255 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.login', 'NrLlm') ?? 'LOGIN',
+                default => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.other', 'NrLlm') ?? 'OTHER',
             };
-            $error = $errorValue > 0 ? '[ERROR]' : '';
+            $error = $errorValue > 0 ? (LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.errorMarker', 'NrLlm') ?? '[ERROR]') : '';
             $output[] = "[{$time}] [{$type}] {$error} {$details}";
         }
 
@@ -532,12 +537,12 @@ final class TaskController extends ActionController
     {
         $logFile = GeneralUtility::getFileAbsFileName('var/log/typo3_deprecations.log');
         if (!file_exists($logFile)) {
-            return 'No deprecation log file found.';
+            return LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.deprecationLog.notFound', 'NrLlm') ?? 'No deprecation log file found.';
         }
 
         $content = file_get_contents($logFile);
         if ($content === false) {
-            return 'Could not read deprecation log.';
+            return LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.deprecationLog.readError', 'NrLlm') ?? 'Could not read deprecation log.';
         }
 
         // Get last 100 lines
@@ -557,7 +562,7 @@ final class TaskController extends ActionController
         $limit = isset($config['limit']) && is_numeric($config['limit']) ? (int)$config['limit'] : 50;
 
         if ($table === '') {
-            return 'No table configured.';
+            return LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.table.notConfigured', 'NrLlm') ?? 'No table configured.';
         }
 
         try {
@@ -571,7 +576,10 @@ final class TaskController extends ActionController
 
             return json_encode($rows, JSON_PRETTY_PRINT) ?: '[]';
         } catch (Throwable $e) {
-            return 'Error reading table: ' . $e->getMessage();
+            return sprintf(
+                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.table.readError', 'NrLlm') ?? 'Error reading table: %s',
+                $e->getMessage(),
+            );
         }
     }
 

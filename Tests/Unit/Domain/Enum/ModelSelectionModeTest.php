@@ -10,11 +10,12 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Domain\Enum;
 
 use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(ModelSelectionMode::class)]
+// Enums are not valid coverage targets in PHPUnit 12
+#[CoversNothing]
 final class ModelSelectionModeTest extends TestCase
 {
     #[Test]

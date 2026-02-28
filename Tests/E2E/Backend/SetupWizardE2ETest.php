@@ -16,7 +16,6 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
@@ -40,7 +39,6 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     private LlmConfigurationRepository $configurationRepository;
     private PersistenceManagerInterface $persistenceManager;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

@@ -16,7 +16,6 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
@@ -41,7 +40,6 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     private ModelRepository $modelRepository;
     private PersistenceManagerInterface $persistenceManager;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

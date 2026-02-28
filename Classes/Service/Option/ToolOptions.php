@@ -9,8 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Option;
 
-use Override;
-
 /**
  * Options for tool/function calling requests.
  *
@@ -20,7 +18,7 @@ use Override;
  */
 class ToolOptions extends ChatOptions
 {
-    private const array TOOL_CHOICES = ['auto', 'none', 'required'];
+    private const TOOL_CHOICES = ['auto', 'none', 'required'];
 
     /**
      * @param array<int, string>|null $stopSequences
@@ -140,7 +138,6 @@ class ToolOptions extends ChatOptions
     // Array Conversion
     // ========================================
 
-    #[Override]
     public function toArray(): array
     {
         return array_merge(

@@ -4,10 +4,10 @@
 
 ## Project Overview
 
-This is a TYPO3 v14 extension providing a unified LLM (Large Language Model) provider abstraction layer. It supports multiple AI providers (OpenAI, Claude, Gemini, etc.) through a standardized interface.
+This is a TYPO3 v13.4+ extension providing a unified LLM (Large Language Model) provider abstraction layer. It supports multiple AI providers (OpenAI, Claude, Gemini, etc.) through a standardized interface.
 
 **Key characteristics:**
-- PHP 8.5+ / TYPO3 v14
+- PHP 8.2+ / TYPO3 v13.4+
 - PHPStan level 10 strict typing
 - Three-tier architecture: Providers → Models → Configurations
 - Encrypted API key storage (sodium_crypto_secretbox)

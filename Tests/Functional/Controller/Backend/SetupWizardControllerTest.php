@@ -19,7 +19,6 @@ use Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
@@ -41,7 +40,6 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 {
     private SetupWizardController $controller;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

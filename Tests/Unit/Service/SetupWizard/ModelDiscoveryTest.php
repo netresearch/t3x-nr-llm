@@ -13,7 +13,6 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscovery;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -34,7 +33,6 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     private StreamFactoryInterface&Stub $streamFactoryStub;
     private ModelDiscovery $subject;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

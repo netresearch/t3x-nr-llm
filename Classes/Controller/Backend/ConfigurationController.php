@@ -24,7 +24,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
-use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
@@ -43,13 +42,12 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class ConfigurationController extends ActionController
 {
-    private const string TABLE_NAME = 'tx_nrllm_configuration';
+    private const TABLE_NAME = 'tx_nrllm_configuration';
 
     private ModuleTemplate $moduleTemplate;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
-        private readonly ComponentFactory $componentFactory,
         private readonly IconFactory $iconFactory,
         private readonly LlmConfigurationService $configurationService,
         private readonly LlmConfigurationRepository $configurationRepository,
@@ -104,19 +102,22 @@ final class ConfigurationController extends ActionController
             'newUrl' => $this->buildNewUrl(),
         ]);
 
-        // Add shortcut/bookmark button to docheader
-        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-            routeIdentifier: 'nrllm_configurations',
-            displayName: 'LLM - Configurations',
-        );
+        // Add shortcut/bookmark button to docheader (v14+)
+        if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
+            $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+                routeIdentifier: 'nrllm_configurations',
+                displayName: 'LLM - Configurations',
+            );
+        }
 
         // Add "New Configuration" button to docheader (links to FormEngine)
-        $createButton = $this->componentFactory->createLinkButton()
+        $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
+        $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.configuration.new', 'NrLlm') ?? 'New Configuration')
             ->setShowLabelText(true)
             ->setHref($this->buildNewUrl());
-        $this->moduleTemplate->addButtonToButtonBar($createButton);
+        $buttonBar->addButton($createButton);
 
         return $this->moduleTemplate->renderResponse('Backend/Configuration/List');
     }
@@ -254,7 +255,7 @@ final class ConfigurationController extends ActionController
 
         $options = [];
         foreach ($providers as $identifier => $name) {
-            $suffix = isset($available[$identifier]) ? '' : ' (not configured)';
+            $suffix = isset($available[$identifier]) ? '' : ' ' . (LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.notConfigured', 'NrLlm') ?? '(not configured)');
             $options[$identifier] = $name . $suffix;
         }
 

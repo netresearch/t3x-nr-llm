@@ -1,0 +1,110 @@
+#!/bin/bash
+
+## Description: Install TYPO3 13.4 with nr_llm extension
+## Usage: install-v13
+## Example: ddev install-v13
+
+set -e
+
+VERSION=v13
+INSTALL_DIR="/var/www/html/$VERSION"
+EXTENSION_PATH="/var/www/nr_llm"
+
+echo "Installing TYPO3 v13.4 with nr_llm extension..."
+echo ""
+
+# Ensure proper ownership of installation directory (volume may be root-owned initially)
+echo "Creating installation directory..."
+sudo chown -R "$(id -u):$(id -g)" "$INSTALL_DIR" 2>/dev/null || true
+rm -rf "$INSTALL_DIR"/* "$INSTALL_DIR"/.[!.]* 2>/dev/null || true
+mkdir -p "$INSTALL_DIR"
+
+# Create database
+echo "Setting up database..."
+mysql -h db -u root -p"root" -e "DROP DATABASE IF EXISTS ${VERSION};"
+mysql -h db -u root -p"root" -e "CREATE DATABASE ${VERSION};"
+
+# Install TYPO3 base distribution
+echo "Installing TYPO3 v13.4 base distribution..."
+cd "$INSTALL_DIR"
+composer create-project typo3/cms-base-distribution:^13.4 . --no-interaction --no-progress
+
+# Remove PHP platform override to use actual PHP version
+echo "Removing platform PHP override..."
+composer config --unset platform.php
+
+# Add extension repositories and install
+echo "Adding nr_llm extension..."
+composer config repositories.nr_vault path "/var/www/nr-vault"
+composer config repositories.nr_llm path "$EXTENSION_PATH"
+composer require netresearch/nr-llm:@dev --no-interaction --no-progress
+
+# Add dev dependencies
+echo "Installing development packages..."
+composer require --dev typo3/cms-styleguide --no-interaction --no-progress
+
+# Setup TYPO3
+echo "Running TYPO3 setup..."
+vendor/bin/typo3 setup -n \
+    --dbname="$VERSION" \
+    --password=root \
+    --create-site="https://${VERSION}.nr-llm.ddev.site" \
+    --admin-user-password="$TYPO3_SETUP_ADMIN_PASSWORD"
+
+# Configure development settings
+echo "Configuring development settings..."
+mkdir -p "$INSTALL_DIR/config/system"
+cat > "$INSTALL_DIR/config/system/additional.php" << 'EOF'
+<?php
+// Development settings
+$GLOBALS['TYPO3_CONF_VARS']['BE']['debug'] = true;
+$GLOBALS['TYPO3_CONF_VARS']['FE']['debug'] = true;
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['devIPmask'] = '*';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['displayErrors'] = 1;
+
+// Mail configuration (Mailpit)
+$GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport'] = 'smtp';
+$GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport_smtp_server'] = 'localhost:1025';
+$GLOBALS['TYPO3_CONF_VARS']['MAIL']['defaultMailFromAddress'] = 'admin@example.com';
+
+// Graphics
+$GLOBALS['TYPO3_CONF_VARS']['GFX']['processor'] = 'ImageMagick';
+$GLOBALS['TYPO3_CONF_VARS']['GFX']['processor_path'] = '/usr/bin/';
+
+// Security settings for DDEV multi-subdomain environment
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['features']['security.backend.enforceReferrer'] = false;
+
+// Note: Valkey caching disabled - requires php-redis extension
+// Use default file-based caching for development
+EOF
+
+# Setup extensions
+echo "Setting up extensions..."
+vendor/bin/typo3 extension:setup
+
+# Generate styleguide demo content
+echo "Generating styleguide demo content..."
+vendor/bin/typo3 styleguide:generate || echo "Styleguide generation skipped"
+
+# Flush caches
+vendor/bin/typo3 cache:flush
+
+# Import Ollama seed data (provider, models, configurations)
+echo "Importing Ollama LLM seed data..."
+SQL_FILE="/var/www/nr_llm/.ddev/sql/seed-ollama.sql"
+if [ -f "$SQL_FILE" ]; then
+    mysql -h db -u root -proot "$VERSION" < "$SQL_FILE" && echo "   Seed data imported" || echo "   Seed import skipped"
+else
+    echo "   Seed file not found, skipping"
+fi
+
+echo ""
+echo "TYPO3 $VERSION installation complete!"
+echo ""
+echo "Frontend: https://v13.nr-llm.ddev.site/"
+echo "Backend:  https://v13.nr-llm.ddev.site/typo3/"
+echo ""
+echo "Credentials:"
+echo "   Username: admin"
+echo "   Password: Joh316!!"

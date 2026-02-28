@@ -19,7 +19,6 @@ use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
-use Override;
 
 /**
  * OpenRouter Provider.
@@ -51,11 +50,11 @@ final class OpenRouterProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const string DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4-5';
-    private const string DEFAULT_EMBEDDING_MODEL = 'openai/text-embedding-3-small';
+    private const DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4-5';
+    private const DEFAULT_EMBEDDING_MODEL = 'openai/text-embedding-3-small';
 
     /** @var array<int, string> */
-    private const array ROUTING_STRATEGIES = [
+    private const ROUTING_STRATEGIES = [
         'cost_optimized',
         'performance',
         'balanced',
@@ -103,7 +102,6 @@ final class OpenRouterProvider extends AbstractProvider implements
         return 'https://openrouter.ai/api/v1';
     }
 
-    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_CHAT_MODEL;
@@ -114,7 +112,6 @@ final class OpenRouterProvider extends AbstractProvider implements
      *
      * @param array<string, mixed> $config
      */
-    #[Override]
     public function configure(array $config): void
     {
         parent::configure($config);

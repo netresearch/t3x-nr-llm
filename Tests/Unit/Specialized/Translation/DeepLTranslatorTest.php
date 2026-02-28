@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -32,7 +31,6 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     /** @var array{translators: array{deepl: array{apiKey: string, timeout: int}}} */
     private array $defaultConfig;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

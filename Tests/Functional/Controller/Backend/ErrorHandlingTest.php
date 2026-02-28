@@ -22,12 +22,10 @@ use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
-use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
@@ -59,7 +57,6 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
     private LlmModuleController $llmModuleController;
     private LlmConfigurationRepository $configurationRepository;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -85,9 +82,6 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleTemplateFactory);
 
-        $componentFactory = $this->get(ComponentFactory::class);
-        self::assertInstanceOf(ComponentFactory::class, $componentFactory);
-
         $iconFactory = $this->get(IconFactory::class);
         self::assertInstanceOf(IconFactory::class, $iconFactory);
 
@@ -108,7 +102,6 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
 
         return new ConfigurationController(
             $moduleTemplateFactory,
-            $componentFactory,
             $iconFactory,
             $configurationService,
             $this->configurationRepository,

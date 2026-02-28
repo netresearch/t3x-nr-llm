@@ -16,7 +16,6 @@ use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Feature\EmbeddingService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -27,7 +26,6 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
     private LlmServiceManagerInterface $llmManagerStub;
     private CacheManagerInterface $cacheStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

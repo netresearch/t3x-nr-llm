@@ -37,13 +37,13 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  */
 final class TextToSpeechService
 {
-    private const string API_URL = 'https://api.openai.com/v1/audio/speech';
-    private const string DEFAULT_MODEL = 'tts-1';
-    private const string DEFAULT_VOICE = 'alloy';
-    private const int MAX_INPUT_LENGTH = 4096;
+    private const API_URL = 'https://api.openai.com/v1/audio/speech';
+    private const DEFAULT_MODEL = 'tts-1';
+    private const DEFAULT_VOICE = 'alloy';
+    private const MAX_INPUT_LENGTH = 4096;
 
     /** Available voices with their characteristics. */
-    private const array VOICES = [
+    private const VOICES = [
         'alloy' => 'Neutral and balanced',
         'echo' => 'Warm and conversational',
         'fable' => 'British-accented, expressive',
@@ -53,13 +53,13 @@ final class TextToSpeechService
     ];
 
     /** Available models. */
-    private const array MODELS = [
+    private const MODELS = [
         'tts-1' => 'Standard quality, low latency',
         'tts-1-hd' => 'High definition quality',
     ];
 
     /** Supported output formats. */
-    private const array FORMATS = ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'];
+    private const FORMATS = ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'];
 
     private string $apiKey = '';
     private string $baseUrl = '';

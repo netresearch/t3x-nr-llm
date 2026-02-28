@@ -6,14 +6,14 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/netresearch/t3x-nr-llm/badge)](https://securityscorecards.dev/viewer/?uri=github.com/netresearch/t3x-nr-llm)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11697/badge)](https://www.bestpractices.dev/projects/11697)
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%2010-brightgreen.svg)](https://phpstan.org/)
-[![PHP 8.5+](https://img.shields.io/badge/PHP-8.5%2B-blue.svg)](https://www.php.net/)
-[![TYPO3 v14](https://img.shields.io/badge/TYPO3-v14-orange.svg)](https://typo3.org/)
+[![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-blue.svg)](https://www.php.net/)
+[![TYPO3 v13.4+](https://img.shields.io/badge/TYPO3-v13.4%2B-orange.svg)](https://typo3.org/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 [![Latest Release](https://img.shields.io/github/v/release/netresearch/t3x-nr-llm)](https://github.com/netresearch/t3x-nr-llm/releases)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.0-4baaaa.svg)](CODE_OF_CONDUCT.md)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 
-A unified LLM (Large Language Model) provider abstraction layer for TYPO3 v14.
+A unified LLM (Large Language Model) provider abstraction layer for TYPO3 v13.4+.
 
 ## Features
 
@@ -28,8 +28,8 @@ A unified LLM (Large Language Model) provider abstraction layer for TYPO3 v14.
 
 ## Requirements
 
-- PHP 8.5+
-- TYPO3 v14.0+
+- PHP 8.2+
+- TYPO3 v13.4+
 - PSR-18 HTTP Client (e.g., guzzlehttp/guzzle)
 
 ## Installation

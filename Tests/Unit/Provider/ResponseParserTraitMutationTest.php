@@ -13,7 +13,6 @@ use InvalidArgumentException;
 use JsonException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
 
@@ -27,7 +26,6 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
 {
     private object $traitObject;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

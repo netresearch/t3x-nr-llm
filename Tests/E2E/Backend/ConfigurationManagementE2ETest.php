@@ -19,11 +19,9 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
-use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Page\PageRenderer;
@@ -50,7 +48,6 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     private ProviderRepository $providerRepository;
     private PersistenceManagerInterface $persistenceManager;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -79,9 +76,6 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleTemplateFactory);
 
-        $componentFactory = $this->get(ComponentFactory::class);
-        self::assertInstanceOf(ComponentFactory::class, $componentFactory);
-
         $iconFactory = $this->get(IconFactory::class);
         self::assertInstanceOf(IconFactory::class, $iconFactory);
 
@@ -102,7 +96,6 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
 
         return new ConfigurationController(
             $moduleTemplateFactory,
-            $componentFactory,
             $iconFactory,
             $configurationService,
             $this->configurationRepository,

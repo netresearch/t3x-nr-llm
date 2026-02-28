@@ -7,3 +7,32 @@ parameters:
 		-
 			identifier: variable.undefined
 			path: ext_emconf.php
+		# PHPUnit 12: MockObject::method() returns InvocationStubber which lacks with().
+		# The correct pattern is expects()->method()->with(), but createMock() chaining
+		# via method()->with()->willReturn() is common and works at runtime.
+		-
+			message: '#Call to an undefined method PHPUnit\\Framework\\MockObject\\Builder\\InvocationStubber::with\(\)#'
+			reportUnmatched: false
+		-
+			message: '#Cannot call method willReturn\(\) on mixed#'
+			reportUnmatched: false
+		-
+			message: '#Cannot call method willThrowException\(\) on mixed#'
+			reportUnmatched: false
+
+		# setShortcutContext() is v14-only. In v14, method_exists() triggers
+		# function.alreadyNarrowedType. In v13, the named parameters trigger
+		# Unknown parameter errors. Both are expected with dual-version support.
+		-
+			identifier: function.alreadyNarrowedType
+			path: Classes/Controller/Backend/*
+			reportUnmatched: false
+		-
+			message: '#Unknown parameter .* in call to method .*::setShortcutContext\(\)#'
+			reportUnmatched: false
+
+		# AllowMockObjectsWithoutExpectations only exists in PHPUnit 12.
+		# TYPO3 ^13.4 may install PHPUnit 11 which lacks this attribute.
+		-
+			message: '#Attribute class PHPUnit\\Framework\\Attributes\\AllowMockObjectsWithoutExpectations does not exist#'
+			reportUnmatched: false

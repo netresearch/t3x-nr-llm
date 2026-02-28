@@ -16,7 +16,6 @@ use Netresearch\NrLlm\Service\Feature\CompletionService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -27,7 +26,6 @@ class CompletionServiceTest extends AbstractUnitTestCase
     private CompletionService $subject;
     private LlmServiceManagerInterface $llmManagerStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -579,6 +577,143 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $this->expectExceptionMessage('JSON response must be an object');
 
         $subject->completeJson('Test');
+    }
+
+    #[Test]
+    public function validateOptionsThrowsOnNegativeTemperature(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('temperature must be between 0 and 2');
+
+        $this->subject->complete('Test', new ChatOptions(temperature: -0.1));
+    }
+
+    #[Test]
+    public function validateOptionsThrowsOnZeroMaxTokens(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('max_tokens must be a positive integer');
+
+        $this->subject->complete('Test', new ChatOptions(maxTokens: 0));
+    }
+
+    #[Test]
+    public function validateOptionsThrowsOnNegativeTopP(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('top_p must be between 0 and 1');
+
+        $this->subject->complete('Test', new ChatOptions(topP: -0.1));
+    }
+
+    #[Test]
+    public function completeWithNullOptionsUsesDefaults(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('Default response');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->willReturn($mockResponse);
+
+        $result = $subject->complete('Test prompt', null);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function normalizeResponseFormatForMarkdownReturnsTextString(): void
+    {
+        // When response_format is 'markdown', normalizeResponseFormat returns 'text'
+        // which means withResponseFormat gets 'text' (not an array)
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('# Markdown content');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(fn(ChatOptions $options): bool => $options->getResponseFormat() === 'text'),
+            )
+            ->willReturn($mockResponse);
+
+        // 'markdown' format goes through normalizeResponseFormat which returns 'text' string
+        $options = new ChatOptions(responseFormat: 'markdown');
+        $result = $subject->complete('Test', $options);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function completeWithStopSequencesCreatesNewOptionsWithoutStopSequences(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('Response with stop');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                // Should be ChatOptions instance (new tempOptions without stop_sequences)
+                self::isInstanceOf(ChatOptions::class),
+            )
+            ->willReturn($mockResponse);
+
+        $options = new ChatOptions(
+            temperature: 0.5,
+            maxTokens: 100,
+            stopSequences: ['END', 'STOP'],
+        );
+        $result = $subject->complete('Test', $options);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function completeJsonWithNullOptionsUsesJsonFormat(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('{"answer": true}');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->willReturn($mockResponse);
+
+        $result = $subject->completeJson('Test', null);
+
+        self::assertTrue($result['answer']);
+    }
+
+    #[Test]
+    public function completeMarkdownWithNullOptionsBuildsSystemPrompt(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $mockResponse = $this->createMockResponse('# Title');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(function (ChatOptions $options): bool {
+                    $prompt = $options->getSystemPrompt() ?? '';
+                    return str_contains($prompt, 'Markdown');
+                }),
+            )
+            ->willReturn($mockResponse);
+
+        $result = $subject->completeMarkdown('Test', null);
+
+        self::assertEquals('# Title', $result);
     }
 
     /**

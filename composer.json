@@ -25,12 +25,12 @@
         "source": "https://github.com/netresearch/t3x-nr-llm"
     },
     "require": {
-        "php": "^8.5",
-        "netresearch/nr-vault": "^0.3.0",
+        "php": "^8.2",
+        "netresearch/nr-vault": "^0.3.0 || dev-feat/php82-typo3-v13",
         "psr/http-client": "^1.0",
         "psr/http-factory": "^1.0",
         "psr/log": "^2.0 || ^3.0",
-        "typo3/cms-core": "^14.0"
+        "typo3/cms-core": "^13.4 || ^14.0"
     },
     "require-dev": {
         "a9f/typo3-fractor": "^0.5.8",
@@ -43,10 +43,9 @@
         "phpat/phpat": "^0.12",
         "phpro/grumphp": "^2.0",
         "phpstan/phpstan": "^2.1.37",
-        "phpunit/phpunit": "^12.0",
         "rector/rector": "^2.3.1",
         "ssch/typo3-rector": "^3.0",
-        "typo3/cms-install": "^14.0",
+        "typo3/cms-install": "^13.4 || ^14.0",
         "typo3/testing-framework": "^9.0"
     },
     "autoload": {
@@ -96,7 +95,7 @@
         "ci:test:php:fuzzy": "phpunit -c phpunit.xml --testsuite fuzzy",
         "ci:test:php:integration": "phpunit -c phpunit.xml --testsuite integration",
         "ci:test:php:mutation": "infection --configuration=infection.json.dist --threads=4 -s --no-progress",
-        "ci:test:php:mutation:ci": "infection --configuration=infection.json.dist --threads=4 --logger-github --no-progress",
+        "ci:test:php:mutation:ci": "infection --configuration=infection.json.dist --threads=4 --no-progress",
         "ci:test:php:phpstan": "phpstan analyse -c Build/phpstan/phpstan.neon",
         "ci:test:php:phpstan:baseline": "phpstan analyse -c Build/phpstan/phpstan.neon --generate-baseline Build/phpstan/phpstan-baseline.neon",
         "ci:test:php:rector": "rector process --config Build/rector/rector.php --dry-run",

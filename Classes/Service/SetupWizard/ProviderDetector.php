@@ -32,7 +32,7 @@ final class ProviderDetector
      *
      * @var array<string, array{0: string, 1: string, 2: float}>
      */
-    private const array DETECTION_PATTERNS = [
+    private const DETECTION_PATTERNS = [
         // OpenAI
         'api.openai.com' => ['openai', 'OpenAI', 1.0],
         'openai.com' => ['openai', 'OpenAI', 0.9],

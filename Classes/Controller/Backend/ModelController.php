@@ -25,7 +25,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
-use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
@@ -45,13 +44,12 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class ModelController extends ActionController
 {
-    private const string TABLE_NAME = 'tx_nrllm_model';
+    private const TABLE_NAME = 'tx_nrllm_model';
 
     private ModuleTemplate $moduleTemplate;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
-        private readonly ComponentFactory $componentFactory,
         private readonly IconFactory $iconFactory,
         private readonly ModelRepository $modelRepository,
         private readonly ProviderRepository $providerRepository,
@@ -111,19 +109,22 @@ final class ModelController extends ActionController
             'newUrl' => $this->buildNewUrl(),
         ]);
 
-        // Add shortcut/bookmark button to docheader
-        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-            routeIdentifier: 'nrllm_models',
-            displayName: 'LLM - Models',
-        );
+        // Add shortcut/bookmark button to docheader (v14+)
+        if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
+            $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+                routeIdentifier: 'nrllm_models',
+                displayName: 'LLM - Models',
+            );
+        }
 
         // Add "New Model" button to docheader (links to FormEngine)
-        $createButton = $this->componentFactory->createLinkButton()
+        $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
+        $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.model.new', 'NrLlm') ?? 'New Model')
             ->setShowLabelText(true)
             ->setHref($this->buildNewUrl());
-        $this->moduleTemplate->addButtonToButtonBar($createButton);
+        $buttonBar->addButton($createButton);
 
         return $this->moduleTemplate->renderResponse('Backend/Model/List');
     }
@@ -226,6 +227,13 @@ final class ModelController extends ActionController
             return new JsonResponse((new ErrorResponse('Model has no provider configured'))->jsonSerialize(), 400);
         }
 
+        // Resolve localized format strings before try/catch to avoid LocalizationUtility
+        // exceptions being caught by the adapter error handler below
+        $respondedFormat = $this->translate('model.test.responded')
+            ?? 'Model "%s" responded: "%s" (tokens: %d in, %d out)';
+        $emptyFormat = $this->translate('model.test.emptyResponse')
+            ?? 'Model "%s" connected successfully (tokens: %d in, %d out) - response content empty, model may use internal reasoning';
+
         try {
             // Create adapter from model's provider
             $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
@@ -243,7 +251,7 @@ final class ModelController extends ActionController
             // Build success message
             if ($responseText !== '') {
                 $message = sprintf(
-                    'Model "%s" responded: "%s" (tokens: %d in, %d out)',
+                    $respondedFormat,
                     $model->getName(),
                     mb_substr($responseText, 0, 100) . (mb_strlen($responseText) > 100 ? '...' : ''),
                     $response->usage->promptTokens,
@@ -252,7 +260,7 @@ final class ModelController extends ActionController
             } else {
                 // Model connected but returned empty content (might be using thinking mode)
                 $message = sprintf(
-                    'Model "%s" connected successfully (tokens: %d in, %d out) - response content empty, model may use internal reasoning',
+                    $emptyFormat,
                     $model->getName(),
                     $response->usage->promptTokens,
                     $response->usage->completionTokens,
@@ -475,5 +483,17 @@ final class ModelController extends ActionController
         $value = $body[$key] ?? '';
 
         return is_scalar($value) ? trim((string)$value) : '';
+    }
+
+    private function translate(string $key): ?string
+    {
+        try {
+            return LocalizationUtility::translate(
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:' . $key,
+                'NrLlm',
+            );
+        } catch (Throwable) {
+            return null;
+        }
     }
 }

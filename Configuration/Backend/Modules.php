@@ -38,6 +38,7 @@ return [
         'appearance' => [
             'dependsOnSubmodules' => true,
         ],
+        // v14+: Show overview page for parent module
         'showSubmoduleOverview' => true,
         'controllerActions' => [
             LlmModuleController::class => [

@@ -18,7 +18,6 @@ use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
-use Override;
 
 final class OpenAiProvider extends AbstractProvider implements
     VisionCapableInterface,
@@ -35,8 +34,8 @@ final class OpenAiProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
-    private const string DEFAULT_CHAT_MODEL = 'gpt-5.2';
-    private const string DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
+    private const DEFAULT_CHAT_MODEL = 'gpt-5.2';
+    private const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 
     public function getName(): string
     {
@@ -53,7 +52,6 @@ final class OpenAiProvider extends AbstractProvider implements
         return 'https://api.openai.com/v1';
     }
 
-    #[Override]
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_CHAT_MODEL;
@@ -389,7 +387,6 @@ final class OpenAiProvider extends AbstractProvider implements
      *
      * @return array{success: bool, message: string, models?: array<string, string>}
      */
-    #[Override]
     public function testConnection(): array
     {
         // Make actual HTTP request to /models endpoint - do NOT catch exceptions

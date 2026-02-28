@@ -12,7 +12,6 @@ namespace Netresearch\NrLlm\Tests\E2E\Backend;
 use GuzzleHttp\Psr7\ServerRequest;
 use GuzzleHttp\Psr7\Utils;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use Override;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
@@ -28,7 +27,6 @@ use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
  */
 abstract class AbstractBackendE2ETestCase extends AbstractFunctionalTestCase
 {
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

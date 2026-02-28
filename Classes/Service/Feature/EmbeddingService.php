@@ -24,7 +24,7 @@ use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
  */
 class EmbeddingService
 {
-    private const int DEFAULT_CACHE_TTL = 86400; // 24 hours (embeddings are deterministic)
+    private const DEFAULT_CACHE_TTL = 86400; // 24 hours (embeddings are deterministic)
 
     public function __construct(
         private readonly LlmServiceManagerInterface $llmManager,

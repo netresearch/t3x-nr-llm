@@ -35,7 +35,7 @@ class ProviderAdapterRegistry implements SingletonInterface
      *
      * @var array<string, class-string<AbstractProvider>>
      */
-    private const array ADAPTER_CLASS_MAP = [
+    private const ADAPTER_CLASS_MAP = [
         AdapterType::OpenAI->value => OpenAiProvider::class,
         AdapterType::Anthropic->value => ClaudeProvider::class,
         AdapterType::Gemini->value => GeminiProvider::class,

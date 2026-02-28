@@ -16,7 +16,6 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
@@ -41,7 +40,6 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
 {
     private LlmModuleController $controller;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

@@ -13,7 +13,6 @@ use Netresearch\NrLlm\Domain\Model\AdapterType;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -28,7 +27,6 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
 {
     private ProviderAdapterRegistry $registry;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

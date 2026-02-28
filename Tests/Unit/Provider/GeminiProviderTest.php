@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -30,7 +29,6 @@ class GeminiProviderTest extends AbstractUnitTestCase
     private GeminiProvider $subject;
     private ClientInterface&Stub $httpClientStub;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
