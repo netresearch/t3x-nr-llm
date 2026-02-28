@@ -11,10 +11,10 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Exception;
 
 use Netresearch\NrLlm\Specialized\Exception\SpeechServiceException;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
-#[CoversClass(SpeechServiceException::class)]
+#[CoversNothing]
 class SpeechServiceExceptionTest extends AbstractUnitTestCase
 {
     #[Test]

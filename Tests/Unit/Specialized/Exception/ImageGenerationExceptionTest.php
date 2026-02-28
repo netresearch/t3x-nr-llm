@@ -11,11 +11,11 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Exception;
 
 use Netresearch\NrLlm\Specialized\Exception\ImageGenerationException;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 
-#[CoversClass(ImageGenerationException::class)]
+#[CoversNothing]
 class ImageGenerationExceptionTest extends AbstractUnitTestCase
 {
     #[Test]
