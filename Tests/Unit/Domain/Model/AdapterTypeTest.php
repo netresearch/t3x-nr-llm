@@ -11,12 +11,11 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\Model;
 
 use Netresearch\NrLlm\Domain\Model\AdapterType;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
-/**
- * @covers \Netresearch\NrLlm\Domain\Model\AdapterType
- */
+#[CoversClass(AdapterType::class)]
 class AdapterTypeTest extends AbstractUnitTestCase
 {
     #[Test]
