@@ -6,6 +6,7 @@
          executionOrder="depends,defects"
          requireCoverageMetadata="false"
          beStrictAboutOutputDuringTests="true"
+         displayDetailsOnPhpunitDeprecations="true"
          displayDetailsOnTestsThatTriggerDeprecations="true"
          displayDetailsOnTestsThatTriggerNotices="true"
          displayDetailsOnTestsThatTriggerWarnings="true"

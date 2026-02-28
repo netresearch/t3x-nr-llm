@@ -95,7 +95,7 @@
         "ci:test:php:fuzzy": "phpunit -c phpunit.xml --testsuite fuzzy",
         "ci:test:php:integration": "phpunit -c phpunit.xml --testsuite integration",
         "ci:test:php:mutation": "infection --configuration=infection.json.dist --threads=4 -s --no-progress",
-        "ci:test:php:mutation:ci": "infection --configuration=infection.json.dist --threads=4 --logger-github --no-progress",
+        "ci:test:php:mutation:ci": "infection --configuration=infection.json.dist --threads=4 --no-progress",
         "ci:test:php:phpstan": "phpstan analyse -c Build/phpstan/phpstan.neon",
         "ci:test:php:phpstan:baseline": "phpstan analyse -c Build/phpstan/phpstan.neon --generate-baseline Build/phpstan/phpstan-baseline.neon",
         "ci:test:php:rector": "rector process --config Build/rector/rector.php --dry-run",
