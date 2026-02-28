@@ -20,15 +20,18 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(TranslationService::class)]
 class TranslationServiceTest extends AbstractUnitTestCase
 {
     private LlmServiceManagerInterface&Stub $llmManagerStub;
-    private TranslatorRegistryInterface&Stub $translatorRegistryStub;
+    private TranslatorRegistryInterface&MockObject $translatorRegistryMock;
     private LlmConfigurationService&Stub $configServiceStub;
     private TranslationService $subject;
 
@@ -37,12 +40,12 @@ class TranslationServiceTest extends AbstractUnitTestCase
         parent::setUp();
 
         $this->llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $this->translatorRegistryStub = self::createStub(TranslatorRegistryInterface::class);
+        $this->translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
         $this->configServiceStub = self::createStub(LlmConfigurationService::class);
 
         $this->subject = new TranslationService(
             $this->llmManagerStub,
-            $this->translatorRegistryStub,
+            $this->translatorRegistryMock,
             $this->configServiceStub,
         );
     }
@@ -115,7 +118,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $subject = new TranslationService(
             $llmManagerMock,
-            $this->translatorRegistryStub,
+            $this->translatorRegistryMock,
             $this->configServiceStub,
         );
 
@@ -286,7 +289,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $subject = new TranslationService(
             $llmManagerMock,
-            $this->translatorRegistryStub,
+            $this->translatorRegistryMock,
             $this->configServiceStub,
         );
 
@@ -389,7 +392,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 translator: 'llm:openai',
             ));
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('get')
             ->with('llm')
             ->willReturn($translatorStub);
@@ -448,7 +451,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 new TranslatorResult('Zwei', 'en', 'de', 'llm:openai'),
             ]);
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('get')
             ->willReturn($translatorStub);
 
@@ -467,7 +470,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
             'deepl' => ['identifier' => 'deepl', 'name' => 'DeepL', 'available' => false],
         ];
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('getTranslatorInfo')
             ->willReturn($info);
 
@@ -479,7 +482,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function hasTranslatorDelegatesToRegistry(): void
     {
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('has')
             ->with('deepl')
             ->willReturn(true);
@@ -492,7 +495,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $translatorStub = self::createStub(TranslatorInterface::class);
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('get')
             ->with('deepl')
             ->willReturn($translatorStub);
@@ -507,7 +510,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $translatorStub = self::createStub(TranslatorInterface::class);
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('findBestTranslator')
             ->with('en', 'de')
             ->willReturn($translatorStub);
@@ -520,7 +523,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function findBestTranslatorReturnsNullWhenNoneFound(): void
     {
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('findBestTranslator')
             ->willReturn(null);
 
@@ -616,7 +619,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 translator: 'llm:openai',
             ));
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('get')
             ->willReturn($translatorStub);
 
@@ -639,7 +642,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $subject = new TranslationService(
             $llmManagerMock,
-            $this->translatorRegistryStub,
+            $this->translatorRegistryMock,
             $this->configServiceStub,
         );
 
@@ -784,7 +787,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
                 new TranslatorResult('Zwei', 'en', 'de', 'llm:openai'),
             ]);
 
-        $this->translatorRegistryStub
+        $this->translatorRegistryMock
             ->method('get')
             ->willReturn($translatorStub);
 

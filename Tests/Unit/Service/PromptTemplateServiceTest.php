@@ -15,23 +15,25 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Exception\PromptTemplateNotFoundException;
 use Netresearch\NrLlm\Service\PromptTemplateService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\Stub;
+use PHPUnit\Framework\MockObject\MockObject;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(PromptTemplateService::class)]
 class PromptTemplateServiceTest extends AbstractUnitTestCase
 {
-    private PromptTemplateRepository&Stub $repositoryStub;
+    private PromptTemplateRepository&MockObject $repositoryMock;
     private PromptTemplateService $subject;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->repositoryStub = self::createStub(PromptTemplateRepository::class);
-        $this->subject = new PromptTemplateService($this->repositoryStub);
+        $this->repositoryMock = $this->createMock(PromptTemplateRepository::class);
+        $this->subject = new PromptTemplateService($this->repositoryMock);
     }
 
     private function createTemplate(
@@ -65,7 +67,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function getPromptReturnsTemplateWhenFound(): void
     {
         $template = $this->createTemplate('my-prompt');
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->with('my-prompt')
             ->willReturn($template);
@@ -78,7 +80,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     #[Test]
     public function getPromptThrowsExceptionWhenNotFound(): void
     {
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->with('nonexistent')
             ->willReturn(null);
@@ -98,7 +100,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
             systemPrompt: 'System: {{context}}',
             userPrompt: 'Translate: {{text}}',
         );
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -119,7 +121,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function renderUsesOptionsToOverrideTemplate(): void
     {
         $template = $this->createTemplate();
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -142,7 +144,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
         $template = $this->createTemplate('my-template');
         $template->setUid(42);
         $template->setVersion(3);
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -158,7 +160,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     {
         // Template with variables detected by the patterns
         $template = $this->createTemplate(userPrompt: 'Hello {{name}} from {{place}}!');
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -173,7 +175,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function renderSubstitutesNumericVariables(): void
     {
         $template = $this->createTemplate(userPrompt: 'Count: {{count}} Price: {{price}}');
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -189,7 +191,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function renderSubstitutesArrayVariablesAsJson(): void
     {
         $template = $this->createTemplate(userPrompt: 'Data: {{items}}');
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -204,7 +206,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function renderHandlesConditionalSectionsTruthy(): void
     {
         $template = $this->createTemplate(userPrompt: '{{#if showDetails}}Details: {{details}}{{/if}}');
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -217,7 +219,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function renderHandlesConditionalSectionsFalsy(): void
     {
         $template = $this->createTemplate(userPrompt: '{{#if showDetails}}Content{{/if}}');
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -229,7 +231,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function renderHandlesConditionalElseSectionsTruthy(): void
     {
         $template = $this->createTemplate(userPrompt: '{{#if hasName}}{{name}}{{else}}Anonymous{{/if}}');
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -244,7 +246,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
         // {{#if...}}{{else}}{{/if}}, so else patterns may not work as expected
         // This test documents actual behavior
         $template = $this->createTemplate(userPrompt: '{{#if hasName}}Name{{else}}Anonymous{{/if}}');
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -260,7 +262,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
         // Note: {{this}} is processed by simple substitution first, so loops
         // output the template structure rather than item values
         $template = $this->createTemplate(userPrompt: 'Items: {{#each items}}[-]{{/each}}');
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -276,7 +278,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function renderHandlesEmptyEachLoop(): void
     {
         $template = $this->createTemplate(userPrompt: 'Items: {{#each items}}X{{/each}}');
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -289,7 +291,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function renderHandlesNonArrayForEachLoop(): void
     {
         $template = $this->createTemplate(userPrompt: '{{#each items}}X{{/each}}');
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -305,7 +307,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
             systemPrompt: '  System prompt  ',
             userPrompt: '  User prompt  ',
         );
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -319,7 +321,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function renderHandlesNullPrompts(): void
     {
         $template = $this->createTemplate(systemPrompt: null, userPrompt: null);
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -333,7 +335,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function renderHandlesIntegerTemperatureOption(): void
     {
         $template = $this->createTemplate();
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -346,7 +348,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function renderIgnoresInvalidOptionTypes(): void
     {
         $template = $this->createTemplate();
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -368,7 +370,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     {
         // Variables in templates are required, but empty values are allowed
         $template = $this->createTemplate(userPrompt: 'Hello {{name}}!');
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
 
@@ -406,10 +408,10 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     {
         $baseTemplate = $this->createTemplate('base');
         $baseTemplate->setUid(1);
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($baseTemplate);
-        $this->repositoryStub->method('save');
+        $this->repositoryMock->method('save');
 
         $result = $this->subject->createVersion('base', [
             'title' => 'New Title',
@@ -425,10 +427,10 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     {
         $baseTemplate = $this->createTemplate('base');
         $baseTemplate->setUid(1);
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($baseTemplate);
-        $this->repositoryStub->method('save');
+        $this->repositoryMock->method('save');
 
         $result = $this->subject->createVersion('base', [
             'nonexistentField' => 'value',
@@ -443,10 +445,10 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     {
         $baseTemplate = $this->createTemplate('base');
         // uid is null by default
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($baseTemplate);
-        $this->repositoryStub->method('save');
+        $this->repositoryMock->method('save');
 
         $result = $this->subject->createVersion('base', []);
 
@@ -460,7 +462,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function getVariantReturnsVariantWhenFound(): void
     {
         $variant = $this->createTemplate('variant-a');
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findVariant')
             ->with('base', 'variant-a')
             ->willReturn($variant);
@@ -473,7 +475,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     #[Test]
     public function getVariantThrowsExceptionWhenNotFound(): void
     {
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findVariant')
             ->willReturn(null);
 
@@ -519,10 +521,10 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     {
         $template = $this->createTemplate();
         // Defaults: usageCount=0, avgResponseTime=0, avgTokensUsed=0, qualityScore=0
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($template);
-        $this->repositoryStub->method('save');
+        $this->repositoryMock->method('save');
 
         $this->subject->recordUsage('test', 150, 250, 0.95);
 
@@ -545,7 +547,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
             ->method('toArray')
             ->willReturn([$template1, $template2]);
 
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findByFeature')
             ->with('translation')
             ->willReturn($queryResultMock);
@@ -565,7 +567,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
             ->method('toArray')
             ->willReturn([]);
 
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findByFeature')
             ->willReturn($queryResultMock);
 

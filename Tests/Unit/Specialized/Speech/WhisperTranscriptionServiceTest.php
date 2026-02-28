@@ -17,8 +17,10 @@ use Netresearch\NrLlm\Specialized\Option\TranscriptionOptions;
 use Netresearch\NrLlm\Specialized\Speech\TranscriptionResult;
 use Netresearch\NrLlm\Specialized\Speech\WhisperTranscriptionService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -30,13 +32,14 @@ use Psr\Log\LoggerInterface;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(WhisperTranscriptionService::class)]
 class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
 {
     private ClientInterface&Stub $httpClientStub;
     private RequestFactoryInterface&Stub $requestFactoryStub;
     private StreamFactoryInterface&Stub $streamFactoryStub;
-    private ExtensionConfiguration&Stub $extensionConfigStub;
+    private ExtensionConfiguration&MockObject $extensionConfigMock;
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LoggerInterface&Stub $loggerStub;
     private ?string $tempFile = null;
@@ -48,7 +51,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $this->httpClientStub = self::createStub(ClientInterface::class);
         $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
         $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
-        $this->extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
         $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
         $this->loggerStub = self::createStub(LoggerInterface::class);
     }
@@ -74,7 +77,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn(array_merge($defaultConfig, $config));
@@ -83,7 +86,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
         );
@@ -91,7 +94,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
 
     private function createSubjectWithoutApiKey(): WhisperTranscriptionService
     {
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -102,7 +105,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
         );
@@ -281,7 +284,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $audioFile = $this->createTestAudioFile();
         $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
 
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -302,7 +305,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $usageTrackerMock,
             $this->loggerStub,
         );
@@ -448,7 +451,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $audioFile = $this->createTestAudioFile();
         $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
 
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -468,7 +471,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $usageTrackerMock,
             $this->loggerStub,
         );
@@ -531,7 +534,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesInvalidConfig(): void
     {
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn('not-an-array');
@@ -540,7 +543,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
         );
@@ -666,7 +669,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willThrowException(new RuntimeException('Connection refused'));
 
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -686,7 +689,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $this->usageTrackerStub,
             $loggerMock,
         );

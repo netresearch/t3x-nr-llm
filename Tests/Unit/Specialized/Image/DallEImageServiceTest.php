@@ -16,8 +16,10 @@ use Netresearch\NrLlm\Specialized\Image\DallEImageService;
 use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
 use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -29,13 +31,14 @@ use Psr\Log\LoggerInterface;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(DallEImageService::class)]
 class DallEImageServiceTest extends AbstractUnitTestCase
 {
     private ClientInterface&Stub $httpClientStub;
     private RequestFactoryInterface&Stub $requestFactoryStub;
     private StreamFactoryInterface&Stub $streamFactoryStub;
-    private ExtensionConfiguration&Stub $extensionConfigStub;
+    private ExtensionConfiguration&MockObject $extensionConfigMock;
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LoggerInterface&Stub $loggerStub;
     private ?string $tempFile = null;
@@ -47,7 +50,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $this->httpClientStub = self::createStub(ClientInterface::class);
         $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
         $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
-        $this->extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
         $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
         $this->loggerStub = self::createStub(LoggerInterface::class);
     }
@@ -73,7 +76,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn(array_merge($defaultConfig, $config));
@@ -82,7 +85,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
         );
@@ -90,7 +93,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
 
     private function createSubjectWithoutApiKey(): DallEImageService
     {
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -101,7 +104,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
         );
@@ -304,7 +307,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             'data' => [['url' => 'https://example.com/image.png']],
         ]);
 
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -325,7 +328,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $usageTrackerMock,
             $this->loggerStub,
         );
@@ -520,7 +523,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             'data' => [['url' => 'https://example.com/variation.png']],
         ]);
 
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -541,7 +544,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $usageTrackerMock,
             $this->loggerStub,
         );
@@ -600,7 +603,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             'data' => [['url' => 'https://example.com/edited.png']],
         ]);
 
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -621,7 +624,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $usageTrackerMock,
             $this->loggerStub,
         );
@@ -691,7 +694,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesInvalidConfig(): void
     {
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn('not-an-array');
@@ -700,7 +703,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
         );

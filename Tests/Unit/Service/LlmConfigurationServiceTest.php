@@ -15,8 +15,10 @@ use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use TYPO3\CMS\Core\Context\AspectInterface;
 use TYPO3\CMS\Core\Context\Context;
@@ -26,12 +28,13 @@ use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(LlmConfigurationService::class)]
 class LlmConfigurationServiceTest extends AbstractUnitTestCase
 {
-    private LlmConfigurationRepository&Stub $repositoryStub;
+    private LlmConfigurationRepository&MockObject $repositoryMock;
     private PersistenceManagerInterface&Stub $persistenceManagerStub;
-    private Context&Stub $contextStub;
+    private Context&MockObject $contextMock;
     private bool $isAdmin = false;
     private bool $isLoggedIn = true;
     /** @var array<int> */
@@ -41,9 +44,9 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->repositoryStub = self::createStub(LlmConfigurationRepository::class);
+        $this->repositoryMock = $this->createMock(LlmConfigurationRepository::class);
         $this->persistenceManagerStub = self::createStub(PersistenceManagerInterface::class);
-        $this->contextStub = self::createStub(Context::class);
+        $this->contextMock = $this->createMock(Context::class);
 
         // Reset user state
         $this->isAdmin = false;
@@ -54,9 +57,9 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     private function createSubject(): LlmConfigurationService
     {
         return new LlmConfigurationService(
-            $this->repositoryStub,
+            $this->repositoryMock,
             $this->persistenceManagerStub,
-            $this->contextStub,
+            $this->contextMock,
         );
     }
 
@@ -110,7 +113,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
 
     private function setupNoBackendUser(): void
     {
-        $this->contextStub
+        $this->contextMock
             ->method('getAspect')
             ->with('backend.user')
             ->willThrowException(new AspectNotFoundException());
@@ -140,7 +143,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
             }
         };
 
-        $this->contextStub
+        $this->contextMock
             ->method('getAspect')
             ->with('backend.user')
             ->willReturn($aspectStub);
@@ -154,7 +157,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $this->setupAdminUser();
         $config = $this->createConfigurationStub();
 
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->with('test-config')
             ->willReturn($config);
@@ -168,7 +171,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function getConfigurationThrowsWhenNotFound(): void
     {
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn(null);
 
@@ -184,7 +187,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     {
         $config = $this->createConfigurationStub(isActive: false);
 
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($config);
 
@@ -201,7 +204,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $this->setupNonAdminUser();
         $config = $this->createConfigurationStub(hasRestrictions: true, groupIds: [5, 6]);
 
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findOneByIdentifier')
             ->willReturn($config);
 
@@ -220,7 +223,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $this->setupAdminUser();
         $config = $this->createConfigurationStub();
 
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findDefault')
             ->willReturn($config);
 
@@ -233,7 +236,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function getDefaultConfigurationThrowsWhenNotFound(): void
     {
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findDefault')
             ->willReturn(null);
 
@@ -257,7 +260,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $queryResult = self::createStub(QueryResultInterface::class);
         $queryResult->method('toArray')->willReturn([$config1, $config2]);
 
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findActive')
             ->willReturn($queryResult);
 
@@ -277,7 +280,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $queryResult = self::createStub(QueryResultInterface::class);
         $queryResult->method('toArray')->willReturn([$config1]);
 
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findAccessibleForGroups')
             ->with([1, 2, 3])
             ->willReturn($queryResult);
@@ -398,7 +401,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $subject = new LlmConfigurationService(
             $repositoryMock,
             $persistenceManagerMock,
-            $this->contextStub,
+            $this->contextMock,
         );
         $subject->setAsDefault($config);
     }
@@ -421,7 +424,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $subject = new LlmConfigurationService(
             $repositoryMock,
             $persistenceManagerMock,
-            $this->contextStub,
+            $this->contextMock,
         );
         $subject->toggleActive($config);
     }
@@ -442,7 +445,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $subject = new LlmConfigurationService(
             $repositoryMock,
             $persistenceManagerMock,
-            $this->contextStub,
+            $this->contextMock,
         );
         $subject->create($config);
     }
@@ -461,7 +464,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $subject = new LlmConfigurationService(
             $repositoryMock,
             $persistenceManagerMock,
-            $this->contextStub,
+            $this->contextMock,
         );
         $subject->update($config);
     }
@@ -480,7 +483,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $subject = new LlmConfigurationService(
             $repositoryMock,
             $persistenceManagerMock,
-            $this->contextStub,
+            $this->contextMock,
         );
         $subject->delete($config);
     }
@@ -490,7 +493,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function isIdentifierAvailableChecksRepository(): void
     {
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('isIdentifierUnique')
             ->with('new-identifier', 5)
             ->willReturn(true);
@@ -504,7 +507,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function isIdentifierAvailableReturnsFalseWhenTaken(): void
     {
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('isIdentifierUnique')
             ->with('existing-identifier', null)
             ->willReturn(false);
@@ -541,7 +544,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $queryResult = self::createStub(QueryResultInterface::class);
         $queryResult->method('toArray')->willReturn([]);
 
-        $this->repositoryStub
+        $this->repositoryMock
             ->method('findAccessibleForGroups')
             ->with([])
             ->willReturn($queryResult);

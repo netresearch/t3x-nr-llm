@@ -39,18 +39,18 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function processRegistersTaggedProviders(): void
     {
-        $containerStub = self::createStub(ContainerBuilder::class);
+        $containerMock = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
-        $containerStub->method('has')
+        $containerMock->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $containerStub->method('findDefinition')
+        $containerMock->method('findDefinition')
             ->with(LlmServiceManager::class)
             ->willReturn($definitionMock);
 
-        $containerStub->method('findTaggedServiceIds')
+        $containerMock->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.openai' => [['priority' => 10]],
@@ -66,24 +66,24 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
             );
 
         $compilerPass = new ProviderCompilerPass();
-        $compilerPass->process($containerStub);
+        $compilerPass->process($containerMock);
     }
 
     #[Test]
     public function processSortsProvidersByPriority(): void
     {
-        $containerStub = self::createStub(ContainerBuilder::class);
+        $containerMock = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
-        $containerStub->method('has')
+        $containerMock->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $containerStub->method('findDefinition')
+        $containerMock->method('findDefinition')
             ->with(LlmServiceManager::class)
             ->willReturn($definitionMock);
 
-        $containerStub->method('findTaggedServiceIds')
+        $containerMock->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.low' => [['priority' => 5]],
@@ -100,7 +100,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
             });
 
         $compilerPass = new ProviderCompilerPass();
-        $compilerPass->process($containerStub);
+        $compilerPass->process($containerMock);
 
         // Verify order: high (100), medium (50), low (5)
         self::assertInstanceOf(Reference::class, $registrationOrder[0]);
@@ -111,18 +111,18 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
     #[Test]
     public function processHandlesEmptyTaggedServices(): void
     {
-        $containerStub = self::createStub(ContainerBuilder::class);
+        $containerMock = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
-        $containerStub->method('has')
+        $containerMock->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $containerStub->method('findDefinition')
+        $containerMock->method('findDefinition')
             ->with(LlmServiceManager::class)
             ->willReturn($definitionMock);
 
-        $containerStub->method('findTaggedServiceIds')
+        $containerMock->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([]);
 
@@ -130,25 +130,25 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
             ->method('addMethodCall');
 
         $compilerPass = new ProviderCompilerPass();
-        $compilerPass->process($containerStub);
+        $compilerPass->process($containerMock);
     }
 
     #[Test]
     public function processHandlesProvidersWithoutPriority(): void
     {
-        $containerStub = self::createStub(ContainerBuilder::class);
+        $containerMock = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
-        $containerStub->method('has')
+        $containerMock->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $containerStub->method('findDefinition')
+        $containerMock->method('findDefinition')
             ->with(LlmServiceManager::class)
             ->willReturn($definitionMock);
 
         // Empty tag array means no priority specified
-        $containerStub->method('findTaggedServiceIds')
+        $containerMock->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.a' => [],
@@ -163,25 +163,25 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
             );
 
         $compilerPass = new ProviderCompilerPass();
-        $compilerPass->process($containerStub);
+        $compilerPass->process($containerMock);
     }
 
     #[Test]
     public function processHandlesNonArrayTagData(): void
     {
-        $containerStub = self::createStub(ContainerBuilder::class);
+        $containerMock = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
-        $containerStub->method('has')
+        $containerMock->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $containerStub->method('findDefinition')
+        $containerMock->method('findDefinition')
             ->with(LlmServiceManager::class)
             ->willReturn($definitionMock);
 
         // Tags with non-array first element
-        $containerStub->method('findTaggedServiceIds')
+        $containerMock->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.a' => ['not_an_array'],
@@ -195,25 +195,25 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
             );
 
         $compilerPass = new ProviderCompilerPass();
-        $compilerPass->process($containerStub);
+        $compilerPass->process($containerMock);
     }
 
     #[Test]
     public function processHandlesNonIntPriority(): void
     {
-        $containerStub = self::createStub(ContainerBuilder::class);
+        $containerMock = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
-        $containerStub->method('has')
+        $containerMock->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $containerStub->method('findDefinition')
+        $containerMock->method('findDefinition')
             ->with(LlmServiceManager::class)
             ->willReturn($definitionMock);
 
         // Priority as string, should be treated as 0
-        $containerStub->method('findTaggedServiceIds')
+        $containerMock->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.a' => [['priority' => 'high']],
@@ -228,6 +228,6 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
             );
 
         $compilerPass = new ProviderCompilerPass();
-        $compilerPass->process($containerStub);
+        $compilerPass->process($containerMock);
     }
 }

@@ -16,8 +16,10 @@ use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
 use Netresearch\NrLlm\Specialized\Speech\SpeechSynthesisResult;
 use Netresearch\NrLlm\Specialized\Speech\TextToSpeechService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -29,13 +31,14 @@ use Psr\Log\LoggerInterface;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(TextToSpeechService::class)]
 class TextToSpeechServiceTest extends AbstractUnitTestCase
 {
     private ClientInterface&Stub $httpClientStub;
     private RequestFactoryInterface&Stub $requestFactoryStub;
     private StreamFactoryInterface&Stub $streamFactoryStub;
-    private ExtensionConfiguration&Stub $extensionConfigStub;
+    private ExtensionConfiguration&MockObject $extensionConfigMock;
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LoggerInterface&Stub $loggerStub;
 
@@ -46,7 +49,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $this->httpClientStub = self::createStub(ClientInterface::class);
         $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
         $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
-        $this->extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
         $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
         $this->loggerStub = self::createStub(LoggerInterface::class);
     }
@@ -64,7 +67,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ],
         ];
 
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn(array_merge($defaultConfig, $config));
@@ -73,7 +76,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
         );
@@ -81,7 +84,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
 
     private function createSubjectWithoutApiKey(): TextToSpeechService
     {
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -92,7 +95,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
         );
@@ -276,7 +279,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     {
         $this->setupSuccessfulRequest();
 
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -301,7 +304,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $usageTrackerMock,
             $this->loggerStub,
         );
@@ -505,7 +508,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesInvalidConfig(): void
     {
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn('not-an-array');
@@ -514,7 +517,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
         );
@@ -724,7 +727,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesNonArrayConfig(): void
     {
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn('not-an-array');
@@ -733,7 +736,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
         );
@@ -744,7 +747,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     #[Test]
     public function loadConfigurationHandlesNonArrayProviders(): void
     {
-        $this->extensionConfigStub
+        $this->extensionConfigMock
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
@@ -755,7 +758,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
-            $this->extensionConfigStub,
+            $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
         );
