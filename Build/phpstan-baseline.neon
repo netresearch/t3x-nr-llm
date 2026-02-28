@@ -3,10 +3,10 @@ parameters:
 		# ext_emconf.php uses standard TYPO3 patterns with $_EXTKEY global
 		-
 			identifier: offsetAccess.nonOffsetAccessible
-			path: ext_emconf.php
+			path: ../ext_emconf.php
 		-
 			identifier: variable.undefined
-			path: ext_emconf.php
+			path: ../ext_emconf.php
 		# PHPUnit 12: MockObject::method() returns InvocationStubber which lacks with().
 		# The correct pattern is expects()->method()->with(), but createMock() chaining
 		# via method()->with()->willReturn() is common and works at runtime.
@@ -25,7 +25,7 @@ parameters:
 		# Unknown parameter errors. Both are expected with dual-version support.
 		-
 			identifier: function.alreadyNarrowedType
-			path: Classes/Controller/Backend/*
+			path: ../Classes/Controller/Backend/*
 			reportUnmatched: false
 		-
 			message: '#Unknown parameter .* in call to method .*::setShortcutContext\(\)#'
