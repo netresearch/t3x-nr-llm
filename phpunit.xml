@@ -37,6 +37,30 @@
         </include>
         <exclude>
             <directory>Classes/Domain/Model</directory>
+            <!-- Interfaces define contracts, not executable code -->
+            <file>Classes/LlmServiceManagerInterface.php</file>
+            <file>Classes/Provider/Contract/ProviderInterface.php</file>
+            <file>Classes/Provider/Contract/StreamingCapableInterface.php</file>
+            <file>Classes/Provider/Contract/ToolCapableInterface.php</file>
+            <file>Classes/Provider/Contract/VisionCapableInterface.php</file>
+            <file>Classes/Service/CacheManagerInterface.php</file>
+            <file>Classes/Service/SetupWizard/ModelDiscoveryInterface.php</file>
+            <file>Classes/Service/UsageTrackerServiceInterface.php</file>
+            <file>Classes/Specialized/Translation/TranslatorInterface.php</file>
+            <file>Classes/Specialized/Translation/TranslatorRegistryInterface.php</file>
+            <!-- Empty exception classes (no custom logic) -->
+            <file>Classes/Exception/InvalidArgumentException.php</file>
+            <file>Classes/Exception/AccessDeniedException.php</file>
+            <file>Classes/Exception/ConfigurationNotFoundException.php</file>
+            <file>Classes/Exception/PromptTemplateNotFoundException.php</file>
+            <file>Classes/Provider/Exception/ProviderException.php</file>
+            <file>Classes/Provider/Exception/ProviderConnectionException.php</file>
+            <file>Classes/Provider/Exception/ProviderConfigurationException.php</file>
+            <file>Classes/Provider/Exception/ProviderResponseException.php</file>
+            <file>Classes/Provider/Exception/UnsupportedFeatureException.php</file>
+            <file>Classes/Specialized/Exception/ImageGenerationException.php</file>
+            <file>Classes/Specialized/Exception/SpeechServiceException.php</file>
+            <file>Classes/Specialized/Exception/TranslatorException.php</file>
         </exclude>
     </source>
 
