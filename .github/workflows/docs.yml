@@ -33,8 +33,8 @@ jobs:
       - name: Render Documentation
         uses: typo3-documentation/render-guides@c4a29ab3c1e900192b9c5f76f0071afa0a8dbcb4 # 0.36.0
         with:
-          source-path: Documentation
-          output-path: Documentation-GENERATED-temp
+          input: Documentation
+          output: Documentation-GENERATED-temp
 
       - name: Check for Warnings
         run: |
