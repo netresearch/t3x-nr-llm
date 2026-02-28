@@ -1001,4 +1001,51 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         self::assertEquals('Translated', $result->translation);
     }
+
+    // ==================== validateOptions private method coverage ====================
+
+    #[Test]
+    public function validateOptionsThrowsOnInvalidFormality(): void
+    {
+        // TranslationOptions validates formality at construction, so invalid values
+        // cannot be passed through it. We use reflection to call validateOptions()
+        // directly with a raw options array containing an unsupported formality value,
+        // covering lines 463-469 in TranslationService.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(6448506079);
+
+        $reflection = new ReflectionClass($this->subject);
+        $method = $reflection->getMethod('validateOptions');
+        $method->invoke($this->subject, ['formality' => 'very-formal']);
+    }
+
+    #[Test]
+    public function validateOptionsThrowsOnInvalidDomain(): void
+    {
+        // TranslationOptions validates domain at construction, so invalid values
+        // cannot be passed through it. We use reflection to call validateOptions()
+        // directly with a raw options array containing an unsupported domain value,
+        // covering lines 475-481 in TranslationService.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(3885497401);
+
+        $reflection = new ReflectionClass($this->subject);
+        $method = $reflection->getMethod('validateOptions');
+        $method->invoke($this->subject, ['domain' => 'unknown-domain']);
+    }
+
+    #[Test]
+    public function validateOptionsThrowsOnNonArrayGlossary(): void
+    {
+        // TranslationOptions only accepts array glossary at construction, so a
+        // non-array glossary cannot reach validateOptions() through normal flow.
+        // We use reflection to invoke validateOptions() with a non-array glossary,
+        // covering line 486 in TranslationService.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(8571915742);
+
+        $reflection = new ReflectionClass($this->subject);
+        $method = $reflection->getMethod('validateOptions');
+        $method->invoke($this->subject, ['glossary' => 'not-an-array']);
+    }
 }

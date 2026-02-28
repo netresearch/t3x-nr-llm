@@ -576,4 +576,81 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
         self::assertEmpty($result);
     }
 
+    // ==================== substitute private method coverage ====================
+
+    #[Test]
+    public function renderSubstitutesNonStringNonNumericNonArrayVariableAsEmpty(): void
+    {
+        // A boolean value is not string, int, float, or array, so the fallback
+        // return '' branch (line 256) is executed in the substitution callback.
+        $template = $this->createTemplate(userPrompt: '{{flag}}');
+        $this->repositoryMock
+            ->method('findOneByIdentifier')
+            ->willReturn($template);
+
+        $result = $this->subject->render('test', ['flag' => true]);
+
+        self::assertEquals('', $result->getUserPrompt());
+    }
+
+    #[Test]
+    public function renderHandlesEachLoopWithArrayItems(): void
+    {
+        // Each loop with array-typed items hits the json_encode branch (line 299).
+        $template = $this->createTemplate(userPrompt: '{{#each items}}X{{/each}}');
+        $this->repositoryMock
+            ->method('findOneByIdentifier')
+            ->willReturn($template);
+
+        $result = $this->subject->render('test', [
+            'items' => [['key' => 'value'], ['a' => 1]],
+        ]);
+
+        // Two array items produce two iterations.
+        self::assertEquals('XX', $result->getUserPrompt());
+    }
+
+    #[Test]
+    public function renderHandlesEachLoopWithIntegerItems(): void
+    {
+        // Each loop with integer-typed items hits the (string)$item cast branch (lines 302-303).
+        $template = $this->createTemplate(userPrompt: '{{#each nums}}N{{/each}}');
+        $this->repositoryMock
+            ->method('findOneByIdentifier')
+            ->willReturn($template);
+
+        $result = $this->subject->render('test', ['nums' => [1, 2, 3]]);
+
+        self::assertEquals('NNN', $result->getUserPrompt());
+    }
+
+    #[Test]
+    public function renderHandlesEachLoopWithFloatItems(): void
+    {
+        // Each loop with float-typed items also hits the (string)$item cast branch (lines 302-303).
+        $template = $this->createTemplate(userPrompt: '{{#each vals}}V{{/each}}');
+        $this->repositoryMock
+            ->method('findOneByIdentifier')
+            ->willReturn($template);
+
+        $result = $this->subject->render('test', ['vals' => [1.5, 2.7]]);
+
+        self::assertEquals('VV', $result->getUserPrompt());
+    }
+
+    #[Test]
+    public function renderHandlesEachLoopWithOtherTypeItems(): void
+    {
+        // Each loop with boolean-typed items hits the fallback else branch (line 305),
+        // setting $itemStr to '' for items that are not array, string, int, or float.
+        $template = $this->createTemplate(userPrompt: '{{#each flags}}F{{/each}}');
+        $this->repositoryMock
+            ->method('findOneByIdentifier')
+            ->willReturn($template);
+
+        $result = $this->subject->render('test', ['flags' => [true, false]]);
+
+        self::assertEquals('FF', $result->getUserPrompt());
+    }
+
 }
