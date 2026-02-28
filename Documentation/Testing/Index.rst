@@ -59,7 +59,7 @@ Prerequisites
    composer install --dev
 
    # Copy PHPUnit configuration
-   cp phpunit.xml.dist phpunit.xml
+   cp Build/phpunit.xml.dist Build/phpunit.xml
 
 .. _testing-unit:
 
@@ -73,7 +73,7 @@ Unit tests
    composer test:unit
 
    # Or directly with PHPUnit
-   vendor/bin/phpunit -c phpunit.xml --testsuite unit
+   vendor/bin/phpunit -c Build/phpunit.xml --testsuite unit
 
    # Run specific test class
    vendor/bin/phpunit Tests/Unit/Service/LlmServiceManagerTest.php
