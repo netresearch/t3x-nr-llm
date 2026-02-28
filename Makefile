@@ -94,25 +94,25 @@ ollama:
 
 # Testing targets
 test:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c phpunit.xml --testsuite unit,integration,fuzzy"
+	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c Build/phpunit.xml --testsuite unit,integration,fuzzy"
 
 test-unit:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c phpunit.xml --testsuite unit"
+	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c Build/phpunit.xml --testsuite unit"
 
 test-integration:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c phpunit.xml --testsuite integration"
+	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c Build/phpunit.xml --testsuite integration"
 
 test-func:
 	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c Build/FunctionalTests.xml"
 
 test-fuzzy:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c phpunit.xml --testsuite fuzzy"
+	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c Build/phpunit.xml --testsuite fuzzy"
 
 test-e2e:
 	cd Tests/E2E/Playwright && npm run test
 
 coverage:
-	ddev exec "cd /var/www/nr_llm && XDEBUG_MODE=coverage .Build/bin/phpunit -c phpunit.xml --coverage-html .Build/coverage"
+	ddev exec "cd /var/www/nr_llm && XDEBUG_MODE=coverage .Build/bin/phpunit -c Build/phpunit.xml --coverage-html .Build/coverage"
 	@echo "Coverage report: .Build/coverage/index.html"
 
 mutation:

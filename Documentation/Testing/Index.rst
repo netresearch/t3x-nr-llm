@@ -58,9 +58,6 @@ Prerequisites
    # Install development dependencies
    composer install --dev
 
-   # Copy PHPUnit configuration
-   cp phpunit.xml.dist phpunit.xml
-
 .. _testing-unit:
 
 Unit tests
@@ -73,7 +70,7 @@ Unit tests
    composer test:unit
 
    # Or directly with PHPUnit
-   vendor/bin/phpunit -c phpunit.xml --testsuite unit
+   vendor/bin/phpunit -c Build/phpunit.xml --testsuite unit
 
    # Run specific test class
    vendor/bin/phpunit Tests/Unit/Service/LlmServiceManagerTest.php

@@ -25,7 +25,7 @@ ddev start
 ddev composer install
 
 # Run tests
-ddev exec ".Build/bin/phpunit -c phpunit.xml"
+ddev exec ".Build/bin/phpunit -c Build/phpunit.xml"
 ```
 
 ## Code Quality
@@ -39,7 +39,7 @@ ddev exec "composer ci"
 # Or run individually:
 ddev exec ".Build/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php --dry-run"
 ddev exec ".Build/bin/phpstan analyse -c Build/phpstan/phpstan.neon"
-ddev exec ".Build/bin/phpunit -c phpunit.xml"
+ddev exec ".Build/bin/phpunit -c Build/phpunit.xml"
 ddev exec ".Build/bin/rector process --config=Build/rector/rector.php --dry-run"
 ```
 

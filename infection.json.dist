@@ -19,7 +19,7 @@
     },
     "tmpDir": ".Build/cache/infection",
     "phpUnit": {
-        "configDir": ".",
+        "configDir": "Build",
         "customPath": ".Build/bin/phpunit"
     },
     "mutators": {

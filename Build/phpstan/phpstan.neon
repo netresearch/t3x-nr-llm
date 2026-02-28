@@ -9,7 +9,7 @@
 # Baseline used for new test files pending type improvements.
 
 includes:
-  - ../../phpstan-baseline.neon
+  - ../phpstan-baseline.neon
   - ../../.Build/vendor/phpat/phpat/extension.neon
 
 parameters:

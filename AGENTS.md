@@ -90,7 +90,7 @@ Tests run in Docker containers using TYPO3 core-testing images for consistent en
 | `ext_emconf.php` | Extension metadata (auto-maintained by Rector) |
 | `ext_localconf.php` | Extension bootstrap |
 | `composer.json` | Dependencies (note: composer.lock NOT committed) |
-| `phpunit.xml` | PHPUnit configuration |
+| `Build/phpunit.xml` | PHPUnit configuration |
 | `infection.json.dist` | Mutation testing config |
 | `grumphp.yml` | Pre-commit hooks |
 
