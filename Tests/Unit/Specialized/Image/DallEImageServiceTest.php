@@ -775,4 +775,223 @@ class DallEImageServiceTest extends AbstractUnitTestCase
 
         $subject->generate($longPrompt, $options);
     }
+
+    // ==================== generateMultiple with dall-e-3 (multiple separate calls) ====================
+
+    #[Test]
+    public function generateMultipleWithDallE3MakesMultipleSeparateCalls(): void
+    {
+        // DALL-E 3 does not support n > 1 in a single API call.
+        // generateMultiple() must loop and call generate() individually.
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+        $this->requestFactoryStub->method('createRequest')->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub->method('createStream')->willReturn($streamStub);
+
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn(json_encode([
+            'data' => [['url' => 'https://example.com/image.png', 'revised_prompt' => null]],
+        ]));
+
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
+
+        // The HTTP client must be called exactly 3 times (once per loop iteration).
+        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock
+            ->expects(self::exactly(3))
+            ->method('sendRequest')
+            ->willReturn($responseStub);
+
+        $this->extensionConfigMock
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'providers' => ['openai' => ['apiKey' => 'test-api-key']],
+            ]);
+
+        $subject = new DallEImageService(
+            $httpClientMock,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $this->usageTrackerStub,
+            $this->loggerStub,
+        );
+
+        $options = new ImageGenerationOptions(model: 'dall-e-3', size: '1024x1024');
+        $results = $subject->generateMultiple('A cat', 3, $options);
+
+        self::assertCount(3, $results);
+        foreach ($results as $result) {
+            self::assertInstanceOf(ImageGenerationResult::class, $result);
+        }
+    }
+
+    // ==================== createVariations count clamping ====================
+
+    #[Test]
+    public function createVariationsClampCountToMinimumOfOne(): void
+    {
+        // Passing count=0 should be clamped to 1 by min(max($count, 1), 10).
+        $subject = $this->createSubject();
+        $imageFile = $this->createTestImageFile();
+        $this->setupSuccessfulRequest([
+            'data' => [['url' => 'https://example.com/variation.png']],
+        ]);
+
+        $results = $subject->createVariations($imageFile, 0);
+
+        self::assertCount(1, $results);
+    }
+
+    #[Test]
+    public function createVariationsClampCountToMaximumOfTen(): void
+    {
+        // Passing count=99 should be clamped to 10 by min(max($count, 1), 10).
+        // The API responds with 10 items (we simulate that).
+        $subject = $this->createSubject();
+        $imageFile = $this->createTestImageFile();
+        $responseData = array_fill(0, 10, ['url' => 'https://example.com/variation.png']);
+        $this->setupSuccessfulRequest(['data' => $responseData]);
+
+        $results = $subject->createVariations($imageFile, 99);
+
+        self::assertCount(10, $results);
+    }
+
+    // ==================== executeRequest Throwable catch path ====================
+
+    #[Test]
+    public function executeRequestThrowsServiceUnavailableOnConnectionError(): void
+    {
+        // When the HTTP client throws an arbitrary exception (e.g. network error),
+        // executeRequest() catches Throwable and wraps it in ServiceUnavailableException.
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+        $this->requestFactoryStub->method('createRequest')->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub->method('createStream')->willReturn($streamStub);
+
+        $httpClientMock = $this->createMock(ClientInterface::class);
+        $httpClientMock
+            ->method('sendRequest')
+            ->willThrowException(new RuntimeException('Connection refused'));
+
+        $this->extensionConfigMock
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'providers' => ['openai' => ['apiKey' => 'test-api-key']],
+            ]);
+
+        $subject = new DallEImageService(
+            $httpClientMock,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $this->usageTrackerStub,
+            $this->loggerStub,
+        );
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessageMatches('/Failed to connect to DALL-E API/');
+
+        $subject->generate('A cat');
+    }
+
+    // ==================== generateMultiple with dall-e-2 usage tracking ====================
+
+    #[Test]
+    public function generateMultipleWithDallE2TracksUsageWithCount(): void
+    {
+        // DALL-E 2 batch path tracks usage with a 'count' key after the loop.
+        $imageData = [
+            ['url' => 'https://example.com/image1.png'],
+            ['url' => 'https://example.com/image2.png'],
+        ];
+        $this->setupSuccessfulRequest(['data' => $imageData]);
+
+        $this->extensionConfigMock
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'providers' => ['openai' => ['apiKey' => 'test-api-key']],
+            ]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'image',
+                'dall-e:dall-e-2',
+                self::callback(fn(array $ctx): bool => isset($ctx['count']) && $ctx['count'] === 2),
+            );
+
+        $subject = new DallEImageService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
+
+        $options = new ImageGenerationOptions(model: 'dall-e-2', size: '512x512');
+        $results = $subject->generateMultiple('Two cats', 2, $options);
+
+        self::assertCount(2, $results);
+    }
+
+    // ==================== buildGeneratePayload DALL-E 3 quality/style options ====================
+
+    #[Test]
+    public function generateWithDallE3IncludesQualityAndStyleInPayload(): void
+    {
+        // buildGeneratePayload() adds 'quality' and 'style' only when model is dall-e-3.
+        // This tests that those options are forwarded and the result is well-formed.
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'data' => [['url' => 'https://example.com/hd.png', 'revised_prompt' => 'High-def landscape']],
+        ]);
+
+        $options = new ImageGenerationOptions(
+            model: 'dall-e-3',
+            size: '1792x1024',
+            quality: 'hd',
+            style: 'natural',
+        );
+
+        $result = $subject->generate('A landscape', $options);
+
+        self::assertSame('https://example.com/hd.png', $result->url);
+        self::assertSame('dall-e-3', $result->model);
+        /** @var array<string, mixed> $metadata */
+        $metadata = $result->metadata;
+        self::assertSame('hd', $metadata['quality']);
+        self::assertSame('natural', $metadata['style']);
+    }
+
+    // ==================== edit with non-existent mask file ====================
+
+    #[Test]
+    public function editThrowsWhenMaskFileNotFound(): void
+    {
+        // Passing a non-existent mask path to edit() must throw ServiceUnavailableException
+        // because validateImageFile() is called on the mask as well.
+        $subject = $this->createSubject();
+        $imageFile = $this->createTestImageFile();
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessageMatches('/Image file not found/');
+
+        $subject->edit($imageFile, 'Add a hat', '/non/existent/mask.png');
+    }
 }

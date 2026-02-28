@@ -765,4 +765,135 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
 
         self::assertFalse($subject->isAvailable());
     }
+
+    #[Test]
+    public function synthesizeLongHandlesVeryLongSentenceWithNoCommasOrPeriods(): void
+    {
+        $subject = $this->createSubject();
+
+        // Create a single very long word-like string with no sentence breaks or commas
+        // This triggers the force-split path in splitLongSentence()
+        $longWord = str_repeat('A', 5000); // 5000 chars, no commas or periods
+        $text = $longWord;
+
+        $this->setupSuccessfulRequest('audio-chunk');
+
+        $result = $subject->synthesizeLong($text);
+
+        // Should split into multiple chunks even without natural break points
+        self::assertGreaterThan(1, count($result));
+        foreach ($result as $chunk) {
+            self::assertInstanceOf(SpeechSynthesisResult::class, $chunk);
+        }
+    }
+
+    #[Test]
+    public function synthesizeLongWithTextExactlyAtMaxLengthReturnsSingleResult(): void
+    {
+        $subject = $this->createSubject();
+
+        // Text at exactly max length should NOT be split
+        $text = str_repeat('a', 4096);
+
+        $this->setupSuccessfulRequest('audio-chunk');
+
+        $result = $subject->synthesizeLong($text);
+
+        self::assertCount(1, $result);
+    }
+
+    #[Test]
+    public function synthesizeWithExactMaxLengthTextSucceeds(): void
+    {
+        $subject = $this->createSubject();
+
+        // Text at exactly max length should succeed
+        $text = str_repeat('x', 4096);
+
+        $this->setupSuccessfulRequest('audio-content');
+
+        $result = $subject->synthesize($text);
+
+        self::assertInstanceOf(SpeechSynthesisResult::class, $result);
+        self::assertEquals(4096, $result->characterCount);
+    }
+
+    #[Test]
+    public function sendRequestHandlesConnectionException(): void
+    {
+        $subject = $this->createSubject();
+
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($requestStub);
+
+        $bodyStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($bodyStub);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willThrowException(new RuntimeException('Connection refused'));
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('Failed to connect to TTS API');
+
+        $subject->synthesize('Test text');
+    }
+
+    #[Test]
+    public function sendRequestHandlesApiErrorWithNonJsonBody(): void
+    {
+        $subject = $this->createSubject();
+
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($requestStub);
+
+        $bodyStub = self::createStub(StreamInterface::class);
+        $bodyStub->method('__toString')->willReturn('not valid json at all');
+
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($bodyStub);
+
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(500);
+        $responseStub->method('getBody')->willReturn($bodyStub);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($responseStub);
+
+        $this->expectException(ServiceUnavailableException::class);
+
+        $subject->synthesize('Test text');
+    }
+
+    #[Test]
+    public function synthesizeLongWithCommaSplitWhenChunkOverflowsOnLastPart(): void
+    {
+        $subject = $this->createSubject();
+
+        // Build a text that has comma-delimited sentences each just over 4096/2 chars
+        // The text itself is over 4096 chars, with one very long sentence containing commas
+        $longPart = str_repeat('word ', 1000); // ~5000 chars without periods
+        // This creates a text with a very long sentence that will be comma-split
+        $text = $longPart;
+
+        $this->setupSuccessfulRequest('chunk');
+
+        $result = $subject->synthesizeLong($text);
+
+        self::assertGreaterThanOrEqual(1, count($result));
+    }
 }

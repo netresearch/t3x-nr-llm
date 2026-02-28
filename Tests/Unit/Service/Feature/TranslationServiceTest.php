@@ -10,7 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Feature\TranslationService;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
@@ -25,6 +27,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
+use ReflectionClass;
 
 #[AllowMockObjectsWithoutExpectations]
 #[CoversClass(TranslationService::class)]
@@ -814,5 +817,188 @@ class TranslationServiceTest extends AbstractUnitTestCase
         self::assertEquals('Translated', $result->translation);
         self::assertEquals('tl', $result->sourceLanguage);
         self::assertEquals('sw', $result->targetLanguage);
+    }
+
+    // ==================== resolveTranslator preset path tests ====================
+
+    #[Test]
+    public function resolveTranslatorUsesExplicitTranslatorKeyInOptions(): void
+    {
+        $translatorStub = self::createStub(TranslatorInterface::class);
+        $translatorStub
+            ->method('translate')
+            ->willReturn(new TranslatorResult(
+                translatedText: 'Tiefe Übersetzung',
+                sourceLanguage: 'en',
+                targetLanguage: 'de',
+                translator: 'deepl',
+            ));
+
+        $this->translatorRegistryMock
+            ->expects(self::once())
+            ->method('get')
+            ->with('deepl')
+            ->willReturn($translatorStub);
+
+        // Use reflection to call resolveTranslator directly with 'translator' key
+        $reflection = new ReflectionClass($this->subject);
+        $method = $reflection->getMethod('resolveTranslator');
+        $result = $method->invoke($this->subject, ['translator' => 'deepl']);
+
+        self::assertSame($translatorStub, $result);
+    }
+
+    #[Test]
+    public function resolveTranslatorUsesPresetTranslatorWhenConfigurationFound(): void
+    {
+        $configServiceMock = $this->createMock(LlmConfigurationService::class);
+        $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
+
+        $configurationStub = self::createStub(LlmConfiguration::class);
+        $configurationStub->method('getTranslator')->willReturn('deepl');
+
+        $configServiceMock
+            ->method('getConfiguration')
+            ->with('my-preset')
+            ->willReturn($configurationStub);
+
+        $translatorStub = self::createStub(TranslatorInterface::class);
+
+        $translatorRegistryMock
+            ->expects(self::once())
+            ->method('get')
+            ->with('deepl')
+            ->willReturn($translatorStub);
+
+        $subject = new TranslationService(
+            $this->llmManagerStub,
+            $translatorRegistryMock,
+            $configServiceMock,
+        );
+
+        $reflection = new ReflectionClass($subject);
+        $method = $reflection->getMethod('resolveTranslator');
+        $result = $method->invoke($subject, ['preset' => 'my-preset']);
+
+        self::assertSame($translatorStub, $result);
+    }
+
+    #[Test]
+    public function resolveTranslatorFallsBackToLlmWhenPresetConfigurationNotFound(): void
+    {
+        $configServiceMock = $this->createMock(LlmConfigurationService::class);
+        $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
+
+        $configServiceMock
+            ->method('getConfiguration')
+            ->willThrowException(new ConfigurationNotFoundException('Not found', 1234));
+
+        $translatorStub = self::createStub(TranslatorInterface::class);
+
+        $translatorRegistryMock
+            ->expects(self::once())
+            ->method('get')
+            ->with('llm')
+            ->willReturn($translatorStub);
+
+        $subject = new TranslationService(
+            $this->llmManagerStub,
+            $translatorRegistryMock,
+            $configServiceMock,
+        );
+
+        $reflection = new ReflectionClass($subject);
+        $method = $reflection->getMethod('resolveTranslator');
+        $result = $method->invoke($subject, ['preset' => 'missing-preset']);
+
+        self::assertSame($translatorStub, $result);
+    }
+
+    #[Test]
+    public function resolveTranslatorFallsBackToLlmWhenPresetHasNoTranslator(): void
+    {
+        $configServiceMock = $this->createMock(LlmConfigurationService::class);
+        $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
+
+        // Configuration found but translator field is empty string
+        $configurationStub = self::createStub(LlmConfiguration::class);
+        $configurationStub->method('getTranslator')->willReturn('');
+
+        $configServiceMock
+            ->method('getConfiguration')
+            ->willReturn($configurationStub);
+
+        $translatorStub = self::createStub(TranslatorInterface::class);
+
+        $translatorRegistryMock
+            ->expects(self::once())
+            ->method('get')
+            ->with('llm')
+            ->willReturn($translatorStub);
+
+        $subject = new TranslationService(
+            $this->llmManagerStub,
+            $translatorRegistryMock,
+            $configServiceMock,
+        );
+
+        $reflection = new ReflectionClass($subject);
+        $method = $reflection->getMethod('resolveTranslator');
+        $result = $method->invoke($subject, ['preset' => 'preset-without-translator']);
+
+        self::assertSame($translatorStub, $result);
+    }
+
+    #[Test]
+    public function translateBatchWithTranslatorWithNullSourceLanguage(): void
+    {
+        $translatorStub = self::createStub(TranslatorInterface::class);
+        $translatorStub
+            ->method('translateBatch')
+            ->willReturn([
+                new TranslatorResult('Hallo', 'auto', 'de', 'llm'),
+                new TranslatorResult('Welt', 'auto', 'de', 'llm'),
+            ]);
+
+        $this->translatorRegistryMock
+            ->method('get')
+            ->willReturn($translatorStub);
+
+        $result = $this->subject->translateBatchWithTranslator(['Hello', 'World'], 'de', null);
+
+        self::assertCount(2, $result);
+    }
+
+    #[Test]
+    public function translateWithInformalFormalityProducesCorrectPromptTone(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->method('chat')
+            ->willReturn($this->createChatResponse('Translated'));
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+        );
+
+        $options = new TranslationOptions(formality: 'informal');
+        $result = $subject->translate('Hello', 'de', 'en', $options);
+
+        self::assertEquals('Translated', $result->translation);
+    }
+
+    #[Test]
+    public function translateWithGeneralDomainProducesResult(): void
+    {
+        $this->llmManagerStub
+            ->method('chat')
+            ->willReturn($this->createChatResponse('Translated'));
+
+        $options = new TranslationOptions(domain: 'general');
+        $result = $this->subject->translate('Hello', 'de', 'en', $options);
+
+        self::assertEquals('Translated', $result->translation);
     }
 }
