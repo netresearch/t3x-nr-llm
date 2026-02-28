@@ -58,9 +58,6 @@ Prerequisites
    # Install development dependencies
    composer install --dev
 
-   # Copy PHPUnit configuration
-   cp Build/phpunit.xml.dist Build/phpunit.xml
-
 .. _testing-unit:
 
 Unit tests
