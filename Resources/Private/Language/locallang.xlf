@@ -213,6 +213,66 @@
             <trans-unit id="btn.refresh">
                 <source>Refresh</source>
             </trans-unit>
+
+            <!-- Task controller messages -->
+            <trans-unit id="task.notFound">
+                <source>Task not found.</source>
+            </trans-unit>
+            <trans-unit id="task.error">
+                <source>Error</source>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.db">
+                <source>DB</source>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.file">
+                <source>FILE</source>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.cache">
+                <source>CACHE</source>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.extension">
+                <source>EXTENSION</source>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.error">
+                <source>ERROR</source>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.setting">
+                <source>SETTING</source>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.login">
+                <source>LOGIN</source>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.other">
+                <source>OTHER</source>
+            </trans-unit>
+            <trans-unit id="task.syslog.errorMarker">
+                <source>[ERROR]</source>
+            </trans-unit>
+            <trans-unit id="task.deprecationLog.notFound">
+                <source>No deprecation log file found.</source>
+            </trans-unit>
+            <trans-unit id="task.deprecationLog.readError">
+                <source>Could not read deprecation log.</source>
+            </trans-unit>
+            <trans-unit id="task.table.notConfigured">
+                <source>No table configured.</source>
+            </trans-unit>
+            <trans-unit id="task.table.readError">
+                <source>Error reading table: %s</source>
+            </trans-unit>
+
+            <!-- Configuration controller -->
+            <trans-unit id="configuration.notConfigured">
+                <source>(not configured)</source>
+            </trans-unit>
+
+            <!-- Model test results -->
+            <trans-unit id="model.test.responded">
+                <source>Model "%s" responded: "%s" (tokens: %d in, %d out)</source>
+            </trans-unit>
+            <trans-unit id="model.test.emptyResponse">
+                <source>Model "%s" connected successfully (tokens: %d in, %d out) - response content empty, model may use internal reasoning</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

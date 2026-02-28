@@ -255,7 +255,7 @@ final class ConfigurationController extends ActionController
 
         $options = [];
         foreach ($providers as $identifier => $name) {
-            $suffix = isset($available[$identifier]) ? '' : ' (not configured)';
+            $suffix = isset($available[$identifier]) ? '' : ' ' . (LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.notConfigured', 'NrLlm') ?? '(not configured)');
             $options[$identifier] = $name . $suffix;
         }
 
