@@ -6,90 +6,12 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    # Run weekly on Sunday at 3:00 AM UTC
     - cron: '0 3 * * 0'
 
-# Restrict default permissions - jobs declare what they need
 permissions: {}
 
 jobs:
-  fuzz-tests:
-    name: Fuzz Tests
-    runs-on: ubuntu-latest
+  fuzz:
+    uses: netresearch/typo3-ci-workflows/.github/workflows/fuzz.yml@main
     permissions:
       contents: read
-
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@a90bcbc6539c36a85cdfeb73f7e2f433735f215b # v2.15.0
-        with:
-          egress-policy: audit
-
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@44454db4f0199b8b9685a5d763dc37cbf79108e1 # 2.36.0
-        with:
-          php-version: '8.2'
-          extensions: intl, mbstring, xml, curl, json
-          tools: composer:v2
-
-      - name: Get Composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-fuzz-${{ hashFiles('**/composer.json') }}
-          restore-keys: ${{ runner.os }}-composer-fuzz-
-
-      - name: Install dependencies
-        run: composer install --no-progress --prefer-dist
-
-      - name: Run Fuzz Tests
-        run: .Build/bin/phpunit -c Build/phpunit.xml --testsuite fuzzy --no-coverage --colors=never
-
-  mutation-testing:
-    name: Mutation Testing (Infection)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@a90bcbc6539c36a85cdfeb73f7e2f433735f215b # v2.15.0
-        with:
-          egress-policy: audit
-
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@44454db4f0199b8b9685a5d763dc37cbf79108e1 # 2.36.0
-        with:
-          php-version: '8.2'
-          extensions: intl, mbstring, xml, curl, json
-          tools: composer:v2
-          coverage: xdebug
-
-      - name: Get Composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-mutation-${{ hashFiles('**/composer.json') }}
-          restore-keys: ${{ runner.os }}-composer-mutation-
-
-      - name: Install dependencies
-        run: composer install --no-progress --prefer-dist
-
-      - name: Run Mutation Tests
-        # Thresholds set to achievable levels; raise incrementally as coverage improves
-        run: composer ci:test:php:mutation -- --min-msi=50 --min-covered-msi=60
-        continue-on-error: true

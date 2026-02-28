@@ -5,28 +5,11 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
 
-permissions:
-  issues: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   lock:
-    name: Lock Old Threads
-    runs-on: ubuntu-latest
+    uses: netresearch/typo3-ci-workflows/.github/workflows/lock.yml@main
     permissions:
       issues: write
       pull-requests: write
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
-        with:
-          egress-policy: audit
-
-      - uses: dessant/lock-threads@7266a7ce5c1df01b1c6db85bf8cd86c737dadbe7 # v6.0.0
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          issue-inactive-days: 365
-          issue-lock-reason: resolved
-          pr-inactive-days: 365
-          pr-lock-reason: resolved
-          log-output: true

@@ -6,40 +6,11 @@ on:
   pull_request_target:
     types: [opened]
 
-permissions:
-  issues: write
-  pull-requests: write
+permissions: {}
 
 jobs:
-  greeting:
-    name: Greet Contributors
-    runs-on: ubuntu-latest
+  greetings:
+    uses: netresearch/typo3-ci-workflows/.github/workflows/greetings.yml@main
     permissions:
       issues: write
       pull-requests: write
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
-        with:
-          egress-policy: audit
-
-      - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d # v3.1.0
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          issue_message: |
-            Thanks for opening your first issue! We appreciate you taking the time to report this.
-
-            A maintainer will review your issue soon. In the meantime, please make sure you've:
-            - Checked the [documentation](https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/)
-            - Searched for [existing issues](https://github.com/netresearch/t3x-nr-llm/issues)
-
-            If you have questions, feel free to use [Discussions](https://github.com/netresearch/t3x-nr-llm/discussions).
-          pr_message: |
-            Thanks for your first pull request! We're excited to have you contribute.
-
-            A maintainer will review your PR soon. Please ensure:
-            - All CI checks pass
-            - Your code follows the project's coding standards
-            - Tests are included for new functionality
-
-            Check our [Contributing Guide](https://github.com/netresearch/t3x-nr-llm/blob/main/CONTRIBUTING.md) for more details.
