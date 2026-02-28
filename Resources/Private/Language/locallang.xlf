@@ -380,6 +380,9 @@
             <trans-unit id="btn.configuration.new">
                 <source>New Configuration</source>
             </trans-unit>
+            <trans-unit id="btn.refresh">
+                <source>Refresh</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

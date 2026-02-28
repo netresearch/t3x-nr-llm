@@ -34,6 +34,7 @@ use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
  * Backend controller for LLM Setup Wizard.
@@ -96,7 +97,7 @@ final class SetupWizardController extends ActionController
         // Add refresh button
         $refreshButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-refresh', IconSize::SMALL))
-            ->setTitle('Refresh')
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.refresh', 'NrLlm') ?? 'Refresh')
             ->setShowLabelText(true)
             ->setHref((string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'));
         $buttonBar->addButton($refreshButton);
