@@ -11,11 +11,12 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\Model;
 
 use Netresearch\NrLlm\Domain\Model\AdapterType;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
-#[CoversClass(AdapterType::class)]
+// Enums are not valid coverage targets in PHPUnit 12
+#[CoversNothing]
 class AdapterTypeTest extends AbstractUnitTestCase
 {
     #[Test]
