@@ -227,6 +227,13 @@ final class ModelController extends ActionController
             return new JsonResponse((new ErrorResponse('Model has no provider configured'))->jsonSerialize(), 400);
         }
 
+        // Resolve localized format strings before try/catch to avoid LocalizationUtility
+        // exceptions being caught by the adapter error handler below
+        $respondedFormat = $this->translate('model.test.responded')
+            ?? 'Model "%s" responded: "%s" (tokens: %d in, %d out)';
+        $emptyFormat = $this->translate('model.test.emptyResponse')
+            ?? 'Model "%s" connected successfully (tokens: %d in, %d out) - response content empty, model may use internal reasoning';
+
         try {
             // Create adapter from model's provider
             $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
@@ -244,7 +251,7 @@ final class ModelController extends ActionController
             // Build success message
             if ($responseText !== '') {
                 $message = sprintf(
-                    LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.test.responded', 'NrLlm') ?? 'Model "%s" responded: "%s" (tokens: %d in, %d out)',
+                    $respondedFormat,
                     $model->getName(),
                     mb_substr($responseText, 0, 100) . (mb_strlen($responseText) > 100 ? '...' : ''),
                     $response->usage->promptTokens,
@@ -253,7 +260,7 @@ final class ModelController extends ActionController
             } else {
                 // Model connected but returned empty content (might be using thinking mode)
                 $message = sprintf(
-                    LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.test.emptyResponse', 'NrLlm') ?? 'Model "%s" connected successfully (tokens: %d in, %d out) - response content empty, model may use internal reasoning',
+                    $emptyFormat,
                     $model->getName(),
                     $response->usage->promptTokens,
                     $response->usage->completionTokens,
@@ -476,5 +483,17 @@ final class ModelController extends ActionController
         $value = $body[$key] ?? '';
 
         return is_scalar($value) ? trim((string)$value) : '';
+    }
+
+    private function translate(string $key): ?string
+    {
+        try {
+            return LocalizationUtility::translate(
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:' . $key,
+                'NrLlm',
+            );
+        } catch (Throwable) {
+            return null;
+        }
     }
 }
