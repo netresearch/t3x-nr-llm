@@ -9,7 +9,7 @@
     <div class="container">
         <f:be.infobox
             title="One-Shot Prompt Tasks"
-            state="{f:constant(name: 'TYPO3\CMS\Core\Type\ContextualFeedbackSeverity::NOTICE')}"
+            state="-2"
         >
             <p>
                 <strong>Important:</strong> Tasks are simple one-shot prompts with limited capabilities.
@@ -33,7 +33,7 @@
             <f:then>
                 <f:be.infobox
                     title="No Tasks Configured"
-                    state="{f:constant(name: 'TYPO3\CMS\Core\Type\ContextualFeedbackSeverity::INFO')}"
+                    state="-1"
                 >
                     <p>No tasks have been created yet. Use the seed data or create your first task.</p>
                 </f:be.infobox>

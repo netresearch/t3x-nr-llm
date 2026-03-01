@@ -110,7 +110,7 @@
             <f:else>
                 <f:be.infobox
                     title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.empty.title', default: 'No Models Configured')}"
-                    state="{f:constant(name: 'TYPO3\CMS\Core\Type\ContextualFeedbackSeverity::INFO')}"
+                    state="-1"
                 >
                     <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.empty.message" default="No models configured yet. Create your first model to start using LLM services." /></p>
                     <f:if condition="{providers -> f:count()} == 0">

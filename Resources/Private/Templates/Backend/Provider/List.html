@@ -101,7 +101,7 @@
             <f:else>
                 <f:be.infobox
                     title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.empty.title', default: 'No Providers Configured')}"
-                    state="{f:constant(name: 'TYPO3\CMS\Core\Type\ContextualFeedbackSeverity::INFO')}"
+                    state="-1"
                 >
                     <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.empty.message" default="No API providers configured yet. Create your first provider to connect to LLM services." /></p>
                 </f:be.infobox>
