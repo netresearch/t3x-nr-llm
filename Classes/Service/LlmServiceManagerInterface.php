@@ -60,6 +60,22 @@ interface LlmServiceManagerInterface
     public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration): CompletionResponse;
 
     /**
+     * Chat using a specific LLM configuration (database-backed provider resolution).
+     *
+     * @param array<int, array{role: string, content: string}> $messages
+     */
+    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration): CompletionResponse;
+
+    /**
+     * Stream chat completion using a specific LLM configuration.
+     *
+     * @param array<int, array{role: string, content: string}> $messages
+     *
+     * @return Generator<int, string, mixed, void>
+     */
+    public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration): Generator;
+
+    /**
      * @param string|array<int, string> $input
      */
     public function embed(string|array $input, ?EmbeddingOptions $options = null): EmbeddingResponse;
