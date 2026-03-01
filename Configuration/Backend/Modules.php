@@ -17,8 +17,12 @@ use Netresearch\NrLlm\Controller\Backend\TaskController;
 /**
  * Backend module registration for nr_llm.
  *
- * Structure: Main module under 'admin', sub-modules as children of main module.
+ * Structure: Main module under 'tools', sub-modules as children of main module.
  * Sub-modules only appear in docheader dropdown, not in main navigation.
+ *
+ * Uses 'tools' as parent for v13+v14 compatibility:
+ * - v13: 'tools' exists natively as the admin tools group
+ * - v14: 'tools' is an alias for the new 'admin' group
  *
  * Pattern follows TYPO3 Styleguide extension:
  * - Main module identifier without prefix (e.g., 'nrllm' not 'tools_nrllm')
@@ -28,7 +32,7 @@ use Netresearch\NrLlm\Controller\Backend\TaskController;
 return [
     // Main dashboard module (parent container)
     'nrllm' => [
-        'parent' => 'admin',
+        'parent' => 'tools',
         'position' => ['after' => 'styleguide'],
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm',
