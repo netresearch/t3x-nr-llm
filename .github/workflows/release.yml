@@ -5,136 +5,33 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: write
-  id-token: write
-  attestations: write
+permissions: {}
 
 jobs:
   release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
+    uses: netresearch/typo3-ci-workflows/.github/workflows/release.yml@main
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    with:
+      archive-prefix: nr-llm
+      package-name: netresearch/nr-llm
 
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
-        with:
-          egress-policy: audit
+  publish-to-ter:
+    uses: netresearch/typo3-ci-workflows/.github/workflows/publish-to-ter.yml@main
+    permissions:
+      contents: read
+    secrets:
+      TYPO3_EXTENSION_KEY: ${{ secrets.TYPO3_EXTENSION_KEY }}
+      TYPO3_TER_ACCESS_TOKEN: ${{ secrets.TYPO3_TER_ACCESS_TOKEN }}
 
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-
-      - name: Get version
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
-
-      - name: Generate Release Notes
-        id: notes
-        run: |
-          # Get the previous tag
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          if [ -z "$PREVIOUS_TAG" ]; then
-            echo "notes<<EOF" >> $GITHUB_OUTPUT
-            echo "Initial release" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-          else
-            echo "notes<<EOF" >> $GITHUB_OUTPUT
-            git log --pretty=format:"- %s" ${PREVIOUS_TAG}..HEAD >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create release archive
-        run: |
-          mkdir -p dist
-          git archive --format=zip --prefix=nr_llm/ HEAD -o dist/nr_llm-${{ steps.version.outputs.version }}.zip
-          git archive --format=tar.gz --prefix=nr_llm/ HEAD -o dist/nr_llm-${{ steps.version.outputs.version }}.tar.gz
-
-      - name: Generate SBOM (SPDX)
-        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
-        with:
-          path: .
-          format: spdx-json
-          output-file: dist/nr_llm-${{ steps.version.outputs.version }}.sbom.spdx.json
-
-      - name: Generate SBOM (CycloneDX)
-        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
-        with:
-          path: .
-          format: cyclonedx-json
-          output-file: dist/nr_llm-${{ steps.version.outputs.version }}.sbom.cdx.json
-
-      - name: Generate checksums
-        run: |
-          cd dist
-          sha256sum * > checksums.txt
-          cat checksums.txt
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
-
-      - name: Sign artifacts with Cosign (keyless)
-        run: |
-          cd dist
-          for file in *.zip *.tar.gz *.json checksums.txt; do
-            cosign sign-blob --yes "$file" --bundle "${file}.bundle"
-          done
-
-      - name: Generate attestation
-        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
-        with:
-          subject-path: |
-            dist/nr_llm-${{ steps.version.outputs.version }}.zip
-            dist/nr_llm-${{ steps.version.outputs.version }}.tar.gz
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
-        with:
-          generate_release_notes: true
-          files: |
-            dist/*
-          body: |
-            ## Changes
-            ${{ steps.notes.outputs.notes }}
-
-            ## Installation
-
-            ```bash
-            composer require netresearch/nr-llm
-            ```
-
-            ## Security
-
-            All release artifacts are signed with [Sigstore](https://www.sigstore.dev/) keyless signing.
-
-            ### Verify signatures
-
-            ```bash
-            # Install cosign
-            go install github.com/sigstore/cosign/v2/cmd/cosign@latest
-
-            # Verify artifact signature
-            cosign verify-blob \
-              --bundle nr_llm-${{ steps.version.outputs.version }}.zip.bundle \
-              --certificate-identity-regexp "https://github.com/netresearch/.*" \
-              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-              nr_llm-${{ steps.version.outputs.version }}.zip
-            ```
-
-            ### Verify checksums
-
-            ```bash
-            sha256sum -c checksums.txt
-            ```
-
-            ## Software Bill of Materials (SBOM)
-
-            SBOMs are provided in both SPDX and CycloneDX formats for supply chain transparency.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # TER publication handled by publish-to-ter.yml (triggers on release: published)
+  slsa-provenance:
+    needs: release
+    uses: netresearch/typo3-ci-workflows/.github/workflows/slsa-provenance.yml@main
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+    with:
+      version: ${{ github.ref_name }}
