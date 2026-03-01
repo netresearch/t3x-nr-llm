@@ -41,6 +41,7 @@ Ensure your system meets these requirements:
 - PHP 8.2 or higher.
 - TYPO3 v13.4 or higher.
 - Composer 2.x.
+- :composer:`netresearch/nr-vault` ^0.4.0 (required for API key encryption; installed automatically via Composer).
 
 .. _installation-steps:
 
@@ -105,8 +106,12 @@ The extension creates the following database tables automatically:
      - Stores available LLM models with capabilities and pricing.
    * - :sql:`tx_nrllm_configuration`
      - Stores use-case-specific configurations with prompts and parameters.
-   * - :sql:`tx_nrllm_prompt_template`
-     - Stores reusable prompt templates.
+   * - :sql:`tx_nrllm_task`
+     - Stores one-shot prompt tasks for common operations.
+   * - :sql:`tx_nrllm_prompttemplate`
+     - Stores reusable prompt templates with versioning and performance tracking.
+   * - :sql:`tx_nrllm_service_usage`
+     - Tracks specialized service usage (translation, speech, image).
 
 Run the database compare tool after installation:
 
@@ -197,6 +202,9 @@ To remove the extension:
       DROP TABLE IF EXISTS tx_nrllm_provider;
       DROP TABLE IF EXISTS tx_nrllm_model;
       DROP TABLE IF EXISTS tx_nrllm_configuration;
-      DROP TABLE IF EXISTS tx_nrllm_prompt_template;
+      DROP TABLE IF EXISTS tx_nrllm_configuration_begroups_mm;
+      DROP TABLE IF EXISTS tx_nrllm_task;
+      DROP TABLE IF EXISTS tx_nrllm_prompttemplate;
+      DROP TABLE IF EXISTS tx_nrllm_service_usage;
 
 4. Remove any TypoScript includes referencing the extension.

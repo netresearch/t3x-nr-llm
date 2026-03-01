@@ -30,7 +30,7 @@ TYPO3 LLM extension
 
 ----
 
-A unified Large Language Model (LLM) provider abstraction layer for TYPO3 v14.
+A unified Large Language Model (LLM) provider abstraction layer for TYPO3 v13.4+.
 
 This extension provides a standardized interface to interact with multiple AI providers
 (OpenAI, Anthropic Claude, Google Gemini) through a single, consistent API. It includes

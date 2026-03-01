@@ -397,19 +397,26 @@ The extension throws specific exceptions:
    :caption: Example: Error handling
 
    use Netresearch\NrLlm\Provider\Exception\ProviderException;
-   use Netresearch\NrLlm\Provider\Exception\AuthenticationException;
-   use Netresearch\NrLlm\Provider\Exception\RateLimitException;
+   use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
+   use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+   use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+   use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
    use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
    try {
        $response = $this->llmManager->chat($messages);
-   } catch (AuthenticationException $e) {
-       // Invalid or missing API key
-       $this->logger->error('Authentication failed: ' . $e->getMessage());
-   } catch (RateLimitException $e) {
-       // Rate limit exceeded
-       $retryAfter = $e->getRetryAfter(); // seconds to wait
-       $this->logger->warning("Rate limited. Retry after {$retryAfter}s");
+   } catch (ProviderConfigurationException $e) {
+       // Invalid or missing provider configuration
+       $this->logger->error('Configuration error: ' . $e->getMessage());
+   } catch (ProviderConnectionException $e) {
+       // Connection to provider failed
+       $this->logger->error('Connection failed: ' . $e->getMessage());
+   } catch (ProviderResponseException $e) {
+       // Provider returned an error response
+       $this->logger->error('Provider response error: ' . $e->getMessage());
+   } catch (UnsupportedFeatureException $e) {
+       // Requested feature not supported by provider
+       $this->logger->warning('Unsupported feature: ' . $e->getMessage());
    } catch (ProviderException $e) {
        // General provider error
        $this->logger->error('Provider error: ' . $e->getMessage());
@@ -423,46 +430,13 @@ The extension throws specific exceptions:
 Events
 ======
 
-The extension dispatches PSR-14 events:
+.. note::
 
-.. code-block:: php
-   :caption: Example: Event listener implementation
-
-   use Netresearch\NrLlm\Event\BeforeRequestEvent;
-   use Netresearch\NrLlm\Event\AfterResponseEvent;
-
-   class MyEventListener
-   {
-       public function beforeRequest(BeforeRequestEvent $event): void
-       {
-           $messages = $event->getMessages();
-           $options = $event->getOptions();
-           $provider = $event->getProvider();
-
-           // Modify options
-           $event->setOptions(array_merge($options, ['my_option' => 'value']));
-       }
-
-       public function afterResponse(AfterResponseEvent $event): void
-       {
-           $response = $event->getResponse();
-           $usage = $response->usage;
-
-           // Log usage, track costs, etc.
-       }
-   }
-
-Register in :file:`Services.yaml`:
-
-.. code-block:: yaml
-   :caption: Configuration/Services.yaml
-
-   MyVendor\MyExtension\EventListener\MyEventListener:
-     tags:
-       - name: event.listener
-         identifier: 'myextension/before-request'
-         method: 'beforeRequest'
-         event: Netresearch\NrLlm\Event\BeforeRequestEvent
+   PSR-14 events (``BeforeRequestEvent``, ``AfterResponseEvent``) are planned
+   for a future release. The event classes do not exist yet in the current
+   codebase. Once implemented, they will allow listeners to intercept and modify
+   requests before they are sent to providers, and to inspect responses after
+   they are received.
 
 .. _developer-best-practices:
 

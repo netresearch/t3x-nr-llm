@@ -21,6 +21,7 @@ A unified LLM (Large Language Model) provider abstraction layer for TYPO3 v13.4+
 - **Three-Tier Architecture**: Providers (connections) → Models (capabilities) → Configurations (use cases)
 - **Encrypted API Keys**: API keys stored encrypted using sodium_crypto_secretbox
 - **Feature Services**: Translation, Completion, Embedding, Vision
+- **Specialized Services**: Image Generation (DALL-E), Text-to-Speech (TTS), Speech Transcription (Whisper), DeepL Translation
 - **Caching**: Built-in response caching for embeddings and completions
 - **Streaming**: Server-Sent Events (SSE) support for real-time responses
 - **Tool Calling**: Function/tool support for compatible providers
@@ -310,15 +311,21 @@ vendor/bin/typo3 cache:flush --group=nrllm
 
 ```php
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
-use Netresearch\NrLlm\Provider\Exception\RateLimitException;
-use Netresearch\NrLlm\Provider\Exception\AuthenticationException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 
 try {
     $response = $this->llmManager->chat($messages);
-} catch (AuthenticationException $e) {
-    // Invalid API key
-} catch (RateLimitException $e) {
-    $retryAfter = $e->getRetryAfter();
+} catch (ProviderConfigurationException $e) {
+    // Invalid or missing provider configuration
+} catch (ProviderConnectionException $e) {
+    // Connection to provider failed
+} catch (ProviderResponseException $e) {
+    // Provider returned an error response
+} catch (UnsupportedFeatureException $e) {
+    // Requested feature not supported by provider
 } catch (ProviderException $e) {
     $this->logger->error('LLM error: ' . $e->getMessage());
 }

@@ -515,11 +515,11 @@ Unit tests
 .. code-block:: bash
    :caption: Run feature service tests
 
-   # Run all tests
-   vendor/bin/phpunit Tests/Unit/
+   # Run all unit tests
+   Build/Scripts/runTests.sh -s unit
 
-   # Run specific service tests
-   vendor/bin/phpunit Tests/Unit/Service/Feature/CompletionServiceTest.php
+   # Alternative: Via Composer script
+   composer ci:test:php:unit
 
 .. _feature-services-testing-mocking:
 
@@ -770,6 +770,6 @@ File structure
 Requirements
 ============
 
-- TYPO3 v14.0+ (v14.x).
+- TYPO3 v13.4+.
 - PHP 8.2+.
 - nr-llm core extension (:php:`LlmServiceManager`).

@@ -595,21 +595,29 @@ Exceptions
 
       Get the provider that threw the exception.
 
-.. php:class:: AuthenticationException
+.. php:class:: ProviderConfigurationException
 
-   Thrown when API authentication fails.
-
-   Extends :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
-
-.. php:class:: RateLimitException
-
-   Thrown when rate limits are exceeded.
+   Thrown when a provider is incorrectly configured.
 
    Extends :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
 
-   .. php:method:: getRetryAfter(): int
+.. php:class:: ProviderConnectionException
 
-      Get seconds to wait before retry.
+   Thrown when a connection to the provider fails.
+
+   Extends :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
+
+.. php:class:: ProviderResponseException
+
+   Thrown when the provider returns an unexpected or error response.
+
+   Extends :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
+
+.. php:class:: UnsupportedFeatureException
+
+   Thrown when a requested feature is not supported by the provider.
+
+   Extends :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
 
 .. php:namespace:: Netresearch\NrLlm\Exception
 
@@ -626,42 +634,8 @@ Exceptions
 Events
 ======
 
-.. php:namespace:: Netresearch\NrLlm\Event
+.. note::
 
-.. php:class:: BeforeRequestEvent
-
-   Dispatched before sending request to provider.
-
-   .. php:method:: getMessages(): array
-
-      Get the messages being sent.
-
-   .. php:method:: getOptions(): array
-
-      Get the request options.
-
-   .. php:method:: setOptions(array $options): void
-
-      Modify request options.
-
-   .. php:method:: getProvider(): string
-
-      Get the target provider.
-
-.. php:class:: AfterResponseEvent
-
-   Dispatched after receiving response from provider.
-
-   .. php:method:: getResponse()
-
-      Get the response object.
-
-      :returns: CompletionResponse or EmbeddingResponse
-
-   .. php:method:: getProvider(): string
-
-      Get the provider that responded.
-
-   .. php:method:: getDuration(): float
-
-      Get request duration in seconds.
+   PSR-14 events (``BeforeRequestEvent``, ``AfterResponseEvent``) are planned
+   for a future release. The event classes do not exist yet in the current
+   codebase.

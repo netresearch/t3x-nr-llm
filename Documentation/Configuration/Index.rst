@@ -392,20 +392,38 @@ Constants
 
    plugin.tx_nrllm {
        settings {
-           # Default temperature (0.0-2.0)
-           defaultTemperature = 0.7
-
-           # Maximum tokens for responses
-           defaultMaxTokens = 1000
-
-           # Cache lifetime in seconds
-           cacheLifetime = 3600
+           # Default LLM provider (openai, claude, gemini)
+           defaultProvider = openai
 
            # Enable/disable response caching
            enableCaching = 1
 
-           # Enable streaming by default
-           enableStreaming = 0
+           # Cache lifetime in seconds
+           cacheLifetime = 3600
+
+           # Per-provider settings
+           providers {
+               openai {
+                   enabled = 1
+                   defaultModel = gpt-4o
+                   temperature = 0.7
+                   maxTokens = 4096
+               }
+
+               claude {
+                   enabled = 1
+                   defaultModel = claude-sonnet-4-20250514
+                   temperature = 0.7
+                   maxTokens = 4096
+               }
+
+               gemini {
+                   enabled = 1
+                   defaultModel = gemini-2.0-flash
+                   temperature = 0.7
+                   maxTokens = 4096
+               }
+           }
        }
    }
 

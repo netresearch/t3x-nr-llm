@@ -13,6 +13,7 @@ Sitemap
    Introduction/Index
    Installation/Index
    Configuration/Index
+   Architecture/Index
    Developer/Index
    Api/Index
    Testing/Index

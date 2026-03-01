@@ -66,17 +66,14 @@ Unit tests
 .. code-block:: bash
    :caption: Run unit tests
 
-   # Run all unit tests
-   composer test:unit
+   # Recommended: Use runTests.sh (Docker-based, consistent environment)
+   Build/Scripts/runTests.sh -s unit
 
-   # Or directly with PHPUnit
-   vendor/bin/phpunit -c Build/phpunit.xml --testsuite unit
+   # With specific PHP version
+   Build/Scripts/runTests.sh -s unit -p 8.3
 
-   # Run specific test class
-   vendor/bin/phpunit Tests/Unit/Service/LlmServiceManagerTest.php
-
-   # Run with coverage
-   vendor/bin/phpunit --testsuite unit --coverage-html coverage/
+   # Alternative: Via Composer script
+   composer ci:test:php:unit
 
 .. _testing-integration:
 
@@ -87,10 +84,10 @@ Integration tests
    :caption: Run integration tests
 
    # Run integration tests (requires mock server or API keys)
-   composer test:integration
+   composer ci:test:php:integration
 
    # With real API (set environment variables first)
-   OPENAI_API_KEY=sk-... vendor/bin/phpunit --testsuite integration
+   OPENAI_API_KEY=sk-... Build/Scripts/runTests.sh -s unit
 
 .. _testing-functional:
 
@@ -101,10 +98,10 @@ Functional tests
    :caption: Run functional tests
 
    # Run TYPO3 functional tests
-   composer test:functional
+   Build/Scripts/runTests.sh -s functional
 
-   # Requires TYPO3 testing framework
-   vendor/bin/phpunit --testsuite functional
+   # Alternative: Via Composer script
+   composer ci:test:php:functional
 
 .. _testing-all:
 
@@ -114,11 +111,13 @@ All tests
 .. code-block:: bash
    :caption: Run complete test suite
 
-   # Run complete test suite
-   composer test
+   # Run all test suites via runTests.sh
+   Build/Scripts/runTests.sh -s unit
+   Build/Scripts/runTests.sh -s functional
 
-   # With coverage report
-   composer test:coverage
+   # Run code quality checks
+   Build/Scripts/runTests.sh -s cgl
+   Build/Scripts/runTests.sh -s phpstan
 
 .. _testing-structure:
 
@@ -462,14 +461,11 @@ Running mutation tests
 .. code-block:: bash
    :caption: Run mutation tests
 
-   # Install Infection
-   composer require --dev infection/infection
+   # Run mutation tests via runTests.sh
+   Build/Scripts/runTests.sh -s mutation
 
-   # Run mutation tests
-   vendor/bin/infection --threads=4
-
-   # With specific configuration
-   vendor/bin/infection -c infection.json.dist
+   # Alternative: Via Composer script
+   composer ci:test:php:mutation
 
 .. _testing-mutation-results:
 
