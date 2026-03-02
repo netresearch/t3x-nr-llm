@@ -28,6 +28,10 @@ use Netresearch\NrLlm\Controller\Backend\TaskController;
  * - Main module identifier without prefix (e.g., 'nrllm' not 'tools_nrllm')
  * - Child modules with parent as prefix (e.g., 'nrllm_providers')
  * - Nested paths under main module path
+ *
+ * v13 compatibility: 'nrllm_overview' is registered as first submodule so that
+ * v13 (which redirects to the first submodule) shows the overview page.
+ * v14 uses 'showSubmoduleOverview' on the parent module for the same effect.
  */
 return [
     // Main dashboard module (parent container)
@@ -44,6 +48,26 @@ return [
         ],
         // v14+: Show overview page for parent module
         'showSubmoduleOverview' => true,
+        'controllerActions' => [
+            LlmModuleController::class => [
+                'index',
+                'test',
+                'executeTest',
+            ],
+        ],
+    ],
+    // Overview submodule - v13 compatibility
+    // In v13, dependsOnSubmodules redirects to the first submodule.
+    // This ensures the overview page is shown instead of providers.
+    // In v14, showSubmoduleOverview on the parent handles this natively.
+    'nrllm_overview' => [
+        'parent' => 'nrllm',
+        'position' => ['before' => '*'],
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm',
+        'path' => '/module/nrllm/overview',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_overview.xlf',
+        'extensionName' => 'NrLlm',
         'controllerActions' => [
             LlmModuleController::class => [
                 'index',
