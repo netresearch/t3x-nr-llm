@@ -871,4 +871,126 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         self::assertEquals(1, $attempts);
         self::assertEquals(['success' => true], $result);
     }
+
+    // ===== Tests for extractThinkingBlocks() =====
+
+    /**
+     * Invoke extractThinkingBlocks and return typed result.
+     *
+     * @return array{string, string|null}
+     */
+    private function callExtractThinkingBlocks(string $content): array
+    {
+        $provider = $this->createProvider();
+        $result = $this->invokeMethod($provider, 'extractThinkingBlocks', $content);
+        self::assertIsArray($result);
+
+        /** @var array{string, string|null} $result */
+        return $result;
+    }
+
+    #[Test]
+    public function extractThinkingBlocksReturnsContentUnchangedWhenNoThinkTags(): void
+    {
+        $result = $this->callExtractThinkingBlocks('Hello, world!');
+
+        self::assertEquals('Hello, world!', $result[0]);
+        self::assertNull($result[1]);
+    }
+
+    #[Test]
+    public function extractThinkingBlocksExtractsSingleBlock(): void
+    {
+        $result = $this->callExtractThinkingBlocks(
+            '<think>Let me reason about this</think>The answer is 42.',
+        );
+
+        self::assertEquals('The answer is 42.', $result[0]);
+        self::assertEquals('Let me reason about this', $result[1]);
+    }
+
+    #[Test]
+    public function extractThinkingBlocksExtractsMultipleBlocks(): void
+    {
+        $result = $this->callExtractThinkingBlocks(
+            '<think>First thought</think>Part one. <think>Second thought</think>Part two.',
+        );
+
+        self::assertEquals('Part one. Part two.', $result[0]);
+        self::assertIsString($result[1]);
+        self::assertStringContainsString('First thought', $result[1]);
+        self::assertStringContainsString('Second thought', $result[1]);
+    }
+
+    #[Test]
+    public function extractThinkingBlocksHandlesMultilineThinking(): void
+    {
+        $result = $this->callExtractThinkingBlocks(
+            "<think>Line one\nLine two\nLine three</think>Clean content.",
+        );
+
+        self::assertEquals('Clean content.', $result[0]);
+        self::assertIsString($result[1]);
+        self::assertStringContainsString("Line one\nLine two\nLine three", $result[1]);
+    }
+
+    #[Test]
+    public function extractThinkingBlocksReturnsNullForEmptyThinkTags(): void
+    {
+        $result = $this->callExtractThinkingBlocks('<think></think>Content here.');
+
+        self::assertEquals('Content here.', $result[0]);
+        self::assertNull($result[1]);
+    }
+
+    #[Test]
+    public function extractThinkingBlocksIsCaseInsensitive(): void
+    {
+        $result = $this->callExtractThinkingBlocks('<THINK>Reasoning</THINK>Answer.');
+
+        self::assertEquals('Answer.', $result[0]);
+        self::assertEquals('Reasoning', $result[1]);
+    }
+
+    #[Test]
+    public function extractThinkingBlocksTrimsResult(): void
+    {
+        $result = $this->callExtractThinkingBlocks(
+            '  <think>Reasoning</think>  Answer with spaces  ',
+        );
+
+        self::assertEquals('Answer with spaces', $result[0]);
+        self::assertEquals('Reasoning', $result[1]);
+    }
+
+    #[Test]
+    public function extractThinkingBlocksPreventsWordGluing(): void
+    {
+        $result = $this->callExtractThinkingBlocks(
+            'foo<think>reasoning</think>bar',
+        );
+
+        self::assertEquals('foo bar', $result[0]);
+        self::assertEquals('reasoning', $result[1]);
+    }
+
+    #[Test]
+    public function extractThinkingBlocksPreservesNewlines(): void
+    {
+        $result = $this->callExtractThinkingBlocks(
+            "Line one\n<think>reasoning</think>\nLine two\nLine three",
+        );
+
+        self::assertEquals("Line one\n \nLine two\nLine three", $result[0]);
+        self::assertEquals('reasoning', $result[1]);
+    }
+
+    #[Test]
+    public function extractThinkingBlocksHandlesWhitespaceOnlyThinking(): void
+    {
+        $result = $this->callExtractThinkingBlocks('<think>   </think>Content.');
+
+        self::assertEquals('Content.', $result[0]);
+        self::assertNull($result[1]);
+    }
 }

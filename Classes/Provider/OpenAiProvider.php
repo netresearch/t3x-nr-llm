@@ -122,14 +122,17 @@ final class OpenAiProvider extends AbstractProvider implements
         $message = $this->getArray($choice, 'message');
         $usage = $this->getArray($response, 'usage');
 
+        [$content, $thinking] = $this->extractThinkingBlocks($this->getString($message, 'content'));
+
         return $this->createCompletionResponse(
-            content: $this->getString($message, 'content'),
+            content: $content,
             model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
                 promptTokens: $this->getInt($usage, 'prompt_tokens'),
                 completionTokens: $this->getInt($usage, 'completion_tokens'),
             ),
             finishReason: $this->getString($choice, 'finish_reason', 'stop'),
+            thinking: $thinking,
         );
     }
 
@@ -182,8 +185,10 @@ final class OpenAiProvider extends AbstractProvider implements
             }
         }
 
+        [$content, $thinking] = $this->extractThinkingBlocks($this->getString($message, 'content'));
+
         return new CompletionResponse(
-            content: $this->getString($message, 'content'),
+            content: $content,
             model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
                 promptTokens: $this->getInt($usage, 'prompt_tokens'),
@@ -192,6 +197,7 @@ final class OpenAiProvider extends AbstractProvider implements
             finishReason: $this->getString($choice, 'finish_reason', 'stop'),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls,
+            thinking: $thinking,
         );
     }
 

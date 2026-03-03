@@ -118,7 +118,8 @@ final class GeminiProvider extends AbstractProvider implements
         $contentObj = $this->getArray($candidate, 'content');
         $parts = $this->getList($contentObj, 'parts');
         $firstPart = $this->asArray($parts[0] ?? []);
-        $content = $this->getString($firstPart, 'text');
+        $rawContent = $this->getString($firstPart, 'text');
+        [$content, $thinking] = $this->extractThinkingBlocks($rawContent);
         $usage = $this->getArray($response, 'usageMetadata');
 
         return $this->createCompletionResponse(
@@ -129,6 +130,7 @@ final class GeminiProvider extends AbstractProvider implements
                 completionTokens: $this->getInt($usage, 'candidatesTokenCount'),
             ),
             finishReason: $this->mapFinishReason($this->getString($candidate, 'finishReason', 'STOP')),
+            thinking: $thinking,
         );
     }
 
@@ -178,14 +180,14 @@ final class GeminiProvider extends AbstractProvider implements
         $contentObj = $this->getArray($candidate, 'content');
         $parts = $this->getList($contentObj, 'parts');
 
-        $content = '';
+        $rawContent = '';
         $toolCalls = [];
 
         foreach ($parts as $part) {
             $partArray = $this->asArray($part);
             $text = $this->getNullableString($partArray, 'text');
             if ($text !== null) {
-                $content .= $text;
+                $rawContent .= $text;
             }
 
             $functionCall = $this->getArray($partArray, 'functionCall');
@@ -201,6 +203,7 @@ final class GeminiProvider extends AbstractProvider implements
             }
         }
 
+        [$content, $thinking] = $this->extractThinkingBlocks($rawContent);
         $usage = $this->getArray($response, 'usageMetadata');
 
         return new CompletionResponse(
@@ -213,6 +216,7 @@ final class GeminiProvider extends AbstractProvider implements
             finishReason: $this->mapFinishReason($this->getString($candidate, 'finishReason', 'STOP')),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls !== [] ? $toolCalls : null,
+            thinking: $thinking,
         );
     }
 

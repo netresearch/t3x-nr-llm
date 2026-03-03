@@ -26,6 +26,7 @@ final readonly class CompletionResponse
         public string $provider = '',
         public ?array $toolCalls = null,
         public ?array $metadata = null,
+        public ?string $thinking = null,
     ) {}
 
     /**
@@ -58,6 +59,14 @@ final readonly class CompletionResponse
     public function hasToolCalls(): bool
     {
         return $this->toolCalls !== null && $this->toolCalls !== [];
+    }
+
+    /**
+     * Check if the response contains thinking/reasoning content.
+     */
+    public function hasThinking(): bool
+    {
+        return $this->thinking !== null && trim($this->thinking) !== '';
     }
 
     /**

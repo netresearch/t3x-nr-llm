@@ -146,13 +146,21 @@ final class ClaudeProvider extends AbstractProvider implements
         $response = $this->sendRequest('messages', $payload);
 
         $content = '';
+        $nativeThinkingBlocks = [];
         $contentBlocks = $this->getList($response, 'content');
         foreach ($contentBlocks as $block) {
             $blockArray = $this->asArray($block);
-            if ($this->getString($blockArray, 'type') === 'text') {
+            $blockType = $this->getString($blockArray, 'type');
+            if ($blockType === 'text') {
                 $content .= $this->getString($blockArray, 'text');
+            } elseif ($blockType === 'thinking') {
+                $nativeThinkingBlocks[] = $this->getString($blockArray, 'thinking');
             }
         }
+
+        $nativeThinking = implode("\n", $nativeThinkingBlocks);
+        [$content, $inlineThinking] = $this->extractThinkingBlocks($content);
+        $allThinking = trim(($nativeThinking !== '' ? $nativeThinking . "\n" : '') . ($inlineThinking ?? ''));
 
         $usage = $this->getArray($response, 'usage');
 
@@ -164,6 +172,7 @@ final class ClaudeProvider extends AbstractProvider implements
                 completionTokens: $this->getInt($usage, 'output_tokens'),
             ),
             finishReason: $this->mapStopReason($this->getString($response, 'stop_reason', 'end_turn')),
+            thinking: $allThinking !== '' ? $allThinking : null,
         );
     }
 
@@ -219,6 +228,7 @@ final class ClaudeProvider extends AbstractProvider implements
         $response = $this->sendRequest('messages', $payload);
 
         $content = '';
+        $nativeThinkingBlocks = [];
         $toolCalls = [];
 
         $contentBlocks = $this->getList($response, 'content');
@@ -227,6 +237,8 @@ final class ClaudeProvider extends AbstractProvider implements
             $blockType = $this->getString($blockArray, 'type');
             if ($blockType === 'text') {
                 $content .= $this->getString($blockArray, 'text');
+            } elseif ($blockType === 'thinking') {
+                $nativeThinkingBlocks[] = $this->getString($blockArray, 'thinking');
             } elseif ($blockType === 'tool_use') {
                 $toolCalls[] = [
                     'id' => $this->getString($blockArray, 'id'),
@@ -238,6 +250,10 @@ final class ClaudeProvider extends AbstractProvider implements
                 ];
             }
         }
+
+        $nativeThinking = implode("\n", $nativeThinkingBlocks);
+        [$content, $inlineThinking] = $this->extractThinkingBlocks($content);
+        $allThinking = trim(($nativeThinking !== '' ? $nativeThinking . "\n" : '') . ($inlineThinking ?? ''));
 
         $usage = $this->getArray($response, 'usage');
 
@@ -251,6 +267,7 @@ final class ClaudeProvider extends AbstractProvider implements
             finishReason: $this->mapStopReason($this->getString($response, 'stop_reason', 'end_turn')),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls !== [] ? $toolCalls : null,
+            thinking: $allThinking !== '' ? $allThinking : null,
         );
     }
 
