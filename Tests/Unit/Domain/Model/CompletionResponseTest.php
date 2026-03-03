@@ -203,6 +203,72 @@ class CompletionResponseTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function constructorSetsThinkingProperty(): void
+    {
+        $usage = new UsageStatistics(100, 50, 150);
+
+        $response = new CompletionResponse(
+            content: 'Hello',
+            model: 'gpt-4o',
+            usage: $usage,
+            thinking: 'I need to think about this',
+        );
+
+        self::assertEquals('I need to think about this', $response->thinking);
+    }
+
+    #[Test]
+    public function thinkingDefaultsToNull(): void
+    {
+        $response = new CompletionResponse(
+            content: 'test',
+            model: 'gpt-4',
+            usage: new UsageStatistics(10, 5, 15),
+        );
+
+        self::assertNull($response->thinking);
+    }
+
+    #[Test]
+    public function hasThinkingReturnsTrueWhenPresent(): void
+    {
+        $response = new CompletionResponse(
+            content: 'result',
+            model: 'gpt-4',
+            usage: new UsageStatistics(10, 20, 30),
+            thinking: 'reasoning content',
+        );
+
+        self::assertTrue($response->hasThinking());
+    }
+
+    #[Test]
+    public function hasThinkingReturnsFalseWhenNull(): void
+    {
+        $response = new CompletionResponse(
+            content: 'result',
+            model: 'gpt-4',
+            usage: new UsageStatistics(10, 20, 30),
+            thinking: null,
+        );
+
+        self::assertFalse($response->hasThinking());
+    }
+
+    #[Test]
+    public function hasThinkingReturnsFalseWhenEmpty(): void
+    {
+        $response = new CompletionResponse(
+            content: 'result',
+            model: 'gpt-4',
+            usage: new UsageStatistics(10, 20, 30),
+            thinking: '',
+        );
+
+        self::assertFalse($response->hasThinking());
+    }
+
+    #[Test]
     public function responseIsImmutable(): void
     {
         $response = new CompletionResponse(

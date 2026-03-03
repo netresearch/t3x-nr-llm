@@ -794,4 +794,123 @@ class ClaudeProviderTest extends AbstractUnitTestCase
 
         self::assertEquals('claude-opus-4-5-20251124', $result->model);
     }
+
+    // ===== Thinking extraction tests =====
+
+    #[Test]
+    public function chatCompletionExtractsNativeThinkingBlocks(): void
+    {
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [
+                ['type' => 'thinking', 'thinking' => 'Let me reason about this'],
+                ['type' => 'text', 'text' => 'The answer is 42'],
+            ],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion([
+            ['role' => 'user', 'content' => 'test'],
+        ]);
+
+        self::assertEquals('The answer is 42', $result->content);
+        self::assertTrue($result->hasThinking());
+        self::assertEquals('Let me reason about this', $result->thinking);
+    }
+
+    #[Test]
+    public function chatCompletionExtractsInlineThinkTags(): void
+    {
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [
+                ['type' => 'text', 'text' => '<think>Inline reasoning</think>Clean answer'],
+            ],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion([
+            ['role' => 'user', 'content' => 'test'],
+        ]);
+
+        self::assertEquals('Clean answer', $result->content);
+        self::assertTrue($result->hasThinking());
+        self::assertEquals('Inline reasoning', $result->thinking);
+    }
+
+    #[Test]
+    public function chatCompletionReturnsNullThinkingWhenNoThinkingPresent(): void
+    {
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [
+                ['type' => 'text', 'text' => 'Plain response'],
+            ],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion([
+            ['role' => 'user', 'content' => 'test'],
+        ]);
+
+        self::assertEquals('Plain response', $result->content);
+        self::assertFalse($result->hasThinking());
+        self::assertNull($result->thinking);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsExtractsThinking(): void
+    {
+        $messages = [['role' => 'user', 'content' => 'test']];
+        $tools = [['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]]];
+
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [
+                ['type' => 'thinking', 'thinking' => 'Tool reasoning'],
+                ['type' => 'text', 'text' => 'Tool result'],
+                ['type' => 'tool_use', 'id' => 'call_1', 'name' => 'test', 'input' => []],
+            ],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'tool_use',
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertEquals('Tool result', $result->content);
+        self::assertTrue($result->hasThinking());
+        self::assertEquals('Tool reasoning', $result->thinking);
+        self::assertTrue($result->hasToolCalls());
+    }
 }

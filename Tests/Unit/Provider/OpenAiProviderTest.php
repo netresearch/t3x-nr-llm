@@ -1162,4 +1162,68 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         self::assertInstanceOf(VisionResponse::class, $result);
         self::assertEquals('An image of something', $result->description);
     }
+
+    // ===== Thinking extraction tests =====
+
+    #[Test]
+    public function chatCompletionExtractsThinkingFromContent(): void
+    {
+        $apiResponse = [
+            'id' => 'chatcmpl-test',
+            'choices' => [
+                [
+                    'message' => [
+                        'role' => 'assistant',
+                        'content' => '<think>Let me reason about this</think>The answer is 42.',
+                    ],
+                    'finish_reason' => 'stop',
+                ],
+            ],
+            'model' => 'gpt-4o',
+            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 20, 'total_tokens' => 30],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion([
+            ['role' => 'user', 'content' => 'test'],
+        ]);
+
+        self::assertEquals('The answer is 42.', $result->content);
+        self::assertTrue($result->hasThinking());
+        self::assertEquals('Let me reason about this', $result->thinking);
+    }
+
+    #[Test]
+    public function chatCompletionReturnsNullThinkingWhenNoTags(): void
+    {
+        $apiResponse = [
+            'id' => 'chatcmpl-test',
+            'choices' => [
+                [
+                    'message' => [
+                        'role' => 'assistant',
+                        'content' => 'Plain response without thinking.',
+                    ],
+                    'finish_reason' => 'stop',
+                ],
+            ],
+            'model' => 'gpt-4o',
+            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 20, 'total_tokens' => 30],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion([
+            ['role' => 'user', 'content' => 'test'],
+        ]);
+
+        self::assertEquals('Plain response without thinking.', $result->content);
+        self::assertFalse($result->hasThinking());
+        self::assertNull($result->thinking);
+    }
 }

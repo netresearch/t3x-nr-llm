@@ -288,8 +288,10 @@ final class OpenRouterProvider extends AbstractProvider implements
         $message = $this->getArray($choice, 'message');
         $usage = $this->getArray($response, 'usage');
 
+        [$content, $thinking] = $this->extractThinkingBlocks($this->getString($message, 'content'));
+
         return new CompletionResponse(
-            content: $this->getString($message, 'content'),
+            content: $content,
             model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
                 promptTokens: $this->getInt($usage, 'prompt_tokens'),
@@ -305,6 +307,7 @@ final class OpenRouterProvider extends AbstractProvider implements
                     'completion' => $response['native_tokens_completion'] ?? null,
                 ],
             ],
+            thinking: $thinking,
         );
     }
 
@@ -365,8 +368,10 @@ final class OpenRouterProvider extends AbstractProvider implements
             }
         }
 
+        [$content, $thinking] = $this->extractThinkingBlocks($this->getString($message, 'content'));
+
         return new CompletionResponse(
-            content: $this->getString($message, 'content'),
+            content: $content,
             model: $this->getString($response, 'model', $model),
             usage: $this->createUsageStatistics(
                 promptTokens: $this->getInt($usage, 'prompt_tokens'),
@@ -379,6 +384,7 @@ final class OpenRouterProvider extends AbstractProvider implements
                 'actual_provider' => $this->getString($response, 'provider', 'unknown'),
                 'cost' => $response['total_cost'] ?? null,
             ],
+            thinking: $thinking,
         );
     }
 
