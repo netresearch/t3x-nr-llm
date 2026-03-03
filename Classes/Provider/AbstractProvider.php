@@ -340,7 +340,8 @@ abstract class AbstractProvider implements ProviderInterface
             $thinking = trim(implode("\n", $matches[1]));
             // Replace with space to prevent word-gluing (e.g. "foo<think>...</think>bar" → "foo bar")
             $cleaned = preg_replace('#<think>[\s\S]*?</think>#i', ' ', $content) ?? $content;
-            $content = trim((string)preg_replace('/\s+/', ' ', $cleaned));
+            // Normalize horizontal whitespace (spaces/tabs) but preserve newlines for formatting
+            $content = trim((string)preg_replace('/[ \t]+/', ' ', $cleaned));
         }
 
         return [$content, $thinking !== '' ? $thinking : null];

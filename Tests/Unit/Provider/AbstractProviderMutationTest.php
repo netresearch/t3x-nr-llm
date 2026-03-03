@@ -975,6 +975,17 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function extractThinkingBlocksPreservesNewlines(): void
+    {
+        $result = $this->callExtractThinkingBlocks(
+            "Line one\n<think>reasoning</think>\nLine two\nLine three",
+        );
+
+        self::assertEquals("Line one\n \nLine two\nLine three", $result[0]);
+        self::assertEquals('reasoning', $result[1]);
+    }
+
+    #[Test]
     public function extractThinkingBlocksHandlesWhitespaceOnlyThinking(): void
     {
         $result = $this->callExtractThinkingBlocks('<think>   </think>Content.');
