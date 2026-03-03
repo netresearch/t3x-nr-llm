@@ -964,6 +964,17 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function extractThinkingBlocksPreventsWordGluing(): void
+    {
+        $result = $this->callExtractThinkingBlocks(
+            'foo<think>reasoning</think>bar',
+        );
+
+        self::assertEquals('foo bar', $result[0]);
+        self::assertEquals('reasoning', $result[1]);
+    }
+
+    #[Test]
     public function extractThinkingBlocksHandlesWhitespaceOnlyThinking(): void
     {
         $result = $this->callExtractThinkingBlocks('<think>   </think>Content.');

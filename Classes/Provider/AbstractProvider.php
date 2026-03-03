@@ -338,7 +338,9 @@ abstract class AbstractProvider implements ProviderInterface
         $thinking = null;
         if (preg_match_all('#<think>([\s\S]*?)</think>#i', $content, $matches)) {
             $thinking = trim(implode("\n", $matches[1]));
-            $content = trim(preg_replace('#<think>[\s\S]*?</think>#i', '', $content) ?? $content);
+            // Replace with space to prevent word-gluing (e.g. "foo<think>...</think>bar" → "foo bar")
+            $cleaned = preg_replace('#<think>[\s\S]*?</think>#i', ' ', $content) ?? $content;
+            $content = trim((string)preg_replace('/\s+/', ' ', $cleaned));
         }
 
         return [$content, $thinking !== '' ? $thinking : null];

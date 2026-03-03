@@ -66,7 +66,7 @@ final readonly class CompletionResponse
      */
     public function hasThinking(): bool
     {
-        return $this->thinking !== null && $this->thinking !== '';
+        return $this->thinking !== null && trim($this->thinking) !== '';
     }
 
     /**

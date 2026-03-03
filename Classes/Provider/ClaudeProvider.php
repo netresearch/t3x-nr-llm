@@ -146,7 +146,7 @@ final class ClaudeProvider extends AbstractProvider implements
         $response = $this->sendRequest('messages', $payload);
 
         $content = '';
-        $nativeThinking = '';
+        $nativeThinkingBlocks = [];
         $contentBlocks = $this->getList($response, 'content');
         foreach ($contentBlocks as $block) {
             $blockArray = $this->asArray($block);
@@ -154,10 +154,11 @@ final class ClaudeProvider extends AbstractProvider implements
             if ($blockType === 'text') {
                 $content .= $this->getString($blockArray, 'text');
             } elseif ($blockType === 'thinking') {
-                $nativeThinking .= $this->getString($blockArray, 'thinking');
+                $nativeThinkingBlocks[] = $this->getString($blockArray, 'thinking');
             }
         }
 
+        $nativeThinking = implode("\n", $nativeThinkingBlocks);
         [$content, $inlineThinking] = $this->extractThinkingBlocks($content);
         $allThinking = trim(($nativeThinking !== '' ? $nativeThinking . "\n" : '') . ($inlineThinking ?? ''));
 
@@ -227,7 +228,7 @@ final class ClaudeProvider extends AbstractProvider implements
         $response = $this->sendRequest('messages', $payload);
 
         $content = '';
-        $nativeThinking = '';
+        $nativeThinkingBlocks = [];
         $toolCalls = [];
 
         $contentBlocks = $this->getList($response, 'content');
@@ -237,7 +238,7 @@ final class ClaudeProvider extends AbstractProvider implements
             if ($blockType === 'text') {
                 $content .= $this->getString($blockArray, 'text');
             } elseif ($blockType === 'thinking') {
-                $nativeThinking .= $this->getString($blockArray, 'thinking');
+                $nativeThinkingBlocks[] = $this->getString($blockArray, 'thinking');
             } elseif ($blockType === 'tool_use') {
                 $toolCalls[] = [
                     'id' => $this->getString($blockArray, 'id'),
@@ -250,6 +251,7 @@ final class ClaudeProvider extends AbstractProvider implements
             }
         }
 
+        $nativeThinking = implode("\n", $nativeThinkingBlocks);
         [$content, $inlineThinking] = $this->extractThinkingBlocks($content);
         $allThinking = trim(($nativeThinking !== '' ? $nativeThinking . "\n" : '') . ($inlineThinking ?? ''));
 
