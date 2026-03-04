@@ -64,6 +64,12 @@ grumphp:
             lockfile: composer.lock
             run_always: true
 
+        # Tag version validation (pre-push only)
+        shell:
+            scripts:
+                - Build/Scripts/check-tag-version.sh
+            triggered_by: [php]
+
     # Testsuites for manual runs
     testsuites:
         git_pre_commit:
@@ -78,3 +84,7 @@ grumphp:
         git_commit_msg:
             tasks:
                 - git_commit_message
+
+        git_pre_push:
+            tasks:
+                - shell
