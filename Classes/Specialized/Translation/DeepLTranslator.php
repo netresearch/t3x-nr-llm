@@ -315,7 +315,7 @@ final class DeepLTranslator implements TranslatorInterface
             $deeplConfig = $config['translators']['deepl'] ?? [];
 
             $this->apiKey = $deeplConfig['apiKey'] ?? '';
-            $this->timeout = $deeplConfig['timeout'] ?? 30;
+            $this->timeout = (int)($deeplConfig['timeout'] ?? 30);
 
             // Determine API URL based on API key type (free keys end with :fx)
             if ($this->apiKey !== '' && str_ends_with($this->apiKey, ':fx')) {

@@ -356,7 +356,7 @@ final class DallEImageService
 
             $this->apiKey = $config['providers']['openai']['apiKey'] ?? '';
             $this->baseUrl = $config['image']['dalle']['baseUrl'] ?? self::API_URL;
-            $this->timeout = $config['image']['dalle']['timeout'] ?? 120;
+            $this->timeout = (int)($config['image']['dalle']['timeout'] ?? 120);
         } catch (Exception $e) {
             $this->logger->warning('Failed to load DALL-E configuration', [
                 'exception' => $e->getMessage(),

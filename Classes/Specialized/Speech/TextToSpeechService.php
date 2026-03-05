@@ -279,7 +279,7 @@ final class TextToSpeechService
                     $baseUrl = $tts['baseUrl'] ?? null;
                     $this->baseUrl = is_string($baseUrl) ? $baseUrl : self::API_URL;
                     $timeout = $tts['timeout'] ?? null;
-                    $this->timeout = is_int($timeout) ? $timeout : 60;
+                    $this->timeout = is_numeric($timeout) ? (int)$timeout : 60;
                 }
             }
         } catch (Exception $e) {
