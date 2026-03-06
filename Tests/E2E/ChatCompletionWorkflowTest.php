@@ -231,9 +231,9 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         $requestBody = json_decode((string)$clientSetup['requests'][0]->getBody(), true);
         self::assertIsArray($requestBody);
         self::assertArrayHasKey('temperature', $requestBody);
-        self::assertArrayHasKey('max_tokens', $requestBody);
+        self::assertArrayHasKey('max_completion_tokens', $requestBody);
         self::assertEquals(0.1, $requestBody['temperature']);
-        self::assertEquals(500, $requestBody['max_tokens']);
+        self::assertEquals(500, $requestBody['max_completion_tokens']);
     }
 
     #[Test]
