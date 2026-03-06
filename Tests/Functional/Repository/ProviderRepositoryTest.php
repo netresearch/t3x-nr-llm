@@ -290,7 +290,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
         $provider->setIdentifier('new-test-provider');
         $provider->setName('New Test Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->repository->add($provider);

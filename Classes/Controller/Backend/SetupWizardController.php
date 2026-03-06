@@ -21,8 +21,10 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\SuggestedConfiguration;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Symfony\Component\Uid\Uuid;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
@@ -60,6 +62,7 @@ final class SetupWizardController extends ActionController
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly IconFactory $iconFactory,
+        private readonly VaultServiceInterface $vaultService,
     ) {}
 
     protected function initializeAction(): void
@@ -277,12 +280,30 @@ final class SetupWizardController extends ActionController
             $providerEndpoint = is_string($providerData['endpoint'] ?? null) ? $providerData['endpoint'] : '';
             $providerApiKey = is_string($providerData['apiKey'] ?? null) ? $providerData['apiKey'] : '';
 
+            // Store the API key in the vault and use the vault identifier
+            $vaultIdentifier = '';
+            if ($providerApiKey !== '') {
+                try {
+                    $vaultIdentifier = $this->generateVaultIdentifier();
+                    $this->vaultService->store($vaultIdentifier, $providerApiKey, [
+                        'table' => 'tx_nrllm_provider',
+                        'field' => 'api_key',
+                        'source' => 'setup_wizard',
+                    ]);
+                } catch (Throwable $e) {
+                    return new JsonResponse([
+                        'success' => false,
+                        'error' => 'Failed to store API key securely: ' . $e->getMessage(),
+                    ], 500);
+                }
+            }
+
             $provider = new Provider();
             $provider->setIdentifier($this->generateIdentifier($providerName));
             $provider->setName($providerName !== '' ? $providerName : 'New Provider');
             $provider->setAdapterType($providerAdapter);
             $provider->setEndpointUrl($providerEndpoint);
-            $provider->setApiKey($providerApiKey);
+            $provider->setApiKey($vaultIdentifier);
             $provider->setIsActive(true);
             if ($pid >= 0) {
                 $provider->setPid($pid);
@@ -486,6 +507,11 @@ final class SetupWizardController extends ActionController
         }
         $value = $body[$key] ?? $default;
         return is_numeric($value) ? (int)$value : $default;
+    }
+
+    private function generateVaultIdentifier(): string
+    {
+        return Uuid::v7()->toRfc4122();
     }
 
     /**

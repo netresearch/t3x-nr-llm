@@ -305,7 +305,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             $fallbackProvider->setIdentifier('fallback-test-provider');
             $fallbackProvider->setName('Fallback Test Provider');
             $fallbackProvider->setAdapterType('openai');
-            $fallbackProvider->setApiKey('fallback-key');
+            $fallbackProvider->setApiKey('0190a5e0-7a1c-7b2d-8a1b-2c3d4e5f6a7b');
             $fallbackProvider->setIsActive(true);
             $fallbackProvider->setPriority(10); // Lower priority
 
@@ -772,7 +772,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('chain-test-provider-' . time());
         $provider->setName('Chain Test Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Fuzzy\Security;
 
 use Eris\Generator;
+use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
@@ -102,7 +103,7 @@ class InputSanitizationFuzzyTest extends AbstractFuzzyTestCase
     }
 
     #[Test]
-    public function providerHandlesPotentialInjectionInApiKey(): void
+    public function providerRejectsRawApiKeysIncludingInjectionAttempts(): void
     {
         $this
             ->forAll(
@@ -118,10 +119,12 @@ class InputSanitizationFuzzyTest extends AbstractFuzzyTestCase
             )
             ->then(function (string $apiKey): void {
                 $provider = new Provider();
-                $provider->setApiKey($apiKey);
 
-                // API key should be stored as-is (it's a credential)
-                $this->assertSame($apiKey, $provider->getApiKey());
+                // Raw API keys (including injection attempts) must be rejected;
+                // only vault identifiers (UUID v7) are accepted
+                $this->expectException(InvalidArgumentException::class);
+                $this->expectExceptionCode(1741268400);
+                $provider->setApiKey($apiKey);
             });
     }
 

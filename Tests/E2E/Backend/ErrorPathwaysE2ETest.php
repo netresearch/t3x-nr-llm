@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\E2E\Backend;
 
+use InvalidArgumentException;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
@@ -201,7 +202,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('invalid-key-provider');
         $provider->setName('Invalid Key Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('invalid-api-key-12345');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -239,7 +240,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('invalid-key-provider-2');
         $provider->setName('Invalid Key Provider 2');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('invalid-api-key-67890');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-5a6b7c8d9e0f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -292,7 +293,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('invalid-key-provider-3');
         $provider->setName('Invalid Key Provider 3');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('invalid-api-key-abcde');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-6a7b8c9d0e1f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -371,7 +372,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('timeout-test-provider');
         $provider->setName('Timeout Test Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setTimeout(1); // 1 second timeout
         $provider->setIsActive(true);
 
@@ -404,7 +405,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('unreachable-provider');
         $provider->setName('Unreachable Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setEndpointUrl('https://nonexistent.invalid.domain.local/v1');
         $provider->setTimeout(5);
         $provider->setIsActive(true);
@@ -651,7 +652,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('special-chars-provider');
         $provider->setName('<script>alert("xss")</script>');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -715,7 +716,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier("'; DROP TABLE tx_nrllm_domain_model_provider; --");
         $provider->setName('SQL Injection Test');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -780,7 +781,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier("null-byte-test\x00suffix");
         $provider->setName("Null\x00Byte");
         $provider->setAdapterType('openai');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -793,27 +794,20 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
     }
 
     #[Test]
-    public function pathway7_5_veryLongApiKey_handledSafely(): void
+    public function pathway7_5_rawApiKey_rejectedByValidation(): void
     {
-        // Test very long API key (should be stored or truncated, not crash)
-        $longApiKey = str_repeat('a', 10000);
+        // setApiKey() now rejects raw API keys and requires vault identifiers (UUID v7)
+        $rawApiKey = str_repeat('a', 10000);
 
         $provider = new Provider();
         $provider->setPid(0);
         $provider->setIdentifier('long-key-provider');
         $provider->setName('Long Key Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey($longApiKey);
-        $provider->setIsActive(true);
 
-        $this->providerRepository->add($provider);
-        $this->persistenceManager->persistAll();
-        $this->persistenceManager->clearState();
-
-        $addedProvider = $this->providerRepository->findOneByIdentifier('long-key-provider');
-        self::assertNotNull($addedProvider);
-        // API key should be stored (possibly truncated by database)
-        self::assertNotEmpty($addedProvider->getApiKey());
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1741268400);
+        $provider->setApiKey($rawApiKey);
     }
 
     // =========================================================================
@@ -906,7 +900,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('connection-fail-provider-' . time());
         $provider->setName('Connection Fail Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setEndpointUrl('https://unreachable.invalid.local/v1');
         $provider->setTimeout(2);
         $provider->setIsActive(true);
@@ -1187,7 +1181,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('zero-timeout-provider-' . time());
         $provider->setName('Zero Timeout Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setTimeout(0);
         $provider->setIsActive(true);
 
@@ -1210,7 +1204,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('negative-timeout-provider-' . time());
         $provider->setName('Negative Timeout Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setTimeout(-100);
         $provider->setIsActive(true);
 
@@ -1374,7 +1368,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('unknown-adapter-provider-' . time());
         $provider->setName('Unknown Adapter Provider');
         $provider->setAdapterType('nonexistent_adapter_xyz');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1402,7 +1396,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('empty-adapter-provider-' . time());
         $provider->setName('Empty Adapter Provider');
         $provider->setAdapterType('');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1618,7 +1612,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('xss-name-provider-' . time());
         $provider->setName($xssName);
         $provider->setAdapterType('openai');
-        $provider->setApiKey('sk-test');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);

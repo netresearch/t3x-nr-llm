@@ -648,7 +648,7 @@ final class ModelControllerTest extends TestCase
         $uidProperty->setValue($provider, $uid);
         $provider->setName('Test Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         return $provider;
     }
 

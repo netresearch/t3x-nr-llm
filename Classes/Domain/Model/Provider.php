@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use InvalidArgumentException;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Throwable;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -104,6 +105,10 @@ class Provider extends AbstractEntity
      *
      * This method retrieves the API key from nr-vault using the stored identifier.
      * The value is retrieved on-demand and not cached to minimize exposure.
+     *
+     * If the stored value is not a valid vault identifier (legacy plaintext data),
+     * a security warning is logged and an empty string is returned to prevent
+     * accidental use of unencrypted secrets.
      */
     public function getDecryptedApiKey(): string
     {
@@ -111,8 +116,21 @@ class Provider extends AbstractEntity
             return '';
         }
 
+        // Detect legacy plaintext API keys that were stored before vault integration
+        if (!self::isVaultIdentifier($this->apiKey)) {
+            trigger_error(
+                \sprintf(
+                    'Provider %d has a plaintext API key instead of a vault identifier. '
+                    . 'Re-save the provider record to migrate it to the vault.',
+                    $this->uid,
+                ),
+                E_USER_WARNING,
+            );
+
+            return '';
+        }
+
         try {
-            // apiKey contains a vault identifier (e.g., "tx_nrllm_provider__api_key__123")
             $vault = GeneralUtility::makeInstance(VaultServiceInterface::class);
             return $vault->retrieve($this->apiKey) ?? '';
         } catch (Throwable) {
@@ -250,12 +268,37 @@ class Provider extends AbstractEntity
     /**
      * Set the API key vault identifier.
      *
-     * The actual secret storage is handled by nr-vault's TCA form element.
-     * This method stores the vault identifier that references the encrypted secret.
+     * The actual secret storage is handled by nr-vault's TCA form element
+     * or by the SetupWizardController via VaultServiceInterface::store().
+     * This method only accepts vault identifiers (UUIDs), not raw secrets.
+     *
+     * @throws InvalidArgumentException If the value looks like a raw API key instead of a vault UUID
      */
     public function setApiKey(string $apiKey): void
     {
+        // Allow empty string (no key / clearing)
+        // Reject values that look like raw API keys (not vault UUIDs)
+        if ($apiKey !== '' && !self::isVaultIdentifier($apiKey)) {
+            throw new InvalidArgumentException(
+                'API key must be a vault identifier (UUID), not a raw secret. '
+                . 'Use VaultServiceInterface::store() first.',
+                1741268400,
+            );
+        }
+
         $this->apiKey = $apiKey;
+    }
+
+    /**
+     * Check whether a value looks like a vault identifier (UUID v7).
+     */
+    private static function isVaultIdentifier(string $value): bool
+    {
+        // UUID v7 format: 8-4-4-4-12 hex digits with version 7
+        return (bool)preg_match(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i',
+            $value,
+        );
     }
 
     public function setOrganizationId(string $organizationId): void
