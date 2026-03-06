@@ -20,6 +20,7 @@ return [
             'disabled' => 'hidden',
         ],
         'iconfile' => 'EXT:nr_llm/Resources/Public/Icons/Extension.svg',
+        'rootLevel' => -1,
         'security' => [
             'ignorePageTypeRestriction' => true,
         ],
