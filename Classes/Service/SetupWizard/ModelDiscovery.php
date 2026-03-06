@@ -38,7 +38,7 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
     {
         try {
             $endpoint = match ($provider->adapterType) {
-                'anthropic' => $provider->endpoint . '/v1/messages',
+                'anthropic' => $provider->endpoint . '/v1/models',
                 'gemini' => $provider->endpoint . '/v1/models',
                 'ollama' => $provider->endpoint . '/api/tags',
                 default => $provider->endpoint . '/v1/models',
