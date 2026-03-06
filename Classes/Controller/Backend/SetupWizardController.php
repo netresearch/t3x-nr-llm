@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\SuggestedConfiguration;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -60,6 +61,7 @@ final class SetupWizardController extends ActionController
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly IconFactory $iconFactory,
+        private readonly VaultServiceInterface $vaultService,
     ) {}
 
     protected function initializeAction(): void
@@ -277,12 +279,30 @@ final class SetupWizardController extends ActionController
             $providerEndpoint = is_string($providerData['endpoint'] ?? null) ? $providerData['endpoint'] : '';
             $providerApiKey = is_string($providerData['apiKey'] ?? null) ? $providerData['apiKey'] : '';
 
+            // Store the API key in the vault and use the vault identifier
+            $vaultIdentifier = '';
+            if ($providerApiKey !== '') {
+                try {
+                    $vaultIdentifier = $this->generateVaultIdentifier();
+                    $this->vaultService->store($vaultIdentifier, $providerApiKey, [
+                        'table' => 'tx_nrllm_provider',
+                        'field' => 'api_key',
+                        'source' => 'setup_wizard',
+                    ]);
+                } catch (Throwable $e) {
+                    return new JsonResponse([
+                        'success' => false,
+                        'error' => 'Failed to store API key securely: ' . $e->getMessage(),
+                    ], 500);
+                }
+            }
+
             $provider = new Provider();
             $provider->setIdentifier($this->generateIdentifier($providerName));
             $provider->setName($providerName !== '' ? $providerName : 'New Provider');
             $provider->setAdapterType($providerAdapter);
             $provider->setEndpointUrl($providerEndpoint);
-            $provider->setApiKey($providerApiKey);
+            $provider->setApiKey($vaultIdentifier);
             $provider->setIsActive(true);
             if ($pid >= 0) {
                 $provider->setPid($pid);
@@ -486,6 +506,37 @@ final class SetupWizardController extends ActionController
         }
         $value = $body[$key] ?? $default;
         return is_numeric($value) ? (int)$value : $default;
+    }
+
+    /**
+     * Generate a UUID v7 vault identifier.
+     *
+     * UUID v7 contains a 48-bit Unix timestamp (milliseconds) followed by random data,
+     * providing time-ordered IDs with good database index performance.
+     */
+    private function generateVaultIdentifier(): string
+    {
+        // 48-bit timestamp in milliseconds
+        $time = (int)(microtime(true) * 1000);
+
+        // 10 random bytes for the remaining fields
+        $random = random_bytes(10);
+
+        // Build UUID v7:
+        // - Bytes 0-5: timestamp (48 bits)
+        // - Byte 6: version (0111) + 4 random bits
+        // - Byte 7: 8 random bits
+        // - Byte 8: variant (10) + 6 random bits
+        // - Bytes 9-15: 56 random bits
+        return \sprintf(
+            '%08x-%04x-7%03x-%04x-%012x',
+            ($time >> 16) & 0xFFFFFFFF,
+            $time & 0xFFFF,
+            \ord($random[0]) << 4 | \ord($random[1]) >> 4 & 0x0FFF,
+            (\ord($random[1]) & 0x0F) << 8 | \ord($random[2]) & 0x3FFF | 0x8000,
+            (\ord($random[3]) << 40) | (\ord($random[4]) << 32) | (\ord($random[5]) << 24)
+                | (\ord($random[6]) << 16) | (\ord($random[7]) << 8) | \ord($random[8]),
+        );
     }
 
     /**

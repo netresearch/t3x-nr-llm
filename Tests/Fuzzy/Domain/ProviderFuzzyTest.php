@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Fuzzy\Domain;
 
 use Eris\Generator;
+use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Tests\Fuzzy\AbstractFuzzyTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
@@ -106,16 +107,39 @@ class ProviderFuzzyTest extends AbstractFuzzyTestCase
     }
 
     #[Test]
-    public function apiKeyPreservesValue(): void
+    public function apiKeyAcceptsVaultIdentifiersAndEmptyString(): void
+    {
+        // setApiKey() now only accepts vault identifiers (UUID v7) or empty string
+        $provider = new Provider();
+
+        // Empty string should always work
+        $provider->setApiKey('');
+        self::assertSame('', $provider->getApiKey());
+
+        // Valid UUID v7 should work
+        $uuid = '0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f';
+        $provider->setApiKey($uuid);
+        self::assertSame($uuid, $provider->getApiKey());
+    }
+
+    #[Test]
+    public function apiKeyRejectsRawSecrets(): void
     {
         $this
-            // @phpstan-ignore function.notFound
-            ->forAll(Generator\string())
-            ->then(function (string $apiKey): void {
+            ->forAll(
+                // @phpstan-ignore function.notFound
+                Generator\suchThat(
+                    static fn(string $s) => $s !== ''
+                        && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $s) !== 1,
+                    Generator\string(), // @phpstan-ignore function.notFound
+                ),
+            )
+            ->then(function (string $rawKey): void {
                 $provider = new Provider();
-                $provider->setApiKey($apiKey);
 
-                $this->assertSame($apiKey, $provider->getApiKey());
+                $this->expectException(InvalidArgumentException::class);
+                $this->expectExceptionCode(1741268400);
+                $provider->setApiKey($rawKey);
             });
     }
 

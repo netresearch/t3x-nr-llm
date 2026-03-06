@@ -315,7 +315,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 
         // User updates API key identifier (vault reference)
         // With nr-vault integration, this field stores a vault identifier, not the actual key
-        $newVaultIdentifier = 'tx_nrllm_provider__api_key__new_test';
+        $newVaultIdentifier = '0190a5e0-7a1c-7b2d-8f3e-1a2b3c4d5e6f';
         $provider->setApiKey($newVaultIdentifier);
         $this->providerRepository->update($provider);
         $this->persistenceManager->persistAll();
@@ -678,7 +678,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setName('Custom Endpoint Provider');
         $provider->setAdapterType('openai');
         $provider->setEndpointUrl('https://custom.api.example.com/v1');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -872,7 +872,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('full-config-provider-' . time());
         $provider->setName('Full Config Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('sk-full-test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setEndpointUrl('https://api.openai.com/v1');
         $provider->setTimeout(30);
         $provider->setPriority(50);
@@ -972,7 +972,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('inactive-test-provider-' . time());
         $provider->setName('Inactive Test Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('test-key');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(false);
 
         $this->providerRepository->add($provider);
@@ -1051,7 +1051,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('lifecycle-provider-' . time());
         $provider->setName('Lifecycle Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('sk-lifecycle-test');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1119,7 +1119,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('apikey-provider-' . time());
         $provider->setName('API Key Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('sk-test-api-key-12345');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1166,7 +1166,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('timeout-provider-' . time());
         $provider->setName('Timeout Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('sk-test');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setTimeout(120); // 2 minutes
         $provider->setIsActive(true);
 
@@ -1187,7 +1187,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('default-timeout-provider-' . time());
         $provider->setName('Default Timeout Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('sk-test');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         // Don't set timeout explicitly
         $provider->setIsActive(true);
 
@@ -1215,7 +1215,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('long-name-provider-' . time());
         $provider->setName($longName);
         $provider->setAdapterType('openai');
-        $provider->setApiKey('sk-test');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1238,7 +1238,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('unicode-name-provider-' . time());
         $provider->setName($unicodeName);
         $provider->setAdapterType('openai');
-        $provider->setApiKey('sk-test');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1260,7 +1260,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('special-char-provider-' . time());
         $provider->setName($specialName);
         $provider->setAdapterType('openai');
-        $provider->setApiKey('sk-test');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1365,7 +1365,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('https-endpoint-provider-' . time());
         $provider->setName('HTTPS Endpoint Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('sk-test');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setEndpointUrl('https://api.openai.com/v1');
         $provider->setIsActive(true);
 
@@ -1426,7 +1426,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('path-endpoint-provider-' . time());
         $provider->setName('Path Endpoint Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('sk-test');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setEndpointUrl('https://api.example.com/custom/path/v1');
         $provider->setIsActive(true);
 
@@ -1447,7 +1447,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('empty-endpoint-provider-' . time());
         $provider->setName('Empty Endpoint Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('sk-test');
+        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
         $provider->setEndpointUrl('');
         $provider->setIsActive(true);
 
