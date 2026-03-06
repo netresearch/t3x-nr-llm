@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Symfony\Component\Uid\Uuid;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
@@ -508,35 +509,9 @@ final class SetupWizardController extends ActionController
         return is_numeric($value) ? (int)$value : $default;
     }
 
-    /**
-     * Generate a UUID v7 vault identifier.
-     *
-     * UUID v7 contains a 48-bit Unix timestamp (milliseconds) followed by random data,
-     * providing time-ordered IDs with good database index performance.
-     */
     private function generateVaultIdentifier(): string
     {
-        // 48-bit timestamp in milliseconds
-        $time = (int)(microtime(true) * 1000);
-
-        // 10 random bytes for the remaining fields
-        $random = random_bytes(10);
-
-        // Build UUID v7:
-        // - Bytes 0-5: timestamp (48 bits)
-        // - Byte 6: version (0111) + 4 random bits
-        // - Byte 7: 8 random bits
-        // - Byte 8: variant (10) + 6 random bits
-        // - Bytes 9-15: 56 random bits
-        return \sprintf(
-            '%08x-%04x-7%03x-%04x-%012x',
-            ($time >> 16) & 0xFFFFFFFF,
-            $time & 0xFFFF,
-            \ord($random[0]) << 4 | \ord($random[1]) >> 4 & 0x0FFF,
-            (\ord($random[1]) & 0x0F) << 8 | \ord($random[2]) & 0x3FFF | 0x8000,
-            (\ord($random[3]) << 40) | (\ord($random[4]) << 32) | (\ord($random[5]) << 24)
-                | (\ord($random[6]) << 16) | (\ord($random[7]) << 8) | \ord($random[8]),
-        );
+        return Uuid::v7()->toRfc4122();
     }
 
     /**
