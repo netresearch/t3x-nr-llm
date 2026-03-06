@@ -300,7 +300,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         self::assertIsArray($body);
 
         self::assertEquals(0.5, $body['temperature']);
-        self::assertEquals(100, $body['max_tokens']);
+        self::assertEquals(100, $body['max_completion_tokens']);
     }
 
     #[Test]

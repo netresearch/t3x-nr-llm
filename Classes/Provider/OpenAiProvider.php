@@ -96,7 +96,7 @@ final class OpenAiProvider extends AbstractProvider implements
             'model' => $model,
             'messages' => $messages,
             'temperature' => $this->getFloat($options, 'temperature', 0.7),
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         if (isset($options['top_p'])) {
@@ -150,7 +150,7 @@ final class OpenAiProvider extends AbstractProvider implements
             'messages' => $messages,
             'tools' => $tools,
             'temperature' => $this->getFloat($options, 'temperature', 0.7),
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         if (isset($options['tool_choice'])) {
@@ -274,7 +274,7 @@ final class OpenAiProvider extends AbstractProvider implements
         $payload = [
             'model' => $model,
             'messages' => $messages,
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
         $response = $this->sendRequest('chat/completions', $payload);
@@ -325,7 +325,7 @@ final class OpenAiProvider extends AbstractProvider implements
             'model' => $this->getString($options, 'model', $this->getDefaultModel()),
             'messages' => $messages,
             'temperature' => $this->getFloat($options, 'temperature', 0.7),
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
             'stream' => true,
         ];
 
