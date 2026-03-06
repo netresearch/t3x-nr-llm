@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\SetupWizard;
 
+use Netresearch\NrLlm\Domain\Model\AdapterType;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 
 /**
@@ -102,10 +103,15 @@ final class ProviderDetector
         // Check known patterns
         foreach (self::DETECTION_PATTERNS as $pattern => [$adapterType, $suggestedName, $confidence]) {
             if (str_contains($host, $pattern)) {
+                // Use the canonical default endpoint from AdapterType when available,
+                // so users entering just "api.anthropic.com" get the correct "/v1" path
+                $adapterTypeEnum = AdapterType::tryFrom($adapterType);
+                $effectiveEndpoint = $adapterTypeEnum?->defaultEndpoint() ?? $endpoint;
+
                 return new DetectedProvider(
                     adapterType: $adapterType,
                     suggestedName: $suggestedName,
-                    endpoint: $endpoint,
+                    endpoint: $effectiveEndpoint,
                     confidence: $confidence,
                 );
             }

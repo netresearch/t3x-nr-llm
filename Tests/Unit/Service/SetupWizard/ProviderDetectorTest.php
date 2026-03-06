@@ -43,7 +43,7 @@ class ProviderDetectorTest extends AbstractUnitTestCase
         $result = $this->subject->detect('api.openai.com');
 
         self::assertEquals('openai', $result->adapterType);
-        self::assertEquals('https://api.openai.com', $result->endpoint);
+        self::assertEquals('https://api.openai.com/v1', $result->endpoint);
     }
 
     #[Test]
@@ -317,7 +317,7 @@ class ProviderDetectorTest extends AbstractUnitTestCase
     {
         $result = $this->subject->detect('api.anthropic.com');
 
-        self::assertEquals('https://api.anthropic.com', $result->endpoint);
+        self::assertEquals('https://api.anthropic.com/v1', $result->endpoint);
     }
 
     #[Test]
@@ -341,7 +341,7 @@ class ProviderDetectorTest extends AbstractUnitTestCase
     {
         $result = $this->subject->detect('  https://api.openai.com  ');
 
-        self::assertEquals('https://api.openai.com', $result->endpoint);
+        self::assertEquals('https://api.openai.com/v1', $result->endpoint);
     }
 
     // ==================== getSupportedAdapterTypes ====================
