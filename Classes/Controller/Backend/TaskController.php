@@ -270,10 +270,9 @@ final class TaskController extends ActionController
 
         try {
             // Check if the table has a uid column — some tables (e.g. tx_scheduler_task) may not
-            $connection = $this->connectionPool->getConnectionByName('Default');
+            $connection = $this->connectionPool->getConnectionForTable($dto->table);
             $columns = $connection->createSchemaManager()->listTableColumns($dto->table);
-            $columnNames = array_map(static fn($col) => $col->getName(), $columns);
-            if (!in_array('uid', $columnNames, true)) {
+            if (!isset($columns['uid'])) {
                 return new JsonResponse([
                     'success' => true,
                     'records' => [],
@@ -468,12 +467,11 @@ final class TaskController extends ActionController
 
         // Common label field names as fallback
         $commonFields = ['name', 'title', 'header', 'subject', 'username', 'email', 'identifier'];
-        $connection = $this->connectionPool->getConnectionByName('Default');
+        $connection = $this->connectionPool->getConnectionForTable($table);
         $columns = $connection->createSchemaManager()->listTableColumns($table);
-        $columnNames = array_map(fn($col) => $col->getName(), $columns);
 
         foreach ($commonFields as $field) {
-            if (in_array($field, $columnNames, true)) {
+            if (isset($columns[$field])) {
                 return $field;
             }
         }
