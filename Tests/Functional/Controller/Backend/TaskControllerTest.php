@@ -717,20 +717,22 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $conn = $connectionPool->getConnectionByName('Default');
         $conn->executeStatement('CREATE TABLE IF NOT EXISTS test_no_uid (name VARCHAR(255) NOT NULL, value TEXT)');
 
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/fetch-records');
-        $request = $request->withParsedBody(['table' => 'test_no_uid']);
+        try {
+            $request = new ServerRequest('POST', '/ajax/nrllm/task/fetch-records');
+            $request = $request->withParsedBody(['table' => 'test_no_uid']);
 
-        $response = $this->controller->fetchRecordsAction($request);
+            $response = $this->controller->fetchRecordsAction($request);
 
-        self::assertSame(200, $response->getStatusCode());
-        $body = json_decode((string)$response->getBody(), true);
-        self::assertIsArray($body);
-        self::assertTrue($body['success']);
-        self::assertSame([], $body['records']);
-        self::assertSame(0, $body['total']);
-
-        // Cleanup
-        $conn->executeStatement('DROP TABLE IF EXISTS test_no_uid');
+            self::assertSame(200, $response->getStatusCode());
+            $body = json_decode((string)$response->getBody(), true);
+            self::assertIsArray($body);
+            self::assertTrue($body['success']);
+            self::assertSame([], $body['records']);
+            self::assertSame('', $body['labelField']);
+            self::assertSame(0, $body['total']);
+        } finally {
+            $conn->executeStatement('DROP TABLE IF EXISTS test_no_uid');
+        }
     }
 
     #[Test]
