@@ -401,10 +401,20 @@ class Provider extends AbstractEntity
      * Check if API key is configured.
      *
      * Checks if there is a non-empty API key (encrypted or plaintext).
+     * Note: getHasApiKey() alias is needed because Fluid's {provider.hasApiKey}
+     * resolves to getHasApiKey(), not hasApiKey().
      */
     public function hasApiKey(): bool
     {
         return $this->apiKey !== '' && $this->getDecryptedApiKey() !== '';
+    }
+
+    /**
+     * Fluid-compatible alias for hasApiKey().
+     */
+    public function getHasApiKey(): bool
+    {
+        return $this->hasApiKey();
     }
 
     /**
