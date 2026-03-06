@@ -269,6 +269,19 @@ final class TaskController extends ActionController
         }
 
         try {
+            // Check if the table has a uid column — some tables (e.g. tx_scheduler_task) may not
+            $connection = $this->connectionPool->getConnectionByName('Default');
+            $columns = $connection->createSchemaManager()->listTableColumns($dto->table);
+            $columnNames = array_map(static fn($col) => $col->getName(), $columns);
+            if (!in_array('uid', $columnNames, true)) {
+                return new JsonResponse([
+                    'success' => true,
+                    'records' => [],
+                    'labelField' => '',
+                    'total' => 0,
+                ]);
+            }
+
             // Determine label field if not specified
             $labelField = $dto->labelField !== ''
                 ? $dto->labelField

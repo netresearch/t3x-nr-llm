@@ -243,7 +243,6 @@ final class ModelController extends ActionController
             $response = $adapter->complete($testPrompt, [
                 'model' => $model->getModelId(),
                 'max_tokens' => 100,
-                'temperature' => 0.0,
             ]);
 
             $responseText = trim($response->content);
