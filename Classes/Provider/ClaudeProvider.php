@@ -131,11 +131,11 @@ final class ClaudeProvider extends AbstractProvider implements
             $payload['system'] = $systemMessage;
         }
 
+        // Anthropic does not allow both temperature and top_p simultaneously.
+        // If both are set, prefer temperature (the more commonly configured one).
         if (isset($options['temperature'])) {
             $payload['temperature'] = $this->getFloat($options, 'temperature');
-        }
-
-        if (isset($options['top_p'])) {
+        } elseif (isset($options['top_p'])) {
             $payload['top_p'] = $this->getFloat($options, 'top_p');
         }
 

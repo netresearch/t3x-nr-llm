@@ -95,21 +95,9 @@ final class OpenAiProvider extends AbstractProvider implements
         $payload = [
             'model' => $model,
             'messages' => $messages,
-            'temperature' => $this->getFloat($options, 'temperature', 0.7),
             'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            ...$this->buildSamplingParams($model, $options),
         ];
-
-        if (isset($options['top_p'])) {
-            $payload['top_p'] = $this->getFloat($options, 'top_p');
-        }
-
-        if (isset($options['frequency_penalty'])) {
-            $payload['frequency_penalty'] = $this->getFloat($options, 'frequency_penalty');
-        }
-
-        if (isset($options['presence_penalty'])) {
-            $payload['presence_penalty'] = $this->getFloat($options, 'presence_penalty');
-        }
 
         if (isset($options['stop'])) {
             $payload['stop'] = $options['stop'];
@@ -149,8 +137,8 @@ final class OpenAiProvider extends AbstractProvider implements
             'model' => $model,
             'messages' => $messages,
             'tools' => $tools,
-            'temperature' => $this->getFloat($options, 'temperature', 0.7),
             'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
+            ...$this->buildSamplingParams($model, $options),
         ];
 
         if (isset($options['tool_choice'])) {
@@ -321,12 +309,14 @@ final class OpenAiProvider extends AbstractProvider implements
      */
     public function streamChatCompletion(array $messages, array $options = []): Generator
     {
+        $model = $this->getString($options, 'model', $this->getDefaultModel());
+
         $payload = [
-            'model' => $this->getString($options, 'model', $this->getDefaultModel()),
+            'model' => $model,
             'messages' => $messages,
-            'temperature' => $this->getFloat($options, 'temperature', 0.7),
             'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
             'stream' => true,
+            ...$this->buildSamplingParams($model, $options),
         ];
 
         $url = rtrim($this->baseUrl, '/') . '/chat/completions';
@@ -380,6 +370,47 @@ final class OpenAiProvider extends AbstractProvider implements
     public function supportsStreaming(): bool
     {
         return true;
+    }
+
+    /**
+     * Check if a model is a reasoning model that doesn't support
+     * temperature, top_p, frequency_penalty, or presence_penalty.
+     */
+    private function isReasoningModel(string $model): bool
+    {
+        return (bool)preg_match('/^(o[1-9]|gpt-5[.-]?\d*-?mini)/', $model);
+    }
+
+    /**
+     * Build sampling parameters, stripping them for reasoning models.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private function buildSamplingParams(string $model, array $options): array
+    {
+        if ($this->isReasoningModel($model)) {
+            return [];
+        }
+
+        $params = [
+            'temperature' => $this->getFloat($options, 'temperature', 0.7),
+        ];
+
+        if (isset($options['top_p'])) {
+            $params['top_p'] = $this->getFloat($options, 'top_p');
+        }
+
+        if (isset($options['frequency_penalty'])) {
+            $params['frequency_penalty'] = $this->getFloat($options, 'frequency_penalty');
+        }
+
+        if (isset($options['presence_penalty'])) {
+            $params['presence_penalty'] = $this->getFloat($options, 'presence_penalty');
+        }
+
+        return $params;
     }
 
     /**
