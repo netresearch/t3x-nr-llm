@@ -477,6 +477,7 @@ Interpreting results
 - **Current**: 58% MSI (459 tests).
 
 .. code-block:: text
+   :caption: Mutation testing results
 
    Mutation Score Indicator (MSI): 58%
    Mutation Code Coverage: 85%

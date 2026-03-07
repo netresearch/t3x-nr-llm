@@ -31,6 +31,7 @@ Decision
 Implement **hierarchical exception system**:
 
 .. code-block:: text
+   :caption: Exception hierarchy
 
    Exception
    └── ProviderException (base for provider errors)

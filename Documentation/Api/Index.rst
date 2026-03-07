@@ -36,6 +36,7 @@ The central service for all LLM operations.
       **Message Format:**
 
       .. code-block:: php
+         :caption: Chat message format
 
          $messages = [
              ['role' => 'system', 'content' => 'You are a helpful assistant.'],
@@ -597,27 +598,35 @@ Exceptions
 
 .. php:class:: ProviderConfigurationException
 
-   Thrown when a provider is incorrectly configured.
+   Thrown when a provider is incorrectly
+   configured.
 
-   Extends :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
+   Extends
+   :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
 
 .. php:class:: ProviderConnectionException
 
-   Thrown when a connection to the provider fails.
+   Thrown when a connection to the provider
+   fails.
 
-   Extends :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
+   Extends
+   :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
 
 .. php:class:: ProviderResponseException
 
-   Thrown when the provider returns an unexpected or error response.
+   Thrown when the provider returns an
+   unexpected or error response.
 
-   Extends :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
+   Extends
+   :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
 
 .. php:class:: UnsupportedFeatureException
 
-   Thrown when a requested feature is not supported by the provider.
+   Thrown when a requested feature is not
+   supported by the provider.
 
-   Extends :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
+   Extends
+   :php:class:`Netresearch\\NrLlm\\Provider\\Exception\\ProviderException`
 
 .. php:namespace:: Netresearch\NrLlm\Exception
 

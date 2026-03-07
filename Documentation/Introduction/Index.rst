@@ -11,29 +11,36 @@ Introduction
 What does it do?
 ================
 
-nr-llm is the **shared AI foundation for TYPO3**. It lets administrators configure
-LLM providers once in the backend — and every AI-powered extension on the site uses
-them automatically.
+nr-llm is the **shared AI foundation for TYPO3**.
+It lets administrators configure LLM providers
+once in the backend — and every AI-powered
+extension on the site uses them automatically.
 
-**For extension developers**, it eliminates the need to build provider integrations,
-manage API keys, or implement caching and streaming. Add AI capabilities to your
-extension with three lines of dependency injection.
+**For extension developers**, it eliminates the
+need to build provider integrations, manage API
+keys, or implement caching and streaming. Add AI
+capabilities to your extension with three lines
+of dependency injection.
 
 **For administrators**, it provides a single backend module to manage all AI
-connections, encrypted API keys, and provider configurations. Switch from OpenAI to
-Anthropic without touching any extension code.
+connections, encrypted API keys, and provider
+configurations. Switch from OpenAI to Anthropic
+without touching any extension code.
 
 **For agencies**, it means consistent AI architecture across client projects, no
-vendor lock-in, and a local-first option via Ollama for data-sensitive environments.
+vendor lock-in, and a local-first option via
+Ollama for data-sensitive environments.
 
 The extension enables developers to:
 
 - **Access multiple AI providers** through a single, consistent API.
 - **Switch providers transparently** without code changes.
-- **Leverage specialized services** for common AI tasks (translation, vision, embeddings).
+- **Leverage specialized services** for common
+  AI tasks (translation, vision, embeddings).
 - **Cache responses** to reduce API costs and improve performance.
 - **Stream responses** for real-time user experiences.
-- **Store API keys securely** with sodium encryption or nr-vault envelope encryption.
+- **Store API keys securely** with sodium
+  encryption or nr-vault envelope encryption.
 
 .. _introduction-supported-providers:
 
@@ -120,7 +127,8 @@ High-level services for common AI tasks:
    Image analysis with specialized prompts for alt-text, titles, descriptions.
 
 :php:`TranslationService`
-   Language translation with formality control, domain-specific terminology, and glossaries.
+   Language translation with formality control,
+   domain-specific terminology, and glossaries.
 
 :php:`PromptTemplateService`
    Centralized prompt management with variable substitution and versioning.

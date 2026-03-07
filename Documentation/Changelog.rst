@@ -11,6 +11,177 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-4-8:
+
+Version 0.4.8 (2026-03-07)
+===========================
+
+Changed
+-------
+
+- Rewritten introduction with value-oriented positioning.
+- Restructured README around value proposition and audience segments.
+- Updated package metadata with value-oriented descriptions.
+- Added integration guide for extension developers.
+
+.. _version-0-4-7:
+
+Version 0.4.7 (2026-03-07)
+===========================
+
+Added
+-----
+
+- Help page in the LLM backend module.
+- Setup wizard links on empty-state list pages.
+
+Fixed
+-----
+
+- Use canonical endpoint URLs for known providers in setup wizard.
+- Remove container class from backend module templates.
+
+.. _version-0-4-6:
+
+Version 0.4.6 (2026-03-06)
+===========================
+
+Fixed
+-----
+
+- Add Fluid-compatible ``getHasApiKey()`` getter for ``{provider.hasApiKey}`` in templates.
+
+.. _version-0-4-5:
+
+Version 0.4.5 (2026-03-06)
+===========================
+
+Fixed
+-----
+
+- Use ``GET /v1/models`` for Anthropic connection test.
+
+.. _version-0-4-4:
+
+Version 0.4.4 (2026-03-06)
+===========================
+
+Fixed
+-----
+
+- Use table-specific connection and simplify column checks.
+- Wrap test cleanup in try/finally and assert labelField.
+
+.. _version-0-4-3:
+
+Version 0.4.3 (2026-03-06)
+===========================
+
+Fixed
+-----
+
+- Handle tables without ``uid`` column in TCA utilities.
+- Remove hardcoded temperature from chat completions.
+
+.. _version-0-4-2:
+
+Version 0.4.2 (2026-03-06)
+===========================
+
+Fixed
+-----
+
+- Add ``rootLevel`` to provider, configuration, and model TCA definitions.
+
+.. _version-0-4-1:
+
+Version 0.4.1 (2026-03-06)
+===========================
+
+Fixed
+-----
+
+- Use ``max_completion_tokens`` instead of ``max_tokens`` for OpenAI chat completions.
+
+.. _version-0-4-0:
+
+Version 0.4.0 (2026-03-06)
+===========================
+
+Breaking
+--------
+
+- Prevent plaintext API key storage via setup wizard; keys now require vault encryption.
+
+Fixed
+-----
+
+- Cast ExtensionConfiguration timeout values to integer.
+
+Changed
+-------
+
+- Use Symfony ``Uuid::v7()`` instead of manual UUID generation.
+
+.. _version-0-3-2:
+
+Version 0.3.2 (2026-03-04)
+===========================
+
+Added
+-----
+
+- Extract thinking blocks from LLM responses (``<think>`` tag support).
+
+Fixed
+-----
+
+- Preserve newlines in ``extractThinkingBlocks``.
+- Restrict CI push trigger to main branch only.
+- Add ``merge_group`` trigger to CI workflow.
+
+.. _version-0-3-1:
+
+Version 0.3.1 (2026-03-02)
+===========================
+
+Fixed
+-----
+
+- Add Overview submodule for TYPO3 v13 module overview compatibility.
+
+.. _version-0-3-0:
+
+Version 0.3.0 (2026-03-01)
+===========================
+
+Added
+-----
+
+- Expose ``chatWithConfiguration`` and ``streamChatWithConfiguration`` on ``LlmServiceManagerInterface``.
+
+Fixed
+-----
+
+- Use integer values for ``f:be.infobox`` state attribute for TYPO3 v13 compatibility.
+- Explicitly enable fuzz and mutation tests.
+
+.. _version-0-2-2:
+
+Version 0.2.2 (2026-03-01)
+===========================
+
+Fixed
+-----
+
+- Use ``tools`` parent for TYPO3 v13 module compatibility.
+
+Changed
+-------
+
+- Consolidate caller workflows into 4 grouped files.
+- Fix documentation issues found by analysis.
+
 .. _version-0-2-1:
 
 Version 0.2.1 (2026-02-28)
@@ -162,24 +333,28 @@ If you used a pre-release version:
 1. **Remove old extension**
 
    .. code-block:: bash
+      :caption: Remove old extension
 
       composer remove netresearch/nr-llm
 
 2. **Clear caches**
 
    .. code-block:: bash
+      :caption: Clear caches
 
       vendor/bin/typo3 cache:flush
 
 3. **Install current version**
 
    .. code-block:: bash
+      :caption: Install current version
 
       composer require netresearch/nr-llm:^0.2
 
 4. **Run database migrations**
 
    .. code-block:: bash
+      :caption: Run database migrations
 
       vendor/bin/typo3 database:updateschema
 
