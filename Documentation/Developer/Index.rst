@@ -245,6 +245,7 @@ Tool/function calling
    :maxdepth: 2
    :hidden:
 
+   IntegrationGuide
    FeatureServices/Index
 
 .. _developer-response-objects:
