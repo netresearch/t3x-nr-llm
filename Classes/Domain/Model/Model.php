@@ -57,8 +57,6 @@ class Model extends AbstractEntity
     protected int $sorting = 0;
     protected int $tstamp = 0;
     protected int $crdate = 0;
-    protected int $cruserId = 0;
-
     // ========================================
     // Getters
     // ========================================
@@ -197,11 +195,6 @@ class Model extends AbstractEntity
     public function getCrdate(): int
     {
         return $this->crdate;
-    }
-
-    public function getCruserId(): int
-    {
-        return $this->cruserId;
     }
 
     // ========================================

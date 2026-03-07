@@ -65,8 +65,6 @@ class LlmConfiguration extends AbstractEntity
     protected int $allowedGroups = 0;
     protected int $tstamp = 0;
     protected int $crdate = 0;
-    protected int $cruserId = 0;
-
     /**
      * Allowed backend groups (MM relation).
      *
@@ -324,11 +322,6 @@ class LlmConfiguration extends AbstractEntity
     public function getCrdate(): int
     {
         return $this->crdate;
-    }
-
-    public function getCruserId(): int
-    {
-        return $this->cruserId;
     }
 
     // ========================================

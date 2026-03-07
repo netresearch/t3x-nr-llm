@@ -583,6 +583,95 @@
             <trans-unit id="palette.settings">
                 <source>Settings</source>
             </trans-unit>
+
+            <!-- Task category select items -->
+            <trans-unit id="tx_nrllm_task.category.log_analysis">
+                <source>Log Analysis</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.category.content">
+                <source>Content Operations</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.category.system">
+                <source>System Health</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.category.developer">
+                <source>Developer Assistance</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.category.general">
+                <source>General</source>
+            </trans-unit>
+
+            <!-- Task configuration_uid select items -->
+            <trans-unit id="tx_nrllm_task.configuration_uid.default">
+                <source>-- Use Default Configuration --</source>
+            </trans-unit>
+
+            <!-- Task input_type select items -->
+            <trans-unit id="tx_nrllm_task.input_type.manual">
+                <source>Manual Input</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.input_type.syslog">
+                <source>System Log (sys_log)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.input_type.deprecation_log">
+                <source>Deprecation Log</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.input_type.table">
+                <source>Database Table</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.input_type.file">
+                <source>File</source>
+            </trans-unit>
+
+            <!-- Task output_format select items -->
+            <trans-unit id="tx_nrllm_task.output_format.markdown">
+                <source>Markdown</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.output_format.json">
+                <source>JSON</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.output_format.plain">
+                <source>Plain Text</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.output_format.html">
+                <source>HTML</source>
+            </trans-unit>
+
+            <!-- Configuration model_uid select items -->
+            <trans-unit id="tx_nrllm_configuration.model_uid.select">
+                <source>-- Select Model --</source>
+            </trans-unit>
+
+            <!-- Configuration adapter select items (model_selection_criteria) -->
+            <trans-unit id="tx_nrllm_configuration.adapter.openai">
+                <source>OpenAI</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.adapter.anthropic">
+                <source>Anthropic (Claude)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.adapter.gemini">
+                <source>Google (Gemini)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.adapter.openrouter">
+                <source>OpenRouter</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.adapter.mistral">
+                <source>Mistral</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.adapter.groq">
+                <source>Groq</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.adapter.ollama">
+                <source>Ollama</source>
+            </trans-unit>
+
+            <!-- Configuration translator select items -->
+            <trans-unit id="tx_nrllm_configuration.translator.none">
+                <source>None (use LLM)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.translator.deepl">
+                <source>DeepL</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

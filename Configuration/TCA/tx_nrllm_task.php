@@ -27,7 +27,7 @@ return [
         ],
     ],
     'types' => [
-        '1' => [
+        '0' => [
             'showitem' => '
                 --div--;core.form.tabs:general,
                     --palette--;;identity,
@@ -109,11 +109,11 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
                 'items' => [
-                    ['label' => 'Log Analysis', 'value' => 'log_analysis'],
-                    ['label' => 'Content Operations', 'value' => 'content'],
-                    ['label' => 'System Health', 'value' => 'system'],
-                    ['label' => 'Developer Assistance', 'value' => 'developer'],
-                    ['label' => 'General', 'value' => 'general'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category.log_analysis', 'value' => 'log_analysis'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category.content', 'value' => 'content'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category.system', 'value' => 'system'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category.developer', 'value' => 'developer'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.category.general', 'value' => 'general'],
                 ],
                 'default' => 'general',
             ],
@@ -127,7 +127,7 @@ return [
                 'foreign_table' => 'tx_nrllm_configuration',
                 'foreign_table_where' => 'AND {#tx_nrllm_configuration}.{#deleted} = 0 ORDER BY tx_nrllm_configuration.name',
                 'items' => [
-                    ['label' => '-- Use Default Configuration --', 'value' => 0],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.configuration_uid.default', 'value' => 0],
                 ],
                 'default' => 0,
             ],
@@ -150,11 +150,11 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
                 'items' => [
-                    ['label' => 'Manual Input', 'value' => 'manual'],
-                    ['label' => 'System Log (sys_log)', 'value' => 'syslog'],
-                    ['label' => 'Deprecation Log', 'value' => 'deprecation_log'],
-                    ['label' => 'Database Table', 'value' => 'table'],
-                    ['label' => 'File', 'value' => 'file'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_type.manual', 'value' => 'manual'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_type.syslog', 'value' => 'syslog'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_type.deprecation_log', 'value' => 'deprecation_log'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_type.table', 'value' => 'table'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.input_type.file', 'value' => 'file'],
                 ],
                 'default' => 'manual',
             ],
@@ -177,10 +177,10 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
                 'items' => [
-                    ['label' => 'Markdown', 'value' => 'markdown'],
-                    ['label' => 'JSON', 'value' => 'json'],
-                    ['label' => 'Plain Text', 'value' => 'plain'],
-                    ['label' => 'HTML', 'value' => 'html'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.output_format.markdown', 'value' => 'markdown'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.output_format.json', 'value' => 'json'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.output_format.plain', 'value' => 'plain'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.output_format.html', 'value' => 'html'],
                 ],
                 'default' => 'markdown',
             ],

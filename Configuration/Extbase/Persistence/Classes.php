@@ -21,18 +21,10 @@ use Netresearch\NrLlm\Domain\Model\Task;
 return [
     Provider::class => [
         'tableName' => 'tx_nrllm_provider',
-        'properties' => [
-            'cruserId' => [
-                'fieldName' => 'cruser_id',
-            ],
-        ],
     ],
     Model::class => [
         'tableName' => 'tx_nrllm_model',
         'properties' => [
-            'cruserId' => [
-                'fieldName' => 'cruser_id',
-            ],
             'provider' => [
                 'fieldName' => 'provider_uid',
             ],
@@ -41,9 +33,6 @@ return [
     LlmConfiguration::class => [
         'tableName' => 'tx_nrllm_configuration',
         'properties' => [
-            'cruserId' => [
-                'fieldName' => 'cruser_id',
-            ],
             'llmModel' => [
                 'fieldName' => 'model_uid',
             ],
@@ -85,9 +74,6 @@ return [
     Task::class => [
         'tableName' => 'tx_nrllm_task',
         'properties' => [
-            'cruserId' => [
-                'fieldName' => 'cruser_id',
-            ],
             'configuration' => [
                 'fieldName' => 'configuration_uid',
             ],
