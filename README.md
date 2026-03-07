@@ -1,4 +1,4 @@
-# TYPO3 Extension: nr_llm
+# nr-llm — The Shared AI Foundation for TYPO3
 
 [![CI](https://github.com/netresearch/t3x-nr-llm/actions/workflows/ci.yml/badge.svg)](https://github.com/netresearch/t3x-nr-llm/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/netresearch/t3x-nr-llm/graph/badge.svg)](https://codecov.io/gh/netresearch/t3x-nr-llm)
@@ -13,43 +13,192 @@
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.0-4baaaa.svg)](CODE_OF_CONDUCT.md)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 
-A unified LLM (Large Language Model) provider abstraction layer for TYPO3 v13.4+.
+**One LLM setup. Every extension. Full admin control.**
 
-## Features
+nr-llm is shared infrastructure for AI in TYPO3 — like the caching framework, but for language models.
+Administrators configure providers once; every AI-powered extension on the site uses them automatically.
 
-- **Multi-Provider Support**: OpenAI, Anthropic Claude, Google Gemini, Ollama, OpenRouter, Mistral, Groq
-- **Three-Tier Architecture**: Providers (connections) → Models (capabilities) → Configurations (use cases)
-- **Encrypted API Keys**: API keys stored encrypted using sodium_crypto_secretbox
-- **Feature Services**: Translation, Completion, Embedding, Vision
-- **Specialized Services**: Image Generation (DALL-E), Text-to-Speech (TTS), Speech Transcription (Whisper), DeepL Translation
-- **Caching**: Built-in response caching for embeddings and completions
-- **Streaming**: Server-Sent Events (SSE) support for real-time responses
-- **Tool Calling**: Function/tool support for compatible providers
-- **Backend Module**: Manage providers, models, and configurations from TYPO3 backend
+## The Problem
 
-## Requirements
+Every TYPO3 extension that wants AI capabilities today has to:
 
-- PHP 8.2+
-- TYPO3 v13.4+
-- PSR-18 HTTP Client (e.g., guzzlehttp/guzzle)
+- Build its own provider integration (HTTP calls, auth, error handling, streaming)
+- Store API keys in its own way (often plaintext in extension settings)
+- Create its own backend configuration UI
+- Leave administrators with no central overview of AI usage or costs
 
-## Installation
+When a site runs three AI extensions, that's three separate API key configurations,
+three places to check when something breaks, and no way to switch providers globally.
 
-### Composer
+## The Solution
+
+nr-llm provides the missing shared layer:
+
+```
+┌─────────────────────────────────────────────────┐
+│  Your Extension  │  Cowriter  │  SEO Assistant  │
+│  (3 lines of DI) │           │                 │
+└────────┬─────────┴─────┬─────┴────────┬────────┘
+         │               │              │
+┌────────▼───────────────▼──────────────▼────────┐
+│              nr-llm Service Layer               │
+│  Chat · Translation · Vision · Embeddings       │
+│  Streaming · Tool Calling · Caching             │
+├─────────────────────────────────────────────────┤
+│         Provider Abstraction Layer              │
+│  OpenAI · Anthropic · Gemini · Ollama · …       │
+├─────────────────────────────────────────────────┤
+│     Admin Tools > LLM (Backend Module)          │
+│  Encrypted keys · Usage tracking · Setup wizard │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## For Extension Developers
+
+**Add AI to your TYPO3 extension in 5 minutes** — no API key handling, no HTTP client code,
+no provider-specific logic.
+
+### 1. Require the package
 
 ```bash
 composer require netresearch/nr-llm
 ```
 
-### Manual
+### 2. Inject the service you need
 
-1. Download the extension
-2. Extract to `typo3conf/ext/nr_llm`
-3. Activate in Extension Manager
+```php
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+
+class MyController
+{
+    public function __construct(
+        private readonly LlmServiceManagerInterface $llm,
+    ) {}
+
+    public function summarizeAction(string $text): string
+    {
+        return $this->llm->complete("Summarize: {$text}")->content;
+    }
+}
+```
+
+That's it. Provider selection, API keys, caching, error handling — all managed by nr-llm.
+
+### What you get for free
+
+| Capability | Without nr-llm | With nr-llm |
+|---|---|---|
+| Provider switching | Rewrite HTTP calls | Change one admin setting |
+| API key storage | `$GLOBALS` or plaintext | Encrypted (sodium / nr-vault) |
+| Response caching | Build your own | Built-in, TYPO3 caching framework |
+| Streaming (SSE) | Implement per provider | `foreach ($llm->streamChat($msg) as $chunk)` |
+| Error handling | Parse each provider's errors | Typed exceptions with provider context |
+| Multiple providers | N × integration effort | One interface, all providers |
+
+### Available services
+
+```php
+// Chat & completion
+$response = $llm->chat($messages);
+$response = $llm->complete('Explain TYPO3 content elements');
+
+// Translation
+$result = $translationService->translate('Hello world', 'de');
+
+// Vision / image analysis
+$altText = $visionService->generateAltText($imageUrl);
+
+// Embeddings & similarity
+$vector = $embeddingService->embed('semantic search query');
+
+// Streaming
+foreach ($llm->streamChat($messages) as $chunk) { echo $chunk; }
+
+// Tool/function calling
+$response = $llm->chatWithTools($messages, $toolDefinitions);
+```
+
+### Why not call the OpenAI API directly?
+
+You can — but then your extension only works with OpenAI. Your users can't switch to
+Anthropic, use a local Ollama instance, or route through Azure. And every extension on the
+site manages its own API keys, its own error handling, its own caching.
+
+nr-llm solves this once for the entire TYPO3 ecosystem.
+
+> **[Developer Guide](Documentation/Developer/Index.rst)** — Full API reference,
+> custom provider registration, typed options, response objects
+>
+> **[Integration Guide](Documentation/Developer/IntegrationGuide.rst)** — Step-by-step
+> tutorial for building your extension on nr-llm
+
+---
+
+## For TYPO3 Administrators
+
+### One dashboard for all AI
+
+The **Admin Tools > LLM** backend module gives you full control:
+
+- **Providers** — Register API connections (OpenAI, Anthropic, Gemini, Ollama, …)
+- **Models** — Define which models are available and their capabilities
+- **Configurations** — Create use-case presets (temperature, system prompts, token limits)
+- **Tasks** — Define reusable prompt templates for editors
+
+### Security by default
+
+- **Encrypted API keys** — All keys stored with sodium_crypto_secretbox (XSalsa20-Poly1305),
+  optionally via [nr-vault](https://github.com/netresearch/t3x-nr-vault) envelope encryption
+- **Admin-only access** — Backend module restricted to administrators
+- **No plaintext secrets** — Keys never stored or logged in plain text
+
+### Setup in 2 minutes
+
+The **Setup Wizard** auto-detects your provider type from the endpoint URL, discovers
+available models, and generates a ready-to-use configuration. Paste your API key and go.
+
+### Supported providers
+
+| Provider | Adapter | Capabilities |
+|---|---|---|
+| OpenAI | `openai` | Chat, Embeddings, Vision, Streaming, Tools |
+| Anthropic Claude | `anthropic` | Chat, Vision, Streaming, Tools |
+| Google Gemini | `gemini` | Chat, Embeddings, Vision, Streaming, Tools |
+| Ollama | `ollama` | Chat, Embeddings, Streaming (local, no API key) |
+| OpenRouter | `openrouter` | Chat, Vision, Streaming, Tools |
+| Mistral | `mistral` | Chat, Embeddings, Streaming |
+| Groq | `groq` | Chat, Streaming (fast inference) |
+| Azure OpenAI | `azure_openai` | Same as OpenAI |
+| Any OpenAI-compatible | `custom` | Varies (vLLM, LocalAI, LiteLLM, …) |
+
+---
+
+## For Agencies & Solution Architects
+
+- **Reduce integration effort** — AI capabilities across client projects without per-project plumbing
+- **No vendor lock-in** — Switch from OpenAI to Anthropic (or a local model) without code changes
+- **Compliance-friendly** — Encrypted keys, admin-only access, SBOM and SLSA provenance on every release
+- **Local-first option** — Ollama support means AI features work without sending data to external APIs
+- **Production-proven** — Powers [t3x-cowriter](https://github.com/netresearch/t3x-cowriter),
+  the CKEditor 5 AI writing assistant for TYPO3
+
+---
+
+## Built on nr-llm
+
+| Extension | What it does | nr-llm services used |
+|---|---|---|
+| [t3x-cowriter](https://github.com/netresearch/t3x-cowriter) | AI writing assistant in CKEditor 5 | Chat, Streaming, Translation, Tasks |
+
+*Building on nr-llm? [Open a PR](https://github.com/netresearch/t3x-nr-llm/pulls) to add your extension here.*
+
+---
 
 ## Architecture
 
-The extension uses a three-tier configuration hierarchy:
+The three-tier configuration hierarchy separates concerns cleanly:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -59,13 +208,13 @@ The extension uses a three-tier configuration hierarchy:
 └───────────────────────────┬─────────────────────────────┘
                             │ references
 ┌───────────────────────────▼─────────────────────────────┐
-│ MODEL (Available Models)                                 │
+│ MODEL (Available Models)                                │
 │ "gpt-4o", "claude-sonnet", "llama-70b"                  │
 │ → model_id, capabilities, pricing                       │
 └───────────────────────────┬─────────────────────────────┘
                             │ references
 ┌───────────────────────────▼─────────────────────────────┐
-│ PROVIDER (API Connections)                               │
+│ PROVIDER (API Connections)                              │
 │ "openai-prod", "openai-dev", "local-ollama"             │
 │ → endpoint, api_key (encrypted), adapter_type           │
 └─────────────────────────────────────────────────────────┘
@@ -77,263 +226,33 @@ The extension uses a three-tier configuration hierarchy:
 - Reusable model definitions across configurations
 - Clear separation of concerns
 
-## Configuration
+---
 
-Configuration is managed through the TYPO3 Backend Module at **Admin Tools > LLM**:
+## Requirements
 
-### Providers
+- PHP 8.2+
+- TYPO3 v13.4+ or v14.x
+- PSR-18 HTTP Client (e.g., guzzlehttp/guzzle)
 
-Create providers with API credentials:
-
-| Field | Description |
-|-------|-------------|
-| `identifier` | Unique slug (e.g., `openai-prod`) |
-| `adapter_type` | Protocol: `openai`, `anthropic`, `gemini`, `ollama`, etc. |
-| `api_key` | Encrypted API key |
-| `endpoint_url` | Custom endpoint (optional) |
-| `timeout` | Request timeout in seconds |
-
-### Models
-
-Define available models:
-
-| Field | Description |
-|-------|-------------|
-| `identifier` | Unique slug (e.g., `gpt-4o`) |
-| `provider` | Reference to Provider |
-| `model_id` | API model identifier (e.g., `gpt-4o-2024-08-06`) |
-| `capabilities` | CSV: `chat,vision,streaming,tools` |
-
-### Configurations
-
-Create use-case-specific configurations:
-
-| Field | Description |
-|-------|-------------|
-| `identifier` | Unique slug (e.g., `blog-summarizer`) |
-| `model` | Reference to Model |
-| `system_prompt` | System message for the AI |
-| `temperature` | Creativity (0.0-2.0) |
-
-## Usage
-
-### Basic Chat Completion
-
-```php
-use Netresearch\NrLlm\Service\LlmServiceManager;
-
-class MyController
-{
-    public function __construct(
-        private readonly LlmServiceManager $llmManager,
-    ) {}
-
-    public function chatAction(): void
-    {
-        $messages = [
-            ['role' => 'system', 'content' => 'You are a helpful assistant.'],
-            ['role' => 'user', 'content' => 'Hello, how are you?'],
-        ];
-
-        $response = $this->llmManager->chat($messages);
-
-        echo $response->content;
-        echo "Tokens used: " . $response->usage->totalTokens;
-    }
-}
-```
-
-### Using Database Configurations
-
-```php
-use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
-use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
-
-class MyController
-{
-    public function __construct(
-        private readonly LlmConfigurationRepository $configRepository,
-        private readonly ProviderAdapterRegistry $adapterRegistry,
-    ) {}
-
-    public function processAction(): void
-    {
-        // Get configuration by identifier
-        $config = $this->configRepository->findByIdentifier('blog-summarizer');
-
-        // Get the model and provider chain
-        $model = $config->getModel();
-        $provider = $model->getProvider();
-
-        // Create adapter and make requests
-        $adapter = $this->adapterRegistry->createAdapterFromModel($model);
-        $response = $adapter->chatCompletion($messages, $config->toOptions());
-    }
-}
-```
-
-### Embeddings
-
-```php
-// Single text
-$response = $this->llmManager->embed('Hello world');
-$vector = $response->getVector(); // array<float>
-
-// Multiple texts
-$response = $this->llmManager->embed(['Text 1', 'Text 2']);
-$vectors = $response->embeddings; // array<array<float>>
-```
-
-### Vision (Image Analysis)
-
-```php
-use Netresearch\NrLlm\Service\Feature\VisionService;
-
-class ImageController
-{
-    public function __construct(
-        private readonly VisionService $visionService,
-    ) {}
-
-    public function analyzeAction(): void
-    {
-        $altText = $this->visionService->generateAltText('https://example.com/image.jpg');
-        $title = $this->visionService->generateTitle('https://example.com/image.jpg');
-    }
-}
-```
-
-### Translation
-
-```php
-use Netresearch\NrLlm\Service\Feature\TranslationService;
-
-$result = $this->translationService->translate(
-    'Hello, world!',
-    'de', // target language
-    'en', // source language (optional)
-    [
-        'formality' => 'formal',
-        'glossary' => ['TYPO3' => 'TYPO3'],
-    ]
-);
-```
-
-### Streaming Responses
-
-```php
-$stream = $this->llmManager->streamChat($messages);
-
-foreach ($stream as $chunk) {
-    echo $chunk;
-    flush();
-}
-```
-
-### Tool/Function Calling
-
-```php
-$tools = [
-    [
-        'type' => 'function',
-        'function' => [
-            'name' => 'get_weather',
-            'description' => 'Get current weather for a location',
-            'parameters' => [
-                'type' => 'object',
-                'properties' => [
-                    'location' => ['type' => 'string', 'description' => 'City name'],
-                ],
-                'required' => ['location'],
-            ],
-        ],
-    ],
-];
-
-$response = $this->llmManager->chatWithTools($messages, $tools);
-
-if ($response->toolCalls) {
-    foreach ($response->toolCalls as $toolCall) {
-        $functionName = $toolCall['function']['name'];
-        $arguments = json_decode($toolCall['function']['arguments'], true);
-        // Execute function and continue conversation
-    }
-}
-```
-
-## Feature Services
-
-High-level services for common AI tasks:
-
-- **CompletionService** - Text generation with format control
-- **VisionService** - Image analysis and metadata generation
-- **EmbeddingService** - Text-to-vector conversion and similarity
-- **TranslationService** - Language translation with glossaries
-- **PromptTemplateService** - Centralized prompt management
-
-## Supported Providers
-
-| Provider | Adapter Type | Features |
-|----------|--------------|----------|
-| OpenAI | `openai` | Chat, Embeddings, Vision, Streaming, Tools |
-| Anthropic Claude | `anthropic` | Chat, Vision, Streaming, Tools |
-| Google Gemini | `gemini` | Chat, Embeddings, Vision, Streaming, Tools |
-| Ollama | `ollama` | Chat, Embeddings, Streaming (local) |
-| OpenRouter | `openrouter` | Chat, Vision, Streaming, Tools |
-| Mistral | `mistral` | Chat, Embeddings, Streaming |
-| Groq | `groq` | Chat, Streaming (fast inference) |
-| Azure OpenAI | `azure_openai` | Same as OpenAI |
-| Custom | `custom` | OpenAI-compatible endpoints |
-
-## Security
-
-- **API Keys**: Encrypted at rest using sodium_crypto_secretbox (XSalsa20-Poly1305)
-- **Key Derivation**: Domain-separated key derivation from TYPO3's encryptionKey
-- **Backend Access**: Restrict module access to authorized administrators
-- **Input Validation**: Always sanitize user input before sending to providers
-- **Output Handling**: Treat LLM responses as untrusted content
-
-## Caching
-
-Responses are cached using TYPO3's caching framework:
-
-- **Cache identifier**: `nrllm_responses`
-- **Default TTL**: 3600 seconds (1 hour)
-- **Embeddings TTL**: 86400 seconds (24 hours)
-
-Clear cache:
+## Installation
 
 ```bash
-vendor/bin/typo3 cache:flush --group=nrllm
+composer require netresearch/nr-llm
 ```
 
-## Error Handling
+Then activate in **Admin Tools > Extensions** and run **Admin Tools > LLM > Setup Wizard**.
 
-```php
-use Netresearch\NrLlm\Provider\Exception\ProviderException;
-use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
-use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
-use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
-use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
-
-try {
-    $response = $this->llmManager->chat($messages);
-} catch (ProviderConfigurationException $e) {
-    // Invalid or missing provider configuration
-} catch (ProviderConnectionException $e) {
-    // Connection to provider failed
-} catch (ProviderResponseException $e) {
-    // Provider returned an error response
-} catch (UnsupportedFeatureException $e) {
-    // Requested feature not supported by provider
-} catch (ProviderException $e) {
-    $this->logger->error('LLM error: ' . $e->getMessage());
-}
-```
+---
 
 ## Documentation
 
-Full documentation available at [Documentation/Index.rst](Documentation/Index.rst)
+- **[Introduction](Documentation/Introduction/Index.rst)** — Overview and use cases
+- **[Configuration](Documentation/Configuration/Index.rst)** — Backend module setup
+- **[Developer Guide](Documentation/Developer/Index.rst)** — API reference, services, custom providers
+- **[Integration Guide](Documentation/Developer/IntegrationGuide.rst)** — Build your extension on nr-llm
+- **[Architecture](Documentation/Architecture/Index.rst)** — Design decisions and ADRs
+
+---
 
 ## Supply Chain Security
 
