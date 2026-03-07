@@ -165,7 +165,7 @@ class ConfigurationList {
         `;
 
         const modal = Modal.advanced({
-            title: `Test Configuration: ${name}`,
+            title: `Test Configuration: ${name} (UID: ${uid})`,
             content: container,
             severity: Severity.info,
             size: Modal.sizes.default,

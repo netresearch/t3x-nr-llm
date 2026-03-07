@@ -176,7 +176,7 @@ class ModelList {
         `;
 
         const modal = Modal.advanced({
-            title: `Test Model: ${name}`,
+            title: `Test Model: ${name} (UID: ${uid})`,
             content: container,
             severity: Severity.info,
             size: Modal.sizes.default,

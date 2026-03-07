@@ -114,7 +114,7 @@ class ProviderList {
         `;
 
         const modal = Modal.advanced({
-            title: `Test Connection: ${name}`,
+            title: `Test Connection: ${name} (UID: ${uid})`,
             content: container,
             severity: Severity.info,
             size: Modal.sizes.default,
