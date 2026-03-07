@@ -30,12 +30,10 @@ TYPO3 LLM extension
 
 ----
 
-A unified Large Language Model (LLM) provider abstraction layer for TYPO3 v13.4+.
-
-This extension provides a standardized interface to interact with multiple AI providers
-(OpenAI, Anthropic Claude, Google Gemini) through a single, consistent API. It includes
-specialized services for common AI tasks like text completion, translation, embeddings,
-and image analysis.
+Shared AI foundation for TYPO3. Configure LLM providers once — every AI
+extension uses them. Supports OpenAI, Anthropic Claude, Google Gemini,
+Ollama, and more. Includes services for chat, translation, vision, and
+embeddings with encrypted API keys and full admin control.
 
 ----
 
@@ -45,32 +43,64 @@ and image analysis.
    :gap: 4
    :card-height: 100
 
-   .. card:: 🚀 Quick start
+   .. card:: Quick start
 
-      Get started quickly with installation and basic usage examples.
+      Install nr-llm and make your first AI call in minutes.
 
       .. card-footer:: :ref:`Read more <quickstart>`
          :button-style: btn btn-primary stretched-link
 
-   .. card:: 🔧 Configuration
+   .. card:: Integration guide
+
+      Build your extension on nr-llm — step-by-step tutorial.
+
+      .. card-footer:: :ref:`Read more <integration-guide>`
+         :button-style: btn btn-primary stretched-link
+
+   .. card:: Configuration
 
       Configure API keys, providers, and extension settings.
 
       .. card-footer:: :ref:`Read more <configuration>`
          :button-style: btn btn-secondary stretched-link
 
-   .. card:: 👨‍💻 Developer guide
+   .. card:: Developer guide
 
-      Technical documentation for developers integrating LLM capabilities.
+      LlmServiceManager API, feature services, streaming,
+      tool calling, and response objects.
 
       .. card-footer:: :ref:`Read more <developer>`
          :button-style: btn btn-secondary stretched-link
 
-   .. card:: 🏗️ Architecture
+   .. card:: Feature services
 
-      Three-tier configuration architecture and service design.
+      Translation, vision, embeddings, and completion
+      services ready to use.
+
+      .. card-footer:: :ref:`Read more <feature-services>`
+         :button-style: btn btn-secondary stretched-link
+
+   .. card:: Architecture
+
+      Three-tier configuration, provider abstraction,
+      and service design.
 
       .. card-footer:: :ref:`Read more <architecture>`
+         :button-style: btn btn-secondary stretched-link
+
+   .. card:: API reference
+
+      Complete class and method reference.
+
+      .. card-footer:: :ref:`Read more <api-reference>`
+         :button-style: btn btn-secondary stretched-link
+
+   .. card:: Testing
+
+      Test infrastructure, mocking LLM services,
+      and CI configuration.
+
+      .. card-footer:: :ref:`Read more <testing>`
          :button-style: btn btn-secondary stretched-link
 
 ----
