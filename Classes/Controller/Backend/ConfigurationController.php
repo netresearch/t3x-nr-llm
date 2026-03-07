@@ -100,6 +100,7 @@ final class ConfigurationController extends ActionController
             'providers' => $this->getProviderOptions(),
             'editUrls' => $editUrls,
             'newUrl' => $this->buildNewUrl(),
+            'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
         ]);
 
         // Add shortcut/bookmark button to docheader (v14+)

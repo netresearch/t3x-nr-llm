@@ -107,6 +107,7 @@ final class ModelController extends ActionController
             'capabilities' => Model::getAllCapabilities(),
             'editUrls' => $editUrls,
             'newUrl' => $this->buildNewUrl(),
+            'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
         ]);
 
         // Add shortcut/bookmark button to docheader (v14+)

@@ -116,6 +116,7 @@ final class TaskController extends ActionController
             'totalCount' => $tasks->count(),
             'editUrls' => $editUrls,
             'newUrl' => $this->buildNewUrl(),
+            'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Task/List');

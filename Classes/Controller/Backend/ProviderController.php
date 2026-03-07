@@ -95,6 +95,7 @@ final class ProviderController extends ActionController
             'adapterTypes' => Provider::getAdapterTypes(),
             'editUrls' => $editUrls,
             'newUrl' => $this->buildNewUrl(),
+            'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
         ]);
 
         // Add shortcut/bookmark button to docheader (v14+)
