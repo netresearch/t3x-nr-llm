@@ -180,7 +180,7 @@ Required fields
 
    The API model identifier. Examples vary by provider:
 
-   - OpenAI: ``gpt-5``, ``gpt-5.2-instant``, ``o4-mini``.
+   - OpenAI: ``gpt-5.2``, ``gpt-5.2-pro``, ``o3-mini``.
    - Anthropic: ``claude-opus-4-5-20251101``, ``claude-sonnet-4-5-20251101``.
    - Google: ``gemini-3-pro-preview``, ``gemini-3-flash-preview``.
 
@@ -405,21 +405,21 @@ Constants
            providers {
                openai {
                    enabled = 1
-                   defaultModel = gpt-4o
+                   defaultModel = gpt-5.2
                    temperature = 0.7
                    maxTokens = 4096
                }
 
                claude {
                    enabled = 1
-                   defaultModel = claude-sonnet-4-20250514
+                   defaultModel = claude-sonnet-4-5-20250929
                    temperature = 0.7
                    maxTokens = 4096
                }
 
                gemini {
                    enabled = 1
-                   defaultModel = gemini-2.0-flash
+                   defaultModel = gemini-2.5-flash
                    temperature = 0.7
                    maxTokens = 4096
                }

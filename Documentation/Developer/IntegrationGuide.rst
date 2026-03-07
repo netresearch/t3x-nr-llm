@@ -247,7 +247,7 @@ Mock the nr-llm interfaces in your unit tests:
            $llm->method('complete')->willReturn(
                new CompletionResponse(
                    content: 'A short summary.',
-                   model: 'gpt-4o',
+                   model: 'gpt-5.2',
                    usage: new UsageStatistics(50, 20, 70),
                    finishReason: 'stop',
                    provider: 'openai',
