@@ -19,6 +19,7 @@ jobs:
       package-name: netresearch/nr-llm
 
   publish-to-ter:
+    needs: release
     uses: netresearch/typo3-ci-workflows/.github/workflows/publish-to-ter.yml@main
     permissions:
       contents: read
