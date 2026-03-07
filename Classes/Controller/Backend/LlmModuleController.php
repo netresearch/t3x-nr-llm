@@ -19,6 +19,8 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
+use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
+use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
@@ -33,6 +35,7 @@ final class LlmModuleController extends ActionController
         private readonly ModelRepository $modelRepository,
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly TaskRepository $taskRepository,
+        private readonly BackendUriBuilder $backendUriBuilder,
     ) {}
 
     public function indexAction(): ResponseInterface
@@ -41,6 +44,7 @@ final class LlmModuleController extends ActionController
 
         // Add module menu dropdown to docheader (shows all LLM sub-modules)
         $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->buildDocHeaderTabMenu($moduleTemplate, 'dashboard');
 
         // Add shortcut/bookmark button to docheader (v14+)
         if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
@@ -146,6 +150,48 @@ final class LlmModuleController extends ActionController
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function helpAction(): ResponseInterface
+    {
+        $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
+        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->buildDocHeaderTabMenu($moduleTemplate, 'help');
+
+        $moduleTemplate->assignMultiple([
+            'dashboardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_overview'),
+            'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
+        ]);
+
+        return $moduleTemplate->renderResponse('Backend/Help');
+    }
+
+    /**
+     * Build a Dashboard/Help tab menu in the docheader.
+     */
+    private function buildDocHeaderTabMenu(ModuleTemplate $moduleTemplate, string $activeTab): void
+    {
+        $menuRegistry = $moduleTemplate->getDocHeaderComponent()->getMenuRegistry();
+        $menu = $menuRegistry->makeMenu();
+        $menu->setIdentifier('LlmModuleMenu');
+
+        $dashboardItem = $menu->makeMenuItem()
+            ->setTitle('Dashboard')
+            ->setHref((string)$this->backendUriBuilder->buildUriFromRoute('nrllm_overview'));
+        if ($activeTab === 'dashboard') {
+            $dashboardItem->setActive(true);
+        }
+        $menu->addMenuItem($dashboardItem);
+
+        $helpItem = $menu->makeMenuItem()
+            ->setTitle('Help')
+            ->setHref($this->uriBuilder->reset()->uriFor('help'));
+        if ($activeTab === 'help') {
+            $helpItem->setActive(true);
+        }
+        $menu->addMenuItem($helpItem);
+
+        $menuRegistry->addMenu($menu);
     }
 
     /**

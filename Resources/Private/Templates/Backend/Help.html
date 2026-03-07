@@ -1,0 +1,236 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * Help page for the LLM Management admin module.
+ * Provides setup guidance, architecture overview, and FAQ.
+-->
+<f:layout name="Module" />
+<f:section name="Content">
+    <h1>LLM Management Help</h1>
+    <p class="lead">
+        This guide explains how to set up LLM providers, configure models,
+        create task pipelines, and troubleshoot common issues.
+    </p>
+
+    <!-- Section 1: Getting started -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h2 class="card-title mb-0">Getting started</h2>
+        </div>
+        <div class="card-body">
+            <p>
+                The LLM extension connects your TYPO3 installation to large language
+                model APIs (OpenAI, Anthropic, Google, local Ollama, etc.). Follow
+                these steps for initial setup:
+            </p>
+
+            <h3>Step 1 &mdash; Run the Setup Wizard</h3>
+            <p>
+                The fastest way to get started is the
+                <a href="{wizardUrl}">Setup Wizard</a>. Paste your API endpoint
+                URL and key, and the wizard will auto-detect the provider type,
+                discover available models, and generate a ready-to-use configuration.
+            </p>
+
+            <h3>Step 2 &mdash; Create a Provider</h3>
+            <p>
+                A <strong>provider</strong> represents an API connection. Each provider
+                stores the endpoint URL, API key (encrypted via nr-vault), and adapter
+                type. You can create providers manually or via the Setup Wizard.
+            </p>
+
+            <h3>Step 3 &mdash; Register Models</h3>
+            <p>
+                Each provider can host multiple <strong>models</strong>. Models define
+                capabilities (chat, completion, vision, embeddings, tools), context
+                window limits, and cost information. The wizard can discover models
+                automatically from the provider's API.
+            </p>
+
+            <h3>Step 4 &mdash; Create Configurations</h3>
+            <p>
+                A <strong>configuration</strong> ties a provider and model together
+                with default parameters (temperature, max tokens, system prompt).
+                Extensions like Cowriter reference configurations by identifier.
+            </p>
+
+            <h3>Step 5 &mdash; Define Tasks (optional)</h3>
+            <p>
+                <strong>Tasks</strong> are one-shot prompt templates that appear in
+                the Cowriter dialog. They are simple utility prompts &mdash; not
+                multi-step AI agents.
+            </p>
+        </div>
+    </div>
+
+    <!-- Section 2: Architecture -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h2 class="card-title mb-0">Architecture overview</h2>
+        </div>
+        <div class="card-body">
+            <p>The extension follows a layered architecture:</p>
+            <ul>
+                <li>
+                    <strong>Provider layer</strong> &mdash; Adapters for each API
+                    (OpenAI, Anthropic, Google Gemini, Ollama). Each adapter translates
+                    the unified interface into provider-specific HTTP calls.
+                </li>
+                <li>
+                    <strong>Service layer</strong> &mdash; <code>LlmServiceManager</code>
+                    provides feature-based services (chat, translation, vision) that
+                    automatically route to the correct provider and model.
+                </li>
+                <li>
+                    <strong>Configuration layer</strong> &mdash; Database-backed
+                    configurations with encrypted API keys via nr-vault's envelope
+                    encryption.
+                </li>
+            </ul>
+
+            <h3>Secret management</h3>
+            <p>
+                API keys are stored using the <code>nr-vault</code> extension which
+                provides envelope encryption. Keys are never stored in plain text.
+                The vault reveal endpoint allows viewing keys temporarily in the
+                backend with proper authentication.
+            </p>
+        </div>
+    </div>
+
+    <!-- Section 3: Troubleshooting -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h2 class="card-title mb-0">Troubleshooting</h2>
+        </div>
+        <div class="card-body">
+            <h3>Connection test fails with "Unknown error"</h3>
+            <p>
+                This usually means the API returned an unexpected response. Check:
+            </p>
+            <ul>
+                <li>The endpoint URL is correct and includes the API path (e.g., <code>/v1</code> for OpenAI/Anthropic)</li>
+                <li>The API key is valid and not expired</li>
+                <li>The server can reach the API endpoint (firewall, proxy settings)</li>
+            </ul>
+
+            <h3>Models not discovered</h3>
+            <p>
+                Some providers (e.g., Anthropic) do not expose a model listing API.
+                For these providers, models must be added manually. The Setup Wizard
+                will warn you when auto-discovery is not available.
+            </p>
+
+            <h3>Translation or task execution returns 500</h3>
+            <p>
+                Ensure a <strong>default configuration</strong> is set. Feature services
+                like translation require a default provider to be configured. Check the
+                Configurations module and mark one configuration as default.
+            </p>
+        </div>
+    </div>
+
+    <!-- Section 4: FAQ -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h2 class="card-title mb-0">Frequently asked questions</h2>
+        </div>
+        <div class="card-body">
+            <div class="accordion" id="faqAccordion">
+
+                <div class="accordion-item">
+                    <h3 class="accordion-header" id="faqHeading1">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faqCollapse1"
+                                aria-expanded="false" aria-controls="faqCollapse1">
+                            Can I use multiple providers at the same time?
+                        </button>
+                    </h3>
+                    <div id="faqCollapse1" class="accordion-collapse collapse"
+                         aria-labelledby="faqHeading1" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            <p>
+                                Yes. You can register as many providers as you need.
+                                Each configuration references a specific provider and model.
+                                Different features (chat, translation, vision) can use
+                                different providers.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h3 class="accordion-header" id="faqHeading2">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faqCollapse2"
+                                aria-expanded="false" aria-controls="faqCollapse2">
+                            How are API keys stored?
+                        </button>
+                    </h3>
+                    <div id="faqCollapse2" class="accordion-collapse collapse"
+                         aria-labelledby="faqHeading2" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            <p>
+                                API keys are encrypted using the <code>nr-vault</code>
+                                extension's envelope encryption. Each key is encrypted with
+                                a unique data encryption key (DEK), which is itself encrypted
+                                with a master key (KEK). Keys are never stored in plain text
+                                in the database.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h3 class="accordion-header" id="faqHeading3">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faqCollapse3"
+                                aria-expanded="false" aria-controls="faqCollapse3">
+                            Can I use a local LLM (e.g., Ollama)?
+                        </button>
+                    </h3>
+                    <div id="faqCollapse3" class="accordion-collapse collapse"
+                         aria-labelledby="faqHeading3" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            <p>
+                                Yes. The Ollama adapter supports local LLM instances. Set the
+                                endpoint to your Ollama server URL (e.g.,
+                                <code>http://localhost:11434</code>) and the wizard will
+                                auto-detect it. No API key is needed for local instances.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h3 class="accordion-header" id="faqHeading4">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faqCollapse4"
+                                aria-expanded="false" aria-controls="faqCollapse4">
+                            What is the difference between tasks and the Cowriter dialog?
+                        </button>
+                    </h3>
+                    <div id="faqCollapse4" class="accordion-collapse collapse"
+                         aria-labelledby="faqHeading4" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            <p>
+                                <strong>Tasks</strong> are simple one-shot prompts defined
+                                here in the LLM module. They appear as preset options in the
+                                Cowriter dialog. The <strong>Cowriter dialog</strong> is the
+                                CKEditor plugin that editors use to interact with the AI.
+                                Editors can pick a task or write a custom instruction.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</f:section>
+</html>
