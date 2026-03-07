@@ -36,6 +36,7 @@ Step 1: Add the dependency
 ==========================
 
 .. code-block:: bash
+   :caption: Install nr-llm
 
    composer require netresearch/nr-llm
 
@@ -169,6 +170,7 @@ Step 4: Handle errors gracefully
 nr-llm throws typed exceptions so you can provide meaningful feedback:
 
 .. code-block:: php
+   :caption: Error handling with typed exceptions
 
    use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
    use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
@@ -198,6 +200,7 @@ For advanced use cases, reference named configurations that admins create in the
 backend module:
 
 .. code-block:: php
+   :caption: Using named database configurations
 
    use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
    use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -247,7 +250,7 @@ Mock the nr-llm interfaces in your unit tests:
            $llm->method('complete')->willReturn(
                new CompletionResponse(
                    content: 'A short summary.',
-                   model: 'gpt-5.2',
+                   model: 'gpt-5.3-instant',
                    usage: new UsageStatistics(50, 20, 70),
                    finishReason: 'stop',
                    provider: 'openai',

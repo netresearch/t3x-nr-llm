@@ -31,6 +31,7 @@ The extension follows a layered architecture:
 4. **Domain models** - Response objects and value types.
 
 .. code-block:: text
+   :caption: Architecture overview
 
    ┌─────────────────────────────────────────┐
    │         Your Application Code           │
@@ -129,7 +130,7 @@ Chat with options
    // Or using array
    $response = $this->llmManager->chat($messages, [
        'provider' => 'claude',
-       'model' => 'claude-opus-4-5-20251101',
+       'model' => 'claude-sonnet-4-6',
        'temperature' => 1.2,
        'max_tokens' => 2000,
        'top_p' => 0.9,

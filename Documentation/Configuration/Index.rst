@@ -6,9 +6,10 @@
 Configuration
 =============
 
-The extension uses a database-based configuration architecture with three levels:
-**Providers**, **Models**, and **Configurations**. All management is done through the
-TYPO3 backend module.
+The extension uses a database-based configuration
+architecture with three levels: **Providers**,
+**Models**, and **Configurations**. All management
+is done through the TYPO3 backend module.
 
 .. contents::
    :local:
@@ -19,18 +20,31 @@ TYPO3 backend module.
 Backend module
 ==============
 
-Access the LLM management module at :guilabel:`Admin Tools > LLM`.
+Access the LLM management module at
+:guilabel:`Admin Tools > LLM`.
+
+.. figure:: /Images/backend-dashboard.png
+   :alt: LLM backend module dashboard
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   The LLM dashboard shows setup wizard, provider and
+   model counts, and quick-reference PHP code.
 
 The backend module provides four sections:
 
 :guilabel:`Dashboard`
-   Overview of registered providers, models, and configurations with status indicators.
+   Overview of registered providers, models,
+   and configurations with status indicators.
 
 :guilabel:`Providers`
-   Manage API connections with encrypted credentials. Test connections directly from the interface.
+   Manage API connections with encrypted
+   credentials. Test connections directly
+   from the interface.
 
 :guilabel:`Models`
-   Define available models with their capabilities and pricing. Fetch models from provider APIs.
+   Define available models with their capabilities
+   and pricing. Fetch models from provider APIs.
 
 :guilabel:`Configurations`
    Create use-case-specific configurations with prompts and parameters.
@@ -40,8 +54,17 @@ The backend module provides four sections:
 Provider configuration
 ======================
 
-Providers represent API connections with credentials. Create providers in
+Providers represent API connections with credentials.
+Create providers in
 :guilabel:`Admin Tools > LLM > Providers`.
+
+.. figure:: /Images/backend-providers.png
+   :alt: LLM providers list with connection status
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   Provider list showing adapter type, endpoint,
+   API key status, and action buttons.
 
 .. _configuration-provider-required:
 
@@ -53,7 +76,8 @@ Required fields
    :type: string
    :required: true
 
-   Unique slug for programmatic access (e.g., ``openai-prod``, ``ollama-local``).
+   Unique slug for programmatic access
+   (e.g., ``openai-prod``, ``ollama-local``).
 
 .. confval:: name
    :name: confval-provider-name
@@ -84,8 +108,9 @@ Required fields
    :type: string
    :required: true
 
-   API key for authentication. Encrypted at rest using :php:`sodium_crypto_secretbox`.
-   Not required for local providers like Ollama.
+   API key for authentication. Encrypted at rest
+   using :php:`sodium_crypto_secretbox`. Not
+   required for local providers like Ollama.
 
 .. _configuration-provider-optional:
 
@@ -180,9 +205,12 @@ Required fields
 
    The API model identifier. Examples vary by provider:
 
-   - OpenAI: ``gpt-5.2``, ``gpt-5.2-pro``, ``o3-mini``.
-   - Anthropic: ``claude-opus-4-5-20251101``, ``claude-sonnet-4-5-20251101``.
-   - Google: ``gemini-3-pro-preview``, ``gemini-3-flash-preview``.
+   - OpenAI: ``gpt-5.3-instant``, ``gpt-5.4-thinking``,
+     ``gpt-5.4-pro``.
+   - Anthropic: ``claude-opus-4-6``,
+     ``claude-sonnet-4-6``, ``claude-haiku-4-5``.
+   - Google: ``gemini-3.1-pro-preview``,
+     ``gemini-3-flash-preview``.
 
 .. _configuration-model-optional:
 
@@ -243,9 +271,10 @@ Optional fields
 Fetching models from providers
 ------------------------------
 
-Use the :guilabel:`Fetch Models` action to automatically retrieve available models
-from the provider's API. This populates the model list with the provider's
-current offerings.
+Use the :guilabel:`Fetch Models` action to
+automatically retrieve available models from
+the provider's API. This populates the model
+list with the provider's current offerings.
 
 .. _configuration-llm:
 
@@ -405,21 +434,21 @@ Constants
            providers {
                openai {
                    enabled = 1
-                   defaultModel = gpt-5.2
+                   defaultModel = gpt-5.3-instant
                    temperature = 0.7
                    maxTokens = 4096
                }
 
                claude {
                    enabled = 1
-                   defaultModel = claude-sonnet-4-5-20250929
+                   defaultModel = claude-sonnet-4-6
                    temperature = 0.7
                    maxTokens = 4096
                }
 
                gemini {
                    enabled = 1
-                   defaultModel = gemini-2.5-flash
+                   defaultModel = gemini-3-flash-preview
                    temperature = 0.7
                    maxTokens = 4096
                }
@@ -453,10 +482,14 @@ Security
 API key protection
 ------------------
 
-1. **Encrypted storage**: API keys are encrypted using :php:`sodium_crypto_secretbox`.
-2. **Database security**: Ensure database backups are encrypted.
-3. **Backend access**: Restrict backend module access to authorized users.
-4. **Key rotation**: Changing the TYPO3 :php:`encryptionKey` requires re-encryption.
+1. **Encrypted storage**: API keys are encrypted
+   using :php:`sodium_crypto_secretbox`.
+2. **Database security**: Ensure database backups
+   are encrypted.
+3. **Backend access**: Restrict backend module
+   access to authorized users.
+4. **Key rotation**: Changing the TYPO3
+   :php:`encryptionKey` requires re-encryption.
 
 .. _configuration-security-input:
 

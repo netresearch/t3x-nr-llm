@@ -49,7 +49,8 @@ The extension uses a three-level hierarchical architecture separating concerns:
 Benefits
 --------
 
-- **Multiple API keys per provider type**: Separate production and development accounts.
+- **Multiple API keys per provider type**:
+  Separate production and development accounts.
 - **Custom endpoints**: Azure OpenAI, Ollama, vLLM, local models.
 - **Reusable model definitions**: Centralized capabilities and pricing.
 - **Clear separation of concerns**: Connection vs capability vs use-case.
@@ -97,10 +98,10 @@ Database table: :sql:`tx_nrllm_model`
    :header: "Field", "Type", "Description"
    :widths: 25, 20, 55
 
-   "identifier", "string", "Unique slug (e.g., ``gpt-5``, ``claude-sonnet``)"
-   "name", "string", "Display name (e.g., ``GPT-5 (128K)``)"
+   "identifier", "string", "Unique slug (e.g., ``gpt-5.3-instant``, ``claude-sonnet-4-6``)"
+   "name", "string", "Display name (e.g., ``GPT-5.3 Instant (128K)``)"
    "provider_uid", "int", "Foreign key to Provider"
-   "model_id", "string", "API model identifier (e.g., ``gpt-5``, ``claude-opus-4-5-20251101``)"
+   "model_id", "string", "API model identifier (e.g., ``gpt-5.3-instant``, ``claude-sonnet-4-6``)"
    "context_length", "int", "Token limit (e.g., 128000)"
    "max_output_tokens", "int", "Output limit (e.g., 16384)"
    "capabilities", "CSV", "Supported features: ``chat,vision,streaming,tools``"
@@ -185,7 +186,8 @@ Feature services
 
 High-level services for common AI tasks:
 
-- :php:`CompletionService`: Text generation with format control (JSON, Markdown).
+- :php:`CompletionService`: Text generation with
+  format control (JSON, Markdown).
 - :php:`EmbeddingService`: Text-to-vector conversion with caching.
 - :php:`VisionService`: Image analysis for alt-text, titles, descriptions.
 - :php:`TranslationService`: Language translation with glossaries.
@@ -198,8 +200,12 @@ Provider adapters
 The extension includes adapters for multiple LLM providers:
 
 - **OpenAI** (:php:`OpenAiProvider`): GPT-5.x series, o-series reasoning models.
-- **Anthropic** (:php:`ClaudeProvider`): Claude Opus 4.5, Claude Sonnet 4.5, Claude Haiku 4.5.
-- **Google** (:php:`GeminiProvider`): Gemini 3 Pro, Gemini 3 Flash, Gemini 2.5 series.
+- **Anthropic** (:php:`ClaudeProvider`):
+  Claude Opus 4.5, Claude Sonnet 4.5,
+  Claude Haiku 4.5.
+- **Google** (:php:`GeminiProvider`):
+  Gemini 3 Pro, Gemini 3 Flash,
+  Gemini 2.5 series.
 - **Ollama** (:php:`OllamaProvider`): Local model deployment.
 - **OpenRouter** (:php:`OpenRouterProvider`): Multi-model routing.
 - **Mistral** (:php:`MistralProvider`): Mistral models.
@@ -215,7 +221,9 @@ Security
 API key encryption
 ------------------
 
-API keys are encrypted at rest in the database using :php:`sodium_crypto_secretbox` (XSalsa20-Poly1305).
+API keys are encrypted at rest in the database
+using :php:`sodium_crypto_secretbox`
+(XSalsa20-Poly1305).
 
 - Keys are derived from TYPO3's :php:`encryptionKey` with domain separation.
 - Nonce is randomly generated per encryption (24 bytes).

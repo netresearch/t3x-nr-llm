@@ -209,7 +209,7 @@ The three-tier configuration hierarchy separates concerns cleanly:
                             │ references
 ┌───────────────────────────▼─────────────────────────────┐
 │ MODEL (Available Models)                                │
-│ "gpt-4o", "claude-sonnet", "llama-70b"                  │
+│ "gpt-5.3-instant", "claude-sonnet-4-6", "llama-70b"     │
 │ → model_id, capabilities, pricing                       │
 └───────────────────────────┬─────────────────────────────┘
                             │ references

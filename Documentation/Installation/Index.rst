@@ -61,7 +61,20 @@ Installation steps
 
 3. **Configure API keys**
 
-   See :ref:`configuration` for detailed setup instructions.
+   Use the setup wizard at
+   :guilabel:`Admin Tools > LLM > Setup Wizard`
+   to auto-detect your provider and discover models.
+
+   .. figure:: /Images/backend-setup-wizard.png
+      :alt: LLM setup wizard
+      :class: with-border with-shadow
+      :zoom: lightbox
+
+      The setup wizard guides you through provider
+      connection, model discovery, and configuration.
+
+   See :ref:`configuration` for detailed setup
+   instructions.
 
 4. **Clear caches**
 
