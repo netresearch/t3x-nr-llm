@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" target-language="de" datatype="plaintext" original="messages">
+        <body>
+            <trans-unit id="module.title">
+                <source>LLM Providers</source>
+                <target>LLM-Anbieter</target>
+            </trans-unit>
+
+            <!-- Provider List -->
+            <trans-unit id="provider.field.name">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="provider.field.identifier">
+                <source>Identifier</source>
+                <target>Bezeichner</target>
+            </trans-unit>
+            <trans-unit id="provider.field.adapterType">
+                <source>Adapter Type</source>
+                <target>Adapter-Typ</target>
+            </trans-unit>
+            <trans-unit id="provider.field.endpoint">
+                <source>Endpoint</source>
+                <target>Endpunkt</target>
+            </trans-unit>
+            <trans-unit id="provider.field.apiKey">
+                <source>API Key</source>
+                <target>API-Schlüssel</target>
+            </trans-unit>
+            <trans-unit id="provider.field.status">
+                <source>Status</source>
+                <target>Status</target>
+            </trans-unit>
+            <trans-unit id="provider.field.priority">
+                <source>Priority</source>
+                <target>Priorität</target>
+            </trans-unit>
+            <trans-unit id="provider.list.title">
+                <source>LLM Providers</source>
+                <target>LLM-Anbieter</target>
+            </trans-unit>
+            <trans-unit id="provider.empty.title">
+                <source>No Providers Configured</source>
+                <target>Keine Anbieter konfiguriert</target>
+            </trans-unit>
+            <trans-unit id="provider.empty.message">
+                <source>No API providers configured yet. Create your first provider to connect to LLM services.</source>
+                <target>Noch keine API-Anbieter konfiguriert. Erstellen Sie Ihren ersten Anbieter, um eine Verbindung zu LLM-Diensten herzustellen.</target>
+            </trans-unit>
+            <trans-unit id="provider.endpoint.default">
+                <source>(default)</source>
+                <target>(Standard)</target>
+            </trans-unit>
+
+            <!-- Model List -->
+            <trans-unit id="model.field.identifier">
+                <source>Identifier</source>
+                <target>Bezeichner</target>
+            </trans-unit>
+            <trans-unit id="model.field.name">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="model.field.provider">
+                <source>Provider</source>
+                <target>Anbieter</target>
+            </trans-unit>
+            <trans-unit id="model.field.modelId">
+                <source>Model ID</source>
+                <target>Modell-ID</target>
+            </trans-unit>
+            <trans-unit id="model.field.capabilities">
+                <source>Capabilities</source>
+                <target>Fähigkeiten</target>
+            </trans-unit>
+            <trans-unit id="model.field.context">
+                <source>Context</source>
+                <target>Kontext</target>
+            </trans-unit>
+            <trans-unit id="model.field.status">
+                <source>Status</source>
+                <target>Status</target>
+            </trans-unit>
+            <trans-unit id="model.list.title">
+                <source>LLM Models</source>
+                <target>LLM-Modelle</target>
+            </trans-unit>
+            <trans-unit id="model.empty.title">
+                <source>No Models Configured</source>
+                <target>Keine Modelle konfiguriert</target>
+            </trans-unit>
+            <trans-unit id="model.empty.message">
+                <source>No models configured yet. Create your first model to start using LLM services.</source>
+                <target>Noch keine Modelle konfiguriert. Erstellen Sie Ihr erstes Modell, um LLM-Dienste zu nutzen.</target>
+            </trans-unit>
+            <trans-unit id="model.empty.providerRequired">
+                <source>You need to create a provider first before adding models.</source>
+                <target>Sie müssen zuerst einen Anbieter erstellen, bevor Sie Modelle hinzufügen können.</target>
+            </trans-unit>
+            <trans-unit id="modelTest">
+                <source>Model Test</source>
+                <target>Modelltest</target>
+            </trans-unit>
+            <trans-unit id="model">
+                <source>Model</source>
+                <target>Modell</target>
+            </trans-unit>
+            <trans-unit id="testingModel">
+                <source>Testing model...</source>
+                <target>Modell wird getestet...</target>
+            </trans-unit>
+            <trans-unit id="noProvider">
+                <source>No provider</source>
+                <target>Kein Anbieter</target>
+            </trans-unit>
+
+            <!-- Configuration List -->
+            <trans-unit id="configuration.list.title">
+                <source>LLM Configurations</source>
+                <target>LLM-Konfigurationen</target>
+            </trans-unit>
+            <trans-unit id="configuration.field.name">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="configuration.field.identifier">
+                <source>Identifier</source>
+                <target>Bezeichner</target>
+            </trans-unit>
+            <trans-unit id="configuration.field.provider">
+                <source>Provider</source>
+                <target>Anbieter</target>
+            </trans-unit>
+            <trans-unit id="configuration.field.model">
+                <source>Model</source>
+                <target>Modell</target>
+            </trans-unit>
+            <trans-unit id="configuration.field.status">
+                <source>Status</source>
+                <target>Status</target>
+            </trans-unit>
+            <trans-unit id="configuration.empty.title">
+                <source>No Configurations Found</source>
+                <target>Keine Konfigurationen gefunden</target>
+            </trans-unit>
+            <trans-unit id="configuration.empty.message">
+                <source>No LLM configurations found yet. Create your first configuration to get started.</source>
+                <target>Noch keine LLM-Konfigurationen gefunden. Erstellen Sie Ihre erste Konfiguration, um loszulegen.</target>
+            </trans-unit>
+            <trans-unit id="notConfigured">
+                <source>Not configured</source>
+                <target>Nicht konfiguriert</target>
+            </trans-unit>
+            <trans-unit id="testResult">
+                <source>Test Result</source>
+                <target>Testergebnis</target>
+            </trans-unit>
+            <trans-unit id="testingConfiguration">
+                <source>Testing configuration...</source>
+                <target>Konfiguration wird getestet...</target>
+            </trans-unit>
+            <trans-unit id="configurationWorking">
+                <source>Configuration is working.</source>
+                <target>Konfiguration funktioniert.</target>
+            </trans-unit>
+            <trans-unit id="response">
+                <source>Response</source>
+                <target>Antwort</target>
+            </trans-unit>
+            <trans-unit id="tokensUsed">
+                <source>Tokens used</source>
+                <target>Verbrauchte Token</target>
+            </trans-unit>
+
+            <!-- Shared labels -->
+            <trans-unit id="configured">
+                <source>Configured</source>
+                <target>Konfiguriert</target>
+            </trans-unit>
+            <trans-unit id="notSet">
+                <source>Not set</source>
+                <target>Nicht gesetzt</target>
+            </trans-unit>
+            <trans-unit id="actions">
+                <source>Actions</source>
+                <target>Aktionen</target>
+            </trans-unit>
+            <trans-unit id="active">
+                <source>Active</source>
+                <target>Aktiv</target>
+            </trans-unit>
+            <trans-unit id="inactive">
+                <source>Inactive</source>
+                <target>Inaktiv</target>
+            </trans-unit>
+            <trans-unit id="deactivate">
+                <source>Deactivate</source>
+                <target>Deaktivieren</target>
+            </trans-unit>
+            <trans-unit id="activate">
+                <source>Activate</source>
+                <target>Aktivieren</target>
+            </trans-unit>
+            <trans-unit id="default">
+                <source>Default</source>
+                <target>Standard</target>
+            </trans-unit>
+            <trans-unit id="note">
+                <source>Note</source>
+                <target>Hinweis</target>
+            </trans-unit>
+            <trans-unit id="setDefault">
+                <source>Set as Default</source>
+                <target>Als Standard festlegen</target>
+            </trans-unit>
+            <trans-unit id="testing">
+                <source>Testing...</source>
+                <target>Teste...</target>
+            </trans-unit>
+            <trans-unit id="testingConnection">
+                <source>Testing connection...</source>
+                <target>Verbindung wird getestet...</target>
+            </trans-unit>
+            <trans-unit id="success">
+                <source>Success!</source>
+                <target>Erfolgreich!</target>
+            </trans-unit>
+            <trans-unit id="error">
+                <source>Error</source>
+                <target>Fehler</target>
+            </trans-unit>
+            <trans-unit id="provider">
+                <source>Provider</source>
+                <target>Anbieter</target>
+            </trans-unit>
+            <trans-unit id="testConnection">
+                <source>Test Connection</source>
+                <target>Verbindung testen</target>
+            </trans-unit>
+            <trans-unit id="connectionTest">
+                <source>Connection Test</source>
+                <target>Verbindungstest</target>
+            </trans-unit>
+            <trans-unit id="testModel">
+                <source>Test Model</source>
+                <target>Modell testen</target>
+            </trans-unit>
+            <trans-unit id="testConfiguration">
+                <source>Test Configuration</source>
+                <target>Konfiguration testen</target>
+            </trans-unit>
+            <trans-unit id="filterModelsLabel">
+                <source>Filter models by provider</source>
+                <target>Modelle nach Anbieter filtern</target>
+            </trans-unit>
+            <trans-unit id="filterByProvider">
+                <source>Filter by Provider</source>
+                <target>Nach Anbieter filtern</target>
+            </trans-unit>
+            <trans-unit id="allProviders">
+                <source>All Providers</source>
+                <target>Alle Anbieter</target>
+            </trans-unit>
+
+            <!-- Button actions -->
+            <trans-unit id="btn.provider.new">
+                <source>New Provider</source>
+                <target>Neuer Anbieter</target>
+            </trans-unit>
+            <trans-unit id="btn.model.new">
+                <source>New Model</source>
+                <target>Neues Modell</target>
+            </trans-unit>
+            <trans-unit id="btn.configuration.new">
+                <source>New Configuration</source>
+                <target>Neue Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="btn.refresh">
+                <source>Refresh</source>
+                <target>Aktualisieren</target>
+            </trans-unit>
+
+            <!-- Task controller messages -->
+            <trans-unit id="task.notFound">
+                <source>Task not found.</source>
+                <target>Aufgabe nicht gefunden.</target>
+            </trans-unit>
+            <trans-unit id="task.error">
+                <source>Error</source>
+                <target>Fehler</target>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.db">
+                <source>DB</source>
+                <target>DB</target>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.file">
+                <source>FILE</source>
+                <target>DATEI</target>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.cache">
+                <source>CACHE</source>
+                <target>CACHE</target>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.extension">
+                <source>EXTENSION</source>
+                <target>EXTENSION</target>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.error">
+                <source>ERROR</source>
+                <target>FEHLER</target>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.setting">
+                <source>SETTING</source>
+                <target>EINSTELLUNG</target>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.login">
+                <source>LOGIN</source>
+                <target>ANMELDUNG</target>
+            </trans-unit>
+            <trans-unit id="task.syslog.type.other">
+                <source>OTHER</source>
+                <target>SONSTIGES</target>
+            </trans-unit>
+            <trans-unit id="task.syslog.errorMarker">
+                <source>[ERROR]</source>
+                <target>[FEHLER]</target>
+            </trans-unit>
+            <trans-unit id="task.deprecationLog.notFound">
+                <source>No deprecation log file found.</source>
+                <target>Keine Deprecation-Log-Datei gefunden.</target>
+            </trans-unit>
+            <trans-unit id="task.deprecationLog.readError">
+                <source>Could not read deprecation log.</source>
+                <target>Deprecation-Log konnte nicht gelesen werden.</target>
+            </trans-unit>
+            <trans-unit id="task.table.notConfigured">
+                <source>No table configured.</source>
+                <target>Keine Tabelle konfiguriert.</target>
+            </trans-unit>
+            <trans-unit id="task.table.readError">
+                <source>Error reading table: %s</source>
+                <target>Fehler beim Lesen der Tabelle: %s</target>
+            </trans-unit>
+
+            <!-- Configuration controller -->
+            <trans-unit id="configuration.notConfigured">
+                <source>(not configured)</source>
+                <target>(nicht konfiguriert)</target>
+            </trans-unit>
+
+            <!-- Model test results -->
+            <trans-unit id="model.test.responded">
+                <source>Model "%s" responded: "%s" (tokens: %d in, %d out)</source>
+                <target>Modell "%s" hat geantwortet: "%s" (Token: %d rein, %d raus)</target>
+            </trans-unit>
+            <trans-unit id="model.test.emptyResponse">
+                <source>Model "%s" connected successfully (tokens: %d in, %d out) - response content empty, model may use internal reasoning</source>
+                <target>Modell "%s" erfolgreich verbunden (Token: %d rein, %d raus) - Antwortinhalt leer, Modell nutzt möglicherweise internes Reasoning</target>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>
