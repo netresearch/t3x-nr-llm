@@ -1,6 +1,6 @@
 {
     "name": "netresearch/nr-llm",
-    "description": "TYPO3 extension providing unified AI/LLM provider abstraction layer for TYPO3 projects - by Netresearch",
+    "description": "Shared AI/LLM foundation for TYPO3 — centralized provider management, encrypted API keys, and ready-to-use services for chat, translation, vision, and embeddings",
     "license": "GPL-2.0-or-later",
     "type": "typo3-cms-extension",
     "keywords": [
@@ -10,7 +10,13 @@
         "AI",
         "OpenAI",
         "Claude",
-        "Gemini"
+        "Gemini",
+        "Ollama",
+        "embeddings",
+        "translation",
+        "streaming",
+        "provider-abstraction",
+        "chatbot"
     ],
     "authors": [
         {

@@ -6,8 +6,8 @@
  */
 
 $EM_CONF[$_EXTKEY] = [
-    'title' => 'NR LLM - AI Provider Abstraction',
-    'description' => 'Unified AI/LLM provider abstraction layer for TYPO3. Supports OpenAI, Claude, Gemini, and other providers with features like chat completion, embeddings, vision, and translation. - by Netresearch',
+    'title' => 'LLM — Shared AI Foundation for TYPO3',
+    'description' => 'Shared AI foundation for TYPO3. Configure LLM providers once — every AI extension uses them. Supports OpenAI, Anthropic, Google Gemini, Ollama, and more. Includes services for chat, translation, vision, and embeddings with encrypted API keys and full admin control.',
     'category' => 'services',
     'author' => 'Netresearch DTT GmbH',
     'author_email' => '',
