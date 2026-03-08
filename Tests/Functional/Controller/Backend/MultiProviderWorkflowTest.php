@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -111,13 +112,21 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $backendUriBuilder = $this->get(BackendUriBuilder::class);
         self::assertInstanceOf(BackendUriBuilder::class, $backendUriBuilder);
 
+        $modelRepository = $this->get(ModelRepository::class);
+        self::assertInstanceOf(ModelRepository::class, $modelRepository);
+
+        $wizardGeneratorService = $this->get(WizardGeneratorService::class);
+        self::assertInstanceOf(WizardGeneratorService::class, $wizardGeneratorService);
+
         return new ConfigurationController(
             $moduleTemplateFactory,
             $iconFactory,
             $configurationService,
             $this->configurationRepository,
+            $modelRepository,
             $llmServiceManager,
             $providerAdapterRegistry,
+            $wizardGeneratorService,
             $pageRenderer,
             $backendUriBuilder,
         );

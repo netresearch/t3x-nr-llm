@@ -22,12 +22,12 @@ use Throwable;
  * from a natural-language description. Falls back to sensible defaults when
  * no LLM is available.
  */
-final class WizardGeneratorService
+final readonly class WizardGeneratorService
 {
     public function __construct(
-        private readonly LlmServiceManagerInterface $llmServiceManager,
-        private readonly LlmConfigurationRepository $configurationRepository,
-        private readonly ModelRepository $modelRepository,
+        private LlmServiceManagerInterface $llmServiceManager,
+        private LlmConfigurationRepository $configurationRepository,
+        private ModelRepository $modelRepository,
     ) {}
 
     /**

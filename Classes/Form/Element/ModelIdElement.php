@@ -12,7 +12,7 @@ namespace Netresearch\NrLlm\Form\Element;
 use TYPO3\CMS\Backend\Form\Element\AbstractFormElement;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Core\Page\JavaScriptModuleInstruction;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Utility\StringUtility;
 
 /**
  * Custom TCA form element for model_id field.
@@ -23,6 +23,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final class ModelIdElement extends AbstractFormElement
 {
+    public function __construct(private readonly BackendUriBuilder $uriBuilder) {}
     /**
      * @return array<string, mixed>
      */
@@ -35,7 +36,7 @@ final class ModelIdElement extends AbstractFormElement
         $parameterArray = is_array($data['parameterArray'] ?? null) ? $data['parameterArray'] : [];
         $itemFormElValue = is_string($parameterArray['itemFormElValue'] ?? null) ? $parameterArray['itemFormElValue'] : '';
         $itemFormElName = is_string($parameterArray['itemFormElName'] ?? null) ? $parameterArray['itemFormElName'] : '';
-        $fieldId = is_string($parameterArray['itemFormElID'] ?? null) ? $parameterArray['itemFormElID'] : 'model_id_field';
+        $fieldId = StringUtility::getUniqueId(self::class . '-');
         $fieldConf = is_array($parameterArray['fieldConf'] ?? null) ? $parameterArray['fieldConf'] : [];
         $config = is_array($fieldConf['config'] ?? null) ? $fieldConf['config'] : [];
 
@@ -43,7 +44,7 @@ final class ModelIdElement extends AbstractFormElement
         $maxLength = is_int($config['max'] ?? null) ? $config['max'] : 150;
 
         // Build AJAX URL for fetching models
-        $backendUriBuilder = GeneralUtility::makeInstance(BackendUriBuilder::class);
+        $backendUriBuilder = $this->uriBuilder;
         $fetchUrl = (string)$backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_fetch_available');
 
         // The provider_uid field name follows TYPO3's naming convention

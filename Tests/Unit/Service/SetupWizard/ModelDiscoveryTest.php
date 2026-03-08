@@ -288,9 +288,9 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         self::assertNotEmpty($models);
         $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
-        self::assertContains('claude-opus-4-5', $modelIds);
-        self::assertContains('claude-sonnet-4-5', $modelIds);
-        self::assertContains('claude-haiku-4-5', $modelIds);
+        self::assertContains('claude-opus-4-5-20251101', $modelIds);
+        self::assertContains('claude-sonnet-4-5-20250929', $modelIds);
+        self::assertContains('claude-haiku-4-5-20251001', $modelIds);
     }
 
     #[Test]

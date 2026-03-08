@@ -12,7 +12,6 @@ namespace Netresearch\NrLlm\Form\FieldWizard;
 use TYPO3\CMS\Backend\Form\AbstractNode;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Core\Page\JavaScriptModuleInstruction;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Field wizard for model_uid that loads parameter constraint JS.
@@ -22,6 +21,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final class ModelConstraintsWizard extends AbstractNode
 {
+    public function __construct(private readonly BackendUriBuilder $uriBuilder) {}
     /**
      * @return array<string, mixed>
      */
@@ -29,7 +29,7 @@ final class ModelConstraintsWizard extends AbstractNode
     {
         $result = $this->initializeResultArray();
 
-        $backendUriBuilder = GeneralUtility::makeInstance(BackendUriBuilder::class);
+        $backendUriBuilder = $this->uriBuilder;
         $constraintsUrl = (string)$backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_model_constraints');
 
         $result['html'] = sprintf(
