@@ -9,6 +9,11 @@
     <div>
         <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="LLM Configurations" /></h1>
 
+        <f:be.infobox state="-2">
+            <p>Configurations define <strong>how</strong> the AI behaves: which model to use, creativity level (temperature), response length, and a system prompt that sets the AI's role. Each configuration is a reusable preset — for example, a "Translator" config with low temperature and a translation-focused system prompt.</p>
+            <p class="mb-0">Configurations are shared across <strong>Tasks</strong>. A Task defines <strong>what</strong> to do (the prompt template), while a Configuration defines <strong>how</strong> to do it (model, temperature, system prompt). One configuration can power many different tasks.</p>
+        </f:be.infobox>
+
         <f:if condition="{configurations -> f:count()}">
             <f:then>
                 <div class="table-fit">

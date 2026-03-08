@@ -37,11 +37,10 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
     public function testConnection(DetectedProvider $provider, string $apiKey): array
     {
         try {
+            $base = rtrim($provider->endpoint, '/');
             $endpoint = match ($provider->adapterType) {
-                'anthropic' => $provider->endpoint . '/v1/models',
-                'gemini' => $provider->endpoint . '/v1/models',
-                'ollama' => $provider->endpoint . '/api/tags',
-                default => $provider->endpoint . '/v1/models',
+                'ollama' => $base . '/tags',
+                default => $base . '/models',
             };
 
             $request = $this->requestFactory->createRequest('GET', $endpoint);
@@ -88,18 +87,23 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
     /**
      * Discover models from provider.
      *
+     * Endpoint URLs include the API version path (e.g. https://api.openai.com/v1).
+     * Discovery methods append only the resource path (e.g. /models).
+     *
      * @return array<DiscoveredModel>
      */
     public function discover(DetectedProvider $provider, string $apiKey): array
     {
+        $endpoint = rtrim($provider->endpoint, '/');
+
         return match ($provider->adapterType) {
-            'openai' => $this->discoverOpenAI($provider->endpoint, $apiKey),
-            'anthropic' => $this->getAnthropicModels(),
-            'gemini' => $this->discoverGemini($provider->endpoint, $apiKey),
-            'openrouter' => $this->discoverOpenRouter($provider->endpoint, $apiKey),
-            'ollama' => $this->discoverOllama($provider->endpoint),
-            'mistral' => $this->discoverMistral($provider->endpoint, $apiKey),
-            'groq' => $this->discoverGroq($provider->endpoint, $apiKey),
+            'openai' => $this->discoverOpenAI($endpoint, $apiKey),
+            'anthropic' => $this->discoverAnthropic($endpoint, $apiKey),
+            'gemini' => $this->discoverGemini($endpoint, $apiKey),
+            'openrouter' => $this->discoverOpenRouter($endpoint, $apiKey),
+            'ollama' => $this->discoverOllama($endpoint),
+            'mistral' => $this->discoverMistral($endpoint, $apiKey),
+            'groq' => $this->discoverGroq($endpoint, $apiKey),
             default => $this->getDefaultModels($provider->adapterType),
         };
     }
@@ -112,7 +116,7 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
     private function discoverOpenAI(string $endpoint, string $apiKey): array
     {
         try {
-            $request = $this->requestFactory->createRequest('GET', $endpoint . '/v1/models')
+            $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
                 ->withHeader('Authorization', 'Bearer ' . $apiKey)
                 ->withHeader('Content-Type', 'application/json');
 
@@ -160,12 +164,15 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
      */
     private function isRelevantOpenAIModel(string $modelId): bool
     {
-        // Include GPT-5.x, GPT-4o, o4, o3 models
+        // Include current-generation models
         $patterns = [
             '/^gpt-5/',
             '/^gpt-4o/',
-            '/^o[34]-/',
+            '/^gpt-4-turbo/',
+            '/^gpt-4\./',       // gpt-4.1, gpt-4.1-mini, etc.
+            '/^o[1234]-/',      // o1, o3, o4 series
             '/^gpt-image/',
+            '/^chatgpt-/',      // chatgpt-4o-latest etc.
         ];
 
         foreach ($patterns as $pattern) {
@@ -174,7 +181,22 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
             }
         }
 
-        return false;
+        // Exclude known non-chat models
+        if (str_starts_with($modelId, 'dall-e')
+            || str_starts_with($modelId, 'whisper')
+            || str_starts_with($modelId, 'tts')
+            || str_starts_with($modelId, 'text-embedding')
+            || str_starts_with($modelId, 'babbage')
+            || str_starts_with($modelId, 'davinci')
+            || str_contains($modelId, 'instruct')
+            || str_contains($modelId, 'realtime')
+            || str_contains($modelId, '-search')
+        ) {
+            return false;
+        }
+
+        // Include anything else with a gpt- or o- prefix
+        return str_starts_with($modelId, 'gpt-') || preg_match('/^o\d/', $modelId) === 1;
     }
 
     /**
@@ -182,17 +204,47 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
      */
     private function enrichOpenAIModel(string $modelId): DiscoveredModel
     {
-        // December 2025 OpenAI model specifications
+        // March 2026 OpenAI model specifications
         $specs = [
+            'gpt-5.3' => [
+                'name' => 'GPT-5.3',
+                'description' => 'Latest flagship model with enhanced reasoning',
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming', 'reasoning'],
+                'contextLength' => 400000,
+                'maxOutputTokens' => 128000,
+                'costInput' => 175,
+                'costOutput' => 1400,
+                'recommended' => true,
+            ],
+            'gpt-5.3-chat-latest' => [
+                'name' => 'GPT-5.3 Chat',
+                'description' => 'Fast responses for interactive use',
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
+                'contextLength' => 400000,
+                'maxOutputTokens' => 32000,
+                'costInput' => 100,
+                'costOutput' => 400,
+                'recommended' => true,
+            ],
+            'gpt-5.3-mini' => [
+                'name' => 'GPT-5.3 Mini',
+                'description' => 'Small, fast, cost-effective',
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
+                'contextLength' => 200000,
+                'maxOutputTokens' => 32000,
+                'costInput' => 30,
+                'costOutput' => 120,
+                'recommended' => true,
+            ],
             'gpt-5.2' => [
                 'name' => 'GPT-5.2 Thinking',
                 'description' => 'Flagship model for coding, reasoning, and agentic tasks',
                 'capabilities' => ['chat', 'vision', 'tools', 'streaming', 'reasoning'],
                 'contextLength' => 400000,
                 'maxOutputTokens' => 128000,
-                'costInput' => 175, // $1.75 per 1M = 175 cents per 1M
-                'costOutput' => 1400, // $14 per 1M
-                'recommended' => true,
+                'costInput' => 175,
+                'costOutput' => 1400,
+                'recommended' => false,
             ],
             'gpt-5.2-pro' => [
                 'name' => 'GPT-5.2 Pro',
@@ -212,7 +264,7 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
                 'maxOutputTokens' => 32000,
                 'costInput' => 100,
                 'costOutput' => 400,
-                'recommended' => true,
+                'recommended' => false,
             ],
             'gpt-5' => [
                 'name' => 'GPT-5',
@@ -232,7 +284,7 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
                 'maxOutputTokens' => 32000,
                 'costInput' => 30,
                 'costOutput' => 120,
-                'recommended' => true,
+                'recommended' => false,
             ],
             'o4-mini' => [
                 'name' => 'O4 Mini',
@@ -244,6 +296,16 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
                 'costOutput' => 440,
                 'recommended' => false,
             ],
+            'o3' => [
+                'name' => 'O3',
+                'description' => 'Advanced reasoning model',
+                'capabilities' => ['chat', 'vision', 'tools', 'reasoning'],
+                'contextLength' => 200000,
+                'maxOutputTokens' => 100000,
+                'costInput' => 200,
+                'costOutput' => 800,
+                'recommended' => false,
+            ],
             'gpt-4o' => [
                 'name' => 'GPT-4o',
                 'description' => 'Legacy multimodal model',
@@ -252,6 +314,26 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
                 'maxOutputTokens' => 16384,
                 'costInput' => 250,
                 'costOutput' => 1000,
+                'recommended' => false,
+            ],
+            'gpt-4.1' => [
+                'name' => 'GPT-4.1',
+                'description' => 'Coding and instruction-following model',
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
+                'contextLength' => 1047576,
+                'maxOutputTokens' => 32768,
+                'costInput' => 200,
+                'costOutput' => 800,
+                'recommended' => false,
+            ],
+            'gpt-4.1-mini' => [
+                'name' => 'GPT-4.1 Mini',
+                'description' => 'Fast coding model',
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
+                'contextLength' => 1047576,
+                'maxOutputTokens' => 32768,
+                'costInput' => 40,
+                'costOutput' => 160,
                 'recommended' => false,
             ],
         ];
@@ -288,65 +370,203 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
     private function getOpenAIFallbackModels(): array
     {
         return [
+            $this->enrichOpenAIModel('gpt-5.3'),
+            $this->enrichOpenAIModel('gpt-5.3-chat-latest'),
+            $this->enrichOpenAIModel('gpt-5.3-mini'),
             $this->enrichOpenAIModel('gpt-5.2'),
             $this->enrichOpenAIModel('gpt-5.2-chat-latest'),
             $this->enrichOpenAIModel('gpt-5-mini'),
+            $this->enrichOpenAIModel('gpt-4o'),
             $this->enrichOpenAIModel('o4-mini'),
+            $this->enrichOpenAIModel('o3'),
         ];
     }
 
     /**
-     * Get Anthropic models (no discovery API available).
-     *
-     * December 2025: Claude 4.x family
+     * Discover Anthropic models via API.
      *
      * @return array<DiscoveredModel>
      */
-    private function getAnthropicModels(): array
+    private function discoverAnthropic(string $endpoint, string $apiKey): array
+    {
+        try {
+            $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
+                ->withHeader('x-api-key', $apiKey)
+                ->withHeader('anthropic-version', '2023-06-01');
+
+            $response = $this->httpClient->sendRequest($request);
+
+            if ($response->getStatusCode() !== 200) {
+                return $this->getAnthropicFallbackModels();
+            }
+
+            $data = json_decode($response->getBody()->getContents(), true);
+            if (!is_array($data)) {
+                return $this->getAnthropicFallbackModels();
+            }
+
+            $modelList = $data['data'] ?? [];
+            if (!is_array($modelList) || $modelList === []) {
+                return $this->getAnthropicFallbackModels();
+            }
+
+            $models = [];
+            foreach ($modelList as $model) {
+                if (!is_array($model)) {
+                    continue;
+                }
+                $modelId = $model['id'] ?? '';
+                if (!is_string($modelId) || $modelId === '') {
+                    continue;
+                }
+
+                /** @var array<string, mixed> $model */
+                $models[] = $this->enrichAnthropicModel($modelId, $model);
+            }
+
+            // Sort: recommended first, then by name
+            usort($models, fn(DiscoveredModel $a, DiscoveredModel $b) => $b->recommended <=> $a->recommended);
+
+            return $models !== [] ? $models : $this->getAnthropicFallbackModels();
+        } catch (Throwable) {
+            return $this->getAnthropicFallbackModels();
+        }
+    }
+
+    /**
+     * Enrich Anthropic model with known specifications.
+     *
+     * @param array<string, mixed> $apiData
+     */
+    private function enrichAnthropicModel(string $modelId, array $apiData): DiscoveredModel
+    {
+        $specs = [
+            'claude-opus-4-5' => [
+                'name' => 'Claude Opus 4.5',
+                'description' => 'Most intelligent, best for coding, agents, and computer use',
+                'costInput' => 500,
+                'costOutput' => 2500,
+                'recommended' => true,
+            ],
+            'claude-sonnet-4-5' => [
+                'name' => 'Claude Sonnet 4.5',
+                'description' => 'Balanced performance and cost',
+                'costInput' => 300,
+                'costOutput' => 1500,
+                'recommended' => true,
+            ],
+            'claude-haiku-4-5' => [
+                'name' => 'Claude Haiku 4.5',
+                'description' => 'Fast and cost-effective for simple tasks',
+                'costInput' => 100,
+                'costOutput' => 500,
+                'recommended' => true,
+            ],
+            'claude-opus-4' => [
+                'name' => 'Claude Opus 4',
+                'description' => 'Previous generation Opus',
+                'costInput' => 1500,
+                'costOutput' => 7500,
+                'recommended' => false,
+            ],
+            'claude-sonnet-4' => [
+                'name' => 'Claude Sonnet 4',
+                'description' => 'Previous generation Sonnet',
+                'costInput' => 300,
+                'costOutput' => 1500,
+                'recommended' => false,
+            ],
+        ];
+
+        // Match by prefix (API returns dated versions like claude-opus-4-5-20251101)
+        $spec = $specs[$modelId] ?? null;
+        if ($spec === null) {
+            foreach ($specs as $prefix => $s) {
+                if (str_starts_with($modelId, $prefix)) {
+                    $spec = $s;
+                    break;
+                }
+            }
+        }
+
+        $displayName = isset($apiData['display_name']) && is_string($apiData['display_name'])
+            ? $apiData['display_name']
+            : ($spec['name'] ?? $modelId);
+
+        return new DiscoveredModel(
+            modelId: $modelId,
+            name: $displayName,
+            description: $spec['description'] ?? 'Anthropic model',
+            capabilities: ['chat', 'vision', 'tools', 'streaming'],
+            contextLength: 200000,
+            maxOutputTokens: 32000,
+            costInput: $spec['costInput'] ?? 0,
+            costOutput: $spec['costOutput'] ?? 0,
+            recommended: $spec['recommended'] ?? false,
+        );
+    }
+
+    /**
+     * Get Anthropic fallback models (when API discovery fails).
+     *
+     * @return array<DiscoveredModel>
+     */
+    private function getAnthropicFallbackModels(): array
     {
         return [
             new DiscoveredModel(
-                modelId: 'claude-opus-4-5',
+                modelId: 'claude-opus-4-5-20251101',
                 name: 'Claude Opus 4.5',
                 description: 'Most intelligent, best for coding, agents, and computer use',
                 capabilities: ['chat', 'vision', 'tools', 'streaming'],
                 contextLength: 200000,
                 maxOutputTokens: 32000,
-                costInput: 500, // $5 per 1M
-                costOutput: 2500, // $25 per 1M
+                costInput: 500,
+                costOutput: 2500,
                 recommended: true,
             ),
             new DiscoveredModel(
-                modelId: 'claude-sonnet-4-5',
+                modelId: 'claude-sonnet-4-5-20250929',
                 name: 'Claude Sonnet 4.5',
-                description: 'Balanced performance and cost, 1M context available',
+                description: 'Balanced performance and cost',
                 capabilities: ['chat', 'vision', 'tools', 'streaming'],
                 contextLength: 200000,
                 maxOutputTokens: 32000,
-                costInput: 300, // $3 per 1M
-                costOutput: 1500, // $15 per 1M
+                costInput: 300,
+                costOutput: 1500,
                 recommended: true,
             ),
             new DiscoveredModel(
-                modelId: 'claude-haiku-4-5',
+                modelId: 'claude-haiku-4-5-20251001',
                 name: 'Claude Haiku 4.5',
                 description: 'Fast and cost-effective for simple tasks',
                 capabilities: ['chat', 'vision', 'tools', 'streaming'],
                 contextLength: 200000,
                 maxOutputTokens: 16000,
-                costInput: 100, // $1 per 1M
-                costOutput: 500, // $5 per 1M
+                costInput: 100,
+                costOutput: 500,
                 recommended: true,
             ),
             new DiscoveredModel(
-                modelId: 'claude-opus-4',
+                modelId: 'claude-opus-4-20250514',
                 name: 'Claude Opus 4',
-                description: 'Previous generation Opus model',
+                description: 'Previous generation Opus',
                 capabilities: ['chat', 'vision', 'tools', 'streaming'],
                 contextLength: 200000,
                 maxOutputTokens: 16000,
                 costInput: 1500,
                 costOutput: 7500,
+                recommended: false,
+            ),
+            new DiscoveredModel(
+                modelId: 'claude-sonnet-4-20250514',
+                name: 'Claude Sonnet 4',
+                description: 'Previous generation Sonnet',
+                capabilities: ['chat', 'vision', 'tools', 'streaming'],
+                contextLength: 200000,
+                maxOutputTokens: 16000,
+                costInput: 300,
+                costOutput: 1500,
                 recommended: false,
             ),
         ];
@@ -360,7 +580,7 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
     private function discoverGemini(string $endpoint, string $apiKey): array
     {
         try {
-            $url = $endpoint . '/v1/models?key=' . $apiKey;
+            $url = $endpoint . '/models?key=' . $apiKey;
             $request = $this->requestFactory->createRequest('GET', $url);
             $response = $this->httpClient->sendRequest($request);
 
@@ -408,9 +628,22 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
      */
     private function isRelevantGeminiModel(string $modelId): bool
     {
-        return str_starts_with($modelId, 'gemini-3')
-               || str_starts_with($modelId, 'gemini-2.5')
-               || str_starts_with($modelId, 'gemini-2.0');
+        // Include all gemini models, exclude deprecated/embedding-only
+        if (!str_starts_with($modelId, 'gemini-')) {
+            return false;
+        }
+
+        // Exclude embedding models (not usable for chat)
+        if (str_contains($modelId, 'embedding')) {
+            return false;
+        }
+
+        // Exclude very old models
+        if (str_starts_with($modelId, 'gemini-1.0') || str_starts_with($modelId, 'gemini-pro')) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -537,7 +770,7 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
     private function discoverOllama(string $endpoint): array
     {
         try {
-            $request = $this->requestFactory->createRequest('GET', $endpoint . '/api/tags');
+            $request = $this->requestFactory->createRequest('GET', $endpoint . '/tags');
             $response = $this->httpClient->sendRequest($request);
 
             if ($response->getStatusCode() !== 200) {
@@ -601,7 +834,7 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
             $body = json_encode(['name' => $modelId], JSON_THROW_ON_ERROR);
             $stream = $this->streamFactory->createStream($body);
 
-            $request = $this->requestFactory->createRequest('POST', $endpoint . '/api/show')
+            $request = $this->requestFactory->createRequest('POST', $endpoint . '/show')
                 ->withHeader('Content-Type', 'application/json')
                 ->withBody($stream);
 
@@ -720,7 +953,7 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
     private function discoverOpenRouter(string $endpoint, string $apiKey): array
     {
         try {
-            $request = $this->requestFactory->createRequest('GET', 'https://openrouter.ai/api/v1/models')
+            $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
                 ->withHeader('Authorization', 'Bearer ' . $apiKey);
 
             $response = $this->httpClient->sendRequest($request);
@@ -773,8 +1006,7 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
                 );
             }
 
-            // Limit to first 20 models
-            return array_slice($models, 0, 20);
+            return $models;
         } catch (Throwable) {
             return [];
         }
@@ -788,7 +1020,7 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
     private function discoverMistral(string $endpoint, string $apiKey): array
     {
         try {
-            $request = $this->requestFactory->createRequest('GET', $endpoint . '/v1/models')
+            $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
                 ->withHeader('Authorization', 'Bearer ' . $apiKey);
 
             $response = $this->httpClient->sendRequest($request);
@@ -873,7 +1105,7 @@ final readonly class ModelDiscovery implements ModelDiscoveryInterface
     private function discoverGroq(string $endpoint, string $apiKey): array
     {
         try {
-            $request = $this->requestFactory->createRequest('GET', $endpoint . '/openai/v1/models')
+            $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
                 ->withHeader('Authorization', 'Bearer ' . $apiKey);
 
             $response = $this->httpClient->sendRequest($request);

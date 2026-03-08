@@ -76,49 +76,49 @@
                 <source>System Prompt</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.system_prompt.description">
-                <source>Initial instructions to define the AI's behavior and context</source>
+                <source>Instructions that define the AI's role, behavior, and constraints. This is sent before every user message and shapes all responses. Be specific about tone, format, and limitations. Example for a translator: "You are a professional translator. Translate the provided text to the target language. Preserve formatting, tone, and cultural context. Do not add explanations unless asked." Example for a summarizer: "Summarize the following content in 3-5 bullet points. Focus on actionable insights. Use clear, non-technical language." Tasks can override or extend this with their own prompt templates.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.temperature">
                 <source>Temperature</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.temperature.description">
-                <source>Controls randomness (0.0 = deterministic, 2.0 = very creative)</source>
+                <source>Controls how random or creative the output is. Low values (0.0–0.3) produce focused, deterministic responses — ideal for factual tasks, translation, or code. Medium values (0.4–0.7) balance creativity and accuracy — good for general content writing. High values (0.8–2.0) produce more creative, surprising results — useful for brainstorming or poetry. Example: A summarization task works best at 0.2–0.3, while a blog idea generator might use 0.9. Note: Reasoning models (o-series, GPT-5.x) ignore this setting. Anthropic models accept 0.0–1.0 only.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.max_tokens">
                 <source>Max Tokens</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.max_tokens.description">
-                <source>Maximum number of tokens in the response</source>
+                <source>Limits how long the response can be. One token is roughly ¾ of a word in English — so 100 tokens ≈ 75 words, 1000 tokens ≈ 750 words, 4000 tokens ≈ a 3-page article. Set this to match your use case: 256 for short answers, 1000–2000 for summaries, 4000–8000 for full articles or translations. Higher values cost more — the model stops generating when it reaches this limit. The upper bound depends on the model (check the model's max output tokens).</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.top_p">
-                <source>Top P</source>
+                <source>Top P (Nucleus Sampling)</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.top_p.description">
-                <source>Nucleus sampling (0.0-1.0). Lower values focus on more likely tokens.</source>
+                <source>An alternative to temperature for controlling randomness. At each step, the model considers only tokens whose combined probability reaches this threshold. 1.0 = consider all tokens (default). 0.1 = only consider tokens in the top 10% probability mass, producing very focused output. Generally, adjust either temperature OR top_p, not both. Most use cases work fine with the default of 1.0 while adjusting temperature instead. Note: Reasoning models (o-series, GPT-5.x) fix this at 1.0. On Anthropic, top_p and temperature are mutually exclusive.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.frequency_penalty">
                 <source>Frequency Penalty</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.frequency_penalty.description">
-                <source>Reduces repetition based on frequency (-2.0 to 2.0)</source>
+                <source>Penalizes tokens proportionally to how often they have already appeared. Positive values (0.1–2.0) reduce word repetition — higher values make the model avoid repeating the same phrases. 0.0 = no penalty (default). Negative values (-2.0 to 0) encourage repetition. Useful for preventing the model from getting stuck in loops or repeating filler phrases. Example: Set to 0.5 for content writing to reduce "the the" or repeated sentence structures. Only supported by OpenAI-compatible providers — Anthropic and Gemini do not use this parameter.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.presence_penalty">
                 <source>Presence Penalty</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.presence_penalty.description">
-                <source>Encourages new topics based on token presence (-2.0 to 2.0)</source>
+                <source>Penalizes tokens based on whether they have appeared at all (regardless of frequency). Positive values (0.1–2.0) encourage the model to introduce new topics and vocabulary. 0.0 = no penalty (default). Negative values encourage staying on-topic. Unlike frequency_penalty, this applies equally whether a word appeared once or 100 times. Example: Set to 0.6 for brainstorming to push the model toward diverse ideas. Set to 0.0 or negative for focused Q&amp;A. Only supported by OpenAI-compatible providers — Anthropic and Gemini do not use this parameter.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.options">
                 <source>Additional Options</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.options.description">
-                <source>Additional options as JSON (optional)</source>
+                <source>Provider-specific options as a JSON object. These are merged into the API request. Examples: {"stop_sequences": ["\n\n"]} to stop at double newlines, {"seed": 42} for reproducible output (OpenAI), {"response_format": {"type": "json_object"}} to force JSON output. Consult your provider's API documentation for available options.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.max_requests_per_day">
@@ -132,7 +132,7 @@
                 <source>Timeout (seconds)</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.timeout.description">
-                <source>Maximum time to wait for API response (0 = use model default)</source>
+                <source>Maximum time to wait for the API to respond, in seconds. Set to 0 to use the model's default timeout. Short tasks (translation, classification) typically need 10–30s. Long content generation may need 60–120s. Reasoning models (o-series, GPT-5.x) can take 60–300s due to internal "thinking" steps. If requests frequently time out, increase this value — but note that longer timeouts also mean users wait longer if something goes wrong.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.max_tokens_per_day">
@@ -174,7 +174,7 @@
                 <source>Model Selection</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.model_selection_mode.description">
-                <source>Choose how the model is selected: Fixed (specific model) or Criteria (dynamic selection at runtime)</source>
+                <source>"Fixed Model" always uses the specific model you select below — predictable cost and behavior. "Dynamic (Criteria-based)" automatically picks the best available model at runtime based on your criteria (capabilities, provider preference, cost) — useful when you want fallback behavior or cost optimization across multiple providers.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.model_selection_mode.fixed">
                 <source>Fixed Model</source>

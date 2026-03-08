@@ -325,9 +325,13 @@ final class ModelController extends ActionController
                 $models[] = [
                     'id' => $model->modelId,
                     'name' => $model->name,
+                    'description' => $model->description,
                     'contextLength' => $model->contextLength,
                     'maxOutputTokens' => $model->maxOutputTokens,
                     'capabilities' => $model->capabilities,
+                    'costInput' => $model->costInput,
+                    'costOutput' => $model->costOutput,
+                    'recommended' => $model->recommended,
                 ];
             }
 

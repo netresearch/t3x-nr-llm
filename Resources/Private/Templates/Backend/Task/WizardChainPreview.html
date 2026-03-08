@@ -1,0 +1,272 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div>
+        <h1>
+            <core:icon identifier="actions-bolt" size="medium" />
+            AI-Generated Task Setup
+        </h1>
+
+        <f:be.infobox state="0">
+            <p class="mb-0"><strong>Review the complete task setup below.</strong> The AI has generated a task with a dedicated configuration and model recommendation. Click "Create Task" to save everything at once, or adjust the options below.</p>
+        </f:be.infobox>
+
+        <f:form action="wizardCreate" method="post" id="wizard-create-form">
+            <f:comment>Hidden fields carry all generated data to the create action</f:comment>
+            <f:for each="{chain.task}" as="value" key="key">
+                <input type="hidden" name="task[{key}]" value="{value}" />
+            </f:for>
+            <f:for each="{chain.configuration}" as="value" key="key">
+                <input type="hidden" name="configuration[{key}]" value="{value}" />
+            </f:for>
+            <f:if condition="{existingModel}">
+                <input type="hidden" name="existing_model_uid" value="{existingModel.uid}" />
+            </f:if>
+            <f:if condition="{existingConfig}">
+                <input type="hidden" name="existing_config_uid" value="{existingConfig.uid}" />
+            </f:if>
+
+            <f:comment>Task Preview</f:comment>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">
+                        <core:icon identifier="actions-bolt" size="small" />
+                        Task
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Name</dt>
+                        <dd class="col-sm-9"><strong>{chain.task.name}</strong></dd>
+
+                        <f:if condition="{chain.task.identifier}">
+                            <dt class="col-sm-3">Identifier</dt>
+                            <dd class="col-sm-9"><code>{chain.task.identifier}</code></dd>
+                        </f:if>
+
+                        <f:if condition="{chain.task.description}">
+                            <dt class="col-sm-3">Description</dt>
+                            <dd class="col-sm-9">{chain.task.description}</dd>
+                        </f:if>
+
+                        <dt class="col-sm-3">Category</dt>
+                        <dd class="col-sm-9">{chain.task.category}</dd>
+
+                        <dt class="col-sm-3">Output Format</dt>
+                        <dd class="col-sm-9">{chain.task.output_format}</dd>
+
+                        <f:if condition="{chain.task.prompt_template}">
+                            <dt class="col-sm-3">Prompt Template</dt>
+                            <dd class="col-sm-9">
+                                <pre class="mb-0 p-2 bg-body-tertiary rounded" style="white-space: pre-wrap; font-size: 0.85em;">{chain.task.prompt_template}</pre>
+                            </dd>
+                        </f:if>
+                    </dl>
+                </div>
+            </div>
+
+            <f:comment>Configuration Preview</f:comment>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">
+                        <core:icon identifier="actions-system-extension-configure" size="small" />
+                        Configuration
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <f:if condition="{existingConfig}">
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="config_choice" id="config-new" value="new" checked="checked" />
+                                <label class="form-check-label" for="config-new">
+                                    <strong>Create new dedicated configuration</strong>
+                                    <span class="text-body-secondary">— optimized for this task</span>
+                                </label>
+                            </div>
+                            <div class="form-check mt-1">
+                                <input class="form-check-input" type="radio" name="config_choice" id="config-existing" value="existing" />
+                                <label class="form-check-label" for="config-existing">
+                                    <strong>Use existing: {existingConfig.name}</strong>
+                                    <f:if condition="{existingConfig.llmModel}">
+                                        <span class="text-body-secondary">— via {existingConfig.llmModel.name}</span>
+                                    </f:if>
+                                </label>
+                            </div>
+                        </div>
+                    </f:if>
+
+                    <div id="config-new-details">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-3">Name</dt>
+                            <dd class="col-sm-9"><strong>{chain.configuration.name}</strong></dd>
+
+                            <f:if condition="{chain.configuration.identifier}">
+                                <dt class="col-sm-3">Identifier</dt>
+                                <dd class="col-sm-9"><code>{chain.configuration.identifier}</code></dd>
+                            </f:if>
+
+                            <f:if condition="{chain.configuration.description}">
+                                <dt class="col-sm-3">Description</dt>
+                                <dd class="col-sm-9">{chain.configuration.description}</dd>
+                            </f:if>
+
+                            <f:if condition="{chain.configuration.system_prompt}">
+                                <dt class="col-sm-3">System Prompt</dt>
+                                <dd class="col-sm-9">
+                                    <pre class="mb-0 p-2 bg-body-tertiary rounded" style="white-space: pre-wrap; font-size: 0.85em;">{chain.configuration.system_prompt}</pre>
+                                </dd>
+                            </f:if>
+
+                            <dt class="col-sm-3">Temperature</dt>
+                            <dd class="col-sm-9">{chain.configuration.temperature}</dd>
+
+                            <dt class="col-sm-3">Max Tokens</dt>
+                            <dd class="col-sm-9">{chain.configuration.max_tokens}</dd>
+
+                            <dt class="col-sm-3">Top P</dt>
+                            <dd class="col-sm-9">{chain.configuration.top_p}</dd>
+
+                            <dt class="col-sm-3">Frequency Penalty</dt>
+                            <dd class="col-sm-9">{chain.configuration.frequency_penalty}</dd>
+
+                            <dt class="col-sm-3">Presence Penalty</dt>
+                            <dd class="col-sm-9">{chain.configuration.presence_penalty}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <f:comment>Model Preview</f:comment>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">
+                        <core:icon identifier="actions-cpu" size="small" />
+                        Model
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <f:if condition="{existingModel}">
+                        <f:then>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="model_choice" id="model-existing" value="existing" checked="checked" />
+                                    <label class="form-check-label" for="model-existing">
+                                        <strong>Use existing: {existingModel.name}</strong>
+                                        <span class="text-body-secondary">— {existingModel.modelId}</span>
+                                        <f:if condition="{existingModel.provider}">
+                                            <span class="text-body-secondary">({existingModel.provider.name})</span>
+                                        </f:if>
+                                    </label>
+                                </div>
+                            </div>
+                            <f:if condition="{chain.suggested_model.name}">
+                                <div class="text-body-secondary small">
+                                    <core:icon identifier="actions-info" size="small" />
+                                    AI also suggested: <strong>{chain.suggested_model.name}</strong> ({chain.suggested_model.model_id})
+                                    <f:if condition="{chain.suggested_model.description}">
+                                        — {chain.suggested_model.description}
+                                    </f:if>
+                                </div>
+                            </f:if>
+                        </f:then>
+                        <f:else>
+                            <f:if condition="{chain.suggested_model.name}">
+                                <f:then>
+                                    <div class="alert alert-info mb-0">
+                                        <core:icon identifier="actions-info" size="small" />
+                                        <strong>No matching model found.</strong>
+                                        The AI recommends <strong>{chain.suggested_model.name}</strong> ({chain.suggested_model.model_id}).
+                                        The task will use the system default model.
+                                        <f:if condition="{chain.suggested_model.description}">
+                                            <br /><small>{chain.suggested_model.description}</small>
+                                        </f:if>
+                                    </div>
+                                </f:then>
+                                <f:else>
+                                    <div class="alert alert-warning mb-0">
+                                        <core:icon identifier="actions-exclamation-triangle" size="small" />
+                                        <strong>No model recommendation available.</strong>
+                                        The task will use the system default model.
+                                    </div>
+                                </f:else>
+                            </f:if>
+                        </f:else>
+                    </f:if>
+                </div>
+            </div>
+
+            <f:comment>Generation Info</f:comment>
+            <div class="card mb-4">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-body-secondary">
+                                <strong>Your description:</strong> {description}
+                            </small>
+                        </div>
+                        <div>
+                            <f:if condition="{usedConfig}">
+                                <small class="text-body-secondary">
+                                    <core:icon identifier="actions-system-extension-configure" size="small" />
+                                    Generated with <strong>{usedConfig.name}</strong>
+                                    <f:if condition="{usedConfig.llmModel}">
+                                        via {usedConfig.llmModel.name}
+                                        <f:if condition="{usedConfig.llmModel.provider}">
+                                            ({usedConfig.llmModel.provider.name})
+                                        </f:if>
+                                    </f:if>
+                                </small>
+                            </f:if>
+                            <f:if condition="!{usedConfig}">
+                                <small class="text-body-secondary">
+                                    <span class="badge text-bg-warning">Generated without AI (fallback)</span>
+                                </small>
+                            </f:if>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <f:comment>Action Buttons</f:comment>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-success">
+                    <core:icon identifier="actions-check" size="small" />
+                    Create Task
+                </button>
+                <f:link.action action="wizardGenerateChain" arguments="{description: description, configurationUid: configurationUid}" class="btn btn-default">
+                    <core:icon identifier="actions-refresh" size="small" />
+                    Regenerate
+                </f:link.action>
+                <f:link.action action="wizardForm" class="btn btn-default">
+                    <core:icon identifier="actions-edit" size="small" />
+                    Edit Description
+                </f:link.action>
+                <f:link.action action="list" class="btn btn-default">
+                    Back to List
+                </f:link.action>
+            </div>
+        </f:form>
+    </div>
+
+    <f:comment>JavaScript for radio button toggling</f:comment>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const configRadios = document.querySelectorAll('input[name="config_choice"]');
+            const configNewDetails = document.getElementById('config-new-details');
+
+            if (configRadios.length && configNewDetails) {
+                configRadios.forEach(function(radio) {
+                    radio.addEventListener('change', function() {
+                        configNewDetails.style.display = this.value === 'new' ? '' : 'none';
+                    });
+                });
+            }
+        });
+    </script>
+</f:section>
+
+</html>

@@ -120,6 +120,8 @@ return [
         'controllerActions' => [
             ConfigurationController::class => [
                 'list',
+                'wizardForm',
+                'wizardGenerate',
             ],
         ],
     ],
@@ -136,6 +138,10 @@ return [
             TaskController::class => [
                 'list',
                 'executeForm',
+                'wizardForm',
+                'wizardGenerate',
+                'wizardGenerateChain',
+                'wizardCreate',
             ],
         ],
     ],

@@ -173,9 +173,16 @@ class TaskExecute {
                 Notification.success('Data Loaded', `Loaded ${response.recordCount} record(s) from ${table}`);
 
                 // Collapse the picker
-                const bsCollapse = bootstrap.Collapse.getInstance(this.tablePickerCollapse);
-                if (bsCollapse) {
-                    bsCollapse.hide();
+                try {
+                    const bsCollapse = bootstrap.Collapse.getInstance(this.tablePickerCollapse);
+                    if (bsCollapse) {
+                        bsCollapse.hide();
+                    }
+                } catch {
+                    // Bootstrap not available, hide manually
+                    if (this.tablePickerCollapse) {
+                        this.tablePickerCollapse.classList.remove('show');
+                    }
                 }
             } else {
                 throw new Error(response.error || 'Failed to load records');
@@ -227,11 +234,11 @@ class TaskExecute {
         this.btnLoading?.classList.remove('d-none');
 
         // Show loading state in output panel
-        this.outputStatus.classList.remove('d-none');
-        this.outputPlaceholder.classList.add('d-none');
+        this.outputStatus?.classList.remove('d-none');
+        this.outputPlaceholder?.classList.add('d-none');
         this.outputLoading?.classList.remove('d-none');
-        this.outputError.classList.add('d-none');
-        this.outputResult.classList.add('d-none');
+        this.outputError?.classList.add('d-none');
+        this.outputResult?.classList.add('d-none');
 
         // Start elapsed time counter
         let elapsedSeconds = 0;
@@ -286,13 +293,13 @@ class TaskExecute {
 
                 Notification.success('Task completed', 'The task has been executed successfully.');
             } else {
-                this.errorMessage.textContent = response.error || 'Unknown error';
-                this.outputError.classList.remove('d-none');
+                if (this.errorMessage) this.errorMessage.textContent = response.error || 'Unknown error';
+                this.outputError?.classList.remove('d-none');
                 Notification.error('Task failed', response.error || 'Unknown error');
             }
         } catch (error) {
-            this.errorMessage.textContent = error.message || 'Request failed';
-            this.outputError.classList.remove('d-none');
+            if (this.errorMessage) this.errorMessage.textContent = error.message || 'Request failed';
+            this.outputError?.classList.remove('d-none');
             Notification.error('Request failed', error.message || 'Unknown error');
         } finally {
             // Stop elapsed timer
@@ -302,12 +309,12 @@ class TaskExecute {
             }
 
             // Reset button state
-            this.executeBtn.disabled = false;
+            if (this.executeBtn) this.executeBtn.disabled = false;
             this.btnContent?.classList.remove('d-none');
             this.btnLoading?.classList.add('d-none');
 
             // Hide loading indicators
-            this.outputStatus.classList.add('d-none');
+            this.outputStatus?.classList.add('d-none');
             this.outputLoading?.classList.add('d-none');
         }
     }

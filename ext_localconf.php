@@ -7,6 +7,8 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Form\Element\ModelIdElement;
+use Netresearch\NrLlm\Form\FieldWizard\ModelConstraintsWizard;
 use TYPO3\CMS\Core\Cache\Backend\SimpleFileBackend;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
@@ -15,7 +17,7 @@ defined('TYPO3') or die();
 
 (static function (): void {
     // Cache configuration (also in Configuration/Caching.php for TYPO3 v14+)
-    /** @phpstan-ignore-next-line offsetAccess.nonOffsetAccessible */
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_responses'] ??= [
         'frontend' => VariableFrontend::class,
         'backend' => SimpleFileBackend::class,
@@ -23,6 +25,22 @@ defined('TYPO3') or die();
             'defaultLifetime' => 3600,
         ],
         'groups' => ['system'],
+    ];
+
+    // Register custom TCA renderType for model_id field with API fetch
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['formEngine']['nodeRegistry'][1741427200] = [
+        'nodeName' => 'modelIdWithFetch',
+        'priority' => 40,
+        'class' => ModelIdElement::class,
+    ];
+
+    // Register field wizard for model constraint detection on configuration form
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['formEngine']['nodeRegistry'][1741427201] = [
+        'nodeName' => 'modelConstraintsWizard',
+        'priority' => 40,
+        'class' => ModelConstraintsWizard::class,
     ];
 
     // Register TypoScript

@@ -8,26 +8,140 @@
 <f:section name="Content">
     <div data-task-execute data-task-uid="{task.uid}">
 
-        <f:be.infobox
-            title="One-Shot Prompt"
-            state="-2"
-        >
-            <p>
-                This is a <strong>simple one-shot prompt</strong> - it sends your input to the LLM once and returns the response.
-                It cannot reason across multiple steps, use external tools, or remember previous interactions.
-                For complex tasks, consider using a proper AI agent framework.
-            </p>
-        </f:be.infobox>
-
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1>
                 <core:icon identifier="actions-play" size="medium" />
                 Execute: {task.name}
             </h1>
-            <f:link.action action="list" class="btn btn-default">
-                <core:icon identifier="actions-view-go-back" size="small" />
-                Back to List
-            </f:link.action>
+            <div class="d-flex gap-2">
+                <f:if condition="{taskEditUrl}">
+                    <a href="{taskEditUrl}" class="btn btn-default btn-sm">
+                        <core:icon identifier="actions-open" size="small" />
+                        Edit Task
+                    </a>
+                </f:if>
+                <f:link.action action="list" class="btn btn-default btn-sm">
+                    <core:icon identifier="actions-view-go-back" size="small" />
+                    Back to List
+                </f:link.action>
+            </div>
+        </div>
+
+        <f:if condition="!{task.isActive}">
+            <div class="alert alert-warning mb-4">
+                <core:icon identifier="actions-exclamation-triangle" size="small" />
+                <strong>This task is inactive.</strong> It will not appear in the CKEditor cowriter dialog or API. You can still test it here.
+            </div>
+        </f:if>
+
+        <f:comment>Configuration & Model Details Panel</f:comment>
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h2 class="card-title mb-0">
+                    <core:icon identifier="actions-system-extension-configure" size="small" />
+                    Configuration &amp; Model
+                    <f:if condition="{isUsingDefaultConfig}">
+                        <span class="badge text-bg-warning ms-2">Using system default</span>
+                    </f:if>
+                </h2>
+                <div class="d-flex gap-1">
+                    <f:if condition="{providerEditUrl}">
+                        <a href="{providerEditUrl}" class="btn btn-default btn-sm" title="Edit Provider">
+                            <core:icon identifier="actions-open" size="small" />
+                            Provider
+                        </a>
+                    </f:if>
+                    <f:if condition="{modelEditUrl}">
+                        <a href="{modelEditUrl}" class="btn btn-default btn-sm" title="Edit Model">
+                            <core:icon identifier="actions-open" size="small" />
+                            Model
+                        </a>
+                    </f:if>
+                    <f:if condition="{configEditUrl}">
+                        <a href="{configEditUrl}" class="btn btn-default btn-sm" title="Edit Configuration">
+                            <core:icon identifier="actions-open" size="small" />
+                            Configuration
+                        </a>
+                    </f:if>
+                </div>
+            </div>
+            <div class="card-body">
+                <f:if condition="{effectiveConfig}">
+                    <f:then>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-5">Configuration</dt>
+                                    <dd class="col-sm-7">
+                                        <strong>{effectiveConfig.name}</strong>
+                                        <f:if condition="{effectiveConfig.identifier}">
+                                            <br /><code class="small">{effectiveConfig.identifier}</code>
+                                        </f:if>
+                                    </dd>
+
+                                    <f:if condition="{effectiveConfig.llmModel}">
+                                        <dt class="col-sm-5">Provider</dt>
+                                        <dd class="col-sm-7">
+                                            <f:if condition="{effectiveConfig.llmModel.provider}">
+                                                <f:then>
+                                                    {effectiveConfig.llmModel.provider.name}
+                                                    <br /><code class="small">{effectiveConfig.llmModel.provider.adapterType}</code>
+                                                </f:then>
+                                                <f:else><span class="text-body-secondary">-</span></f:else>
+                                            </f:if>
+                                        </dd>
+
+                                        <dt class="col-sm-5">Model</dt>
+                                        <dd class="col-sm-7">
+                                            <strong>{effectiveConfig.llmModel.name}</strong>
+                                            <br /><code class="small">{effectiveConfig.llmModel.modelId}</code>
+                                        </dd>
+                                    </f:if>
+                                    <f:if condition="!{effectiveConfig.llmModel}">
+                                        <dt class="col-sm-5">Model</dt>
+                                        <dd class="col-sm-7">
+                                            <span class="badge text-bg-danger">No model assigned</span>
+                                        </dd>
+                                    </f:if>
+                                </dl>
+                            </div>
+                            <div class="col-md-6">
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-5">Temperature</dt>
+                                    <dd class="col-sm-7">{effectiveConfig.temperature}</dd>
+
+                                    <dt class="col-sm-5">Max Tokens</dt>
+                                    <dd class="col-sm-7">{effectiveConfig.maxTokens}</dd>
+
+                                    <dt class="col-sm-5">Top P</dt>
+                                    <dd class="col-sm-7">{effectiveConfig.topP}</dd>
+
+                                    <dt class="col-sm-5">Freq. Penalty</dt>
+                                    <dd class="col-sm-7">{effectiveConfig.frequencyPenalty}</dd>
+
+                                    <dt class="col-sm-5">Presence Penalty</dt>
+                                    <dd class="col-sm-7">{effectiveConfig.presencePenalty}</dd>
+                                </dl>
+                            </div>
+                        </div>
+
+                        <f:if condition="{effectiveConfig.systemPrompt}">
+                            <hr class="my-3" />
+                            <details>
+                                <summary class="mb-2"><strong>System Prompt</strong></summary>
+                                <pre class="bg-body-tertiary p-3 rounded mb-0" style="white-space: pre-wrap; font-size: 0.85em; max-height: 200px; overflow-y: auto;">{effectiveConfig.systemPrompt}</pre>
+                            </details>
+                        </f:if>
+                    </f:then>
+                    <f:else>
+                        <div class="alert alert-warning mb-0">
+                            <core:icon identifier="actions-exclamation-triangle" size="small" />
+                            <strong>No configuration available.</strong> This task has no configuration assigned and no system default is set.
+                            Execution will use provider defaults.
+                        </div>
+                    </f:else>
+                </f:if>
+            </div>
         </div>
 
         <div class="row">
