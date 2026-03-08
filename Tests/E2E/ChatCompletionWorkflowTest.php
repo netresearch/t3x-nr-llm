@@ -218,10 +218,10 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
 
         $completionService = new CompletionService($serviceManager);
 
-        // Act: Request with specific options
+        // Act: Request with specific options (use gpt-4o which supports sampling params)
         $result = $completionService->complete(
             'Generate JSON',
-            new ChatOptions(temperature: 0.1, maxTokens: 500),
+            new ChatOptions(model: 'gpt-4o', temperature: 0.1, maxTokens: 500),
         );
 
         // Assert

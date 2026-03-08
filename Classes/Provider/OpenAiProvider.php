@@ -373,12 +373,15 @@ final class OpenAiProvider extends AbstractProvider implements
     }
 
     /**
-     * Check if a model is a reasoning model that doesn't support
-     * temperature, top_p, frequency_penalty, or presence_penalty.
+     * Check if a model doesn't support sampling parameters
+     * (temperature, top_p, frequency_penalty, presence_penalty).
+     *
+     * Covers: o-series reasoning models and GPT-5.x series which
+     * only accept the default temperature value of 1.
      */
     private function isReasoningModel(string $model): bool
     {
-        return (bool)preg_match('/^(o[1-9]|gpt-5[.-]?\d*-?mini)/', $model);
+        return (bool)preg_match('/^(o[1-9]|gpt-5)/', $model);
     }
 
     /**
