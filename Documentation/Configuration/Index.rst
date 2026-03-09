@@ -494,13 +494,13 @@ prompt, temperature, and other parameters.
 Task wizard
 -----------
 
-The task wizard works the same way as the
-configuration wizard but for tasks. Click
-:guilabel:`Create with AI` on the tasks list page
-to generate a task from a plain-language description.
+The task wizard creates a complete task setup in one
+step. Click :guilabel:`Create with AI` on the tasks
+list page and describe the task in plain language.
 
-The wizard selects an appropriate configuration and
-generates the user prompt template automatically.
+The wizard generates a task with prompt template,
+a dedicated configuration with system prompt and
+parameters, and a model recommendation.
 
 .. figure:: /Images/backend-task-wizard.png
    :alt: AI task wizard form

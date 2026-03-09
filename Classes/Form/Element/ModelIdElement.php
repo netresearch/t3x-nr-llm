@@ -44,8 +44,7 @@ final class ModelIdElement extends AbstractFormElement
         $maxLength = is_int($config['max'] ?? null) ? $config['max'] : 150;
 
         // Build AJAX URL for fetching models
-        $backendUriBuilder = $this->uriBuilder;
-        $fetchUrl = (string)$backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_fetch_available');
+        $fetchUrl = (string)$this->uriBuilder->buildUriFromRoute('ajax_nrllm_model_fetch_available');
 
         // The provider_uid field name follows TYPO3's naming convention
         $tableName = is_string($data['tableName'] ?? null) ? $data['tableName'] : 'tx_nrllm_model';

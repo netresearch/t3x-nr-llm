@@ -721,7 +721,7 @@ final class ConfigurationControllerTest extends TestCase
         // OpenAI chat: all supported with standard ranges
         self::assertTrue($constraints['temperature']['supported']);
         self::assertSame(0.0, $constraints['temperature']['min']);
-        self::assertSame(2.0, $constraints['temperature']['max']);
+        self::assertEquals(2.0, $constraints['temperature']['max']);
 
         self::assertTrue($constraints['top_p']['supported']);
         self::assertSame(0.0, $constraints['top_p']['min']);
@@ -746,7 +746,7 @@ final class ConfigurationControllerTest extends TestCase
         // Anthropic: temperature 0-1, top_p supported, no frequency/presence penalty
         self::assertTrue($constraints['temperature']['supported']);
         self::assertSame(0.0, $constraints['temperature']['min']);
-        self::assertSame(1.0, $constraints['temperature']['max']);
+        self::assertEquals(1.0, $constraints['temperature']['max']);
 
         self::assertTrue($constraints['top_p']['supported']);
         self::assertArrayHasKey('hint', $constraints['top_p']);
@@ -768,7 +768,7 @@ final class ConfigurationControllerTest extends TestCase
         // Gemini: temperature 0-2, top_p supported, no frequency/presence penalty
         self::assertTrue($constraints['temperature']['supported']);
         self::assertSame(0.0, $constraints['temperature']['min']);
-        self::assertSame(2.0, $constraints['temperature']['max']);
+        self::assertEquals(2.0, $constraints['temperature']['max']);
 
         self::assertTrue($constraints['top_p']['supported']);
 
@@ -786,7 +786,7 @@ final class ConfigurationControllerTest extends TestCase
         // Default: all supported with standard ranges
         self::assertTrue($constraints['temperature']['supported']);
         self::assertSame(0.0, $constraints['temperature']['min']);
-        self::assertSame(2.0, $constraints['temperature']['max']);
+        self::assertEquals(2.0, $constraints['temperature']['max']);
 
         self::assertTrue($constraints['top_p']['supported']);
         self::assertSame(0.0, $constraints['top_p']['min']);

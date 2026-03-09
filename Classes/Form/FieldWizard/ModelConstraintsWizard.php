@@ -29,8 +29,7 @@ final class ModelConstraintsWizard extends AbstractNode
     {
         $result = $this->initializeResultArray();
 
-        $backendUriBuilder = $this->uriBuilder;
-        $constraintsUrl = (string)$backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_model_constraints');
+        $constraintsUrl = (string)$this->uriBuilder->buildUriFromRoute('ajax_nrllm_config_model_constraints');
 
         $result['html'] = sprintf(
             '<div class="js-model-constraints-config" data-constraints-url="%s" style="display:none;"></div>',
