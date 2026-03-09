@@ -144,11 +144,8 @@ class ConfigurationList {
                 </div>
                 <h5 class="text-success text-center">Configuration Test Successful</h5>
                 <div class="config-test-details mt-3">
-                    <div class="mb-2">
-                        <strong>Response:</strong>
-                        <p class="text-body-secondary small mb-1" id="config-test-response"></p>
-                    </div>
-                    <div class="row small">
+                    <blockquote class="blockquote border-start border-success border-3 ps-3 py-2 mb-3 bg-success-subtle rounded-end" id="config-test-response" style="font-size: 1.05em;"></blockquote>
+                    <div class="row small text-body-secondary">
                         <div class="col-6">
                             <strong>Model:</strong> <span id="config-test-model">-</span>
                         </div>

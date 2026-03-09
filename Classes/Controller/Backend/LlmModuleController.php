@@ -22,6 +22,7 @@ use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 
@@ -36,6 +37,7 @@ final class LlmModuleController extends ActionController
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly TaskRepository $taskRepository,
         private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly ExtensionConfiguration $extensionConfiguration,
     ) {}
 
     public function indexAction(): ResponseInterface
@@ -125,7 +127,7 @@ final class LlmModuleController extends ActionController
     {
         $body = $this->request->getParsedBody();
         $provider = $this->extractStringFromBody($body, 'provider');
-        $prompt = $this->extractStringFromBody($body, 'prompt', 'Hello, please respond with a brief greeting.');
+        $prompt = $this->extractStringFromBody($body, 'prompt', $this->resolveTestPrompt());
 
         if ($provider === '') {
             return new JsonResponse(['error' => 'No provider specified'], 400);
@@ -226,5 +228,49 @@ final class LlmModuleController extends ActionController
             'streaming' => $provider->supportsFeature('streaming'),
             'tools' => $provider->supportsFeature('tools'),
         ];
+    }
+
+    /**
+     * Resolve the test prompt from extension configuration, replacing {lang} with
+     * the backend user's language.
+     */
+    private function resolveTestPrompt(): string
+    {
+        $default = 'Say hello and introduce yourself in one sentence. Respond in {lang}.';
+
+        try {
+            /** @var array<string, mixed> $config */
+            $config = $this->extensionConfiguration->get('nr_llm');
+            $testing = is_array($config['testing'] ?? null) ? $config['testing'] : [];
+            $prompt = is_string($testing['testPrompt'] ?? null) ? $testing['testPrompt'] : $default;
+        } catch (Throwable) {
+            $prompt = $default;
+        }
+
+        if (trim($prompt) === '') {
+            $prompt = $default;
+        }
+
+        $beUser = $GLOBALS['BE_USER'] ?? null;
+        $uc = is_object($beUser) && isset($beUser->uc) && is_array($beUser->uc) ? $beUser->uc : [];
+        $lang = isset($uc['lang']) && is_string($uc['lang']) && $uc['lang'] !== '' ? $uc['lang'] : 'default';
+        $languageName = $this->mapLanguageCodeToName($lang);
+
+        return str_replace('{lang}', $languageName, $prompt);
+    }
+
+    private function mapLanguageCodeToName(string $code): string
+    {
+        $map = [
+            'default' => 'English', 'en' => 'English', 'de' => 'German', 'fr' => 'French',
+            'es' => 'Spanish', 'it' => 'Italian', 'nl' => 'Dutch', 'pt' => 'Portuguese',
+            'da' => 'Danish', 'sv' => 'Swedish', 'no' => 'Norwegian', 'fi' => 'Finnish',
+            'pl' => 'Polish', 'cs' => 'Czech', 'sk' => 'Slovak', 'hu' => 'Hungarian',
+            'ro' => 'Romanian', 'bg' => 'Bulgarian', 'hr' => 'Croatian', 'sl' => 'Slovenian',
+            'el' => 'Greek', 'tr' => 'Turkish', 'ru' => 'Russian', 'uk' => 'Ukrainian',
+            'zh' => 'Chinese', 'ja' => 'Japanese', 'ko' => 'Korean', 'ar' => 'Arabic',
+        ];
+
+        return $map[$code] ?? 'English';
     }
 }

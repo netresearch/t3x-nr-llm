@@ -22,6 +22,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
@@ -102,6 +103,9 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         $wizardGeneratorService = $this->get(WizardGeneratorService::class);
         self::assertInstanceOf(WizardGeneratorService::class, $wizardGeneratorService);
 
+        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
+        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+
         return new ConfigurationController(
             $moduleTemplateFactory,
             $iconFactory,
@@ -113,6 +117,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
             $wizardGeneratorService,
             $pageRenderer,
             $backendUriBuilder,
+            $extensionConfiguration,
         );
     }
 

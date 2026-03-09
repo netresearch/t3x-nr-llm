@@ -59,3 +59,10 @@ image.fal.pollInterval = 1000
 
 # cat=fal; type=options[flux-pro,flux-dev,flux-schnell,sdxl,sd3,playground]; label=FAL Default Model: Default model for FAL image generation
 image.fal.defaultModel = flux-schnell
+
+# =============================================================================
+# Testing
+# =============================================================================
+
+# cat=testing; type=string; label=Test Prompt: Prompt used when testing configurations and models. Use {lang} as placeholder for the backend user's language.
+testing.testPrompt = Say hello and introduce yourself in one sentence. Respond in {lang}.

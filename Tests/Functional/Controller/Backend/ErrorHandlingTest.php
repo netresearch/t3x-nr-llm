@@ -28,6 +28,7 @@ use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
 use TYPO3\CMS\Core\Imaging\IconFactory;
@@ -107,6 +108,9 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $wizardGeneratorService = $this->get(WizardGeneratorService::class);
         self::assertInstanceOf(WizardGeneratorService::class, $wizardGeneratorService);
 
+        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
+        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+
         return new ConfigurationController(
             $moduleTemplateFactory,
             $iconFactory,
@@ -118,6 +122,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
             $wizardGeneratorService,
             $pageRenderer,
             $backendUriBuilder,
+            $extensionConfiguration,
         );
     }
 
@@ -163,6 +168,9 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $taskRepository = $this->get(TaskRepository::class);
         self::assertInstanceOf(TaskRepository::class, $taskRepository);
 
+        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
+        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+
         $reflection = new ReflectionClass(LlmModuleController::class);
         $controller = $reflection->newInstanceWithoutConstructor();
 
@@ -171,6 +179,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $this->setPrivateProperty($controller, 'modelRepository', $modelRepository);
         $this->setPrivateProperty($controller, 'configurationRepository', $configurationRepository);
         $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
+        $this->setPrivateProperty($controller, 'extensionConfiguration', $extensionConfiguration);
 
         return $controller;
     }

@@ -12,6 +12,10 @@ class TaskExecute {
         // Create reusable element for HTML escaping
         this._escapeEl = document.createElement('div');
 
+        // Raw response content for format switching
+        this._rawContent = '';
+        this._activeFormat = 'plain';
+
         this.taskUid = this.container.dataset.taskUid;
         this.executeUrl = TYPO3.settings.ajaxUrls.nrllm_task_execute;
         this.listTablesUrl = TYPO3.settings.ajaxUrls.nrllm_task_list_tables;
@@ -43,6 +47,7 @@ class TaskExecute {
         this.copyOutputBtn = document.getElementById('copyOutputBtn');
         this.refreshInputBtn = document.getElementById('refreshInputBtn');
         this.emptyDataWarning = document.getElementById('emptyDataWarning');
+        this.formatToggle = document.getElementById('outputFormatToggle');
 
         // Table picker elements
         this.tablePickerCollapse = document.getElementById('tablePickerCollapse');
@@ -75,6 +80,13 @@ class TaskExecute {
 
         // Copy output
         this.copyOutputBtn?.addEventListener('click', () => this.copyOutput());
+
+        // Format toggle
+        this.formatToggle?.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-format]');
+            if (!btn) return;
+            this.switchFormat(btn.dataset.format);
+        });
     }
 
     async loadTables() {
@@ -260,33 +272,15 @@ class TaskExecute {
                 .then(r => r.resolve());
 
             if (response.success) {
-                // Format output based on format
-                // SECURITY: Escape HTML to prevent XSS from untrusted LLM responses
-                const safeContent = this.escapeHtml(response.content);
-                let formattedContent;
-                if (response.outputFormat === 'json') {
-                    try {
-                        // Parse and re-stringify to validate JSON, then escape
-                        const formatted = JSON.stringify(JSON.parse(response.content), null, 2);
-                        formattedContent = '<pre>' + this.escapeHtml(formatted) + '</pre>';
-                    } catch {
-                        formattedContent = '<pre>' + safeContent + '</pre>';
-                    }
-                } else if (response.outputFormat === 'markdown') {
-                    // Basic markdown rendering with escaped content
-                    // Note: We escape first, then apply safe markdown transformations
-                    formattedContent = '<div class="markdown-content">' +
-                        safeContent
-                            .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-                            .replace(/`([^`]+)`/g, '<code>$1</code>')
-                            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                            .replace(/\n/g, '<br>') +
-                        '</div>';
-                } else {
-                    formattedContent = '<pre>' + safeContent + '</pre>';
-                }
+                // Store raw content for format switching
+                this._rawContent = response.content || '';
 
-                this.outputContent.innerHTML = formattedContent;
+                // Set initial format from task's output_format, default to plain
+                const serverFormat = response.outputFormat || 'plain';
+                this._activeFormat = serverFormat;
+                this.renderOutput();
+                this.updateFormatToggle();
+
                 this.outputModel.textContent = response.model || '-';
                 this.outputTokens.textContent = response.usage?.totalTokens || '-';
                 this.outputResult.classList.remove('d-none');
@@ -319,9 +313,149 @@ class TaskExecute {
         }
     }
 
+    /**
+     * Switch output rendering format and re-render.
+     */
+    switchFormat(format) {
+        if (!this._rawContent) return;
+        this._activeFormat = format;
+        this.renderOutput();
+        this.updateFormatToggle();
+    }
+
+    /**
+     * Update the active state of format toggle buttons.
+     */
+    updateFormatToggle() {
+        if (!this.formatToggle) return;
+        this.formatToggle.querySelectorAll('[data-format]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.format === this._activeFormat);
+        });
+    }
+
+    /**
+     * Render the stored raw content in the active format.
+     *
+     * Security approach per format:
+     * - plain/markdown/json: Content is HTML-escaped via escapeHtml() before insertion.
+     *   Markdown transformations operate on already-escaped content (safe).
+     * - html: Rendered in a sandboxed iframe (sandbox="allow-same-origin") which
+     *   prevents script execution and isolates untrusted content from the parent page.
+     */
+    renderOutput() {
+        const content = this._rawContent;
+        const escaped = this.escapeHtml(content);
+
+        switch (this._activeFormat) {
+            case 'html':
+                this.renderHtmlOutput(content);
+                break;
+
+            case 'markdown':
+                this.renderMarkdownOutput(escaped);
+                break;
+
+            case 'json':
+                this.renderJsonOutput(content, escaped);
+                break;
+
+            default: // plain
+                this.renderPlainOutput(escaped);
+                break;
+        }
+    }
+
+    /**
+     * Render HTML in a sandboxed iframe for safe preview.
+     */
+    renderHtmlOutput(content) {
+        this.outputContent.textContent = '';
+        const iframe = document.createElement('iframe');
+        iframe.sandbox = 'allow-same-origin';
+        iframe.style.cssText = 'width:100%;border:none;min-height:200px;background:#fff;';
+        iframe.srcdoc = [
+            '<!DOCTYPE html><html><head><meta charset="utf-8"><style>',
+            'body{font-family:system-ui,sans-serif;font-size:14px;padding:12px;margin:0;color:#333;line-height:1.5}',
+            'pre{background:#f5f5f5;padding:8px;border-radius:4px;overflow-x:auto}',
+            'code{background:#f0f0f0;padding:2px 4px;border-radius:3px;font-size:0.9em}',
+            'table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:6px 8px}',
+            'img{max-width:100%}',
+            '</style></head><body>',
+            content,
+            '</body></html>'
+        ].join('');
+        iframe.addEventListener('load', () => {
+            try {
+                const body = iframe.contentDocument?.body;
+                if (body) iframe.style.height = (body.scrollHeight + 20) + 'px';
+            } catch { /* cross-origin safety */ }
+        });
+        this.outputContent.appendChild(iframe);
+    }
+
+    /**
+     * Render escaped content with basic markdown transformations.
+     */
+    renderMarkdownOutput(escaped) {
+        const rendered = escaped
+            // Headers
+            .replace(/^(#{1,6})\s+(.+)$/gm, (_, hashes, text) => {
+                const level = hashes.length;
+                return '<h' + level + ' style="margin:0.8em 0 0.4em;font-size:' + (1.4 - level * 0.1) + 'em">' + text + '</h' + level + '>';
+            })
+            // Code blocks
+            .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre style="background:#f5f5f5;padding:8px;border-radius:4px;overflow-x:auto"><code>$2</code></pre>')
+            // Inline code
+            .replace(/`([^`]+)`/g, '<code style="background:#f0f0f0;padding:2px 4px;border-radius:3px">$1</code>')
+            // Bold
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            // Italic
+            .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+            // Unordered lists
+            .replace(/^[-*]\s+(.+)$/gm, '<li>$1</li>')
+            // Ordered lists
+            .replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>')
+            // Horizontal rule
+            .replace(/^---+$/gm, '<hr style="margin:1em 0">')
+            // Line breaks
+            .replace(/\n/g, '<br>');
+        const wrapper = document.createElement('div');
+        wrapper.className = 'markdown-content';
+        wrapper.innerHTML = rendered; // eslint-disable-line no-unsanitized/property -- content is pre-escaped via escapeHtml()
+        this.outputContent.textContent = '';
+        this.outputContent.appendChild(wrapper);
+    }
+
+    /**
+     * Render JSON with pretty-printing.
+     */
+    renderJsonOutput(content, escaped) {
+        const pre = document.createElement('pre');
+        pre.style.margin = '0';
+        try {
+            const formatted = JSON.stringify(JSON.parse(content), null, 2);
+            pre.textContent = formatted;
+        } catch {
+            pre.textContent = content;
+        }
+        this.outputContent.textContent = '';
+        this.outputContent.appendChild(pre);
+    }
+
+    /**
+     * Render plain text in a pre block.
+     */
+    renderPlainOutput(escaped) {
+        const pre = document.createElement('pre');
+        pre.style.cssText = 'margin:0;white-space:pre-wrap;word-break:break-word';
+        pre.textContent = this._rawContent;
+        this.outputContent.textContent = '';
+        this.outputContent.appendChild(pre);
+    }
+
     copyOutput() {
-        const text = this.outputContent.innerText || this.outputContent.textContent;
-        navigator.clipboard.writeText(text).then(() => {
+        // Always copy raw content, not rendered HTML
+        navigator.clipboard.writeText(this._rawContent || this.outputContent.innerText).then(() => {
             Notification.success('Copied', 'Output copied to clipboard');
         }).catch(() => {
             Notification.error('Failed', 'Could not copy to clipboard');
