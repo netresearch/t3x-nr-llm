@@ -928,7 +928,7 @@ final class ConfigurationControllerTest extends TestCase
     #[Test]
     public function getModelConstraintsActionReturnsGeminiConstraintsForGeminiModel(): void
     {
-        $model = $this->createModelWithProvider('gemini', 'gemini-2.5-flash');
+        $model = $this->createModelWithProvider('gemini', 'gemini-2.5-flash', 2);
 
         $this->modelRepository
             ->expects(self::once())
@@ -953,7 +953,7 @@ final class ConfigurationControllerTest extends TestCase
     #[Test]
     public function getModelConstraintsActionReturnsOllamaConstraintsForOllamaModel(): void
     {
-        $model = $this->createModelWithProvider('ollama', 'llama3.2');
+        $model = $this->createModelWithProvider('ollama', 'llama3.2', 3);
 
         $this->modelRepository
             ->expects(self::once())
@@ -977,7 +977,7 @@ final class ConfigurationControllerTest extends TestCase
     #[Test]
     public function getModelConstraintsActionReturnsOpenAIChatConstraintsForRegularOpenAIModel(): void
     {
-        $model = $this->createModelWithProvider('openai', 'gpt-4o');
+        $model = $this->createModelWithProvider('openai', 'gpt-4o', 4);
 
         $this->modelRepository
             ->expects(self::once())
@@ -1005,7 +1005,7 @@ final class ConfigurationControllerTest extends TestCase
     public function getModelConstraintsActionReturnsReasoningConstraintsForOpenAIReasoningModel(): void
     {
         // o-series models are reasoning models
-        $model = $this->createModelWithProvider('openai', 'o3');
+        $model = $this->createModelWithProvider('openai', 'o3', 5);
 
         $this->modelRepository
             ->expects(self::once())
@@ -1032,7 +1032,7 @@ final class ConfigurationControllerTest extends TestCase
     public function getModelConstraintsActionReturnsReasoningConstraintsForGpt5Model(): void
     {
         // gpt-5 prefix models are reasoning models
-        $model = $this->createModelWithProvider('openai', 'gpt-5.2');
+        $model = $this->createModelWithProvider('openai', 'gpt-5.2', 6);
 
         $this->modelRepository
             ->expects(self::once())
@@ -1057,7 +1057,7 @@ final class ConfigurationControllerTest extends TestCase
     public function getModelConstraintsActionReturnsReasoningConstraintsForAzureReasoningModel(): void
     {
         // azure_openai with o-series model is also a reasoning model
-        $model = $this->createModelWithProvider('azure_openai', 'o1-mini');
+        $model = $this->createModelWithProvider('azure_openai', 'o1-mini', 7);
 
         $this->modelRepository
             ->expects(self::once())
@@ -1081,7 +1081,7 @@ final class ConfigurationControllerTest extends TestCase
     public function getModelConstraintsActionReturnsDefaultConstraintsForUnknownAdapterType(): void
     {
         // Unknown adapter type with non-reasoning model ID → default constraints
-        $model = $this->createModelWithProvider('custom_unknown', 'my-custom-model');
+        $model = $this->createModelWithProvider('custom_unknown', 'my-custom-model', 8);
 
         $this->modelRepository
             ->expects(self::once())
@@ -1107,7 +1107,7 @@ final class ConfigurationControllerTest extends TestCase
     public function getModelConstraintsActionReturnsReasoningConstraintsForOpenRouterReasoningModel(): void
     {
         // openrouter adapter type with o-series model → reasoning constraints
-        $model = $this->createModelWithProvider('openrouter', 'o3-mini');
+        $model = $this->createModelWithProvider('openrouter', 'o3-mini', 9);
 
         $this->modelRepository
             ->expects(self::once())

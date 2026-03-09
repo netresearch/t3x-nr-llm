@@ -339,8 +339,8 @@ class TaskExecute {
      * Security approach per format:
      * - plain/markdown/json: Content is HTML-escaped via escapeHtml() before insertion.
      *   Markdown transformations operate on already-escaped content (safe).
-     * - html: Rendered in a sandboxed iframe (sandbox="allow-same-origin") which
-     *   prevents script execution and isolates untrusted content from the parent page.
+     * - html: Rendered in a fully sandboxed iframe (sandbox="") which prevents
+     *   script execution and blocks access to the parent page's DOM.
      */
     renderOutput() {
         const content = this._rawContent;
@@ -356,11 +356,11 @@ class TaskExecute {
                 break;
 
             case 'json':
-                this.renderJsonOutput(content, escaped);
+                this.renderJsonOutput(content);
                 break;
 
             default: // plain
-                this.renderPlainOutput(escaped);
+                this.renderPlainOutput();
                 break;
         }
     }
@@ -371,7 +371,7 @@ class TaskExecute {
     renderHtmlOutput(content) {
         this.outputContent.textContent = '';
         const iframe = document.createElement('iframe');
-        iframe.sandbox = 'allow-same-origin';
+        iframe.sandbox = '';
         iframe.style.cssText = 'width:100%;border:none;min-height:200px;background:#fff;';
         iframe.srcdoc = [
             '<!DOCTYPE html><html><head><meta charset="utf-8"><style>',
@@ -384,12 +384,9 @@ class TaskExecute {
             content,
             '</body></html>'
         ].join('');
-        iframe.addEventListener('load', () => {
-            try {
-                const body = iframe.contentDocument?.body;
-                if (body) iframe.style.height = (body.scrollHeight + 20) + 'px';
-            } catch { /* cross-origin safety */ }
-        });
+        // With fully sandboxed iframe, contentDocument is inaccessible.
+        // Use a generous default height; content scrolls within.
+        iframe.style.height = '400px';
         this.outputContent.appendChild(iframe);
     }
 
@@ -429,7 +426,7 @@ class TaskExecute {
     /**
      * Render JSON with pretty-printing.
      */
-    renderJsonOutput(content, escaped) {
+    renderJsonOutput(content) {
         const pre = document.createElement('pre');
         pre.style.margin = '0';
         try {
@@ -445,7 +442,7 @@ class TaskExecute {
     /**
      * Render plain text in a pre block.
      */
-    renderPlainOutput(escaped) {
+    renderPlainOutput() {
         const pre = document.createElement('pre');
         pre.style.cssText = 'margin:0;white-space:pre-wrap;word-break:break-word';
         pre.textContent = this._rawContent;
