@@ -87,6 +87,27 @@ Supported providers
 Key features
 ============
 
+.. _introduction-ai-wizards:
+
+AI-powered wizards
+------------------
+
+Built-in wizards reduce manual setup to a minimum:
+
+- **Setup wizard** guides first-time configuration
+  in five steps (provider, connection test, model
+  fetch, configuration, test prompt).
+- **Configuration wizard** generates a complete LLM
+  configuration from a plain-language description
+  of your use case.
+- **Task wizard** creates reusable one-shot prompt
+  templates the same way.
+- **Model discovery** fetches available models
+  directly from the provider API.
+
+See :ref:`configuration-wizards` for details and
+screenshots.
+
 .. _introduction-unified-provider-api:
 
 Unified provider API

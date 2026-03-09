@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
@@ -42,6 +43,7 @@ final class ConfigurationControllerTest extends TestCase
     private LlmConfigurationService&MockObject $configurationService;
     private LlmServiceManagerInterface&MockObject $llmServiceManager;
     private ProviderAdapterRegistry&MockObject $providerAdapterRegistry;
+    private ModelRepository&MockObject $modelRepository;
     private ConfigurationController $subject;
 
     protected function setUp(): void
@@ -52,6 +54,7 @@ final class ConfigurationControllerTest extends TestCase
         $this->configurationService = $this->createMock(LlmConfigurationService::class);
         $this->llmServiceManager = $this->createMock(LlmServiceManagerInterface::class);
         $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+        $this->modelRepository = $this->createMock(ModelRepository::class);
 
         // Create controller using reflection to inject only required dependencies
         $this->subject = $this->createControllerWithDependencies();
@@ -71,6 +74,7 @@ final class ConfigurationControllerTest extends TestCase
         $this->setPrivateProperty($controller, 'configurationService', $this->configurationService);
         $this->setPrivateProperty($controller, 'llmServiceManager', $this->llmServiceManager);
         $this->setPrivateProperty($controller, 'providerAdapterRegistry', $this->providerAdapterRegistry);
+        $this->setPrivateProperty($controller, 'modelRepository', $this->modelRepository);
 
         return $controller;
     }
@@ -795,5 +799,362 @@ final class ConfigurationControllerTest extends TestCase
         self::assertTrue($constraints['presence_penalty']['supported']);
         self::assertSame(-2.0, $constraints['presence_penalty']['min']);
         self::assertSame(2.0, $constraints['presence_penalty']['max']);
+    }
+
+    // getModelConstraintsAction tests
+
+    /**
+     * Extract and type-assert constraints from a getModelConstraintsAction response.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function extractConstraints(array $data): array
+    {
+        self::assertArrayHasKey('constraints', $data);
+        self::assertIsArray($data['constraints']);
+        /** @var array<string, array<string, mixed>> $constraints */
+        $constraints = $data['constraints'];
+        return $constraints;
+    }
+
+    /**
+     * Create a Model with the given adapter type and model ID.
+     */
+    private function createModelWithProvider(string $adapterType, string $modelId, int $uid = 1): Model
+    {
+        $provider = new Provider();
+        $providerReflection = new ReflectionClass($provider);
+        $providerReflection->getProperty('uid')->setValue($provider, 1);
+        $provider->setAdapterType($adapterType);
+        $provider->setName('Test Provider');
+
+        $model = new Model();
+        $modelReflection = new ReflectionClass($model);
+        $modelReflection->getProperty('uid')->setValue($model, $uid);
+        $model->setModelId($modelId);
+        $model->setProvider($provider);
+
+        return $model;
+    }
+
+    #[Test]
+    public function getModelConstraintsActionReturnsDefaultConstraintsWhenModelUidIsZero(): void
+    {
+        $this->modelRepository
+            ->expects(self::never())
+            ->method('findByUid');
+
+        $request = $this->createRequest(['modelUid' => 0]);
+        $response = $this->subject->getModelConstraintsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        self::assertIsArray($data['constraints']);
+        // Default constraints have all 4 parameters supported
+        self::assertArrayHasKey('temperature', $data['constraints']);
+        self::assertArrayHasKey('top_p', $data['constraints']);
+        self::assertArrayHasKey('frequency_penalty', $data['constraints']);
+        self::assertArrayHasKey('presence_penalty', $data['constraints']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionReturnsDefaultConstraintsWhenModelUidMissing(): void
+    {
+        $this->modelRepository
+            ->expects(self::never())
+            ->method('findByUid');
+
+        $request = $this->createRequest([]);
+        $response = $this->subject->getModelConstraintsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        self::assertIsArray($data['constraints']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionReturnsDefaultConstraintsWhenModelNotFound(): void
+    {
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(999)
+            ->willReturn(null);
+
+        $request = $this->createRequest(['modelUid' => 999]);
+        $response = $this->subject->getModelConstraintsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        $constraints = $this->extractConstraints($data);
+        // Default constraints: temperature max is 2.0
+        self::assertEquals(2.0, $constraints['temperature']['max']);
+        self::assertTrue($constraints['frequency_penalty']['supported']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionReturnsAnthropicConstraintsForAnthropicModel(): void
+    {
+        $model = $this->createModelWithProvider('anthropic', 'claude-opus-4-5-20251101');
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(1)
+            ->willReturn($model);
+
+        $request = $this->createRequest(['modelUid' => 1]);
+        $response = $this->subject->getModelConstraintsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        $constraints = $this->extractConstraints($data);
+        // Anthropic: temperature max is 1.0 (not 2.0), frequency_penalty unsupported
+        self::assertEquals(1.0, $constraints['temperature']['max']);
+        self::assertFalse($constraints['frequency_penalty']['supported']);
+        self::assertFalse($constraints['presence_penalty']['supported']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionReturnsGeminiConstraintsForGeminiModel(): void
+    {
+        $model = $this->createModelWithProvider('gemini', 'gemini-2.5-flash');
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(2)
+            ->willReturn($model);
+
+        $request = $this->createRequest(['modelUid' => 2]);
+        $response = $this->subject->getModelConstraintsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        $constraints = $this->extractConstraints($data);
+        // Gemini: temperature max is 2.0, frequency_penalty unsupported
+        self::assertEquals(2.0, $constraints['temperature']['max']);
+        self::assertFalse($constraints['frequency_penalty']['supported']);
+        self::assertFalse($constraints['presence_penalty']['supported']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionReturnsOllamaConstraintsForOllamaModel(): void
+    {
+        $model = $this->createModelWithProvider('ollama', 'llama3.2');
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(3)
+            ->willReturn($model);
+
+        $request = $this->createRequest(['modelUid' => 3]);
+        $response = $this->subject->getModelConstraintsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        $constraints = $this->extractConstraints($data);
+        // Ollama: all supported including frequency/presence penalty
+        self::assertTrue($constraints['frequency_penalty']['supported']);
+        self::assertTrue($constraints['presence_penalty']['supported']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionReturnsOpenAIChatConstraintsForRegularOpenAIModel(): void
+    {
+        $model = $this->createModelWithProvider('openai', 'gpt-4o');
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(4)
+            ->willReturn($model);
+
+        $request = $this->createRequest(['modelUid' => 4]);
+        $response = $this->subject->getModelConstraintsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        $constraints = $this->extractConstraints($data);
+        // OpenAI chat (non-reasoning): all parameters supported, temperature max 2.0
+        self::assertEquals(2.0, $constraints['temperature']['max']);
+        self::assertTrue($constraints['frequency_penalty']['supported']);
+        self::assertTrue($constraints['presence_penalty']['supported']);
+        // No 'fixed' key for non-reasoning models
+        self::assertArrayNotHasKey('fixed', $constraints['temperature']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionReturnsReasoningConstraintsForOpenAIReasoningModel(): void
+    {
+        // o-series models are reasoning models
+        $model = $this->createModelWithProvider('openai', 'o3');
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(5)
+            ->willReturn($model);
+
+        $request = $this->createRequest(['modelUid' => 5]);
+        $response = $this->subject->getModelConstraintsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        $constraints = $this->extractConstraints($data);
+        // Reasoning model: temperature and top_p fixed at 1.0, frequency/presence unsupported
+        self::assertEquals(1.0, $constraints['temperature']['fixed']);
+        self::assertEquals(1.0, $constraints['top_p']['fixed']);
+        self::assertFalse($constraints['frequency_penalty']['supported']);
+        self::assertFalse($constraints['presence_penalty']['supported']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionReturnsReasoningConstraintsForGpt5Model(): void
+    {
+        // gpt-5 prefix models are reasoning models
+        $model = $this->createModelWithProvider('openai', 'gpt-5.2');
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(6)
+            ->willReturn($model);
+
+        $request = $this->createRequest(['modelUid' => 6]);
+        $response = $this->subject->getModelConstraintsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        $constraints = $this->extractConstraints($data);
+        // gpt-5.x is a reasoning model
+        self::assertEquals(1.0, $constraints['temperature']['fixed']);
+        self::assertFalse($constraints['frequency_penalty']['supported']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionReturnsReasoningConstraintsForAzureReasoningModel(): void
+    {
+        // azure_openai with o-series model is also a reasoning model
+        $model = $this->createModelWithProvider('azure_openai', 'o1-mini');
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(7)
+            ->willReturn($model);
+
+        $request = $this->createRequest(['modelUid' => 7]);
+        $response = $this->subject->getModelConstraintsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        $constraints = $this->extractConstraints($data);
+        self::assertEquals(1.0, $constraints['temperature']['fixed']);
+        self::assertFalse($constraints['frequency_penalty']['supported']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionReturnsDefaultConstraintsForUnknownAdapterType(): void
+    {
+        // Unknown adapter type with non-reasoning model ID → default constraints
+        $model = $this->createModelWithProvider('custom_unknown', 'my-custom-model');
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(8)
+            ->willReturn($model);
+
+        $request = $this->createRequest(['modelUid' => 8]);
+        $response = $this->subject->getModelConstraintsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        $constraints = $this->extractConstraints($data);
+        // Unknown adapter: default constraints (all supported)
+        self::assertTrue($constraints['frequency_penalty']['supported']);
+        self::assertTrue($constraints['presence_penalty']['supported']);
+        self::assertArrayNotHasKey('fixed', $constraints['temperature']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionReturnsReasoningConstraintsForOpenRouterReasoningModel(): void
+    {
+        // openrouter adapter type with o-series model → reasoning constraints
+        $model = $this->createModelWithProvider('openrouter', 'o3-mini');
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(9)
+            ->willReturn($model);
+
+        $request = $this->createRequest(['modelUid' => 9]);
+        $response = $this->subject->getModelConstraintsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        $constraints = $this->extractConstraints($data);
+        // openrouter with o-series: isReasoningModel=true → getOpenAIReasoningConstraints
+        // But buildConstraints default branch uses isReasoning ? reasoning : default
+        // openrouter is not in openai/azure_openai match arm, falls to default branch
+        self::assertEquals(1.0, $constraints['temperature']['fixed']);
+    }
+
+    #[Test]
+    public function getModelConstraintsActionReturnsDefaultConstraintsForModelWithoutProvider(): void
+    {
+        // Model with no provider: adapterType defaults to empty string
+        $model = new Model();
+        $modelReflection = new ReflectionClass($model);
+        $modelReflection->getProperty('uid')->setValue($model, 10);
+        $model->setModelId('orphan-model');
+        // No provider set → getProvider() returns null
+
+        $this->modelRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(10)
+            ->willReturn($model);
+
+        $request = $this->createRequest(['modelUid' => 10]);
+        $response = $this->subject->getModelConstraintsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        $constraints = $this->extractConstraints($data);
+        // No provider → adapterType = '' → default constraints
+        self::assertTrue($constraints['frequency_penalty']['supported']);
+        self::assertArrayNotHasKey('fixed', $constraints['temperature']);
     }
 }

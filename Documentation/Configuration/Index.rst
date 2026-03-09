@@ -24,14 +24,16 @@ Access the LLM management module at
 :guilabel:`Admin Tools > LLM`.
 
 .. figure:: /Images/backend-dashboard.png
-   :alt: LLM backend module dashboard
+   :alt: LLM backend module dashboard with wizard
+       callouts
    :class: with-border with-shadow
    :zoom: lightbox
 
-   The LLM dashboard shows setup wizard, provider and
-   model counts, and quick-reference PHP code.
+   The LLM dashboard shows setup progress, provider
+   and model counts, AI wizard buttons, and
+   quick-reference PHP code.
 
-The backend module provides four sections:
+The backend module provides five sections:
 
 :guilabel:`Dashboard`
    Overview of registered providers, models,
@@ -47,7 +49,13 @@ The backend module provides four sections:
    and pricing. Fetch models from provider APIs.
 
 :guilabel:`Configurations`
-   Create use-case-specific configurations with prompts and parameters.
+   Create use-case-specific configurations with
+   prompts and parameters.
+
+:guilabel:`Tasks`
+   Define one-shot prompt templates that combine a
+   configuration with a user prompt for reusable
+   AI operations.
 
 .. _configuration-provider:
 
@@ -169,8 +177,17 @@ The test makes an actual HTTP request to the provider's API and returns:
 Model configuration
 ===================
 
-Models represent specific LLM models available through a provider.
-Create models in :guilabel:`Admin Tools > LLM > Models`.
+Models represent specific LLM models available
+through a provider. Create models in
+:guilabel:`Admin Tools > LLM > Models`.
+
+.. figure:: /Images/backend-models.png
+   :alt: Model list showing capabilities and pricing
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   The model list displays each model's capabilities,
+   context length, pricing, and default status.
 
 .. _configuration-model-required:
 
@@ -281,8 +298,18 @@ list with the provider's current offerings.
 LLM configuration
 =================
 
-Configurations define specific use cases with model selection and parameters.
-Create configurations in :guilabel:`Admin Tools > LLM > Configurations`.
+Configurations define specific use cases with model
+selection and parameters. Create configurations in
+:guilabel:`Admin Tools > LLM > Configurations`.
+
+.. figure:: /Images/backend-configurations.png
+   :alt: Configurations list with model and use case
+       details
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   The configurations list shows each configuration's
+   model assignment, use case type, and parameters.
 
 .. _configuration-llm-required:
 
@@ -368,6 +395,133 @@ Optional fields
    - ``completion`` - Text completion.
    - ``embedding`` - Vector generation.
    - ``translation`` - Language translation.
+
+.. _configuration-tasks:
+
+Tasks
+=====
+
+Tasks are one-shot prompt templates that combine a
+configuration with a specific user prompt. They
+provide reusable AI operations that can be executed
+with a single click or API call.
+
+Create tasks in :guilabel:`Admin Tools > LLM > Tasks`.
+
+.. figure:: /Images/backend-tasks.png
+   :alt: Task list page showing available tasks
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   The task list displays all configured tasks with
+   their assigned configuration, description, and
+   action buttons.
+
+Each task references an LLM configuration (which
+provides the model, system prompt, and parameters)
+and adds a user prompt template. This separation
+allows the same configuration to power multiple
+tasks with different prompts.
+
+Example use cases for tasks:
+
+- **Summarize content** - condense long articles.
+- **Generate meta descriptions** - SEO optimization.
+- **Translate text** - one-click translation to a
+  target language.
+- **Extract keywords** - pull key terms from content.
+
+.. _configuration-wizards:
+
+AI-powered wizards
+==================
+
+The extension includes AI-powered wizards that
+simplify setup and configuration. These wizards use
+your existing LLM providers to generate
+configurations and tasks automatically.
+
+.. _configuration-wizards-setup:
+
+Setup wizard
+------------
+
+The setup wizard guides new users through the
+initial configuration in five steps: creating a
+provider, testing the connection, fetching models,
+creating a configuration, and running a test prompt.
+
+Access it from the :guilabel:`Dashboard` when no
+providers are configured, or click the setup
+wizard link on the dashboard at any time.
+
+.. figure:: /Images/backend-setup-wizard.png
+   :alt: Five-step setup wizard guiding initial
+       configuration
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   The setup wizard walks through provider creation,
+   connection testing, model fetching, configuration,
+   and test prompts.
+
+.. _configuration-wizards-config:
+
+Configuration wizard
+--------------------
+
+The configuration wizard generates a complete LLM
+configuration using AI. Click
+:guilabel:`Create with AI` on the configurations
+list page to open the wizard.
+
+Describe your use case in plain language (e.g.,
+"summarize blog posts in three sentences") and the
+wizard generates the identifier, name, system
+prompt, temperature, and other parameters.
+
+.. figure:: /Images/backend-config-wizard.png
+   :alt: AI configuration wizard form
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   The configuration wizard generates all fields
+   from a natural-language description of the
+   desired use case.
+
+.. _configuration-wizards-task:
+
+Task wizard
+-----------
+
+The task wizard works the same way as the
+configuration wizard but for tasks. Click
+:guilabel:`Create with AI` on the tasks list page
+to generate a task from a plain-language description.
+
+The wizard selects an appropriate configuration and
+generates the user prompt template automatically.
+
+.. figure:: /Images/backend-task-wizard.png
+   :alt: AI task wizard form
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   The task wizard generates a complete task
+   definition from a description of the desired
+   operation.
+
+.. _configuration-wizards-model-discovery:
+
+Model discovery
+---------------
+
+On the model edit form, use the
+:guilabel:`Fetch Models` button to query the
+provider's API and automatically populate the
+available models list. This ensures your model
+catalogue stays current as providers release new
+models.
 
 .. _configuration-using:
 

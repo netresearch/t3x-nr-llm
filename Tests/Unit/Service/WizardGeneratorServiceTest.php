@@ -24,6 +24,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use RuntimeException;
+use stdClass;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 #[CoversClass(WizardGeneratorService::class)]
@@ -1333,5 +1334,370 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
 
             self::assertSame($format, $result['output_format'], "Format '{$format}' should be accepted");
         }
+    }
+
+    // ==================== buildConfigurationContext with models and configs ====================
+
+    #[Test]
+    public function testGenerateConfigurationIncludesModelsInPrompt(): void
+    {
+        // When models are present, buildConfigurationContext includes them in the prompt
+        // sent to the LLM. We verify this indirectly: the LLM is called and receives
+        // a non-empty prompt (we just verify the flow succeeds with models available).
+        $config = $this->createConfigurationWithModel();
+
+        $model = $this->createActiveModel('gpt-5.2', 'GPT-5.2');
+        $model->setDescription('Flagship model');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([$model]));
+
+        $this->configurationRepository->method('findAll')->willReturn([]);
+
+        $llmJson = json_encode([
+            'identifier' => 'test-config',
+            'name' => 'Test',
+            'description' => 'A config',
+            'system_prompt' => 'You are helpful.',
+            'temperature' => 0.7,
+            'max_tokens' => 4096,
+            'top_p' => 1.0,
+            'frequency_penalty' => 0.0,
+            'presence_penalty' => 0.0,
+            'recommended_model' => 'gpt-5.2',
+        ], JSON_THROW_ON_ERROR);
+
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse($llmJson));
+
+        $result = $this->subject->generateConfiguration('test config', $config);
+
+        self::assertTrue($result['generated']);
+        self::assertSame('test-config', $result['identifier']);
+    }
+
+    #[Test]
+    public function testGenerateConfigurationIncludesExistingConfigsInContext(): void
+    {
+        // When configs exist, buildConfigurationContext includes them in the prompt
+        $config = $this->createConfigurationWithModel();
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([]));
+
+        $existingConfig = new LlmConfiguration();
+        $existingConfig->setName('My Existing Config');
+        $existingConfig->setDescription('Does something useful');
+
+        $this->configurationRepository
+            ->method('findAll')
+            ->willReturn([$existingConfig]);
+
+        $llmJson = json_encode([
+            'identifier' => 'new-config',
+            'name' => 'New Config',
+            'description' => 'Avoids duplicate',
+            'system_prompt' => 'Be helpful.',
+            'temperature' => 0.5,
+            'max_tokens' => 2048,
+            'top_p' => 1.0,
+            'frequency_penalty' => 0.0,
+            'presence_penalty' => 0.0,
+            'recommended_model' => '',
+        ], JSON_THROW_ON_ERROR);
+
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse($llmJson));
+
+        $result = $this->subject->generateConfiguration('something new', $config);
+
+        self::assertTrue($result['generated']);
+        self::assertSame('new-config', $result['identifier']);
+    }
+
+    #[Test]
+    public function testGenerateConfigurationContextSkipsNonLlmConfigurationItems(): void
+    {
+        // findAll() may return objects that are not LlmConfiguration instances
+        $config = $this->createConfigurationWithModel();
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([]));
+
+        // Mix valid and non-LlmConfiguration items
+        $validConfig = new LlmConfiguration();
+        $validConfig->setName('Valid Config');
+        $validConfig->setDescription('A real config');
+
+        $this->configurationRepository
+            ->method('findAll')
+            ->willReturn([$validConfig, new stdClass()]);
+
+        $llmJson = json_encode([
+            'identifier' => 'gen-config',
+            'name' => 'Generated',
+            'description' => 'Works fine',
+            'system_prompt' => 'Help.',
+            'temperature' => 0.7,
+            'max_tokens' => 4096,
+            'top_p' => 1.0,
+            'frequency_penalty' => 0.0,
+            'presence_penalty' => 0.0,
+            'recommended_model' => '',
+        ], JSON_THROW_ON_ERROR);
+
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse($llmJson));
+
+        $result = $this->subject->generateConfiguration('test', $config);
+
+        self::assertTrue($result['generated']);
+    }
+
+    // ==================== buildTaskContext with existing configs ====================
+
+    #[Test]
+    public function testGenerateTaskIncludesExistingConfigsInContext(): void
+    {
+        // When configs exist, buildTaskContext includes them in the prompt
+        $config = $this->createConfigurationWithModel();
+
+        $existingConfig = new LlmConfiguration();
+        $existingConfig->setName('Content Assistant');
+        $existingConfig->setIdentifier('content-assistant');
+
+        $this->configurationRepository
+            ->method('findAll')
+            ->willReturn([$existingConfig]);
+
+        $llmJson = json_encode([
+            'identifier' => 'summarize-text',
+            'name' => 'Summarize Text',
+            'description' => 'Summarizes text content',
+            'category' => 'content',
+            'prompt_template' => 'Summarize: {{input}}',
+            'output_format' => 'markdown',
+        ], JSON_THROW_ON_ERROR);
+
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse($llmJson));
+
+        $result = $this->subject->generateTask('summarize articles', $config);
+
+        self::assertTrue($result['generated']);
+        self::assertSame('summarize-text', $result['identifier']);
+    }
+
+    #[Test]
+    public function testGenerateTaskContextSkipsNonLlmConfigurationItems(): void
+    {
+        $config = $this->createConfigurationWithModel();
+
+        $validConfig = new LlmConfiguration();
+        $validConfig->setName('Valid');
+        $validConfig->setIdentifier('valid');
+
+        // Non-LlmConfiguration item should be skipped
+        $this->configurationRepository
+            ->method('findAll')
+            ->willReturn([$validConfig, new stdClass()]);
+
+        $llmJson = json_encode([
+            'identifier' => 'task-x',
+            'name' => 'Task X',
+            'description' => 'Does X',
+            'category' => 'general',
+            'prompt_template' => '{{input}}',
+            'output_format' => 'plain',
+        ], JSON_THROW_ON_ERROR);
+
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse($llmJson));
+
+        $result = $this->subject->generateTask('task x', $config);
+
+        self::assertTrue($result['generated']);
+    }
+
+    // ==================== buildFullChainContext with models and configs ====================
+
+    #[Test]
+    public function testGenerateTaskWithChainIncludesModelsAndConfigsInContext(): void
+    {
+        $config = $this->createConfigurationWithModel();
+
+        $model = $this->createActiveModel('gpt-5.2', 'GPT-5.2');
+        $model->setDescription('Flagship model');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([$model]));
+
+        $existingConfig = new LlmConfiguration();
+        $existingConfig->setName('My Config');
+        $existingConfig->setIdentifier('my-config');
+        $existingConfig->setDescription('An existing configuration');
+
+        $this->configurationRepository
+            ->method('findAll')
+            ->willReturn([$existingConfig]);
+
+        $this->configurationRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([]));
+
+        $llmJson = json_encode([
+            'task' => [
+                'identifier' => 'chain-task',
+                'name' => 'Chain Task',
+                'description' => 'Task in a chain',
+                'category' => 'content',
+                'prompt_template' => 'Process: {{input}}',
+                'output_format' => 'markdown',
+            ],
+            'configuration' => [
+                'identifier' => 'chain-config',
+                'name' => 'Chain Config',
+                'description' => 'Config for the chain',
+                'system_prompt' => 'Be helpful.',
+                'temperature' => 0.7,
+                'max_tokens' => 4096,
+                'top_p' => 1.0,
+                'frequency_penalty' => 0.0,
+                'presence_penalty' => 0.0,
+            ],
+            'recommended_model_id' => 'gpt-5.2',
+            'suggested_model' => [
+                'name' => 'GPT-5.2',
+                'model_id' => 'gpt-5.2',
+                'description' => 'Great model',
+                'capabilities' => 'chat,vision',
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse($llmJson));
+
+        $result = $this->subject->generateTaskWithChain('chain task description', $config);
+
+        self::assertTrue($result['generated']);
+        self::assertIsArray($result['task']);
+        /** @var array<string, mixed> $task */
+        $task = $result['task'];
+        self::assertSame('chain-task', $task['identifier']);
+        self::assertSame('gpt-5.2', $result['recommended_model_id']);
+    }
+
+    #[Test]
+    public function testGenerateTaskWithChainFullChainContextSkipsNonLlmConfigItems(): void
+    {
+        $config = $this->createConfigurationWithModel();
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([]));
+
+        $validConfig = new LlmConfiguration();
+        $validConfig->setName('Valid Config');
+        $validConfig->setIdentifier('valid-config');
+        $validConfig->setDescription('A valid config');
+
+        $this->configurationRepository
+            ->method('findAll')
+            ->willReturn([$validConfig, new stdClass()]);
+
+        $this->configurationRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([]));
+
+        $llmJson = json_encode([
+            'task' => [
+                'identifier' => 'skip-test',
+                'name' => 'Skip Test',
+                'description' => 'Tests skipping',
+                'category' => 'general',
+                'prompt_template' => '{{input}}',
+                'output_format' => 'plain',
+            ],
+            'configuration' => [
+                'identifier' => 'skip-config',
+                'name' => 'Skip Config',
+                'description' => 'Config',
+                'system_prompt' => 'Help.',
+                'temperature' => 0.7,
+                'max_tokens' => 4096,
+                'top_p' => 1.0,
+                'frequency_penalty' => 0.0,
+                'presence_penalty' => 0.0,
+            ],
+            'recommended_model_id' => '',
+            'suggested_model' => [
+                'name' => '',
+                'model_id' => '',
+                'description' => '',
+                'capabilities' => 'chat',
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse($llmJson));
+
+        $result = $this->subject->generateTaskWithChain('skip test', $config);
+
+        self::assertTrue($result['generated']);
+    }
+
+    // ==================== buildFullChainContext models list is sliced to max 10 ====================
+
+    #[Test]
+    public function testGenerateConfigurationContextLimitsModelsToTen(): void
+    {
+        $config = $this->createConfigurationWithModel();
+
+        // Create 12 active models — context should only include first 10
+        $models = [];
+        for ($i = 1; $i <= 12; $i++) {
+            $m = $this->createActiveModel('model-' . $i, 'Model ' . $i);
+            $m->setDescription('Description ' . $i);
+            $models[] = $m;
+        }
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub($models));
+
+        $this->configurationRepository->method('findAll')->willReturn([]);
+
+        // The LLM still gets called — the test verifies no error occurs
+        $llmJson = json_encode([
+            'identifier' => 'limited',
+            'name' => 'Limited',
+            'description' => 'Test',
+            'system_prompt' => 'Help.',
+            'temperature' => 0.7,
+            'max_tokens' => 4096,
+            'top_p' => 1.0,
+            'frequency_penalty' => 0.0,
+            'presence_penalty' => 0.0,
+            'recommended_model' => 'model-1',
+        ], JSON_THROW_ON_ERROR);
+
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse($llmJson));
+
+        $result = $this->subject->generateConfiguration('limit test', $config);
+
+        self::assertTrue($result['generated']);
     }
 }

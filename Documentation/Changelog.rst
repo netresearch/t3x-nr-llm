@@ -25,8 +25,28 @@ Added
 - ``ModelConstraintsWizard``: field wizard that loads parameter constraint bounds per model.
 - Dashboard improvements: side-by-side wizard callouts, fixed headline from "LLM Providers" to "LLM Integration".
 - Task execution UI: collapsible prompt details, improved result display.
-- Enhanced model discovery: better Anthropic, Google, DeepSeek, Mistral support.
+- Enhanced model discovery: better Anthropic, Google, DeepSeek,
+  Mistral support.
 - TER publish workflow.
+- Documentation: wizards guide with screenshots, tasks section,
+  updated configuration reference.
+
+Changed
+-------
+
+- Renamed ``SafeCastTrait`` extracted from duplicated helpers
+  in ``TaskController`` and ``WizardGeneratorService``.
+- SQL injection defense: regex whitelist validation for
+  table/column names in ``FetchRecordsRequest``
+  and ``LoadRecordDataRequest``.
+
+Fixed
+-----
+
+- Restored ``method_exists()`` guards for
+  ``setShortcutContext()`` (TYPO3 v13 compatibility).
+- PHPUnit 12: replaced ``createStub`` with ``createMock``
+  to fix deprecation warnings.
 
 .. _version-0-4-8:
 
