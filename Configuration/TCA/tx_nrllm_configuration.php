@@ -134,6 +134,11 @@ return [
                 ],
                 'default' => 0,
                 'minitems' => 0,
+                'fieldWizard' => [
+                    'modelConstraintsWizard' => [
+                        'renderType' => 'modelConstraintsWizard',
+                    ],
+                ],
             ],
         ],
         'model_selection_criteria' => [

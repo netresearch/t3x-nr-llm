@@ -24,7 +24,6 @@ jobs:
     permissions:
       contents: read
     secrets:
-      TYPO3_EXTENSION_KEY: ${{ secrets.TYPO3_EXTENSION_KEY }}
       TYPO3_TER_ACCESS_TOKEN: ${{ secrets.TYPO3_TER_ACCESS_TOKEN }}
 
   slsa-provenance:

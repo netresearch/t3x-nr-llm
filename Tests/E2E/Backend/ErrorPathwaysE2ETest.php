@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Message\ResponseInterface;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
@@ -112,12 +113,16 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $modelDiscovery = $this->get(ModelDiscoveryInterface::class);
         self::assertInstanceOf(ModelDiscoveryInterface::class, $modelDiscovery);
 
+        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
+        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+
         return $this->createControllerWithReflection(ModelController::class, [
             'modelRepository' => $this->modelRepository,
             'providerRepository' => $this->providerRepository,
             'providerAdapterRegistry' => $providerAdapterRegistry,
             'modelDiscovery' => $modelDiscovery,
             'persistenceManager' => $this->persistenceManager,
+            'extensionConfiguration' => $extensionConfiguration,
         ]);
     }
 
@@ -132,11 +137,15 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $configurationService = $this->get(LlmConfigurationService::class);
         self::assertInstanceOf(LlmConfigurationService::class, $configurationService);
 
+        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
+        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+
         return $this->createControllerWithReflection(ConfigurationController::class, [
             'configurationService' => $configurationService,
             'configurationRepository' => $this->configurationRepository,
             'llmServiceManager' => $llmServiceManager,
             'providerAdapterRegistry' => $providerAdapterRegistry,
+            'extensionConfiguration' => $extensionConfiguration,
         ]);
     }
 
@@ -162,12 +171,16 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $taskRepository = $this->get(TaskRepository::class);
         self::assertInstanceOf(TaskRepository::class, $taskRepository);
 
+        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
+        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+
         return $this->createControllerWithReflection(LlmModuleController::class, [
             'llmServiceManager' => $llmServiceManager,
             'providerRepository' => $this->providerRepository,
             'modelRepository' => $this->modelRepository,
             'configurationRepository' => $configurationRepository,
             'taskRepository' => $taskRepository,
+            'extensionConfiguration' => $extensionConfiguration,
         ]);
     }
 

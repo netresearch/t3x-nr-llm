@@ -27,6 +27,7 @@ use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Imaging\IconSize;
@@ -44,6 +45,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class ModelController extends ActionController
 {
+    use TestPromptTrait;
     private const TABLE_NAME = 'tx_nrllm_model';
 
     private ModuleTemplate $moduleTemplate;
@@ -58,6 +60,7 @@ final class ModelController extends ActionController
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly ProviderAdapterRegistry $providerAdapterRegistry,
         private readonly ModelDiscoveryInterface $modelDiscovery,
+        private readonly ExtensionConfiguration $extensionConfiguration,
     ) {}
 
     protected function initializeAction(): void
@@ -110,7 +113,6 @@ final class ModelController extends ActionController
             'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
         ]);
 
-        // Add shortcut/bookmark button to docheader (v14+)
         if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
             $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
                 routeIdentifier: 'nrllm_models',
@@ -240,7 +242,7 @@ final class ModelController extends ActionController
             $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
 
             // Make a simple test call - use enough tokens for models with thinking
-            $testPrompt = 'Respond with exactly one word: Hello';
+            $testPrompt = $this->resolveTestPrompt();
             $response = $adapter->complete($testPrompt, [
                 'model' => $model->getModelId(),
                 'max_tokens' => 100,
@@ -325,9 +327,13 @@ final class ModelController extends ActionController
                 $models[] = [
                     'id' => $model->modelId,
                     'name' => $model->name,
+                    'description' => $model->description,
                     'contextLength' => $model->contextLength,
                     'maxOutputTokens' => $model->maxOutputTokens,
                     'capabilities' => $model->capabilities,
+                    'costInput' => $model->costInput,
+                    'costOutput' => $model->costOutput,
+                    'recommended' => $model->recommended,
                 ];
             }
 
@@ -496,4 +502,5 @@ final class ModelController extends ActionController
             return null;
         }
     }
+
 }

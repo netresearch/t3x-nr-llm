@@ -120,12 +120,11 @@ return [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.model_id',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.model_id.description',
             'config' => [
-                'type' => 'input',
-                'size' => 50,
+                'type' => 'user',
+                'renderType' => 'modelIdWithFetch',
                 'max' => 150,
-                'eval' => 'trim',
+                'placeholder' => 'e.g., gpt-5.2, claude-sonnet-4-6, gemini-3-pro-preview',
                 'required' => true,
-                'placeholder' => 'gpt-4o, claude-sonnet-4-20250514, gemini-2.0-flash, ...',
             ],
         ],
         'context_length' => [

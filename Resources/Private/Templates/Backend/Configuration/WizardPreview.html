@@ -1,0 +1,113 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div>
+        <h1>
+            <core:icon identifier="actions-bolt" size="medium" />
+            AI-Generated Configuration
+        </h1>
+
+        <f:be.infobox state="0">
+            <p class="mb-0"><strong>Review the generated configuration below.</strong> Click "Open in Editor" to fine-tune the values in the full form, or "Regenerate" to try again.</p>
+        </f:be.infobox>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2 class="card-title mb-0">Generated Configuration</h2>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">Name</dt>
+                    <dd class="col-sm-9"><strong>{generated.name}</strong></dd>
+
+                    <f:if condition="{generated.identifier}">
+                        <dt class="col-sm-3">Identifier</dt>
+                        <dd class="col-sm-9"><code>{generated.identifier}</code></dd>
+                    </f:if>
+
+                    <f:if condition="{generated.description}">
+                        <dt class="col-sm-3">Description</dt>
+                        <dd class="col-sm-9">{generated.description}</dd>
+                    </f:if>
+
+                    <f:if condition="{generated.system_prompt}">
+                        <dt class="col-sm-3">System Prompt</dt>
+                        <dd class="col-sm-9">
+                            <pre class="mb-0 p-2 bg-body-tertiary rounded" style="white-space: pre-wrap; font-size: 0.85em;">{generated.system_prompt}</pre>
+                        </dd>
+                    </f:if>
+
+                    <dt class="col-sm-3">Temperature</dt>
+                    <dd class="col-sm-9">{generated.temperature}</dd>
+
+                    <dt class="col-sm-3">Max Tokens</dt>
+                    <dd class="col-sm-9">{generated.max_tokens}</dd>
+
+                    <dt class="col-sm-3">Top P</dt>
+                    <dd class="col-sm-9">{generated.top_p}</dd>
+
+                    <dt class="col-sm-3">Frequency Penalty</dt>
+                    <dd class="col-sm-9">{generated.frequency_penalty}</dd>
+
+                    <dt class="col-sm-3">Presence Penalty</dt>
+                    <dd class="col-sm-9">{generated.presence_penalty}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-body-secondary">
+                            <strong>Your description:</strong> {description}
+                        </small>
+                    </div>
+                    <div>
+                        <f:if condition="{usedConfig}">
+                            <small class="text-body-secondary">
+                                <core:icon identifier="actions-system-extension-configure" size="small" />
+                                Generated with <strong>{usedConfig.name}</strong>
+                                <f:if condition="{usedConfig.llmModel}">
+                                    via {usedConfig.llmModel.name}
+                                    <f:if condition="{usedConfig.llmModel.provider}">
+                                        ({usedConfig.llmModel.provider.name})
+                                    </f:if>
+                                </f:if>
+                            </small>
+                        </f:if>
+                        <f:if condition="!{usedConfig}">
+                            <small class="text-body-secondary">
+                                <span class="badge text-bg-warning">Generated without AI (fallback)</span>
+                            </small>
+                        </f:if>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <a href="{newUrl}" class="btn btn-success">
+                <core:icon identifier="actions-open" size="small" />
+                Open in Editor
+            </a>
+            <f:link.action action="wizardGenerate" arguments="{description: description, configurationUid: configurationUid}" class="btn btn-default">
+                <core:icon identifier="actions-refresh" size="small" />
+                Regenerate
+            </f:link.action>
+            <f:link.action action="wizardForm" class="btn btn-default">
+                <core:icon identifier="actions-edit" size="small" />
+                Edit Description
+            </f:link.action>
+            <f:link.action action="list" class="btn btn-default">
+                Back to List
+            </f:link.action>
+        </div>
+    </div>
+</f:section>
+
+</html>

@@ -7,27 +7,15 @@
 
 <f:section name="Content">
     <div>
-        <f:be.infobox
-            title="One-Shot Prompt Tasks"
-            state="-2"
-        >
-            <p>
-                <strong>Important:</strong> Tasks are simple one-shot prompts with limited capabilities.
-                They are <strong>NOT</strong> AI agents and cannot perform multi-step reasoning, use tools,
-                or maintain conversation context. They are primarily for demonstration and simple utility purposes.
-            </p>
-        </f:be.infobox>
+        <h1>
+            <core:icon identifier="actions-bolt" size="medium" />
+            Tasks ({totalCount})
+        </h1>
 
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>
-                <core:icon identifier="actions-bolt" size="medium" />
-                Tasks ({totalCount})
-            </h1>
-            <a href="{newUrl}" class="btn btn-primary">
-                <core:icon identifier="actions-plus" size="small" />
-                Create Task
-            </a>
-        </div>
+        <f:be.infobox state="-2">
+            <p>Tasks define <strong>what</strong> the AI should do: a prompt template with placeholders for input data. Each task is a one-shot prompt — for example, "Summarize this text" or "Check for grammar errors". Tasks receive input, send it to the LLM, and return the result.</p>
+            <p class="mb-0">Each task uses a <strong>Configuration</strong> that defines <strong>how</strong> the AI behaves (model, temperature, system prompt). You can assign different configurations to tasks depending on the use case — a translation task might use a precise, low-temperature configuration, while a creative writing task uses a high-temperature one.</p>
+        </f:be.infobox>
 
         <f:if condition="{totalCount} == 0">
             <f:then>

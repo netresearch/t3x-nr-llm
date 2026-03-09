@@ -81,6 +81,10 @@ return [
         'path' => '/nrllm/config/test',
         'target' => ConfigurationController::class . '::testConfigurationAction',
     ],
+    'nrllm_config_model_constraints' => [
+        'path' => '/nrllm/config/model-constraints',
+        'target' => ConfigurationController::class . '::getModelConstraintsAction',
+    ],
 
     // Task routes
     'nrllm_task_list_tables' => [

@@ -283,10 +283,11 @@ final readonly class ConfigurationGenerator
      */
     private function getCompletionEndpoint(DetectedProvider $provider): string
     {
+        $endpoint = rtrim($provider->endpoint, '/');
         return match ($provider->adapterType) {
-            'anthropic' => $provider->endpoint . '/v1/messages',
-            'gemini' => $provider->endpoint . '/v1/models/gemini-3-flash:generateContent',
-            default => $provider->endpoint . '/v1/chat/completions',
+            'anthropic' => $endpoint . '/messages',
+            'gemini' => $endpoint . '/models/gemini-3-flash:generateContent',
+            default => $endpoint . '/chat/completions',
         };
     }
 

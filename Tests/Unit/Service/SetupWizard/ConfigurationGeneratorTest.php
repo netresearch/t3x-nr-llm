@@ -702,4 +702,664 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
             self::assertNotEmpty($config->systemPrompt);
         }
     }
+
+    // ==================== API response body is not valid JSON (non-array) ====================
+
+    #[Test]
+    public function generateReturnsFallbackWhenApiBodyIsNotValidJson(): void
+    {
+        $provider = $this->createOpenAiProvider();
+        $models = $this->createTestModels();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        // The outer response body itself decodes to a non-array (a string)
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, '"just a string"'));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    // ==================== extractAnthropicContent edge cases ====================
+
+    #[Test]
+    public function generateAnthropicReturnsFallbackWhenContentIsEmpty(): void
+    {
+        $provider = $this->createAnthropicProvider();
+        $models = [
+            new DiscoveredModel(
+                modelId: 'claude-opus-4-5',
+                name: 'Claude Opus 4.5',
+                description: 'Most capable',
+                capabilities: ['chat'],
+                contextLength: 200000,
+                recommended: true,
+            ),
+        ];
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        // content is an empty array — extractAnthropicContent returns ''
+        $llmResponse = (string)json_encode(['content' => []]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        // Empty content → empty string → parse fails → fallback
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generateAnthropicReturnsFallbackWhenFirstBlockIsNotArray(): void
+    {
+        $provider = $this->createAnthropicProvider();
+        $models = [
+            new DiscoveredModel(
+                modelId: 'claude-opus-4-5',
+                name: 'Claude Opus 4.5',
+                description: 'Most capable',
+                capabilities: ['chat'],
+                contextLength: 200000,
+                recommended: true,
+            ),
+        ];
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        // First block is a scalar, not an array
+        $llmResponse = (string)json_encode(['content' => ['not-an-array']]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generateAnthropicReturnsFallbackWhenTextIsNotString(): void
+    {
+        $provider = $this->createAnthropicProvider();
+        $models = [
+            new DiscoveredModel(
+                modelId: 'claude-opus-4-5',
+                name: 'Claude Opus 4.5',
+                description: 'Most capable',
+                capabilities: ['chat'],
+                contextLength: 200000,
+                recommended: true,
+            ),
+        ];
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        // text is an int, not a string
+        $llmResponse = (string)json_encode(['content' => [['text' => 12345]]]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    // ==================== extractGeminiContent edge cases ====================
+
+    #[Test]
+    public function generateGeminiReturnsFallbackWhenCandidatesIsEmpty(): void
+    {
+        $provider = $this->createGeminiProvider();
+        $models = [
+            new DiscoveredModel(
+                modelId: 'gemini-3-flash',
+                name: 'Gemini 3 Flash',
+                description: 'Fast model',
+                capabilities: ['chat'],
+                contextLength: 1000000,
+                recommended: true,
+            ),
+        ];
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $llmResponse = (string)json_encode(['candidates' => []]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generateGeminiReturnsFallbackWhenFirstCandidateIsNotArray(): void
+    {
+        $provider = $this->createGeminiProvider();
+        $models = [
+            new DiscoveredModel(
+                modelId: 'gemini-3-flash',
+                name: 'Gemini 3 Flash',
+                description: 'Fast model',
+                capabilities: ['chat'],
+                contextLength: 1000000,
+                recommended: true,
+            ),
+        ];
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $llmResponse = (string)json_encode(['candidates' => ['not-an-array']]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generateGeminiReturnsFallbackWhenContentIsNotArray(): void
+    {
+        $provider = $this->createGeminiProvider();
+        $models = [
+            new DiscoveredModel(
+                modelId: 'gemini-3-flash',
+                name: 'Gemini 3 Flash',
+                description: 'Fast model',
+                capabilities: ['chat'],
+                contextLength: 1000000,
+                recommended: true,
+            ),
+        ];
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $llmResponse = (string)json_encode(['candidates' => [['content' => 'not-an-array']]]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generateGeminiReturnsFallbackWhenPartsIsEmpty(): void
+    {
+        $provider = $this->createGeminiProvider();
+        $models = [
+            new DiscoveredModel(
+                modelId: 'gemini-3-flash',
+                name: 'Gemini 3 Flash',
+                description: 'Fast model',
+                capabilities: ['chat'],
+                contextLength: 1000000,
+                recommended: true,
+            ),
+        ];
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $llmResponse = (string)json_encode(['candidates' => [['content' => ['parts' => []]]]]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generateGeminiReturnsFallbackWhenFirstPartIsNotArray(): void
+    {
+        $provider = $this->createGeminiProvider();
+        $models = [
+            new DiscoveredModel(
+                modelId: 'gemini-3-flash',
+                name: 'Gemini 3 Flash',
+                description: 'Fast model',
+                capabilities: ['chat'],
+                contextLength: 1000000,
+                recommended: true,
+            ),
+        ];
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $llmResponse = (string)json_encode([
+            'candidates' => [['content' => ['parts' => ['not-an-array']]]],
+        ]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generateGeminiReturnsFallbackWhenTextIsNotString(): void
+    {
+        $provider = $this->createGeminiProvider();
+        $models = [
+            new DiscoveredModel(
+                modelId: 'gemini-3-flash',
+                name: 'Gemini 3 Flash',
+                description: 'Fast model',
+                capabilities: ['chat'],
+                contextLength: 1000000,
+                recommended: true,
+            ),
+        ];
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $llmResponse = (string)json_encode([
+            'candidates' => [['content' => ['parts' => [['text' => 999]]]]],
+        ]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    // ==================== extractOpenAIContent edge cases ====================
+
+    #[Test]
+    public function generateOpenAiReturnsFallbackWhenChoicesIsEmpty(): void
+    {
+        $provider = $this->createOpenAiProvider();
+        $models = $this->createTestModels();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $llmResponse = (string)json_encode(['choices' => []]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generateOpenAiReturnsFallbackWhenFirstChoiceIsNotArray(): void
+    {
+        $provider = $this->createOpenAiProvider();
+        $models = $this->createTestModels();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $llmResponse = (string)json_encode(['choices' => ['not-an-array']]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generateOpenAiReturnsFallbackWhenMessageIsNotArray(): void
+    {
+        $provider = $this->createOpenAiProvider();
+        $models = $this->createTestModels();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $llmResponse = (string)json_encode(['choices' => [['message' => 'not-an-array']]]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generateOpenAiReturnsFallbackWhenContentIsNotString(): void
+    {
+        $provider = $this->createOpenAiProvider();
+        $models = $this->createTestModels();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $llmResponse = (string)json_encode(['choices' => [['message' => ['content' => ['not', 'a', 'string']]]]]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+    }
+
+    // ==================== parseResponse edge cases ====================
+
+    #[Test]
+    public function generateHandlesObjectWithConfigsKeyAlias(): void
+    {
+        // Tests the `$json['configs']` branch (alias to 'configurations')
+        $provider = $this->createOpenAiProvider();
+        $models = $this->createTestModels();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $llmResponse = (string)json_encode([
+            'choices' => [
+                [
+                    'message' => [
+                        'content' => json_encode([
+                            'configs' => [
+                                [
+                                    'identifier' => 'alias-config',
+                                    'name' => 'Alias Config',
+                                    'description' => 'Via configs key',
+                                    'systemPrompt' => 'Test.',
+                                    'temperature' => 0.5,
+                                    'maxTokens' => 2048,
+                                ],
+                            ],
+                        ]),
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertEquals('alias-config', $result[0]->identifier);
+    }
+
+    #[Test]
+    public function generateSkipsItemsWithMissingIdentifierOrName(): void
+    {
+        $provider = $this->createOpenAiProvider();
+        $models = $this->createTestModels();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $llmResponse = (string)json_encode([
+            'choices' => [
+                [
+                    'message' => [
+                        'content' => json_encode([
+                            // Missing identifier
+                            ['name' => 'No Identifier', 'description' => 'Test'],
+                            // Missing name
+                            ['identifier' => 'no-name', 'description' => 'Test'],
+                            // Non-array item
+                            'just a string',
+                            // Valid item
+                            [
+                                'identifier' => 'valid-item',
+                                'name' => 'Valid Item',
+                                'description' => 'Works',
+                                'systemPrompt' => 'Help.',
+                            ],
+                        ]),
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertCount(1, $result);
+        self::assertEquals('valid-item', $result[0]->identifier);
+    }
+
+    #[Test]
+    public function generateReturnsFallbackWhenConfigurationsKeyIsNotAnArray(): void
+    {
+        // Tests parseResponse line 374: $items is set via $json['configurations'] but is not an array
+        $provider = $this->createOpenAiProvider();
+        $models = $this->createTestModels();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        // 'configurations' is a string, not an array — triggers the !is_array($items) branch
+        $llmResponse = (string)json_encode([
+            'choices' => [
+                [
+                    'message' => [
+                        'content' => json_encode([
+                            'configurations' => 'this-should-be-an-array-but-is-not',
+                        ]),
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        // parseResponse returns [] for non-array items, so fallback configs are used
+        self::assertNotEmpty($result);
+        foreach ($result as $config) {
+            self::assertInstanceOf(SuggestedConfiguration::class, $config);
+        }
+    }
+
+    #[Test]
+    public function generateHandlesResponseWithEmbeddedJsonInText(): void
+    {
+        // Tests the regex branch: find JSON array/object embedded in text
+        $provider = $this->createOpenAiProvider();
+        $models = $this->createTestModels();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $jsonContent = (string)json_encode([
+            [
+                'identifier' => 'embedded-config',
+                'name' => 'Embedded Config',
+                'description' => 'Found via regex',
+                'systemPrompt' => 'Help.',
+            ],
+        ]);
+
+        // The outer OpenAI response wraps content with text around the JSON
+        $llmResponse = (string)json_encode([
+            'choices' => [
+                [
+                    'message' => [
+                        'content' => 'Here is the JSON: ' . $jsonContent . ' That is all.',
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertEquals('embedded-config', $result[0]->identifier);
+    }
 }

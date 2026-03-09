@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
@@ -81,11 +82,15 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $providerAdapterRegistry = $this->get(ProviderAdapterRegistry::class);
         self::assertInstanceOf(ProviderAdapterRegistry::class, $providerAdapterRegistry);
 
+        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
+        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+
         return $this->createControllerWithReflection(ConfigurationController::class, [
             'configurationService' => $configurationService,
             'configurationRepository' => $this->configurationRepository,
             'llmServiceManager' => $llmServiceManager,
             'providerAdapterRegistry' => $providerAdapterRegistry,
+            'extensionConfiguration' => $extensionConfiguration,
         ]);
     }
 

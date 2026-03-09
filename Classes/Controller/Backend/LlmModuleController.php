@@ -22,12 +22,14 @@ use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 
 #[AsController]
 final class LlmModuleController extends ActionController
 {
+    use TestPromptTrait;
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly LlmServiceManagerInterface $llmServiceManager,
@@ -36,6 +38,7 @@ final class LlmModuleController extends ActionController
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly TaskRepository $taskRepository,
         private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly ExtensionConfiguration $extensionConfiguration,
     ) {}
 
     public function indexAction(): ResponseInterface
@@ -46,7 +49,6 @@ final class LlmModuleController extends ActionController
         $moduleTemplate->makeDocHeaderModuleMenu();
         $this->buildDocHeaderTabMenu($moduleTemplate, 'dashboard');
 
-        // Add shortcut/bookmark button to docheader (v14+)
         if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
             $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
                 routeIdentifier: 'nrllm',
@@ -87,6 +89,9 @@ final class LlmModuleController extends ActionController
             'dbModelCount' => $dbModelCount,
             'dbConfigurationCount' => $dbConfigurationCount,
             'dbTaskCount' => $dbTaskCount,
+            'taskWizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
+                'tx_nrllm_task[action]' => 'wizardForm',
+            ]),
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Index');
@@ -99,7 +104,6 @@ final class LlmModuleController extends ActionController
         // Add module menu dropdown to docheader (shows all LLM sub-modules)
         $moduleTemplate->makeDocHeaderModuleMenu();
 
-        // Add shortcut/bookmark button to docheader (v14+)
         if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
             $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
                 routeIdentifier: 'nrllm',
@@ -124,7 +128,7 @@ final class LlmModuleController extends ActionController
     {
         $body = $this->request->getParsedBody();
         $provider = $this->extractStringFromBody($body, 'provider');
-        $prompt = $this->extractStringFromBody($body, 'prompt', 'Hello, please respond with a brief greeting.');
+        $prompt = $this->extractStringFromBody($body, 'prompt', $this->resolveTestPrompt());
 
         if ($provider === '') {
             return new JsonResponse(['error' => 'No provider specified'], 400);
@@ -226,4 +230,5 @@ final class LlmModuleController extends ActionController
             'tools' => $provider->supportsFeature('tools'),
         ];
     }
+
 }

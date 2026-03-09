@@ -54,7 +54,12 @@ final readonly class LoadRecordDataRequest
 
     public function isValid(): bool
     {
-        return $this->table !== '' && $this->uidList !== [];
+        if ($this->table === '' || $this->uidList === []) {
+            return false;
+        }
+
+        // Whitelist: table names must be alphanumeric with underscores only
+        return preg_match('/[^a-zA-Z0-9_]/', $this->table) !== 1;
     }
 
     /**

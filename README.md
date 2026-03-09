@@ -159,6 +159,12 @@ The **Admin Tools > LLM** backend module gives you full control:
 The **Setup Wizard** auto-detects your provider type from the endpoint URL, discovers
 available models, and generates a ready-to-use configuration. Paste your API key and go.
 
+### AI-powered wizards
+
+- **Task Wizard** — Describe what you need in plain language; the AI generates a complete task with configuration, system prompt, and model recommendation in one step
+- **Configuration Wizard** — AI-assisted configuration generation with system prompts, parameters, and model selection
+- **Model Discovery** — "Fetch Models" button on model fields queries the provider API and auto-fills capabilities and pricing
+
 ### Supported providers
 
 | Provider | Adapter | Capabilities |

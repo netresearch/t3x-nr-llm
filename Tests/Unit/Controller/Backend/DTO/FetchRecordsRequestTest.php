@@ -157,6 +157,42 @@ class FetchRecordsRequestTest extends AbstractUnitTestCase
         self::assertEquals($expected, $request->limit);
     }
 
+    #[Test]
+    public function isValidRejectsTableWithSpecialCharacters(): void
+    {
+        $request = new FetchRecordsRequest(
+            table: 'pages; DROP TABLE users',
+            limit: 50,
+            labelField: 'title',
+        );
+
+        self::assertFalse($request->isValid());
+    }
+
+    #[Test]
+    public function isValidRejectsLabelFieldWithSpecialCharacters(): void
+    {
+        $request = new FetchRecordsRequest(
+            table: 'pages',
+            limit: 50,
+            labelField: 'title; --',
+        );
+
+        self::assertFalse($request->isValid());
+    }
+
+    #[Test]
+    public function isValidAcceptsTableWithUnderscores(): void
+    {
+        $request = new FetchRecordsRequest(
+            table: 'tx_nrllm_domain_model_task',
+            limit: 50,
+            labelField: 'name',
+        );
+
+        self::assertTrue($request->isValid());
+    }
+
     /**
      * @return array<string, array{mixed, int}>
      */

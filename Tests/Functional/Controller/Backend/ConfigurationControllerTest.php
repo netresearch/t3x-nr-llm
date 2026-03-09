@@ -12,14 +12,17 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 use GuzzleHttp\Psr7\ServerRequest;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
@@ -94,15 +97,27 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         $backendUriBuilder = $this->get(BackendUriBuilder::class);
         self::assertInstanceOf(BackendUriBuilder::class, $backendUriBuilder);
 
+        $modelRepository = $this->get(ModelRepository::class);
+        self::assertInstanceOf(ModelRepository::class, $modelRepository);
+
+        $wizardGeneratorService = $this->get(WizardGeneratorService::class);
+        self::assertInstanceOf(WizardGeneratorService::class, $wizardGeneratorService);
+
+        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
+        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+
         return new ConfigurationController(
             $moduleTemplateFactory,
             $iconFactory,
             $configurationService,
             $this->configurationRepository,
+            $modelRepository,
             $llmServiceManager,
             $providerAdapterRegistry,
+            $wizardGeneratorService,
             $pageRenderer,
             $backendUriBuilder,
+            $extensionConfiguration,
         );
     }
 

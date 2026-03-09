@@ -98,7 +98,6 @@ final class ProviderController extends ActionController
             'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
         ]);
 
-        // Add shortcut/bookmark button to docheader (v14+)
         if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
             $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
                 routeIdentifier: 'nrllm_providers',

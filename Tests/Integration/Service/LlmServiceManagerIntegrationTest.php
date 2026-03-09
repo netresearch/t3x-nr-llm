@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Integration\AbstractIntegrationTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -34,14 +35,14 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 {
     private LlmServiceManager $subject;
-    private ExtensionConfiguration&Stub $extensionConfigStub;
+    private ExtensionConfiguration&MockObject $extensionConfigStub;
     private ProviderAdapterRegistry&Stub $adapterRegistryStub;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $this->extensionConfigStub = $this->createMock(ExtensionConfiguration::class);
         $this->extensionConfigStub->method('get')
             ->with('nr_llm')
             ->willReturn([

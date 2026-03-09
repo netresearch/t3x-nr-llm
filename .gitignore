@@ -44,6 +44,9 @@ var/
 # Documentation build output
 Documentation-GENERATED-temp/
 
+# Local planning docs (not for repo)
+docs/
+
 # DDEV local files (keep config, ignore generated)
 .ddev/.ddev-docker-compose-full.yaml
 .ddev/.ddev-docker-compose-base.yaml

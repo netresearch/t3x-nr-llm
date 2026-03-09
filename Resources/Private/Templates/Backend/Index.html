@@ -11,18 +11,38 @@
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.title" />
         </h1>
 
-        <f:be.infobox
-            title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.callout.title', default: 'New to LLM Integration?')}"
-            state="-1"
-        >
-            <p>
-                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.callout.message" default="Use the Setup Wizard to auto-configure your provider, discover models, and generate configuration presets." />
-            </p>
-            <a href="{be:moduleLink(route: 'nrllm_wizard')}" class="btn btn-primary">
-                <core:icon identifier="actions-bolt" size="small" />
-                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.callout.button" default="Start Setup Wizard" />
-            </a>
-        </f:be.infobox>
+        <div class="row mb-4">
+            <div class="{f:if(condition: '{dbProviderCount} > 0', then: 'col-md-6', else: 'col-12')}">
+                <f:be.infobox
+                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.callout.title', default: 'New to LLM Integration?')}"
+                    state="-1"
+                >
+                    <p>
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.callout.message" default="Use the Setup Wizard to auto-configure your provider, discover models, and generate configuration presets." />
+                    </p>
+                    <a href="{be:moduleLink(route: 'nrllm_wizard')}" class="btn btn-primary">
+                        <core:icon identifier="actions-bolt" size="small" />
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.callout.button" default="Start Setup Wizard" />
+                    </a>
+                </f:be.infobox>
+            </div>
+            <f:if condition="{dbProviderCount} > 0">
+                <div class="col-md-6">
+                    <f:be.infobox
+                        title="Create Tasks with AI"
+                        state="-2"
+                    >
+                        <p>
+                            Use the AI Task Wizard to describe what a task should do in plain language. The AI generates a complete task setup — prompt template, dedicated configuration, and model recommendation — in one step.
+                        </p>
+                        <a href="{taskWizardUrl}" class="btn btn-primary">
+                            <core:icon identifier="actions-bolt" size="small" />
+                            Create Task with AI
+                        </a>
+                    </f:be.infobox>
+                </div>
+            </f:if>
+        </div>
 
         <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.management" default="LLM Management" /></h2>
 
@@ -160,6 +180,12 @@
                     <a href="{be:moduleLink(route: 'nrllm_tasks')}" class="btn btn-default">
                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.card.button" default="Manage Tasks" />
                     </a>
+                    <f:if condition="{dbProviderCount} > 0">
+                        <a href="{taskWizardUrl}" class="btn btn-primary btn-sm ms-1">
+                            <core:icon identifier="actions-bolt" size="small" />
+                            Create with AI
+                        </a>
+                    </f:if>
                 </div>
             </div>
         </div>

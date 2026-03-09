@@ -105,7 +105,6 @@ final class SetupWizardController extends ActionController
             ->setHref((string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'));
         $buttonBar->addButton($refreshButton);
 
-        // Add shortcut/bookmark button to docheader (v14+)
         if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
             $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
                 routeIdentifier: 'nrllm_wizard',

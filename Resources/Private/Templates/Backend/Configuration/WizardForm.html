@@ -1,0 +1,109 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div>
+        <h1>
+            <core:icon identifier="actions-bolt" size="medium" />
+            Create Configuration with AI
+        </h1>
+
+        <f:be.infobox state="-2">
+            <p>Describe the AI personality and behavior you need. The AI will generate a complete configuration including system prompt, temperature, and other model parameters.</p>
+            <p class="mb-0"><strong>Examples:</strong> "A translator that converts German to English, preserving TYPO3 terminology" or "A creative blog writer with a casual, friendly tone"</p>
+        </f:be.infobox>
+
+        <div class="card">
+            <div class="card-body">
+                <f:if condition="{resolvedConfig}">
+                    <f:then>
+                        <f:form action="wizardGenerate" method="post" id="wizard-form">
+                            <div class="mb-3">
+                                <label for="wizard-description" class="form-label">What should this configuration do?</label>
+                                <f:form.textarea id="wizard-description" name="description" rows="5"
+                                    class="form-control"
+                                    additionalAttributes="{maxlength: '2000', required: 'required'}"
+                                    placeholder="Describe the behavior, role, and personality of the AI..." />
+                                <div class="invalid-feedback">Please enter a description of what this configuration should do.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="wizard-config" class="form-label">LLM Configuration</label>
+                                <f:form.select id="wizard-config" name="configurationUid"
+                                    class="form-select"
+                                    options="{availableConfigs}"
+                                    optionValueField="uid"
+                                    optionLabelField="name"
+                                    value="{resolvedConfig.uid}"
+                                    prependOptionLabel="— Auto (system default) —"
+                                    prependOptionValue="0" />
+                                <div class="form-text">
+                                    <f:if condition="{resolvedConfig.llmModel}">
+                                        <f:then>
+                                            Currently using: <strong>{resolvedConfig.name}</strong>
+                                            via <strong>{resolvedConfig.llmModel.name}</strong>
+                                            <f:if condition="{resolvedConfig.llmModel.provider}">
+                                                ({resolvedConfig.llmModel.provider.name})
+                                            </f:if>
+                                        </f:then>
+                                        <f:else>
+                                            Currently using: <strong>{resolvedConfig.name}</strong>
+                                        </f:else>
+                                    </f:if>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary" id="wizard-submit-btn">
+                                    <span class="btn-text">
+                                        <core:icon identifier="actions-bolt" size="small" />
+                                        Generate with AI
+                                    </span>
+                                    <span class="btn-loading d-none">
+                                        <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                        Generating... this may take a moment
+                                    </span>
+                                </button>
+                                <f:link.action action="list" class="btn btn-default">
+                                    Cancel
+                                </f:link.action>
+                            </div>
+                        </f:form>
+                    </f:then>
+                    <f:else>
+                        <div class="alert alert-warning mb-0">
+                            <core:icon identifier="actions-exclamation-triangle" size="small" />
+                            <strong>No LLM configuration available.</strong>
+                            You need at least one active configuration with a model assigned before you can use the AI wizard.
+                        </div>
+                    </f:else>
+                </f:if>
+            </div>
+        </div>
+
+        <f:comment>Loading overlay shown during generation</f:comment>
+        <div class="d-none" id="wizard-loading">
+            <div class="card mt-4">
+                <div class="card-body text-center py-5">
+                    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                        <span class="visually-hidden">Generating...</span>
+                    </div>
+                    <h4 class="text-primary">Generating configuration...</h4>
+                    <p class="text-muted mb-2">The AI is creating your configuration. This usually takes 10-30 seconds.</p>
+                    <div class="progress mx-auto" style="width: 200px; height: 4px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 100%"></div>
+                    </div>
+                    <p class="text-muted mt-3 small">
+                        <span id="wizard-elapsed">0</span>s elapsed
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</f:section>
+
+</html>
