@@ -394,28 +394,8 @@
             })
             .finally(function () {
                 button.disabled = false;
-                button.textContent = '';
-                var iconSpan = document.createElement('span');
-                iconSpan.className = 'icon icon-size-small';
-                var markupSpan = document.createElement('span');
-                markupSpan.className = 'icon-markup';
-                var svgNS = 'http://www.w3.org/2000/svg';
-                var svg = document.createElementNS(svgNS, 'svg');
-                svg.setAttribute('viewBox', '0 0 16 16');
-                svg.setAttribute('width', '16');
-                svg.setAttribute('height', '16');
-                var path1 = document.createElementNS(svgNS, 'path');
-                path1.setAttribute('fill', 'currentColor');
-                path1.setAttribute('d', 'M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 12.5a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z');
-                var path2 = document.createElementNS(svgNS, 'path');
-                path2.setAttribute('fill', 'currentColor');
-                path2.setAttribute('d', 'M10.5 7.25H8.75V5.5a.75.75 0 0 0-1.5 0v1.75H5.5a.75.75 0 0 0 0 1.5h1.75v1.75a.75.75 0 0 0 1.5 0V8.75h1.75a.75.75 0 0 0 0-1.5z');
-                svg.appendChild(path1);
-                svg.appendChild(path2);
-                markupSpan.appendChild(svg);
-                iconSpan.appendChild(markupSpan);
-                button.appendChild(iconSpan);
-                button.appendChild(document.createTextNode(' Fetch Models'));
+                // Restore the original server-rendered button content (icon + text)
+                button.innerHTML = originalHTML; // eslint-disable-line no-unsanitized/property
             });
     }
 

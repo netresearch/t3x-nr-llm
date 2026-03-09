@@ -19,7 +19,7 @@ use Throwable;
 /**
  * Discovers available models from LLM provider APIs.
  *
- * Model information updated: December 2025
+ * Model information updated: March 2026
  */
 final readonly class ModelDiscovery implements ModelDiscoveryInterface
 {
