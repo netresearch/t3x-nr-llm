@@ -150,6 +150,18 @@ class LoadRecordDataRequestTest extends AbstractUnitTestCase
         self::assertFalse($request->isValid());
     }
 
+    #[Test]
+    public function isValidRejectsTableWithSpecialCharacters(): void
+    {
+        $request = new LoadRecordDataRequest(
+            table: 'pages; DROP TABLE users',
+            uids: '1,2',
+            uidList: [1, 2],
+        );
+
+        self::assertFalse($request->isValid());
+    }
+
     /**
      * @param list<int> $expectedList
      */
