@@ -98,13 +98,10 @@ final class ProviderController extends ActionController
             'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
         ]);
 
-        // Add shortcut/bookmark button to docheader (v14+)
-        if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
-            $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-                routeIdentifier: 'nrllm_providers',
-                displayName: 'LLM - Providers',
-            );
-        }
+        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+            routeIdentifier: 'nrllm_providers',
+            displayName: 'LLM - Providers',
+        );
 
         // Add "New Provider" button to docheader (links to FormEngine)
         $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
