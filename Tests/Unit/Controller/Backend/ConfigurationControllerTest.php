@@ -672,4 +672,128 @@ final class ConfigurationControllerTest extends TestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['success']);
     }
+
+    // Constraint method tests
+
+    /**
+     * Invoke a private method on the controller via reflection.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function invokeConstraintMethod(string $methodName): array
+    {
+        $reflection = new ReflectionClass(ConfigurationController::class);
+        $method = $reflection->getMethod($methodName);
+        $result = $method->invoke($this->subject);
+        self::assertIsArray($result);
+
+        /** @var array<string, array<string, mixed>> $result */
+        return $result;
+    }
+
+    /**
+     * Assert that a constraints array has the expected parameter keys and structure.
+     *
+     * @param array<string, mixed> $constraints
+     */
+    private function assertConstraintShape(array $constraints): void
+    {
+        $expectedKeys = ['temperature', 'top_p', 'frequency_penalty', 'presence_penalty'];
+        foreach ($expectedKeys as $key) {
+            self::assertArrayHasKey($key, $constraints, "Missing constraint key: {$key}");
+            self::assertIsArray($constraints[$key]);
+            self::assertArrayHasKey('supported', $constraints[$key], "Missing 'supported' in {$key}");
+            self::assertIsBool($constraints[$key]['supported']);
+        }
+    }
+
+    #[Test]
+    public function testGetOpenAIChatConstraintsReturnsExpectedShape(): void
+    {
+        $constraints = $this->invokeConstraintMethod('getOpenAIChatConstraints');
+
+        $this->assertConstraintShape($constraints);
+
+        // OpenAI chat: all supported with standard ranges
+        self::assertTrue($constraints['temperature']['supported']);
+        self::assertSame(0.0, $constraints['temperature']['min']);
+        self::assertSame(2.0, $constraints['temperature']['max']);
+
+        self::assertTrue($constraints['top_p']['supported']);
+        self::assertSame(0.0, $constraints['top_p']['min']);
+        self::assertSame(1.0, $constraints['top_p']['max']);
+
+        self::assertTrue($constraints['frequency_penalty']['supported']);
+        self::assertSame(-2.0, $constraints['frequency_penalty']['min']);
+        self::assertSame(2.0, $constraints['frequency_penalty']['max']);
+
+        self::assertTrue($constraints['presence_penalty']['supported']);
+        self::assertSame(-2.0, $constraints['presence_penalty']['min']);
+        self::assertSame(2.0, $constraints['presence_penalty']['max']);
+    }
+
+    #[Test]
+    public function testGetAnthropicConstraintsReturnsExpectedShape(): void
+    {
+        $constraints = $this->invokeConstraintMethod('getAnthropicConstraints');
+
+        $this->assertConstraintShape($constraints);
+
+        // Anthropic: temperature 0-1, top_p supported, no frequency/presence penalty
+        self::assertTrue($constraints['temperature']['supported']);
+        self::assertSame(0.0, $constraints['temperature']['min']);
+        self::assertSame(1.0, $constraints['temperature']['max']);
+
+        self::assertTrue($constraints['top_p']['supported']);
+        self::assertArrayHasKey('hint', $constraints['top_p']);
+
+        self::assertFalse($constraints['frequency_penalty']['supported']);
+        self::assertArrayHasKey('hint', $constraints['frequency_penalty']);
+
+        self::assertFalse($constraints['presence_penalty']['supported']);
+        self::assertArrayHasKey('hint', $constraints['presence_penalty']);
+    }
+
+    #[Test]
+    public function testGetGoogleConstraintsReturnsExpectedShape(): void
+    {
+        $constraints = $this->invokeConstraintMethod('getGeminiConstraints');
+
+        $this->assertConstraintShape($constraints);
+
+        // Gemini: temperature 0-2, top_p supported, no frequency/presence penalty
+        self::assertTrue($constraints['temperature']['supported']);
+        self::assertSame(0.0, $constraints['temperature']['min']);
+        self::assertSame(2.0, $constraints['temperature']['max']);
+
+        self::assertTrue($constraints['top_p']['supported']);
+
+        self::assertFalse($constraints['frequency_penalty']['supported']);
+        self::assertFalse($constraints['presence_penalty']['supported']);
+    }
+
+    #[Test]
+    public function testGetDefaultConstraintsReturnsExpectedShape(): void
+    {
+        $constraints = $this->invokeConstraintMethod('getDefaultConstraints');
+
+        $this->assertConstraintShape($constraints);
+
+        // Default: all supported with standard ranges
+        self::assertTrue($constraints['temperature']['supported']);
+        self::assertSame(0.0, $constraints['temperature']['min']);
+        self::assertSame(2.0, $constraints['temperature']['max']);
+
+        self::assertTrue($constraints['top_p']['supported']);
+        self::assertSame(0.0, $constraints['top_p']['min']);
+        self::assertSame(1.0, $constraints['top_p']['max']);
+
+        self::assertTrue($constraints['frequency_penalty']['supported']);
+        self::assertSame(-2.0, $constraints['frequency_penalty']['min']);
+        self::assertSame(2.0, $constraints['frequency_penalty']['max']);
+
+        self::assertTrue($constraints['presence_penalty']['supported']);
+        self::assertSame(-2.0, $constraints['presence_penalty']['min']);
+        self::assertSame(2.0, $constraints['presence_penalty']['max']);
+    }
 }

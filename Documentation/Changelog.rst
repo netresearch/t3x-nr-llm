@@ -11,6 +11,23 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-5-0:
+
+Version 0.5.0 (2026-03-09)
+===========================
+
+Added
+-----
+
+- AI-powered full-chain task wizard: describe a task in plain language, AI generates task + configuration + model recommendation in one step.
+- AI-powered configuration wizard: generate configurations with system prompts, parameters, and model selection.
+- Custom TCA ``ModelIdElement``: input field with "Fetch Models" button that populates from provider API, auto-fills capabilities and pricing.
+- ``ModelConstraintsWizard``: field wizard that loads parameter constraint bounds per model.
+- Dashboard improvements: side-by-side wizard callouts, fixed headline from "LLM Providers" to "LLM Integration".
+- Task execution UI: collapsible prompt details, improved result display.
+- Enhanced model discovery: better Anthropic, Google, DeepSeek, Mistral support.
+- TER publish workflow.
+
 .. _version-0-4-8:
 
 Version 0.4.8 (2026-03-07)
