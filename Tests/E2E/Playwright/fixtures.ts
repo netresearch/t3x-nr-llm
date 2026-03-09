@@ -97,4 +97,58 @@ async function navigateToConfigurations(page: Page): Promise<FrameLocator> {
   return moduleFrame;
 }
 
-export { expect, loginToBackend, navigateToLlmModule, getModuleFrame, navigateToProviders, navigateToModels, navigateToConfigurations };
+/**
+ * Navigate to Tasks sub-module.
+ */
+async function navigateToTasks(page: Page): Promise<FrameLocator> {
+  await page.goto('/typo3/module/nrllm/tasks');
+  const moduleFrame = getModuleFrame(page);
+  await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
+  return moduleFrame;
+}
+
+/**
+ * Navigate to Setup Wizard sub-module.
+ */
+async function navigateToSetupWizard(page: Page): Promise<FrameLocator> {
+  await page.goto('/typo3/module/nrllm/wizard');
+  const moduleFrame = getModuleFrame(page);
+  // Setup wizard doesn't have a heading level 1 necessarily;
+  // wait for the wizard container to appear
+  await moduleFrame.locator('#setup-wizard').waitFor({ state: 'visible', timeout: 10000 });
+  return moduleFrame;
+}
+
+/**
+ * Navigate to Configuration Wizard form.
+ */
+async function navigateToConfigWizard(page: Page): Promise<FrameLocator> {
+  await page.goto('/typo3/module/nrllm/configurations?action=wizardForm');
+  const moduleFrame = getModuleFrame(page);
+  await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
+  return moduleFrame;
+}
+
+/**
+ * Navigate to Task Wizard form.
+ */
+async function navigateToTaskWizard(page: Page): Promise<FrameLocator> {
+  await page.goto('/typo3/module/nrllm/tasks?action=wizardForm');
+  const moduleFrame = getModuleFrame(page);
+  await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
+  return moduleFrame;
+}
+
+export {
+  expect,
+  loginToBackend,
+  navigateToLlmModule,
+  getModuleFrame,
+  navigateToProviders,
+  navigateToModels,
+  navigateToConfigurations,
+  navigateToTasks,
+  navigateToSetupWizard,
+  navigateToConfigWizard,
+  navigateToTaskWizard,
+};

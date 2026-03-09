@@ -1,15 +1,4 @@
-import { test, expect, getModuleFrame } from './fixtures';
-import type { Page, FrameLocator } from '@playwright/test';
-
-/**
- * Navigate to Tasks sub-module.
- */
-async function navigateToTasks(page: Page): Promise<FrameLocator> {
-  await page.goto('/typo3/module/nrllm/tasks');
-  const moduleFrame = getModuleFrame(page);
-  await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
-  return moduleFrame;
-}
+import { test, expect, getModuleFrame, navigateToTasks } from './fixtures';
 
 /**
  * E2E tests for the Task execution module.
