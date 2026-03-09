@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
+use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -60,6 +61,8 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class TaskController extends ActionController
 {
+    use SafeCastTrait;
+
     private const TABLE_NAME = 'tx_nrllm_task';
 
     public function __construct(
@@ -279,10 +282,10 @@ final class TaskController extends ActionController
 
         $taskData = is_array($body['task'] ?? null) ? $body['task'] : [];
         $configData = is_array($body['configuration'] ?? null) ? $body['configuration'] : [];
-        $modelChoice = self::stringVal($body['model_choice'] ?? 'existing');
-        $existingModelUid = self::intVal($body['existing_model_uid'] ?? 0);
-        $configChoice = self::stringVal($body['config_choice'] ?? 'new');
-        $existingConfigUid = self::intVal($body['existing_config_uid'] ?? 0);
+        $modelChoice = self::toStr($body['model_choice'] ?? 'existing');
+        $existingModelUid = self::toInt($body['existing_model_uid'] ?? 0);
+        $configChoice = self::toStr($body['config_choice'] ?? 'new');
+        $existingConfigUid = self::toInt($body['existing_config_uid'] ?? 0);
 
         try {
             // Step 1: Resolve or create Model
@@ -310,15 +313,15 @@ final class TaskController extends ActionController
 
             if ($configChoice === 'new' || !$configuration instanceof LlmConfiguration) {
                 $configuration = new LlmConfiguration();
-                $configuration->setIdentifier(self::stringVal($configData['identifier'] ?? 'task-config'));
-                $configuration->setName(self::stringVal($configData['name'] ?? 'Task Configuration'));
-                $configuration->setDescription(self::stringVal($configData['description'] ?? ''));
-                $configuration->setSystemPrompt(self::stringVal($configData['system_prompt'] ?? ''));
-                $configuration->setTemperature(self::floatVal($configData['temperature'] ?? 0.7));
-                $configuration->setMaxTokens(self::intVal($configData['max_tokens'] ?? 4096));
-                $configuration->setTopP(self::floatVal($configData['top_p'] ?? 1.0));
-                $configuration->setFrequencyPenalty(self::floatVal($configData['frequency_penalty'] ?? 0.0));
-                $configuration->setPresencePenalty(self::floatVal($configData['presence_penalty'] ?? 0.0));
+                $configuration->setIdentifier(self::toStr($configData['identifier'] ?? 'task-config'));
+                $configuration->setName(self::toStr($configData['name'] ?? 'Task Configuration'));
+                $configuration->setDescription(self::toStr($configData['description'] ?? ''));
+                $configuration->setSystemPrompt(self::toStr($configData['system_prompt'] ?? ''));
+                $configuration->setTemperature(self::toFloat($configData['temperature'] ?? 0.7));
+                $configuration->setMaxTokens(self::toInt($configData['max_tokens'] ?? 4096));
+                $configuration->setTopP(self::toFloat($configData['top_p'] ?? 1.0));
+                $configuration->setFrequencyPenalty(self::toFloat($configData['frequency_penalty'] ?? 0.0));
+                $configuration->setPresencePenalty(self::toFloat($configData['presence_penalty'] ?? 0.0));
                 $configuration->setIsActive(true);
                 if ($model instanceof Model) {
                     $configuration->setLlmModel($model);
@@ -329,12 +332,12 @@ final class TaskController extends ActionController
 
             // Step 3: Create Task
             $task = new Task();
-            $task->setIdentifier(self::stringVal($taskData['identifier'] ?? 'new-task'));
-            $task->setName(self::stringVal($taskData['name'] ?? 'New Task'));
-            $task->setDescription(self::stringVal($taskData['description'] ?? ''));
-            $task->setCategory(self::stringVal($taskData['category'] ?? 'general'));
-            $task->setPromptTemplate(self::stringVal($taskData['prompt_template'] ?? ''));
-            $task->setOutputFormat(self::stringVal($taskData['output_format'] ?? 'markdown'));
+            $task->setIdentifier(self::toStr($taskData['identifier'] ?? 'new-task'));
+            $task->setName(self::toStr($taskData['name'] ?? 'New Task'));
+            $task->setDescription(self::toStr($taskData['description'] ?? ''));
+            $task->setCategory(self::toStr($taskData['category'] ?? 'general'));
+            $task->setPromptTemplate(self::toStr($taskData['prompt_template'] ?? ''));
+            $task->setOutputFormat(self::toStr($taskData['output_format'] ?? 'markdown'));
             $task->setConfiguration($configuration);
             $task->setIsActive(true);
             $this->taskRepository->add($task);
@@ -887,30 +890,6 @@ final class TaskController extends ActionController
                 $e->getMessage(),
             );
         }
-    }
-
-    /**
-     * Safely cast mixed value to string.
-     */
-    private static function stringVal(mixed $value): string
-    {
-        return is_string($value) || is_numeric($value) ? (string)$value : '';
-    }
-
-    /**
-     * Safely cast mixed value to int.
-     */
-    private static function intVal(mixed $value): int
-    {
-        return is_numeric($value) ? (int)$value : 0;
-    }
-
-    /**
-     * Safely cast mixed value to float.
-     */
-    private static function floatVal(mixed $value): float
-    {
-        return is_numeric($value) ? (float)$value : 0.0;
     }
 
     /**

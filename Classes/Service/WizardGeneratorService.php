@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Throwable;
 
 /**
@@ -24,6 +25,8 @@ use Throwable;
  */
 final readonly class WizardGeneratorService
 {
+    use SafeCastTrait;
+
     public function __construct(
         private LlmServiceManagerInterface $llmServiceManager,
         private LlmConfigurationRepository $configurationRepository,
@@ -379,16 +382,16 @@ final readonly class WizardGeneratorService
     private function normalizeConfigurationResult(array $data, string $description): array
     {
         return [
-            'identifier' => $this->sanitizeIdentifier(self::str($data['identifier'] ?? '')),
-            'name' => self::str($data['name'] ?? 'New Configuration'),
-            'description' => self::str($data['description'] ?? $description),
-            'system_prompt' => self::str($data['system_prompt'] ?? $data['systemPrompt'] ?? ''),
+            'identifier' => $this->sanitizeIdentifier(self::toStr($data['identifier'] ?? '')),
+            'name' => self::toStr($data['name'] ?? 'New Configuration'),
+            'description' => self::toStr($data['description'] ?? $description),
+            'system_prompt' => self::toStr($data['system_prompt'] ?? $data['systemPrompt'] ?? ''),
             'temperature' => $this->clamp(self::toFloat($data['temperature'] ?? 0.7), 0.0, 2.0),
             'max_tokens' => $this->clampInt(self::toInt($data['max_tokens'] ?? $data['maxTokens'] ?? 4096), 1, 128000),
             'top_p' => $this->clamp(self::toFloat($data['top_p'] ?? $data['topP'] ?? 1.0), 0.0, 1.0),
             'frequency_penalty' => $this->clamp(self::toFloat($data['frequency_penalty'] ?? $data['frequencyPenalty'] ?? 0.0), -2.0, 2.0),
             'presence_penalty' => $this->clamp(self::toFloat($data['presence_penalty'] ?? $data['presencePenalty'] ?? 0.0), -2.0, 2.0),
-            'recommended_model' => self::str($data['recommended_model'] ?? $data['recommendedModel'] ?? ''),
+            'recommended_model' => self::toStr($data['recommended_model'] ?? $data['recommendedModel'] ?? ''),
             'generated' => true,
         ];
     }
@@ -403,15 +406,15 @@ final readonly class WizardGeneratorService
         $validCategories = ['content', 'log_analysis', 'system', 'developer', 'general'];
         $validFormats = ['markdown', 'json', 'plain', 'html'];
 
-        $category = self::str($data['category'] ?? 'general');
-        $outputFormat = self::str($data['output_format'] ?? $data['outputFormat'] ?? 'markdown');
+        $category = self::toStr($data['category'] ?? 'general');
+        $outputFormat = self::toStr($data['output_format'] ?? $data['outputFormat'] ?? 'markdown');
 
         return [
-            'identifier' => $this->sanitizeIdentifier(self::str($data['identifier'] ?? '')),
-            'name' => self::str($data['name'] ?? 'New Task'),
-            'description' => self::str($data['description'] ?? $description),
+            'identifier' => $this->sanitizeIdentifier(self::toStr($data['identifier'] ?? '')),
+            'name' => self::toStr($data['name'] ?? 'New Task'),
+            'description' => self::toStr($data['description'] ?? $description),
             'category' => in_array($category, $validCategories, true) ? $category : 'general',
-            'prompt_template' => self::str($data['prompt_template'] ?? $data['promptTemplate'] ?? ''),
+            'prompt_template' => self::toStr($data['prompt_template'] ?? $data['promptTemplate'] ?? ''),
             'output_format' => in_array($outputFormat, $validFormats, true) ? $outputFormat : 'markdown',
             'generated' => true,
         ];
@@ -566,35 +569,35 @@ final readonly class WizardGeneratorService
         $validCategories = ['content', 'log_analysis', 'system', 'developer', 'general'];
         $validFormats = ['markdown', 'json', 'plain', 'html'];
 
-        $category = self::str($taskData['category'] ?? 'general');
-        $outputFormat = self::str($taskData['output_format'] ?? $taskData['outputFormat'] ?? 'markdown');
+        $category = self::toStr($taskData['category'] ?? 'general');
+        $outputFormat = self::toStr($taskData['output_format'] ?? $taskData['outputFormat'] ?? 'markdown');
 
         return [
             'task' => [
-                'identifier' => $this->sanitizeIdentifier(self::str($taskData['identifier'] ?? '')),
-                'name' => self::str($taskData['name'] ?? 'New Task'),
-                'description' => self::str($taskData['description'] ?? $description),
+                'identifier' => $this->sanitizeIdentifier(self::toStr($taskData['identifier'] ?? '')),
+                'name' => self::toStr($taskData['name'] ?? 'New Task'),
+                'description' => self::toStr($taskData['description'] ?? $description),
                 'category' => in_array($category, $validCategories, true) ? $category : 'general',
-                'prompt_template' => self::str($taskData['prompt_template'] ?? $taskData['promptTemplate'] ?? ''),
+                'prompt_template' => self::toStr($taskData['prompt_template'] ?? $taskData['promptTemplate'] ?? ''),
                 'output_format' => in_array($outputFormat, $validFormats, true) ? $outputFormat : 'markdown',
             ],
             'configuration' => [
-                'identifier' => $this->sanitizeIdentifier(self::str($configData['identifier'] ?? '')),
-                'name' => self::str($configData['name'] ?? 'Task Configuration'),
-                'description' => self::str($configData['description'] ?? ''),
-                'system_prompt' => self::str($configData['system_prompt'] ?? $configData['systemPrompt'] ?? ''),
+                'identifier' => $this->sanitizeIdentifier(self::toStr($configData['identifier'] ?? '')),
+                'name' => self::toStr($configData['name'] ?? 'Task Configuration'),
+                'description' => self::toStr($configData['description'] ?? ''),
+                'system_prompt' => self::toStr($configData['system_prompt'] ?? $configData['systemPrompt'] ?? ''),
                 'temperature' => $this->clamp(self::toFloat($configData['temperature'] ?? 0.7), 0.0, 2.0),
                 'max_tokens' => $this->clampInt(self::toInt($configData['max_tokens'] ?? $configData['maxTokens'] ?? 4096), 1, 128000),
                 'top_p' => $this->clamp(self::toFloat($configData['top_p'] ?? $configData['topP'] ?? 1.0), 0.0, 1.0),
                 'frequency_penalty' => $this->clamp(self::toFloat($configData['frequency_penalty'] ?? $configData['frequencyPenalty'] ?? 0.0), -2.0, 2.0),
                 'presence_penalty' => $this->clamp(self::toFloat($configData['presence_penalty'] ?? $configData['presencePenalty'] ?? 0.0), -2.0, 2.0),
             ],
-            'recommended_model_id' => self::str($data['recommended_model_id'] ?? $data['recommendedModelId'] ?? ''),
+            'recommended_model_id' => self::toStr($data['recommended_model_id'] ?? $data['recommendedModelId'] ?? ''),
             'suggested_model' => [
-                'name' => self::str($suggestedModel['name'] ?? ''),
-                'model_id' => self::str($suggestedModel['model_id'] ?? $suggestedModel['modelId'] ?? ''),
-                'description' => self::str($suggestedModel['description'] ?? ''),
-                'capabilities' => self::str($suggestedModel['capabilities'] ?? 'chat'),
+                'name' => self::toStr($suggestedModel['name'] ?? ''),
+                'model_id' => self::toStr($suggestedModel['model_id'] ?? $suggestedModel['modelId'] ?? ''),
+                'description' => self::toStr($suggestedModel['description'] ?? ''),
+                'capabilities' => self::toStr($suggestedModel['capabilities'] ?? 'chat'),
             ],
             'generated' => true,
         ];
@@ -648,30 +651,6 @@ final readonly class WizardGeneratorService
         $identifier = (string)preg_replace('/[^a-z0-9-]/', '', $identifier);
         $identifier = (string)preg_replace('/-+/', '-', $identifier);
         return trim($identifier, '-');
-    }
-
-    /**
-     * Safely cast mixed value to string.
-     */
-    private static function str(mixed $value): string
-    {
-        return is_string($value) || is_numeric($value) ? (string)$value : '';
-    }
-
-    /**
-     * Safely cast mixed value to float.
-     */
-    private static function toFloat(mixed $value): float
-    {
-        return is_numeric($value) ? (float)$value : 0.0;
-    }
-
-    /**
-     * Safely cast mixed value to int.
-     */
-    private static function toInt(mixed $value): int
-    {
-        return is_numeric($value) ? (int)$value : 0;
     }
 
     private function clamp(float $value, float $min, float $max): float

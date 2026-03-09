@@ -19,14 +19,14 @@ use stdClass;
 /**
  * Unit tests for TaskController wizard helper methods.
  *
- * Tests the private static helper methods (stringVal, intVal, floatVal)
+ * Tests the private static helper methods (toStr, toInt, toFloat)
  * via reflection. These are pure functions with no dependencies.
  */
 final class TaskControllerWizardTest extends TestCase
 {
-    private ReflectionMethod $stringVal;
-    private ReflectionMethod $intVal;
-    private ReflectionMethod $floatVal;
+    private ReflectionMethod $toStr;
+    private ReflectionMethod $toInt;
+    private ReflectionMethod $toFloat;
 
     protected function setUp(): void
     {
@@ -34,82 +34,82 @@ final class TaskControllerWizardTest extends TestCase
 
         $reflection = new ReflectionClass(TaskController::class);
 
-        $this->stringVal = $reflection->getMethod('stringVal');
-        $this->intVal = $reflection->getMethod('intVal');
-        $this->floatVal = $reflection->getMethod('floatVal');
+        $this->toStr = $reflection->getMethod('toStr');
+        $this->toInt = $reflection->getMethod('toInt');
+        $this->toFloat = $reflection->getMethod('toFloat');
     }
 
-    // stringVal tests
+    // toStr tests
 
     #[Test]
-    public function testStringValReturnsStringFromString(): void
+    public function testToStrReturnsStringFromString(): void
     {
-        $result = $this->stringVal->invoke(null, 'hello');
+        $result = $this->toStr->invoke(null, 'hello');
         self::assertSame('hello', $result);
     }
 
     #[Test]
-    public function testStringValReturnsDefaultForNonString(): void
+    public function testToStrReturnsDefaultForNonString(): void
     {
-        self::assertSame('', $this->stringVal->invoke(null, null));
-        self::assertSame('', $this->stringVal->invoke(null, []));
-        self::assertSame('', $this->stringVal->invoke(null, new stdClass()));
-        self::assertSame('', $this->stringVal->invoke(null, true));
-        self::assertSame('', $this->stringVal->invoke(null, false));
+        self::assertSame('', $this->toStr->invoke(null, null));
+        self::assertSame('', $this->toStr->invoke(null, []));
+        self::assertSame('', $this->toStr->invoke(null, new stdClass()));
+        self::assertSame('', $this->toStr->invoke(null, true));
+        self::assertSame('', $this->toStr->invoke(null, false));
     }
 
     #[Test]
-    public function testStringValReturnsStringFromNumeric(): void
+    public function testToStrReturnsStringFromNumeric(): void
     {
-        self::assertSame('42', $this->stringVal->invoke(null, 42));
-        self::assertSame('3.14', $this->stringVal->invoke(null, 3.14));
-        self::assertSame('0', $this->stringVal->invoke(null, 0));
-        self::assertSame('123', $this->stringVal->invoke(null, '123'));
+        self::assertSame('42', $this->toStr->invoke(null, 42));
+        self::assertSame('3.14', $this->toStr->invoke(null, 3.14));
+        self::assertSame('0', $this->toStr->invoke(null, 0));
+        self::assertSame('123', $this->toStr->invoke(null, '123'));
     }
 
-    // intVal tests
+    // toInt tests
 
     #[Test]
-    public function testIntValReturnsIntFromInt(): void
+    public function testToIntReturnsIntFromInt(): void
     {
-        self::assertSame(42, $this->intVal->invoke(null, 42));
-        self::assertSame(0, $this->intVal->invoke(null, 0));
-        self::assertSame(-5, $this->intVal->invoke(null, -5));
-    }
-
-    #[Test]
-    public function testIntValReturnsDefaultForNonNumeric(): void
-    {
-        self::assertSame(0, $this->intVal->invoke(null, null));
-        self::assertSame(0, $this->intVal->invoke(null, 'not-a-number'));
-        self::assertSame(0, $this->intVal->invoke(null, []));
-        self::assertSame(0, $this->intVal->invoke(null, new stdClass()));
-        self::assertSame(0, $this->intVal->invoke(null, true));
-        self::assertSame(0, $this->intVal->invoke(null, false));
-        self::assertSame(0, $this->intVal->invoke(null, ''));
-    }
-
-    // floatVal tests
-
-    #[Test]
-    public function testFloatValReturnsFloatFromFloat(): void
-    {
-        self::assertSame(3.14, $this->floatVal->invoke(null, 3.14));
-        self::assertSame(0.0, $this->floatVal->invoke(null, 0.0));
-        self::assertSame(42.0, $this->floatVal->invoke(null, 42));
-        self::assertSame(0.7, $this->floatVal->invoke(null, '0.7'));
-        self::assertSame(-1.5, $this->floatVal->invoke(null, -1.5));
+        self::assertSame(42, $this->toInt->invoke(null, 42));
+        self::assertSame(0, $this->toInt->invoke(null, 0));
+        self::assertSame(-5, $this->toInt->invoke(null, -5));
     }
 
     #[Test]
-    public function testFloatValReturnsDefaultForNonNumeric(): void
+    public function testToIntReturnsDefaultForNonNumeric(): void
     {
-        self::assertSame(0.0, $this->floatVal->invoke(null, null));
-        self::assertSame(0.0, $this->floatVal->invoke(null, 'not-a-number'));
-        self::assertSame(0.0, $this->floatVal->invoke(null, []));
-        self::assertSame(0.0, $this->floatVal->invoke(null, new stdClass()));
-        self::assertSame(0.0, $this->floatVal->invoke(null, true));
-        self::assertSame(0.0, $this->floatVal->invoke(null, false));
-        self::assertSame(0.0, $this->floatVal->invoke(null, ''));
+        self::assertSame(0, $this->toInt->invoke(null, null));
+        self::assertSame(0, $this->toInt->invoke(null, 'not-a-number'));
+        self::assertSame(0, $this->toInt->invoke(null, []));
+        self::assertSame(0, $this->toInt->invoke(null, new stdClass()));
+        self::assertSame(0, $this->toInt->invoke(null, true));
+        self::assertSame(0, $this->toInt->invoke(null, false));
+        self::assertSame(0, $this->toInt->invoke(null, ''));
+    }
+
+    // toFloat tests
+
+    #[Test]
+    public function testToFloatReturnsFloatFromFloat(): void
+    {
+        self::assertSame(3.14, $this->toFloat->invoke(null, 3.14));
+        self::assertSame(0.0, $this->toFloat->invoke(null, 0.0));
+        self::assertSame(42.0, $this->toFloat->invoke(null, 42));
+        self::assertSame(0.7, $this->toFloat->invoke(null, '0.7'));
+        self::assertSame(-1.5, $this->toFloat->invoke(null, -1.5));
+    }
+
+    #[Test]
+    public function testToFloatReturnsDefaultForNonNumeric(): void
+    {
+        self::assertSame(0.0, $this->toFloat->invoke(null, null));
+        self::assertSame(0.0, $this->toFloat->invoke(null, 'not-a-number'));
+        self::assertSame(0.0, $this->toFloat->invoke(null, []));
+        self::assertSame(0.0, $this->toFloat->invoke(null, new stdClass()));
+        self::assertSame(0.0, $this->toFloat->invoke(null, true));
+        self::assertSame(0.0, $this->toFloat->invoke(null, false));
+        self::assertSame(0.0, $this->toFloat->invoke(null, ''));
     }
 }
