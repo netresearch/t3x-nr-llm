@@ -1081,8 +1081,8 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         self::assertTrue($result['generated']);
         // str() handles numeric values
         self::assertSame('123', $result['name']);
-        // str() returns '' for non-string/non-numeric (bool, null, array)
-        self::assertSame('', $result['description']);
+        // toStr() returns '' for bool, which falls back to input description
+        self::assertSame('non-numeric test', $result['description']);
         self::assertSame('', $result['system_prompt']);
         // toFloat() returns 0.0 for non-numeric, clamped to 0.0
         self::assertSame(0.0, $result['temperature']);

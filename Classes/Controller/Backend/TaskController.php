@@ -317,11 +317,11 @@ final class TaskController extends ActionController
                 $configuration->setName(self::toStr($configData['name'] ?? 'Task Configuration'));
                 $configuration->setDescription(self::toStr($configData['description'] ?? ''));
                 $configuration->setSystemPrompt(self::toStr($configData['system_prompt'] ?? ''));
-                $configuration->setTemperature(self::toFloat($configData['temperature'] ?? 0.7));
-                $configuration->setMaxTokens(self::toInt($configData['max_tokens'] ?? 4096));
-                $configuration->setTopP(self::toFloat($configData['top_p'] ?? 1.0));
-                $configuration->setFrequencyPenalty(self::toFloat($configData['frequency_penalty'] ?? 0.0));
-                $configuration->setPresencePenalty(self::toFloat($configData['presence_penalty'] ?? 0.0));
+                $configuration->setTemperature(max(0.0, min(2.0, self::toFloat($configData['temperature'] ?? 0.7))));
+                $configuration->setMaxTokens(max(1, min(128000, self::toInt($configData['max_tokens'] ?? 4096))));
+                $configuration->setTopP(max(0.0, min(1.0, self::toFloat($configData['top_p'] ?? 1.0))));
+                $configuration->setFrequencyPenalty(max(-2.0, min(2.0, self::toFloat($configData['frequency_penalty'] ?? 0.0))));
+                $configuration->setPresencePenalty(max(-2.0, min(2.0, self::toFloat($configData['presence_penalty'] ?? 0.0))));
                 $configuration->setIsActive(true);
                 if ($model instanceof Model) {
                     $configuration->setLlmModel($model);
@@ -335,9 +335,15 @@ final class TaskController extends ActionController
             $task->setIdentifier(self::toStr($taskData['identifier'] ?? 'new-task'));
             $task->setName(self::toStr($taskData['name'] ?? 'New Task'));
             $task->setDescription(self::toStr($taskData['description'] ?? ''));
-            $task->setCategory(self::toStr($taskData['category'] ?? 'general'));
+            $allowedCategories = ['content', 'log_analysis', 'system', 'developer', 'general'];
+            $allowedOutputFormats = ['markdown', 'json', 'plain', 'html'];
+
+            $category = self::toStr($taskData['category'] ?? 'general');
+            $task->setCategory(in_array($category, $allowedCategories, true) ? $category : 'general');
             $task->setPromptTemplate(self::toStr($taskData['prompt_template'] ?? ''));
-            $task->setOutputFormat(self::toStr($taskData['output_format'] ?? 'markdown'));
+
+            $outputFormat = self::toStr($taskData['output_format'] ?? 'markdown');
+            $task->setOutputFormat(in_array($outputFormat, $allowedOutputFormats, true) ? $outputFormat : 'markdown');
             $task->setConfiguration($configuration);
             $task->setIsActive(true);
             $this->taskRepository->add($task);

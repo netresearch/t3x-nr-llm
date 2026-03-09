@@ -1711,21 +1711,21 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $tagsStream = self::createStub(StreamInterface::class);
         $tagsStream->method('getContents')->willReturn($tagsResponse);
-        $tagsResponseObj = self::createStub(\Psr\Http\Message\ResponseInterface::class);
+        $tagsResponseObj = self::createStub(ResponseInterface::class);
         $tagsResponseObj->method('getStatusCode')->willReturn(200);
         $tagsResponseObj->method('getBody')->willReturn($tagsStream);
 
         // HttpClient returns tags on first call; /show is never reached due to streamFactory throwing
-        $httpClient = $this->createMock(\Psr\Http\Client\ClientInterface::class);
+        $httpClient = $this->createMock(ClientInterface::class);
         $httpClient->method('sendRequest')->willReturn($tagsResponseObj);
 
         // streamFactory->createStream() throws on the call inside getOllamaModelDetails
-        $streamFactory = $this->createMock(\Psr\Http\Message\StreamFactoryInterface::class);
+        $streamFactory = $this->createMock(StreamFactoryInterface::class);
         $streamFactory
             ->method('createStream')
             ->willThrowException(new RuntimeException('Stream creation failed'));
 
-        $requestFactory = self::createStub(\Psr\Http\Message\RequestFactoryInterface::class);
+        $requestFactory = self::createStub(RequestFactoryInterface::class);
         $requestFactory->method('createRequest')->willReturn($this->createRequestMock());
 
         $provider = new DetectedProvider(

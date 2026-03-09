@@ -167,15 +167,18 @@ final readonly class WizardGeneratorService
             return null;
         }
 
+        /** @var list<Model> $activeModels */
+        $activeModels = $this->modelRepository->findActive()->toArray();
+
         // Exact match on model_id
-        foreach ($this->modelRepository->findActive() as $model) {
+        foreach ($activeModels as $model) {
             if ($model->getModelId() === $recommendedModelId) {
                 return $model;
             }
         }
 
         // Partial match (e.g., "gpt-4" matches "gpt-4-turbo")
-        foreach ($this->modelRepository->findActive() as $model) {
+        foreach ($activeModels as $model) {
             if (str_contains($model->getModelId(), $recommendedModelId)
                 || str_contains($recommendedModelId, $model->getModelId())) {
                 return $model;
@@ -383,8 +386,8 @@ final readonly class WizardGeneratorService
     {
         return [
             'identifier' => $this->sanitizeIdentifier(self::toStr($data['identifier'] ?? '')),
-            'name' => self::toStr($data['name'] ?? 'New Configuration'),
-            'description' => self::toStr($data['description'] ?? $description),
+            'name' => self::toStr($data['name'] ?? 'New Configuration') ?: 'New Configuration',
+            'description' => self::toStr($data['description'] ?? $description) ?: $description,
             'system_prompt' => self::toStr($data['system_prompt'] ?? $data['systemPrompt'] ?? ''),
             'temperature' => $this->clamp(self::toFloat($data['temperature'] ?? 0.7), 0.0, 2.0),
             'max_tokens' => $this->clampInt(self::toInt($data['max_tokens'] ?? $data['maxTokens'] ?? 4096), 1, 128000),
@@ -411,8 +414,8 @@ final readonly class WizardGeneratorService
 
         return [
             'identifier' => $this->sanitizeIdentifier(self::toStr($data['identifier'] ?? '')),
-            'name' => self::toStr($data['name'] ?? 'New Task'),
-            'description' => self::toStr($data['description'] ?? $description),
+            'name' => self::toStr($data['name'] ?? 'New Task') ?: 'New Task',
+            'description' => self::toStr($data['description'] ?? $description) ?: $description,
             'category' => in_array($category, $validCategories, true) ? $category : 'general',
             'prompt_template' => self::toStr($data['prompt_template'] ?? $data['promptTemplate'] ?? ''),
             'output_format' => in_array($outputFormat, $validFormats, true) ? $outputFormat : 'markdown',
@@ -575,15 +578,15 @@ final readonly class WizardGeneratorService
         return [
             'task' => [
                 'identifier' => $this->sanitizeIdentifier(self::toStr($taskData['identifier'] ?? '')),
-                'name' => self::toStr($taskData['name'] ?? 'New Task'),
-                'description' => self::toStr($taskData['description'] ?? $description),
+                'name' => self::toStr($taskData['name'] ?? 'New Task') ?: 'New Task',
+                'description' => self::toStr($taskData['description'] ?? $description) ?: $description,
                 'category' => in_array($category, $validCategories, true) ? $category : 'general',
                 'prompt_template' => self::toStr($taskData['prompt_template'] ?? $taskData['promptTemplate'] ?? ''),
                 'output_format' => in_array($outputFormat, $validFormats, true) ? $outputFormat : 'markdown',
             ],
             'configuration' => [
                 'identifier' => $this->sanitizeIdentifier(self::toStr($configData['identifier'] ?? '')),
-                'name' => self::toStr($configData['name'] ?? 'Task Configuration'),
+                'name' => self::toStr($configData['name'] ?? 'Task Configuration') ?: 'Task Configuration',
                 'description' => self::toStr($configData['description'] ?? ''),
                 'system_prompt' => self::toStr($configData['system_prompt'] ?? $configData['systemPrompt'] ?? ''),
                 'temperature' => $this->clamp(self::toFloat($configData['temperature'] ?? 0.7), 0.0, 2.0),
