@@ -110,10 +110,12 @@ final class ModelController extends ActionController
             'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
         ]);
 
-        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-            routeIdentifier: 'nrllm_models',
-            displayName: 'LLM - Models',
-        );
+        if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
+            $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+                routeIdentifier: 'nrllm_models',
+                displayName: 'LLM - Models',
+            );
+        }
 
         // Add "New Model" button to docheader (links to FormEngine)
         $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();

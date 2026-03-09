@@ -105,10 +105,12 @@ final class SetupWizardController extends ActionController
             ->setHref((string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'));
         $buttonBar->addButton($refreshButton);
 
-        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-            routeIdentifier: 'nrllm_wizard',
-            displayName: 'LLM - Setup Wizard',
-        );
+        if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
+            $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+                routeIdentifier: 'nrllm_wizard',
+                displayName: 'LLM - Setup Wizard',
+            );
+        }
 
         // Provide adapter types for the form
         $this->moduleTemplate->assignMultiple([

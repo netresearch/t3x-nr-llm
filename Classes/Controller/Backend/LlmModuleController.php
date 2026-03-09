@@ -46,10 +46,12 @@ final class LlmModuleController extends ActionController
         $moduleTemplate->makeDocHeaderModuleMenu();
         $this->buildDocHeaderTabMenu($moduleTemplate, 'dashboard');
 
-        $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-            routeIdentifier: 'nrllm',
-            displayName: 'LLM - Dashboard',
-        );
+        if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
+            $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+                routeIdentifier: 'nrllm',
+                displayName: 'LLM - Dashboard',
+            );
+        }
 
         $providers = $this->llmServiceManager->getProviderList();
         $availableProviders = $this->llmServiceManager->getAvailableProviders();
@@ -99,11 +101,13 @@ final class LlmModuleController extends ActionController
         // Add module menu dropdown to docheader (shows all LLM sub-modules)
         $moduleTemplate->makeDocHeaderModuleMenu();
 
-        $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-            routeIdentifier: 'nrllm',
-            displayName: 'LLM - Test',
-            arguments: ['action' => 'test'],
-        );
+        if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
+            $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+                routeIdentifier: 'nrllm',
+                displayName: 'LLM - Test',
+                arguments: ['action' => 'test'],
+            );
+        }
 
         $providers = $this->llmServiceManager->getAvailableProviders();
 

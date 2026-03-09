@@ -109,10 +109,12 @@ final class ConfigurationController extends ActionController
             'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
         ]);
 
-        $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-            routeIdentifier: 'nrllm_configurations',
-            displayName: 'LLM - Configurations',
-        );
+        if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
+            $this->moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+                routeIdentifier: 'nrllm_configurations',
+                displayName: 'LLM - Configurations',
+            );
+        }
 
         // Add "New Configuration" and "Create with AI" buttons to docheader
         $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
