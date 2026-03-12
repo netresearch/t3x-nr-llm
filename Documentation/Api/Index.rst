@@ -191,6 +191,16 @@ EmbeddingService
       :param int $topK: Number of results to return
       :returns: array Sorted by similarity (highest first)
 
+   .. php:method:: pairwiseSimilarities(array $vectors): array
+
+      Calculate pairwise similarities between all vectors.
+
+      Returns a 2D matrix where each cell ``[i][j]`` contains the cosine
+      similarity between vectors ``i`` and ``j``. Diagonal values are always 1.0.
+
+      :param array $vectors: Array of embedding vectors
+      :returns: array 2D array of similarity scores
+
    .. php:method:: normalize(array $vector): array
 
       Normalize a vector to unit length.
@@ -205,34 +215,60 @@ VisionService
 
    Image analysis with specialized prompts.
 
-   .. php:method:: generateAltText(string $imageUrl): string
+   .. php:method:: generateAltText($imageUrl, $options = null)
 
       Generate WCAG-compliant alt text.
 
-      :param string $imageUrl: URL or local path to image
-      :returns: string Accessibility-optimized alt text
+      Optimized for screen readers and WCAG 2.1 Level AA compliance.
+      Output is concise (under 125 characters) and focuses on essential information.
 
-   .. php:method:: generateTitle(string $imageUrl): string
+      :param string|array $imageUrl: URL, local path, or array of URLs for batch processing
+      :param VisionOptions|null $options: Vision options (defaults: maxTokens=100, temperature=0.5)
+      :returns: string|array Alt text or array of alt texts for batch input
+
+   .. php:method:: generateTitle($imageUrl, $options = null)
 
       Generate SEO-optimized image title.
 
-      :param string $imageUrl: URL or local path to image
-      :returns: string SEO-friendly title
+      Creates compelling, keyword-rich titles under 60 characters
+      for improved search rankings.
 
-   .. php:method:: generateDescription(string $imageUrl): string
+      :param string|array $imageUrl: URL, local path, or array of URLs for batch processing
+      :param VisionOptions|null $options: Vision options (defaults: maxTokens=50, temperature=0.7)
+      :returns: string|array Title or array of titles for batch input
+
+   .. php:method:: generateDescription($imageUrl, $options = null)
 
       Generate detailed image description.
 
-      :param string $imageUrl: URL or local path to image
-      :returns: string Detailed description
+      Provides comprehensive analysis including subjects, setting,
+      colors, mood, composition, and notable details.
 
-   .. php:method:: analyzeImage(string $imageUrl, string $prompt): string
+      :param string|array $imageUrl: URL, local path, or array of URLs for batch processing
+      :param VisionOptions|null $options: Vision options (defaults: maxTokens=500, temperature=0.7)
+      :returns: string|array Description or array of descriptions for batch input
+
+   .. php:method:: analyzeImage($imageUrl, $customPrompt, $options = null)
 
       Custom image analysis with specific prompt.
 
-      :param string $imageUrl: URL or local path to image
+      :param string|array $imageUrl: URL, local path, or array of URLs for batch processing
+      :param string $customPrompt: Custom analysis prompt
+      :param VisionOptions|null $options: Vision options
+      :returns: string|array Analysis result or array of results for batch input
+
+   .. php:method:: analyzeImageFull(string $imageUrl, string $prompt, ?VisionOptions $options = null): VisionResponse
+
+      Full image analysis returning complete response with usage statistics.
+
+      Returns a :php:class:`VisionResponse` with metadata and usage data,
+      unlike the other methods which return plain text.
+
+      :param string $imageUrl: Image URL or base64 data URI
       :param string $prompt: Analysis prompt
-      :returns: string Analysis result
+      :param VisionOptions|null $options: Vision options
+      :returns: VisionResponse Complete response with usage data
+      :throws: InvalidArgumentException If image URL is invalid
 
 TranslationService
 ------------------
@@ -327,6 +363,17 @@ CompletionResponse
 
       Tool calls if any were made.
 
+   .. php:attr:: metadata
+      :type: array|null
+
+      Provider-specific metadata. Structure varies by provider.
+
+   .. php:attr:: thinking
+      :type: string|null
+
+      Thinking/reasoning content from models that support extended thinking
+      (e.g., Claude with thinking enabled).
+
    .. php:method:: isComplete(): bool
 
       Check if response finished normally.
@@ -343,9 +390,70 @@ CompletionResponse
 
       Check if response contains tool calls.
 
+   .. php:method:: hasThinking(): bool
+
+      Check if response contains thinking/reasoning content.
+
    .. php:method:: getText(): string
 
       Alias for content property.
+
+VisionResponse
+--------------
+
+.. php:class:: VisionResponse
+
+   Response from vision/image analysis operations.
+
+   .. php:attr:: description
+      :type: string
+
+      The generated image analysis text.
+
+   .. php:attr:: model
+      :type: string
+
+      The model used for analysis.
+
+   .. php:attr:: usage
+      :type: UsageStatistics
+
+      Token usage statistics.
+
+   .. php:attr:: provider
+      :type: string
+
+      The provider identifier.
+
+   .. php:attr:: confidence
+      :type: float|null
+
+      Confidence score for the analysis (if available).
+
+   .. php:attr:: detectedObjects
+      :type: array|null
+
+      Detected objects in the image (if available).
+
+   .. php:attr:: metadata
+      :type: array|null
+
+      Provider-specific metadata.
+
+   .. php:method:: getText(): string
+
+      Get the analysis text. Alias for ``description`` property.
+
+   .. php:method:: getDescription(): string
+
+      Alias for ``description`` property.
+
+   .. php:method:: meetsConfidence(float $threshold): bool
+
+      Check if confidence score meets or exceeds a threshold.
+
+      :param float $threshold: Minimum confidence value
+      :returns: bool True if confidence is not null and meets threshold
 
 EmbeddingResponse
 -----------------

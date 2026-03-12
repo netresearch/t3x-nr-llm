@@ -27,19 +27,19 @@ The extension includes a comprehensive test suite:
      - Count
      - Purpose
    * - Unit tests
-     - 384
+     - 2735
      - Individual class and method testing.
    * - Integration tests
      - 39
      - Service interaction and provider testing.
    * - E2E tests
-     - 11
+     - 127
      - Full workflow testing with real APIs.
    * - Functional tests
-     - 39
+     - 285
      - TYPO3 framework integration.
-   * - Property tests
-     - 25
+   * - Fuzzy tests
+     - 79
      - Fuzzy/property-based testing.
 
 .. _testing-running:
