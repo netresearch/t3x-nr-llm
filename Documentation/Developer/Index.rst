@@ -9,10 +9,6 @@ Developer guide
 This guide covers technical details for developers integrating the LLM extension
 into their TYPO3 projects.
 
-.. contents::
-   :local:
-   :depth: 2
-
 .. _developer-core-concepts:
 
 Core concepts
@@ -82,7 +78,7 @@ All services are available via dependency injection:
 .. _developer-llm-service-manager:
 
 Using LlmServiceManager
-=======================
+========================
 
 .. _developer-basic-chat:
 
@@ -104,11 +100,6 @@ Basic chat
    $model = $response->model;               // string
    $finishReason = $response->finishReason; // string
    $usage = $response->usage;               // UsageStatistics
-
-   // UsageStatistics
-   $promptTokens = $usage->promptTokens;
-   $completionTokens = $usage->completionTokens;
-   $totalTokens = $usage->totalTokens;
 
 .. _developer-chat-options:
 
@@ -133,9 +124,6 @@ Chat with options
        'model' => 'claude-sonnet-4-6',
        'temperature' => 1.2,
        'max_tokens' => 2000,
-       'top_p' => 0.9,
-       'frequency_penalty' => 0.5,
-       'presence_penalty' => 0.5,
    ]);
 
 .. _developer-simple-completion:
@@ -146,7 +134,6 @@ Simple completion
 .. code-block:: php
    :caption: Example: Quick completion from a prompt
 
-   // Quick completion from a prompt
    $response = $this->llmManager->complete('Explain recursion in programming');
 
 .. _developer-embeddings:
@@ -165,228 +152,22 @@ Embeddings
    $response = $this->llmManager->embed(['Text 1', 'Text 2', 'Text 3']);
    $vectors = $response->embeddings; // array<array<float>>
 
-.. _developer-streaming:
-
-Streaming
----------
-
-.. code-block:: php
-   :caption: Example: Streaming chat responses
-
-   $stream = $this->llmManager->streamChat($messages);
-
-   foreach ($stream as $chunk) {
-       echo $chunk;
-       ob_flush();
-       flush();
-   }
-
-.. _developer-tool-calling:
-
-Tool/function calling
----------------------
-
-.. code-block:: php
-   :caption: Example: Tool/function calling
-
-   $tools = [
-       [
-           'type' => 'function',
-           'function' => [
-               'name' => 'get_weather',
-               'description' => 'Get current weather for a location',
-               'parameters' => [
-                   'type' => 'object',
-                   'properties' => [
-                       'location' => [
-                           'type' => 'string',
-                           'description' => 'City name',
-                       ],
-                       'unit' => [
-                           'type' => 'string',
-                           'enum' => ['celsius', 'fahrenheit'],
-                       ],
-                   ],
-                   'required' => ['location'],
-               ],
-           ],
-       ],
-   ];
-
-   $response = $this->llmManager->chatWithTools($messages, $tools);
-
-   if ($response->hasToolCalls()) {
-       foreach ($response->toolCalls as $toolCall) {
-           $functionName = $toolCall['function']['name'];
-           $arguments = json_decode($toolCall['function']['arguments'], true);
-
-           // Execute your function
-           $result = match ($functionName) {
-               'get_weather' => $this->getWeather($arguments['location']),
-               default => throw new \RuntimeException("Unknown function: {$functionName}"),
-           };
-
-           // Continue conversation with result
-           $messages[] = [
-               'role' => 'assistant',
-               'content' => null,
-               'tool_calls' => [$toolCall],
-           ];
-           $messages[] = [
-               'role' => 'tool',
-               'tool_call_id' => $toolCall['id'],
-               'content' => json_encode($result),
-           ];
-
-           $response = $this->llmManager->chat($messages);
-       }
-   }
-
-.. toctree::
-   :maxdepth: 2
-   :hidden:
-
-   IntegrationGuide
-   FeatureServices/Index
-
 .. _developer-response-objects:
 
 Response objects
 ================
 
+See the :ref:`API reference <api-domain-models>` for the complete response
+object documentation. Key classes:
+
 .. _developer-completion-response:
 
-CompletionResponse
-------------------
-
-.. code-block:: php
-   :caption: Domain/Model/CompletionResponse.php
-
-   namespace Netresearch\NrLlm\Domain\Model;
-
-   final class CompletionResponse
-   {
-       public readonly string $content;
-       public readonly string $model;
-       public readonly UsageStatistics $usage;
-       public readonly string $finishReason;
-       public readonly string $provider;
-       public readonly ?array $toolCalls;
-
-       public function isComplete(): bool;      // finished normally
-       public function wasTruncated(): bool;    // hit max_tokens
-       public function wasFiltered(): bool;     // content filtered
-       public function hasToolCalls(): bool;    // has tool calls
-       public function getText(): string;       // alias for content
-   }
+- :php:`CompletionResponse` — content, model, usage, finishReason, toolCalls
+- :php:`EmbeddingResponse` — embeddings, model, usage
+- :php:`UsageStatistics` — promptTokens, completionTokens, totalTokens
 
 .. _developer-embedding-response:
-
-EmbeddingResponse
------------------
-
-.. code-block:: php
-   :caption: Domain/Model/EmbeddingResponse.php
-
-   namespace Netresearch\NrLlm\Domain\Model;
-
-   final class EmbeddingResponse
-   {
-       /** @var array<int, array<int, float>> */
-       public readonly array $embeddings;
-       public readonly string $model;
-       public readonly UsageStatistics $usage;
-       public readonly string $provider;
-
-       public function getVector(): array;   // First embedding
-       public static function cosineSimilarity(array $a, array $b): float;
-   }
-
 .. _developer-usage-statistics:
-
-UsageStatistics
----------------
-
-.. code-block:: php
-   :caption: Domain/Model/UsageStatistics.php
-
-   namespace Netresearch\NrLlm\Domain\Model;
-
-   final readonly class UsageStatistics
-   {
-       public int $promptTokens;
-       public int $completionTokens;
-       public int $totalTokens;
-       public ?float $estimatedCost;
-   }
-
-.. _developer-custom-providers:
-
-Creating custom providers
-=========================
-
-Implement a custom provider by extending :php:`AbstractProvider`:
-
-.. code-block:: php
-   :caption: Example: Custom provider implementation
-
-   <?php
-
-   namespace MyVendor\MyExtension\Provider;
-
-   use Netresearch\NrLlm\Provider\AbstractProvider;
-   use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
-
-   class MyCustomProvider extends AbstractProvider implements ProviderInterface
-   {
-       protected string $baseUrl = 'https://api.example.com/v1';
-
-       public function getName(): string
-       {
-           return 'My Custom Provider';
-       }
-
-       public function getIdentifier(): string
-       {
-           return 'custom';
-       }
-
-       public function isConfigured(): bool
-       {
-           return !empty($this->apiKey);
-       }
-
-       public function chatCompletion(array $messages, array $options = []): CompletionResponse
-       {
-           $payload = $this->buildChatPayload($messages, $options);
-           $response = $this->sendRequest('chat', $payload);
-
-           return new CompletionResponse(
-               content: $response['choices'][0]['message']['content'],
-               model: $response['model'],
-               usage: $this->parseUsage($response['usage']),
-               finishReason: $response['choices'][0]['finish_reason'],
-               provider: $this->getIdentifier(),
-           );
-       }
-
-       // Implement other required methods...
-   }
-
-Register your provider in :file:`Services.yaml`:
-
-.. code-block:: yaml
-   :caption: Configuration/Services.yaml
-
-   MyVendor\MyExtension\Provider\MyCustomProvider:
-     arguments:
-       $httpClient: '@Psr\Http\Client\ClientInterface'
-       $requestFactory: '@Psr\Http\Message\RequestFactoryInterface'
-       $streamFactory: '@Psr\Http\Message\StreamFactoryInterface'
-       $logger: '@Psr\Log\LoggerInterface'
-     tags:
-       - name: nr_llm.provider
-         priority: 50
 
 .. _developer-error-handling:
 
@@ -409,22 +190,16 @@ The extension throws specific exceptions:
        $response = $this->llmManager->chat($messages);
    } catch (ProviderConfigurationException $e) {
        // Invalid or missing provider configuration
-       $this->logger->error('Configuration error: ' . $e->getMessage());
    } catch (ProviderConnectionException $e) {
        // Connection to provider failed
-       $this->logger->error('Connection failed: ' . $e->getMessage());
    } catch (ProviderResponseException $e) {
        // Provider returned an error response
-       $this->logger->error('Provider response error: ' . $e->getMessage());
    } catch (UnsupportedFeatureException $e) {
        // Requested feature not supported by provider
-       $this->logger->warning('Unsupported feature: ' . $e->getMessage());
    } catch (ProviderException $e) {
        // General provider error
-       $this->logger->error('Provider error: ' . $e->getMessage());
    } catch (InvalidArgumentException $e) {
        // Invalid parameters
-       $this->logger->error('Invalid argument: ' . $e->getMessage());
    }
 
 .. _developer-events:
@@ -435,10 +210,7 @@ Events
 .. note::
 
    PSR-14 events (``BeforeRequestEvent``, ``AfterResponseEvent``) are planned
-   for a future release. The event classes do not exist yet in the current
-   codebase. Once implemented, they will allow listeners to intercept and modify
-   requests before they are sent to providers, and to inspect responses after
-   they are received.
+   for a future release.
 
 .. _developer-best-practices:
 
@@ -446,17 +218,20 @@ Best practices
 ==============
 
 1. **Use feature services** for common tasks instead of raw :php:`LlmServiceManager`.
-
 2. **Enable caching** for deterministic operations like embeddings.
-
 3. **Handle errors** gracefully with proper try-catch blocks.
-
 4. **Sanitize input** before sending to LLM providers.
-
 5. **Validate output** and treat LLM responses as untrusted.
-
 6. **Use streaming** for long responses to improve UX.
-
 7. **Set reasonable timeouts** based on expected response times.
-
 8. **Monitor usage** to control costs and prevent abuse.
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   Streaming
+   ToolCalling
+   CustomProviders
+   IntegrationGuide
+   FeatureServices/Index

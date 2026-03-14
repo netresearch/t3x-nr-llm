@@ -1,0 +1,40 @@
+.. include:: /Includes.rst.txt
+
+.. _developer-streaming:
+
+=================
+Streaming support
+=================
+
+Streaming allows you to receive LLM responses incrementally as they are
+generated, rather than waiting for the complete response. This improves
+perceived performance for long responses.
+
+Usage
+=====
+
+.. code-block:: php
+   :caption: Example: Streaming chat responses
+
+   $stream = $this->llmManager->streamChat($messages);
+
+   foreach ($stream as $chunk) {
+       echo $chunk;
+       ob_flush();
+       flush();
+   }
+
+The ``streamChat`` method returns a ``Generator`` that yields string chunks
+as the provider generates them. Each chunk contains a portion of the response
+text.
+
+Providers that implement :php:interface:`StreamingCapableInterface` support
+streaming. Check provider capabilities before using:
+
+.. code-block:: php
+   :caption: Example: Checking streaming support
+
+   $provider = $this->llmManager->getProvider('openai');
+   if ($provider instanceof StreamingCapableInterface) {
+       // Provider supports streaming
+   }
