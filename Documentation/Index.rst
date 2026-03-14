@@ -6,6 +6,13 @@
 TYPO3 LLM extension
 ===================
 
+.. image:: /Images/netresearch-underline.svg
+   :alt:
+   :width: 200px
+   :class: no-border
+
+----
+
 :Extension key:
    nr_llm
 
@@ -23,7 +30,7 @@ TYPO3 LLM extension
 
 :License:
    This document is published under the
-   `GPL-2.0-or-later <https://www.gnu.org/licenses/gpl-2.0.html>`__ license.
+   `CC BY 4.0 <https://creativecommons.org/licenses/by/4.0/>`__ license.
 
 :Rendered:
    |today|
@@ -171,6 +178,26 @@ of dependency injection, no API key handling.
       and CI configuration.
 
       .. card-footer:: :ref:`Read more <testing>`
+         :button-style: btn btn-secondary stretched-link
+
+----
+
+.. card-grid::
+   :columns: 1
+   :gap: 4
+   :card-height: 100
+
+   .. card:: [n] A Netresearch extension
+
+      .. image:: /Images/netresearch-underline.svg
+         :alt:
+         :width: 120px
+         :class: no-border
+
+      Professional TYPO3 development, AI integration,
+      and enterprise consulting since 2002.
+
+      .. card-footer:: `netresearch.de <https://www.netresearch.de>`__
          :button-style: btn btn-secondary stretched-link
 
 ----
