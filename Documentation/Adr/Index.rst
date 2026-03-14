@@ -57,3 +57,10 @@ Decision records
    Adr011ObjectOnlyOptionsApi
    Adr012ApiKeyEncryption
    Adr013ThreeLevelConfigurationArchitecture
+   Adr014AiPoweredWizardSystem
+   Adr015TypeSafeDomainModels
+   Adr016ThinkingReasoningBlockExtraction
+   Adr017SafeCastTrait
+   Adr018MultiProviderModelDiscovery
+   Adr019InternationalizationStrategy
+   Adr020BackendOutputFormatRendering
