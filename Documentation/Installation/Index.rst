@@ -138,20 +138,21 @@ Run the database compare tool after installation:
 Cache configuration
 ===================
 
-The extension uses TYPO3's caching framework. Default configuration is
-automatically set up, but you can customize it:
+The extension uses TYPO3's caching framework. Cache
+configuration is set up automatically — **no backend
+is hardcoded**. TYPO3 uses your instance's default
+cache backend, so Redis, Valkey, or Memcached work
+transparently if configured.
+
+To override the cache backend specifically for nr-llm:
 
 .. code-block:: php
    :caption: config/system/additional.php
 
-   $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_responses'] = [
-       'frontend' => \TYPO3\CMS\Core\Cache\Frontend\VariableFrontend::class,
-       'backend' => \TYPO3\CMS\Core\Cache\Backend\Typo3DatabaseBackend::class,
-       'options' => [
-           'defaultLifetime' => 3600,
-       ],
-       'groups' => ['nrllm'],
-   ];
+   $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']
+       ['cacheConfigurations']['nrllm_responses']
+       ['backend'] = \TYPO3\CMS\Core\Cache\Backend
+           \RedisBackend::class;
 
 .. _installation-upgrading:
 

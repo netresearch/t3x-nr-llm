@@ -29,9 +29,12 @@ Decision
 Integrate with **TYPO3's caching framework**:
 
 - Cache identifier: ``nrllm_responses``.
-- Configurable backend (default: database).
+- **No backend specified** — TYPO3 uses the instance's
+  default cache backend (respects Redis/Valkey/Memcached).
 - Cache keys based on: provider + model + input hash.
 - TTL: 3600s default (configurable).
+- Cache group: ``nrllm`` (flush via
+  ``cache:flush --group=nrllm``).
 
 Caching strategy:
 
