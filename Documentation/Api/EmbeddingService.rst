@@ -12,25 +12,28 @@ EmbeddingService
 
    Text-to-vector conversion with caching and similarity operations.
 
-   .. php:method:: embed(string $text): array
+   .. php:method:: embed(string $text, ?EmbeddingOptions $options = null): array
 
       Generate embedding vector for text (cached).
 
       :param string $text: The text to embed
+      :param ?EmbeddingOptions $options: Optional config
       :returns: array<float> Vector representation
 
-   .. php:method:: embedFull(string $text): EmbeddingResponse
+   .. php:method:: embedFull(string $text, ?EmbeddingOptions $options = null): EmbeddingResponse
 
       Generate embedding with full response metadata.
 
       :param string $text: The text to embed
+      :param ?EmbeddingOptions $options: Optional config
       :returns: EmbeddingResponse
 
-   .. php:method:: embedBatch(array $texts): array
+   .. php:method:: embedBatch(array $texts, ?EmbeddingOptions $options = null): array
 
       Generate embeddings for multiple texts.
 
       :param array $texts: Array of texts
+      :param ?EmbeddingOptions $options: Optional config
       :returns: array<array<float>> Array of vectors
 
    .. php:method:: cosineSimilarity(array $a, array $b): float

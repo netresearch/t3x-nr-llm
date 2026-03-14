@@ -28,13 +28,13 @@ Tests are located in :path:`Tests/E2E/` and include:
 .. _testing-e2e-running:
 
 Running E2E tests
-=================
+==================
 
 .. code-block:: bash
    :caption: Run E2E tests
 
-   # PHP-based E2E tests (mocked HTTP)
-   Build/Scripts/runTests.sh -s unit
+   # PHP-based E2E tests (mocked HTTP, in unit suite)
+   Build/Scripts/runTests.sh -s unit -- Tests/E2E/
 
    # Playwright browser E2E tests
    Build/Scripts/runTests.sh -s e2e
