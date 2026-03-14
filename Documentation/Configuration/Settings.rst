@@ -51,14 +51,18 @@ Security
 API key protection
 ------------------
 
-1. **Encrypted storage** — API keys use
-   :php:`sodium_crypto_secretbox`.
-2. **Database security** — ensure backups are
-   encrypted.
-3. **Backend access** — restrict the module to
+1. **Encrypted storage** — API keys are stored as
+   vault identifiers (UUIDs) via the
+   `nr-vault <https://github.com/netresearch/t3x-nr-vault>`__
+   extension, which uses envelope encryption.
+   nr-llm never stores raw API keys.
+2. **Database security** — the database only contains
+   vault UUIDs, not secrets. Ensure backups are
+   encrypted regardless.
+3. **Backend access** — restrict the LLM module to
    authorized administrators.
-4. **Key rotation** — changing the TYPO3
-   :php:`encryptionKey` requires re-encryption.
+4. **Key rotation** — re-encrypt via nr-vault's
+   key rotation mechanism.
 
 .. _configuration-security-input:
 

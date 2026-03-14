@@ -45,9 +45,10 @@ Adding a provider
       ``custom``.
 
    :guilabel:`API Key`
-      Your API key. It is encrypted at rest using
-      ``sodium_crypto_secretbox``. Leave empty for
-      local providers like Ollama.
+      Your API key. Stored securely via
+      `nr-vault <https://github.com/netresearch/t3x-nr-vault>`__
+      envelope encryption. Leave empty for local
+      providers like Ollama.
 
 4. Optionally set the endpoint URL, organization
    ID, timeout, and retry count.
@@ -74,6 +75,15 @@ and reports:
 - Available models (if the provider supports
   listing).
 - Error details on failure.
+
+.. figure:: /Images/backend-provider-test.png
+   :alt: Provider test modal showing successful
+       connection to Local Ollama
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   Successful connection test for the Local Ollama
+   provider.
 
 .. _administration-providers-edit:
 

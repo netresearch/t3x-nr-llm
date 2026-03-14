@@ -44,6 +44,24 @@ Adding a task manually
    what the task does.
 5. Click :guilabel:`Save`.
 
+.. _administration-tasks-execute:
+
+Executing a task
+----------------
+
+Click :guilabel:`Run` on any task to open the
+execution form. It shows the configuration, model,
+parameters, input field, and prompt template.
+
+.. figure:: /Images/backend-task-execute.png
+   :alt: Task execution form showing configuration
+       details, input field, and prompt template
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   The task execution form for "Analyze System Log
+   Errors" with the Ollama provider and Qwen 3 model.
+
 Example tasks:
 
 - **Summarize content** — condense long articles.

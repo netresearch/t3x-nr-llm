@@ -57,6 +57,23 @@ Adding a configuration manually
    fields from a plain-language description of your
    use case.
 
+.. _administration-configurations-test:
+
+Testing a configuration
+-----------------------
+
+Click :guilabel:`Test Configuration` on any row.
+The test sends a short prompt to the model and shows
+the response, model ID, and token usage.
+
+.. figure:: /Images/backend-config-test.png
+   :alt: Configuration test modal showing successful
+       response from Qwen 3 via Ollama
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   Successful configuration test with token count.
+
 .. _administration-configurations-edit:
 
 Editing configurations
