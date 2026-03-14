@@ -1,100 +1,91 @@
-# Tests Directory
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-03-14 -->
 
-> Testing patterns for nr_llm TYPO3 extension
+# AGENTS.md — Tests
 
+<!-- AGENTS-GENERATED:START overview -->
 ## Overview
+Comprehensive test suite: PHPUnit 11/12 (cross-compatible), TYPO3 Testing Framework, PHPat architecture tests, Eris property tests, Infection mutation tests, Playwright E2E. All run via Docker-based `runTests.sh`.
+<!-- AGENTS-GENERATED:END overview -->
 
-Comprehensive test suite using PHPUnit 12, TYPO3 Testing Framework, PHPat, Eris, and Infection.
+<!-- AGENTS-GENERATED:START setup -->
+## Setup
+```bash
+# ALWAYS use runTests.sh — NEVER run phpunit directly
+./Build/Scripts/runTests.sh -s unit              # Unit tests
+./Build/Scripts/runTests.sh -s integration       # Integration tests
+./Build/Scripts/runTests.sh -s functional        # Functional tests
+./Build/Scripts/runTests.sh -s functional -d mariadb  # With MariaDB
+./Build/Scripts/runTests.sh -s fuzzy             # Property-based tests
+./Build/Scripts/runTests.sh -s mutation          # Mutation testing
+./Build/Scripts/runTests.sh -s architecture      # PHPat layer tests
+./Build/Scripts/runTests.sh -s e2e               # Playwright E2E
+./Build/Scripts/runTests.sh -s unitCoverage      # Unit with coverage
+./Build/Scripts/runTests.sh -p 8.3               # Specify PHP version
+```
+<!-- AGENTS-GENERATED:END setup -->
 
+<!-- AGENTS-GENERATED:START filemap -->
 ## Test Structure
 
-```
-Tests/
-├── Unit/                   # Fast, isolated unit tests
-├── Integration/            # API client tests with mocking
-├── Functional/             # TYPO3 functional tests (database)
-├── Architecture/           # PHPat layer enforcement tests
-├── Fuzzy/                  # Property-based tests (Eris)
-└── E2E/                    # Playwright browser tests
-```
+| Directory | Framework | Purpose |
+|-----------|-----------|---------|
+| `Unit/` | PHPUnit 11/12 | Fast isolated unit tests |
+| `Integration/` | PHPUnit + PSR-18 mocking | API client tests |
+| `Functional/` | TYPO3 Testing Framework | Database, repositories, controllers |
+| `Architecture/` | PHPat | Layer boundary enforcement (3 test files) |
+| `Fuzzy/` | Eris | Property-based/fuzz testing |
+| `E2E/Backend/` | PHPUnit | Backend E2E tests (9 test files) |
+| `E2E/TCA/` | PHPUnit | TCA field tests |
+| `E2E/Playwright/` | Playwright (TS) | Browser-based UI tests (10 spec files) |
+<!-- AGENTS-GENERATED:END filemap -->
 
-## Test Types
+<!-- AGENTS-GENERATED:START code-style -->
+## Test Conventions
+- PHPUnit attributes: `#[Test]`, `#[CoversClass(...)]`, `#[DataProvider(...)]`
+- PHPUnit 11/12 cross-compatibility: use `#[CoversNothing]` for enums/exceptions
+- `failOnWarning=true` in phpunit.xml
+- One resource per test: never share fixtures between tests
+- CI is authoritative: local DDEV for debugging only
+<!-- AGENTS-GENERATED:END code-style -->
 
-| Type | Framework | When to Use |
-|------|-----------|-------------|
-| Unit | PHPUnit 12 | Pure logic, validators, DTOs |
-| Integration | PHPUnit + PSR-18 mocking | HTTP clients, API responses |
-| Functional | TYPO3 Testing Framework | Database, repositories, controllers |
-| Architecture | PHPat | Layer boundaries, dependency rules |
-| Fuzzy | Eris | Input validation, edge cases |
-| Mutation | Infection | Test quality verification |
-| E2E | Playwright | UI workflows, accessibility |
-
-## Running Tests
-
-```bash
-composer ci:test:php:unit          # Unit tests only
-composer ci:test:php:integration   # Integration tests
-composer ci:test:php:functional    # Functional tests (requires DDEV or SQLite)
-composer ci:test:php:fuzzy         # Property-based tests
-composer ci:test:php:mutation      # Mutation testing (MSI >= 70%)
-npm run test:e2e            # Playwright E2E tests
-composer ci                 # All CI checks
-```
-
+<!-- AGENTS-GENERATED:START coverage -->
 ## Coverage Requirements
-
 - Minimum MSI: 70%
 - Minimum Covered MSI: 74%
-- Domain\Model excluded from mutation testing
+- `Domain\Model` excluded from mutation testing
+- Use `assert(isset($result['key']))` for PHPStan array narrowing (not `assertArrayHasKey`)
+<!-- AGENTS-GENERATED:END coverage -->
 
-## Patterns
+<!-- AGENTS-GENERATED:START security -->
+## Security
+- Never use real API keys in tests
+- Mock HTTP clients for integration tests
+- Functional test fixtures use CSV datasets
+<!-- AGENTS-GENERATED:END security -->
 
-### Unit Test
+<!-- AGENTS-GENERATED:START checklist -->
+## PR Checklist
+- [ ] New code has unit tests
+- [ ] API interactions have integration tests
+- [ ] TYPO3 features have functional tests
+- [ ] Architecture rules pass
+- [ ] Mutation testing MSI >= 70%
+- [ ] Tests run via `runTests.sh`, not phpunit directly
+<!-- AGENTS-GENERATED:END checklist -->
 
-```php
-#[Test]
-public function completionResponseReturnsContent(): void
-{
-    $response = new CompletionResponse('Hello', new UsageStatistics(10, 5, 15));
+<!-- AGENTS-GENERATED:START examples -->
+## Examples
+> **Look at real tests:**
+> - Unit: `Unit/Service/Feature/CompletionServiceTest.php`
+> - Functional: `Functional/Repository/` (CSV fixtures in `Functional/Fixtures/`)
+> - Architecture: `Architecture/ControllerLayerTest.php`
+> - E2E (Playwright): `E2E/Playwright/wizard.spec.ts`
+> - E2E (PHP): `E2E/Backend/SetupWizardE2ETest.php`
+<!-- AGENTS-GENERATED:END examples -->
 
-    self::assertSame('Hello', $response->content);
-    self::assertSame(15, $response->usage->totalTokens);
-}
-```
-
-### Functional Test (Database)
-
-```php
-protected function setUp(): void
-{
-    parent::setUp();
-    $this->importCSVDataSet(__DIR__ . '/Fixtures/providers.csv');
-}
-
-#[Test]
-public function findsProviderByIdentifier(): void
-{
-    $provider = $this->providerRepository->findByIdentifier('openai-prod');
-    self::assertNotNull($provider);
-}
-```
-
-### Architecture Test (PHPat)
-
-```php
-public function testDomainModelsDoNotDependOnRepositories(): Rule
-{
-    return PHPat::rule()
-        ->classes(Selector::inNamespace('Netresearch\NrLlm\Domain\Model'))
-        ->shouldNotDependOn()
-        ->classes(Selector::inNamespace('Netresearch\NrLlm\Domain\Repository'));
-}
-```
-
-## Critical Rules
-
-1. **One resource per test** - Don't share fixtures between tests
-2. **CI is authoritative** - Local DDEV for debugging only
-3. **No DDEV in CI** - Use GitHub Services + PHP built-in server
-4. **Verify before claiming fixed** - Run tests, show output
+<!-- AGENTS-GENERATED:START help -->
+## When Stuck
+- Test docs: `Documentation/Testing/` (4 pages: Unit, Functional, E2E, CI)
+- PHPUnit 11/12 compat: see `MEMORY.md` PHPUnit section
+- Run with `-v` for verbose: `./Build/Scripts/runTests.sh -s unit -v`
+<!-- AGENTS-GENERATED:END help -->

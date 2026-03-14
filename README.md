@@ -173,7 +173,7 @@ available models, and generates a ready-to-use configuration. Paste your API key
 | Anthropic Claude | `anthropic` | Chat, Vision, Streaming, Tools |
 | Google Gemini | `gemini` | Chat, Embeddings, Vision, Streaming, Tools |
 | Ollama | `ollama` | Chat, Embeddings, Streaming (local, no API key) |
-| OpenRouter | `openrouter` | Chat, Vision, Streaming, Tools |
+| OpenRouter | `openrouter` | Chat, Embeddings, Vision, Streaming, Tools |
 | Mistral | `mistral` | Chat, Embeddings, Streaming |
 | Groq | `groq` | Chat, Streaming (fast inference) |
 | Azure OpenAI | `azure_openai` | Same as OpenAI |

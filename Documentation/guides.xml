@@ -19,10 +19,13 @@
     <extension
         class="\T3Docs\Typo3DocsTheme\DependencyInjection\Typo3DocsThemeExtension"
         project-home="https://github.com/netresearch/t3x-nr-llm"
-        project-contact="https://github.com/netresearch/t3x-nr-llm/issues"
+        project-contact="https://github.com/netresearch/t3x-nr-llm/discussions"
         project-repository="https://github.com/netresearch/t3x-nr-llm"
+        project-issues="https://github.com/netresearch/t3x-nr-llm/issues"
+        project-discussions="https://github.com/netresearch/t3x-nr-llm/discussions"
         edit-on-github="netresearch/t3x-nr-llm"
         edit-on-github-branch="main"
+        edit-on-github-directory="Documentation"
         interlink-shortcode="netresearch/nr-llm"
     />
 

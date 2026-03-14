@@ -68,7 +68,7 @@ Supported providers
      - Chat, embeddings, streaming (local).
    * - OpenRouter
      - Multi-provider access
-     - Chat, vision, streaming, tools.
+     - Chat, embeddings, vision, streaming, tools.
    * - Mistral
      - Mistral models
      - Chat, embeddings, streaming.
@@ -105,7 +105,7 @@ Built-in wizards reduce manual setup to a minimum:
 - **Model discovery** fetches available models
   directly from the provider API.
 
-See :ref:`configuration-wizards` for details and
+See :ref:`administration-wizards` for details and
 screenshots.
 
 .. _introduction-unified-provider-api:
