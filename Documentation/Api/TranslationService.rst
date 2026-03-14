@@ -12,44 +12,57 @@ TranslationService
 
    Language translation with quality control.
 
-   .. php:method:: translate(string $text, string $targetLanguage, ?string $sourceLanguage = null, array $options = []): TranslationResult
+   .. php:method:: translate(string $text, string $targetLanguage, ?string $sourceLanguage = null, ?TranslationOptions $options = null): TranslationResult
 
       Translate text to target language.
 
       :param string $text: Text to translate
-      :param string $targetLanguage: Target language code (e.g., 'de', 'fr')
-      :param string|null $sourceLanguage: Source language code (auto-detected if null)
-      :param array $options: Translation options
+      :param string $targetLanguage: Target language
+         code (e.g., 'de', 'fr')
+      :param string|null $sourceLanguage: Source
+         language code (auto-detected if null)
+      :param TranslationOptions|null $options:
+         Translation options
       :returns: TranslationResult
 
-      **Options:**
+      **TranslationOptions fields:**
 
       - ``formality``: 'formal', 'informal', 'default'
-      - ``domain``: 'technical', 'legal', 'medical', 'general'
+      - ``domain``: 'technical', 'legal', 'medical',
+        'marketing', 'general'
       - ``glossary``: array of term translations
       - ``preserve_formatting``: bool
 
-   .. php:method:: translateBatch(array $texts, string $targetLanguage, array $options = []): array
+   .. php:method:: translateBatch(array $texts, string $targetLanguage, ?string $sourceLanguage = null, ?TranslationOptions $options = null): array
 
       Translate multiple texts.
 
       :param array $texts: Array of texts
-      :param string $targetLanguage: Target language code
-      :param array $options: Translation options
+      :param string $targetLanguage: Target language
+         code
+      :param string|null $sourceLanguage: Source
+         language code (auto-detected if null)
+      :param TranslationOptions|null $options:
+         Translation options
       :returns: array<TranslationResult>
 
-   .. php:method:: detectLanguage(string $text): string
+   .. php:method:: detectLanguage(string $text, ?TranslationOptions $options = null): string
 
       Detect the language of text.
 
       :param string $text: Text to analyze
-      :returns: string Language code
+      :param TranslationOptions|null $options:
+         Translation options
+      :returns: string Language code (ISO 639-1)
 
-   .. php:method:: scoreTranslationQuality(string $source, string $translation, string $targetLanguage): float
+   .. php:method:: scoreTranslationQuality(string $sourceText, string $translatedText, string $targetLanguage, ?TranslationOptions $options = null): float
 
       Score translation quality.
 
-      :param string $source: Original text
-      :param string $translation: Translated text
-      :param string $targetLanguage: Target language code
+      :param string $sourceText: Original text
+      :param string $translatedText: Translated text
+      :param string $targetLanguage: Target language
+         code
+      :param TranslationOptions|null $options:
+         Translation options
       :returns: float Quality score (0.0 to 1.0)

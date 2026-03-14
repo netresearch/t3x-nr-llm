@@ -96,7 +96,7 @@ nr_llm/
 
 <!-- AGENTS-GENERATED:START security -->
 ## Security
-- API keys encrypted via `sodium_crypto_secretbox` with domain-separated key derivation
+- API keys stored as nr-vault UUID identifiers (envelope encryption via nr-vault extension)
 - Never log or expose API keys in error messages
 - Sanitize user input before sending to LLM providers
 - Treat LLM responses as untrusted content

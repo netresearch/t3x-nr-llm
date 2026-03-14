@@ -14,12 +14,13 @@ The central service for all LLM operations.
 
    Orchestrates LLM providers and provides unified API access.
 
-   .. php:method:: chat(array $messages, array|ChatOptions $options = []): CompletionResponse
+   .. php:method:: chat(array $messages, ?ChatOptions $options = null): CompletionResponse
 
       Execute a chat completion request.
 
-      :param array $messages: Array of message objects with 'role' and 'content' keys
-      :param array|ChatOptions $options: Optional configuration
+      :param array $messages: Array of message objects
+         with 'role' and 'content' keys
+      :param ChatOptions|null $options: Optional config
       :returns: CompletionResponse
 
       **Message Format:**
@@ -28,52 +29,65 @@ The central service for all LLM operations.
          :caption: Chat message format
 
          $messages = [
-             ['role' => 'system', 'content' => 'You are a helpful assistant.'],
+             ['role' => 'system', 'content' => '...'],
              ['role' => 'user', 'content' => 'Hello!'],
-             ['role' => 'assistant', 'content' => 'Hi there!'],
+             ['role' => 'assistant', 'content' => 'Hi!'],
              ['role' => 'user', 'content' => 'How are you?'],
          ];
 
-   .. php:method:: complete(string $prompt, array|ChatOptions $options = []): CompletionResponse
+   .. php:method:: complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
 
       Simple completion from a single prompt.
 
       :param string $prompt: The prompt text
-      :param array|ChatOptions $options: Optional configuration
+      :param ChatOptions|null $options: Optional config
       :returns: CompletionResponse
 
-   .. php:method:: embed(string|array $text, array $options = []): EmbeddingResponse
+   .. php:method:: embed(string|array $input, ?EmbeddingOptions $options = null): EmbeddingResponse
 
       Generate embeddings for text.
 
-      :param string|array $text: Single text or array of texts
-      :param array $options: Optional configuration
+      :param string|array $input: Single text or array
+         of texts
+      :param EmbeddingOptions|null $options: Optional
+         configuration
       :returns: EmbeddingResponse
 
-   .. php:method:: streamChat(array $messages, array $options = []): Generator
+   .. php:method:: vision(array $content, ?VisionOptions $options = null): VisionResponse
+
+      Analyze an image with vision capabilities.
+
+      :param array $content: Array of content parts
+         (text and image_url entries)
+      :param VisionOptions|null $options: Optional
+         configuration
+      :returns: VisionResponse
+
+   .. php:method:: streamChat(array $messages, ?ChatOptions $options = null): Generator
 
       Stream a chat completion response.
 
       :param array $messages: Array of message objects
-      :param array $options: Optional configuration
+      :param ChatOptions|null $options: Optional config
       :returns: Generator yielding string chunks
 
-   .. php:method:: chatWithTools(array $messages, array $tools, array $options = []): CompletionResponse
+   .. php:method:: chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse
 
       Chat with tool/function calling capability.
 
       :param array $messages: Array of message objects
       :param array $tools: Array of tool definitions
-      :param array $options: Optional configuration
-      :returns: CompletionResponse with potential tool calls
+      :param ToolOptions|null $options: Optional config
+      :returns: CompletionResponse with tool calls
 
-   .. php:method:: getProvider(string $identifier): ProviderInterface
+   .. php:method:: getProvider(?string $identifier = null): ProviderInterface
 
       Get a specific provider by identifier.
 
-      :param string $identifier: Provider identifier (openai, claude, gemini)
+      :param string|null $identifier: Provider identifier
+         (openai, claude, gemini); null for default
       :returns: ProviderInterface
-      :throws: ProviderNotFoundException
+      :throws: ProviderException
 
    .. php:method:: getAvailableProviders(): array
 

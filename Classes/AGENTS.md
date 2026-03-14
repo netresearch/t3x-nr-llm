@@ -80,7 +80,7 @@ See `Tests/Architecture/` for enforcement tests.
 
 <!-- AGENTS-GENERATED:START security -->
 ## Security
-- API keys encrypted via `sodium_crypto_secretbox` (Provider model)
+- API keys stored as nr-vault UUID identifiers (envelope encryption via nr-vault extension)
 - Input validation via typed DTOs
 - Output treated as untrusted content
 - Provider exceptions never expose API keys

@@ -149,10 +149,11 @@ To override the cache backend specifically for nr-llm:
 .. code-block:: php
    :caption: config/system/additional.php
 
+   use TYPO3\CMS\Core\Cache\Backend\RedisBackend;
+
    $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']
        ['cacheConfigurations']['nrllm_responses']
-       ['backend'] = \TYPO3\CMS\Core\Cache\Backend
-           \RedisBackend::class;
+       ['backend'] = RedisBackend::class;
 
 .. _installation-upgrading:
 

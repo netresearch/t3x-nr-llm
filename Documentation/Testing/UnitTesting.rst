@@ -19,8 +19,8 @@ Prerequisites
 .. code-block:: bash
    :caption: Install development dependencies
 
-   # Install development dependencies
-   composer install --dev
+   # Install dependencies (dev deps included by default)
+   composer install
 
 .. _testing-unit:
 
@@ -47,11 +47,9 @@ Integration tests
 .. code-block:: bash
    :caption: Run integration tests
 
-   # Run integration tests (requires mock server or API keys)
-   composer ci:test:php:integration
-
-   # With real API (set environment variables first)
-   OPENAI_API_KEY=sk-... Build/Scripts/runTests.sh -s unit
+   # Run integration tests (requires API keys)
+   OPENAI_API_KEY=your-api-key-here \
+       Build/Scripts/runTests.sh -s functional
 
 .. _testing-all:
 

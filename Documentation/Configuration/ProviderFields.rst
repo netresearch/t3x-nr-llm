@@ -56,11 +56,14 @@ Required
 .. confval:: api_key
    :name: confval-provider-api-key
    :type: string
-   :required: true
 
-   API key for authentication. Encrypted at rest
-   using :php:`sodium_crypto_secretbox`. Not
-   required for Ollama.
+   API key for authentication. Stored as a
+   `nr-vault <https://github.com/netresearch/t3x-nr-vault>`__
+   UUID identifier (envelope encryption).
+   nr-llm never stores raw API keys in the
+   database. Required for cloud providers
+   (OpenAI, Claude, Gemini, etc.); not required
+   for local providers like Ollama.
 
 .. _configuration-provider-optional:
 

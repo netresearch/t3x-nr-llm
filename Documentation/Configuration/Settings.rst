@@ -24,6 +24,27 @@ Runtime settings via TypoScript constants:
            enableCaching = 1
            # Cache lifetime in seconds
            cacheLifetime = 3600
+
+           providers {
+               openai {
+                   enabled = 1
+                   defaultModel = gpt-4o
+                   temperature = 0.7
+                   maxTokens = 4096
+               }
+               claude {
+                   enabled = 1
+                   defaultModel = claude-sonnet-4-20250514
+                   temperature = 0.7
+                   maxTokens = 4096
+               }
+               gemini {
+                   enabled = 1
+                   defaultModel = gemini-2.0-flash
+                   temperature = 0.7
+                   maxTokens = 4096
+               }
+           }
        }
    }
 
@@ -80,6 +101,10 @@ Sanitize user input before sending to providers:
        $userInput
    );
 
+   $response = $adapter->chatCompletion([
+       ['role' => 'user', 'content' => $sanitizedInput],
+   ]);
+
 .. _configuration-security-output:
 
 Output handling
@@ -89,6 +114,10 @@ Treat LLM responses as untrusted content:
 
 .. code-block:: php
    :caption: Example: Escaping output
+
+   $response = $adapter->chatCompletion([
+       ['role' => 'user', 'content' => $prompt],
+   ]);
 
    $safeOutput = htmlspecialchars(
        $response->content, ENT_QUOTES, 'UTF-8'
@@ -102,12 +131,14 @@ Logging
 .. code-block:: php
    :caption: config/system/additional.php
 
+   use Psr\Log\LogLevel;
+   use TYPO3\CMS\Core\Log\Writer\FileWriter;
+
    $GLOBALS['TYPO3_CONF_VARS']['LOG']
        ['Netresearch']['NrLlm'] = [
        'writerConfiguration' => [
-           \Psr\Log\LogLevel::DEBUG => [
-               \TYPO3\CMS\Core\Log\Writer\FileWriter
-                   ::class => [
+           LogLevel::DEBUG => [
+               FileWriter::class => [
                    'logFileInfix' => 'nr_llm',
                ],
            ],
@@ -139,10 +170,11 @@ To override the backend for this cache specifically:
 .. code-block:: php
    :caption: config/system/additional.php
 
+   use TYPO3\CMS\Core\Cache\Backend\RedisBackend;
+
    $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']
        ['cacheConfigurations']['nrllm_responses']
-       ['backend'] = \TYPO3\CMS\Core\Cache\Backend
-           \RedisBackend::class;
+       ['backend'] = RedisBackend::class;
 
 Clear cache:
 

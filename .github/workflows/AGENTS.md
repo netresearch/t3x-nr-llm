@@ -23,21 +23,26 @@ GitHub Actions workflows and CI/CD automation
 <!-- AGENTS-GENERATED:START golden-samples -->
 ## Workflow files
 - Workflows: 7 workflow file(s)
-<!-- AGENTS-GENERATED:END setup -->
+<!-- AGENTS-GENERATED:END golden-samples -->
 
 <!-- AGENTS-GENERATED:START structure -->
 ## Directory structure
 ```
 .github/
+  dependabot.yml        → Dependency updates
+  labeler.yml           → PR auto-labeling
+  CODEOWNERS            → Code ownership rules
+  PULL_REQUEST_TEMPLATE.md
+  SECURITY_CONTROLS.md
+  ISSUE_TEMPLATE/
   workflows/
     ci.yml              → Main CI workflow (lint, test, build)
     release.yml         → Release/deploy workflow
-    dependabot.yml      → Dependency updates
-  actions/
-    <action-name>/      → Composite actions (reusable)
-      action.yml
-  CODEOWNERS            → Code ownership rules
-  pull_request_template.md
+    e2e.yml             → Playwright E2E tests
+    docs.yml            → Documentation rendering
+    ter-publish.yml     → Manual TER publish
+    auto-merge-deps.yml → Auto-merge dependency PRs
+    community.yml       → Community health
 ```
 <!-- AGENTS-GENERATED:END structure -->
 
