@@ -8,8 +8,8 @@ test.describe('LLM Backend Module - Multi-Tier Architecture', () => {
       // Navigate to the module - returns iframe content
       const moduleFrame = await navigateToLlmModule(page);
 
-      // Verify module header is displayed (main module shows Providers dashboard)
-      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Providers');
+      // Verify module header is displayed (main module shows overview dashboard)
+      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Integration');
     });
 
     test('should show providers page with provider list or empty state', async ({ authenticatedPage }) => {
@@ -135,8 +135,8 @@ test.describe('LLM Backend Module - Multi-Tier Architecture', () => {
       await page.waitForTimeout(500);
       const moduleFrame = await navigateToLlmModule(page);
 
-      // Should still be authenticated and see the module (Providers dashboard)
-      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Providers');
+      // Should still be authenticated and see the module (overview dashboard)
+      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Integration');
     });
   });
 
