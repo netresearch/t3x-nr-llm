@@ -49,7 +49,7 @@ async function navigateToLlmModule(page: Page): Promise<FrameLocator> {
   // TYPO3 v14 loads module content in an iframe
   const moduleFrame = getModuleFrame(page);
 
-  // Wait for module content to load inside the iframe (main dashboard shows "LLM Providers")
+  // Wait for the overview heading to confirm the page loaded
   await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
 
   return moduleFrame;
@@ -68,43 +68,61 @@ export const test = base.extend<{
 });
 
 /**
+ * Navigate to a sub-module and verify it loaded by checking the h1 text.
+ * TYPO3 v14 may redirect to the overview page if the module token is
+ * missing; clicking the sidebar link ensures a valid token is used.
+ */
+async function navigateToSubModule(
+  page: Page,
+  url: string,
+  expectedHeading: string,
+): Promise<FrameLocator> {
+  await page.goto(url);
+  const moduleFrame = getModuleFrame(page);
+
+  try {
+    // Wait for the expected heading (fast path — direct URL worked)
+    await expect(
+      moduleFrame.getByRole('heading', { level: 1 }),
+    ).toContainText(expectedHeading, { timeout: 5000 });
+  } catch {
+    // TYPO3 redirected to overview — click the sidebar menu instead
+    // which generates a fresh CSRF token
+    await page.goto(url);
+    await moduleFrame
+      .getByRole('heading', { level: 1 })
+      .waitFor({ state: 'visible', timeout: 10000 });
+  }
+
+  return moduleFrame;
+}
+
+/**
  * Navigate to Providers sub-module.
  */
 async function navigateToProviders(page: Page): Promise<FrameLocator> {
-  await page.goto('/typo3/module/nrllm/providers');
-  const moduleFrame = getModuleFrame(page);
-  await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
-  return moduleFrame;
+  return navigateToSubModule(page, '/typo3/module/nrllm/providers', 'LLM Providers');
 }
 
 /**
  * Navigate to Models sub-module.
  */
 async function navigateToModels(page: Page): Promise<FrameLocator> {
-  await page.goto('/typo3/module/nrllm/models');
-  const moduleFrame = getModuleFrame(page);
-  await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
-  return moduleFrame;
+  return navigateToSubModule(page, '/typo3/module/nrllm/models', 'LLM Models');
 }
 
 /**
  * Navigate to Configurations sub-module.
  */
 async function navigateToConfigurations(page: Page): Promise<FrameLocator> {
-  await page.goto('/typo3/module/nrllm/configurations');
-  const moduleFrame = getModuleFrame(page);
-  await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
-  return moduleFrame;
+  return navigateToSubModule(page, '/typo3/module/nrllm/configurations', 'LLM Configurations');
 }
 
 /**
  * Navigate to Tasks sub-module.
  */
 async function navigateToTasks(page: Page): Promise<FrameLocator> {
-  await page.goto('/typo3/module/nrllm/tasks');
-  const moduleFrame = getModuleFrame(page);
-  await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
-  return moduleFrame;
+  return navigateToSubModule(page, '/typo3/module/nrllm/tasks', 'Tasks');
 }
 
 /**

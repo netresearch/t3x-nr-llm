@@ -65,12 +65,12 @@ test.describe('LLM Backend Module - Multi-Tier Architecture', () => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToConfigurations(page);
 
-      // Check for expected content: either configurations table or empty state
-      const hasTable = await moduleFrame.locator('table').isVisible();
-      const hasCallout = await moduleFrame.locator('.callout').isVisible();
-      const hasInfoBox = await moduleFrame.locator('.t3js-infobox, [class*="infobox"]').isVisible();
+      // Verify heading confirms we're on the right page
+      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Configurations');
 
-      expect(hasTable || hasCallout || hasInfoBox).toBe(true);
+      // Check for expected content: either configurations table or empty state
+      const content = moduleFrame.locator('table, .callout, .t3js-infobox, [class*="infobox"]');
+      await expect(content.first()).toBeVisible({ timeout: 5000 });
     });
 
     test('should display configurations table or empty state', async ({ authenticatedPage }) => {
@@ -181,18 +181,20 @@ test.describe('LLM Backend Module - Multi-Tier Architecture', () => {
       const page = authenticatedPage;
       const moduleFrame = await navigateToConfigurations(page);
 
+      // Verify heading confirms we're on the right page
+      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Configurations');
+
       // Check if there are configurations
       const configRows = await moduleFrame.locator('table tbody tr').count();
 
       if (configRows > 0) {
         // Each configuration should have action buttons
         const actionButtons = moduleFrame.locator('table tbody tr:first-child .btn-group button, table tbody tr:first-child .btn-group a');
-        const buttonCount = await actionButtons.count();
-        expect(buttonCount).toBeGreaterThan(0);
+        await expect(actionButtons.first()).toBeVisible({ timeout: 5000 });
       } else {
         // No configurations - verify empty state message exists
-        const hasEmptyState = await moduleFrame.locator('.callout, [class*="infobox"]').isVisible();
-        expect(hasEmptyState).toBe(true);
+        const emptyState = moduleFrame.locator('.callout, [class*="infobox"]');
+        await expect(emptyState.first()).toBeVisible({ timeout: 5000 });
       }
     });
   });
