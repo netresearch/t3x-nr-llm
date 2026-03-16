@@ -11,7 +11,7 @@
 includes:
   - %currentWorkingDirectory%/.Build/vendor/netresearch/typo3-ci-workflows/config/phpstan/phpstan.neon
   - ../phpstan-baseline.neon
-  - ../../.Build/vendor/phpat/phpat/extension.neon
+  # phpat/phpat/extension.neon is auto-included by phpstan/extension-installer
 
 parameters:
   # PHP 8.2 (TYPO3 v13.4 minimum)
