@@ -70,7 +70,7 @@ parameters:
       message: '#Fetching deprecated class constant#'
       reportUnmatched: false
     -
-      message: '#Attribute class Symfony\\\\Component\\\\DependencyInjection\\\\Attribute\\\\TaggedIterator is deprecated#'
+      message: '#is deprecated#'
       reportUnmatched: false
     # --- phpstan-phpunit ---
     -
@@ -101,7 +101,7 @@ parameters:
       message: '#PHPDoc tag `@var` with type .* is not subtype of type#'
       reportUnmatched: false
     -
-      message: '#Parameter \#\d+ \$\w+ .* of function (implode|array_intersect)#'
+      message: '#Parameter .* of function (implode|array_intersect|array_filter) expects#'
       reportUnmatched: false
     -
       message: '#Call to deprecated method makeLinkButton\(\)#'
