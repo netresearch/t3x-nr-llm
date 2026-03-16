@@ -9,6 +9,7 @@
 # Baseline used for new test files pending type improvements.
 
 includes:
+  - %currentWorkingDirectory%/.Build/vendor/netresearch/typo3-ci-workflows/config/phpstan/phpstan.neon
   - ../phpstan-baseline.neon
   - ../../.Build/vendor/phpat/phpat/extension.neon
 
@@ -23,6 +24,8 @@ parameters:
   # Analysis level (0-10, higher is stricter)
   # Level 10 is maximum strictness - full type safety enforcement
   level: 10
+
+  reportUnmatchedIgnoredErrors: false
 
   # Paths to analyze
   paths:

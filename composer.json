@@ -39,20 +39,11 @@
         "typo3/cms-core": "^13.4 || ^14.0"
     },
     "require-dev": {
-        "a9f/typo3-fractor": "^0.5.8",
-        "enlightn/security-checker": "^2.0",
         "ergebnis/composer-normalize": "^2.0",
         "fakerphp/faker": "^1.24",
-        "friendsofphp/php-cs-fixer": "^3.0",
         "giorgiosironi/eris": "^1.0",
-        "infection/infection": "^0.32",
-        "phpat/phpat": "^0.12",
-        "phpro/grumphp": "^2.0",
-        "phpstan/phpstan": "^2.1.37",
-        "rector/rector": "^2.3.1",
-        "ssch/typo3-rector": "^3.0",
-        "typo3/cms-install": "^13.4 || ^14.0",
-        "typo3/testing-framework": "^9.0"
+        "netresearch/typo3-ci-workflows": "^1.2",
+        "typo3/cms-install": "^13.4 || ^14.0"
     },
     "autoload": {
         "psr-4": {
@@ -67,9 +58,10 @@
     "config": {
         "allow-plugins": {
             "a9f/fractor-extension-installer": true,
+            "captainhook/hook-installer": true,
             "ergebnis/composer-normalize": true,
             "infection/extension-installer": true,
-            "phpro/grumphp": true,
+            "phpstan/extension-installer": true,
             "typo3/class-alias-loader": true,
             "typo3/cms-composer-installers": true
         },
@@ -78,6 +70,9 @@
         "vendor-dir": ".Build/vendor"
     },
     "extra": {
+        "captainhook": {
+            "config": "Build/captainhook.json"
+        },
         "typo3/cms": {
             "extension-key": "nr_llm",
             "web-dir": ".Build/Web"
