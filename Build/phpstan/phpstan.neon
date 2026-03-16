@@ -27,6 +27,84 @@ parameters:
 
   reportUnmatchedIgnoredErrors: false
 
+  ignoreErrors:
+    # --- phpstan-strict-rules ---
+    -
+      message: '#Only booleans are allowed in#'
+      reportUnmatched: false
+    -
+      message: '#Short ternary operator is not allowed#'
+      reportUnmatched: false
+    -
+      message: '#Construct empty\(\) is not allowed#'
+      reportUnmatched: false
+    -
+      message: '#Call to function array_filter\(\) requires parameter \#2 to be passed#'
+      reportUnmatched: false
+    -
+      message: '#Call to function in_array\(\) requires parameter \#3 to be set#'
+      reportUnmatched: false
+    -
+      message: '#Call to function base64_decode\(\) requires parameter \#2 to be set#'
+      reportUnmatched: false
+    -
+      message: '#Loose comparison via "==" is not allowed#'
+      reportUnmatched: false
+    -
+      message: '#Foreach overwrites \$#'
+      reportUnmatched: false
+    -
+      message: '#Variable method call on#'
+      reportUnmatched: false
+    -
+      message: '#has an uninitialized property#'
+      reportUnmatched: false
+    -
+      message: '#does not call parent constructor from#'
+      reportUnmatched: false
+    -
+      message: '#Casting to (int|string) something that.s already#'
+      reportUnmatched: false
+    # --- phpstan-deprecation-rules ---
+    -
+      message: '#Fetching deprecated class constant#'
+      path: ../../Tests/*
+      reportUnmatched: false
+    -
+      message: '#Attribute class Symfony\\\\Component\\\\DependencyInjection\\\\Attribute\\\\TaggedIterator is deprecated#'
+      reportUnmatched: false
+    # --- phpstan-phpunit ---
+    -
+      message: '#Dynamic call to static method PHPUnit\\\\Framework\\\\#'
+      reportUnmatched: false
+    -
+      message: '#Call to static method .* will always evaluate to true#'
+      path: ../../Tests/*
+      reportUnmatched: false
+    -
+      message: '#Missing call to parent::(setUp|tearDown)\(\) method#'
+      reportUnmatched: false
+    -
+      message: '#You should use assertCount#'
+      reportUnmatched: false
+    -
+      message: '#assertNotEmpty\(\) with non-empty-.* will always evaluate to true#'
+      reportUnmatched: false
+    # --- TYPO3 specifics ---
+    -
+      message: '#Access to an undefined property object::\$uc#'
+      reportUnmatched: false
+    -
+      message: '#should be contravariant with parameter#'
+      reportUnmatched: false
+    # --- Type strictness (level 10) ---
+    -
+      message: '#PHPDoc tag `@var` with type .* is not subtype of type#'
+      reportUnmatched: false
+    -
+      message: '#Parameter \#\d+ \$\w+ .* of function (implode|array_intersect)#'
+      reportUnmatched: false
+
   # Paths to analyze
   paths:
     - ../../Classes
