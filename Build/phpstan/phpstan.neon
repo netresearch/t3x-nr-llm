@@ -104,6 +104,9 @@ parameters:
     -
       message: '#Parameter \#\d+ \$\w+ .* of function (implode|array_intersect)#'
       reportUnmatched: false
+    -
+      message: '#Call to deprecated method makeLinkButton\(\)#'
+      reportUnmatched: false
 
   # Paths to analyze
   paths:
@@ -116,10 +119,6 @@ parameters:
   phpat:
     ignore_built_in_classes: true
 
-# PHPat test classes registration
-        -
-            message: '#Call to deprecated method makeLinkButton\(\)#'
-            reportUnmatched: false
 services:
   -
     class: Netresearch\NrLlm\Tests\Architecture\DomainLayerTest
