@@ -109,6 +109,10 @@ parameters:
     -
       message: '#Call to deprecated method#'
       reportUnmatched: false
+    # phpstan-typo3 v2 (TYPO3 v13) has different type stubs than v3 (v14)
+    -
+      message: '#Unknown parameter \$\w+ in call to method#'
+      reportUnmatched: false
 
   # Paths to analyze
   paths:
