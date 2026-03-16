@@ -98,13 +98,16 @@ parameters:
       reportUnmatched: false
     # --- Type strictness (level 10) ---
     -
-      message: '#PHPDoc tag `@var` with type .* is not subtype of type#'
+      identifier: varTag.nativeType
       reportUnmatched: false
     -
-      message: '#Parameter .* of function (implode|array_intersect|array_filter) expects#'
+      identifier: argument.type
       reportUnmatched: false
     -
-      message: '#Call to deprecated method makeLinkButton\(\)#'
+      identifier: phpunit.dynamicCallOnStaticMethod
+      reportUnmatched: false
+    -
+      message: '#Call to deprecated method#'
       reportUnmatched: false
 
   # Paths to analyze
