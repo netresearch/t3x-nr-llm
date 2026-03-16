@@ -1,6 +1,8 @@
 # Makefile for nr_llm TYPO3 extension development
 # Generated according to TYPO3 DDEV Skill best practices
 
+-include .Build/vendor/netresearch/typo3-ci-workflows/Makefile.include
+
 .PHONY: help up start down restart install install-all sync seed seed-tasks ollama test test-unit test-integration test-functional test-fuzzy test-e2e coverage mutation cgl cgl-fix phpstan rector rector-fix docs clean ci ci-full
 
 # Default target
