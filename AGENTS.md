@@ -58,7 +58,7 @@ ddev start && ddev composer install
 | `Build/phpunit.xml` | PHPUnit configuration |
 | `Build/Scripts/runTests.sh` | Docker-based test runner (ALWAYS use this) |
 | `infection.json.dist` | Mutation testing config (MSI >= 70%) |
-| `grumphp.yml` | Pre-commit hooks (conventional commits) |
+| `Build/captainhook.json` | Git hooks (pre-commit, commit-msg, pre-push) |
 | `Configuration/Caching.php` | Cache config (no hardcoded backend, uses instance default) |
 | `Configuration/Services.yaml` | DI container, autowiring |
 <!-- AGENTS-GENERATED:END filemap -->
