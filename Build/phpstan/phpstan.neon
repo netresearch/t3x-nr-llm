@@ -68,7 +68,6 @@ parameters:
     # --- phpstan-deprecation-rules ---
     -
       message: '#Fetching deprecated class constant#'
-      path: ../../Tests/*
       reportUnmatched: false
     -
       message: '#Attribute class Symfony\\\\Component\\\\DependencyInjection\\\\Attribute\\\\TaggedIterator is deprecated#'
