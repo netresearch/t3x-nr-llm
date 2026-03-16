@@ -10,44 +10,14 @@ on:
     branches: [main]
     paths:
       - 'Documentation/**'
+      - '.github/workflows/docs.yml'
   merge_group:
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
-  render:
-    name: Render Documentation
-    runs-on: ubuntu-latest
+  docs:
+    uses: netresearch/typo3-ci-workflows/.github/workflows/docs.yml@main
     permissions:
       contents: read
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
-        with:
-          egress-policy: audit
-
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Render Documentation
-        uses: typo3-documentation/render-guides@c4a29ab3c1e900192b9c5f76f0071afa0a8dbcb4 # 0.36.0
-        with:
-          input: Documentation
-          output: Documentation-GENERATED-temp
-
-      - name: Check for Warnings
-        run: |
-          if [ -f "Documentation-GENERATED-temp/warnings.txt" ]; then
-            echo "Documentation warnings found:"
-            cat Documentation-GENERATED-temp/warnings.txt
-            # Don't fail on warnings, just report them
-          fi
-
-      - name: Upload Documentation Artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: github.event_name == 'pull_request'
-        with:
-          name: documentation
-          path: Documentation-GENERATED-temp
-          retention-days: 7
