@@ -1226,4 +1226,41 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         self::assertFalse($result->hasThinking());
         self::assertNull($result->thinking);
     }
+
+    // ===== Multimodal content tests =====
+
+    #[Test]
+    public function chatCompletionPassesMultimodalContentVerbatim(): void
+    {
+        $messages = [
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'Describe this image'],
+                    ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,iVBORw0KGgo=']],
+                ],
+            ],
+        ];
+
+        $apiResponse = [
+            'id' => 'test',
+            'choices' => [
+                [
+                    'message' => ['content' => 'This is an image of a diagram.'],
+                    'finish_reason' => 'stop',
+                ],
+            ],
+            'model' => 'gpt-4o',
+            'usage' => ['prompt_tokens' => 100, 'completion_tokens' => 10, 'total_tokens' => 110],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion($messages);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('This is an image of a diagram.', $result->content);
+    }
 }
