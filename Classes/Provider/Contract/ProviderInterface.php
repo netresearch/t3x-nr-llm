@@ -32,8 +32,8 @@ interface ProviderInterface
     public function supportsFeature(string|ModelCapability $feature): bool;
 
     /**
-     * @param array<int, array{role: string, content: string|array<int, array<string, mixed>>}> $messages
-     * @param array<string, mixed> $options
+     * @param array<int, array<string, mixed>> $messages
+     * @param array<string, mixed>             $options
      */
     public function chatCompletion(array $messages, array $options = []): CompletionResponse;
 
