@@ -913,4 +913,348 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         self::assertEquals('Tool reasoning', $result->thinking);
         self::assertTrue($result->hasToolCalls());
     }
+
+    // ===== Multimodal content tests =====
+
+    #[Test]
+    public function chatCompletionHandlesMultimodalContentArray(): void
+    {
+        $messages = [
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'Describe this image'],
+                    ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,iVBORw0KGgo=']],
+                ],
+            ],
+        ];
+
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [['type' => 'text', 'text' => 'This is an image of a diagram.']],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 100, 'output_tokens' => 10],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion($messages);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('This is an image of a diagram.', $result->content);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsHandlesMultimodalContent(): void
+    {
+        $messages = [
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'What is in this image?'],
+                    ['type' => 'image_url', 'image_url' => ['url' => 'data:image/jpeg;base64,/9j/4AAQ']],
+                ],
+            ],
+        ];
+        $tools = [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'describe_image',
+                    'description' => 'Describe an image',
+                    'parameters' => ['type' => 'object'],
+                ],
+            ],
+        ];
+
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [['type' => 'text', 'text' => 'Image description']],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 100, 'output_tokens' => 10],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('Image description', $result->content);
+    }
+
+    #[Test]
+    public function chatCompletionPreservesStringContentBackwardCompatible(): void
+    {
+        $messages = [
+            ['role' => 'system', 'content' => 'You are helpful.'],
+            ['role' => 'user', 'content' => 'Hello there'],
+        ];
+
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [['type' => 'text', 'text' => 'Hi!']],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 5, 'output_tokens' => 2],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion($messages);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('Hi!', $result->content);
+    }
+
+    #[Test]
+    public function chatCompletionHandlesDocumentBlocks(): void
+    {
+        $messages = [
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'Summarize this document'],
+                    [
+                        'type' => 'document',
+                        'source' => [
+                            'type' => 'base64',
+                            'media_type' => 'application/pdf',
+                            'data' => 'JVBERi0xLjQ=',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [['type' => 'text', 'text' => 'Document summary']],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 200, 'output_tokens' => 10],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion($messages);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('Document summary', $result->content);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsConvertsToolResultMessages(): void
+    {
+        $messages = [
+            ['role' => 'user', 'content' => 'What is the weather?'],
+            [
+                'role' => 'assistant',
+                'content' => 'Let me check.',
+                'tool_calls' => [
+                    [
+                        'id' => 'call_123',
+                        'type' => 'function',
+                        'function' => [
+                            'name' => 'get_weather',
+                            'arguments' => '{"location":"Berlin"}',
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'role' => 'tool',
+                'tool_call_id' => 'call_123',
+                'content' => '{"temp": 20, "condition": "sunny"}',
+            ],
+        ];
+
+        $tools = [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_weather',
+                    'description' => 'Get weather for a location',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => ['location' => ['type' => 'string']],
+                    ],
+                ],
+            ],
+        ];
+
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [['type' => 'text', 'text' => 'The weather in Berlin is 20C and sunny.']],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 50, 'output_tokens' => 15],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('The weather in Berlin is 20C and sunny.', $result->content);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsConvertsAssistantToolCalls(): void
+    {
+        $messages = [
+            ['role' => 'user', 'content' => 'Check the weather'],
+            [
+                'role' => 'assistant',
+                'content' => 'I will check.',
+                'tool_calls' => [
+                    [
+                        'id' => 'call_456',
+                        'type' => 'function',
+                        'function' => [
+                            'name' => 'get_weather',
+                            'arguments' => '{"location":"Munich"}',
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'role' => 'tool',
+                'tool_call_id' => 'call_456',
+                'content' => '{"temp": 15}',
+            ],
+        ];
+
+        $tools = [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_weather',
+                    'description' => 'Get weather',
+                    'parameters' => ['type' => 'object'],
+                ],
+            ],
+        ];
+
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [['type' => 'text', 'text' => 'It is 15C in Munich.']],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 40, 'output_tokens' => 10],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('It is 15C in Munich.', $result->content);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsConvertsConsecutiveToolResults(): void
+    {
+        $messages = [
+            ['role' => 'user', 'content' => 'Check weather in two cities'],
+            [
+                'role' => 'assistant',
+                'content' => '',
+                'tool_calls' => [
+                    [
+                        'id' => 'call_a',
+                        'type' => 'function',
+                        'function' => ['name' => 'get_weather', 'arguments' => '{"location":"Berlin"}'],
+                    ],
+                    [
+                        'id' => 'call_b',
+                        'type' => 'function',
+                        'function' => ['name' => 'get_weather', 'arguments' => '{"location":"Munich"}'],
+                    ],
+                ],
+            ],
+            ['role' => 'tool', 'tool_call_id' => 'call_a', 'content' => '{"temp": 20}'],
+            ['role' => 'tool', 'tool_call_id' => 'call_b', 'content' => '{"temp": 15}'],
+        ];
+
+        $tools = [
+            [
+                'type' => 'function',
+                'function' => ['name' => 'get_weather', 'description' => 'Get weather', 'parameters' => ['type' => 'object']],
+            ],
+        ];
+
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [['type' => 'text', 'text' => 'Berlin 20C, Munich 15C.']],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 60, 'output_tokens' => 10],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('Berlin 20C, Munich 15C.', $result->content);
+    }
+
+    #[Test]
+    public function chatCompletionSkipsSystemArrayContent(): void
+    {
+        $messages = [
+            ['role' => 'system', 'content' => ['type' => 'text', 'text' => 'Array system']],
+            ['role' => 'user', 'content' => 'Hello'],
+        ];
+
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [['type' => 'text', 'text' => 'Response']],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 5, 'output_tokens' => 2],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        // Should not crash - array system content is ignored (set to null)
+        $result = $this->subject->chatCompletion($messages);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('Response', $result->content);
+    }
 }

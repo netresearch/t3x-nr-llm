@@ -1086,4 +1086,257 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         self::assertEquals('I am fine!', $result->content);
     }
+
+    // ===== Multimodal content tests =====
+
+    #[Test]
+    public function chatCompletionHandlesMultimodalContentArray(): void
+    {
+        $messages = [
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'Describe this image'],
+                    ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,iVBORw0KGgo=']],
+                ],
+            ],
+        ];
+
+        $apiResponse = [
+            'candidates' => [
+                [
+                    'content' => [
+                        'parts' => [['text' => 'This is a diagram.']],
+                        'role' => 'model',
+                    ],
+                    'finishReason' => 'STOP',
+                ],
+            ],
+            'usageMetadata' => [
+                'promptTokenCount' => 100,
+                'candidatesTokenCount' => 10,
+            ],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion($messages);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('This is a diagram.', $result->content);
+    }
+
+    #[Test]
+    public function chatCompletionHandlesDocumentMultimodalContent(): void
+    {
+        $messages = [
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'Summarize this PDF'],
+                    [
+                        'type' => 'document',
+                        'source' => [
+                            'type' => 'base64',
+                            'media_type' => 'application/pdf',
+                            'data' => 'JVBERi0xLjQ=',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $apiResponse = [
+            'candidates' => [
+                [
+                    'content' => [
+                        'parts' => [['text' => 'PDF summary']],
+                        'role' => 'model',
+                    ],
+                    'finishReason' => 'STOP',
+                ],
+            ],
+            'usageMetadata' => [
+                'promptTokenCount' => 200,
+                'candidatesTokenCount' => 5,
+            ],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion($messages);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('PDF summary', $result->content);
+    }
+
+    #[Test]
+    public function chatCompletionPreservesStringContentBackwardCompatible(): void
+    {
+        $messages = [
+            ['role' => 'user', 'content' => 'Simple text message'],
+        ];
+
+        $apiResponse = [
+            'candidates' => [
+                [
+                    'content' => [
+                        'parts' => [['text' => 'Simple response']],
+                        'role' => 'model',
+                    ],
+                    'finishReason' => 'STOP',
+                ],
+            ],
+            'usageMetadata' => [
+                'promptTokenCount' => 5,
+                'candidatesTokenCount' => 3,
+            ],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion($messages);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('Simple response', $result->content);
+    }
+
+    // ===== Tool message conversion tests =====
+
+    #[Test]
+    public function chatCompletionWithToolsConvertsToolResultMessages(): void
+    {
+        $messages = [
+            ['role' => 'user', 'content' => 'What is the weather?'],
+            [
+                'role' => 'assistant',
+                'content' => 'Let me check.',
+                'tool_calls' => [
+                    [
+                        'id' => 'call_123',
+                        'type' => 'function',
+                        'function' => [
+                            'name' => 'get_weather',
+                            'arguments' => '{"location":"Berlin"}',
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'role' => 'tool',
+                'tool_call_id' => 'call_123',
+                'name' => 'get_weather',
+                'content' => '{"temp": 20, "condition": "sunny"}',
+            ],
+        ];
+
+        $tools = [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_weather',
+                    'description' => 'Get weather for a location',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => ['location' => ['type' => 'string']],
+                    ],
+                ],
+            ],
+        ];
+
+        $apiResponse = [
+            'candidates' => [
+                [
+                    'content' => [
+                        'parts' => [['text' => 'The weather in Berlin is 20C and sunny.']],
+                        'role' => 'model',
+                    ],
+                    'finishReason' => 'STOP',
+                ],
+            ],
+            'usageMetadata' => [
+                'promptTokenCount' => 50,
+                'candidatesTokenCount' => 15,
+            ],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('The weather in Berlin is 20C and sunny.', $result->content);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsConvertsAssistantToolCalls(): void
+    {
+        $messages = [
+            ['role' => 'user', 'content' => 'Check weather'],
+            [
+                'role' => 'assistant',
+                'content' => 'Checking now.',
+                'tool_calls' => [
+                    [
+                        'id' => 'call_789',
+                        'type' => 'function',
+                        'function' => [
+                            'name' => 'get_weather',
+                            'arguments' => '{"location":"Munich"}',
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'role' => 'tool',
+                'tool_call_id' => 'call_789',
+                'name' => 'get_weather',
+                'content' => '{"temp": 15}',
+            ],
+        ];
+
+        $tools = [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_weather',
+                    'description' => 'Get weather',
+                    'parameters' => ['type' => 'object'],
+                ],
+            ],
+        ];
+
+        $apiResponse = [
+            'candidates' => [
+                [
+                    'content' => [
+                        'parts' => [['text' => 'Munich is 15C.']],
+                        'role' => 'model',
+                    ],
+                    'finishReason' => 'STOP',
+                ],
+            ],
+            'usageMetadata' => [
+                'promptTokenCount' => 40,
+                'candidatesTokenCount' => 10,
+            ],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('Munich is 15C.', $result->content);
+    }
 }
