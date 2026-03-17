@@ -23,6 +23,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 
 #[CoversClass(OpenAiProvider::class)]
@@ -1254,13 +1255,44 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             'usage' => ['prompt_tokens' => 100, 'completion_tokens' => 10, 'total_tokens' => 110],
         ];
 
+        // Capture the outgoing request body to verify multimodal messages are passed verbatim.
+        $capturedBody = null;
+        $streamFactoryStub = self::createStub(StreamFactoryInterface::class);
+        $streamFactoryStub->method('createStream')
+            ->willReturnCallback(function (string $content) use (&$capturedBody): StreamInterface {
+                $capturedBody = $content;
+                $stream = self::createStub(StreamInterface::class);
+                $stream->method('__toString')->willReturn($content);
+                $stream->method('getContents')->willReturn($content);
+                return $stream;
+            });
+
+        $subject = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $streamFactoryStub,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-4o',
+            'baseUrl' => '',
+            'timeout' => 30,
+        ]);
+        $subject->setHttpClient($this->httpClientStub);
+
         $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
-        $result = $this->subject->chatCompletion($messages);
+        $result = $subject->chatCompletion($messages);
 
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertEquals('This is an image of a diagram.', $result->content);
+        self::assertNotNull($capturedBody);
+        $parsedBody = json_decode($capturedBody, true);
+        self::assertIsArray($parsedBody);
+        self::assertSame($messages, $parsedBody['messages']);
     }
 }
