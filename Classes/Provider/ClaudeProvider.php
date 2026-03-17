@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Psr\Http\Message\RequestInterface;
+use stdClass;
 
 final class ClaudeProvider extends AbstractProvider implements
     VisionCapableInterface,
@@ -514,7 +515,7 @@ final class ClaudeProvider extends AbstractProvider implements
                         'type' => 'tool_use',
                         'id' => $this->getString($callArray, 'id'),
                         'name' => $this->getString($function, 'name'),
-                        'input' => $arguments !== [] ? $arguments : new \stdClass(),
+                        'input' => $arguments !== [] ? $arguments : new stdClass(),
                     ];
                 }
 

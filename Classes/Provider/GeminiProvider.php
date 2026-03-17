@@ -461,6 +461,22 @@ final class GeminiProvider extends AbstractProvider implements
         $contents = [];
         $systemInstruction = null;
 
+        // Pre-scan: build tool_call_id → function_name mapping from assistant tool_calls
+        $toolCallIdToName = [];
+        foreach ($messages as $msg) {
+            $m = $this->asArray($msg);
+            if (($m['role'] ?? '') === 'assistant' && isset($m['tool_calls']) && is_array($m['tool_calls'])) {
+                foreach ($m['tool_calls'] as $tc) {
+                    $tcArray = $this->asArray($tc);
+                    $function = $this->getArray($tcArray, 'function');
+                    $id = $this->getString($tcArray, 'id');
+                    if ($id !== '') {
+                        $toolCallIdToName[$id] = $this->getString($function, 'name');
+                    }
+                }
+            }
+        }
+
         foreach ($messages as $message) {
             $msgArray = $this->asArray($message);
             $role = $this->getString($msgArray, 'role');
@@ -477,8 +493,8 @@ final class GeminiProvider extends AbstractProvider implements
             // Tool result messages: convert to Gemini functionResponse format
             if ($role === 'tool') {
                 $toolCallId = $this->getString($msgArray, 'tool_call_id');
-                // Try to extract function name from tool_call_id or use a default
-                $name = $this->getString($msgArray, 'name', $toolCallId);
+                // Resolve function name from pre-scanned mapping
+                $name = $toolCallIdToName[$toolCallId] ?? $this->getString($msgArray, 'name', 'unknown');
                 $contentStr = $this->getString($msgArray, 'content');
                 $responseData = json_decode($contentStr, true);
                 if (!is_array($responseData)) {
@@ -546,7 +562,7 @@ final class GeminiProvider extends AbstractProvider implements
             } else {
                 $contents[] = [
                     'role' => $geminiRole,
-                    'parts' => [['text' => $content]],
+                    'parts' => [['text' => is_string($content) ? $content : $this->getString($msgArray, 'content')]],
                 ];
             }
         }

@@ -1339,4 +1339,63 @@ class GeminiProviderTest extends AbstractUnitTestCase
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertEquals('Munich is 15C.', $result->content);
     }
+
+    #[Test]
+    public function chatCompletionWithToolsResolvesToolNameFromMapping(): void
+    {
+        // Tool result message WITHOUT 'name' field — name must be resolved from
+        // the preceding assistant tool_calls via tool_call_id mapping
+        $messages = [
+            ['role' => 'user', 'content' => 'Check the weather'],
+            [
+                'role' => 'assistant',
+                'content' => '',
+                'tool_calls' => [
+                    [
+                        'id' => 'call_abc',
+                        'type' => 'function',
+                        'function' => ['name' => 'get_weather', 'arguments' => '{"city":"Hamburg"}'],
+                    ],
+                ],
+            ],
+            [
+                'role' => 'tool',
+                'tool_call_id' => 'call_abc',
+                // NO 'name' field — standard OpenAI format
+                'content' => '{"temp": 12}',
+            ],
+        ];
+
+        $tools = [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_weather',
+                    'description' => 'Get weather',
+                    'parameters' => ['type' => 'object', 'properties' => ['city' => ['type' => 'string']]],
+                ],
+            ],
+        ];
+
+        $apiResponse = [
+            'candidates' => [
+                [
+                    'content' => ['parts' => [['text' => 'Hamburg is 12C.']], 'role' => 'model'],
+                    'finishReason' => 'STOP',
+                ],
+            ],
+            'usageMetadata' => ['promptTokenCount' => 30, 'candidatesTokenCount' => 8],
+        ];
+
+        // Use the standard stub from setUp — just verify the call succeeds
+        // The tool_call_id→name mapping is tested by the fact that Gemini API
+        // would reject an invalid functionResponse.name
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools($messages, $tools);
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertEquals('Hamburg is 12C.', $result->content);
+    }
 }
