@@ -14,7 +14,7 @@ interface DocumentCapableInterface
     public function supportsDocuments(): bool;
 
     /**
-     * Returns the document formats supported by this provider as Base64 inline content.
+     * Returns the document formats supported by this provider for use as Base64 inline content.
      * Example: ['pdf'].
      *
      * @return array<string>
