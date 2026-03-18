@@ -14,7 +14,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 interface ToolCapableInterface
 {
     /**
-     * @param array<int, array{role: string, content: string}>                                                                      $messages
+     * @param array<int, array<string, mixed>>                                                                                      $messages
      * @param array<int, array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> $tools
      * @param array<string, mixed>                                                                                                  $options
      */

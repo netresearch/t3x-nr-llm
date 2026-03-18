@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Psr\Http\Message\RequestInterface;
+use stdClass;
 
 final class ClaudeProvider extends AbstractProvider implements
     VisionCapableInterface,
@@ -106,29 +107,17 @@ final class ClaudeProvider extends AbstractProvider implements
      */
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
-        $systemMessage = null;
-        $filteredMessages = [];
-
-        foreach ($messages as $message) {
-            $msgArray = $this->asArray($message);
-            $role = $this->getString($msgArray, 'role');
-            if ($role === 'system') {
-                $systemMessage = $this->getString($msgArray, 'content');
-            } else {
-                $filteredMessages[] = $message;
-            }
-        }
-
+        $converted = $this->convertMessagesForClaude($messages);
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
             'model' => $model,
-            'messages' => $filteredMessages,
+            'messages' => $converted['messages'],
             'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
-        if ($systemMessage !== null) {
-            $payload['system'] = $systemMessage;
+        if ($converted['systemMessage'] !== null) {
+            $payload['system'] = $converted['systemMessage'];
         }
 
         // Anthropic does not allow both temperature and top_p simultaneously.
@@ -183,18 +172,7 @@ final class ClaudeProvider extends AbstractProvider implements
      */
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
-        $systemMessage = null;
-        $filteredMessages = [];
-
-        foreach ($messages as $message) {
-            $msgArray = $this->asArray($message);
-            $role = $this->getString($msgArray, 'role');
-            if ($role === 'system') {
-                $systemMessage = $this->getString($msgArray, 'content');
-            } else {
-                $filteredMessages[] = $message;
-            }
-        }
+        $converted = $this->convertMessagesForClaude($messages);
 
         // Convert OpenAI tool format to Claude format
         $claudeTools = [];
@@ -212,13 +190,13 @@ final class ClaudeProvider extends AbstractProvider implements
 
         $payload = [
             'model' => $model,
-            'messages' => $filteredMessages,
+            'messages' => $converted['messages'],
             'tools' => $claudeTools,
             'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
 
-        if ($systemMessage !== null) {
-            $payload['system'] = $systemMessage;
+        if ($converted['systemMessage'] !== null) {
+            $payload['system'] = $converted['systemMessage'];
         }
 
         if (isset($options['tool_choice'])) {
@@ -403,28 +381,17 @@ final class ClaudeProvider extends AbstractProvider implements
      */
     public function streamChatCompletion(array $messages, array $options = []): Generator
     {
-        $systemMessage = null;
-        $filteredMessages = [];
-
-        foreach ($messages as $message) {
-            $msgArray = $this->asArray($message);
-            $role = $this->getString($msgArray, 'role');
-            if ($role === 'system') {
-                $systemMessage = $this->getString($msgArray, 'content');
-            } else {
-                $filteredMessages[] = $message;
-            }
-        }
+        $converted = $this->convertMessagesForClaude($messages);
 
         $payload = [
             'model' => $this->getString($options, 'model', $this->getDefaultModel()),
-            'messages' => $filteredMessages,
+            'messages' => $converted['messages'],
             'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
             'stream' => true,
         ];
 
-        if ($systemMessage !== null) {
-            $payload['system'] = $systemMessage;
+        if ($converted['systemMessage'] !== null) {
+            $payload['system'] = $converted['systemMessage'];
         }
 
         $url = rtrim($this->baseUrl, '/') . '/messages';
@@ -477,6 +444,155 @@ final class ClaudeProvider extends AbstractProvider implements
     public function supportsStreaming(): bool
     {
         return true;
+    }
+
+    /**
+     * Convert messages from OpenAI format to Claude's native format.
+     *
+     * Handles system message extraction, tool result messages (role='tool'),
+     * assistant messages with tool_calls, and multimodal content arrays.
+     *
+     * @param array<int, array<string, mixed>> $messages
+     *
+     * @return array{systemMessage: ?string, messages: array<int, array<string, mixed>>}
+     */
+    private function convertMessagesForClaude(array $messages): array
+    {
+        $systemMessage = null;
+        $filteredMessages = [];
+        /** @var array<int, array<string, mixed>> $pendingToolResults */
+        $pendingToolResults = [];
+
+        foreach ($messages as $message) {
+            $msgArray = $this->asArray($message);
+            $role = $this->getString($msgArray, 'role');
+            $content = $msgArray['content'] ?? '';
+
+            // System messages: extract for top-level field
+            if ($role === 'system') {
+                $systemMessage = is_string($content) ? $content : null;
+
+                continue;
+            }
+
+            // Tool result messages: accumulate into user message with tool_result blocks
+            if ($role === 'tool') {
+                $pendingToolResults[] = [
+                    'type' => 'tool_result',
+                    'tool_use_id' => $this->getString($msgArray, 'tool_call_id'),
+                    'content' => $this->getString($msgArray, 'content'),
+                ];
+
+                continue;
+            }
+
+            // Flush pending tool results before any non-tool message
+            if ($pendingToolResults !== []) {
+                $filteredMessages[] = ['role' => 'user', 'content' => $pendingToolResults];
+                $pendingToolResults = [];
+            }
+
+            // Assistant with tool_calls: convert to tool_use content blocks
+            if ($role === 'assistant' && isset($msgArray['tool_calls']) && is_array($msgArray['tool_calls'])) {
+                $contentBlocks = [];
+                $textContent = is_string($content) ? $content : '';
+                if ($textContent !== '') {
+                    $contentBlocks[] = ['type' => 'text', 'text' => $textContent];
+                }
+
+                foreach ($msgArray['tool_calls'] as $call) {
+                    $callArray = $this->asArray($call);
+                    $function = $this->getArray($callArray, 'function');
+                    $arguments = $function['arguments'] ?? [];
+                    if (is_string($arguments)) {
+                        $arguments = json_decode($arguments, true) ?? [];
+                    }
+                    if (!is_array($arguments)) {
+                        $arguments = [];
+                    }
+
+                    $contentBlocks[] = [
+                        'type' => 'tool_use',
+                        'id' => $this->getString($callArray, 'id'),
+                        'name' => $this->getString($function, 'name'),
+                        'input' => $arguments !== [] ? $arguments : new stdClass(),
+                    ];
+                }
+
+                $filteredMessages[] = ['role' => 'assistant', 'content' => $contentBlocks];
+
+                continue;
+            }
+
+            // Multimodal content array: convert to Claude format
+            if (is_array($content)) {
+                $claudeContent = $this->convertMultimodalContent($content);
+                $filteredMessages[] = ['role' => $role, 'content' => $claudeContent];
+
+                continue;
+            }
+
+            // Plain text message: pass through
+            $filteredMessages[] = $message;
+        }
+
+        // Flush remaining tool results
+        if ($pendingToolResults !== []) {
+            $filteredMessages[] = ['role' => 'user', 'content' => $pendingToolResults];
+        }
+
+        return ['systemMessage' => $systemMessage, 'messages' => $filteredMessages];
+    }
+
+    /**
+     * Convert OpenAI-style multimodal content blocks to Claude's native format.
+     *
+     * Handles text, image_url (OpenAI format -> Claude image source), and
+     * document blocks (Claude native pass-through).
+     *
+     * @param array<int, mixed> $content
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function convertMultimodalContent(array $content): array
+    {
+        $claudeContent = [];
+
+        foreach ($content as $block) {
+            $blockArray = $this->asArray($block);
+            $type = $this->getString($blockArray, 'type');
+
+            if ($type === 'text') {
+                $claudeContent[] = ['type' => 'text', 'text' => $this->getString($blockArray, 'text')];
+            } elseif ($type === 'image_url') {
+                $imageUrl = $this->getArray($blockArray, 'image_url');
+                $url = $this->getString($imageUrl, 'url');
+
+                if (str_starts_with($url, 'data:')) {
+                    preg_match('/^data:([^;]+);base64,(.+)$/', $url, $matches);
+                    if ($matches !== []) {
+                        $claudeContent[] = [
+                            'type' => 'image',
+                            'source' => [
+                                'type' => 'base64',
+                                'media_type' => $matches[1],
+                                'data' => $matches[2],
+                            ],
+                        ];
+                    }
+                } else {
+                    $claudeContent[] = [
+                        'type' => 'image',
+                        'source' => ['type' => 'url', 'url' => $url],
+                    ];
+                }
+            } elseif ($type === 'document') {
+                // Pass through document blocks (Claude native format)
+                $claudeContent[] = $blockArray;
+            }
+        }
+
+        return $claudeContent;
     }
 
     private function mapStopReason(string $reason): string

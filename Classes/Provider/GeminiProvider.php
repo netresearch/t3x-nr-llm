@@ -461,20 +461,108 @@ final class GeminiProvider extends AbstractProvider implements
         $contents = [];
         $systemInstruction = null;
 
+        // Pre-scan: build tool_call_id → function_name mapping from assistant tool_calls
+        $toolCallIdToName = [];
+        foreach ($messages as $msg) {
+            $m = $this->asArray($msg);
+            if (($m['role'] ?? '') === 'assistant' && isset($m['tool_calls']) && is_array($m['tool_calls'])) {
+                foreach ($m['tool_calls'] as $tc) {
+                    $tcArray = $this->asArray($tc);
+                    $function = $this->getArray($tcArray, 'function');
+                    $id = $this->getString($tcArray, 'id');
+                    if ($id !== '') {
+                        $toolCallIdToName[$id] = $this->getString($function, 'name');
+                    }
+                }
+            }
+        }
+
         foreach ($messages as $message) {
             $msgArray = $this->asArray($message);
             $role = $this->getString($msgArray, 'role');
-            $content = $this->getString($msgArray, 'content');
+            $content = $msgArray['content'] ?? '';
 
             if ($role === 'system') {
                 $systemInstruction = [
-                    'parts' => [['text' => $content]],
+                    'parts' => [['text' => is_string($content) ? $content : '']],
                 ];
-            } else {
-                $geminiRole = $role === 'assistant' ? 'model' : 'user';
+
+                continue;
+            }
+
+            // Tool result messages: convert to Gemini functionResponse format
+            if ($role === 'tool') {
+                $toolCallId = $this->getString($msgArray, 'tool_call_id');
+                // Resolve function name from pre-scanned mapping
+                $name = $toolCallIdToName[$toolCallId] ?? $this->getString($msgArray, 'name', 'unknown');
+                $contentStr = $this->getString($msgArray, 'content');
+                $responseData = json_decode($contentStr, true);
+                if (!is_array($responseData)) {
+                    $responseData = ['result' => $contentStr];
+                }
+
+                $contents[] = [
+                    'role' => 'user',
+                    'parts' => [
+                        [
+                            'functionResponse' => [
+                                'name' => $name,
+                                'response' => $responseData,
+                            ],
+                        ],
+                    ],
+                ];
+
+                continue;
+            }
+
+            // Assistant with tool_calls: convert to Gemini functionCall format
+            if ($role === 'assistant' && isset($msgArray['tool_calls']) && is_array($msgArray['tool_calls'])) {
+                $parts = [];
+                $textContent = is_string($content) ? $content : '';
+                if ($textContent !== '') {
+                    $parts[] = ['text' => $textContent];
+                }
+
+                foreach ($msgArray['tool_calls'] as $call) {
+                    $callArray = $this->asArray($call);
+                    $function = $this->getArray($callArray, 'function');
+                    $arguments = $function['arguments'] ?? [];
+                    if (is_string($arguments)) {
+                        $arguments = json_decode($arguments, true) ?? [];
+                    }
+                    if (!is_array($arguments)) {
+                        $arguments = [];
+                    }
+
+                    $parts[] = [
+                        'functionCall' => [
+                            'name' => $this->getString($function, 'name'),
+                            'args' => $arguments,
+                        ],
+                    ];
+                }
+
+                $contents[] = [
+                    'role' => 'model',
+                    'parts' => $parts,
+                ];
+
+                continue;
+            }
+
+            $geminiRole = $role === 'assistant' ? 'model' : 'user';
+
+            if (is_array($content)) {
+                $parts = $this->convertMultimodalToParts($content);
                 $contents[] = [
                     'role' => $geminiRole,
-                    'parts' => [['text' => $content]],
+                    'parts' => $parts,
+                ];
+            } else {
+                $contents[] = [
+                    'role' => $geminiRole,
+                    'parts' => [['text' => is_string($content) ? $content : $this->getString($msgArray, 'content')]],
                 ];
             }
         }
@@ -485,6 +573,44 @@ final class GeminiProvider extends AbstractProvider implements
         }
 
         return $result;
+    }
+
+    /**
+     * Convert multimodal content blocks to Gemini parts format.
+     *
+     * @param array<int, mixed> $content
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function convertMultimodalToParts(array $content): array
+    {
+        $parts = [];
+
+        foreach ($content as $block) {
+            $blockArray = $this->asArray($block);
+            $type = $this->getString($blockArray, 'type');
+
+            if ($type === 'text') {
+                $parts[] = ['text' => $this->getString($blockArray, 'text')];
+            } elseif ($type === 'image_url') {
+                $imageUrl = $this->getArray($blockArray, 'image_url');
+                $url = $this->getString($imageUrl, 'url');
+
+                if (preg_match('/^data:([^;]+);base64,(.+)$/', $url, $matches)) {
+                    $parts[] = ['inlineData' => ['mimeType' => $matches[1], 'data' => $matches[2]]];
+                }
+            } elseif ($type === 'document') {
+                $source = $this->getArray($blockArray, 'source');
+                $parts[] = [
+                    'inlineData' => [
+                        'mimeType' => $this->getString($source, 'media_type'),
+                        'data' => $this->getString($source, 'data'),
+                    ],
+                ];
+            }
+        }
+
+        return $parts;
     }
 
     private function mapFinishReason(string $reason): string

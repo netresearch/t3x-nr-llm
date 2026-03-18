@@ -38,6 +38,10 @@ Provider interface
 
       Execute chat completion.
 
+      :param array $messages: Messages with ``role`` and ``content``.
+         Content can be a string (plain text) or an array of content
+         blocks for multimodal input (text, image_url, document).
+
    .. php:method:: complete(string $prompt, array $options = []): CompletionResponse
 
       Execute simple completion from a prompt.
@@ -106,7 +110,8 @@ Provider interface
 
    .. php:method:: chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
 
-      Chat with tool calling.
+      Chat with tool calling. Messages support multimodal content
+      (string or array of content blocks).
 
    .. php:method:: supportsTools(): bool
 
