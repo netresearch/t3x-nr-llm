@@ -461,6 +461,21 @@ class GeminiProviderTest extends AbstractUnitTestCase
         self::assertContains('jpeg', $formats);
         self::assertContains('gif', $formats);
         self::assertContains('webp', $formats);
+        self::assertNotContains('pdf', $formats);
+    }
+
+    #[Test]
+    public function supportsDocumentsReturnsTrue(): void
+    {
+        self::assertTrue($this->subject->supportsDocuments());
+    }
+
+    #[Test]
+    public function getSupportedDocumentFormatsReturnsPdf(): void
+    {
+        $formats = $this->subject->getSupportedDocumentFormats();
+
+        self::assertContains('pdf', $formats);
     }
 
     #[Test]

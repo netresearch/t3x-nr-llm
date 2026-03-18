@@ -14,6 +14,7 @@ use JsonException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
@@ -24,6 +25,7 @@ use stdClass;
 
 final class ClaudeProvider extends AbstractProvider implements
     VisionCapableInterface,
+    DocumentCapableInterface,
     StreamingCapableInterface,
     ToolCapableInterface
 {
@@ -371,6 +373,19 @@ final class ClaudeProvider extends AbstractProvider implements
     public function getMaxImageSize(): int
     {
         return 20 * 1024 * 1024; // 20 MB
+    }
+
+    public function supportsDocuments(): bool
+    {
+        return true;
+    }
+
+    /**
+     * @return array<string>
+     */
+    public function getSupportedDocumentFormats(): array
+    {
+        return ['pdf'];
     }
 
     /**
