@@ -11,6 +11,39 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-6-0:
+
+Version 0.6.0 (2026-03-24)
+===========================
+
+Added
+-----
+
+- ``DocumentCapableInterface``: providers can now advertise
+  PDF/document support; ``ChatCapabilitiesInterface`` exposes
+  this via ``getProviderCapabilities()``.
+- Multimodal content arrays in ``chatCompletion``: pass images,
+  PDFs, and text blocks as structured content arrays alongside
+  regular string messages.
+- Tool message conversion: ``tool_result`` blocks are now mapped
+  correctly when assembling provider payloads.
+
+Changed
+-------
+
+- Migrated CI infrastructure to ``netresearch/typo3-ci-workflows``
+  shared workflows (PHP tests, docs, E2E).
+- Replaced GrumPHP with CaptainHook for pre-commit hooks.
+
+Fixed
+-----
+
+- PHPStan baseline regenerated; ``ignoreErrors`` patterns
+  broadened for deprecation and array function rules to handle
+  phpstan-typo3 v2/v3 parameter name differences.
+- E2E tests stabilised: heading verification added, module
+  overview landing page assertions updated.
+
 .. _version-0-5-0:
 
 Version 0.5.0 (2026-03-09)
