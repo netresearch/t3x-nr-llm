@@ -351,15 +351,18 @@ final class DallEImageService
     private function loadConfiguration(): void
     {
         try {
-            /** @var array{providers?: array{openai?: array{apiKey?: string}}, image?: array{dalle?: array{baseUrl?: string, timeout?: int}}} $config */
             $config = $this->extensionConfiguration->get('nr_llm');
+            if (!is_array($config)) {
+                return;
+            }
 
+            /** @var array{providers?: array{openai?: array{apiKey?: string}}, image?: array{dalle?: array{baseUrl?: string, timeout?: int}}} $config */
             $this->apiKey = $config['providers']['openai']['apiKey'] ?? '';
             $this->baseUrl = $config['image']['dalle']['baseUrl'] ?? self::API_URL;
             $this->timeout = (int)($config['image']['dalle']['timeout'] ?? 120);
         } catch (Exception $e) {
             $this->logger->warning('Failed to load DALL-E configuration', [
-                'exception' => $e->getMessage(),
+                'exception' => $e,
             ]);
         }
     }
