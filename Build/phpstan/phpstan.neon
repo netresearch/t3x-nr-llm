@@ -11,7 +11,9 @@
 includes:
   - %currentWorkingDirectory%/.Build/vendor/netresearch/typo3-ci-workflows/config/phpstan/phpstan.neon
   - ../phpstan-baseline.neon
-  # phpat/phpat/extension.neon is auto-included by phpstan/extension-installer
+  # phpat/phpat/extension.neon should be auto-included by phpstan/extension-installer
+  # but CaptainHook failures in worktree setups prevent plugin registration — include explicitly
+  - %currentWorkingDirectory%/.Build/vendor/phpat/phpat/extension.neon
 
 parameters:
   # PHP 8.2 (TYPO3 v13.4 minimum)
@@ -25,6 +27,8 @@ parameters:
   # Level 10 is maximum strictness - full type safety enforcement
   level: 10
 
+  # Required because parent config (typo3-ci-workflows) defines ignore rules
+  # with reportUnmatched: true that may not match in this extension's context
   reportUnmatchedIgnoredErrors: false
 
   ignoreErrors:
@@ -88,6 +92,12 @@ parameters:
       reportUnmatched: false
     -
       message: '#assertNotEmpty\(\) with non-empty-.* will always evaluate to true#'
+      reportUnmatched: false
+    # --- TYPO3 v13/v14 dual-version compatibility ---
+    # setShortcutContext() was added in TYPO3 v14; method_exists() is correct for v13+v14 support
+    -
+      message: '#^Call to function method_exists\(\) with TYPO3\\CMS\\Backend\\Template\\Components\\DocHeaderComponent and ''setShortcutContext'' will always evaluate to true\.$#'
+      identifier: function.alreadyNarrowedType
       reportUnmatched: false
     # --- TYPO3 specifics ---
     -
