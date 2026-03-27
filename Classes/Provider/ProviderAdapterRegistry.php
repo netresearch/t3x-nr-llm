@@ -301,9 +301,15 @@ class ProviderAdapterRegistry implements SingletonInterface
             // Use testConnection() which makes actual HTTP request and throws on failure
             return $adapter->testConnection();
         } catch (Throwable $e) {
+            // Sanitize error message to prevent leaking secrets (API keys in URLs, etc.)
+            $sanitized = (string)preg_replace(
+                '/([?&])(key|api_key|apikey|token|secret|access_token)=[^&\s]+/i',
+                '$1$2=***',
+                $e->getMessage(),
+            );
             return [
                 'success' => false,
-                'message' => sprintf('Connection failed: %s', $e->getMessage()),
+                'message' => sprintf('Connection failed: %s', $sanitized),
             ];
         }
     }
