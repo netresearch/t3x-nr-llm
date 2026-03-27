@@ -227,8 +227,8 @@ final class MistralProvider extends AbstractProvider implements
         foreach ($data as $item) {
             $itemArray = $this->asArray($item);
             $embedding = $this->getArray($itemArray, 'embedding');
-            /** @var array<string, float> $floatEmbedding */
-            $floatEmbedding = array_map(fn($v): float => $this->asFloat($v), $embedding);
+            /** @var list<float> $floatEmbedding */
+            $floatEmbedding = array_values(array_map(fn($v): float => $this->asFloat($v), $embedding));
             $embeddings[] = $floatEmbedding;
         }
 
