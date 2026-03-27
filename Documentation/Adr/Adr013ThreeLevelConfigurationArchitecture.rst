@@ -15,7 +15,11 @@ ADR-013: Three-level configuration architecture (Provider-Model-Configuration)
 Context
 =======
 
-The nr_llm extension needs to manage LLM configurations for various use cases (chat, translation, embeddings, etc.). Initially, configurations were stored in a single table mixing connection settings, model parameters, and use-case-specific prompts.
+The nr_llm extension needs to manage LLM configurations
+for various use cases (chat, translation, embeddings,
+etc.). Initially, configurations were stored in a single
+table mixing connection settings, model parameters, and
+use-case-specific prompts.
 
 .. _adr-013-problem-statement:
 
@@ -24,11 +28,16 @@ Problem statement
 
 A single-table approach creates several issues:
 
-1. **API Key Duplication:** Same API key repeated across multiple configurations.
-2. **Model Redundancy:** Model capabilities and pricing duplicated.
-3. **Inflexible Connections:** Cannot have multiple API keys for same provider (prod/dev).
-4. **Mixed Concerns:** Connection details, model specs, and prompts intermingled.
-5. **Maintenance Burden:** Changing an API key requires updating multiple records.
+1. **API Key Duplication:** Same API key repeated across
+   multiple configurations.
+2. **Model Redundancy:** Model capabilities and pricing
+   duplicated.
+3. **Inflexible Connections:** Cannot have multiple API
+   keys for same provider (prod/dev).
+4. **Mixed Concerns:** Connection details, model specs,
+   and prompts intermingled.
+5. **Maintenance Burden:** Changing an API key requires
+   updating multiple records.
 
 .. _adr-013-scenarios:
 
@@ -350,14 +359,17 @@ Alternatives considered
 1. Two-Level (Provider → Configuration)
 ---------------------------------------
 
-**Rejected:** Models would be embedded in configurations, duplicating capabilities/pricing.
+**Rejected:** Models would be embedded in
+configurations, duplicating capabilities/pricing.
 
 .. _adr-013-alt-four-level:
 
 2. Four-Level (Provider → Model → Preset → Configuration)
 ---------------------------------------------------------
 
-**Rejected:** Preset layer adds complexity without clear benefit. Temperature/token settings belong with use-case.
+**Rejected:** Preset layer adds complexity without clear
+benefit. Temperature/token settings belong with
+use-case.
 
 .. _adr-013-alt-single-table:
 

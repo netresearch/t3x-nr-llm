@@ -72,4 +72,5 @@ Consequences
 - ✕ No automatic execution.
 - ◑ Testing complexity.
 
-**Net Score:** +5.0 (Positive impact - OpenAI-compatible format ensures broad compatibility)
+**Net Score:** +5.0 (Positive impact -
+OpenAI-compatible format ensures broad compatibility)

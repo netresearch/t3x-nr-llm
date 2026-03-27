@@ -57,8 +57,9 @@ EmbeddingService
 
       Calculate pairwise similarities between all vectors.
 
-      Returns a 2D matrix where each cell ``[i][j]`` contains the cosine
-      similarity between vectors ``i`` and ``j``. Diagonal values are always 1.0.
+      Returns a 2D matrix where each cell ``[i][j]``
+      contains the cosine similarity between vectors
+      ``i`` and ``j``. Diagonal values are always 1.0.
 
       :param array $vectors: Array of embedding vectors
       :returns: array 2D array of similarity scores

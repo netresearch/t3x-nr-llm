@@ -8,6 +8,9 @@ Architecture
 
 This section describes the architectural design of the TYPO3 LLM extension.
 
+.. TODO: Add a rendered architecture overview diagram.
+   Save as /Images/diagram-architecture-overview.png
+
 .. contents::
    :local:
    :depth: 2
@@ -43,6 +46,47 @@ The extension uses a three-level hierarchical architecture separating concerns:
    │                                                                          │
    │ Fields: endpoint_url, api_key (encrypted), adapter_type, timeout        │
    └─────────────────────────────────────────────────────────────────────────┘
+
+The same architecture expressed as PlantUML (for rendering with
+external tools):
+
+.. code-block:: plantuml
+   :caption: Three-tier configuration architecture (PlantUML)
+
+   @startuml
+   skinparam rectangle {
+       BackgroundColor<<config>> #E8F5E9
+       BackgroundColor<<model>>  #E3F2FD
+       BackgroundColor<<provider>> #FFF3E0
+   }
+
+   rectangle "**CONFIGURATION**\n(Use-Case Specific)" <<config>> as C {
+       note right
+           blog-summarizer
+           product-description
+           support-translator
+       end note
+   }
+
+   rectangle "**MODEL**\n(Available Models)" <<model>> as M {
+       note right
+           gpt-5, claude-sonnet-4-5
+           llama-70b
+           text-embedding-3-large
+       end note
+   }
+
+   rectangle "**PROVIDER**\n(API Connections)" <<provider>> as P {
+       note right
+           openai-prod, openai-dev
+           local-ollama
+           azure-openai-eu
+       end note
+   }
+
+   C -down-> M : "N:1\nmodel_uid"
+   M -down-> P : "N:1\nprovider_uid"
+   @enduml
 
 .. _architecture-benefits:
 

@@ -128,7 +128,8 @@ Version 0.4.6 (2026-03-06)
 Fixed
 -----
 
-- Add Fluid-compatible ``getHasApiKey()`` getter for ``{provider.hasApiKey}`` in templates.
+- Add Fluid-compatible ``getHasApiKey()`` getter for
+  ``{provider.hasApiKey}`` in templates.
 
 .. _version-0-4-5:
 
@@ -180,7 +181,8 @@ Version 0.4.1 (2026-03-06)
 Fixed
 -----
 
-- Use ``max_completion_tokens`` instead of ``max_tokens`` for OpenAI chat completions.
+- Use ``max_completion_tokens`` instead of ``max_tokens``
+  for OpenAI chat completions.
 
 .. _version-0-4-0:
 
@@ -190,7 +192,8 @@ Version 0.4.0 (2026-03-06)
 Breaking
 --------
 
-- Prevent plaintext API key storage via setup wizard; keys now require vault encryption.
+- Prevent plaintext API key storage via setup wizard;
+  keys now require vault encryption.
 
 Fixed
 -----
@@ -237,12 +240,15 @@ Version 0.3.0 (2026-03-01)
 Added
 -----
 
-- Expose ``chatWithConfiguration`` and ``streamChatWithConfiguration`` on ``LlmServiceManagerInterface``.
+- Expose ``chatWithConfiguration`` and
+  ``streamChatWithConfiguration`` on
+  ``LlmServiceManagerInterface``.
 
 Fixed
 -----
 
-- Use integer values for ``f:be.infobox`` state attribute for TYPO3 v13 compatibility.
+- Use integer values for ``f:be.infobox`` state attribute
+  for TYPO3 v13 compatibility.
 - Explicitly enable fuzz and mutation tests.
 
 .. _version-0-2-2:
@@ -282,7 +288,8 @@ Added
 - PHP 8.2+ and TYPO3 v13.4+ compatibility.
 - TYPO3 v13.4 ddev install command.
 - Coverage uploads and fuzz/mutation CI workflow.
-- Unit tests for enums, WizardResult DTO, providers, services, and specialized classes.
+- Unit tests for enums, WizardResult DTO, providers,
+  services, and specialized classes.
 - Coverage tests for PromptTemplateService and TranslationService.
 
 Changed
@@ -343,7 +350,8 @@ Added
 
 **Core Features**
 
-- Multi-provider support (OpenAI, Anthropic Claude, Google Gemini, Ollama, OpenRouter, Mistral, Groq).
+- Multi-provider support (OpenAI, Anthropic Claude,
+  Google Gemini, Ollama, OpenRouter, Mistral, Groq).
 - Unified API via :php:`LlmServiceManager`.
 - Provider abstraction layer with capability interfaces.
 - Typed response objects (:php:`CompletionResponse`, :php:`EmbeddingResponse`).
@@ -352,11 +360,16 @@ Added
 
 **Feature Services**
 
-- :php:`CompletionService`: Text completion with format control (JSON, Markdown).
-- :php:`EmbeddingService`: Vector generation with caching and similarity calculations.
-- :php:`VisionService`: Image analysis with alt-text, title, description generation.
-- :php:`TranslationService`: Translation with formality control and glossary support.
-- :php:`PromptTemplateService`: Centralized prompt management with database-driven templates.
+- :php:`CompletionService`: Text completion with format
+  control (JSON, Markdown).
+- :php:`EmbeddingService`: Vector generation with caching
+  and similarity calculations.
+- :php:`VisionService`: Image analysis with alt-text,
+  title, description generation.
+- :php:`TranslationService`: Translation with formality
+  control and glossary support.
+- :php:`PromptTemplateService`: Centralized prompt
+  management with database-driven templates.
 
 **Specialized Services**
 

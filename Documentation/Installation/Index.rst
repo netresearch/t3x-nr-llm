@@ -21,7 +21,8 @@ The recommended way to install this extension is via Composer:
 After installation:
 
 1. Activate the extension in :guilabel:`Admin Tools > Extension Manager`.
-2. Configure providers and API keys in :guilabel:`Admin Tools > LLM > Providers`.
+2. Configure providers and API keys in
+   :guilabel:`Admin Tools > LLM > Providers`.
 3. Define available models in :guilabel:`Admin Tools > LLM > Models`.
 4. Create configurations in :guilabel:`Admin Tools > LLM > Configurations`.
 5. Clear caches.
@@ -41,7 +42,9 @@ Ensure your system meets these requirements:
 - PHP 8.2 or higher.
 - TYPO3 v13.4 or higher.
 - Composer 2.x.
-- :composer:`netresearch/nr-vault` ^0.4.0 (required for API key encryption; installed automatically via Composer).
+- :composer:`netresearch/nr-vault` ^0.4.0 (required for
+  API key encryption; installed automatically via
+  Composer).
 
 .. _installation-steps:
 
@@ -57,7 +60,8 @@ Installation steps
 
 2. **Activate the extension**
 
-   Navigate to :guilabel:`Admin Tools > Extension Manager` and activate :t3ext:`nr_llm`.
+   Navigate to :guilabel:`Admin Tools > Extension Manager`
+   and activate :t3ext:`nr_llm`.
 
 3. **Configure API keys**
 
@@ -122,7 +126,8 @@ The extension creates the following database tables automatically:
    * - :sql:`tx_nrllm_task`
      - Stores one-shot prompt tasks for common operations.
    * - :sql:`tx_nrllm_prompttemplate`
-     - Stores reusable prompt templates with versioning and performance tracking.
+     - Stores reusable prompt templates with versioning
+       and performance tracking.
    * - :sql:`tx_nrllm_service_usage`
      - Tracks specialized service usage (translation, speech, image).
 

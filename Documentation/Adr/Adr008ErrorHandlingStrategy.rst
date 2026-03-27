@@ -65,4 +65,5 @@ Consequences
 - ◑ Exception handling complexity.
 - ✕ Breaking changes in new versions.
 
-**Net Score:** +5.0 (Positive impact - robust error handling enables graceful recovery strategies)
+**Net Score:** +5.0 (Positive impact - robust error
+handling enables graceful recovery strategies)

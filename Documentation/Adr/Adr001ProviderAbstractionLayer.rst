@@ -16,8 +16,10 @@ Status
 
 Context
 =======
-We needed to support multiple LLM providers (OpenAI, Anthropic Claude, Google Gemini)
-while maintaining a consistent API for consumers. Each provider has different:
+We needed to support multiple LLM providers (OpenAI,
+Anthropic Claude, Google Gemini) while maintaining a
+consistent API for consumers. Each provider has
+different:
 
 - API endpoints and authentication methods
 - Request/response formats
@@ -58,7 +60,8 @@ Consequences
 - ◑ Provider-specific features require direct provider access.
 - ◑ Additional abstraction layer complexity.
 
-**Net Score:** +5.5 (Strong positive impact - abstraction enables flexibility and maintainability)
+**Net Score:** +5.5 (Strong positive impact -
+abstraction enables flexibility and maintainability)
 
 .. _adr-001-alternatives:
 

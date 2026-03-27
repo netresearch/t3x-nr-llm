@@ -27,7 +27,8 @@ Problem statement
 
 1. **No compile-time safety:** Typos like ``'opanai'`` pass silently at runtime.
 2. **Scattered validation:** Each usage site re-validated allowed values.
-3. **Missing behavior:** Constants carried no associated logic (labels, icons, defaults).
+3. **Missing behavior:** Constants carried no associated
+   logic (labels, icons, defaults).
 4. **PHPStan violations:** Stringly-typed comparisons defeated type narrowing.
 
 .. _adr-015-decision:
@@ -39,7 +40,8 @@ Use PHP 8.1+ backed enums for all domain constants. Each enum provides:
 
 - A ``string``-backed value for database/API compatibility.
 - Static helpers: ``values()``, ``isValid()``, ``tryFromString()``.
-- Domain-specific methods: ``label()``, ``getIconIdentifier()``, ``getContentType()``.
+- Domain-specific methods: ``label()``,
+  ``getIconIdentifier()``, ``getContentType()``.
 
 .. code-block:: php
    :caption: Example: AdapterType enum with behavior
@@ -76,7 +78,8 @@ Immutable readonly DTOs for composite data transfer:
 - :php:`DetectedProvider` -- Provider detection result with confidence score.
 - :php:`DiscoveredModel` -- Model metadata from API discovery.
 - :php:`SuggestedConfiguration` -- AI-generated configuration preset.
-- :php:`CompletionResponse` -- Immutable ``final readonly class`` for LLM responses.
+- :php:`CompletionResponse` -- Immutable
+  ``final readonly class`` for LLM responses.
 
 .. _adr-015-consequences:
 
@@ -86,7 +89,9 @@ Consequences
 
 - ●● Invalid values caught at instantiation (``BackedEnum::from()`` throws).
 - ●● PHPStan level 10 compliance without ``@phpstan-ignore`` suppressions.
-- ● Self-documenting: ``AdapterType::OpenAI->defaultEndpoint()`` vs string lookup.
+- ● Self-documenting:
+  ``AdapterType::OpenAI->defaultEndpoint()`` vs string
+  lookup.
 - ● IDE auto-completion and refactoring support.
 - ◐ ``match`` expressions enforce exhaustive handling of all cases.
 
@@ -115,5 +120,8 @@ Files changed
 
 - :file:`Classes/Domain/Model/Provider.php` -- Uses :php:`AdapterType` enum.
 - :file:`Classes/Domain/Model/Model.php` -- Uses :php:`ModelCapability` enum.
-- :file:`Classes/Domain/Model/Task.php` -- Uses :php:`TaskCategory`, :php:`TaskInputType`, :php:`TaskOutputFormat`.
-- :file:`Classes/Provider/AbstractProvider.php` -- Adapter type matching via enum.
+- :file:`Classes/Domain/Model/Task.php` -- Uses
+  :php:`TaskCategory`, :php:`TaskInputType`,
+  :php:`TaskOutputFormat`.
+- :file:`Classes/Provider/AbstractProvider.php` --
+  Adapter type matching via enum.

@@ -71,4 +71,5 @@ Consequences
 - ◑ Connection management.
 - ✕ No caching possible.
 
-**Net Score:** +3.5 (Positive impact - streaming UX benefits outweigh implementation complexity)
+**Net Score:** +3.5 (Positive impact - streaming UX
+benefits outweigh implementation complexity)

@@ -18,8 +18,9 @@ Status
 
 Context
 =======
-ADR-006 introduced Option Objects with array backwards compatibility (union types
-``ChatOptions|array``). This dual-path approach created:
+ADR-006 introduced Option Objects with array backwards
+compatibility (union types ``ChatOptions|array``). This
+dual-path approach created:
 
 - Unnecessary complexity in the codebase.
 - :php:`OptionsResolverTrait` with 6 resolution methods.
@@ -84,7 +85,8 @@ Consequences
 - ◑ No array syntax for quick prototyping.
 - ◑ Slightly more verbose for simple cases.
 
-**Net Score:** +6.0 (Strong positive - type safety and consistency outweigh minor verbosity increase)
+**Net Score:** +6.0 (Strong positive - type safety and
+consistency outweigh minor verbosity increase)
 
 .. _adr-011-files-changed:
 
@@ -96,13 +98,23 @@ Files changed
 
 **Modified:**
 
-- :file:`Classes/Service/Option/AbstractOptions.php` - Removed :php:`fromArray()` abstract.
-- :file:`Classes/Service/Option/ChatOptions.php` - Removed :php:`fromArray()`.
-- :file:`Classes/Service/Option/EmbeddingOptions.php` - Removed :php:`fromArray()`.
-- :file:`Classes/Service/Option/VisionOptions.php` - Removed :php:`fromArray()`.
-- :file:`Classes/Service/Option/ToolOptions.php` - Removed :php:`fromArray()`.
-- :file:`Classes/Service/Option/TranslationOptions.php` - Removed :php:`fromArray()`.
-- :file:`Classes/Service/LlmServiceManager.php` - Object-only signatures.
-- :file:`Classes/Service/LlmServiceManagerInterface.php` - Object-only signatures.
-- :file:`Classes/Service/Feature/*Service.php` - All feature services updated.
-- :file:`Classes/Specialized/Translation/LlmTranslator.php` - Uses :php:`ChatOptions` objects.
+- :file:`Classes/Service/Option/AbstractOptions.php` -
+  Removed :php:`fromArray()` abstract.
+- :file:`Classes/Service/Option/ChatOptions.php` -
+  Removed :php:`fromArray()`.
+- :file:`Classes/Service/Option/EmbeddingOptions.php` -
+  Removed :php:`fromArray()`.
+- :file:`Classes/Service/Option/VisionOptions.php` -
+  Removed :php:`fromArray()`.
+- :file:`Classes/Service/Option/ToolOptions.php` -
+  Removed :php:`fromArray()`.
+- :file:`Classes/Service/Option/TranslationOptions.php`
+  - Removed :php:`fromArray()`.
+- :file:`Classes/Service/LlmServiceManager.php` -
+  Object-only signatures.
+- :file:`Classes/Service/LlmServiceManagerInterface.php`
+  - Object-only signatures.
+- :file:`Classes/Service/Feature/*Service.php` - All
+  feature services updated.
+- :file:`Classes/Specialized/Translation/LlmTranslator.php`
+  - Uses :php:`ChatOptions` objects.

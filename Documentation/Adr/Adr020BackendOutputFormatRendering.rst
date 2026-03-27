@@ -28,7 +28,8 @@ Store raw LLM output and handle format rendering entirely client-side. The
 toggle between formats is ephemeral (not persisted) and operates on the
 cached raw content.
 
-Four rendering modes in :file:`Resources/Public/JavaScript/Backend/TaskExecute.js`:
+Four rendering modes in
+:file:`Resources/Public/JavaScript/Backend/TaskExecute.js`:
 
 .. code-block:: javascript
    :caption: Format rendering dispatch
@@ -66,13 +67,18 @@ Security approach
 LLM responses are untrusted external content. Each mode uses a different
 security strategy:
 
-- **Plain/JSON:** Content set via ``textContent`` (automatic HTML escaping by the DOM).
-- **Markdown:** Content is first HTML-escaped via ``escapeHtml()`` (``textContent``
-  assignment to a temporary element, then read back via ``innerHTML``). Markdown
-  regex transforms operate on already-escaped content, making injection safe.
-- **HTML:** Rendered inside a fully sandboxed ``<iframe sandbox="">`` which blocks
-  all scripting, form submission, and parent page access. A fixed height of 400px
-  is used since ``contentDocument`` is inaccessible in sandbox mode.
+- **Plain/JSON:** Content set via ``textContent``
+  (automatic HTML escaping by the DOM).
+- **Markdown:** Content is first HTML-escaped via
+  ``escapeHtml()`` (``textContent`` assignment to a
+  temporary element, then read back via
+  ``innerHTML``). Markdown regex transforms operate on
+  already-escaped content, making injection safe.
+- **HTML:** Rendered inside a fully sandboxed
+  ``<iframe sandbox="">`` which blocks all scripting,
+  form submission, and parent page access. A fixed
+  height of 400px is used since ``contentDocument`` is
+  inaccessible in sandbox mode.
 
 .. code-block:: javascript
    :caption: XSS-safe HTML escaping
@@ -100,14 +106,16 @@ Consequences
 **Positive:**
 
 - ●● No server round-trip needed to switch display formats.
-- ● XSS prevention for all four rendering modes via distinct security strategies.
+- ● XSS prevention for all four rendering modes via
+  distinct security strategies.
 - ● Raw content preserved for clipboard copy regardless of rendering.
 - ◐ Format toggle state is ephemeral, avoiding unnecessary persistence.
 - ◐ Markdown renderer is lightweight (regex-based, no external library).
 
 **Negative:**
 
-- ◑ Markdown regex renderer is simplified (no tables, no nested lists, no links).
+- ◑ Markdown regex renderer is simplified (no tables,
+  no nested lists, no links).
 - ◑ HTML iframe height is fixed at 400px (cannot auto-resize in sandboxed mode).
 - ◑ No syntax highlighting for JSON or code blocks.
 
@@ -124,6 +132,9 @@ Files changed
 
 **Modified:**
 
-- :file:`Resources/Private/Templates/Backend/Task/Execute.html` -- Format toggle UI and output container.
-- :file:`Classes/Controller/Backend/TaskController.php` -- Returns ``outputFormat`` in AJAX response.
-- :file:`Classes/Domain/Enum/TaskOutputFormat.php` -- Defines valid output formats with content types.
+- :file:`Resources/Private/Templates/Backend/Task/Execute.html`
+  -- Format toggle UI and output container.
+- :file:`Classes/Controller/Backend/TaskController.php`
+  -- Returns ``outputFormat`` in AJAX response.
+- :file:`Classes/Domain/Enum/TaskOutputFormat.php`
+  -- Defines valid output formats with content types.

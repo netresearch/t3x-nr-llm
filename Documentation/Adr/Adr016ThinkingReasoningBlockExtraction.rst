@@ -19,7 +19,8 @@ Modern reasoning models emit structured thinking blocks alongside their final
 output. Anthropic Claude uses native ``thinking`` content blocks in its API
 response. DeepSeek, Qwen, and other models wrap reasoning in
 ``<think>...</think>`` XML tags within the text content. These blocks should be
-accessible for debugging and transparency but must not pollute the main response.
+accessible for debugging and transparency but must not
+pollute the main response.
 
 .. _adr-016-decision:
 
@@ -75,12 +76,18 @@ The base :php:`AbstractProvider` implements the shared regex extraction:
 
 Provider-specific integration:
 
-- **ClaudeProvider** -- Iterates response ``content`` array. Collects ``type: "thinking"``
-  blocks natively, then runs ``extractThinkingBlocks()`` on text content. Merges both.
-- **OpenAiProvider** -- Runs ``extractThinkingBlocks()`` on message content (covers
+- **ClaudeProvider** -- Iterates response ``content``
+  array. Collects ``type: "thinking"`` blocks natively,
+  then runs ``extractThinkingBlocks()`` on text content.
+  Merges both.
+- **OpenAiProvider** -- Runs
+  ``extractThinkingBlocks()`` on message content (covers
   DeepSeek, Qwen via OpenAI-compatible API).
-- **GeminiProvider** -- Runs ``extractThinkingBlocks()`` on first candidate text part.
-- **OpenRouterProvider** -- Inherits OpenAI behavior (covers all OpenRouter-hosted models).
+- **GeminiProvider** -- Runs
+  ``extractThinkingBlocks()`` on first candidate text
+  part.
+- **OpenRouterProvider** -- Inherits OpenAI behavior
+  (covers all OpenRouter-hosted models).
 
 .. _adr-016-consequences:
 
@@ -108,9 +115,16 @@ Files changed
 
 **Modified:**
 
-- :file:`Classes/Domain/Model/CompletionResponse.php` -- Added ``thinking`` property and ``hasThinking()``.
-- :file:`Classes/Provider/AbstractProvider.php` -- Added ``extractThinkingBlocks()`` and ``createCompletionResponse()`` with thinking parameter.
-- :file:`Classes/Provider/ClaudeProvider.php` -- Native thinking block extraction plus regex fallback.
-- :file:`Classes/Provider/OpenAiProvider.php` -- Regex-based thinking extraction.
-- :file:`Classes/Provider/GeminiProvider.php` -- Regex-based thinking extraction.
+- :file:`Classes/Domain/Model/CompletionResponse.php`
+  -- Added ``thinking`` property and ``hasThinking()``.
+- :file:`Classes/Provider/AbstractProvider.php` --
+  Added ``extractThinkingBlocks()`` and
+  ``createCompletionResponse()`` with thinking
+  parameter.
+- :file:`Classes/Provider/ClaudeProvider.php` -- Native
+  thinking block extraction plus regex fallback.
+- :file:`Classes/Provider/OpenAiProvider.php` --
+  Regex-based thinking extraction.
+- :file:`Classes/Provider/GeminiProvider.php` --
+  Regex-based thinking extraction.
 - :file:`Classes/Provider/OpenRouterProvider.php` -- Inherits OpenAI behavior.
