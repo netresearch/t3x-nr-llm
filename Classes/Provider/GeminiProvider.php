@@ -256,7 +256,7 @@ final class GeminiProvider extends AbstractProvider implements
 
             $embeddingData = $this->getArray($response, 'embedding');
             $values = $this->getArray($embeddingData, 'values');
-            /** @var array<int, float> $floatValues */
+            /** @var array<string, float> $floatValues */
             $floatValues = array_map(fn($v): float => $this->asFloat($v), $values);
             $embeddings[] = $floatValues;
             $totalTokens += strlen($textString) / 4; // Rough token estimate
