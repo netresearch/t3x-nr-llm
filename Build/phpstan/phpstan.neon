@@ -11,9 +11,6 @@
 includes:
   - %currentWorkingDirectory%/.Build/vendor/netresearch/typo3-ci-workflows/config/phpstan/phpstan.neon
   - ../phpstan-baseline.neon
-  # phpat/phpat/extension.neon should be auto-included by phpstan/extension-installer
-  # but CaptainHook failures in worktree setups prevent plugin registration — include explicitly
-  - %currentWorkingDirectory%/.Build/vendor/phpat/phpat/extension.neon
 
 parameters:
   # PHP 8.2 (TYPO3 v13.4 minimum)
@@ -79,6 +76,10 @@ parameters:
     # --- phpstan-phpunit ---
     -
       message: '#Dynamic call to static method PHPUnit\\\\Framework\\\\#'
+      reportUnmatched: false
+    -
+      identifier: staticMethod.dynamicCall
+      path: ../../Tests/*
       reportUnmatched: false
     -
       message: '#Call to static method .* will always evaluate to true#'
