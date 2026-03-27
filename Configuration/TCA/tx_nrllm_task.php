@@ -17,6 +17,7 @@ return [
         'delete' => 'deleted',
         'sortby' => 'sorting',
         'default_sortby' => 'category ASC, sorting ASC, name ASC',
+        'searchFields' => 'identifier,name,description,category',
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],

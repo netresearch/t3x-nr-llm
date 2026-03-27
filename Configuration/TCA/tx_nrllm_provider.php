@@ -17,6 +17,8 @@ return [
         'tstamp' => 'tstamp',
         'crdate' => 'crdate',
         'sortby' => 'sorting',
+        'default_sortby' => 'name ASC',
+        'searchFields' => 'identifier,name,description,adapter_type',
         'delete' => 'deleted',
         'enablecolumns' => [
             'disabled' => 'hidden',
