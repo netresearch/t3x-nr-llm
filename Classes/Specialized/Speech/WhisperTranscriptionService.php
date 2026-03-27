@@ -333,7 +333,7 @@ final class WhisperTranscriptionService
         if ($content === false) {
             throw new ServiceUnavailableException(
                 sprintf('Failed to read audio file: %s', $audioPath),
-                'whisper',
+                'speech',
                 ['audioPath' => $audioPath],
             );
         }

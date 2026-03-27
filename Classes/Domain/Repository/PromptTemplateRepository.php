@@ -54,20 +54,13 @@ class PromptTemplateRepository extends Repository
     }
 
     /**
-     * Find templates by category.
+     * @deprecated Use findByFeature() instead. Will be removed in v1.0.
      *
      * @return QueryResultInterface<int, PromptTemplate>
      */
     public function findByCategory(string $category): QueryResultInterface
     {
-        $query = $this->createQuery();
-        $query->matching(
-            $query->logicalAnd(
-                $query->equals('isActive', true),
-                $query->equals('feature', $category),
-            ),
-        );
-        return $query->execute();
+        return $this->findByFeature($category);
     }
 
     /**
