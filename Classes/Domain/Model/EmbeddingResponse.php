@@ -77,7 +77,7 @@ final readonly class EmbeddingResponse
     {
         $magnitude = sqrt(array_sum(array_map(static fn($x) => $x * $x, $vector)));
 
-        if ($magnitude == 0) {
+        if ($magnitude === 0.0) {
             return $vector;
         }
 
@@ -110,7 +110,7 @@ final readonly class EmbeddingResponse
         $magnitudeA = sqrt($magnitudeA);
         $magnitudeB = sqrt($magnitudeB);
 
-        if ($magnitudeA == 0 || $magnitudeB == 0) {
+        if ($magnitudeA === 0.0 || $magnitudeB === 0.0) {
             return 0.0;
         }
 

@@ -73,10 +73,10 @@ class Task extends AbstractEntity
     protected string $identifier = '';
     protected string $name = '';
     protected string $description = '';
-    protected string $category = self::CATEGORY_GENERAL;
+    protected string $category = TaskCategory::GENERAL->value;
     protected ?LlmConfiguration $configuration = null;
     protected string $promptTemplate = '';
-    protected string $inputType = 'manual';
+    protected string $inputType = TaskInputType::MANUAL->value;
     protected string $inputSource = '';
     protected string $outputFormat = self::OUTPUT_MARKDOWN;
     protected bool $isActive = true;
