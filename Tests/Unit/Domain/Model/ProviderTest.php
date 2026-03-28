@@ -206,7 +206,7 @@ final class ProviderTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function setPriorityClampsTohundredForOverflow(): void
+    public function setPriorityClampsToHundredForOverflow(): void
     {
         $this->subject->setPriority(150);
         self::assertSame(100, $this->subject->getPriority());
