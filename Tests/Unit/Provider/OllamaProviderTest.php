@@ -247,8 +247,8 @@ class OllamaProviderTest extends AbstractUnitTestCase
 
         self::assertTrue($result['success']);
         self::assertStringContainsString('2 models', $result['message']);
-        /** @var array{success: true, message: string, models: array<string, string>} $result */
         self::assertArrayHasKey('models', $result);
+        /** @var array{success: true, message: string, models: array<string, string>} $result */
         self::assertCount(2, $result['models']);
     }
 
@@ -478,7 +478,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
         $result = $subject->testConnection();
 
         self::assertTrue($result['success']);
-        /** @var array{success: true, models: array<string, string>} $result */
+        /** @var array{success: true, message: string, models: array<string, string>} $result */
         self::assertCount(2, $result['models']);
         self::assertArrayNotHasKey('', $result['models']);
     }

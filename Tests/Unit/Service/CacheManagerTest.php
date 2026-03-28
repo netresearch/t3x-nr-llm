@@ -124,7 +124,7 @@ class CacheManagerTest extends AbstractUnitTestCase
 
         $cacheFrontendMock
             ->expects(self::once())
-            ->method('has')
+            ->method('get')
             ->with('test_key')
             ->willReturn(false);
 

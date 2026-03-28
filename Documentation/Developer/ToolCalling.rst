@@ -10,6 +10,14 @@ Tool calling (also known as function calling) allows the LLM to request
 execution of functions you define. The model decides when to call a tool
 based on the conversation context.
 
+.. TODO: Add a sequence diagram showing the tool call flow:
+   App -> LLM: Chat request with tool definitions
+   LLM -> App: Response with tool_calls
+   App -> Function: Execute requested function
+   App -> LLM: Chat request with tool result
+   LLM -> App: Final response incorporating tool output
+   Save as /Images/diagram-tool-calling-flow.png
+
 Defining tools
 ==============
 

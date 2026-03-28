@@ -63,4 +63,5 @@ Consequences
 - ◑ Migration required for existing code.
 - ◑ No array syntax available.
 
-**Net Score:** +5.5 (Strong positive impact - developer experience improvements with backwards compatibility)
+**Net Score:** +5.5 (Strong positive impact - developer
+experience improvements with backwards compatibility)

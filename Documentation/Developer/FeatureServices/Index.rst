@@ -17,9 +17,11 @@ High-level AI services for TYPO3 with prompt engineering and response parsing.
 Overview
 ========
 
-The feature services layer provides domain-specific AI capabilities for TYPO3 extensions.
-Each service wraps the core :php:`LlmServiceManager` with specialized prompts, response parsing,
-and configuration optimized for specific use cases.
+The feature services layer provides domain-specific AI
+capabilities for TYPO3 extensions. Each service wraps
+the core :php:`LlmServiceManager` with specialized
+prompts, response parsing, and configuration optimized
+for specific use cases.
 
 .. _feature-services-architecture:
 

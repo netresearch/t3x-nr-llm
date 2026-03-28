@@ -9,12 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
-use BadMethodCallException;
 use Generator;
 use JsonException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
+use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 
 /**
  * Groq Provider.
@@ -320,6 +320,6 @@ final class GroqProvider extends AbstractProvider implements
      */
     public function embeddings(string|array $input, array $options = []): never
     {
-        throw new BadMethodCallException('Groq does not support embeddings. Use OpenAI or Mistral for embeddings.', 4840547720);
+        throw new UnsupportedFeatureException('Groq does not support embeddings. Use OpenAI or Mistral for embeddings.', 4840547720);
     }
 }

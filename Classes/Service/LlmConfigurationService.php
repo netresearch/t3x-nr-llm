@@ -232,7 +232,7 @@ class LlmConfigurationService implements SingletonInterface
     private function getCurrentUserGroupIds(): array
     {
         try {
-            /** @var array<int> $groupIds */
+            /** @var array<int, int<-2, max>> $groupIds */
             $groupIds = $this->context->getAspect('backend.user')->get('groupIds');
             return $groupIds;
         } catch (AspectNotFoundException) {

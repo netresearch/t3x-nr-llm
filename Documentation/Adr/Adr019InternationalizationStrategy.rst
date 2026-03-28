@@ -15,9 +15,11 @@ ADR-019: Internationalization Strategy
 Context
 =======
 
-The backend module needs multi-language support for all UI elements. Additionally,
-LLM-powered features (test prompts, wizard descriptions) should respect the
-backend user's locale so that responses arrive in the expected language.
+The backend module needs multi-language support for all
+UI elements. Additionally, LLM-powered features (test
+prompts, wizard descriptions) should respect the backend
+user's locale so that responses arrive in the expected
+language.
 
 .. _adr-019-decision:
 
@@ -53,8 +55,9 @@ One XLIFF file per backend module, plus German translations:
 Locale-aware LLM features
 --------------------------
 
-The :php:`TestPromptTrait` resolves the backend user's language and substitutes a
-``{lang}`` placeholder in configurable test prompts:
+The :php:`TestPromptTrait` resolves the backend user's
+language and substitutes a ``{lang}`` placeholder in
+configurable test prompts:
 
 .. code-block:: php
    :caption: TestPromptTrait locale resolution
@@ -77,7 +80,8 @@ Ukrainian, Chinese, Japanese, Korean, Arabic) with English as fallback.
 
 The test prompt text itself is configurable via TYPO3 extension configuration
 (``$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['testing']['testPrompt']``),
-allowing administrators to customize it while preserving the ``{lang}`` placeholder.
+allowing administrators to customize it while preserving
+the ``{lang}`` placeholder.
 
 .. _adr-019-consequences:
 
@@ -107,8 +111,10 @@ Files changed
 **Added:**
 
 - :file:`Resources/Private/Language/locallang.xlf` and ``de.locallang.xlf``
-- :file:`Resources/Private/Language/locallang_tca.xlf` and ``de.locallang_tca.xlf``
-- :file:`Resources/Private/Language/locallang_mod.xlf` and ``de.locallang_mod.xlf``
+- :file:`Resources/Private/Language/locallang_tca.xlf`
+  and ``de.locallang_tca.xlf``
+- :file:`Resources/Private/Language/locallang_mod.xlf`
+  and ``de.locallang_mod.xlf``
 - :file:`Resources/Private/Language/locallang_mod_provider.xlf` and ``de.*``
 - :file:`Resources/Private/Language/locallang_mod_model.xlf` and ``de.*``
 - :file:`Resources/Private/Language/locallang_mod_config.xlf` and ``de.*``

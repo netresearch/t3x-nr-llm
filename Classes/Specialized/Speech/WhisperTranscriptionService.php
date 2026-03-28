@@ -330,6 +330,13 @@ final class WhisperTranscriptionService
         // Add file
         $filename = basename($audioPath);
         $content = file_get_contents($audioPath);
+        if ($content === false) {
+            throw new ServiceUnavailableException(
+                sprintf('Failed to read audio file: %s', $audioPath),
+                'speech',
+                ['audioPath' => $audioPath],
+            );
+        }
         $body .= "--{$boundary}\r\n";
         $body .= "Content-Disposition: form-data; name=\"file\"; filename=\"{$filename}\"\r\n";
         $body .= "Content-Type: application/octet-stream\r\n\r\n";

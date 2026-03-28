@@ -15,7 +15,8 @@ development of the TYPO3 LLM Extension.
 Symbol legend
 =============
 
-Each consequence in the ADRs is marked with severity symbols to indicate impact weight:
+Each consequence in the ADRs is marked with severity
+symbols to indicate impact weight:
 
 +--------+------------------+-------------+
 | Symbol | Meaning          | Weight      |

@@ -9,9 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
-use BadMethodCallException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\GroqProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -278,9 +278,9 @@ class GroqProviderTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function embeddingsThrowsBadMethodCallException(): void
+    public function embeddingsThrowsUnsupportedFeatureException(): void
     {
-        $this->expectException(BadMethodCallException::class);
+        $this->expectException(UnsupportedFeatureException::class);
         $this->expectExceptionMessage('Groq does not support embeddings');
 
         $this->subject->embeddings('Test text');

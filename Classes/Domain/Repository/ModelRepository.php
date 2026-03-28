@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Repository;
 
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use TYPO3\CMS\Extbase\Persistence\QueryInterface;
@@ -95,7 +96,7 @@ class ModelRepository extends Repository
         $query->matching(
             $query->logicalAnd(
                 $query->equals('isActive', true),
-                $query->equals('providerUid', $provider->getUid()),
+                $query->equals('provider', $provider->getUid()),
             ),
         );
         return $query->execute();
@@ -112,7 +113,7 @@ class ModelRepository extends Repository
         $query->matching(
             $query->logicalAnd(
                 $query->equals('isActive', true),
-                $query->equals('providerUid', $providerUid),
+                $query->equals('provider', $providerUid),
             ),
         );
         return $query->execute();
@@ -142,7 +143,7 @@ class ModelRepository extends Repository
      */
     public function findChatModels(): QueryResultInterface
     {
-        return $this->findByCapability(Model::CAPABILITY_CHAT);
+        return $this->findByCapability(ModelCapability::CHAT->value);
     }
 
     /**
@@ -152,7 +153,7 @@ class ModelRepository extends Repository
      */
     public function findEmbeddingModels(): QueryResultInterface
     {
-        return $this->findByCapability(Model::CAPABILITY_EMBEDDINGS);
+        return $this->findByCapability(ModelCapability::EMBEDDINGS->value);
     }
 
     /**
@@ -162,7 +163,7 @@ class ModelRepository extends Repository
      */
     public function findVisionModels(): QueryResultInterface
     {
-        return $this->findByCapability(Model::CAPABILITY_VISION);
+        return $this->findByCapability(ModelCapability::VISION->value);
     }
 
     /**

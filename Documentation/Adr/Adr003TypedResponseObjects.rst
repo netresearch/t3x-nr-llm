@@ -67,4 +67,6 @@ Consequences
 - ✕ Breaking changes require new properties.
 - ◑ Slight memory overhead vs arrays.
 
-**Net Score:** +5.5 (Strong positive impact - type safety and immutability outweigh flexibility limitations)
+**Net Score:** +5.5 (Strong positive impact - type
+safety and immutability outweigh flexibility
+limitations)

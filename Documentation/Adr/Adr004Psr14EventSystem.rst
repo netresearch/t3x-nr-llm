@@ -56,4 +56,5 @@ Consequences
 - ◑ Listener ordering considerations.
 - ◑ Debugging event flow complexity.
 
-**Net Score:** +6.5 (Strong positive impact - standard TYPO3 integration with decoupled extensibility)
+**Net Score:** +6.5 (Strong positive impact - standard
+TYPO3 integration with decoupled extensibility)

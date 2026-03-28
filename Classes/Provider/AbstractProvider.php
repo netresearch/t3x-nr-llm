@@ -229,7 +229,7 @@ abstract class AbstractProvider implements ProviderInterface
                     $decoded = json_decode($body, true);
                     $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => 'Unknown error']];
                     throw new ProviderResponseException(
-                        $this->extractErrorMessage($error),
+                        $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
                         $statusCode,
                     );
                 }
@@ -252,7 +252,7 @@ abstract class AbstractProvider implements ProviderInterface
 
         throw new ProviderConnectionException(
             'Failed to connect to provider after ' . $this->maxRetries . ' attempts: '
-            . ($lastException?->getMessage() ?? 'Unknown error'),
+            . $this->sanitizeErrorMessage($lastException?->getMessage() ?? 'Unknown error'),
             0,
             $lastException,
         );
@@ -261,6 +261,22 @@ abstract class AbstractProvider implements ProviderInterface
     protected function addProviderSpecificHeaders(RequestInterface $request): RequestInterface
     {
         return $request;
+    }
+
+    /**
+     * Sanitize error messages to prevent leaking secrets (API keys in URLs, headers, etc.).
+     *
+     * HTTP client exceptions may include full URLs with query parameters containing API keys
+     * (e.g., Gemini's ?key=... pattern). This strips sensitive query parameters.
+     */
+    protected function sanitizeErrorMessage(string $message): string
+    {
+        // Strip query parameters that may contain API keys from URLs in the message
+        return (string)preg_replace(
+            '/([?&])(key|api_key|apikey|token|secret|access_token)=[^&\s]+/i',
+            '$1$2=***',
+            $message,
+        );
     }
 
     /**

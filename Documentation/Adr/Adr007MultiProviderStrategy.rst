@@ -67,4 +67,5 @@ Consequences
 - ◑ All providers instantiated.
 - ◑ Configuration complexity.
 
-**Net Score:** +5.5 (Strong positive impact - flexible multi-provider support with minor overhead)
+**Net Score:** +5.5 (Strong positive impact - flexible
+multi-provider support with minor overhead)

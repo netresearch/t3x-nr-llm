@@ -964,7 +964,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             ];
         }
 
-        /** @var array{totalModels: int, activeModels: int} $stat */
+        /** @var array{totalModels: int<0, max>, activeModels: int<0, max>} $stat */
         foreach ($stats as $stat) {
             self::assertGreaterThanOrEqual(0, $stat['totalModels']);
             self::assertLessThanOrEqual($stat['totalModels'], $stat['activeModels']);

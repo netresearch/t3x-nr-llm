@@ -32,9 +32,9 @@ return (new Config())
     ->setRules([
         '@PER-CS' => true,
         '@PER-CS:risky' => true,
-        '@PHP82Migration' => true,
-        '@PHP80Migration:risky' => true,
-        '@PHPUnit100Migration:risky' => true,
+        '@PHP8x2Migration' => true,
+        '@PHP8x0Migration:risky' => true,
+        '@PHPUnit10x0Migration:risky' => true,
 
         // TYPO3-specific rules
         'array_syntax' => ['syntax' => 'short'],
@@ -42,7 +42,7 @@ return (new Config())
         'cast_spaces' => ['space' => 'none'],
         'concat_space' => ['spacing' => 'one'],
         'declare_strict_types' => true,
-        'function_typehint_space' => true,
+        'type_declaration_spaces' => true,
         'global_namespace_import' => [
             'import_classes' => true,
             'import_constants' => false,

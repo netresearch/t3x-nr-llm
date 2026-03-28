@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
-use Exception;
 use Generator;
 use JsonException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
@@ -18,7 +17,10 @@ use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
-use Netresearch\NrLlm\Provider\Exception\ProviderException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Throwable;
 
 /**
  * OpenRouter Provider.
@@ -211,7 +213,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             /** @var array<string, array{name: string, context_length: int, pricing: array{prompt: float, completion: float}, capabilities: array{vision: bool, function_calling: bool}, provider: string}> $models */
             $this->cachedModels = $models;
             return $models;
-        } catch (Exception) {
+        } catch (Throwable) {
             // Return empty array on failure, static list still available via getAvailableModels()
             return [];
         }
@@ -419,8 +421,8 @@ final class OpenRouterProvider extends AbstractProvider implements
         foreach ($data as $item) {
             $itemArray = $this->asArray($item);
             $embedding = $this->getArray($itemArray, 'embedding');
-            /** @var array<int, float> $floatEmbedding */
-            $floatEmbedding = array_map(fn($v): float => $this->asFloat($v), $embedding);
+            /** @var list<float> $floatEmbedding */
+            $floatEmbedding = array_values(array_map(fn($v): float => $this->asFloat($v), $embedding));
             $embeddings[] = $floatEmbedding;
         }
 
@@ -826,18 +828,32 @@ final class OpenRouterProvider extends AbstractProvider implements
         /** @var array<string, mixed> $decodedArray */
         $decodedArray = is_array($decoded) ? $decoded : [];
         $error = $this->getArray($decodedArray, 'error');
-        $message = $this->getString($error, 'message', 'Unknown OpenRouter API error');
+        $rawMessage = $this->getString($error, 'message', 'Unknown OpenRouter API error');
+        // Sanitize the error message to prevent leaking sensitive data from raw API responses
+        $message = $this->sanitizeErrorMessage($rawMessage);
 
-        $errorMessage = match ($statusCode) {
-            400 => "Bad request: {$message}",
-            401 => 'Invalid OpenRouter API key',
-            402 => 'Insufficient OpenRouter credits',
-            403 => 'Forbidden',
-            429 => 'Rate limit exceeded',
-            503 => 'Model or provider unavailable',
-            default => "OpenRouter API error ({$statusCode}): {$message}",
+        match ($statusCode) {
+            401 => throw new ProviderConfigurationException(
+                'Invalid OpenRouter API key',
+                $statusCode,
+            ),
+            402 => throw new ProviderConfigurationException(
+                'Insufficient OpenRouter credits',
+                $statusCode,
+            ),
+            429, 503 => throw new ProviderConnectionException(
+                match ($statusCode) {
+                    429 => 'Rate limit exceeded',
+                    503 => 'Model or provider unavailable',
+                },
+                $statusCode,
+            ),
+            default => throw new ProviderResponseException(
+                $statusCode >= 400 && $statusCode < 500
+                    ? "Bad request: {$message}"
+                    : "OpenRouter API error ({$statusCode}): {$message}",
+                $statusCode,
+            ),
         };
-
-        throw new ProviderException($errorMessage, $statusCode);
     }
 }

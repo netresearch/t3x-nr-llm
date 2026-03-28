@@ -23,7 +23,7 @@ extensions can execute with a single call.
 .. _administration-tasks-add:
 
 Adding a task manually
-----------------------
+======================
 
 1. Navigate to :guilabel:`Admin Tools > LLM >
    Tasks`.
@@ -47,7 +47,7 @@ Adding a task manually
 .. _administration-tasks-execute:
 
 Executing a task
-----------------
+================
 
 Click :guilabel:`Run` on any task to open the
 execution form. It shows the configuration, model,

@@ -23,8 +23,9 @@ ADR-012: API key encryption at application level
 Context
 =======
 
-The nr_llm extension stores API keys for various LLM providers (OpenAI, Anthropic, etc.)
-in the database. These credentials are sensitive and require protection.
+The nr_llm extension stores API keys for various LLM
+providers (OpenAI, Anthropic, etc.) in the database.
+These credentials are sensitive and require protection.
 
 .. _adr-012-problem-statement:
 
@@ -33,10 +34,14 @@ Problem statement
 
 TYPO3's TCA :php:`type=password` field has two modes:
 
-1. **Hashed mode (default):** Uses bcrypt/argon2 - irreversible, suitable for user passwords
-2. **Unhashed mode (hashed => false):** Stores plaintext - required for API keys that must be retrieved
+1. **Hashed mode (default):** Uses bcrypt/argon2 -
+   irreversible, suitable for user passwords
+2. **Unhashed mode (hashed => false):** Stores
+   plaintext - required for API keys that must be
+   retrieved
 
-API keys must be retrievable to authenticate with external services, so hashing is not an option.
+API keys must be retrievable to authenticate with
+external services, so hashing is not an option.
 However, storing them in plaintext exposes them to:
 
 - Database dumps/backups
@@ -61,8 +66,9 @@ Requirements
 Decision
 ========
 
-Implement application-level encryption using **sodium_crypto_secretbox** (XSalsa20-Poly1305)
-with key derivation from TYPO3's encryptionKey.
+Implement application-level encryption using
+**sodium_crypto_secretbox** (XSalsa20-Poly1305) with
+key derivation from TYPO3's encryptionKey.
 
 .. _adr-012-architecture:
 
@@ -191,9 +197,11 @@ Positive
 Negative
 --------
 
-◑ **Single point of failure:** If encryptionKey is compromised, all keys are exposed.
+◑ **Single point of failure:** If encryptionKey is
+compromised, all keys are exposed.
 
-◑ **No key rotation:** Changing encryptionKey requires re-encryption of all keys.
+◑ **No key rotation:** Changing encryptionKey requires
+re-encryption of all keys.
 
 ◑ **In-memory exposure:** Decrypted keys exist briefly in memory.
 
@@ -207,7 +215,8 @@ Alternatives considered
 =======================
 
 1. TYPO3 Core password type with custom transformer.
-   **Rejected:** TCA doesn't support custom encryption transformers for password fields.
+   **Rejected:** TCA doesn't support custom encryption
+   transformers for password fields.
 
 2. Defuse PHP Encryption library.
    **Rejected:** Adds external dependency. Sodium is built into PHP 7.2+.
@@ -216,10 +225,12 @@ Alternatives considered
    **Rejected:** Sodium's API is simpler and less prone to misuse.
 
 4. Database-level encryption (TDE).
-   **Rejected:** Requires database configuration, not portable across environments.
+   **Rejected:** Requires database configuration, not
+   portable across environments.
 
 5. External vault (HashiCorp, AWS KMS).
-   **Deferred:** Planned for nr-vault extension. Current solution works standalone.
+   **Deferred:** Planned for nr-vault extension. Current
+   solution works standalone.
 
 .. _adr-012-references:
 

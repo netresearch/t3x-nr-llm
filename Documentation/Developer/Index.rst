@@ -217,7 +217,8 @@ Events
 Best practices
 ==============
 
-1. **Use feature services** for common tasks instead of raw :php:`LlmServiceManager`.
+1. **Use feature services** for common tasks instead of
+   raw :php:`LlmServiceManager`.
 2. **Enable caching** for deterministic operations like embeddings.
 3. **Handle errors** gracefully with proper try-catch blocks.
 4. **Sanitize input** before sending to LLM providers.

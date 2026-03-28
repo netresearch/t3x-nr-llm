@@ -43,8 +43,10 @@ Implement an AI-powered wizard system with three wizard types:
    configure, save). Five-step flow driven by
    :file:`Resources/Public/JavaScript/Backend/SetupWizard.js`.
 
-2. **Configuration Wizard** -- Takes a natural-language description and generates
-   a structured :php:`LlmConfiguration` via :php:`WizardGeneratorService::generateConfiguration()`.
+2. **Configuration Wizard** -- Takes a natural-language
+   description and generates a structured
+   :php:`LlmConfiguration` via
+   :php:`WizardGeneratorService::generateConfiguration()`.
 
 3. **Task Wizard** -- Takes a natural-language description and generates a
    complete task chain (task + configuration + model recommendation) via
@@ -63,12 +65,21 @@ Graceful fallback when no LLM is available:
 
 Key architectural components:
 
-- :php:`SetupWizardController` -- AJAX endpoints for detect, test, discover, generate, save.
-- :php:`WizardGeneratorService` -- LLM-powered generation with JSON parsing and normalization.
-- :php:`ModelDiscovery` / :php:`ModelDiscoveryInterface` -- Provider-specific model listing.
-- :php:`ProviderDetector` -- Endpoint URL pattern matching for adapter type detection.
-- :php:`ConfigurationGenerator` -- LLM-powered configuration preset generation.
-- DTOs: :php:`DetectedProvider`, :php:`DiscoveredModel`, :php:`SuggestedConfiguration`, :php:`WizardResult`.
+- :php:`SetupWizardController` -- AJAX endpoints for
+  detect, test, discover, generate, save.
+- :php:`WizardGeneratorService` -- LLM-powered
+  generation with JSON parsing and normalization.
+- :php:`ModelDiscovery` /
+  :php:`ModelDiscoveryInterface` -- Provider-specific
+  model listing.
+- :php:`ProviderDetector` -- Endpoint URL pattern
+  matching for adapter type detection.
+- :php:`ConfigurationGenerator` -- LLM-powered
+  configuration preset generation.
+- DTOs: :php:`DetectedProvider`,
+  :php:`DiscoveredModel`,
+  :php:`SuggestedConfiguration`,
+  :php:`WizardResult`.
 
 .. _adr-014-consequences:
 

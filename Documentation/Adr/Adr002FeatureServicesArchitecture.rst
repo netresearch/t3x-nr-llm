@@ -58,4 +58,5 @@ Consequences
 - ◑ Potential duplication with manager methods.
 - ◑ Learning curve for service selection.
 
-**Net Score:** +6.5 (Strong positive impact - services provide high-level abstractions with best practices)
+**Net Score:** +6.5 (Strong positive impact - services
+provide high-level abstractions with best practices)

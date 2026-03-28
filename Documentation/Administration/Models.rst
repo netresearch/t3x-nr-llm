@@ -22,7 +22,7 @@ through a provider (e.g., ``gpt-5``,
 .. _administration-models-add:
 
 Adding a model manually
------------------------
+=======================
 
 1. Navigate to :guilabel:`Admin Tools > LLM >
    Models`.
@@ -53,7 +53,7 @@ Adding a model manually
 .. _administration-models-fetch:
 
 Fetching models from a provider
--------------------------------
+===============================
 
 Instead of adding models manually, use the
 :guilabel:`Fetch Models` action to query the

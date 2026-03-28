@@ -26,6 +26,8 @@ use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
  */
 class LlmConfiguration extends AbstractEntity
 {
+    private const DEFAULT_TIMEOUT = 120;
+
     protected string $identifier = '';
     protected string $name = '';
     protected string $description = '';
@@ -240,7 +242,7 @@ class LlmConfiguration extends AbstractEntity
         if ($this->llmModel !== null) {
             return $this->llmModel->getDefaultTimeout();
         }
-        return 120; // fallback default
+        return self::DEFAULT_TIMEOUT;
     }
 
     public function getOptions(): string

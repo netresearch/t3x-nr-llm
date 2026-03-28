@@ -771,7 +771,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             '400 bad request' => [400, 'Bad request'],
             '401 unauthorized' => [401, 'Invalid OpenRouter API key'],
             '402 payment required' => [402, 'Insufficient OpenRouter credits'],
-            '403 forbidden' => [403, 'Forbidden'],
+            '403 forbidden' => [403, 'Bad request'],
             '429 rate limit' => [429, 'Rate limit exceeded'],
             '503 service unavailable' => [503, 'Model or provider unavailable'],
             '500 generic error' => [500, 'OpenRouter API error'],

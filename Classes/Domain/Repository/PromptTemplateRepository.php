@@ -22,7 +22,7 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
 class PromptTemplateRepository extends Repository
 {
     protected $defaultOrderings = [
-        'name' => QueryInterface::ORDER_ASCENDING,
+        'title' => QueryInterface::ORDER_ASCENDING,
     ];
 
     /**
@@ -54,20 +54,13 @@ class PromptTemplateRepository extends Repository
     }
 
     /**
-     * Find templates by category.
+     * @deprecated Use findByFeature() instead. Will be removed in v1.0.
      *
      * @return QueryResultInterface<int, PromptTemplate>
      */
     public function findByCategory(string $category): QueryResultInterface
     {
-        $query = $this->createQuery();
-        $query->matching(
-            $query->logicalAnd(
-                $query->equals('isActive', true),
-                $query->equals('category', $category),
-            ),
-        );
-        return $query->execute();
+        return $this->findByFeature($category);
     }
 
     /**
@@ -92,11 +85,16 @@ class PromptTemplateRepository extends Repository
      */
     public function findVariant(string $parentIdentifier, string $variantName): ?PromptTemplate
     {
+        $parent = $this->findOneByIdentifier($parentIdentifier);
+        if ($parent === null || $parent->getUid() === null) {
+            return null;
+        }
+
         $query = $this->createQuery();
         $query->matching(
             $query->logicalAnd(
-                $query->equals('parentIdentifier', $parentIdentifier),
-                $query->equals('variantName', $variantName),
+                $query->equals('parentUid', $parent->getUid()),
+                $query->equals('identifier', $variantName),
             ),
         );
         /** @var PromptTemplate|null $result */

@@ -189,16 +189,11 @@ class EmbeddingService
         $similarities = [];
 
         for ($i = 0; $i < $count; $i++) {
-            $similarities[$i] = [];
-            for ($j = 0; $j < $count; $j++) {
-                if ($i === $j) {
-                    $similarities[$i][$j] = 1.0;
-                } else {
-                    $similarities[$i][$j] = $this->cosineSimilarity(
-                        $vectors[$i],
-                        $vectors[$j],
-                    );
-                }
+            $similarities[$i][$i] = 1.0;
+            for ($j = $i + 1; $j < $count; $j++) {
+                $score = $this->cosineSimilarity($vectors[$i], $vectors[$j]);
+                $similarities[$i][$j] = $score;
+                $similarities[$j][$i] = $score;
             }
         }
 

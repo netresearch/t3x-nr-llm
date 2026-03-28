@@ -23,7 +23,7 @@ configurations by identifier in their code.
 .. _administration-configurations-add:
 
 Adding a configuration manually
--------------------------------
+===============================
 
 1. Navigate to :guilabel:`Admin Tools > LLM >
    Configurations`.
@@ -60,7 +60,7 @@ Adding a configuration manually
 .. _administration-configurations-test:
 
 Testing a configuration
------------------------
+=======================
 
 Click :guilabel:`Test Configuration` on any row.
 The test sends a short prompt to the model and shows
@@ -77,7 +77,7 @@ the response, model ID, and token usage.
 .. _administration-configurations-edit:
 
 Editing configurations
-----------------------
+======================
 
 Click a configuration row to edit. Changes take
 effect immediately for any extension code that

@@ -59,4 +59,6 @@ Consequences
 - ◑ Storage requirements.
 - ✕ Stale responses if TTL too long.
 
-**Net Score:** +4.5 (Positive impact - significant cost/performance gains with manageable cache complexity)
+**Net Score:** +4.5 (Positive impact - significant
+cost/performance gains with manageable cache
+complexity)

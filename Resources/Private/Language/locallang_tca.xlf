@@ -308,6 +308,10 @@
                 <source>Connection Settings</source>
             </trans-unit>
 
+            <trans-unit id="palette.request">
+                <source>Request Settings</source>
+            </trans-unit>
+
             <trans-unit id="palette.advanced">
                 <source>Advanced Settings</source>
             </trans-unit>

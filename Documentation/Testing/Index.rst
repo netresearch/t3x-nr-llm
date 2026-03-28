@@ -8,6 +8,12 @@ Testing guide
 
 Comprehensive testing guide for the TYPO3 LLM extension.
 
+.. TODO: Add a CI pipeline diagram showing:
+   Push/MR -> Lint (PHP-CS-Fixer, PHPStan) -> Unit Tests
+   -> Functional Tests -> Integration Tests -> E2E Tests
+   -> Coverage Report. Show TYPO3 v13/v14 matrix.
+   Save as /Images/diagram-ci-pipeline.png
+
 .. _testing-overview:
 
 Overview

@@ -258,18 +258,7 @@ class PromptTemplateService
             $template,
         );
 
-        // Conditional sections: {{#if variable}}...{{/if}}
-        $result = preg_replace_callback(
-            '/\{\{#if (\w+)\}\}(.*?)\{\{\/if\}\}/s',
-            function ($matches) use ($variables) {
-                $key = $matches[1];
-                $content = $matches[2];
-                return !empty($variables[$key]) ? $content : '';
-            },
-            (string)$result,
-        );
-
-        // Conditional else: {{#if variable}}...{{else}}...{{/if}}
+        // Conditional with else: {{#if variable}}...{{else}}...{{/if}} (must be processed before simple if)
         $result = preg_replace_callback(
             '/\{\{#if (\w+)\}\}(.*?)\{\{else\}\}(.*?)\{\{\/if\}\}/s',
             function ($matches) use ($variables) {
@@ -277,6 +266,17 @@ class PromptTemplateService
                 $ifContent = $matches[2];
                 $elseContent = $matches[3];
                 return !empty($variables[$key]) ? $ifContent : $elseContent;
+            },
+            (string)$result,
+        );
+
+        // Conditional sections: {{#if variable}}...{{/if}}
+        $result = preg_replace_callback(
+            '/\{\{#if (\w+)\}\}(.*?)\{\{\/if\}\}/s',
+            function ($matches) use ($variables) {
+                $key = $matches[1];
+                $content = $matches[2];
+                return !empty($variables[$key]) ? $content : '';
             },
             (string)$result,
         );

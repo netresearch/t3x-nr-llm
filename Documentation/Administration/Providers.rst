@@ -22,7 +22,7 @@ credentials, and adapter-specific settings.
 .. _administration-providers-add:
 
 Adding a provider
------------------
+=================
 
 1. Navigate to :guilabel:`Admin Tools > LLM >
    Providers`.
@@ -64,7 +64,7 @@ Adding a provider
 .. _administration-providers-test:
 
 Testing a connection
---------------------
+====================
 
 After saving a provider, click
 :guilabel:`Test Connection` to verify the setup.
@@ -88,7 +88,7 @@ and reports:
 .. _administration-providers-edit:
 
 Editing and deleting providers
-------------------------------
+==============================
 
 - Click a provider row to edit its settings.
 - Use the :guilabel:`Delete` action to remove a

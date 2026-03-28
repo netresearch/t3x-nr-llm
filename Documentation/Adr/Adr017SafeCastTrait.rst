@@ -26,10 +26,15 @@ guards, leading to repetitive boilerplate.
 Problem statement
 -----------------
 
-1. **PHPStan level 10 strictness:** ``(string)$data['key']`` is forbidden on ``mixed``.
-2. **Verbose alternatives:** ``is_string($v) ? $v : (is_numeric($v) ? (string)$v : '')`` at every call site.
-3. **Inconsistent defaults:** Different code paths used different fallback values.
-4. **Suppression temptation:** Teams resort to ``@phpstan-ignore`` instead of proper narrowing.
+1. **PHPStan level 10 strictness:**
+   ``(string)$data['key']`` is forbidden on ``mixed``.
+2. **Verbose alternatives:**
+   ``is_string($v) ? $v : (is_numeric($v) ? (string)$v : '')``
+   at every call site.
+3. **Inconsistent defaults:** Different code paths used
+   different fallback values.
+4. **Suppression temptation:** Teams resort to
+   ``@phpstan-ignore`` instead of proper narrowing.
 
 .. _adr-017-decision:
 
@@ -62,10 +67,14 @@ Extract a reusable :php:`SafeCastTrait` with three static methods that handle
 
 Design choices:
 
-- **Static methods** -- No instance state needed; enables ``self::toStr()`` calls.
-- **Private visibility** -- Implementation detail of the using class, not public API.
-- **Numeric passthrough** -- ``is_numeric()`` covers int, float, and numeric strings.
-- **Empty-string default** -- Safer than ``null`` for string contexts (concatenation, comparison).
+- **Static methods** -- No instance state needed;
+  enables ``self::toStr()`` calls.
+- **Private visibility** -- Implementation detail of
+  the using class, not public API.
+- **Numeric passthrough** -- ``is_numeric()`` covers
+  int, float, and numeric strings.
+- **Empty-string default** -- Safer than ``null`` for
+  string contexts (concatenation, comparison).
 - **Zero default** for int/float -- Neutral value for arithmetic operations.
 
 Complements the :php:`ResponseParserTrait` in :file:`Classes/Provider/` which
@@ -96,7 +105,8 @@ Consequences
 
 **Negative:**
 
-- ◑ Trait usage adds an indirect dependency (mitigated by being a small utility).
+- ◑ Trait usage adds an indirect dependency (mitigated
+  by being a small utility).
 - ◑ ``is_numeric()`` accepts numeric strings like ``"1e2"`` which may surprise.
 
 **Net Score:** +4.5 (Positive)
@@ -112,5 +122,7 @@ Files changed
 
 **Modified (consumers):**
 
-- :file:`Classes/Service/WizardGeneratorService.php` -- Uses :php:`SafeCastTrait` for JSON normalization.
-- :file:`Classes/Controller/Backend/TaskController.php` -- Uses :php:`SafeCastTrait` for form data casting.
+- :file:`Classes/Service/WizardGeneratorService.php` --
+  Uses :php:`SafeCastTrait` for JSON normalization.
+- :file:`Classes/Controller/Backend/TaskController.php`
+  -- Uses :php:`SafeCastTrait` for form data casting.

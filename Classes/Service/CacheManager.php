@@ -51,13 +51,9 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     public function get(string $cacheKey): ?array
     {
         $cache = $this->getCache();
-
-        if (!$cache->has($cacheKey)) {
-            return null;
-        }
-
         $data = $cache->get($cacheKey);
-        if (!is_array($data)) {
+
+        if ($data === false || !is_array($data)) {
             return null;
         }
         /** @var array<string, mixed> $data */

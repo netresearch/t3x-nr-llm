@@ -28,6 +28,22 @@ services:
   Netresearch\NrLlm\Service\LlmServiceManager:
     public: true
 
+  Netresearch\NrLlm\Service\LlmServiceManagerInterface:
+    alias: Netresearch\NrLlm\Service\LlmServiceManager
+    public: true
+
+  Netresearch\NrLlm\Service\CacheManagerInterface:
+    alias: Netresearch\NrLlm\Service\CacheManager
+    public: true
+
+  Netresearch\NrLlm\Service\UsageTrackerServiceInterface:
+    alias: Netresearch\NrLlm\Service\UsageTrackerService
+    public: true
+
+  Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface:
+    alias: Netresearch\NrLlm\Specialized\Translation\TranslatorRegistry
+    public: true
+
   # ========================================
   # Providers (PUBLIC)
   # ========================================

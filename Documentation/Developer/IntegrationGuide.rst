@@ -22,7 +22,8 @@ Why build on nr-llm?
 When your extension calls an LLM API directly, it takes on responsibility for:
 
 - HTTP client setup, authentication, and error handling per provider
-- Secure API key storage (not in :file:`ext_conf_template.txt` or :php:`$GLOBALS`)
+- Secure API key storage (not in
+  :file:`ext_conf_template.txt` or :php:`$GLOBALS`)
 - Response caching to control costs
 - Streaming implementation for real-time UX
 - A configuration UI for administrators
@@ -273,10 +274,12 @@ Integration checklist
 
 2. **ext_emconf.php** — Added ``nr_llm`` to ``depends`` constraints
 
-3. **Services** — Inject :php:`LlmServiceManagerInterface` or feature services via DI
+3. **Services** — Inject :php:`LlmServiceManagerInterface`
+   or feature services via DI
 
 4. **Error handling** — Catch typed exceptions and show user-friendly messages
 
 5. **Testing** — Mock :php:`LlmServiceManagerInterface` in unit tests
 
-6. **Documentation** — Tell your users they need to configure a provider in Admin Tools > LLM
+6. **Documentation** — Tell your users they need to
+   configure a provider in Admin Tools > LLM

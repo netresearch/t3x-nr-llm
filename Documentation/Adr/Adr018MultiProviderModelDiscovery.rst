@@ -28,16 +28,20 @@ Problem statement
 
 1. **Heterogeneous APIs:** No standard protocol for model listing.
 2. **Authentication variance:** Bearer tokens, API key headers, URL parameters.
-3. **Response format divergence:** Each provider returns different JSON structures.
-4. **Offline providers:** Some providers (Anthropic, Azure) lack public model list APIs.
-5. **Endpoint normalization:** Users enter URLs with/without trailing slashes, versions, schemes.
+3. **Response format divergence:** Each provider returns
+   different JSON structures.
+4. **Offline providers:** Some providers (Anthropic,
+   Azure) lack public model list APIs.
+5. **Endpoint normalization:** Users enter URLs
+   with/without trailing slashes, versions, schemes.
 
 .. _adr-018-decision:
 
 Decision
 ========
 
-Abstract model discovery behind :php:`ModelDiscoveryInterface` with two operations:
+Abstract model discovery behind
+:php:`ModelDiscoveryInterface` with two operations:
 
 .. code-block:: php
    :caption: ModelDiscoveryInterface contract
@@ -74,14 +78,20 @@ Key design elements:
 
 - **API-driven discovery** for providers with listing endpoints (OpenAI, Ollama,
   Mistral, Groq, OpenRouter, Gemini).
-- **Static fallback catalogs** for providers without listing endpoints (Anthropic,
-  Azure, unknown). Maintained with current model information.
-- **Provider detection** via :php:`ProviderDetector` using URL pattern matching
-  with confidence scores (1.0 for exact match, 0.3 for unknown).
-- **Normalized DTOs:** :php:`DiscoveredModel` unifies model metadata across providers
-  (modelId, name, capabilities, contextLength, costs, recommended flag).
-- **Authentication dispatch:** Per-provider header format (``Authorization: Bearer``,
-  ``x-api-key``, ``x-goog-api-key``, none for Ollama).
+- **Static fallback catalogs** for providers without
+  listing endpoints (Anthropic, Azure, unknown).
+  Maintained with current model information.
+- **Provider detection** via :php:`ProviderDetector`
+  using URL pattern matching with confidence scores
+  (1.0 for exact match, 0.3 for unknown).
+- **Normalized DTOs:** :php:`DiscoveredModel` unifies
+  model metadata across providers (modelId, name,
+  capabilities, contextLength, costs, recommended
+  flag).
+- **Authentication dispatch:** Per-provider header
+  format (``Authorization: Bearer``,
+  ``x-api-key``, ``x-goog-api-key``, none for
+  Ollama).
 
 .. _adr-018-detection:
 

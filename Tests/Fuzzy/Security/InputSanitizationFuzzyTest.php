@@ -55,7 +55,6 @@ class InputSanitizationFuzzyTest extends AbstractFuzzyTestCase
     #[Test]
     public function configurationHandlesControlCharacters(): void
     {
-        /** @var list<string> $controlChars */
         $controlChars = array_map('chr', range(0, 31));
 
         $this

@@ -394,6 +394,11 @@
                 <target>Verbindungseinstellungen</target>
             </trans-unit>
 
+            <trans-unit id="palette.request">
+                <source>Request Settings</source>
+                <target>Anfrage-Einstellungen</target>
+            </trans-unit>
+
             <trans-unit id="palette.advanced">
                 <source>Advanced Settings</source>
                 <target>Erweiterte Einstellungen</target>
