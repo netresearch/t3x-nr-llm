@@ -169,7 +169,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             ]);
 
             $rawEmbedding = $this->getList($response, 'embedding');
-            $embedding = array_values(array_map(fn(mixed $v): float => (float) $v, $rawEmbedding));
+            $embedding = array_values(array_map(fn(mixed $v): float => (float)$v, $rawEmbedding));
             $embeddings[] = $embedding;
             $totalTokens += $this->getInt($response, 'prompt_eval_count', 0);
         }
