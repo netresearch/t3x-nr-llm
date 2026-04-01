@@ -407,17 +407,19 @@ final class ModelControllerTest extends TestCase
                     unset($this->items[$offset]);
                 }
             }
-            public function current(): mixed
+            public function current(): object
             {
-                return current($this->items);
+                $current = current($this->items);
+                assert($current !== false);
+                return $current;
             }
             public function next(): void
             {
                 next($this->items);
             }
-            public function key(): mixed
+            public function key(): int
             {
-                return key($this->items);
+                return (int)key($this->items);
             }
             public function valid(): bool
             {
