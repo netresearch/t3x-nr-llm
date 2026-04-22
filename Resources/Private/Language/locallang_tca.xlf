@@ -17,6 +17,9 @@
             <trans-unit id="tab.access">
                 <source>Access Control</source>
             </trans-unit>
+            <trans-unit id="tab.fallback">
+                <source>Fallback Chain</source>
+            </trans-unit>
 
             <!-- Palettes -->
             <trans-unit id="palette.identity">
@@ -147,6 +150,13 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.max_cost_per_day.description">
                 <source>Daily cost limit in dollars (0.00 = unlimited)</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_configuration.fallback_chain">
+                <source>Fallback Chain</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.fallback_chain.description">
+                <source>Ordered list of configuration identifiers to retry against when the primary fails with a connection error, 5xx, or 429. JSON format: {"configurationIdentifiers":["claude-sonnet","ollama-local"]}. Leave empty to disable fallback. Does not apply to streaming requests.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.is_active">

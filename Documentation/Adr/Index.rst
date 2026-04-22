@@ -253,3 +253,4 @@ Modern architecture (v0.4+)
    Adr018MultiProviderModelDiscovery
    Adr019InternationalizationStrategy
    Adr020BackendOutputFormatRendering
+   Adr021ProviderFallbackChain
