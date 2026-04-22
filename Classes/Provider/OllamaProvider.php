@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Provider;
 
 use Generator;
 use JsonException;
+use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
@@ -24,6 +25,7 @@ use Throwable;
  *
  * @see https://ollama.com/
  */
+#[AsLlmProvider(priority: 40)]
 final class OllamaProvider extends AbstractProvider implements StreamingCapableInterface
 {
     /** @var array<string> */

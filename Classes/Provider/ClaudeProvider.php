@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Provider;
 
 use Generator;
 use JsonException;
+use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
@@ -23,6 +24,7 @@ use Netresearch\NrVault\Http\SecretPlacement;
 use Psr\Http\Message\RequestInterface;
 use stdClass;
 
+#[AsLlmProvider(priority: 90)]
 final class ClaudeProvider extends AbstractProvider implements
     VisionCapableInterface,
     DocumentCapableInterface,

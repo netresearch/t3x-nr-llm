@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Provider;
 
 use Generator;
 use JsonException;
+use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
@@ -37,6 +38,7 @@ use Throwable;
  *
  * @see https://openrouter.ai/docs
  */
+#[AsLlmProvider(priority: 70)]
 final class OpenRouterProvider extends AbstractProvider implements
     VisionCapableInterface,
     StreamingCapableInterface,

@@ -9,9 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\DependencyInjection;
 
+use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\DependencyInjection\ProviderCompilerPass;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\DependencyInjection\Fixture\AttributeTaggedProvider;
+use Netresearch\NrLlm\Tests\Unit\DependencyInjection\Fixture\HighPriorityAttributeProvider;
+use Netresearch\NrLlm\Tests\Unit\DependencyInjection\Fixture\UntaggedService;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -229,5 +233,109 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
 
         $compilerPass = new ProviderCompilerPass();
         $compilerPass->process($containerMock);
+    }
+
+    // ──────────────────────────────────────────────
+    // Attribute-based auto-tagging (#[AsLlmProvider])
+    // ──────────────────────────────────────────────
+
+    #[Test]
+    public function autoTagsClassesCarryingTheAttribute(): void
+    {
+        $container = new ContainerBuilder();
+        $container->setDefinition(LlmServiceManager::class, new Definition(LlmServiceManager::class));
+        $container->setDefinition('provider.attr', new Definition(AttributeTaggedProvider::class));
+
+        (new ProviderCompilerPass())->process($container);
+
+        $definition = $container->getDefinition('provider.attr');
+        self::assertTrue($definition->hasTag(AsLlmProvider::TAG_NAME));
+
+        $tags = $definition->getTag(AsLlmProvider::TAG_NAME);
+        self::assertCount(1, $tags);
+        self::assertSame(42, $tags[0]['priority'] ?? null);
+    }
+
+    #[Test]
+    public function attributeTaggedProvidersAreMadePublic(): void
+    {
+        $container = new ContainerBuilder();
+        $container->setDefinition(LlmServiceManager::class, new Definition(LlmServiceManager::class));
+        $definition = $container->setDefinition('provider.attr', new Definition(AttributeTaggedProvider::class));
+        self::assertFalse($definition->isPublic());
+
+        (new ProviderCompilerPass())->process($container);
+
+        self::assertTrue($container->getDefinition('provider.attr')->isPublic());
+    }
+
+    #[Test]
+    public function servicesWithoutTheAttributeAreNotTagged(): void
+    {
+        $container = new ContainerBuilder();
+        $container->setDefinition(LlmServiceManager::class, new Definition(LlmServiceManager::class));
+        $container->setDefinition('some.service', new Definition(UntaggedService::class));
+
+        (new ProviderCompilerPass())->process($container);
+
+        self::assertFalse(
+            $container->getDefinition('some.service')->hasTag(AsLlmProvider::TAG_NAME),
+        );
+    }
+
+    #[Test]
+    public function existingYamlTagIsNotDuplicatedByAttributePass(): void
+    {
+        $container = new ContainerBuilder();
+        $container->setDefinition(LlmServiceManager::class, new Definition(LlmServiceManager::class));
+
+        $definition = new Definition(AttributeTaggedProvider::class);
+        $definition->addTag(AsLlmProvider::TAG_NAME, ['priority' => 999]);
+        $container->setDefinition('provider.attr', $definition);
+
+        (new ProviderCompilerPass())->process($container);
+
+        // Still exactly one tag; attribute's priority (42) did NOT override yaml's 999.
+        $tags = $container->getDefinition('provider.attr')->getTag(AsLlmProvider::TAG_NAME);
+        self::assertCount(1, $tags);
+        self::assertSame(999, $tags[0]['priority'] ?? null);
+    }
+
+    #[Test]
+    public function attributeBasedProvidersAreRegisteredInPriorityOrder(): void
+    {
+        $container = new ContainerBuilder();
+        $container->setDefinition(LlmServiceManager::class, new Definition(LlmServiceManager::class));
+        $container->setDefinition('provider.low', new Definition(AttributeTaggedProvider::class));   // prio 42
+        $container->setDefinition('provider.high', new Definition(HighPriorityAttributeProvider::class)); // prio 500
+
+        (new ProviderCompilerPass())->process($container);
+
+        $calls = $container->getDefinition(LlmServiceManager::class)->getMethodCalls();
+        self::assertCount(2, $calls);
+
+        $firstRef = $calls[0][1][0];
+        $secondRef = $calls[1][1][0];
+        self::assertInstanceOf(Reference::class, $firstRef);
+        self::assertInstanceOf(Reference::class, $secondRef);
+
+        // High-priority (500) comes before low-priority (42).
+        self::assertSame('provider.high', (string)$firstRef);
+        self::assertSame('provider.low', (string)$secondRef);
+    }
+
+    #[Test]
+    public function attributeDiscoveryIsSkippedWhenManagerMissing(): void
+    {
+        $container = new ContainerBuilder();
+        // Intentionally do NOT define LlmServiceManager.
+        $container->setDefinition('provider.attr', new Definition(AttributeTaggedProvider::class));
+
+        (new ProviderCompilerPass())->process($container);
+
+        self::assertFalse(
+            $container->getDefinition('provider.attr')->hasTag(AsLlmProvider::TAG_NAME),
+            'Early-return should skip all work, including attribute discovery.',
+        );
     }
 }

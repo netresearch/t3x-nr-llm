@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Provider;
 
 use Generator;
 use JsonException;
+use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
@@ -19,6 +20,7 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 
+#[AsLlmProvider(priority: 100)]
 final class OpenAiProvider extends AbstractProvider implements
     VisionCapableInterface,
     StreamingCapableInterface,

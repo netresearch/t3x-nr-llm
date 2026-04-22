@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Provider;
 
 use Generator;
 use JsonException;
+use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
@@ -30,6 +31,7 @@ use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
  *
  * Note: Groq does not provide embedding models.
  */
+#[AsLlmProvider(priority: 50)]
 final class GroqProvider extends AbstractProvider implements
     StreamingCapableInterface,
     ToolCapableInterface

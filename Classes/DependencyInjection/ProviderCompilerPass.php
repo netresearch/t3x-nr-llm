@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\DependencyInjection;
 
+use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use ReflectionClass;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
@@ -22,10 +24,16 @@ final class ProviderCompilerPass implements CompilerPassInterface
             return;
         }
 
+        // Step 1: auto-tag providers that carry #[AsLlmProvider]. Existing
+        // services.yaml `tags:` entries keep working and take precedence if
+        // both are present (the attribute pass skips already-tagged services).
+        $this->autoTagAttributeProviders($container);
+
         $managerDefinition = $container->findDefinition(LlmServiceManager::class);
 
-        // Find all services tagged with 'nr_llm.provider'
-        $taggedServices = $container->findTaggedServiceIds('nr_llm.provider');
+        // Step 2: collect every service tagged `nr_llm.provider` (from either
+        // the attribute above or a manual yaml tag) and register them.
+        $taggedServices = $container->findTaggedServiceIds(AsLlmProvider::TAG_NAME);
 
         // Sort by priority (higher first)
         uasort($taggedServices, static function (array $a, array $b): int {
@@ -39,6 +47,38 @@ final class ProviderCompilerPass implements CompilerPassInterface
         // Add method calls to register each provider
         foreach ($taggedServices as $id => $tags) {
             $managerDefinition->addMethodCall('registerProvider', [new Reference($id)]);
+        }
+    }
+
+    /**
+     * Scan all service definitions for classes bearing #[AsLlmProvider]
+     * and tag them so the priority-based sorting pass picks them up.
+     *
+     * Services that already carry the `nr_llm.provider` tag (from yaml)
+     * are left untouched to avoid double-registration.
+     */
+    private function autoTagAttributeProviders(ContainerBuilder $container): void
+    {
+        foreach ($container->getDefinitions() as $serviceId => $definition) {
+            $class = $definition->getClass() ?? $serviceId;
+            if (!is_string($class) || $class === '' || !class_exists($class)) {
+                continue;
+            }
+
+            if ($definition->hasTag(AsLlmProvider::TAG_NAME)) {
+                continue;
+            }
+
+            $reflection = new ReflectionClass($class);
+            $attributes = $reflection->getAttributes(AsLlmProvider::class);
+            if ($attributes === []) {
+                continue;
+            }
+
+            $attribute = $attributes[0]->newInstance();
+
+            $definition->addTag(AsLlmProvider::TAG_NAME, ['priority' => $attribute->priority]);
+            $definition->setPublic(true);
         }
     }
 }
