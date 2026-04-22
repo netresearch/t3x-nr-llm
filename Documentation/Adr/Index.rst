@@ -255,3 +255,4 @@ Modern architecture (v0.4+)
    Adr020BackendOutputFormatRendering
    Adr021ProviderFallbackChain
    Adr022AttributeBasedProviderRegistration
+   Adr023BackendCapabilityPermissions

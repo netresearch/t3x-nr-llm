@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" target-language="de" datatype="plaintext" original="messages">
+        <body>
+            <!-- BE group capability permissions (customPermOptions) -->
+            <trans-unit id="permissions.header">
+                <source>nr-llm: AI capability permissions</source>
+                <target>nr-llm: Berechtigungen für KI-Fähigkeiten</target>
+            </trans-unit>
+            <trans-unit id="permissions.capability.chat">
+                <source>Chat completions</source>
+                <target>Chat-Abschlüsse</target>
+            </trans-unit>
+            <trans-unit id="permissions.capability.completion">
+                <source>Text completions</source>
+                <target>Text-Abschlüsse</target>
+            </trans-unit>
+            <trans-unit id="permissions.capability.embeddings">
+                <source>Embeddings (vector generation)</source>
+                <target>Embeddings (Vektor-Erzeugung)</target>
+            </trans-unit>
+            <trans-unit id="permissions.capability.vision">
+                <source>Vision (image analysis)</source>
+                <target>Vision (Bildanalyse)</target>
+            </trans-unit>
+            <trans-unit id="permissions.capability.streaming">
+                <source>Streaming responses (SSE)</source>
+                <target>Streaming-Antworten (SSE)</target>
+            </trans-unit>
+            <trans-unit id="permissions.capability.tools">
+                <source>Tool / function calling</source>
+                <target>Tool-/Funktionsaufrufe</target>
+            </trans-unit>
+            <trans-unit id="permissions.capability.json_mode">
+                <source>JSON mode (structured output)</source>
+                <target>JSON-Modus (strukturierte Ausgabe)</target>
+            </trans-unit>
+            <trans-unit id="permissions.capability.audio">
+                <source>Audio (speech transcription / synthesis)</source>
+                <target>Audio (Sprachtranskription/-synthese)</target>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>
