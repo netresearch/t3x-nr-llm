@@ -20,7 +20,8 @@ Configuring a chain
 ====================
 
 The :sql:`tx_nrllm_configuration.fallback_chain` column stores a
-JSON list of configuration identifiers:
+JSON **object** with a single key, ``configurationIdentifiers``, whose
+value is the ordered array of target configuration identifiers:
 
 ..  code-block:: json
     :caption: Example payload stored in ``fallback_chain``
@@ -30,6 +31,9 @@ JSON list of configuration identifiers:
 Editors paste that JSON into the :guilabel:`Fallback Chain` tab in
 the backend form. The order is the retry order. Identifiers are
 matched case-insensitively against :sql:`tx_nrllm_configuration.identifier`.
+Using an object (rather than a bare top-level array) leaves room for
+future sibling fields — e.g. per-link retry policy — without a
+schema break.
 
 ..  _developer-fallback-chain-retryable:
 

@@ -57,12 +57,15 @@ drift away from the source of truth.
 Creating a budget
 =================
 
-Budgets are plain records on the root page tree (``pid = 0``,
-``rootLevel = -1``). Admins create or edit them via the TYPO3 List
-module:
+Budget records have ``rootLevel = -1``, so admins can create them at
+the TYPO3 root (``pid = 0``) or on any regular page. Keeping them at
+the root is the convention because budgets are site-wide admin
+concerns, not page-scoped content; the recipe below follows that
+convention.
 
-1.  Open :guilabel:`Web > List` on any page.
-2.  Click :guilabel:`Create new record` at page UID 0 (the root).
+1.  Open :guilabel:`Web > List` in the root (page UID 0) — or on the
+    page where you keep other cross-site configuration records.
+2.  Click :guilabel:`Create new record`.
 3.  Choose :guilabel:`LLM User Budget`.
 4.  Pick the backend user, set the ceilings, toggle
     :guilabel:`Enforce this budget` on.
