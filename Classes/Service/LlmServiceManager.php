@@ -45,6 +45,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         private readonly ExtensionConfiguration $extensionConfiguration,
         private readonly LoggerInterface $logger,
         private readonly ProviderAdapterRegistry $adapterRegistry,
+        private readonly ?FallbackChainExecutor $fallbackChainExecutor = null,
     ) {
         $this->loadConfiguration();
     }
@@ -335,35 +336,70 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     /**
      * Execute chat completion using an LlmConfiguration entity.
      *
+     * If the configuration has a fallback chain, retryable provider errors
+     * on the primary (network, 5xx, 429) transparently re-run the request
+     * against each fallback configuration in order.
+     *
      * @param array<int, array{role: string, content: string}> $messages
      */
     public function chatWithConfiguration(array $messages, LlmConfiguration $configuration): CompletionResponse
     {
-        $adapter = $this->getAdapterFromConfiguration($configuration);
-        $options = $configuration->toOptionsArray();
-
-        // Remove provider key as we already have the adapter
-        unset($options['provider']);
-
-        return $adapter->chatCompletion($messages, $options);
+        return $this->runWithFallback(
+            $configuration,
+            function (LlmConfiguration $config) use ($messages): CompletionResponse {
+                $adapter = $this->getAdapterFromConfiguration($config);
+                $options = $config->toOptionsArray();
+                unset($options['provider']);
+                return $adapter->chatCompletion($messages, $options);
+            },
+        );
     }
 
     /**
      * Execute completion using an LlmConfiguration entity.
+     *
+     * Fallback chain is applied when configured; see chatWithConfiguration().
      */
     public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration): CompletionResponse
     {
-        $adapter = $this->getAdapterFromConfiguration($configuration);
-        $options = $configuration->toOptionsArray();
+        return $this->runWithFallback(
+            $configuration,
+            function (LlmConfiguration $config) use ($prompt): CompletionResponse {
+                $adapter = $this->getAdapterFromConfiguration($config);
+                $options = $config->toOptionsArray();
+                unset($options['provider']);
+                return $adapter->complete($prompt, $options);
+            },
+        );
+    }
 
-        // Remove provider key as we already have the adapter
-        unset($options['provider']);
-
-        return $adapter->complete($prompt, $options);
+    /**
+     * Apply the fallback chain to a per-configuration call.
+     *
+     * When no executor was injected (e.g. manual instantiation in tests),
+     * or when the configuration has no fallback chain, this delegates
+     * directly to the callable with the original configuration.
+     *
+     * @template T
+     *
+     * @param callable(LlmConfiguration): T $execute
+     *
+     * @return T
+     */
+    private function runWithFallback(LlmConfiguration $configuration, callable $execute): mixed
+    {
+        if ($this->fallbackChainExecutor === null || !$configuration->hasFallbackChain()) {
+            return $execute($configuration);
+        }
+        return $this->fallbackChainExecutor->execute($configuration, $execute);
     }
 
     /**
      * Stream chat completion using an LlmConfiguration entity.
+     *
+     * Fallback chain is intentionally NOT applied to streaming: once the first
+     * chunk has been yielded to the caller we cannot swap providers mid-stream.
+     * Use chatWithConfiguration() if fallback protection is required.
      *
      * @param array<int, array{role: string, content: string}> $messages
      *

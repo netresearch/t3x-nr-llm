@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use Netresearch\NrLlm\Domain\DTO\FallbackChain;
 use Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria;
 use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -62,6 +63,12 @@ class LlmConfiguration extends AbstractEntity
     protected int $maxRequestsPerDay = 0;
     protected int $maxTokensPerDay = 0;
     protected float $maxCostPerDay = 0.0;
+    /**
+     * JSON-encoded fallback chain (ordered list of LlmConfiguration identifiers).
+     * Populated automatically from the `fallback_chain` column by Extbase.
+     */
+    protected string $fallbackChain = '';
+
     protected bool $isActive = true;
     protected bool $isDefault = false;
     protected int $allowedGroups = 0;
@@ -326,6 +333,32 @@ class LlmConfiguration extends AbstractEntity
         return $this->crdate;
     }
 
+    /**
+     * Get the raw JSON fallback chain (as stored in the database).
+     *
+     * Extbase reads this getter during property mapping.
+     */
+    public function getFallbackChain(): string
+    {
+        return $this->fallbackChain;
+    }
+
+    /**
+     * Get fallback chain as typed DTO.
+     *
+     * Returns an empty chain when nothing is configured, so callers never
+     * have to null-check before calling isEmpty() / configurationIdentifiers.
+     */
+    public function getFallbackChainDTO(): FallbackChain
+    {
+        return FallbackChain::fromJson($this->fallbackChain);
+    }
+
+    public function hasFallbackChain(): bool
+    {
+        return !$this->getFallbackChainDTO()->isEmpty();
+    }
+
     // ========================================
     // Setters
     // ========================================
@@ -464,6 +497,22 @@ class LlmConfiguration extends AbstractEntity
     public function setAllowedGroups(int $allowedGroups): void
     {
         $this->allowedGroups = $allowedGroups;
+    }
+
+    /**
+     * Set fallback chain from raw JSON (used by Extbase when hydrating from DB).
+     */
+    public function setFallbackChain(string $fallbackChain): void
+    {
+        $this->fallbackChain = $fallbackChain;
+    }
+
+    /**
+     * Set fallback chain from typed DTO.
+     */
+    public function setFallbackChainDTO(FallbackChain $fallbackChain): void
+    {
+        $this->fallbackChain = $fallbackChain->isEmpty() ? '' : $fallbackChain->toJson();
     }
 
     /**

@@ -39,6 +39,8 @@ return [
                     options,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.limits,
                     --palette--;;limits,
+                --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.fallback,
+                    fallback_chain,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.access,
                     allowed_groups,
                 --div--;core.form.tabs:access,
@@ -334,6 +336,17 @@ return [
                     'lower' => 0,
                 ],
                 'default' => 0.00,
+            ],
+        ],
+        'fallback_chain' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.fallback_chain',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.fallback_chain.description',
+            'config' => [
+                'type' => 'text',
+                'cols' => 60,
+                'rows' => 4,
+                'placeholder' => '{"configurationIdentifiers":["claude-sonnet","ollama-local"]}',
+                'default' => '',
             ],
         ],
         'is_active' => [

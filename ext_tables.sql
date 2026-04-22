@@ -129,6 +129,9 @@ CREATE TABLE tx_nrllm_configuration (
     max_tokens_per_day int(11) DEFAULT '0' NOT NULL,
     max_cost_per_day decimal(10,2) DEFAULT '0.00' NOT NULL,
 
+    -- Fallback chain (JSON list of configuration identifiers to try on retryable failures)
+    fallback_chain text,
+
     -- Status
     is_active tinyint(1) DEFAULT '1' NOT NULL,
     is_default tinyint(1) DEFAULT '0' NOT NULL,
