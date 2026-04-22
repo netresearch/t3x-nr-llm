@@ -11,7 +11,6 @@ namespace Netresearch\NrLlm\Service;
 
 use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
-use Netresearch\NrLlm\Domain\Model\UserBudget;
 use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -25,6 +24,13 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  *
  * The service is intentionally a pure pre-flight check: call it BEFORE
  * dispatching to a provider. It does not increment anything.
+ *
+ * Concurrency: this is a best-effort gate, not a transactionally-safe
+ * one. Two simultaneous requests for the same user can both pass the
+ * check before either updates tx_nrllm_service_usage, temporarily
+ * allowing a one-request overshoot. Adding a per-user lock would
+ * serialise a hot path; callers needing strict enforcement should
+ * layer their own lock / reservation on top.
  *
  * Like CapabilityPermissionService, this ships the primitive; wiring the
  * check into individual feature services is a deliberate follow-up.
@@ -55,75 +61,67 @@ class BudgetService
             return BudgetCheckResult::allowed();
         }
 
+        // Negative planned cost would artificially reduce the projected
+        // total and let callers bypass cost limits. Clamp defensively.
+        $plannedCost = max(0.0, $plannedCost);
+
         $budget = $this->repository->findOneByBeUser($beUserUid);
         if ($budget === null || !$budget->isActive() || !$budget->hasAnyLimit()) {
             return BudgetCheckResult::allowed();
         }
 
         $now = new DateTimeImmutable();
+        $hasDailyLimits = $budget->getMaxRequestsPerDay() > 0
+            || $budget->getMaxTokensPerDay() > 0
+            || $budget->getMaxCostPerDay() > 0.0;
+        $hasMonthlyLimits = $budget->getMaxRequestsPerMonth() > 0
+            || $budget->getMaxTokensPerMonth() > 0
+            || $budget->getMaxCostPerMonth() > 0.0;
 
-        $dailyResult = $this->evaluateDaily($budget, $beUserUid, $plannedCost, $now);
-        if (!$dailyResult->allowed) {
-            return $dailyResult;
-        }
+        $dayStart = $now->setTime(0, 0, 0)->getTimestamp();
+        $monthStart = $now->modify('first day of this month')->setTime(0, 0, 0)->getTimestamp();
 
-        return $this->evaluateMonthly($budget, $beUserUid, $plannedCost, $now);
-    }
-
-    private function evaluateDaily(
-        UserBudget $budget,
-        int $beUserUid,
-        float $plannedCost,
-        DateTimeImmutable $now,
-    ): BudgetCheckResult {
-        if ($budget->getMaxRequestsPerDay() === 0
-            && $budget->getMaxTokensPerDay() === 0
-            && $budget->getMaxCostPerDay() === 0.0
-        ) {
-            return BudgetCheckResult::allowed();
-        }
-
-        $from = $now->setTime(0, 0, 0);
-        $usage = $this->aggregateUsage($beUserUid, $from->getTimestamp(), $now->getTimestamp());
-
-        return $this->compare(
-            usage: $usage,
-            plannedCost: $plannedCost,
-            requestLimit: $budget->getMaxRequestsPerDay(),
-            tokenLimit: $budget->getMaxTokensPerDay(),
-            costLimit: $budget->getMaxCostPerDay(),
-            requestLimitId: BudgetCheckResult::LIMIT_DAILY_REQUESTS,
-            tokenLimitId: BudgetCheckResult::LIMIT_DAILY_TOKENS,
-            costLimitId: BudgetCheckResult::LIMIT_DAILY_COST,
+        // ONE DB roundtrip covering both windows. When only one window is
+        // configured the other aggregate is cheap (the row count is tiny
+        // since tx_nrllm_service_usage is already a per-user/per-day
+        // rollup, not a per-request log).
+        $windows = $this->aggregateWindowUsage(
+            $beUserUid,
+            $hasDailyLimits ? $dayStart : null,
+            $hasMonthlyLimits ? $monthStart : null,
+            $now->getTimestamp(),
         );
-    }
 
-    private function evaluateMonthly(
-        UserBudget $budget,
-        int $beUserUid,
-        float $plannedCost,
-        DateTimeImmutable $now,
-    ): BudgetCheckResult {
-        if ($budget->getMaxRequestsPerMonth() === 0
-            && $budget->getMaxTokensPerMonth() === 0
-            && $budget->getMaxCostPerMonth() === 0.0
-        ) {
-            return BudgetCheckResult::allowed();
+        if ($hasDailyLimits) {
+            $dailyResult = $this->compare(
+                usage: $windows['daily'],
+                plannedCost: $plannedCost,
+                requestLimit: $budget->getMaxRequestsPerDay(),
+                tokenLimit: $budget->getMaxTokensPerDay(),
+                costLimit: $budget->getMaxCostPerDay(),
+                requestLimitId: BudgetCheckResult::LIMIT_DAILY_REQUESTS,
+                tokenLimitId: BudgetCheckResult::LIMIT_DAILY_TOKENS,
+                costLimitId: BudgetCheckResult::LIMIT_DAILY_COST,
+            );
+            if (!$dailyResult->allowed) {
+                return $dailyResult;
+            }
         }
 
-        $from = $now->modify('first day of this month')->setTime(0, 0, 0);
-        $usage = $this->aggregateUsage($beUserUid, $from->getTimestamp(), $now->getTimestamp());
+        if ($hasMonthlyLimits) {
+            return $this->compare(
+                usage: $windows['monthly'],
+                plannedCost: $plannedCost,
+                requestLimit: $budget->getMaxRequestsPerMonth(),
+                tokenLimit: $budget->getMaxTokensPerMonth(),
+                costLimit: $budget->getMaxCostPerMonth(),
+                requestLimitId: BudgetCheckResult::LIMIT_MONTHLY_REQUESTS,
+                tokenLimitId: BudgetCheckResult::LIMIT_MONTHLY_TOKENS,
+                costLimitId: BudgetCheckResult::LIMIT_MONTHLY_COST,
+            );
+        }
 
-        return $this->compare(
-            usage: $usage,
-            plannedCost: $plannedCost,
-            requestLimit: $budget->getMaxRequestsPerMonth(),
-            tokenLimit: $budget->getMaxTokensPerMonth(),
-            costLimit: $budget->getMaxCostPerMonth(),
-            requestLimitId: BudgetCheckResult::LIMIT_MONTHLY_REQUESTS,
-            tokenLimitId: BudgetCheckResult::LIMIT_MONTHLY_TOKENS,
-            costLimitId: BudgetCheckResult::LIMIT_MONTHLY_COST,
-        );
+        return BudgetCheckResult::allowed();
     }
 
     /**
@@ -166,44 +164,65 @@ class BudgetService
     }
 
     /**
-     * Aggregate usage for the given user and time window. Protected so tests
-     * can stub out the DB layer without mocking the full QueryBuilder chain.
+     * Aggregate per-user usage for the daily AND monthly windows in a
+     * single DB roundtrip, using conditional SUM() expressions. Protected
+     * so tests can stub out the DB layer without mocking the QueryBuilder
+     * chain. `null` for a window means "limit not configured" — the
+     * matching aggregate is returned as a zeroed bucket.
      *
-     * @return array{requests: int, tokens: int, cost: float}
+     * @return array{daily: array{requests: int, tokens: int, cost: float}, monthly: array{requests: int, tokens: int, cost: float}}
      */
-    protected function aggregateUsage(int $beUserUid, int $fromTimestamp, int $toTimestamp): array
-    {
+    protected function aggregateWindowUsage(
+        int $beUserUid,
+        ?int $dailyFromTimestamp,
+        ?int $monthlyFromTimestamp,
+        int $toTimestamp,
+    ): array {
+        $empty = ['requests' => 0, 'tokens' => 0, 'cost' => 0.0];
+        if ($dailyFromTimestamp === null && $monthlyFromTimestamp === null) {
+            return ['daily' => $empty, 'monthly' => $empty];
+        }
+
+        // The lower bound for the SQL WHERE: monthly is always the wider
+        // window, so if it's set we use that; otherwise fall back to the
+        // daily bound.
+        $lowerBound = $monthlyFromTimestamp ?? $dailyFromTimestamp;
+
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::USAGE_TABLE);
+        $dailyFromParam = $queryBuilder->createNamedParameter($dailyFromTimestamp ?? PHP_INT_MAX);
+        $monthlyFromParam = $queryBuilder->createNamedParameter($monthlyFromTimestamp ?? PHP_INT_MAX);
+
         $row = $queryBuilder
-            ->addSelectLiteral('SUM(request_count) AS total_requests')
-            ->addSelectLiteral('SUM(tokens_used) AS total_tokens')
-            ->addSelectLiteral('SUM(estimated_cost) AS total_cost')
+            ->addSelectLiteral(sprintf('SUM(CASE WHEN request_date >= %s THEN request_count ELSE 0 END) AS daily_requests', $dailyFromParam))
+            ->addSelectLiteral(sprintf('SUM(CASE WHEN request_date >= %s THEN tokens_used ELSE 0 END) AS daily_tokens', $dailyFromParam))
+            ->addSelectLiteral(sprintf('SUM(CASE WHEN request_date >= %s THEN estimated_cost ELSE 0 END) AS daily_cost', $dailyFromParam))
+            ->addSelectLiteral(sprintf('SUM(CASE WHEN request_date >= %s THEN request_count ELSE 0 END) AS monthly_requests', $monthlyFromParam))
+            ->addSelectLiteral(sprintf('SUM(CASE WHEN request_date >= %s THEN tokens_used ELSE 0 END) AS monthly_tokens', $monthlyFromParam))
+            ->addSelectLiteral(sprintf('SUM(CASE WHEN request_date >= %s THEN estimated_cost ELSE 0 END) AS monthly_cost', $monthlyFromParam))
             ->from(self::USAGE_TABLE)
             ->where(
-                $queryBuilder->expr()->eq(
-                    'be_user',
-                    $queryBuilder->createNamedParameter($beUserUid),
-                ),
-                $queryBuilder->expr()->gte(
-                    'request_date',
-                    $queryBuilder->createNamedParameter($fromTimestamp),
-                ),
-                $queryBuilder->expr()->lte(
-                    'request_date',
-                    $queryBuilder->createNamedParameter($toTimestamp),
-                ),
+                $queryBuilder->expr()->eq('be_user', $queryBuilder->createNamedParameter($beUserUid)),
+                $queryBuilder->expr()->gte('request_date', $queryBuilder->createNamedParameter($lowerBound)),
+                $queryBuilder->expr()->lte('request_date', $queryBuilder->createNamedParameter($toTimestamp)),
             )
             ->executeQuery()
             ->fetchAssociative();
 
         if (!is_array($row)) {
-            return ['requests' => 0, 'tokens' => 0, 'cost' => 0.0];
+            return ['daily' => $empty, 'monthly' => $empty];
         }
 
         return [
-            'requests' => is_numeric($row['total_requests'] ?? null) ? (int)$row['total_requests'] : 0,
-            'tokens' => is_numeric($row['total_tokens'] ?? null) ? (int)$row['total_tokens'] : 0,
-            'cost' => is_numeric($row['total_cost'] ?? null) ? (float)$row['total_cost'] : 0.0,
+            'daily' => [
+                'requests' => is_numeric($row['daily_requests'] ?? null) ? (int)$row['daily_requests'] : 0,
+                'tokens' => is_numeric($row['daily_tokens'] ?? null) ? (int)$row['daily_tokens'] : 0,
+                'cost' => is_numeric($row['daily_cost'] ?? null) ? (float)$row['daily_cost'] : 0.0,
+            ],
+            'monthly' => [
+                'requests' => is_numeric($row['monthly_requests'] ?? null) ? (int)$row['monthly_requests'] : 0,
+                'tokens' => is_numeric($row['monthly_tokens'] ?? null) ? (int)$row['monthly_tokens'] : 0,
+                'cost' => is_numeric($row['monthly_cost'] ?? null) ? (float)$row['monthly_cost'] : 0.0,
+            ],
         ];
     }
 }

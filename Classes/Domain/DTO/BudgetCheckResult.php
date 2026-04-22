@@ -27,8 +27,23 @@ final readonly class BudgetCheckResult
     public const LIMIT_MONTHLY_COST = 'monthly_cost';
 
     /**
-     * @param non-empty-string|self::LIMIT_* $exceededLimit
+     * Human-friendly labels, keyed by LIMIT_* value. Kept here as a
+     * constant (not a locallang lookup) so the DTO stays side-effect-free
+     * and callers can render it unchanged in logs / JSON responses, or
+     * substitute their own localised string using `exceededLimit` as a
+     * stable machine key.
+     *
+     * @var array<string, string>
      */
+    private const LIMIT_LABELS = [
+        self::LIMIT_DAILY_REQUESTS => 'daily request count',
+        self::LIMIT_DAILY_TOKENS => 'daily token usage',
+        self::LIMIT_DAILY_COST => 'daily cost',
+        self::LIMIT_MONTHLY_REQUESTS => 'monthly request count',
+        self::LIMIT_MONTHLY_TOKENS => 'monthly token usage',
+        self::LIMIT_MONTHLY_COST => 'monthly cost',
+    ];
+
     public function __construct(
         public bool $allowed,
         public string $exceededLimit = self::LIMIT_NONE,
@@ -54,8 +69,8 @@ final readonly class BudgetCheckResult
             currentUsage: $currentUsage,
             limit: $limit,
             reason: $reason !== '' ? $reason : sprintf(
-                '%s limit reached: %s of %s',
-                $exceededLimit,
+                'AI budget exhausted: %s is at %s of %s',
+                self::LIMIT_LABELS[$exceededLimit] ?? $exceededLimit,
                 self::formatNumber($currentUsage),
                 self::formatNumber($limit),
             ),

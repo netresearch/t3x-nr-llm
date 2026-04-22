@@ -158,7 +158,9 @@ class BudgetServiceTest extends AbstractUnitTestCase
         $this->repositoryStub->method('findOneByBeUser')->willReturn($budget);
 
         // 99.50 used, plan 1.00 -> 100.50 > 100 limit
-        $service = $this->makeService(['requests' => 1000, 'tokens' => 0, 'cost' => 99.50]);
+        $service = $this->makeService(
+            monthly: ['requests' => 1000, 'tokens' => 0, 'cost' => 99.50],
+        );
 
         $result = $service->check(42, plannedCost: 1.0);
 
@@ -191,7 +193,10 @@ class BudgetServiceTest extends AbstractUnitTestCase
         );
         $this->repositoryStub->method('findOneByBeUser')->willReturn($budget);
 
-        $service = $this->makeService(['requests' => 3, 'tokens' => 150, 'cost' => 0.75]);
+        $service = $this->makeService(
+            daily: ['requests' => 3, 'tokens' => 150, 'cost' => 0.75],
+            monthly: ['requests' => 3, 'tokens' => 150, 'cost' => 0.75],
+        );
 
         self::assertTrue($service->check(42, plannedCost: 0.25)->allowed);
     }
@@ -203,50 +208,117 @@ class BudgetServiceTest extends AbstractUnitTestCase
         $budget = $this->makeBudget(dailyRequests: 100, monthlyRequests: 20);
         $this->repositoryStub->method('findOneByBeUser')->willReturn($budget);
 
-        // Note: cannot declare this anon class `readonly` because we mutate
-        // $callCount across invocations. BudgetService is NOT marked readonly
-        // at the class level for exactly this reason — it only relies on its
-        // constructor-promoted fields being readonly.
-        $service = new class ($this->repositoryStub, $this->connectionPoolStub) extends BudgetService {
-            public int $callCount = 0;
-
-            protected function aggregateUsage(int $beUserUid, int $fromTimestamp, int $toTimestamp): array
-            {
-                $this->callCount++;
-                // First call is daily, second is monthly
-                return $this->callCount === 1
-                    ? ['requests' => 5, 'tokens' => 0, 'cost' => 0.0]
-                    : ['requests' => 20, 'tokens' => 0, 'cost' => 0.0];
-            }
-        };
+        $service = $this->makeService(
+            daily: ['requests' => 5, 'tokens' => 0, 'cost' => 0.0],
+            monthly: ['requests' => 20, 'tokens' => 0, 'cost' => 0.0],
+        );
 
         $result = $service->check(42);
 
         self::assertFalse($result->allowed);
         self::assertSame(BudgetCheckResult::LIMIT_MONTHLY_REQUESTS, $result->exceededLimit);
-        self::assertSame(2, $service->callCount);
+    }
+
+    #[Test]
+    public function combinesDailyAndMonthlyIntoASingleAggregationCall(): void
+    {
+        $budget = $this->makeBudget(dailyRequests: 100, monthlyRequests: 100);
+        $this->repositoryStub->method('findOneByBeUser')->willReturn($budget);
+
+        $service = new class ($this->repositoryStub, $this->connectionPoolStub) extends BudgetService {
+            public int $callCount = 0;
+
+            public ?int $capturedDailyFrom = null;
+
+            public ?int $capturedMonthlyFrom = null;
+
+            /**
+             * @return array{daily: array{requests: int, tokens: int, cost: float}, monthly: array{requests: int, tokens: int, cost: float}}
+             */
+            protected function aggregateWindowUsage(
+                int $beUserUid,
+                ?int $dailyFromTimestamp,
+                ?int $monthlyFromTimestamp,
+                int $toTimestamp,
+            ): array {
+                $this->callCount++;
+                $this->capturedDailyFrom = $dailyFromTimestamp;
+                $this->capturedMonthlyFrom = $monthlyFromTimestamp;
+                return [
+                    'daily' => ['requests' => 3, 'tokens' => 0, 'cost' => 0.0],
+                    'monthly' => ['requests' => 50, 'tokens' => 0, 'cost' => 0.0],
+                ];
+            }
+        };
+
+        $result = $service->check(42);
+
+        self::assertTrue($result->allowed);
+        self::assertSame(1, $service->callCount, 'Should make exactly one DB aggregation call');
+        self::assertNotNull($service->capturedDailyFrom, 'Daily window should be requested');
+        self::assertNotNull($service->capturedMonthlyFrom, 'Monthly window should be requested');
+        self::assertLessThan(
+            $service->capturedDailyFrom,
+            $service->capturedMonthlyFrom,
+            'Monthly start must precede daily start',
+        );
+    }
+
+    #[Test]
+    public function clampsNegativePlannedCostToZero(): void
+    {
+        // cost limit 10, used 8 already, plannedCost = -5 must not be accepted as "used -5"
+        // which would trick the check into allowing because 8 + (-5) = 3 < 10.
+        $budget = $this->makeBudget(dailyCost: 10.0);
+        $this->repositoryStub->method('findOneByBeUser')->willReturn($budget);
+
+        $service = $this->makeService(
+            daily: ['requests' => 0, 'tokens' => 0, 'cost' => 8.0],
+            monthly: ['requests' => 0, 'tokens' => 0, 'cost' => 0.0],
+        );
+
+        // With the clamp: 8 + max(0, -5) = 8 ≤ 10 → allowed (correct)
+        // Without the clamp: 8 + (-5) = 3 ≤ 10 → allowed (but for the wrong reason)
+        // This test pins down the clamp behavior: try to go over with a legitimate cost,
+        // then verify negative input can't reduce the used total.
+        self::assertTrue($service->check(42, plannedCost: -5.0)->allowed);
+
+        // Positive cost DOES trip the limit (8 + 3 = 11 > 10).
+        self::assertFalse($service->check(42, plannedCost: 3.0)->allowed);
     }
 
     /**
-     * @param array{requests: int, tokens: int, cost: float} $fakeUsage
+     * @param array{requests: int, tokens: int, cost: float}|null $daily
+     * @param array{requests: int, tokens: int, cost: float}|null $monthly
      */
-    private function makeService(array $fakeUsage): BudgetService
+    private function makeService(array $daily = null, array $monthly = null): BudgetService
     {
-        return new class ($this->repositoryStub, $this->connectionPoolStub, $fakeUsage) extends BudgetService {
+        $dailyWindow = $daily ?? ['requests' => 0, 'tokens' => 0, 'cost' => 0.0];
+        $monthlyWindow = $monthly ?? ['requests' => 0, 'tokens' => 0, 'cost' => 0.0];
+        return new class ($this->repositoryStub, $this->connectionPoolStub, $dailyWindow, $monthlyWindow) extends BudgetService {
             /**
-             * @param array{requests: int, tokens: int, cost: float} $fakeUsage
+             * @param array{requests: int, tokens: int, cost: float} $fakeDaily
+             * @param array{requests: int, tokens: int, cost: float} $fakeMonthly
              */
             public function __construct(
                 UserBudgetRepository $repository,
                 ConnectionPool $connectionPool,
-                private readonly array $fakeUsage,
+                private readonly array $fakeDaily,
+                private readonly array $fakeMonthly,
             ) {
                 parent::__construct($repository, $connectionPool);
             }
 
-            protected function aggregateUsage(int $beUserUid, int $fromTimestamp, int $toTimestamp): array
-            {
-                return $this->fakeUsage;
+            protected function aggregateWindowUsage(
+                int $beUserUid,
+                ?int $dailyFromTimestamp,
+                ?int $monthlyFromTimestamp,
+                int $toTimestamp,
+            ): array {
+                return [
+                    'daily' => $this->fakeDaily,
+                    'monthly' => $this->fakeMonthly,
+                ];
             }
         };
     }

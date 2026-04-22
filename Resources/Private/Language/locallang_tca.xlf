@@ -29,22 +29,22 @@
                 <source>0 = unlimited on this axis.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_user_budget.max_requests_per_day">
-                <source>Max requests per day</source>
+                <source>Max Requests/Day</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_user_budget.max_tokens_per_day">
-                <source>Max tokens per day</source>
+                <source>Max Tokens/Day</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_user_budget.max_cost_per_day">
-                <source>Max cost per day ($)</source>
+                <source>Max Cost/Day ($)</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_user_budget.max_requests_per_month">
-                <source>Max requests per month</source>
+                <source>Max Requests/Month</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_user_budget.max_tokens_per_month">
-                <source>Max tokens per month</source>
+                <source>Max Tokens/Month</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_user_budget.max_cost_per_month">
-                <source>Max cost per month ($)</source>
+                <source>Max Cost/Month ($)</source>
             </trans-unit>
 
             <!-- Tabs -->

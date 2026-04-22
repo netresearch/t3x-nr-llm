@@ -11,6 +11,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\Task;
+use Netresearch\NrLlm\Domain\Model\UserBudget;
 
 /*
  * Extbase persistence configuration for nr_llm.
@@ -94,6 +95,35 @@ return [
             ],
             'isSystem' => [
                 'fieldName' => 'is_system',
+            ],
+        ],
+    ],
+    UserBudget::class => [
+        'tableName' => 'tx_nrllm_user_budget',
+        'properties' => [
+            'beUser' => [
+                'fieldName' => 'be_user',
+            ],
+            'maxRequestsPerDay' => [
+                'fieldName' => 'max_requests_per_day',
+            ],
+            'maxTokensPerDay' => [
+                'fieldName' => 'max_tokens_per_day',
+            ],
+            'maxCostPerDay' => [
+                'fieldName' => 'max_cost_per_day',
+            ],
+            'maxRequestsPerMonth' => [
+                'fieldName' => 'max_requests_per_month',
+            ],
+            'maxTokensPerMonth' => [
+                'fieldName' => 'max_tokens_per_month',
+            ],
+            'maxCostPerMonth' => [
+                'fieldName' => 'max_cost_per_month',
+            ],
+            'isActive' => [
+                'fieldName' => 'is_active',
             ],
         ],
     ],

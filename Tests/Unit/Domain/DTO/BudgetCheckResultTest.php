@@ -42,9 +42,36 @@ class BudgetCheckResultTest extends AbstractUnitTestCase
         self::assertSame(BudgetCheckResult::LIMIT_DAILY_COST, $result->exceededLimit);
         self::assertSame(9.5, $result->currentUsage);
         self::assertSame(10.0, $result->limit);
-        self::assertStringContainsString('daily_cost', $result->reason);
+        self::assertStringContainsString('AI budget exhausted', $result->reason);
+        self::assertStringContainsString('daily cost', $result->reason);
         self::assertStringContainsString('9.50', $result->reason);
         self::assertStringContainsString('10', $result->reason);
+    }
+
+    #[Test]
+    public function deniedReasonUsesHumanLabelNotInternalKey(): void
+    {
+        $result = BudgetCheckResult::denied(
+            BudgetCheckResult::LIMIT_MONTHLY_TOKENS,
+            currentUsage: 1_000_000,
+            limit: 500_000,
+        );
+
+        self::assertStringContainsString('monthly token usage', $result->reason);
+        self::assertStringNotContainsString('monthly_tokens', $result->reason);
+    }
+
+    #[Test]
+    public function deniedReasonFallsBackToInternalKeyForUnknownLimit(): void
+    {
+        // Guard against a future LIMIT_* constant without a label entry.
+        $result = BudgetCheckResult::denied(
+            'custom_limit',
+            currentUsage: 1.0,
+            limit: 2.0,
+        );
+
+        self::assertStringContainsString('custom_limit', $result->reason);
     }
 
     #[Test]
