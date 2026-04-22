@@ -11,6 +11,70 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-7-0:
+
+Version 0.7.0 (2026-04-22)
+===========================
+
+Added
+-----
+
+-   **Provider fallback chain.** :php:`LlmConfiguration` can now list
+    other configuration identifiers to retry against when the primary
+    fails with a retryable error (connection / HTTP 5xx / 429 rate-
+    limit). Non-retryable errors (4xx other than 429, configuration
+    problems, unsupported feature) bubble up unchanged. Streaming is
+    intentionally excluded from fallback because chunks cannot be
+    replayed against a different provider. See :ref:`adr-021` and
+    :ref:`developer-fallback-chain`.
+
+-   **Attribute-based provider registration.** New
+    :php:`#[AsLlmProvider(priority: N)]` attribute. Providers bearing
+    the attribute are automatically tagged and made public by
+    :php:`ProviderCompilerPass` at container compile time; no
+    ``services.yaml`` edit required. Legacy yaml tagging still works
+    for third-party providers and takes precedence when both
+    mechanisms are present. See :ref:`adr-022` and
+    :ref:`developer-provider-registration`.
+
+-   **Per-capability BE group permissions.** Every
+    :php:`ModelCapability` enum value is now a native TYPO3
+    ``customPermOptions`` entry under the ``nrllm`` namespace. BE
+    group editors see a checkbox per capability (chat, completion,
+    embeddings, vision, streaming, tools, json_mode, audio). New
+    :php:`CapabilityPermissionService` resolves checks against the
+    current BE user with admin short-circuit and CLI / frontend
+    bypass. See :ref:`adr-023` and :ref:`developer-capability-permissions`.
+
+-   **Dashboard widgets.** Two TYPO3 dashboard widgets sourced from
+    :sql:`tx_nrllm_service_usage`: *AI cost this month*
+    (:php:`NumberWithIconWidget`) and *AI requests by provider (7d)*
+    (:php:`BarChartWidget`). Loaded conditionally from
+    :file:`Configuration/Services.php` only when
+    :composer:`typo3/cms-dashboard` is installed. See :ref:`adr-024`.
+
+-   **Per-user AI budgets.** New :sql:`tx_nrllm_user_budget` table
+    with six independent ceilings (requests / tokens / cost × daily /
+    monthly). New :php:`BudgetService::check()` aggregates usage on
+    demand from :sql:`tx_nrllm_service_usage` — one DB roundtrip for
+    both windows via conditional ``SUM()``. Orthogonal to the
+    existing per-configuration daily limits: both checks must pass.
+    See :ref:`adr-025` and :ref:`administration-user-budgets`.
+
+Changed
+-------
+
+-   CI: mutation testing runs only on ``push``, ``merge_group`` and
+    ``schedule`` events. PR CI gets the fuzz suite + unit / functional
+    / PHPStan / rector / code style; the ~15 min mutation job is
+    deferred because its per-PR signal is hard for authors to action
+    locally.
+-   CI: :file:`.semgrepignore` added to exclude :path:`Tests/`,
+    :path:`Build/Scripts/` and vendor directories from Opengrep SAST.
+    Previously failing on legitimate ``unlink()`` fixture cleanup.
+-   CI: fuzz workflow now invoked with
+    ``fuzz-testsuite: fuzzy`` matching the phpunit.xml suite name.
+
 .. _version-0-6-0:
 
 Version 0.6.0 (2026-03-24)
