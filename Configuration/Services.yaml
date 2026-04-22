@@ -50,9 +50,13 @@ services:
   # ========================================
   # Provider registration and priority are declared via the
   # #[AsLlmProvider(priority: N)] attribute on each provider class.
-  # ProviderCompilerPass scans for the attribute and tags services
-  # automatically. Services.yaml `tags:` entries still work for
-  # third-party providers and take precedence if both are present.
+  # ProviderCompilerPass scans for the attribute, tags matching
+  # services automatically, AND makes attribute-discovered providers
+  # public so backend diagnostics can resolve them by class name.
+  # Services.yaml `tags:` entries still work for third-party
+  # providers and take precedence if both are present; yaml-tagged
+  # services remain private unless the yaml entry sets
+  # `public: true` explicitly.
 
   # ========================================
   # Provider Adapter Registry (database-backed providers)

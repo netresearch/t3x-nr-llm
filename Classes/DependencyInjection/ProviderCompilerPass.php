@@ -11,13 +11,19 @@ namespace Netresearch\NrLlm\DependencyInjection;
 
 use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Service\LlmServiceManager;
-use ReflectionClass;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
 final class ProviderCompilerPass implements CompilerPassInterface
 {
+    /**
+     * Namespace prefix used to limit the attribute-discovery scan.
+     * Third-party providers that sit outside this namespace can still opt
+     * in via a manual `nr_llm.provider` tag in their own services.yaml.
+     */
+    private const SCAN_NAMESPACE_PREFIX = 'Netresearch\\NrLlm\\';
+
     public function process(ContainerBuilder $container): void
     {
         if (!$container->has(LlmServiceManager::class)) {
@@ -51,25 +57,38 @@ final class ProviderCompilerPass implements CompilerPassInterface
     }
 
     /**
-     * Scan all service definitions for classes bearing #[AsLlmProvider]
-     * and tag them so the priority-based sorting pass picks them up.
+     * Scan service definitions whose class lives in the Netresearch\NrLlm\
+     * namespace for #[AsLlmProvider] and tag them so the priority-based
+     * sorting pass picks them up. Narrowing by namespace keeps the
+     * reflection cost bounded: TYPO3 installs have hundreds of container
+     * definitions and most of them have nothing to do with LLM providers.
+     *
+     * Uses ContainerBuilder::getReflectionClass($class, false) to reuse
+     * Symfony's reflection cache and container-resource tracking instead
+     * of calling `new ReflectionClass()` directly.
      *
      * Services that already carry the `nr_llm.provider` tag (from yaml)
-     * are left untouched to avoid double-registration.
+     * are left untouched to avoid double-registration. Attribute-discovered
+     * providers are set public so TYPO3 backend diagnostics can resolve
+     * them by class name.
      */
     private function autoTagAttributeProviders(ContainerBuilder $container): void
     {
         foreach ($container->getDefinitions() as $serviceId => $definition) {
-            $class = $definition->getClass() ?? $serviceId;
-            if (!is_string($class) || $class === '' || !class_exists($class)) {
-                continue;
-            }
-
             if ($definition->hasTag(AsLlmProvider::TAG_NAME)) {
                 continue;
             }
 
-            $reflection = new ReflectionClass($class);
+            $class = $definition->getClass() ?? $serviceId;
+            if (!is_string($class) || $class === '' || !str_starts_with($class, self::SCAN_NAMESPACE_PREFIX)) {
+                continue;
+            }
+
+            $reflection = $container->getReflectionClass($class, false);
+            if ($reflection === null) {
+                continue;
+            }
+
             $attributes = $reflection->getAttributes(AsLlmProvider::class);
             if ($attributes === []) {
                 continue;

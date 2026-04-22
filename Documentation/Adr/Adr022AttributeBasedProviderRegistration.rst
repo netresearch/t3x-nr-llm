@@ -37,8 +37,11 @@ deliberate: overrides should be explicit, not silently merged.
 
 The shipped providers now declare their priority via the attribute, and the
 ``tags:`` entries have been removed from :file:`Configuration/Services.yaml`.
-Each provider still requires ``public: true`` so that backend diagnostics
-can resolve them by class name.
+Attribute-tagged providers are also made public automatically by
+:php:`ProviderCompilerPass` so that backend diagnostics can resolve them by
+class name. The legacy yaml-tagging path still works for third-party
+providers, but yaml-tagged services remain private unless the yaml entry
+sets ``public: true`` explicitly.
 
 .. _adr-022-tradeoffs:
 
@@ -50,9 +53,12 @@ Trade-offs
 * **+ Third-party DX.** External providers drop in without editing yaml:
   :code:`#[AsLlmProvider(priority: 100)]` on an autowired class is enough.
 * **+ Backward-compatible.** Existing yaml-tagged providers keep working.
-* **- Reflection at compile time.** The compiler pass reflects every
-  definition, not just provider candidates. Cost is paid once per
-  container build (cached); negligible in practice.
+* **- Reflection at compile time.** The compiler pass reflects service
+  definitions in the ``Netresearch\NrLlm\`` namespace; other definitions
+  are skipped by a prefix match on the class name (no reflection). Cost
+  is paid once per container build, cached via
+  :php:`ContainerBuilder::getReflectionClass()`, and negligible in
+  practice.
 * **- Implicit registration.** A new reader grepping ``nr_llm.provider`` in
   yaml no longer finds all providers. Mitigation: the attribute constant
   :php:`AsLlmProvider::TAG_NAME` is discoverable via symbol search.
