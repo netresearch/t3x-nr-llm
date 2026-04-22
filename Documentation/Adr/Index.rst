@@ -256,3 +256,4 @@ Modern architecture (v0.4+)
    Adr021ProviderFallbackChain
    Adr022AttributeBasedProviderRegistration
    Adr023BackendCapabilityPermissions
+   Adr024DashboardWidgets

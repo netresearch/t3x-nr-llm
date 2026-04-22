@@ -1,0 +1,48 @@
+# Dashboard widget registration for nr-llm.
+#
+# Loaded conditionally from Configuration/Services.php when
+# TYPO3\CMS\Dashboard\Widgets\WidgetInterface exists (i.e. typo3/cms-dashboard
+# is installed). Without that guard, extensions without dashboard would fail
+# to compile their container because of unresolvable class references.
+
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+
+  Netresearch\NrLlm\Widgets\DataProvider\MonthlyCostDataProvider: ~
+
+  Netresearch\NrLlm\Widgets\DataProvider\RequestsByProviderDataProvider: ~
+
+  dashboard.widget.nrllm.monthly_cost:
+    class: TYPO3\CMS\Dashboard\Widgets\NumberWithIconWidget
+    arguments:
+      $dataProvider: '@Netresearch\NrLlm\Widgets\DataProvider\MonthlyCostDataProvider'
+      $options:
+        icon: 'actions-currency'
+        title: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.monthly_cost.title'
+        subtitle: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.monthly_cost.subtitle'
+    tags:
+      - name: dashboard.widget
+        identifier: 'nrllm-monthly-cost'
+        groupNames: 'general'
+        title: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.monthly_cost.title'
+        description: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.monthly_cost.description'
+        iconIdentifier: 'actions-currency'
+        height: 'small'
+        width: 'small'
+
+  dashboard.widget.nrllm.requests_by_provider:
+    class: TYPO3\CMS\Dashboard\Widgets\BarChartWidget
+    arguments:
+      $dataProvider: '@Netresearch\NrLlm\Widgets\DataProvider\RequestsByProviderDataProvider'
+    tags:
+      - name: dashboard.widget
+        identifier: 'nrllm-requests-by-provider'
+        groupNames: 'general'
+        title: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.requests_by_provider.title'
+        description: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.requests_by_provider.description'
+        iconIdentifier: 'content-elements-mailform'
+        height: 'medium'
+        width: 'medium'

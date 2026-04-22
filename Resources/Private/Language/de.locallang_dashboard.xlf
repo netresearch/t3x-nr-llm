@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" target-language="de" datatype="plaintext" original="messages">
+        <body>
+            <trans-unit id="widget.monthly_cost.title">
+                <source>AI cost this month</source>
+                <target>KI-Kosten diesen Monat</target>
+            </trans-unit>
+            <trans-unit id="widget.monthly_cost.subtitle">
+                <source>USD, rounded down</source>
+                <target>USD, abgerundet</target>
+            </trans-unit>
+            <trans-unit id="widget.monthly_cost.description">
+                <source>Total estimated AI service cost for the current calendar month, aggregated from every nr-llm usage record.</source>
+                <target>Geschätzte Gesamtkosten für KI-Dienste im aktuellen Kalendermonat, aggregiert aus allen nr-llm-Nutzungsdaten.</target>
+            </trans-unit>
+            <trans-unit id="widget.requests_by_provider.title">
+                <source>AI requests by provider</source>
+                <target>KI-Anfragen nach Anbieter</target>
+            </trans-unit>
+            <trans-unit id="widget.requests_by_provider.description">
+                <source>Bar chart of nr-llm requests grouped by provider over the last seven days. Combines chat, vision, translation, speech, and image generation.</source>
+                <target>Balkendiagramm der nr-llm-Anfragen nach Anbieter in den letzten sieben Tagen. Umfasst Chat, Vision, Übersetzung, Sprache und Bilderzeugung.</target>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>
