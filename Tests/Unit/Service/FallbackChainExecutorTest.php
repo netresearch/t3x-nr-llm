@@ -298,6 +298,32 @@ class FallbackChainExecutorTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function rethrowsPrimaryErrorWhenChainContainsOnlyTheprimary(): void
+    {
+        // If the only fallback entry is the primary's own identifier, the
+        // post-filter chain is empty. Rethrow the primary error verbatim —
+        // do NOT wrap one attempt as "every configuration failed".
+        $primary = $this->makeConfig('p', new FallbackChain(['p']));
+
+        $executor = new FallbackChainExecutor($this->repositoryStub, new NullLogger());
+        $calls = [];
+        $err = new ProviderConnectionException('down', 0);
+
+        $caught = $this->captureException(
+            ProviderConnectionException::class,
+            function () use ($executor, $primary, $err, &$calls): never {
+                $executor->execute($primary, static function (LlmConfiguration $config) use (&$calls, $err): never {
+                    $calls[] = $config->getIdentifier();
+                    throw $err;
+                });
+            },
+        );
+
+        self::assertSame($err, $caught);
+        self::assertSame(['p'], $calls, 'Primary should be the only attempt');
+    }
+
+    #[Test]
     public function ignoresPrimaryIdentifierAppearingInOwnChain(): void
     {
         // Defensive: if somebody configures 'p' as its own fallback, don't retry it.

@@ -42,7 +42,7 @@ final class FallbackChainExhaustedException extends ProviderException
         $last = $attempts === [] ? null : $attempts[array_key_last($attempts)]['error'];
 
         $message = sprintf(
-            'All %d fallback configuration(s) failed: %s',
+            'All %d configuration(s) in the fallback chain failed: %s',
             count($attempts),
             implode(' -> ', $configurations),
         );

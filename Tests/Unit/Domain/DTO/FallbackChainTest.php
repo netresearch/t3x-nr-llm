@@ -273,4 +273,84 @@ class FallbackChainTest extends AbstractUnitTestCase
 
         self::assertSame(['a', 'a'], $chain->configurationIdentifiers);
     }
+
+    // ──────────────────────────────────────────────
+    // Normalisation (trim + lowercase) on sanitize entry points
+    // ──────────────────────────────────────────────
+
+    #[Test]
+    public function sanitizeNormalisesCasingAndWhitespace(): void
+    {
+        $chain = FallbackChain::fromArray([
+            'configurationIdentifiers' => ['  CLAUDE  ', 'ollama', 'Claude'],
+        ]);
+
+        // trimmed + lowercased; duplicate after normalisation dropped
+        self::assertSame(['claude', 'ollama'], $chain->configurationIdentifiers);
+    }
+
+    #[Test]
+    public function sanitizeDropsNonStringEntries(): void
+    {
+        // Malformed JSON where the list contains arrays/objects/null/ints
+        // must not throw "Illegal offset type" during sanitize.
+        $chain = FallbackChain::fromArray([
+            'configurationIdentifiers' => [
+                ['nested' => 'array'],
+                null,
+                42,
+                true,
+                'valid',
+                (object)['x' => 1],
+            ],
+        ]);
+
+        self::assertSame(['valid'], $chain->configurationIdentifiers);
+    }
+
+    #[Test]
+    public function fromArrayReturnsEmptyWhenConfigurationIdentifiersIsNotAnArray(): void
+    {
+        $chain = FallbackChain::fromArray(['configurationIdentifiers' => 'oops']);
+
+        self::assertTrue($chain->isEmpty());
+    }
+
+    #[Test]
+    public function containsIsCaseInsensitiveAndTrimsInput(): void
+    {
+        $chain = new FallbackChain(['claude', 'ollama']);
+
+        self::assertTrue($chain->contains('CLAUDE'));
+        self::assertTrue($chain->contains('  Claude  '));
+        self::assertTrue($chain->contains('ollama'));
+    }
+
+    #[Test]
+    public function withLinkNormalisesInputBeforeAppending(): void
+    {
+        $chain = (new FallbackChain(['claude']))->withLink('  OLLAMA  ');
+
+        self::assertSame(['claude', 'ollama'], $chain->configurationIdentifiers);
+    }
+
+    #[Test]
+    public function withLinkRejectsWhitespaceOnlyInput(): void
+    {
+        $chain = new FallbackChain(['claude']);
+
+        $updated = $chain->withLink("   \t\n  ");
+
+        self::assertSame($chain, $updated);
+    }
+
+    #[Test]
+    public function withoutNormalisesInputBeforeRemoving(): void
+    {
+        $chain = new FallbackChain(['claude', 'ollama']);
+
+        $updated = $chain->without('  OLLAMA  ');
+
+        self::assertSame(['claude'], $updated->configurationIdentifiers);
+    }
 }

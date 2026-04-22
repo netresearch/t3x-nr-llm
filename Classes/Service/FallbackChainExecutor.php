@@ -74,13 +74,27 @@ final readonly class FallbackChainExecutor
                 'LLM primary configuration failed, trying fallback chain',
                 [
                     'configuration' => $primary->getIdentifier(),
-                    'exception' => $e::class,
-                    'message' => $e->getMessage(),
+                    'exception' => $e,
+                    'exceptionClass' => $e::class,
                 ],
             );
         }
 
+        // Edge case: a chain that contains only the primary identifier becomes
+        // empty after filtering. No fallback was actually attempted — rethrow
+        // the primary's error verbatim instead of wrapping one attempt as
+        // "every configuration failed".
         $chain = $primary->getFallbackChainDTO()->without($primary->getIdentifier());
+        if ($chain->isEmpty()) {
+            $this->logger->warning(
+                'LLM primary configuration failed; fallback chain contained only the primary, nothing left to try',
+                [
+                    'configuration' => $primary->getIdentifier(),
+                    'configured_chain' => $primary->getFallbackChainDTO()->configurationIdentifiers,
+                ],
+            );
+            throw $attempts[0]['error'];
+        }
 
         foreach ($chain->configurationIdentifiers as $identifier) {
             $fallback = $this->repository->findOneByIdentifier($identifier);
@@ -122,8 +136,8 @@ final readonly class FallbackChainExecutor
                     'LLM fallback configuration failed',
                     [
                         'configuration' => $identifier,
-                        'exception' => $e::class,
-                        'message' => $e->getMessage(),
+                        'exception' => $e,
+                        'exceptionClass' => $e::class,
                     ],
                 );
             }

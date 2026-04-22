@@ -16,24 +16,35 @@ use JsonSerializable;
  * configuration fails with a retryable error.
  *
  * Fallback is shallow: a fallback configuration's own chain is ignored
- * to prevent recursion and cycles. Duplicates (including the primary's
- * own identifier) are silently rejected on construction and on withLink().
+ * to prevent recursion and cycles. Identifiers are normalised (trimmed
+ * and lowercased) to match how `tx_nrllm_configuration.identifier`
+ * stores them (TCA `eval=trim,alphanum_x,lower,unique`); withLink(),
+ * without() and contains() all apply the same normalisation so a
+ * manually-edited JSON payload with stray whitespace or capitals still
+ * resolves to the right row. Normalised duplicates are dropped on entry
+ * via fromArray()/fromJson() and silently skipped by withLink().
+ *
+ * The constructor itself does NOT normalise — it trusts already-sanitised
+ * input (see the sanitize() docblock).
  */
 final readonly class FallbackChain implements JsonSerializable
 {
     /**
-     * @param list<string> $configurationIdentifiers Ordered list of LlmConfiguration identifiers
+     * @param list<string> $configurationIdentifiers Ordered list of LlmConfiguration identifiers (should be pre-normalised)
      */
     public function __construct(
         public array $configurationIdentifiers = [],
     ) {}
 
     /**
-     * @param array{configurationIdentifiers?: list<string>} $data
+     * @param array{configurationIdentifiers?: mixed} $data
      */
     public static function fromArray(array $data): self
     {
         $identifiers = $data['configurationIdentifiers'] ?? [];
+        if (!is_array($identifiers)) {
+            return new self();
+        }
         return new self(self::sanitize($identifiers));
     }
 
@@ -46,7 +57,7 @@ final readonly class FallbackChain implements JsonSerializable
         if (!is_array($data)) {
             return new self();
         }
-        /** @var array{configurationIdentifiers?: list<string>} $data */
+        /** @var array{configurationIdentifiers?: mixed} $data */
         return self::fromArray($data);
     }
 
@@ -85,19 +96,20 @@ final readonly class FallbackChain implements JsonSerializable
 
     public function contains(string $identifier): bool
     {
-        return in_array($identifier, $this->configurationIdentifiers, true);
+        return in_array(self::normalise($identifier), $this->configurationIdentifiers, true);
     }
 
     /**
      * Return a new chain with the given identifier appended, deduplicated.
-     * Empty identifiers are silently ignored.
+     * Empty / whitespace-only identifiers are silently ignored.
      */
     public function withLink(string $identifier): self
     {
-        if ($identifier === '' || $this->contains($identifier)) {
+        $normalised = self::normalise($identifier);
+        if ($normalised === '' || $this->contains($normalised)) {
             return $this;
         }
-        return new self([...$this->configurationIdentifiers, $identifier]);
+        return new self([...$this->configurationIdentifiers, $normalised]);
     }
 
     /**
@@ -106,20 +118,24 @@ final readonly class FallbackChain implements JsonSerializable
      */
     public function without(string $identifier): self
     {
-        if ($identifier === '' || !$this->contains($identifier)) {
+        $normalised = self::normalise($identifier);
+        if ($normalised === '' || !$this->contains($normalised)) {
             return $this;
         }
         $filtered = array_values(array_filter(
             $this->configurationIdentifiers,
-            static fn(string $link): bool => $link !== $identifier,
+            static fn(string $link): bool => $link !== $normalised,
         ));
         return new self($filtered);
     }
 
     /**
-     * Normalize input: drop empty strings and duplicates, reindex as list.
+     * Normalise input: drop non-strings, drop empty strings, trim, lowercase,
+     * drop duplicates, reindex as list. Matches the sanitisation TCA already
+     * applies to `tx_nrllm_configuration.identifier` so round-trips through
+     * hand-written JSON do not accidentally miss a row.
      *
-     * @param list<string> $identifiers
+     * @param array<mixed> $identifiers
      *
      * @return list<string>
      */
@@ -128,12 +144,21 @@ final readonly class FallbackChain implements JsonSerializable
         $seen = [];
         $out = [];
         foreach ($identifiers as $identifier) {
-            if ($identifier === '' || isset($seen[$identifier])) {
+            if (!is_string($identifier)) {
                 continue;
             }
-            $seen[$identifier] = true;
-            $out[] = $identifier;
+            $normalised = self::normalise($identifier);
+            if ($normalised === '' || isset($seen[$normalised])) {
+                continue;
+            }
+            $seen[$normalised] = true;
+            $out[] = $normalised;
         }
         return $out;
+    }
+
+    private static function normalise(string $identifier): string
+    {
+        return strtolower(trim($identifier));
     }
 }

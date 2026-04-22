@@ -345,6 +345,7 @@ return [
                 'type' => 'text',
                 'cols' => 60,
                 'rows' => 4,
+                'eval' => 'trim',
                 'placeholder' => '{"configurationIdentifiers":["claude-sonnet","ollama-local"]}',
                 'default' => '',
             ],

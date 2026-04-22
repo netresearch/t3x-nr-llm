@@ -39,7 +39,7 @@ class FallbackChainExhaustedExceptionTest extends AbstractUnitTestCase
         $exception = FallbackChainExhaustedException::fromAttempts($attempts);
 
         self::assertStringContainsString('primary -> fallback-a -> fallback-b', $exception->getMessage());
-        self::assertStringContainsString('3 fallback configuration(s) failed', $exception->getMessage());
+        self::assertStringContainsString('3 configuration(s) in the fallback chain failed', $exception->getMessage());
     }
 
     #[Test]
@@ -61,7 +61,7 @@ class FallbackChainExhaustedExceptionTest extends AbstractUnitTestCase
     {
         $exception = FallbackChainExhaustedException::fromAttempts([]);
 
-        self::assertStringContainsString('0 fallback configuration(s) failed', $exception->getMessage());
+        self::assertStringContainsString('0 configuration(s) in the fallback chain failed', $exception->getMessage());
         self::assertNull($exception->getPrevious());
         self::assertSame([], $exception->getAttemptErrors());
         self::assertSame([], $exception->getAttemptedConfigurations());
