@@ -1,0 +1,23 @@
+# Opengrep / Semgrep exclude list for nr-llm.
+#
+# Consumed by the `security / SAST (Opengrep)` CI job.
+
+# Build artefacts and vendored code.
+.Build/
+.ddev/
+.docker/
+.idea/
+.vscode/
+node_modules/
+vendor/
+
+# Test code is scanned by our own test suites + PHPStan; opengrep's
+# default ruleset flags legitimate test patterns such as unlink() for
+# fixture cleanup, which is safe on static test paths.
+Tests/
+
+# Build scripts are shell-only and reviewed manually.
+Build/Scripts/
+
+# Documentation renders shouldn't be scanned as source.
+Documentation-GENERATED-temp/

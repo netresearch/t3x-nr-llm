@@ -35,6 +35,9 @@ jobs:
     with:
       run-fuzz-tests: true
       run-mutation-tests: true
+      # Matches the phpunit.xml testsuite name (lowercase "fuzzy").
+      # The reusable workflow defaults to "Fuzz" which returns "No tests executed!".
+      fuzz-testsuite: fuzzy
 
   license-check:
     uses: netresearch/typo3-ci-workflows/.github/workflows/license-check.yml@main
