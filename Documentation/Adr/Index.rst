@@ -257,3 +257,4 @@ Modern architecture (v0.4+)
    Adr022AttributeBasedProviderRegistration
    Adr023BackendCapabilityPermissions
    Adr024DashboardWidgets
+   Adr025PerUserBudgets

@@ -114,6 +114,12 @@ services:
   Netresearch\NrLlm\Domain\Repository\TaskRepository:
     public: true
 
+  Netresearch\NrLlm\Domain\Repository\UserBudgetRepository:
+    public: true
+
+  Netresearch\NrLlm\Service\BudgetService:
+    public: true
+
   # ========================================
   # Translation Registry
   # ========================================
