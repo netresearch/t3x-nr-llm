@@ -97,3 +97,26 @@ Optional
 
    Task type: ``chat``, ``completion``,
    ``embedding``, ``translation``.
+
+.. confval:: fallback_chain
+   :name: confval-config-fallback-chain
+   :type: JSON (text column)
+   :Default: (empty)
+
+   JSON object with a single key,
+   ``configurationIdentifiers``, whose value is the
+   ordered list of other configuration identifiers
+   to retry against when the primary fails with a
+   retryable error (connection error, HTTP 5xx, or
+   HTTP 429 rate-limit). Non-retryable errors bubble
+   up unchanged. Streaming requests do not trigger
+   fallback — chunks cannot be replayed against a
+   different provider.
+
+   Example payload::
+
+       {"configurationIdentifiers": ["claude-sonnet", "ollama-local"]}
+
+   Identifiers are matched case-insensitively;
+   leave empty to disable fallback. See
+   :ref:`developer-fallback-chain`.

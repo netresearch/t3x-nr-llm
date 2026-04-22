@@ -48,3 +48,4 @@ left-hand navigation:
    Configurations
    Tasks
    Wizards
+   UserBudgets

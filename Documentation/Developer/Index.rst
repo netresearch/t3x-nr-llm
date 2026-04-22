@@ -234,5 +234,8 @@ Best practices
    Streaming
    ToolCalling
    CustomProviders
+   ProviderRegistration
+   FallbackChain
+   CapabilityPermissions
    IntegrationGuide
    FeatureServices/Index

@@ -146,6 +146,13 @@ The **Admin Tools > LLM** backend module gives you full control:
 - **Models** — Define which models are available and their capabilities
 - **Configurations** — Create use-case presets (temperature, system prompts, token limits)
 - **Tasks** — Define reusable prompt templates for editors
+- **User Budgets** — Cap per-backend-user spending across every preset (requests / tokens / cost × daily / monthly). See the [Administration guide](Documentation/Administration/UserBudgets.rst).
+
+### Resilience
+
+- **Fallback chain** — Each configuration can list other configurations to retry against on a connection error, HTTP 5xx, or rate-limit. Streaming requests are excluded (chunks can't be replayed). See [ADR-021](Documentation/Adr/Adr021ProviderFallbackChain.rst).
+- **Per-capability permissions** — Every AI capability (chat, vision, tools, embeddings, …) is a native TYPO3 `customPermOptions` entry. Check a box per BE group; admins bypass. See [ADR-023](Documentation/Adr/Adr023BackendCapabilityPermissions.rst).
+- **Dashboard widgets** — When `typo3/cms-dashboard` is installed, "AI cost this month" and "AI requests by provider (7d)" show on the dashboard sourced from the existing usage table. See [ADR-024](Documentation/Adr/Adr024DashboardWidgets.rst).
 
 ### Security by default
 
