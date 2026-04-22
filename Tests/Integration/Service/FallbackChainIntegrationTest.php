@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException;
+use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\FallbackChainExecutor;
@@ -179,7 +180,7 @@ class FallbackChainIntegrationTest extends AbstractIntegrationTestCase
 
         $manager = $this->buildManager();
 
-        $this->expectException(\Netresearch\NrLlm\Provider\Exception\ProviderResponseException::class);
+        $this->expectException(ProviderResponseException::class);
         try {
             $manager->chatWithConfiguration(
                 [['role' => 'user', 'content' => 'Hello']],
