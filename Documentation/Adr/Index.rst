@@ -254,3 +254,4 @@ Modern architecture (v0.4+)
    Adr019InternationalizationStrategy
    Adr020BackendOutputFormatRendering
    Adr021ProviderFallbackChain
+   Adr022AttributeBasedProviderRegistration

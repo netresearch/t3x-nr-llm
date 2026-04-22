@@ -17,6 +17,7 @@ services:
   Netresearch\NrLlm\:
     resource: '../Classes/*'
     exclude:
+      - '../Classes/Attribute/*'
       - '../Classes/Domain/Model/*'
       - '../Classes/Provider/Exception/*'
       - '../Classes/Specialized/Exception/*'
@@ -47,49 +48,15 @@ services:
   # ========================================
   # Providers (PUBLIC)
   # ========================================
-  # All providers are registered via tags and auto-configured
-
-  Netresearch\NrLlm\Provider\OpenAiProvider:
-    public: true
-    tags:
-      - name: nr_llm.provider
-        priority: 100
-
-  Netresearch\NrLlm\Provider\ClaudeProvider:
-    public: true
-    tags:
-      - name: nr_llm.provider
-        priority: 90
-
-  Netresearch\NrLlm\Provider\GeminiProvider:
-    public: true
-    tags:
-      - name: nr_llm.provider
-        priority: 80
-
-  Netresearch\NrLlm\Provider\OpenRouterProvider:
-    public: true
-    tags:
-      - name: nr_llm.provider
-        priority: 70
-
-  Netresearch\NrLlm\Provider\MistralProvider:
-    public: true
-    tags:
-      - name: nr_llm.provider
-        priority: 60
-
-  Netresearch\NrLlm\Provider\GroqProvider:
-    public: true
-    tags:
-      - name: nr_llm.provider
-        priority: 50
-
-  Netresearch\NrLlm\Provider\OllamaProvider:
-    public: true
-    tags:
-      - name: nr_llm.provider
-        priority: 40
+  # Provider registration and priority are declared via the
+  # #[AsLlmProvider(priority: N)] attribute on each provider class.
+  # ProviderCompilerPass scans for the attribute, tags matching
+  # services automatically, AND makes attribute-discovered providers
+  # public so backend diagnostics can resolve them by class name.
+  # Services.yaml `tags:` entries still work for third-party
+  # providers and take precedence if both are present; yaml-tagged
+  # services remain private unless the yaml entry sets
+  # `public: true` explicitly.
 
   # ========================================
   # Provider Adapter Registry (database-backed providers)

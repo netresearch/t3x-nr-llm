@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Provider;
 
 use Generator;
 use JsonException;
+use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
@@ -28,6 +29,7 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
  * - Embeddings
  * - Code-specialized model (Codestral)
  */
+#[AsLlmProvider(priority: 60)]
 final class MistralProvider extends AbstractProvider implements
     StreamingCapableInterface,
     ToolCapableInterface
