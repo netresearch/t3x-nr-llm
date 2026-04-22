@@ -7,6 +7,58 @@
                 <source>LLM Configuration</source>
                 <target>LLM-Konfiguration</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_user_budget">
+                <source>LLM User Budget</source>
+                <target>LLM-Nutzerbudget</target>
+            </trans-unit>
+
+            <!-- User budget tabs -->
+            <trans-unit id="tab.daily_limits">
+                <source>Daily Limits</source>
+                <target>Tageslimits</target>
+            </trans-unit>
+            <trans-unit id="tab.monthly_limits">
+                <source>Monthly Limits</source>
+                <target>Monatslimits</target>
+            </trans-unit>
+
+            <!-- User budget fields -->
+            <trans-unit id="tx_nrllm_user_budget.be_user">
+                <source>Backend User</source>
+                <target>Backend-Benutzer</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_user_budget.is_active">
+                <source>Enforce this budget</source>
+                <target>Dieses Budget erzwingen</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_user_budget.unlimited_hint">
+                <source>0 = unlimited on this axis.</source>
+                <target>0 = unbegrenzt für diese Dimension.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_user_budget.max_requests_per_day">
+                <source>Max Requests/Day</source>
+                <target>Max. Anfragen/Tag</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_user_budget.max_tokens_per_day">
+                <source>Max Tokens/Day</source>
+                <target>Max. Token/Tag</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_user_budget.max_cost_per_day">
+                <source>Max Cost/Day ($)</source>
+                <target>Max. Kosten/Tag ($)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_user_budget.max_requests_per_month">
+                <source>Max Requests/Month</source>
+                <target>Max. Anfragen/Monat</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_user_budget.max_tokens_per_month">
+                <source>Max Tokens/Month</source>
+                <target>Max. Token/Monat</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_user_budget.max_cost_per_month">
+                <source>Max Cost/Month ($)</source>
+                <target>Max. Kosten/Monat ($)</target>
+            </trans-unit>
 
             <!-- Tabs -->
             <trans-unit id="tab.parameters">

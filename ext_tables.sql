@@ -154,6 +154,41 @@ CREATE TABLE tx_nrllm_configuration (
 );
 
 #
+# Table structure for table 'tx_nrllm_user_budget'
+# Per-backend-user spending and request limits.
+#
+CREATE TABLE tx_nrllm_user_budget (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    -- Backend user reference
+    be_user int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Daily limits (0 = unlimited)
+    max_requests_per_day int(11) unsigned DEFAULT '0' NOT NULL,
+    max_tokens_per_day int(11) unsigned DEFAULT '0' NOT NULL,
+    max_cost_per_day decimal(10,4) DEFAULT '0.0000' NOT NULL,
+
+    -- Monthly limits (0 = unlimited)
+    max_requests_per_month int(11) unsigned DEFAULT '0' NOT NULL,
+    max_tokens_per_month int(11) unsigned DEFAULT '0' NOT NULL,
+    max_cost_per_month decimal(10,4) DEFAULT '0.0000' NOT NULL,
+
+    -- Status
+    is_active tinyint(1) DEFAULT '1' NOT NULL,
+
+    -- Standard TYPO3 fields
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
+    hidden tinyint(4) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    UNIQUE KEY be_user (be_user)
+);
+
+#
 # MM table for backend user group access control
 #
 CREATE TABLE tx_nrllm_configuration_begroups_mm (
