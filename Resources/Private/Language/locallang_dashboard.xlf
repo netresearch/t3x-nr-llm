@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" datatype="plaintext" original="messages">
+        <body>
+            <trans-unit id="widget.monthly_cost.title">
+                <source>AI cost this month</source>
+            </trans-unit>
+            <trans-unit id="widget.monthly_cost.subtitle">
+                <source>USD, rounded down</source>
+            </trans-unit>
+            <trans-unit id="widget.monthly_cost.description">
+                <source>Total estimated AI service cost for the current calendar month, aggregated from every nr-llm usage record.</source>
+            </trans-unit>
+            <trans-unit id="widget.requests_by_provider.title">
+                <source>AI requests by provider</source>
+            </trans-unit>
+            <trans-unit id="widget.requests_by_provider.description">
+                <source>Bar chart of nr-llm requests grouped by provider over the last seven days. Combines chat, vision, translation, speech, and image generation.</source>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

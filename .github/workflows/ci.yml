@@ -34,7 +34,10 @@ jobs:
       contents: read
     with:
       run-fuzz-tests: true
-      run-mutation-tests: true
+      # Mutation testing runs ~15 min and its per-PR signal is hard to
+      # action locally. Skip on pull_request; let main / merge_group /
+      # schedule carry the MSI regression bar.
+      run-mutation-tests: ${{ github.event_name != 'pull_request' }}
       # Matches the phpunit.xml testsuite name (lowercase "fuzzy").
       # The reusable workflow defaults to "Fuzz" which returns "No tests executed!".
       fuzz-testsuite: fuzzy

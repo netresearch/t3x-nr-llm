@@ -21,6 +21,7 @@ services:
       - '../Classes/Domain/Model/*'
       - '../Classes/Provider/Exception/*'
       - '../Classes/Specialized/Exception/*'
+      - '../Classes/Widgets/*'
 
   # ========================================
   # Core Services (PUBLIC)
