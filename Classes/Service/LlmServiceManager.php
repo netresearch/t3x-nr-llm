@@ -22,6 +22,9 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
@@ -45,7 +48,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         private readonly ExtensionConfiguration $extensionConfiguration,
         private readonly LoggerInterface $logger,
         private readonly ProviderAdapterRegistry $adapterRegistry,
-        private readonly ?FallbackChainExecutor $fallbackChainExecutor = null,
+        private readonly MiddlewarePipeline $pipeline,
     ) {
         $this->loadConfiguration();
     }
@@ -344,8 +347,9 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function chatWithConfiguration(array $messages, LlmConfiguration $configuration): CompletionResponse
     {
-        return $this->runWithFallback(
+        return $this->runThroughPipeline(
             $configuration,
+            ProviderOperation::Chat,
             function (LlmConfiguration $config) use ($messages): CompletionResponse {
                 $adapter = $this->getAdapterFromConfiguration($config);
                 $options = $config->toOptionsArray();
@@ -362,8 +366,9 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration): CompletionResponse
     {
-        return $this->runWithFallback(
+        return $this->runThroughPipeline(
             $configuration,
+            ProviderOperation::Completion,
             function (LlmConfiguration $config) use ($prompt): CompletionResponse {
                 $adapter = $this->getAdapterFromConfiguration($config);
                 $options = $config->toOptionsArray();
@@ -374,24 +379,30 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Apply the fallback chain to a per-configuration call.
+     * Invoke the provider middleware pipeline for a per-configuration call.
      *
-     * When no executor was injected (e.g. manual instantiation in tests),
-     * or when the configuration has no fallback chain, this delegates
-     * directly to the callable with the original configuration.
+     * The pipeline composes every service tagged
+     * `nr_llm.provider_middleware` (fallback, budget, usage, cache, …) around
+     * the given terminal. Callers pass the current configuration, the
+     * operation kind (so middleware can filter by operation) and the
+     * terminal closure that performs the actual provider invocation.
      *
      * @template T
      *
-     * @param callable(LlmConfiguration): T $execute
+     * @param callable(LlmConfiguration): T $terminal
      *
      * @return T
      */
-    private function runWithFallback(LlmConfiguration $configuration, callable $execute): mixed
-    {
-        if ($this->fallbackChainExecutor === null || !$configuration->hasFallbackChain()) {
-            return $execute($configuration);
-        }
-        return $this->fallbackChainExecutor->execute($configuration, $execute);
+    private function runThroughPipeline(
+        LlmConfiguration $configuration,
+        ProviderOperation $operation,
+        callable $terminal,
+    ): mixed {
+        return $this->pipeline->run(
+            ProviderCallContext::for($operation),
+            $configuration,
+            $terminal,
+        );
     }
 
     /**

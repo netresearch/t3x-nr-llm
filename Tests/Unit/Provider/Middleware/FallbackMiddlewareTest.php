@@ -30,9 +30,9 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Mirrors the coverage of FallbackChainExecutorTest, rewritten against the
- * middleware contract. Same retryable-exception matrix, same chain-walk
- * semantics, same exhaustion / skip / inactive / self-reference edge cases.
+ * Covers the retryable-exception matrix, chain-walk semantics, and all
+ * exhaustion / skip / inactive / self-reference edge cases for the
+ * fallback behaviour provided by the middleware.
  */
 #[CoversClass(FallbackMiddleware::class)]
 #[CoversClass(MiddlewarePipeline::class)]

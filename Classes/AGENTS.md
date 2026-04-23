@@ -44,7 +44,8 @@ Full test matrix in root `AGENTS.md` Setup section.
 | `Provider/` | 7 adapters: OpenAI, Claude, Gemini, Groq, Mistral, Ollama, OpenRouter |
 | `Provider/Contract/` | ProviderInterface, Streaming/Tool/Vision/DocumentCapableInterface |
 | `Provider/Exception/` | 5 typed provider exceptions |
-| `Service/` | LlmServiceManager, CacheManager, ModelSelectionService, WizardGeneratorService, BudgetService, FallbackChainExecutor |
+| `Service/` | LlmServiceManager, CacheManager, ModelSelectionService, WizardGeneratorService, BudgetService |
+| `Provider/Middleware/` | Middleware pipeline (Fallback, Budget, Usage, Cache) — see ADR-026 |
 | `Service/Feature/` | CompletionService, EmbeddingService, TranslationService, VisionService |
 | `Service/Option/` | ChatOptions, EmbeddingOptions, ToolOptions, TranslationOptions, VisionOptions |
 | `Service/SetupWizard/` | ProviderDetector, ModelDiscovery, ConfigurationGenerator + DTOs |
