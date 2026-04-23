@@ -1,10 +1,10 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-03-14 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-04-23 -->
 
 # AGENTS.md — Classes
 
 <!-- AGENTS-GENERATED:START overview -->
 ## Overview
-PHP 8.2+ source code (127 files) with strict typing, PSR-12, PHPStan level 10. Three-tier domain: Providers -> Models -> Configurations.
+PHP 8.2+ source code (139 files) with strict typing, PSR-12, PHPStan level 10. Three-tier domain: Providers -> Models -> Configurations.
 <!-- AGENTS-GENERATED:END overview -->
 
 <!-- AGENTS-GENERATED:START setup -->
@@ -17,27 +17,38 @@ PHP 8.2+ source code (127 files) with strict typing, PSR-12, PHPStan level 10. T
 ```
 <!-- AGENTS-GENERATED:END setup -->
 
+## Tests
+```bash
+./Build/Scripts/runTests.sh -s unit         # Unit tests for Classes/
+./Build/Scripts/runTests.sh -s functional   # Functional tests (DB)
+```
+Full test matrix in root `AGENTS.md` Setup section.
+
 <!-- AGENTS-GENERATED:START filemap -->
 ## Key Files
 
 | Directory | Purpose |
 |-----------|---------|
-| `Controller/Backend/` | Backend module controllers (6), DTOs (4), Response objects (10) |
-| `Domain/Model/` | Entities: Provider, Model, LlmConfiguration, Task, PromptTemplate |
+| `Attribute/` | `#[AsLlmProvider]` auto-registration attribute |
+| `Controller/Backend/` | Backend module controllers (6), request DTOs (4), Response objects (9) |
+| `DependencyInjection/` | ProviderCompilerPass |
+| `Domain/DTO/` | BudgetCheckResult, FallbackChain, ModelSelectionCriteria |
 | `Domain/Enum/` | ModelCapability, ModelSelectionMode, TaskCategory, TaskInputType, TaskOutputFormat |
-| `Domain/ValueObject/` | ChatMessage |
-| `Domain/Repository/` | LlmConfigurationRepository, ModelRepository |
+| `Domain/Model/` | Entities: Provider, Model, LlmConfiguration, Task, PromptTemplate, UserBudget |
+| `Domain/Repository/` | LlmConfiguration, Model, Provider, Task, PromptTemplate, UserBudget |
+| `Domain/ValueObject/` | ChatMessage (currently unused — tracked in audit 2026-04-23) |
+| `Exception/` | AccessDenied, ConfigurationNotFound, InvalidArgument, PromptTemplateNotFound |
+| `Form/` | ModelIdElement (TCA), ModelConstraintsWizard (field wizard) |
 | `Provider/` | 7 adapters: OpenAI, Claude, Gemini, Groq, Mistral, Ollama, OpenRouter |
-| `Provider/Contract/` | ProviderInterface, StreamingCapableInterface, ToolCapableInterface, VisionCapableInterface |
+| `Provider/Contract/` | ProviderInterface, Streaming/Tool/Vision/DocumentCapableInterface |
 | `Provider/Exception/` | 5 typed provider exceptions |
+| `Service/` | LlmServiceManager, CacheManager, ModelSelectionService, WizardGeneratorService, BudgetService, FallbackChainExecutor |
 | `Service/Feature/` | CompletionService, EmbeddingService, TranslationService, VisionService |
 | `Service/Option/` | ChatOptions, EmbeddingOptions, ToolOptions, TranslationOptions, VisionOptions |
 | `Service/SetupWizard/` | ProviderDetector, ModelDiscovery, ConfigurationGenerator + DTOs |
-| `Service/` | LlmServiceManager, CacheManager, ModelSelectionService, WizardGeneratorService |
 | `Specialized/` | Image (DALL-E, FAL), Speech (Whisper, TTS), Translation (DeepL, LLM) |
-| `Form/` | ModelIdElement (TCA), ModelConstraintsWizard (field wizard) |
 | `Utility/` | SafeCastTrait |
-| `DependencyInjection/` | ProviderCompilerPass |
+| `Widgets/DataProvider/` | Backend dashboard widgets (MonthlyCost, RequestsByProvider) |
 <!-- AGENTS-GENERATED:END filemap -->
 
 <!-- AGENTS-GENERATED:START code-style -->

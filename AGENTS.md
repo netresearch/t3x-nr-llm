@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-03-14 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-04-23 -->
 
 # AGENTS.md — nr_llm
 
@@ -11,11 +11,11 @@ TYPO3 v13.4+ extension providing a unified LLM provider abstraction layer. Suppo
 
 <!-- AGENTS-GENERATED:START precedence -->
 ## Precedence
-Scoped AGENTS.md files in subdirectories override this file for their scope. This file provides project-wide defaults.
+The closest AGENTS.md wins: scoped AGENTS.md files in subdirectories override this file for their scope. This root file provides project-wide defaults.
 <!-- AGENTS-GENERATED:END precedence -->
 
 <!-- AGENTS-GENERATED:START scope-index -->
-## Scoped Files
+## Index of scoped AGENTS.md
 
 | Directory | Scope |
 |-----------|-------|
@@ -52,7 +52,7 @@ ddev start && ddev composer install
 
 | File | Purpose |
 |------|---------|
-| `ext_emconf.php` | Extension metadata, version 0.5.0 |
+| `ext_emconf.php` | Extension metadata, version 0.7.0 |
 | `ext_localconf.php` | Extension bootstrap |
 | `composer.json` | Dependencies (composer.lock NOT committed) |
 | `Build/phpunit.xml` | PHPUnit configuration |
@@ -67,18 +67,21 @@ ddev start && ddev composer install
 ## Directory Structure
 ```
 nr_llm/
-├── Classes/                    # 127 PHP source files
+├── Classes/                    # 139 PHP source files
+│   ├── Attribute/              # #[AsLlmProvider] auto-registration attribute
 │   ├── Controller/Backend/     # Backend controllers, DTOs, Response objects
+│   ├── DependencyInjection/    # Compiler passes (ProviderCompilerPass)
 │   ├── Domain/                 # Entities, repositories, enums, DTOs, value objects
-│   ├── Provider/               # LLM adapters + Contract interfaces + exceptions
-│   ├── Service/                # Business logic, feature services, wizard, options
-│   ├── Specialized/            # DeepL, speech, image generation (with sub-packages)
+│   ├── Exception/              # Core domain exceptions
 │   ├── Form/                   # TCA form elements (ModelIdElement, ModelConstraintsWizard)
+│   ├── Provider/               # 7 LLM adapters + Contract interfaces + exceptions
+│   ├── Service/                # Feature services, wizard, options, fallback chain
+│   ├── Specialized/            # DeepL, speech (Whisper/TTS), image (DALL-E/FAL)
 │   ├── Utility/                # SafeCastTrait
-│   └── DependencyInjection/    # Compiler passes
+│   └── Widgets/DataProvider/   # Backend dashboard widgets (cost, requests)
 ├── Configuration/              # TYPO3 config (TCA, services, caching, icons, routes)
-├── Documentation/              # 61 RST files + guides.xml + brand assets
-│   └── Adr/                    # 20 Architecture Decision Records (001-020)
+├── Documentation/              # 69 RST files + guides.xml + brand assets
+│   └── Adr/                    # 26 Architecture Decision Records
 ├── Tests/                      # Unit, Integration, Functional, Fuzzy, Architecture, E2E
 ├── Resources/                  # Templates, XLIFF (EN+DE), icons, CSS, JS
 └── Build/                      # PHPStan, Rector, Fractor configs + runTests.sh

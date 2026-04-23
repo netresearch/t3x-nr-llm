@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-03-14 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-04-23 -->
 
 # AGENTS.md — Tests
 
@@ -25,7 +25,7 @@ Comprehensive test suite: PHPUnit 11/12 (cross-compatible), TYPO3 Testing Framew
 <!-- AGENTS-GENERATED:END setup -->
 
 <!-- AGENTS-GENERATED:START filemap -->
-## Test Structure
+## Tests
 
 | Directory | Framework | Purpose |
 |-----------|-----------|---------|
@@ -40,7 +40,7 @@ Comprehensive test suite: PHPUnit 11/12 (cross-compatible), TYPO3 Testing Framew
 <!-- AGENTS-GENERATED:END filemap -->
 
 <!-- AGENTS-GENERATED:START code-style -->
-## Test Conventions
+## Conventions
 - PHPUnit attributes: `#[Test]`, `#[CoversClass(...)]`, `#[DataProvider(...)]`
 - PHPUnit 11/12 cross-compatibility: use `#[CoversNothing]` for enums/exceptions
 - `failOnWarning=true` in phpunit.xml
