@@ -46,6 +46,7 @@ Documentation-GENERATED-temp/
 
 # Local planning docs (not for repo)
 docs/
+claudedocs/
 
 # DDEV local files (keep config, ignore generated)
 .ddev/.ddev-docker-compose-full.yaml

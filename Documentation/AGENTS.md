@@ -1,10 +1,10 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-03-14 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-04-23 -->
 
 # AGENTS.md — Documentation
 
 <!-- AGENTS-GENERATED:START overview -->
 ## Overview
-TYPO3 RST documentation (61 files) restructured into granular sub-pages. Includes 20 ADRs, API reference (9 pages), and Netresearch branding. Built with `guides.xml` (TYPO3 docs theme, version 0.4.11).
+TYPO3 RST documentation (69 files) restructured into granular sub-pages. Includes 26 ADRs, API reference (9 pages), and Netresearch branding. Built with `guides.xml` (TYPO3 docs theme, version 0.4.11).
 <!-- AGENTS-GENERATED:END overview -->
 
 <!-- AGENTS-GENERATED:START setup -->
@@ -17,6 +17,11 @@ docker run --rm -v $(pwd):/project ghcr.io/typo3-documentation/render-guides:lat
 ```
 <!-- AGENTS-GENERATED:END setup -->
 
+<!-- AGENTS-GENERATED:START tests -->
+## Build/Tests
+Docs are rendered and validated in CI via `.github/workflows/docs.yml`. Local render uses the docker command in Setup.
+<!-- AGENTS-GENERATED:END tests -->
+
 <!-- AGENTS-GENERATED:START filemap -->
 ## Key Files
 
@@ -28,7 +33,7 @@ docker run --rm -v $(pwd):/project ghcr.io/typo3-documentation/render-guides:lat
 | `Sitemap.rst` | Navigation |
 | `Changelog.rst` | Version history |
 
-### Documentation Sections (61 files total)
+### Documentation Sections (69 files total)
 
 | Section | Files | Content |
 |---------|-------|---------|
@@ -40,7 +45,7 @@ docker run --rm -v $(pwd):/project ghcr.io/typo3-documentation/render-guides:lat
 | `Architecture/` | Index | Design patterns |
 | `Introduction/` | Index | Overview, features |
 | `Installation/` | Index | Setup instructions |
-| `Adr/` | 20 ADRs (001-020) | Architecture Decision Records |
+| `Adr/` | 26 ADRs | Architecture Decision Records |
 
 ### Brand Assets
 
@@ -55,7 +60,7 @@ docker run --rm -v $(pwd):/project ghcr.io/typo3-documentation/render-guides:lat
 <!-- AGENTS-GENERATED:END filemap -->
 
 <!-- AGENTS-GENERATED:START code-style -->
-## RST Style
+## Code style
 - **UTF-8**, **4-space indentation**, **80 char max line length**, **LF line endings**
 - **CamelCase** for file/directory names, **sentence case** for headings
 - **Index.rst** required in EVERY subdirectory
@@ -90,7 +95,7 @@ Subsection (~)
 - `.. note::` / `.. warning::` / `.. tip::` for admonitions
 
 ### ADR Format (Adr/)
-ADRs use numbered naming: `AdrNNNTitle.rst`. Currently 001-020. Follow existing format for new ADRs.
+ADRs use numbered naming: `AdrNNNTitle.rst`. 26 exist; follow existing format for new ADRs.
 
 ### Branding
 Documentation uses Netresearch branding: teal underline SVG for headings, emoji icons for feature cards, footer card with company info. See `guides.xml` `<extension>` attributes for project links.
@@ -128,5 +133,5 @@ Documentation uses Netresearch branding: teal underline SVG for headings, emoji 
 - TYPO3 docs guide: https://docs.typo3.org/m/typo3/docs-how-to-document/main/en-us/
 - Render locally with Docker (see Setup above)
 - Check `guides.xml` for build configuration
-- Existing 61 files serve as reference patterns
+- Existing 69 files serve as reference patterns
 <!-- AGENTS-GENERATED:END help -->

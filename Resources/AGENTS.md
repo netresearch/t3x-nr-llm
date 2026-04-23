@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-03-14 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-04-23 -->
 
 # AGENTS.md — Resources
 
@@ -73,7 +73,7 @@ No build step. Files served directly by TYPO3. JavaScript uses ES modules via `@
 <!-- AGENTS-GENERATED:END code-style -->
 
 <!-- AGENTS-GENERATED:START patterns -->
-## Key Patterns
+## Common patterns
 
 ### Adding a Translation
 Add `<trans-unit>` to appropriate `locallang*.xlf`, then add German translation to corresponding `de.locallang*.xlf`.
