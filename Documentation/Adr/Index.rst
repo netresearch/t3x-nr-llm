@@ -258,3 +258,4 @@ Modern architecture (v0.4+)
    Adr023BackendCapabilityPermissions
    Adr024DashboardWidgets
    Adr025PerUserBudgets
+   Adr026ProviderMiddlewarePipeline
