@@ -95,8 +95,8 @@ collected middleware via :php:`AutowireIterator`. Ordering follows tag
 priority; ``priority`` is an ordering hint only.
 
 Contributors can add behaviour without touching :code:`Services.yaml` —
-implement the interface, drop the class under :code:`Classes/Provider/`,
-you are done.
+implement the interface, drop the class under
+:code:`Classes/Provider/Middleware/`, you are done.
 
 .. _adr-026-scope:
 

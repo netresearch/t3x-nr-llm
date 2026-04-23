@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Middleware;
 
+use Symfony\Component\Uid\Uuid;
+
 /**
  * Immutable context threaded through a MiddlewarePipeline invocation.
  *
@@ -31,7 +33,11 @@ final readonly class ProviderCallContext
     ) {}
 
     /**
-     * Create a context with an auto-generated correlation id (16 hex chars).
+     * Create a context with an auto-generated UUID v4 correlation id.
+     *
+     * Callers that already hold a correlation id (e.g. propagated from an
+     * upstream trace / request id) should use the regular constructor instead
+     * of this factory so the incoming id survives end-to-end.
      *
      * @param array<string, mixed> $metadata
      */
@@ -39,7 +45,7 @@ final readonly class ProviderCallContext
     {
         return new self(
             operation: $operation,
-            correlationId: \bin2hex(\random_bytes(8)),
+            correlationId: Uuid::v4()->toRfc4122(),
             metadata: $metadata,
         );
     }

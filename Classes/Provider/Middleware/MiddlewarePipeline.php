@@ -41,7 +41,7 @@ final readonly class MiddlewarePipeline
     ) {
         $this->middleware = \is_array($middleware)
             ? \array_values($middleware)
-            : \array_values(\iterator_to_array($middleware, preserve_keys: false));
+            : \iterator_to_array($middleware, preserve_keys: false);
     }
 
     /**
