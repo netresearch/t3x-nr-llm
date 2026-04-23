@@ -9,7 +9,7 @@ permissions: {}
 
 jobs:
   release:
-    uses: netresearch/typo3-ci-workflows/.github/workflows/release.yml@main
+    uses: netresearch/typo3-ci-workflows/.github/workflows/release-typo3-extension.yml@main
     permissions:
       contents: write
       id-token: write
@@ -17,20 +17,6 @@ jobs:
     with:
       archive-prefix: nr-llm
       package-name: netresearch/nr-llm
-
-  publish-to-ter:
-    needs: release
-    uses: netresearch/typo3-ci-workflows/.github/workflows/publish-to-ter.yml@main
-    permissions:
-      contents: read
+      extension-key: nr_llm
     secrets:
       TYPO3_TER_ACCESS_TOKEN: ${{ secrets.TYPO3_TER_ACCESS_TOKEN }}
-
-  # Note: SBOM (SPDX + CycloneDX), Cosign keyless signing, and
-  # actions/attest-build-provenance all run inside the reusable
-  # `release.yml` job above — no separate slsa-provenance job is
-  # needed. The previous standalone reference to
-  # `slsa-provenance.yml@main` pointed at a workflow that does not
-  # exist in netresearch/typo3-ci-workflows, which GitHub rejected
-  # as a "workflow file issue" before any job started, preventing
-  # the entire release from running.
