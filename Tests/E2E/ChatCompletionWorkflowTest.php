@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\E2E;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
+use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\Feature\CompletionService;
@@ -59,7 +60,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
@@ -107,7 +108,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
@@ -153,7 +154,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($clientSetup['client']);
@@ -210,7 +211,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($clientSetup['client']);
@@ -264,7 +265,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
@@ -310,7 +311,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
@@ -373,7 +374,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry);
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]));
         $serviceManager->registerProvider($openAiProvider);
         $serviceManager->registerProvider($claudeProvider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()

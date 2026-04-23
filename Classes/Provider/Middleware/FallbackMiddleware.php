@@ -34,8 +34,7 @@ use Throwable;
  * short-circuit condition if a mixed pipeline is ever needed.
  *
  * Fallback is shallow: a fallback configuration's own chain is ignored to
- * prevent recursion and cycles. Mirrors the behaviour of the legacy
- * FallbackChainExecutor which this middleware supersedes.
+ * prevent recursion and cycles.
  */
 final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
 {
