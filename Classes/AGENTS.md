@@ -17,12 +17,14 @@ PHP 8.2+ source code (139 files) with strict typing, PSR-12, PHPStan level 10. T
 ```
 <!-- AGENTS-GENERATED:END setup -->
 
-## Tests
+<!-- AGENTS-GENERATED:START tests -->
+## Build/Tests
 ```bash
 ./Build/Scripts/runTests.sh -s unit         # Unit tests for Classes/
 ./Build/Scripts/runTests.sh -s functional   # Functional tests (DB)
 ```
 Full test matrix in root `AGENTS.md` Setup section.
+<!-- AGENTS-GENERATED:END tests -->
 
 <!-- AGENTS-GENERATED:START filemap -->
 ## Key Files

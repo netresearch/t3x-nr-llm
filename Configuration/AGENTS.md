@@ -61,7 +61,7 @@ All services use autowiring. Public services defined in `Services.yaml`:
 <!-- AGENTS-GENERATED:END filemap -->
 
 <!-- AGENTS-GENERATED:START commands -->
-## Commands
+## Build/Tests
 See root `AGENTS.md` Setup — Configuration changes are validated by the full test matrix (`./Build/Scripts/runTests.sh`).
 <!-- AGENTS-GENERATED:END commands -->
 

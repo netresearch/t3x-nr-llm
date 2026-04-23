@@ -25,7 +25,7 @@ Comprehensive test suite: PHPUnit 11/12 (cross-compatible), TYPO3 Testing Framew
 <!-- AGENTS-GENERATED:END setup -->
 
 <!-- AGENTS-GENERATED:START filemap -->
-## Tests
+## Build/Tests
 
 | Directory | Framework | Purpose |
 |-----------|-----------|---------|
@@ -40,7 +40,7 @@ Comprehensive test suite: PHPUnit 11/12 (cross-compatible), TYPO3 Testing Framew
 <!-- AGENTS-GENERATED:END filemap -->
 
 <!-- AGENTS-GENERATED:START code-style -->
-## Conventions
+## Code style
 - PHPUnit attributes: `#[Test]`, `#[CoversClass(...)]`, `#[DataProvider(...)]`
 - PHPUnit 11/12 cross-compatibility: use `#[CoversNothing]` for enums/exceptions
 - `failOnWarning=true` in phpunit.xml

@@ -50,7 +50,7 @@ ddev describe   # print URLs and credentials
 <!-- AGENTS-GENERATED:END patterns -->
 
 <!-- AGENTS-GENERATED:START code-style -->
-## Style
+## Code style
 - Keep `config.yaml` minimal, use overrides for complexity
 - Document custom commands with `## Description:` header
 - Use `#ddev-generated` comment for files DDEV manages

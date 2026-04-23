@@ -17,8 +17,10 @@ docker run --rm -v $(pwd):/project ghcr.io/typo3-documentation/render-guides:lat
 ```
 <!-- AGENTS-GENERATED:END setup -->
 
-## Tests
+<!-- AGENTS-GENERATED:START tests -->
+## Build/Tests
 Docs are rendered and validated in CI via `.github/workflows/docs.yml`. Local render uses the docker command in Setup.
+<!-- AGENTS-GENERATED:END tests -->
 
 <!-- AGENTS-GENERATED:START filemap -->
 ## Key Files
