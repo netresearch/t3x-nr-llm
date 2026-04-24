@@ -37,8 +37,11 @@ composer config --unset platform.php
 echo "Adding nr_llm extension..."
 composer config repositories.nr_llm path "$EXTENSION_PATH"
 # Opt-in: to debug against a local nr-vault checkout, create a
-# .ddev/docker-compose.nrvault.yaml override that bind-mounts the
-# source to /var/www/nr-vault, then add a path repo here yourself.
+# local-only .ddev/docker-compose.nrvault.yaml override that
+# bind-mounts the source to /var/www/nr-vault, then add a path repo
+# here yourself. Keep that override untracked (for example, add
+# .ddev/docker-compose.nrvault.yaml to .git/info/exclude before
+# creating it) to avoid accidentally committing local settings.
 composer require netresearch/nr-llm:@dev --no-interaction --no-progress
 
 # Add dev dependencies
