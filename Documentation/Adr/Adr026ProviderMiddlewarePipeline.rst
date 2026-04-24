@@ -6,7 +6,7 @@
 ADR-026: Provider Middleware Pipeline
 ==========================================
 
-:Status: Proposed
+:Status: Accepted
 :Date: 2026-04
 :Authors: Netresearch DTT GmbH
 
@@ -139,12 +139,56 @@ the test matrix keeps green end-to-end:
 4. **CacheMiddleware** — opt-in per operation via
    :php:`ProviderOperation`. Embedding lookups start going through it;
    the branch currently inside :php:`EmbeddingService` comes out.
-5. **Feature-service wiring** — every :php:`Service/Feature/*` builds
-   its terminal callable and invokes the pipeline, inheriting every
-   middleware registered above without writing any glue.
+5. **Direct-method wiring (centralised)** — every direct API method on
+   :php:`LlmServiceManager` (``chat``, ``complete``, ``embed``,
+   ``vision``, ``chatWithTools``) builds its terminal callable and
+   invokes the pipeline via a synthesised transient
+   :php:`LlmConfiguration`. Because every feature service
+   (:php:`CompletionService`, :php:`EmbeddingService`,
+   :php:`TranslationService`, :php:`VisionService`) delegates to these
+   methods, feature-service traffic inherits the full middleware stack
+   without each service owning its own pipeline glue.
+
+   The transient configuration is unpersisted (no uid), carries an
+   empty fallback chain (so :php:`FallbackMiddleware` passes through
+   verbatim), and uses a human-readable ``ad-hoc:<operation>:<provider>``
+   identifier so log / trace labels distinguish direct traffic from
+   configuration-backed calls. Middleware that needs more context
+   (``beUserUid`` for :php:`BudgetMiddleware`, cache keys for
+   :php:`CacheMiddleware`) reads it from the
+   :php:`ProviderCallContext` metadata, not from the configuration.
+
+   Streaming (:php:`streamChat` / :php:`streamChatWithConfiguration`)
+   deliberately stays out of the pipeline per the ADR's original scope:
+   once the first chunk has been emitted, we cannot swap providers
+   mid-stream, and most middleware assume a single terminal result.
+
+   **Why the centralised form rather than "every feature service owns
+   glue":** the ADR's problem statement explicitly identifies direct
+   calls as the bug ("``chat()``, ``complete()``, ``embed()``,
+   ``vision()`` — bypass [the fallback executor] entirely, which
+   silently splits retry semantics"). Wiring feature services only
+   would have left direct :php:`LlmServiceManager` callers still
+   bypassing the pipeline. Centralising on :php:`LlmServiceManager`
+   fixes both in one step and keeps feature services free of pipeline
+   concerns.
 
 Each follow-up is scoped to a single concern and keeps the codebase
 shippable after every step.
+
+Remaining cleanup
+-----------------
+
+:php:`EmbeddingService::embedFull()` still contains an inline cache
+branch from before the middleware landed. The branch is harmless —
+:php:`CacheMiddleware` is opt-in via :php:`ProviderCallContext`
+metadata keys, and the direct-call pipeline does not currently set
+them — but it is dead duplication. Removing it requires (a) adding
+``toArray()`` / ``fromArray()`` helpers to the typed response objects
+so :php:`CacheMiddleware` (which persists ``array<string, mixed>``)
+can store / restore them, and (b) plumbing the cache key from
+:php:`EmbeddingOptions` through :php:`LlmServiceManager::embed()` onto
+the context metadata. Tracked separately; does not block this step.
 
 .. _adr-026-alternatives:
 
