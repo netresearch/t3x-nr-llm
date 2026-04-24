@@ -4,6 +4,10 @@
 
 <f:layout name="Module" />
 
+<f:section name="HeaderAssets">
+    <f:be.pageRenderer includeJsFiles="{0: 'EXT:nr_llm/Resources/Public/JavaScript/Backend/Test.js'}" />
+</f:section>
+
 <f:section name="Content">
     <h1>Test LLM Provider</h1>
 
@@ -34,7 +38,7 @@
                                 Run Test
                             </button>
 
-                            <f:link.action action="index" class="btn btn-default mt-3">
+                            <f:link.action action="index" class="btn btn-secondary mt-3">
                                 Back to Overview
                             </f:link.action>
                         </form>
@@ -86,7 +90,7 @@
                             <div class="spinner-border text-primary" role="status">
                                 <span class="sr-only">Loading...</span>
                             </div>
-                            <span class="ml-2">Sending request...</span>
+                            <span class="ms-2">Sending request...</span>
                         </div>
                     </div>
                 </div>
@@ -94,57 +98,11 @@
         </div>
     </div>
 
-    <script>
-        document.getElementById('testForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
+    <footer class="text-body-secondary small mt-4">
+        Provided by <a href="https://www.netresearch.de" target="_blank" rel="noopener">Netresearch DTT GmbH</a>
+    </footer>
 
-            const form = e.target;
-            const provider = document.getElementById('provider').value;
-            const prompt = document.getElementById('prompt').value;
-
-            document.getElementById('loadingIndicator').style.display = 'block';
-            document.getElementById('responseContainer').style.display = 'none';
-
-            try {
-                const response = await fetch(TYPO3.settings.ajaxUrls['nrllm_test'], {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ provider, prompt }),
-                });
-
-                const data = await response.json();
-
-                document.getElementById('loadingIndicator').style.display = 'none';
-                document.getElementById('responseContainer').style.display = 'block';
-
-                if (data.success) {
-                    document.getElementById('responseSuccess').style.display = 'block';
-                    document.getElementById('responseError').style.display = 'none';
-                    document.getElementById('responseDetails').style.display = 'block';
-
-                    document.getElementById('responseContent').textContent = data.content;
-                    document.getElementById('responseModel').textContent = data.model;
-                    document.getElementById('promptTokens').textContent = data.usage.promptTokens;
-                    document.getElementById('completionTokens').textContent = data.usage.completionTokens;
-                    document.getElementById('totalTokens').textContent = data.usage.totalTokens;
-                } else {
-                    document.getElementById('responseSuccess').style.display = 'none';
-                    document.getElementById('responseError').style.display = 'block';
-                    document.getElementById('responseDetails').style.display = 'none';
-                    document.getElementById('errorMessage').textContent = data.error;
-                }
-            } catch (error) {
-                document.getElementById('loadingIndicator').style.display = 'none';
-                document.getElementById('responseContainer').style.display = 'block';
-                document.getElementById('responseSuccess').style.display = 'none';
-                document.getElementById('responseError').style.display = 'block';
-                document.getElementById('responseDetails').style.display = 'none';
-                document.getElementById('errorMessage').textContent = error.message;
-            }
-        });
-    </script>
+    <f:comment>JS loaded via HeaderAssets section as EXT:nr_llm/Resources/Public/JavaScript/Backend/Test.js</f:comment>
 </f:section>
 
 </html>

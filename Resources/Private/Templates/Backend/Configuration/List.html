@@ -70,10 +70,10 @@
                                     </td>
                                     <td class="col-control">
                                         <div class="btn-group" role="group">
-                                            <a href="{editUrls.{config.uid}}" class="btn btn-default btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
+                                            <a href="{editUrls.{config.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
                                                 <core:icon identifier="actions-open" size="small" />
                                             </a>
-                                            <button type="button" class="btn btn-default btn-sm js-toggle-active"
+                                            <button type="button" class="btn btn-secondary btn-sm js-toggle-active"
                                                     data-uid="{config.uid}"
                                                     title="{f:if(condition: config.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
                                                 <f:if condition="{config.isActive}">
@@ -82,13 +82,13 @@
                                                 </f:if>
                                             </button>
                                             <f:if condition="!{config.isDefault}">
-                                                <button type="button" class="btn btn-default btn-sm js-set-default"
+                                                <button type="button" class="btn btn-secondary btn-sm js-set-default"
                                                         data-uid="{config.uid}"
                                                         title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setDefault')}">
                                                     <core:icon identifier="actions-star" size="small" />
                                                 </button>
                                             </f:if>
-                                            <button type="button" class="btn btn-default btn-sm js-test-config"
+                                            <button type="button" class="btn btn-secondary btn-sm js-test-config"
                                                     data-uid="{config.uid}"
                                                     data-name="{config.name}"
                                                     title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testConfiguration')}">

@@ -74,6 +74,10 @@ final readonly class CapabilityPermissionService
 
     private function resolveGlobalUser(): ?BackendUserAuthentication
     {
+        // Direct $GLOBALS access is the only way to read the active BE user
+        // outside backend controllers. Refactoring this to Context-API
+        // injection would require touching every caller (capability checks
+        // run from CLI, scheduler, FE, and BE contexts).
         $candidate = $GLOBALS['BE_USER'] ?? null;
         return $candidate instanceof BackendUserAuthentication ? $candidate : null;
     }

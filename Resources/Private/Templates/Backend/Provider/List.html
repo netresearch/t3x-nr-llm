@@ -73,10 +73,10 @@
                                     </td>
                                     <td class="col-control">
                                         <div class="btn-group" role="group">
-                                            <a href="{editUrls.{provider.uid}}" class="btn btn-default btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
+                                            <a href="{editUrls.{provider.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
                                                 <core:icon identifier="actions-open" size="small" />
                                             </a>
-                                            <button type="button" class="btn btn-default btn-sm js-toggle-active"
+                                            <button type="button" class="btn btn-secondary btn-sm js-toggle-active"
                                                     data-uid="{provider.uid}"
                                                     title="{f:if(condition: provider.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
                                                 <f:if condition="{provider.isActive}">
@@ -84,7 +84,7 @@
                                                     <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
                                                 </f:if>
                                             </button>
-                                            <button type="button" class="btn btn-default btn-sm js-test-connection"
+                                            <button type="button" class="btn btn-secondary btn-sm js-test-connection"
                                                     data-uid="{provider.uid}"
                                                     data-name="{provider.name}"
                                                     title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testConnection')}">
@@ -141,7 +141,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-bs-dismiss="modal"><f:translate key="LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:close" default="Close" /></button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><f:translate key="LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:close" default="Close" /></button>
                 </div>
             </div>
         </div>

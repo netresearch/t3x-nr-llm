@@ -4,6 +4,10 @@
 
 <f:layout name="Module" />
 
+<f:section name="HeaderAssets">
+    <f:be.pageRenderer includeJsFiles="{0: 'EXT:nr_llm/Resources/Public/JavaScript/Backend/WizardChainPreview.js'}" />
+</f:section>
+
 <f:section name="Content">
     <div>
         <h1>
@@ -237,36 +241,22 @@
                     <core:icon identifier="actions-check" size="small" />
                     Create Task
                 </button>
-                <f:link.action action="wizardGenerateChain" arguments="{description: description, configurationUid: configurationUid}" class="btn btn-default">
+                <f:link.action action="wizardGenerateChain" arguments="{description: description, configurationUid: configurationUid}" class="btn btn-secondary">
                     <core:icon identifier="actions-refresh" size="small" />
                     Regenerate
                 </f:link.action>
-                <f:link.action action="wizardForm" class="btn btn-default">
+                <f:link.action action="wizardForm" class="btn btn-secondary">
                     <core:icon identifier="actions-edit" size="small" />
                     Edit Description
                 </f:link.action>
-                <f:link.action action="list" class="btn btn-default">
+                <f:link.action action="list" class="btn btn-secondary">
                     Back to List
                 </f:link.action>
             </div>
         </f:form>
     </div>
 
-    <f:comment>JavaScript for radio button toggling</f:comment>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const configRadios = document.querySelectorAll('input[name="config_choice"]');
-            const configNewDetails = document.getElementById('config-new-details');
-
-            if (configRadios.length && configNewDetails) {
-                configRadios.forEach(function(radio) {
-                    radio.addEventListener('change', function() {
-                        configNewDetails.style.display = this.value === 'new' ? '' : 'none';
-                    });
-                });
-            }
-        });
-    </script>
+    <f:comment>JS loaded via HeaderAssets section as EXT:nr_llm/Resources/Public/JavaScript/Backend/WizardChainPreview.js</f:comment>
 </f:section>
 
 </html>
