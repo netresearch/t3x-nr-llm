@@ -26,6 +26,9 @@ use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -744,6 +747,150 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         foreach ($manager->streamChatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config) as $chunk) {
             // Should throw before yielding
         }
+    }
+
+    // ====================================================================
+    // Middleware pipeline wiring for direct (ad-hoc) calls — ADR-026 FU-5
+    // ====================================================================
+
+    #[Test]
+    public function directChatRoutesThroughMiddlewarePipeline(): void
+    {
+        $spy     = new RecordingMiddleware();
+        $manager = $this->buildManagerWithMiddleware([$spy]);
+
+        $manager->chat([['role' => 'user', 'content' => 'Hello']]);
+
+        self::assertCount(1, $spy->calls);
+        self::assertSame(ProviderOperation::Chat, $spy->calls[0]['operation']);
+        self::assertTrue($spy->calls[0]['fallbackChainEmpty'], 'Ad-hoc call has empty fallback chain');
+        self::assertNull($spy->calls[0]['uid'], 'Synthesized configuration is unpersisted (uid = null)');
+        self::assertStringStartsWith('ad-hoc:chat:', $spy->calls[0]['identifier']);
+    }
+
+    #[Test]
+    public function directCompleteRoutesThroughMiddlewarePipeline(): void
+    {
+        $spy     = new RecordingMiddleware();
+        $manager = $this->buildManagerWithMiddleware([$spy]);
+
+        $manager->complete('prompt');
+
+        self::assertCount(1, $spy->calls);
+        self::assertSame(ProviderOperation::Completion, $spy->calls[0]['operation']);
+    }
+
+    #[Test]
+    public function directEmbedRoutesThroughMiddlewarePipeline(): void
+    {
+        $spy     = new RecordingMiddleware();
+        $manager = $this->buildManagerWithMiddleware([$spy]);
+
+        $manager->embed('text');
+
+        self::assertCount(1, $spy->calls);
+        self::assertSame(ProviderOperation::Embedding, $spy->calls[0]['operation']);
+    }
+
+    #[Test]
+    public function directVisionRoutesThroughMiddlewarePipeline(): void
+    {
+        $spy      = new RecordingMiddleware();
+        $provider = new TestableVisionProvider();
+        $manager  = $this->buildManagerWithMiddleware([$spy], $provider);
+
+        $manager->vision([
+            ['type' => 'image_url', 'image_url' => ['url' => 'https://example.test/i.png']],
+        ]);
+
+        self::assertCount(1, $spy->calls);
+        self::assertSame(ProviderOperation::Vision, $spy->calls[0]['operation']);
+    }
+
+    #[Test]
+    public function directChatWithToolsRoutesThroughMiddlewarePipeline(): void
+    {
+        $spy      = new RecordingMiddleware();
+        $provider = new TestableToolProvider();
+        $manager  = $this->buildManagerWithMiddleware([$spy], $provider);
+
+        $manager->chatWithTools(
+            [['role' => 'user', 'content' => 'hi']],
+            [['type' => 'function', 'function' => ['name' => 'noop', 'description' => '', 'parameters' => []]]],
+        );
+
+        self::assertCount(1, $spy->calls);
+        self::assertSame(ProviderOperation::Tools, $spy->calls[0]['operation']);
+    }
+
+    /**
+     * Build a fresh LlmServiceManager pre-configured with the given middleware
+     * and (optionally) a non-default TestableProvider. Separate setup from the
+     * default subject so ad-hoc tests can inspect a specific middleware stack.
+     *
+     * @param list<\Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface> $middleware
+     */
+    private function buildManagerWithMiddleware(
+        array $middleware,
+        ?TestableProvider $provider = null,
+    ): LlmServiceManager {
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            new MiddlewarePipeline($middleware),
+        );
+        $testProvider = $provider ?? new TestableProvider();
+        $testProvider->setNextResponse(new CompletionResponse(
+            content: 'stub',
+            model: 'stub',
+            usage: new UsageStatistics(1, 1, 2),
+            finishReason: 'stop',
+            provider: $testProvider->getIdentifier(),
+        ));
+        $testProvider->setNextEmbeddingResponse(new EmbeddingResponse(
+            embeddings: [[0.1, 0.2]],
+            model: 'stub',
+            usage: new UsageStatistics(1, 0, 1),
+            provider: $testProvider->getIdentifier(),
+        ));
+        if ($testProvider instanceof TestableVisionProvider) {
+            $testProvider->setNextVisionResponse(new VisionResponse(
+                description: 'stub',
+                model: 'stub',
+                usage: new UsageStatistics(1, 1, 2),
+                provider: $testProvider->getIdentifier(),
+            ));
+        }
+        $manager->registerProvider($testProvider);
+        $manager->setDefaultProvider($testProvider->getIdentifier());
+
+        return $manager;
+    }
+}
+
+/**
+ * Middleware that captures every invocation's configuration + operation for
+ * assertions without wrapping or transforming behaviour.
+ */
+final class RecordingMiddleware implements ProviderMiddlewareInterface
+{
+    /** @var list<array{operation: ProviderOperation, identifier: string, fallbackChainEmpty: bool, uid: ?int}> */
+    public array $calls = [];
+
+    public function handle(
+        ProviderCallContext $context,
+        LlmConfiguration $configuration,
+        callable $next,
+    ): mixed {
+        $this->calls[] = [
+            'operation'          => $context->operation,
+            'identifier'         => $configuration->getIdentifier(),
+            'fallbackChainEmpty' => $configuration->getFallbackChainDTO()->isEmpty(),
+            'uid'                => $configuration->getUid(),
+        ];
+
+        return $next($configuration);
     }
 }
 

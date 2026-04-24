@@ -152,10 +152,13 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $options ??= new ChatOptions();
         $optionsArray = $options->toArray();
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
-        $provider = $this->getProvider($providerKey);
         unset($optionsArray['provider']);
 
-        return $provider->chatCompletion($messages, $optionsArray);
+        return $this->runThroughPipeline(
+            $this->synthesizeTransientConfiguration(ProviderOperation::Chat, $providerKey),
+            ProviderOperation::Chat,
+            fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($messages, $optionsArray),
+        );
     }
 
     /**
@@ -166,10 +169,13 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $options ??= new ChatOptions();
         $optionsArray = $options->toArray();
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
-        $provider = $this->getProvider($providerKey);
         unset($optionsArray['provider']);
 
-        return $provider->complete($prompt, $optionsArray);
+        return $this->runThroughPipeline(
+            $this->synthesizeTransientConfiguration(ProviderOperation::Completion, $providerKey),
+            ProviderOperation::Completion,
+            fn(): CompletionResponse => $this->getProvider($providerKey)->complete($prompt, $optionsArray),
+        );
     }
 
     /**
@@ -182,17 +188,23 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $options ??= new EmbeddingOptions();
         $optionsArray = $options->toArray();
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
-        $provider = $this->getProvider($providerKey);
         unset($optionsArray['provider']);
 
-        if (!$provider->supportsFeature('embeddings')) {
-            throw new UnsupportedFeatureException(
-                sprintf('Provider "%s" does not support embeddings', $provider->getIdentifier()),
-                8701213030,
-            );
-        }
+        return $this->runThroughPipeline(
+            $this->synthesizeTransientConfiguration(ProviderOperation::Embedding, $providerKey),
+            ProviderOperation::Embedding,
+            function () use ($input, $optionsArray, $providerKey): EmbeddingResponse {
+                $provider = $this->getProvider($providerKey);
+                if (!$provider->supportsFeature('embeddings')) {
+                    throw new UnsupportedFeatureException(
+                        sprintf('Provider "%s" does not support embeddings', $provider->getIdentifier()),
+                        8701213030,
+                    );
+                }
 
-        return $provider->embeddings($input, $optionsArray);
+                return $provider->embeddings($input, $optionsArray);
+            },
+        );
     }
 
     /**
@@ -205,17 +217,23 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $options ??= new VisionOptions();
         $optionsArray = $options->toArray();
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
-        $provider = $this->getProvider($providerKey);
         unset($optionsArray['provider']);
 
-        if (!$provider instanceof VisionCapableInterface) {
-            throw new UnsupportedFeatureException(
-                sprintf('Provider "%s" does not support vision', $provider->getIdentifier()),
-                5549344501,
-            );
-        }
+        return $this->runThroughPipeline(
+            $this->synthesizeTransientConfiguration(ProviderOperation::Vision, $providerKey),
+            ProviderOperation::Vision,
+            function () use ($content, $optionsArray, $providerKey): VisionResponse {
+                $provider = $this->getProvider($providerKey);
+                if (!$provider instanceof VisionCapableInterface) {
+                    throw new UnsupportedFeatureException(
+                        sprintf('Provider "%s" does not support vision', $provider->getIdentifier()),
+                        5549344501,
+                    );
+                }
 
-        return $provider->analyzeImage($content, $optionsArray);
+                return $provider->analyzeImage($content, $optionsArray);
+            },
+        );
     }
 
     /**
@@ -254,17 +272,23 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $options ??= new ToolOptions();
         $optionsArray = $options->toArray();
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
-        $provider = $this->getProvider($providerKey);
         unset($optionsArray['provider']);
 
-        if (!$provider instanceof ToolCapableInterface) {
-            throw new UnsupportedFeatureException(
-                sprintf('Provider "%s" does not support tool calling', $provider->getIdentifier()),
-                9324699785,
-            );
-        }
+        return $this->runThroughPipeline(
+            $this->synthesizeTransientConfiguration(ProviderOperation::Tools, $providerKey),
+            ProviderOperation::Tools,
+            function () use ($messages, $tools, $optionsArray, $providerKey): CompletionResponse {
+                $provider = $this->getProvider($providerKey);
+                if (!$provider instanceof ToolCapableInterface) {
+                    throw new UnsupportedFeatureException(
+                        sprintf('Provider "%s" does not support tool calling', $provider->getIdentifier()),
+                        9324699785,
+                    );
+                }
 
-        return $provider->chatCompletionWithTools($messages, $tools, $optionsArray);
+                return $provider->chatCompletionWithTools($messages, $tools, $optionsArray);
+            },
+        );
     }
 
     /**
@@ -403,6 +427,37 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             $configuration,
             $terminal,
         );
+    }
+
+    /**
+     * Build a transient LlmConfiguration for direct (ad-hoc) provider calls.
+     *
+     * Direct API methods — `chat()`, `complete()`, `embed()`, `vision()`,
+     * `chatWithTools()` — do not carry an LlmConfiguration entity, but the
+     * pipeline's interface requires one. The synthesized instance is
+     * unpersisted (no uid, never written), carries an empty fallback chain
+     * (so FallbackMiddleware passes through) and has a human-readable
+     * identifier so log / trace labels can distinguish ad-hoc traffic from
+     * configuration-backed calls.
+     *
+     * Middleware that needs more context (beUserUid for BudgetMiddleware,
+     * cache keys for CacheMiddleware, etc.) reads it from the
+     * ProviderCallContext metadata — not from the configuration.
+     */
+    private function synthesizeTransientConfiguration(
+        ProviderOperation $operation,
+        ?string $providerKey,
+    ): LlmConfiguration {
+        $identifier = sprintf(
+            'ad-hoc:%s:%s',
+            $operation->value,
+            $providerKey ?? ($this->defaultProvider ?? 'default'),
+        );
+
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier($identifier);
+
+        return $configuration;
     }
 
     /**
