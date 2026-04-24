@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit;
 
 use Faker\Factory as FakerFactory;
 use Faker\Generator as Faker;
+use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -269,5 +270,19 @@ abstract class AbstractUnitTestCase extends TestCase
     protected function randomApiKey(): string
     {
         return 'sk-' . $this->faker->regexify('[a-zA-Z0-9]{48}');
+    }
+
+    /**
+     * Empty middleware pipeline — a noop that invokes the terminal directly.
+     *
+     * Extracted so the `new LlmServiceManager(..., new MiddlewarePipeline([]), ...)`
+     * boilerplate repeated across 20+ tests has a single source of truth; if
+     * the pipeline constructor grows a new mandatory dependency, only this
+     * helper needs updating. See the Copilot review on PR #143 for the
+     * original motivation.
+     */
+    protected function emptyMiddlewarePipeline(): MiddlewarePipeline
+    {
+        return new MiddlewarePipeline([]);
     }
 }

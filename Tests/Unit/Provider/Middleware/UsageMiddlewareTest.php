@@ -206,6 +206,98 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
     }
 
     // -----------------------------------------------------------------------
+    // Array-payload path — terminal returns `array<string, mixed>` on the
+    // CacheMiddleware codec path (embeddings). UsageMiddleware must still
+    // record from the `usage` / `provider` sub-keys.
+    // -----------------------------------------------------------------------
+
+    #[Test]
+    public function tracksArrayPayloadEmittedByCacheCodec(): void
+    {
+        $this->tracker->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                ProviderOperation::Embedding->value,
+                'openai',
+                ['tokens' => 42, 'cost' => 0.0015],
+                null,
+            );
+
+        $payload = [
+            'embeddings' => [[0.1, 0.2]],
+            'model'      => 'text-embedding-3-small',
+            'provider'   => 'openai',
+            'usage'      => [
+                'promptTokens'     => 42,
+                'completionTokens' => 0,
+                'totalTokens'      => 42,
+                'estimatedCost'    => 0.0015,
+            ],
+        ];
+
+        $result = $this->pipeline()->run(
+            context: ProviderCallContext::for(ProviderOperation::Embedding),
+            configuration: $this->configuration(),
+            terminal: static fn(LlmConfiguration $c): array => $payload,
+        );
+
+        self::assertSame($payload, $result);
+    }
+
+    #[Test]
+    public function arrayPayloadWithEmptyProviderRecordsUnknown(): void
+    {
+        $this->tracker->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                self::anything(),
+                'unknown',
+                self::anything(),
+                self::anything(),
+            );
+
+        $this->pipeline()->run(
+            context: ProviderCallContext::for(ProviderOperation::Embedding),
+            configuration: $this->configuration(),
+            terminal: static fn(LlmConfiguration $c): array => [
+                'provider' => '',
+                'usage'    => ['totalTokens' => 5],
+            ],
+        );
+    }
+
+    #[Test]
+    public function arrayPayloadMissingUsageKeyIsSkipped(): void
+    {
+        $this->tracker->expects(self::never())->method('trackUsage');
+
+        $this->pipeline()->run(
+            context: ProviderCallContext::for(ProviderOperation::Embedding),
+            configuration: $this->configuration(),
+            terminal: static fn(LlmConfiguration $c): array => [
+                'embeddings' => [[0.1]],
+                'provider'   => 'openai',
+                // no 'usage' key — nothing reliable to record
+            ],
+        );
+    }
+
+    #[Test]
+    public function arrayPayloadWithNonStringProviderIsSkipped(): void
+    {
+        $this->tracker->expects(self::never())->method('trackUsage');
+
+        $this->pipeline()->run(
+            context: ProviderCallContext::for(ProviderOperation::Embedding),
+            configuration: $this->configuration(),
+            terminal: static fn(LlmConfiguration $c): array => [
+                'provider' => ['not', 'a', 'string'],
+                'usage'    => ['totalTokens' => 5],
+            ],
+        );
+    }
+
+    // -----------------------------------------------------------------------
     // Test helpers
     // -----------------------------------------------------------------------
 
