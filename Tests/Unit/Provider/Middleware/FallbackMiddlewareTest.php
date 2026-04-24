@@ -79,7 +79,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             fn() => $pipeline->run(
                 ProviderCallContext::for(ProviderOperation::Chat),
                 $primary,
-                static function () use ($err): never {
+                static function (LlmConfiguration $c) use ($err): never {
                     throw $err;
                 },
             ),
@@ -280,7 +280,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             fn() => $pipeline->run(
                 ProviderCallContext::for(ProviderOperation::Chat),
                 $primary,
-                static function (): never {
+                static function (LlmConfiguration $c): never {
                     throw new ProviderConnectionException('down', 0);
                 },
             ),
@@ -357,7 +357,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function rethrowsPrimaryErrorWhenChainContainsOnlyTheprimary(): void
+    public function rethrowsPrimaryErrorWhenChainContainsOnlyThePrimary(): void
     {
         $primary    = $this->makeConfig('p', new FallbackChain(['p']));
         $pipeline = $this->makePipeline();

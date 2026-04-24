@@ -108,6 +108,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
                     'LLM fallback configuration not found, skipping',
                     [
                         'configuration' => $identifier,
+                        'operation'     => $context->operation->value,
                         'correlationId' => $context->correlationId,
                     ],
                 );
@@ -118,6 +119,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
                     'LLM fallback configuration is inactive, skipping',
                     [
                         'configuration' => $identifier,
+                        'operation'     => $context->operation->value,
                         'correlationId' => $context->correlationId,
                     ],
                 );
