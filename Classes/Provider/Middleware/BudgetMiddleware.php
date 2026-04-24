@@ -44,7 +44,8 @@ use Netresearch\NrLlm\Service\BudgetService;
  * With Budget outside Fallback the pre-flight check runs exactly once
  * per user-initiated call, not once per fallback attempt. Consumers
  * that want to charge each retry separately should register a custom
- * pipeline order; the default ordering follows this ADR.
+ * pipeline order; the default ordering is defined by ADR-026 (the
+ * middleware pipeline itself), with the rule set documented there.
  *
  * No side effects. The budget record is not incremented here — that is
  * the job of UsageMiddleware after the call succeeds.

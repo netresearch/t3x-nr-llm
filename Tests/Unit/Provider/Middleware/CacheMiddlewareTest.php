@@ -142,30 +142,6 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
         );
     }
 
-    #[Test]
-    public function ignoresNonIntOrNonPositiveTtl(): void
-    {
-        $this->cache->method('get')->willReturn(null);
-        $this->cache->expects(self::once())
-            ->method('set')
-            ->with('key', ['x' => 1], 3600, []);
-
-        $context = new ProviderCallContext(
-            operation: ProviderOperation::Embedding,
-            correlationId: 'test',
-            metadata: [
-                CacheMiddleware::METADATA_CACHE_KEY => 'key',
-                CacheMiddleware::METADATA_CACHE_TTL => 0,   // ignored
-            ],
-        );
-
-        $this->pipeline()->run(
-            context: $context,
-            configuration: $this->configuration(),
-            terminal: static fn(LlmConfiguration $c): array => ['x' => 1],
-        );
-    }
-
     /**
      * Non-integer / non-positive TTL values all fall back to the default.
      * PHP's loose-typing conventions make it easy for a consumer to pass
