@@ -157,6 +157,14 @@ Options:
     -p <8.2|8.3|8.4|8.5>
         PHP version (default: 8.2)
 
+    -t <13|13.4|14|^13.4|...>
+        TYPO3 core version to require before running the suite.
+        Runs `composer require typo3/cms-core:<constraint>` + update in a
+        short-lived container. Bare numerics become `^<n>` (`-t 14` →
+        `^14`). Skip to use whatever composer.lock resolves to.
+        Matches the matrix cell in .github/workflows/ci.yml so local
+        runs are reproducible against CI combinations.
+
     -x
         Enable Xdebug for debugging
 
@@ -199,6 +207,11 @@ DATABASE_DRIVER=""
 DBMS="sqlite"
 DBMS_VERSION=""
 PHP_VERSION="8.2"
+# TYPO3 core version constraint. Empty = use what's already installed
+# (whatever composer.json / composer.lock resolves to). Set via -t to
+# require a specific major, e.g. `-t 13.4` runs the suite against
+# typo3/cms-core:^13.4. Matches the CI matrix in .github/workflows/ci.yml.
+TYPO3_VERSION=""
 PHP_XDEBUG_ON=0
 PHP_XDEBUG_PORT=9003
 CGLCHECK_DRY_RUN=0
@@ -209,7 +222,7 @@ SUITE_EXIT_CODE=0
 
 # Parse options
 OPTIND=1
-while getopts "a:b:d:i:s:p:xy:nhu" OPT; do
+while getopts "a:b:d:i:s:p:t:xy:nhu" OPT; do
     case ${OPT} in
         a) DATABASE_DRIVER=${OPTARG} ;;
         s) TEST_SUITE=${OPTARG} ;;
@@ -217,6 +230,7 @@ while getopts "a:b:d:i:s:p:xy:nhu" OPT; do
         d) DBMS=${OPTARG} ;;
         i) DBMS_VERSION=${OPTARG} ;;
         p) PHP_VERSION=${OPTARG} ;;
+        t) TYPO3_VERSION=${OPTARG} ;;
         x) PHP_XDEBUG_ON=1 ;;
         y) PHP_XDEBUG_PORT=${OPTARG} ;;
         n) CGLCHECK_DRY_RUN=1 ;;
@@ -225,6 +239,39 @@ while getopts "a:b:d:i:s:p:xy:nhu" OPT; do
         \?) exit 1 ;;
     esac
 done
+
+# If -t <major> was given, require that TYPO3 core version before running.
+# Runs inside a short-lived composer container to avoid polluting the
+# suite container. Uses the same PHP version as the suite for consistency.
+if [[ -n "${TYPO3_VERSION}" ]]; then
+    # Allow both "13" and "13.4" and "^13.4" etc; normalise to a caret range
+    # when the input looks like a bare major or major.minor.
+    if [[ "${TYPO3_VERSION}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+        TYPO3_CONSTRAINT="^${TYPO3_VERSION}"
+    else
+        TYPO3_CONSTRAINT="${TYPO3_VERSION}"
+    fi
+    echo "⟳ Requiring typo3/cms-core:${TYPO3_CONSTRAINT} (matches -t ${TYPO3_VERSION})"
+    ${CONTAINER_BIN:-docker} run \
+        --rm \
+        -v "${PWD}:/app" \
+        -w /app \
+        composer:2 \
+        composer require \
+            --no-interaction --no-progress --no-scripts \
+            --no-update \
+            "typo3/cms-core:${TYPO3_CONSTRAINT}" \
+        && \
+    ${CONTAINER_BIN:-docker} run \
+        --rm \
+        -v "${PWD}:/app" \
+        -w /app \
+        composer:2 \
+        composer update \
+            --no-interaction --no-progress --with-all-dependencies \
+            typo3/cms-core \
+        || { echo "typo3/cms-core update failed for ${TYPO3_CONSTRAINT}"; exit 1; }
+fi
 
 handleDbmsOptions
 

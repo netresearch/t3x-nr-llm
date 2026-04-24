@@ -5,6 +5,7 @@
 [![Documentation](https://github.com/netresearch/t3x-nr-llm/actions/workflows/docs.yml/badge.svg)](https://github.com/netresearch/t3x-nr-llm/actions/workflows/docs.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/netresearch/t3x-nr-llm/badge)](https://securityscorecards.dev/viewer/?uri=github.com/netresearch/t3x-nr-llm)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11697/badge)](https://www.bestpractices.dev/projects/11697)
+[![OpenSSF Baseline](https://img.shields.io/badge/OpenSSF-Baseline-blue?logo=openssf)](BASELINE.md)
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%2010-brightgreen.svg)](https://phpstan.org/)
 [![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-blue.svg)](https://www.php.net/)
 [![TYPO3 v13.4+](https://img.shields.io/badge/TYPO3-v13.4%2B-orange.svg)](https://typo3.org/)
