@@ -5,7 +5,7 @@
 
 RUNTESTS := Build/Scripts/runTests.sh
 
-.PHONY: help up start down restart install install-all sync seed seed-tasks ollama test test-unit test-integration test-functional test-fuzzy test-e2e coverage mutation cgl cgl-fix phpstan rector rector-fix docs clean ci ci-full
+.PHONY: help up start down restart install install-all sync seed seed-tasks ollama test test-unit test-integration test-func test-fuzzy test-e2e coverage mutation cgl cgl-fix phpstan rector rector-fix docs clean ci ci-full
 
 # Default target
 help:
