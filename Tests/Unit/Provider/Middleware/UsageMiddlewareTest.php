@@ -245,7 +245,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function arrayPayloadWithMissingProviderRecordsUnknown(): void
+    public function arrayPayloadWithEmptyProviderRecordsUnknown(): void
     {
         $this->tracker->expects(self::once())
             ->method('trackUsage')
