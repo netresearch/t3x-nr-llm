@@ -291,4 +291,92 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
         self::assertEquals(5, $response->getCount());
         self::assertEquals(256, $response->getDimensions());
     }
+
+    // ====================================================================
+    // Cache-codec serialization (toArray / fromArray) — ADR-026 cleanup.
+    // CacheMiddleware persists array<string, mixed>, LlmServiceManager::embed()
+    // round-trips typed responses through this codec.
+    // ====================================================================
+
+    #[Test]
+    public function toArrayEmitsCanonicalShape(): void
+    {
+        $response = new EmbeddingResponse(
+            embeddings: [[0.1, 0.2], [0.3, 0.4]],
+            model: 'text-embedding-3-small',
+            usage: new UsageStatistics(7, 0, 7, 0.0001),
+            provider: 'openai',
+        );
+
+        $array = $response->toArray();
+
+        self::assertSame([[0.1, 0.2], [0.3, 0.4]], $array['embeddings']);
+        self::assertSame('text-embedding-3-small', $array['model']);
+        self::assertSame('openai', $array['provider']);
+        self::assertSame([
+            'promptTokens'     => 7,
+            'completionTokens' => 0,
+            'totalTokens'      => 7,
+            'estimatedCost'    => 0.0001,
+        ], $array['usage']);
+    }
+
+    #[Test]
+    public function fromArrayRoundTripsAllFields(): void
+    {
+        $original = new EmbeddingResponse(
+            embeddings: [[0.5, 0.6, 0.7]],
+            model: 'ada-002',
+            usage: new UsageStatistics(4, 0, 4, 0.0002),
+            provider: 'openai',
+        );
+
+        $restored = EmbeddingResponse::fromArray($original->toArray());
+
+        self::assertEquals($original, $restored);
+    }
+
+    #[Test]
+    public function fromArrayDefaultsMissingFieldsToSafeEmpties(): void
+    {
+        $restored = EmbeddingResponse::fromArray([]);
+
+        self::assertSame([], $restored->embeddings);
+        self::assertSame('', $restored->model);
+        self::assertSame('', $restored->provider);
+        self::assertSame(0, $restored->usage->totalTokens);
+    }
+
+    #[Test]
+    public function fromArrayAcceptsLegacyPayloadWithoutProvider(): void
+    {
+        // Cached payloads predating the `provider` column addition.
+        $restored = EmbeddingResponse::fromArray([
+            'embeddings' => [[0.1]],
+            'model'      => 'legacy-model',
+            'usage'      => ['promptTokens' => 2, 'totalTokens' => 2],
+        ]);
+
+        self::assertSame('legacy-model', $restored->model);
+        self::assertSame('', $restored->provider);
+        self::assertSame(2, $restored->usage->totalTokens);
+    }
+
+    #[Test]
+    public function fromArrayCoercesMalformedEmbeddingsToEmpty(): void
+    {
+        $restored = EmbeddingResponse::fromArray(['embeddings' => 'not-an-array']);
+
+        self::assertSame([], $restored->embeddings);
+    }
+
+    #[Test]
+    public function fromArrayCoercesMalformedUsageToEmptyStatistics(): void
+    {
+        $restored = EmbeddingResponse::fromArray(['usage' => 'not-an-array']);
+
+        self::assertSame(0, $restored->usage->promptTokens);
+        self::assertSame(0, $restored->usage->totalTokens);
+        self::assertNull($restored->usage->estimatedCost);
+    }
 }

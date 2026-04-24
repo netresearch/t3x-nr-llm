@@ -153,4 +153,89 @@ class UsageStatisticsTest extends AbstractUnitTestCase
 
         self::assertEquals($smallCost, $usage->getCost());
     }
+
+    // ====================================================================
+    // Cache-codec serialization (toArray / fromArray) — ADR-026 cleanup.
+    // ====================================================================
+
+    #[Test]
+    public function toArrayEmitsCanonicalKeys(): void
+    {
+        $usage = new UsageStatistics(10, 5, 15, 0.025);
+
+        self::assertSame(
+            [
+                'promptTokens'     => 10,
+                'completionTokens' => 5,
+                'totalTokens'      => 15,
+                'estimatedCost'    => 0.025,
+            ],
+            $usage->toArray(),
+        );
+    }
+
+    #[Test]
+    public function toArrayPreservesNullEstimatedCost(): void
+    {
+        $usage = new UsageStatistics(1, 2, 3);
+
+        $array = $usage->toArray();
+
+        self::assertArrayHasKey('estimatedCost', $array);
+        self::assertNull($array['estimatedCost']);
+    }
+
+    #[Test]
+    public function fromArrayRoundTripsAllFields(): void
+    {
+        $original = new UsageStatistics(100, 50, 150, 0.003);
+
+        $restored = UsageStatistics::fromArray($original->toArray());
+
+        self::assertEquals($original, $restored);
+    }
+
+    #[Test]
+    public function fromArrayDefaultsMissingTokenFieldsToZero(): void
+    {
+        $restored = UsageStatistics::fromArray([]);
+
+        self::assertSame(0, $restored->promptTokens);
+        self::assertSame(0, $restored->completionTokens);
+        self::assertSame(0, $restored->totalTokens);
+        self::assertNull($restored->estimatedCost);
+    }
+
+    #[Test]
+    public function fromArrayCoercesIntegerCostToFloat(): void
+    {
+        $restored = UsageStatistics::fromArray([
+            'promptTokens'  => 1,
+            'estimatedCost' => 1, // legacy cached payload may have stored an int
+        ]);
+
+        self::assertSame(1.0, $restored->estimatedCost);
+    }
+
+    #[Test]
+    public function fromArrayIgnoresNonNumericCost(): void
+    {
+        $restored = UsageStatistics::fromArray(['estimatedCost' => 'not-a-number']);
+
+        self::assertNull($restored->estimatedCost);
+    }
+
+    #[Test]
+    public function fromArrayIgnoresNonIntegerTokenFields(): void
+    {
+        $restored = UsageStatistics::fromArray([
+            'promptTokens'     => '10',   // string — should not be silently cast
+            'completionTokens' => 5.5,    // float
+            'totalTokens'      => null,
+        ]);
+
+        self::assertSame(0, $restored->promptTokens);
+        self::assertSame(0, $restored->completionTokens);
+        self::assertSame(0, $restored->totalTokens);
+    }
 }
