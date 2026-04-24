@@ -21,8 +21,8 @@
                     <div class="card-body">
                         <form id="testForm">
                             <div class="mb-3">
-                                <label for="provider">Provider</label>
-                                <select id="provider" name="provider" class="form-control">
+                                <label for="provider" class="form-label">Provider</label>
+                                <select id="provider" name="provider" class="form-select">
                                     <f:for each="{providers}" as="provider">
                                         <option value="{provider.identifier}">{provider.name}</option>
                                     </f:for>
@@ -30,7 +30,7 @@
                             </div>
 
                             <div class="mb-3">
-                                <label for="prompt">Prompt</label>
+                                <label for="prompt" class="form-label">Prompt</label>
                                 <textarea id="prompt" name="prompt" class="form-control" rows="4">Hello, please respond with a brief greeting to test the connection.</textarea>
                             </div>
 
@@ -88,7 +88,7 @@
 
                         <div id="loadingIndicator" style="display: none;">
                             <div class="spinner-border text-primary" role="status">
-                                <span class="sr-only">Loading...</span>
+                                <span class="visually-hidden">Loading...</span>
                             </div>
                             <span class="ms-2">Sending request...</span>
                         </div>
