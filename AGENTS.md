@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-04-23 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last Updated: 2026-04-24. Last verified: 2026-04-24 -->
 
 # AGENTS.md — nr_llm
 
@@ -33,22 +33,51 @@ The closest AGENTS.md wins: scoped AGENTS.md files in subdirectories override th
 ```bash
 # Local development
 ddev start && ddev composer install
-
-# Docker-based test runner (ALWAYS use this, never phpunit directly)
-./Build/Scripts/runTests.sh -s unit         # Unit tests
-./Build/Scripts/runTests.sh -s functional   # Functional tests
-./Build/Scripts/runTests.sh -s phpstan      # Static analysis (level 10)
-./Build/Scripts/runTests.sh -s cgl          # PHP-CS-Fixer (fix)
-./Build/Scripts/runTests.sh -s cgl -n       # PHP-CS-Fixer (dry-run)
-./Build/Scripts/runTests.sh -s rector -n    # Rector (dry-run)
-./Build/Scripts/runTests.sh -s mutation     # Mutation testing
-./Build/Scripts/runTests.sh -s e2e          # Playwright E2E
-./Build/Scripts/runTests.sh -p 8.3          # Specify PHP version
 ```
 <!-- AGENTS-GENERATED:END setup -->
 
+<!-- AGENTS-GENERATED:START commands -->
+## Commands (verified 2026-04-24)
+
+ALWAYS use the Docker test runner; never invoke `phpunit` / `phpstan` / `rector` directly. See `Build/Scripts/runTests.sh` for the full list and `make help` for shortcuts.
+
+| Task | Command |
+|------|---------|
+| Unit tests | `./Build/Scripts/runTests.sh -s unit` |
+| Functional tests | `./Build/Scripts/runTests.sh -s functional` |
+| Static analysis (PHPStan level 10) | `./Build/Scripts/runTests.sh -s phpstan` |
+| Code style (fix) | `./Build/Scripts/runTests.sh -s cgl` |
+| Code style (dry-run) | `./Build/Scripts/runTests.sh -s cgl -n` |
+| Rector (dry-run) | `./Build/Scripts/runTests.sh -s rector -n` |
+| Mutation testing (Infection) | `./Build/Scripts/runTests.sh -s mutation` |
+| E2E (Playwright) | `./Build/Scripts/runTests.sh -s e2e` |
+| Pin PHP version | `./Build/Scripts/runTests.sh -p 8.3` |
+| Coverage (HTML) | `./Build/Scripts/runTests.sh -s unitCoverage` |
+<!-- AGENTS-GENERATED:END commands -->
+
+<!-- AGENTS-GENERATED:START testing -->
+## Testing
+
+- Unit / Integration / Fuzzy / Functional / E2E suites — see `Tests/AGENTS.md` for layout details.
+- PHPUnit configs: `Build/phpunit.xml` (unit + integration + fuzzy), `Build/FunctionalTests.xml` (functional + e2e-backend).
+- Mutation: `infection.json.dist` (target MSI ≥ 70%).
+- Architecture tests: `Tests/Architecture/` (phpat) — enforce layered boundaries (Controller → Service → Provider).
+<!-- AGENTS-GENERATED:END testing -->
+
+<!-- AGENTS-GENERATED:START development -->
+## Development Workflow
+
+1. Branch off `main` (worktree convention — see project memory).
+2. Use `make` shortcuts (`make test-unit`, `make phpstan`, `make cgl`) — they delegate to `runTests.sh`.
+3. Pre-commit hooks via `Build/captainhook.json` (auto-installed by composer plugin) run cgl + phpstan + commit-msg checks.
+4. Sign commits with `git commit -S --signoff` (DCO required).
+5. PRs target `main`. CI matrix: PHP 8.2–8.5 × TYPO3 13.4 / 14.0; merged via `--merge` strategy (preserves signatures).
+<!-- AGENTS-GENERATED:END development -->
+
 <!-- AGENTS-GENERATED:START filemap -->
-## Key Files
+## File Map
+
+### Key Files
 
 | File | Purpose |
 |------|---------|
@@ -64,7 +93,11 @@ ddev start && ddev composer install
 <!-- AGENTS-GENERATED:END filemap -->
 
 <!-- AGENTS-GENERATED:START directory-structure -->
-## Directory Structure
+## Architecture
+
+Three-tier model: **Provider → Model → Configuration**. See `Documentation/Adr/Adr001ThreeTierProviderArchitecture.rst` for the design rationale and `Classes/Provider/AGENTS.md` for adapter contracts.
+
+### Directory Structure
 ```
 nr_llm/
 ├── Classes/                    # 139 PHP source files
@@ -97,6 +130,37 @@ nr_llm/
 - Signed commits required (`git commit -S --signoff`)
 <!-- AGENTS-GENERATED:END code-style -->
 
+<!-- AGENTS-GENERATED:START critical -->
+## Critical Constraints
+
+- **NEVER run `phpunit` / `phpstan` / `rector` directly** — always via `Build/Scripts/runTests.sh`. Direct invocations bypass the Docker PHP-version isolation and produce non-reproducible results.
+- **NEVER commit `composer.lock`** — TYPO3 extensions are libraries; the lock file would conflict with project-level resolution.
+- **NEVER hardcode a cache backend in `Configuration/Caching.php`** — let the host instance configure Redis/Valkey/Memcached transparently. Specify only `frontend`, `options`, and `groups`.
+- **NEVER take TYPO3 backend screenshots below 1440px viewport** — sidebar and table columns get cut off.
+- **API keys MUST be stored as nr-vault UUID identifiers**, never as plaintext in TCA / yaml / env. See `Documentation/Adr/Adr012ApiKeyStorageVault.rst`.
+- **No email addresses in public docs** — use the GitHub issues / discussions / security-advisories links only.
+<!-- AGENTS-GENERATED:END critical -->
+
+<!-- AGENTS-GENERATED:START heuristics -->
+## Heuristics — Quick Decisions
+
+- **Where does the new feature service live?** `Classes/Service/Feature/` (one directory per feature, e.g. `Completion`, `Embedding`, `Translation`). Each feature has a service + DTO + tests.
+- **Adding a new LLM provider?** Implement `Classes/Provider/Contract/LlmProviderInterface`, add `#[AsLlmProvider('name')]` attribute (auto-registers via `ProviderCompilerPass`), add the provider icon to `Resources/Public/Icons/provider-<name>.svg`.
+- **Where does TCA live?** Per-table file under `Configuration/TCA/` for new tables; `Configuration/TCA/Overrides/` to extend existing tables (incl. `pages`, `tt_content`).
+- **Stuck on a "this works locally but breaks in CI" issue?** Reproduce inside `Build/Scripts/runTests.sh -s <suite>` first — it uses the same Docker PHP image as CI.
+- **Adding a config option?** TCA + `LLL:` translation key in `Resources/Private/Language/locallang*.xlf` for both EN and DE.
+- **Touching the public surface?** Add an ADR under `Documentation/Adr/`. Format: `Adr<N>Description.rst`.
+<!-- AGENTS-GENERATED:END heuristics -->
+
+<!-- AGENTS-GENERATED:START utilities -->
+## Shared Utilities — Don't Reinvent
+
+- **Type narrowing**: `Classes/Utility/SafeCastTrait` — `safeIntCast`, `safeStringCast`, `safeArrayCast`. Use these before `(int)` / `(string)` casts to surface bad input as exceptions.
+- **Provider invocation**: `Classes/Service/Feature/FallbackChain` — use this rather than calling providers directly; it handles retries, fallback ordering, and error mapping.
+- **Cost tracking**: emit a `\Netresearch\NrLlm\Event\LlmRequestCompletedEvent` — the `UsageTrackerService` listens and aggregates. Don't write to the usage table directly.
+- **Cache config**: `Configuration/Caching.php` already declares the `nrllm_responses`, `nrllm_models` caches. Add new caches there (no hardcoded backend).
+<!-- AGENTS-GENERATED:END utilities -->
+
 <!-- AGENTS-GENERATED:START security -->
 ## Security
 - API keys stored as nr-vault UUID identifiers (envelope encryption via nr-vault extension)
@@ -122,13 +186,20 @@ nr_llm/
 <!-- AGENTS-GENERATED:END ci -->
 
 <!-- AGENTS-GENERATED:START examples -->
-## Examples
-> Prefer looking at real code in this repo. Key reference files:
-> - Provider implementation: `Classes/Provider/OpenAiProvider.php`
-> - Feature service: `Classes/Service/Feature/CompletionService.php`
-> - Unit test: `Tests/Unit/Service/Feature/CompletionServiceTest.php`
-> - Architecture test: `Tests/Architecture/ControllerLayerTest.php`
-> - ADR format: `Documentation/Adr/Adr014AiPoweredWizardSystem.rst`
+## Golden Samples
+
+Prefer looking at real code in this repo over inventing new patterns. Canonical reference files:
+
+| Concern | Reference |
+|---------|-----------|
+| Provider implementation | `Classes/Provider/OpenAiProvider.php` |
+| Feature service | `Classes/Service/Feature/CompletionService.php` |
+| Unit test | `Tests/Unit/Service/Feature/CompletionServiceTest.php` |
+| Functional test | `Tests/Functional/Service/UsageTrackerServiceTest.php` |
+| Architecture test | `Tests/Architecture/ControllerLayerTest.php` |
+| ADR format | `Documentation/Adr/Adr014AiPoweredWizardSystem.rst` |
+| Backend controller | `Classes/Controller/Backend/ProviderController.php` |
+| TCA form element | `Classes/Form/ModelIdElement.php` |
 <!-- AGENTS-GENERATED:END examples -->
 
 <!-- AGENTS-GENERATED:START help -->
