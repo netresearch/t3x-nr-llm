@@ -98,7 +98,13 @@ final readonly class SpeechSynthesisResult
      */
     public function saveToFile(string $path): bool
     {
-        $result = @file_put_contents($path, $this->audioContent);
+        set_error_handler(static fn(): bool => true);
+        try {
+            $result = file_put_contents($path, $this->audioContent);
+        } finally {
+            restore_error_handler();
+        }
+
         return $result !== false;
     }
 
