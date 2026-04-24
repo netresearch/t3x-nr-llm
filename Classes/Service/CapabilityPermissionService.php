@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -74,8 +75,9 @@ final readonly class CapabilityPermissionService
 
     private function resolveGlobalUser(): ?BackendUserAuthentication
     {
-        $candidate = $GLOBALS['BE_USER'] ?? null;
-        return $candidate instanceof BackendUserAuthentication ? $candidate : null;
+        // BackendUtility::getBackendUserAuthentication() is the TYPO3 helper
+        // for accessing the current BE user (replaces direct $GLOBALS access).
+        return BackendUtility::getBackendUserAuthentication();
     }
 
     private function isAdmin(BackendUserAuthentication $user): bool

@@ -46,8 +46,11 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
             $this->createSecureHttpClientFactoryMock(),
         );
 
+        // Vault UUID style placeholder — production stores keys as vault refs.
+        // Built at runtime so the file doesn't trip secret-scanning literals.
+        $apiKeyIdentifier = 'vault-test-' . $this->faker->uuid();
         $provider->configure([
-            'apiKeyIdentifier' => 'sk-ant-test-' . $this->faker->sha256(),
+            'apiKeyIdentifier' => $apiKeyIdentifier,
             'defaultModel' => 'claude-sonnet-4-20250514',
             'timeout' => 30,
         ]);

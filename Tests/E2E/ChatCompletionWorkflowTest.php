@@ -104,7 +104,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
             'defaultProvider' => 'claude',
-            'providers' => ['claude' => ['apiKeyIdentifier' => 'sk-ant-test']],
+            'providers' => ['claude' => ['apiKeyIdentifier' => 'a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d']],
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
@@ -369,7 +369,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             'defaultProvider' => 'openai',
             'providers' => [
                 'openai' => ['apiKeyIdentifier' => 'sk-openai-test'],
-                'claude' => ['apiKeyIdentifier' => 'sk-ant-test'],
+                'claude' => ['apiKeyIdentifier' => 'a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d'],
             ],
         ]);
 

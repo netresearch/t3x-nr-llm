@@ -91,6 +91,8 @@
             "@ci:test:php:fuzzy"
         ],
         "ci:cgl": "php-cs-fixer fix",
+        "cs:fix": "@ci:cgl",
+        "phpstan": "@ci:test:php:phpstan",
         "ci:full": [
             "@ci",
             "@ci:test:php:functional"

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Throwable;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
 
 /**
  * Shared test prompt resolution for backend controllers.
@@ -39,7 +40,9 @@ trait TestPromptTrait
             $prompt = $default;
         }
 
-        $beUser = $GLOBALS['BE_USER'] ?? null;
+        // BackendUtility::getBackendUserAuthentication() is the TYPO3 helper for
+        // accessing the current BE user (replaces direct $GLOBALS access).
+        $beUser = BackendUtility::getBackendUserAuthentication();
         $uc = is_object($beUser) && isset($beUser->uc) && is_array($beUser->uc) ? $beUser->uc : [];
         $lang = isset($uc['lang']) && is_string($uc['lang']) && $uc['lang'] !== '' ? $uc['lang'] : 'default';
         $languageName = $this->mapLanguageCodeToName($lang);

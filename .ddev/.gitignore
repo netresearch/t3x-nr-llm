@@ -1,0 +1,12 @@
+# DDEV-managed local state — never commit
+db_snapshots/
+import.yaml
+import-db/
+sequelace.yaml
+.env
+.global_config.yaml
+homeadditions/
+
+# DDEV scaffolding regenerated on `ddev start`
+mutagen.yml
+traefik/
