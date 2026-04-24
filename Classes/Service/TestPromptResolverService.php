@@ -26,7 +26,7 @@ use TYPO3\CMS\Core\Context\UserAspect;
  * Uses the TYPO3 Context API (`backend.user` aspect) which is the
  * canonical replacement for direct `$GLOBALS` access since TYPO3 v9.
  */
-final readonly class TestPromptResolverService
+final readonly class TestPromptResolverService implements TestPromptResolverInterface
 {
     private const DEFAULT_PROMPT = 'Say hello and introduce yourself in one sentence. Respond in {lang}.';
 

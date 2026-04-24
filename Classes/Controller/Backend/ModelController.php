@@ -20,7 +20,7 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
-use Netresearch\NrLlm\Service\TestPromptResolverService;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -59,7 +59,7 @@ final class ModelController extends ActionController
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly ProviderAdapterRegistry $providerAdapterRegistry,
         private readonly ModelDiscoveryInterface $modelDiscovery,
-        private readonly TestPromptResolverService $testPromptResolver,
+        private readonly TestPromptResolverInterface $testPromptResolver,
     ) {}
 
     protected function initializeAction(): void

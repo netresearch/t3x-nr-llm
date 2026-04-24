@@ -20,7 +20,7 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
-use Netresearch\NrLlm\Service\TestPromptResolverService;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -62,7 +62,7 @@ final class ConfigurationController extends ActionController
         private readonly WizardGeneratorService $wizardGeneratorService,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
-        private readonly TestPromptResolverService $testPromptResolver,
+        private readonly TestPromptResolverInterface $testPromptResolver,
     ) {}
 
     protected function initializeAction(): void

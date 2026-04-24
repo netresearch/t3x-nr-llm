@@ -16,7 +16,7 @@ use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
-use Netresearch\NrLlm\Service\TestPromptResolverService;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
@@ -37,7 +37,7 @@ final class LlmModuleController extends ActionController
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly TaskRepository $taskRepository,
         private readonly BackendUriBuilder $backendUriBuilder,
-        private readonly TestPromptResolverService $testPromptResolver,
+        private readonly TestPromptResolverInterface $testPromptResolver,
     ) {}
 
     public function indexAction(): ResponseInterface

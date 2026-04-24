@@ -38,6 +38,9 @@ services:
     alias: Netresearch\NrLlm\Service\CacheManager
     public: true
 
+  Netresearch\NrLlm\Service\TestPromptResolverInterface:
+    alias: Netresearch\NrLlm\Service\TestPromptResolverService
+
   Netresearch\NrLlm\Service\UsageTrackerServiceInterface:
     alias: Netresearch\NrLlm\Service\UsageTrackerService
     public: true

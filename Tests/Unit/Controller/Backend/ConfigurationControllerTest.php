@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -44,6 +45,7 @@ final class ConfigurationControllerTest extends TestCase
     private LlmServiceManagerInterface&MockObject $llmServiceManager;
     private ProviderAdapterRegistry&MockObject $providerAdapterRegistry;
     private ModelRepository&MockObject $modelRepository;
+    private TestPromptResolverInterface&MockObject $testPromptResolver;
     private ConfigurationController $subject;
 
     protected function setUp(): void
@@ -55,6 +57,8 @@ final class ConfigurationControllerTest extends TestCase
         $this->llmServiceManager = $this->createMock(LlmServiceManagerInterface::class);
         $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
         $this->modelRepository = $this->createMock(ModelRepository::class);
+        $this->testPromptResolver = $this->createMock(TestPromptResolverInterface::class);
+        $this->testPromptResolver->method('resolve')->willReturn('Hello, test prompt');
 
         // Create controller using reflection to inject only required dependencies
         $this->subject = $this->createControllerWithDependencies();
@@ -75,6 +79,7 @@ final class ConfigurationControllerTest extends TestCase
         $this->setPrivateProperty($controller, 'llmServiceManager', $this->llmServiceManager);
         $this->setPrivateProperty($controller, 'providerAdapterRegistry', $this->providerAdapterRegistry);
         $this->setPrivateProperty($controller, 'modelRepository', $this->modelRepository);
+        $this->setPrivateProperty($controller, 'testPromptResolver', $this->testPromptResolver);
 
         return $controller;
     }
