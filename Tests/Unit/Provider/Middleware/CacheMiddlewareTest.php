@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 
@@ -50,12 +51,15 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
     public function passesThroughWhenCacheKeyIsEmptyString(): void
     {
         $this->cache->expects(self::never())->method('get');
+        $this->cache->expects(self::never())->method('set');
 
-        $this->pipeline()->run(
+        $result = $this->pipeline()->run(
             context: $this->context(key: ''),
             configuration: $this->configuration(),
             terminal: static fn(LlmConfiguration $c): string => 'ran',
         );
+
+        self::assertSame('ran', $result);
     }
 
     #[Test]
@@ -90,7 +94,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
         $result         = $this->pipeline()->run(
             context: $this->context(key: 'embed:abc'),
             configuration: $this->configuration(),
-            terminal: static function () use (&$terminalCalled): array {
+            terminal: static function (LlmConfiguration $c) use (&$terminalCalled): array {
                 $terminalCalled = true;
 
                 return ['vector' => [0.9]];
@@ -138,8 +142,33 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
         );
     }
 
+    /**
+     * Non-integer / non-positive TTL values all fall back to the default.
+     * PHP's loose-typing conventions make it easy for a consumer to pass
+     * a numeric string (`'3600'`), a float (`1.5`), a boolean (`true` — 1
+     * under int-coercion), or any other shape through an options bag; the
+     * middleware must treat every non-strict-int-positive value as "use
+     * the default", never silently coercing.
+     *
+     * @return array<string, array{0: mixed}>
+     */
+    public static function nonIntegerOrNonPositiveTtlProvider(): array
+    {
+        return [
+            'zero (explicit ignore)' => [0],
+            'negative'               => [-1],
+            'numeric string'         => ['3600'],
+            'float'                  => [1.5],
+            'bool true'              => [true],
+            'bool false'             => [false],
+            'null'                   => [null],
+            'array'                  => [[3600]],
+        ];
+    }
+
     #[Test]
-    public function ignoresNonIntOrNonPositiveTtl(): void
+    #[DataProvider('nonIntegerOrNonPositiveTtlProvider')]
+    public function nonIntegerOrNonPositiveTtlFallsBackToDefault(mixed $ttl): void
     {
         $this->cache->method('get')->willReturn(null);
         $this->cache->expects(self::once())
@@ -151,7 +180,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
             correlationId: 'test',
             metadata: [
                 CacheMiddleware::METADATA_CACHE_KEY => 'key',
-                CacheMiddleware::METADATA_CACHE_TTL => 0,   // ignored
+                CacheMiddleware::METADATA_CACHE_TTL => $ttl,
             ],
         );
 

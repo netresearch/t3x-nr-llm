@@ -84,7 +84,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             return;
         }
 
-        /** @var array{tokens?: int, cost?: float} $metrics */
+        /** @var array{tokens: int, cost?: float} $metrics */
         $metrics = [
             'tokens' => $usage->totalTokens,
         ];
