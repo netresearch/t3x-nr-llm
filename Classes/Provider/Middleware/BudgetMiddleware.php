@@ -59,7 +59,7 @@ final readonly class BudgetMiddleware implements ProviderMiddlewareInterface
         $result = $this->budgetService->check($beUserUid, $plannedCost);
 
         if (!$result->allowed) {
-            throw new BudgetExceededException($result, 3554497632);
+            throw new BudgetExceededException($result);
         }
 
         return $next($configuration);
