@@ -176,19 +176,35 @@ the test matrix keeps green end-to-end:
 Each follow-up is scoped to a single concern and keeps the codebase
 shippable after every step.
 
-Remaining cleanup
------------------
+Embedding cache migration — done
+--------------------------------
 
-:php:`EmbeddingService::embedFull()` still contains an inline cache
-branch from before the middleware landed. The branch is harmless —
-:php:`CacheMiddleware` is opt-in via :php:`ProviderCallContext`
-metadata keys, and the direct-call pipeline does not currently set
-them — but it is dead duplication. Removing it requires (a) adding
-``toArray()`` / ``fromArray()`` helpers to the typed response objects
-so :php:`CacheMiddleware` (which persists ``array<string, mixed>``)
-can store / restore them, and (b) plumbing the cache key from
-:php:`EmbeddingOptions` through :php:`LlmServiceManager::embed()` onto
-the context metadata. Tracked separately; does not block this step.
+The inline cache branch that used to live in :php:`EmbeddingService::embedFull()`
+has been moved behind :php:`CacheMiddleware`:
+
+* :php:`EmbeddingResponse` and :php:`UsageStatistics` grew ``toArray()``
+  / ``fromArray()`` helpers so the typed response can round-trip through
+  :php:`CacheMiddleware` (which persists ``array<string, mixed>`` via
+  the TYPO3 cache frontend).
+* :php:`LlmServiceManager::embed()` derives a stable cache key via
+  :php:`CacheManagerInterface::generateCacheKey()` (same hash shape the
+  old inline branch produced, so existing cache entries stay valid) and
+  places it on the :php:`ProviderCallContext` metadata under
+  :php:`CacheMiddleware::METADATA_CACHE_KEY`. ``cache_ttl == 0``
+  (:php:`EmbeddingOptions::noCache()`) omits the key so the middleware
+  is a no-op — consistent with the old ``cacheTtl`` semantics.
+* The terminal now returns ``$response->toArray()``; the manager
+  reconstructs the typed :php:`EmbeddingResponse` via
+  :php:`EmbeddingResponse::fromArray` before returning to the caller.
+  Public method signature is unchanged.
+* :php:`UsageMiddleware` learned to also recognise the array-payload
+  shape (``['usage' => [...], 'provider' => '...']``) so usage
+  accounting stays consistent whether the pipeline produced a typed
+  response (other operations) or an array (embeddings via
+  :php:`CacheMiddleware`).
+* :php:`EmbeddingService` no longer depends on
+  :php:`CacheManagerInterface`; it is a pure vector-math façade on top
+  of :php:`LlmServiceManager::embed()`.
 
 .. _adr-026-alternatives:
 

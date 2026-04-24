@@ -30,6 +30,53 @@ final readonly class EmbeddingResponse
     ) {}
 
     /**
+     * Serialize to an array shape suitable for cache storage.
+     *
+     * Paired with `fromArray()` so `CacheMiddleware` (which stores
+     * `array<string, mixed>`) can round-trip an `EmbeddingResponse`
+     * through a TYPO3 cache frontend without a per-type codec.
+     *
+     * @return array{embeddings: array<int, array<int, float>>, model: string, usage: array{promptTokens: int, completionTokens: int, totalTokens: int, estimatedCost: ?float}, provider: string}
+     */
+    public function toArray(): array
+    {
+        return [
+            'embeddings' => $this->embeddings,
+            'model'      => $this->model,
+            'usage'      => $this->usage->toArray(),
+            'provider'   => $this->provider,
+        ];
+    }
+
+    /**
+     * Restore from a previously serialized array shape. Missing fields fall
+     * back to safe empty defaults so cached payloads from an older shape still
+     * load.
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function fromArray(array $data): self
+    {
+        $embeddings = $data['embeddings'] ?? [];
+        if (!\is_array($embeddings)) {
+            $embeddings = [];
+        }
+
+        /** @var array<int, array<int, float>> $embeddings */
+        $usageData = $data['usage'] ?? [];
+        if (!\is_array($usageData)) {
+            $usageData = [];
+        }
+
+        return new self(
+            embeddings: $embeddings,
+            model: \is_string($data['model'] ?? null) ? $data['model'] : '',
+            usage: UsageStatistics::fromArray($usageData),
+            provider: \is_string($data['provider'] ?? null) ? $data['provider'] : '',
+        );
+    }
+
+    /**
      * Get the first embedding vector (for single input).
      *
      * @return array<int, float>

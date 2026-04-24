@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
@@ -49,6 +50,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         private readonly LoggerInterface $logger,
         private readonly ProviderAdapterRegistry $adapterRegistry,
         private readonly MiddlewarePipeline $pipeline,
+        private readonly CacheManagerInterface $cacheManager,
     ) {
         $this->loadConfiguration();
     }
@@ -190,10 +192,36 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
         unset($optionsArray['provider']);
 
-        return $this->runThroughPipeline(
+        // Cache metadata: CacheMiddleware short-circuits when it sees a key.
+        // Callers pass cache_ttl: 0 (via EmbeddingOptions::noCache()) to
+        // disable caching for ephemeral content — we honour that by leaving
+        // the key out of metadata so the middleware becomes a no-op for
+        // this call.
+        $cacheTtl = is_int($optionsArray['cache_ttl'] ?? null) ? $optionsArray['cache_ttl'] : 0;
+        $metadata = [];
+        if ($cacheTtl > 0) {
+            $resolvedProvider = $providerKey ?? $this->defaultProvider ?? 'default';
+            $metadata = [
+                CacheMiddleware::METADATA_CACHE_KEY => $this->cacheManager->generateCacheKey(
+                    $resolvedProvider,
+                    'embeddings',
+                    ['input' => $input, 'options' => $optionsArray],
+                ),
+                CacheMiddleware::METADATA_CACHE_TTL  => $cacheTtl,
+                CacheMiddleware::METADATA_CACHE_TAGS => [
+                    'nrllm_embeddings',
+                    'nrllm_provider_' . $resolvedProvider,
+                ],
+            ];
+        }
+
+        // Terminal returns an array-shaped payload so CacheMiddleware (which
+        // persists `array<string, mixed>`) can round-trip through the TYPO3
+        // cache frontend. The typed response is reconstructed at this layer.
+        $raw = $this->pipeline->run(
+            ProviderCallContext::for(ProviderOperation::Embedding, $metadata),
             $this->synthesizeTransientConfiguration(ProviderOperation::Embedding, $providerKey),
-            ProviderOperation::Embedding,
-            function () use ($input, $optionsArray, $providerKey): EmbeddingResponse {
+            function () use ($input, $optionsArray, $providerKey): array {
                 $provider = $this->getProvider($providerKey);
                 if (!$provider->supportsFeature('embeddings')) {
                     throw new UnsupportedFeatureException(
@@ -202,9 +230,18 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                     );
                 }
 
-                return $provider->embeddings($input, $optionsArray);
+                return $provider->embeddings($input, $optionsArray)->toArray();
             },
         );
+
+        if (!is_array($raw)) {
+            throw new ProviderException(
+                'Embedding pipeline returned non-array payload — expected array<string, mixed>',
+                2746395810,
+            );
+        }
+
+        return EmbeddingResponse::fromArray($raw);
     }
 
     /**
