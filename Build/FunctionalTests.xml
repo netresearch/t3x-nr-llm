@@ -15,10 +15,10 @@
          requireCoverageMetadata="false"
 >
     <testsuites>
-        <testsuite name="Functional tests">
+        <testsuite name="functional">
             <directory>../Tests/Functional/</directory>
         </testsuite>
-        <testsuite name="E2E Backend tests">
+        <testsuite name="e2e-backend">
             <directory>../Tests/E2E/Backend/</directory>
         </testsuite>
     </testsuites>
