@@ -19,6 +19,7 @@ use Rector\Php81\Rector\Property\ReadOnlyPropertyRector;
 use Rector\PHPUnit\Set\PHPUnitSetList;
 use Rector\TypeDeclaration\Rector\ClassMethod\AddVoidReturnTypeWhereNoReturnRector;
 use Rector\ValueObject\PhpVersion;
+use Ssch\TYPO3Rector\CodeQuality\General\AddErrorCodeToExceptionRector;
 use Ssch\TYPO3Rector\CodeQuality\General\ExtEmConfRector;
 use Ssch\TYPO3Rector\Configuration\Typo3Option;
 use Ssch\TYPO3Rector\Set\Typo3LevelSetList;
@@ -66,6 +67,14 @@ return RectorConfig::configure()
         // Skip readonly for test properties that are set in setUp() - causes PHPStan errors
         ReadOnlyPropertyRector::class => [
             __DIR__ . '/../../Tests/Integration/Provider/OpenAiProviderIntegrationTest.php',
+        ],
+        // AddErrorCodeToExceptionRector assumes the standard \Throwable
+        // ($message, $code, $previous) signature. Custom exceptions whose
+        // constructor expects ($context, ?Throwable $previous) instead must
+        // be skipped, otherwise Rector injects an int where a Throwable is
+        // required.
+        AddErrorCodeToExceptionRector::class => [
+            __DIR__ . '/../../Classes/Provider/Middleware/BudgetMiddleware.php',
         ],
         // Skip Fuzzy tests - Eris\Generator namespace functions conflict with auto-imports
         __DIR__ . '/../../Tests/Fuzzy/',

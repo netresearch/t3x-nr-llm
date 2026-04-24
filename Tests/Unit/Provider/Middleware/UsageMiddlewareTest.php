@@ -43,10 +43,10 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         $this->tracker->expects(self::once())
             ->method('trackUsage')
             ->with(
-                serviceType: ProviderOperation::Chat->value,
-                provider: 'openai',
-                metrics: ['tokens' => 150, 'cost' => 0.0012],
-                configurationUid: 7,
+                ProviderOperation::Chat->value,
+                'openai',
+                ['tokens' => 150, 'cost' => 0.0012],
+                7,
             );
 
         $response = new CompletionResponse(
@@ -170,7 +170,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             context: ProviderCallContext::for(ProviderOperation::Chat),
             configuration: $this->configuration(),
             terminal: static function (LlmConfiguration $c): never {
-                throw new RuntimeException('boom');
+                throw new RuntimeException('boom', 1504818594);
             },
         );
     }
