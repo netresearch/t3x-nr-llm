@@ -12,7 +12,6 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
-use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Feature\EmbeddingService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
@@ -50,8 +49,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarReturnsEmptyArrayForEmptyCandidates(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $result = $service->findMostSimilar([0.1, 0.2, 0.3], [], 5);
 
@@ -62,8 +60,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarReturnsLimitedResults(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $queryVector = [1.0, 0.0, 0.0];
         $candidates = [
@@ -82,8 +79,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarSortsByDescendingSimilarity(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $queryVector = [1.0, 0.0];
         $candidates = [
@@ -103,8 +99,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function pairwiseSimilaritiesHasDiagonalOfOnes(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $vectors = [
             [1.0, 0.0, 0.0],
@@ -124,8 +119,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function pairwiseSimilaritiesIsSymmetric(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $vectors = [
             [1.0, 0.5],
@@ -142,8 +136,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function normalizeReturnsZeroVectorForZeroInput(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $zeroVector = [0.0, 0.0, 0.0];
         $result = $service->normalize($zeroVector);
@@ -155,8 +148,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function normalizeCreatesUnitLengthVector(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $vector = [3.0, 4.0]; // Magnitude = 5.0
         $result = $service->normalize($vector);
@@ -170,8 +162,6 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     #[Test]
     public function embedFullWithOptionsUsesProvidedOptions(): void
     {
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $cacheStub->method('getCachedEmbeddings')->willReturn(null);
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
@@ -179,7 +169,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
             ->method('embed')
             ->willReturn($this->createMockEmbeddingResponse([[0.1, 0.2]]));
 
-        $service = new EmbeddingService($llmManagerMock, $cacheStub);
+        $service = new EmbeddingService($llmManagerMock);
         $options = new EmbeddingOptions(model: 'text-embedding-3-large');
 
         $result = $service->embedFull('test text', $options);
@@ -190,8 +180,6 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     #[Test]
     public function embedFullCreatesDefaultOptionsWhenNull(): void
     {
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $cacheStub->method('getCachedEmbeddings')->willReturn(null);
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
@@ -199,7 +187,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
             ->method('embed')
             ->willReturn($this->createMockEmbeddingResponse([[0.1, 0.2]]));
 
-        $service = new EmbeddingService($llmManagerMock, $cacheStub);
+        $service = new EmbeddingService($llmManagerMock);
 
         // Pass null options
         $result = $service->embedFull('test text', null);
@@ -211,8 +199,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function embedFullThrowsOnEmptyText(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Text cannot be empty');
@@ -223,7 +210,6 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     #[Test]
     public function embedBatchCreatesDefaultOptionsWhenNull(): void
     {
-        $cacheStub = self::createStub(CacheManagerInterface::class);
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
@@ -231,82 +217,16 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
             ->method('embed')
             ->willReturn($this->createMockEmbeddingResponse([[0.1], [0.2]]));
 
-        $service = new EmbeddingService($llmManagerMock, $cacheStub);
+        $service = new EmbeddingService($llmManagerMock);
 
         $result = $service->embedBatch(['text1', 'text2'], null);
 
         self::assertCount(2, $result);
     }
 
-    #[Test]
-    public function embedFullCachesResultAfterApiCall(): void
-    {
-        $cacheMock = $this->createMock(CacheManagerInterface::class);
-        $cacheMock->method('getCachedEmbeddings')->willReturn(null);
-        $cacheMock
-            ->expects(self::once())
-            ->method('cacheEmbeddings');
-
-        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $llmManagerStub
-            ->method('embed')
-            ->willReturn($this->createMockEmbeddingResponse([[0.1, 0.2]]));
-
-        $service = new EmbeddingService($llmManagerStub, $cacheMock);
-        $service->embedFull('test text');
-    }
-
-    #[Test]
-    public function embedFullUsesDefaultCacheTtlOf24Hours(): void
-    {
-        $cacheMock = $this->createMock(CacheManagerInterface::class);
-        $cacheMock->method('getCachedEmbeddings')->willReturn(null);
-        $cacheMock
-            ->expects(self::once())
-            ->method('cacheEmbeddings')
-            ->with(
-                self::anything(),
-                self::anything(),
-                self::anything(),
-                self::anything(),
-                86400, // 24 hours
-            );
-
-        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $llmManagerStub
-            ->method('embed')
-            ->willReturn($this->createMockEmbeddingResponse([[0.1, 0.2]]));
-
-        $service = new EmbeddingService($llmManagerStub, $cacheMock);
-        $service->embedFull('test text');
-    }
-
-    #[Test]
-    public function embedFullReturnsCachedResponseWhenAvailable(): void
-    {
-        $cachedData = [
-            'embeddings' => [[0.5, 0.6]],
-            'model' => 'cached-model',
-            'usage' => ['promptTokens' => 10, 'totalTokens' => 10],
-        ];
-
-        $cacheMock = $this->createMock(CacheManagerInterface::class);
-        $cacheMock
-            ->expects(self::once())
-            ->method('getCachedEmbeddings')
-            ->willReturn($cachedData);
-
-        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManagerMock
-            ->expects(self::never())
-            ->method('embed');
-
-        $service = new EmbeddingService($llmManagerMock, $cacheMock);
-        $result = $service->embedFull('test text');
-
-        self::assertEquals([[0.5, 0.6]], $result->embeddings);
-        self::assertEquals('cached-model', $result->model);
-    }
+    // embedding cache behaviour is now owned by `CacheMiddleware` inside
+    // `LlmServiceManager::embed()`; coverage lives in
+    // `LlmServiceManagerTest` and `CacheMiddlewareTest`.
 
     /**
      * @param array<int, float> $vectorA
@@ -317,8 +237,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function cosineSimilarityHandlesEdgeCases(array $vectorA, array $vectorB, float $expected): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $result = $service->cosineSimilarity($vectorA, $vectorB);
 
@@ -342,8 +261,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function pairwiseSimilaritiesCreatesCorrectDimensions(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $vectors = [
             [1.0, 0.0],
@@ -364,8 +282,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarUsesDefaultTopKOfFive(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $queryVector = [1.0, 0.0];
         $candidates = [
@@ -388,8 +305,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarReturnsAllWhenCandidatesLessThanTopK(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $queryVector = [1.0, 0.0];
         $candidates = [
@@ -407,8 +323,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarReturnsCorrectIndices(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $queryVector = [1.0, 0.0];
         $candidates = [
@@ -427,8 +342,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function normalizePreservesDirection(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $vector = [3.0, 4.0];
         $result = $service->normalize($vector);
@@ -442,8 +356,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function normalizeHandlesNegativeValues(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $vector = [-3.0, 4.0];
         $result = $service->normalize($vector);
@@ -461,8 +374,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function pairwiseSimilaritiesReturnsEmptyForEmptyInput(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $result = $service->pairwiseSimilarities([]);
 
@@ -473,8 +385,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function pairwiseSimilaritiesHandlesSingleVector(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $vectors = [[1.0, 0.0, 0.0]];
 
@@ -489,46 +400,21 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function embedBatchReturnsEmptyArrayForEmptyInput(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $result = $service->embedBatch([]);
 
         self::assertEmpty($result);
     }
 
-    #[Test]
-    public function embedFullReturnsCachedUsageStatisticsWithDefaults(): void
-    {
-        // Test that cached embeddings with missing usage stats use defaults
-        $cachedData = [
-            'embeddings' => [[0.5, 0.6]],
-            'model' => 'cached-model',
-            'usage' => [], // Empty usage - should use defaults
-        ];
-
-        $cacheMock = $this->createMock(CacheManagerInterface::class);
-        $cacheMock
-            ->expects(self::once())
-            ->method('getCachedEmbeddings')
-            ->willReturn($cachedData);
-
-        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
-
-        $service = new EmbeddingService($llmManagerMock, $cacheMock);
-        $result = $service->embedFull('test text');
-
-        // Should default to 0 when not in cache
-        self::assertEquals(0, $result->usage->promptTokens);
-        self::assertEquals(0, $result->usage->totalTokens);
-    }
+    // cached-usage-default handling moved to `EmbeddingResponse::fromArray`,
+    // covered by response-serialization tests.
 
     #[Test]
     public function pairwiseSimilaritiesOffDiagonalCalculatesCorrectly(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         // Orthogonal unit vectors
         $vectors = [
@@ -547,8 +433,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
     public function findMostSimilarWithTopKOfOne(): void
     {
         $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $service = new EmbeddingService($llmManagerStub, $cacheStub);
+        $service = new EmbeddingService($llmManagerStub);
 
         $queryVector = [1.0, 0.0];
         $candidates = [

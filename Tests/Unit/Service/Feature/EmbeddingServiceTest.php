@@ -12,7 +12,6 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
-use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Feature\EmbeddingService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -24,14 +23,12 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
 {
     private EmbeddingService $subject;
     private LlmServiceManagerInterface $llmManagerStub;
-    private CacheManagerInterface $cacheStub;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $this->cacheStub = self::createStub(CacheManagerInterface::class);
-        $this->subject = new EmbeddingService($this->llmManagerStub, $this->cacheStub);
+        $this->subject = new EmbeddingService($this->llmManagerStub);
     }
 
     #[Test]
@@ -40,63 +37,32 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
         $text = 'Test text';
         $expectedVector = [0.1, 0.2, 0.3];
 
-        $cacheStub = self::createStub(CacheManagerInterface::class);
-        $cacheStub->method('getCachedEmbeddings')->willReturn(null);
-
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
             ->expects(self::once())
             ->method('embed')
             ->willReturn($this->createMockEmbeddingResponse([$expectedVector]));
 
-        $subject = new EmbeddingService($llmManagerMock, $cacheStub);
+        $subject = new EmbeddingService($llmManagerMock);
         $result = $subject->embed($text);
 
         self::assertEquals($expectedVector, $result);
     }
 
     #[Test]
-    public function embedUsesCachedResult(): void
+    public function embedDelegatesToLlmServiceManager(): void
     {
-        $text = 'Cached text';
-        $cachedVector = [0.5, 0.6, 0.7];
-
-        $cacheMock = $this->createMock(CacheManagerInterface::class);
-        $cacheMock
-            ->expects(self::once())
-            ->method('getCachedEmbeddings')
-            ->willReturn([
-                'embeddings' => [$cachedVector],
-                'model' => 'text-embedding-3-small',
-                'usage' => ['promptTokens' => 5, 'totalTokens' => 5],
-            ]);
-
+        // Caching is now handled transparently by CacheMiddleware inside
+        // LlmServiceManager::embed() — the feature service just forwards.
+        // See ADR-026 for the pipeline architecture.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects(self::never())
-            ->method('embed');
+            ->expects(self::once())
+            ->method('embed')
+            ->willReturn($this->createMockEmbeddingResponse([[0.1, 0.2]]));
 
-        $subject = new EmbeddingService($llmManagerMock, $cacheMock);
-        $result = $subject->embed($text);
-
-        self::assertEquals($cachedVector, $result);
-    }
-
-    #[Test]
-    public function embedStoresResultInCache(): void
-    {
-        $text = 'New text';
-        $vector = [0.1, 0.2];
-
-        $cacheMock = $this->createMock(CacheManagerInterface::class);
-        $cacheMock->method('getCachedEmbeddings')->willReturn(null);
-        $cacheMock->expects(self::once())->method('cacheEmbeddings');
-
-        $llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
-        $llmManagerStub->method('embed')->willReturn($this->createMockEmbeddingResponse([$vector]));
-
-        $subject = new EmbeddingService($llmManagerStub, $cacheMock);
-        $subject->embed($text);
+        $subject = new EmbeddingService($llmManagerMock);
+        $subject->embed('Text');
     }
 
     #[Test]
@@ -111,7 +77,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
             ->method('embed')
             ->willReturn($this->createMockEmbeddingResponse($vectors));
 
-        $subject = new EmbeddingService($llmManagerMock, $this->cacheStub);
+        $subject = new EmbeddingService($llmManagerMock);
         $results = $subject->embedBatch($texts);
 
         self::assertCount(3, $results);

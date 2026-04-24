@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Translation\LlmTranslator;
@@ -56,6 +57,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             $loggerStub,
             $adapterRegistryStub,
             new MiddlewarePipeline([]),
+            self::createStub(CacheManagerInterface::class),
         );
 
         $this->provider = new TranslatorTestProvider();

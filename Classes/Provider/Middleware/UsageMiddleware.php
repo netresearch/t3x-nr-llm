@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 
@@ -23,15 +24,17 @@ use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
  * BudgetService aggregates from, so the two stay consistent without a
  * second source of truth.
  *
- * Recognised response types:
- *  - CompletionResponse
- *  - EmbeddingResponse
- *  - VisionResponse
+ * Recognised response shapes:
+ *  - CompletionResponse / EmbeddingResponse / VisionResponse (typed path)
+ *  - `array{usage: array, provider: string, ...}` (array payload emitted by
+ *    feature services that opt in to CacheMiddleware — CacheMiddleware
+ *    stores `array<string, mixed>`, so the terminal is wrapped with a
+ *    `$response->toArray()` codec. UsageMiddleware sees the array on both
+ *    cache-hit and cache-miss paths and records consistently either way.)
  *
- * All three carry a typed UsageStatistics + provider identifier. Any
- * other return value (streaming Generator, translation result, raw
- * string, plain array) is silently skipped — there is nothing reliable
- * to record for those shapes from this position in the pipeline.
+ * Streaming Generator, translation result, raw string, plain array without
+ * `usage` / `provider` — silently skipped. Nothing reliable to record for
+ * those shapes from this position in the pipeline.
  *
  * Pipeline ordering recommendation:
  *
@@ -76,15 +79,10 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         LlmConfiguration $configuration,
         mixed $result,
     ): void {
-        if (
-            !$result instanceof CompletionResponse
-            && !$result instanceof EmbeddingResponse
-            && !$result instanceof VisionResponse
-        ) {
+        [$usage, $provider] = $this->extractUsage($result);
+        if ($usage === null) {
             return;
         }
-
-        $usage = $result->usage;
 
         /** @var array{tokens?: int, cost?: float} $metrics */
         $metrics = [
@@ -94,16 +92,51 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             $metrics['cost'] = $usage->estimatedCost;
         }
 
-        $provider = $result->provider !== '' ? $result->provider : 'unknown';
-
         $configUid = $configuration->getUid();
         $uid       = ($configUid !== null && $configUid > 0) ? $configUid : null;
 
         $this->usageTracker->trackUsage(
             serviceType: $context->operation->value,
-            provider: $provider,
+            provider: $provider !== '' ? $provider : 'unknown',
             metrics: $metrics,
             configurationUid: $uid,
         );
+    }
+
+    /**
+     * Extract `(usage, provider)` from whatever the terminal returned.
+     *
+     * Typed responses (common path) expose both fields directly. Array
+     * payloads (CacheMiddleware codec shape) carry the same information
+     * under `usage` / `provider` keys — the middleware reconstructs a
+     * `UsageStatistics` from those so recording happens identically on
+     * both paths. Unrecognised shapes return `[null, '']` so the
+     * middleware silently skips.
+     *
+     * @return array{0: ?UsageStatistics, 1: string}
+     */
+    private function extractUsage(mixed $result): array
+    {
+        if (
+            $result instanceof CompletionResponse
+            || $result instanceof EmbeddingResponse
+            || $result instanceof VisionResponse
+        ) {
+            return [$result->usage, $result->provider];
+        }
+
+        if (
+            \is_array($result)
+            && isset($result['usage'], $result['provider'])
+            && \is_array($result['usage'])
+            && \is_string($result['provider'])
+        ) {
+            /** @var array<string, mixed> $usageData */
+            $usageData = $result['usage'];
+
+            return [UsageStatistics::fromArray($usageData), $result['provider']];
+        }
+
+        return [null, ''];
     }
 }

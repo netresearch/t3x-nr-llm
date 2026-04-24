@@ -10,31 +10,25 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
-use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
-use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 
 /**
  * High-level service for text embeddings and similarity calculations.
  *
- * Provides text-to-vector conversion with caching and
- * similarity calculation utilities.
+ * Caching is handled transparently by `CacheMiddleware` inside
+ * `LlmServiceManager::embed()` — this service only owns the vector-math
+ * utilities (cosine similarity, normalisation, top-k) and input validation.
  */
 class EmbeddingService
 {
-    private const DEFAULT_CACHE_TTL = 86400; // 24 hours (embeddings are deterministic)
-
     public function __construct(
         private readonly LlmServiceManagerInterface $llmManager,
-        private readonly CacheManagerInterface $cacheManager,
     ) {}
 
     /**
      * Generate embedding vector for text.
-     *
-     * Embeddings are deterministic and aggressively cached.
      *
      * @param string $text Text to embed
      *
@@ -42,8 +36,7 @@ class EmbeddingService
      */
     public function embed(string $text, ?EmbeddingOptions $options = null): array
     {
-        $response = $this->embedFull($text, $options);
-        return $response->getVector();
+        return $this->embedFull($text, $options)->getVector();
     }
 
     /**
@@ -53,54 +46,11 @@ class EmbeddingService
      */
     public function embedFull(string $text, ?EmbeddingOptions $options = null): EmbeddingResponse
     {
-        $options ??= new EmbeddingOptions();
-        $optionsArray = $options->toArray();
-
-        if (empty($text)) {
+        if ($text === '') {
             throw new InvalidArgumentException('Text cannot be empty', 6048498820);
         }
 
-        $model = is_string($optionsArray['model'] ?? null) ? $optionsArray['model'] : 'default';
-        $provider = is_string($optionsArray['provider'] ?? null) ? $optionsArray['provider'] : 'openai';
-        $cacheTtl = is_int($optionsArray['cache_ttl'] ?? null) ? $optionsArray['cache_ttl'] : self::DEFAULT_CACHE_TTL;
-
-        // Check cache
-        $cached = $this->cacheManager->getCachedEmbeddings($provider, $text, $optionsArray);
-        if ($cached !== null) {
-            /** @var array{embeddings: array<int, array<int, float>>, model: string, usage?: array{promptTokens?: int, totalTokens?: int}} $cached */
-            $usageData = $cached['usage'] ?? [];
-            return new EmbeddingResponse(
-                embeddings: $cached['embeddings'],
-                model: $cached['model'],
-                usage: new UsageStatistics(
-                    promptTokens: $usageData['promptTokens'] ?? 0,
-                    completionTokens: 0,
-                    totalTokens: $usageData['totalTokens'] ?? 0,
-                ),
-                provider: $provider,
-            );
-        }
-
-        // Execute embedding request
-        $response = $this->llmManager->embed($text, $options);
-
-        // Cache the result
-        $this->cacheManager->cacheEmbeddings(
-            $provider,
-            $text,
-            $optionsArray,
-            [
-                'embeddings' => $response->embeddings,
-                'model' => $response->model,
-                'usage' => [
-                    'promptTokens' => $response->usage->promptTokens,
-                    'totalTokens' => $response->usage->totalTokens,
-                ],
-            ],
-            $cacheTtl,
-        );
-
-        return $response;
+        return $this->llmManager->embed($text, $options);
     }
 
     /**

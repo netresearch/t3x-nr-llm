@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Integration\AbstractIntegrationTestCase;
@@ -67,6 +68,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
             new NullLogger(),
             $this->adapterRegistryStub,
             new MiddlewarePipeline([]),
+            self::createStub(CacheManagerInterface::class),
         );
     }
 
@@ -258,7 +260,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
             'providers' => [],
         ]);
 
-        $manager = new LlmServiceManager($configMock, new NullLogger(), $this->adapterRegistryStub, new MiddlewarePipeline([]));
+        $manager = new LlmServiceManager($configMock, new NullLogger(), $this->adapterRegistryStub, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
 
         $this->expectException(ProviderException::class);
         $this->expectExceptionMessage('No provider specified and no default provider configured');

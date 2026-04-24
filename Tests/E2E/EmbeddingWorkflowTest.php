@@ -55,7 +55,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]));
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
@@ -66,7 +66,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $cacheManager->method('getCachedEmbeddings')->willReturn(null);
         $cacheManager->method('cacheEmbeddings')->willReturn('cache-key');
 
-        $embeddingService = new EmbeddingService($serviceManager, $cacheManager);
+        $embeddingService = new EmbeddingService($serviceManager);
 
         // Act
         $result = $embeddingService->embedFull('Test text for embedding');
@@ -89,7 +89,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]));
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
 
         // Mock cache manager returning cached embeddings with full structure
         $cachedData = [
@@ -107,7 +107,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $cacheManager->method('getCachedEmbeddings')
             ->willReturn($cachedData);
 
-        $embeddingService = new EmbeddingService($serviceManager, $cacheManager);
+        $embeddingService = new EmbeddingService($serviceManager);
 
         // Act - Should hit cache, not make HTTP request
         $result = $embeddingService->embedFull('Cached text');
@@ -173,7 +173,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]));
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
@@ -183,7 +183,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $cacheManager->method('getCachedEmbeddings')->willReturn(null);
         $cacheManager->method('cacheEmbeddings')->willReturn('cache-key');
 
-        $embeddingService = new EmbeddingService($serviceManager, $cacheManager);
+        $embeddingService = new EmbeddingService($serviceManager);
 
         // Act: Batch embedding
         $result = $embeddingService->embedBatch([
@@ -240,7 +240,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]));
+        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
@@ -250,7 +250,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $cacheManager->method('getCachedEmbeddings')->willReturn(null);
         $cacheManager->method('cacheEmbeddings')->willReturn('cache-key');
 
-        $embeddingService = new EmbeddingService($serviceManager, $cacheManager);
+        $embeddingService = new EmbeddingService($serviceManager);
 
         // Act: Get embedding vectors (not full responses)
         $vector1 = $embeddingService->embed('Hello world');

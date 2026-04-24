@@ -52,4 +52,39 @@ final readonly class UsageStatistics
             $estimatedCost,
         );
     }
+
+    /**
+     * Serialize to an array shape suitable for cache storage.
+     *
+     * @return array{promptTokens: int, completionTokens: int, totalTokens: int, estimatedCost: ?float}
+     */
+    public function toArray(): array
+    {
+        return [
+            'promptTokens'     => $this->promptTokens,
+            'completionTokens' => $this->completionTokens,
+            'totalTokens'      => $this->totalTokens,
+            'estimatedCost'    => $this->estimatedCost,
+        ];
+    }
+
+    /**
+     * Restore from a previously serialized array shape.
+     *
+     * Fields default to 0 / null when absent so cached payloads from older
+     * versions (before estimatedCost was added, for example) still load.
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function fromArray(array $data): self
+    {
+        $estimatedCost = $data['estimatedCost'] ?? null;
+
+        return new self(
+            promptTokens: \is_int($data['promptTokens'] ?? null) ? $data['promptTokens'] : 0,
+            completionTokens: \is_int($data['completionTokens'] ?? null) ? $data['completionTokens'] : 0,
+            totalTokens: \is_int($data['totalTokens'] ?? null) ? $data['totalTokens'] : 0,
+            estimatedCost: \is_float($estimatedCost) || \is_int($estimatedCost) ? (float)$estimatedCost : null,
+        );
+    }
 }
