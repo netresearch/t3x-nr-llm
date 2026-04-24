@@ -145,7 +145,7 @@ nr_llm/
 ## Heuristics — Quick Decisions
 
 - **Where does the new feature service live?** `Classes/Service/Feature/` (one directory per feature, e.g. `Completion`, `Embedding`, `Translation`). Each feature has a service + DTO + tests.
-- **Adding a new LLM provider?** Implement `Classes/Provider/Contract/LlmProviderInterface`, add `#[AsLlmProvider('name')]` attribute (auto-registers via `ProviderCompilerPass`), add the provider icon to `Resources/Public/Icons/provider-<name>.svg`.
+- **Adding a new LLM provider?** Implement `Classes/Provider/Contract/ProviderInterface`, add `#[AsLlmProvider(priority: ...)]` attribute (auto-registers via `ProviderCompilerPass`), and return the provider identifier from `ProviderInterface::getIdentifier()`. Add the provider icon to `Resources/Public/Icons/provider-<identifier>.svg`.
 - **Where does TCA live?** Per-table file under `Configuration/TCA/` for new tables; `Configuration/TCA/Overrides/` to extend existing tables (incl. `pages`, `tt_content`).
 - **Stuck on a "this works locally but breaks in CI" issue?** Reproduce inside `Build/Scripts/runTests.sh -s <suite>` first — it uses the same Docker PHP image as CI.
 - **Adding a config option?** TCA + `LLL:` translation key in `Resources/Private/Language/locallang*.xlf` for both EN and DE.
@@ -155,10 +155,10 @@ nr_llm/
 <!-- AGENTS-GENERATED:START utilities -->
 ## Shared Utilities — Don't Reinvent
 
-- **Type narrowing**: `Classes/Utility/SafeCastTrait` — `safeIntCast`, `safeStringCast`, `safeArrayCast`. Use these before `(int)` / `(string)` casts to surface bad input as exceptions.
-- **Provider invocation**: `Classes/Service/Feature/FallbackChain` — use this rather than calling providers directly; it handles retries, fallback ordering, and error mapping.
-- **Cost tracking**: emit a `\Netresearch\NrLlm\Event\LlmRequestCompletedEvent` — the `UsageTrackerService` listens and aggregates. Don't write to the usage table directly.
-- **Cache config**: `Configuration/Caching.php` already declares the `nrllm_responses`, `nrllm_models` caches. Add new caches there (no hardcoded backend).
+- **Type coercion**: `Classes/Utility/SafeCastTrait` exposes private helpers (`toStr`, `toInt`, `toFloat`) for internal coercion when raw values come from untrusted sources. Use them inside the trait consumer; do not invent `safeIntCast`-style public methods.
+- **Provider invocation**: `Classes/Domain/DTO/FallbackChain.php` defines fallback chains; `Classes/Provider/Middleware/FallbackMiddleware.php` enforces them at runtime. Always go through the middleware pipeline rather than calling provider classes directly — it handles retries, fallback ordering, and error mapping.
+- **Cost tracking**: `Classes/Provider/Middleware/UsageMiddleware.php` records usage after each successful provider call via `UsageTrackerServiceInterface::trackUsage()`. Don't write to the usage table directly.
+- **Cache config**: `Configuration/Caching.php` declares the `nrllm_responses` cache. Add new caches there (no hardcoded backend — let the host instance configure Redis/Valkey/Memcached).
 <!-- AGENTS-GENERATED:END utilities -->
 
 <!-- AGENTS-GENERATED:START security -->
@@ -199,7 +199,7 @@ Prefer looking at real code in this repo over inventing new patterns. Canonical 
 | Architecture test | `Tests/Architecture/ControllerLayerTest.php` |
 | ADR format | `Documentation/Adr/Adr014AiPoweredWizardSystem.rst` |
 | Backend controller | `Classes/Controller/Backend/ProviderController.php` |
-| TCA form element | `Classes/Form/ModelIdElement.php` |
+| TCA form element | `Classes/Form/Element/ModelIdElement.php` |
 <!-- AGENTS-GENERATED:END examples -->
 
 <!-- AGENTS-GENERATED:START help -->
