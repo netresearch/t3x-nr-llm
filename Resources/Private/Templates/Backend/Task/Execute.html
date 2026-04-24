@@ -15,12 +15,12 @@
             </h1>
             <div class="d-flex gap-2">
                 <f:if condition="{taskEditUrl}">
-                    <a href="{taskEditUrl}" class="btn btn-default btn-sm">
+                    <a href="{taskEditUrl}" class="btn btn-secondary btn-sm">
                         <core:icon identifier="actions-open" size="small" />
                         Edit Task
                     </a>
                 </f:if>
-                <f:link.action action="list" class="btn btn-default btn-sm">
+                <f:link.action action="list" class="btn btn-secondary btn-sm">
                     <core:icon identifier="actions-view-go-back" size="small" />
                     Back to List
                 </f:link.action>
@@ -46,19 +46,19 @@
                 </h2>
                 <div class="d-flex gap-1">
                     <f:if condition="{providerEditUrl}">
-                        <a href="{providerEditUrl}" class="btn btn-default btn-sm" title="Edit Provider">
+                        <a href="{providerEditUrl}" class="btn btn-secondary btn-sm" title="Edit Provider">
                             <core:icon identifier="actions-open" size="small" />
                             Provider
                         </a>
                     </f:if>
                     <f:if condition="{modelEditUrl}">
-                        <a href="{modelEditUrl}" class="btn btn-default btn-sm" title="Edit Model">
+                        <a href="{modelEditUrl}" class="btn btn-secondary btn-sm" title="Edit Model">
                             <core:icon identifier="actions-open" size="small" />
                             Model
                         </a>
                     </f:if>
                     <f:if condition="{configEditUrl}">
-                        <a href="{configEditUrl}" class="btn btn-default btn-sm" title="Edit Configuration">
+                        <a href="{configEditUrl}" class="btn btn-secondary btn-sm" title="Edit Configuration">
                             <core:icon identifier="actions-open" size="small" />
                             Configuration
                         </a>
@@ -249,7 +249,7 @@
                                 </span>
                             </button>
                             <f:if condition="!{requiresManualInput}">
-                                <button type="button" class="btn btn-default" id="refreshInputBtn">
+                                <button type="button" class="btn btn-secondary" id="refreshInputBtn">
                                     <core:icon identifier="actions-refresh" size="small" />
                                     Refresh Data
                                 </button>
@@ -341,7 +341,7 @@
                             <div id="outputContent" class="bg-light p-3 rounded" style="max-height: 500px; overflow-y: auto;"></div>
 
                             <div class="mt-3">
-                                <button type="button" class="btn btn-sm btn-default" id="copyOutputBtn">
+                                <button type="button" class="btn btn-sm btn-secondary" id="copyOutputBtn">
                                     <core:icon identifier="actions-clipboard" size="small" />
                                     Copy to Clipboard
                                 </button>

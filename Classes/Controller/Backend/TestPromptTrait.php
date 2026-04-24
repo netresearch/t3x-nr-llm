@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Throwable;
-use TYPO3\CMS\Backend\Utility\BackendUtility;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Shared test prompt resolution for backend controllers.
@@ -40,14 +40,29 @@ trait TestPromptTrait
             $prompt = $default;
         }
 
-        // BackendUtility::getBackendUserAuthentication() is the TYPO3 helper for
-        // accessing the current BE user (replaces direct $GLOBALS access).
-        $beUser = BackendUtility::getBackendUserAuthentication();
-        $uc = is_object($beUser) && isset($beUser->uc) && is_array($beUser->uc) ? $beUser->uc : [];
-        $lang = isset($uc['lang']) && is_string($uc['lang']) && $uc['lang'] !== '' ? $uc['lang'] : 'default';
+        $lang = $this->resolveBackendUserLanguage();
         $languageName = $this->mapLanguageCodeToName($lang);
 
         return str_replace('{lang}', $languageName, $prompt);
+    }
+
+    /**
+     * Read the backend user's `uc.lang` preference. Traits can't depend on
+     * DI cleanly, so this is the rare legitimate use of `$GLOBALS['BE_USER']`
+     * — the alternative (BackendUtility::getBackendUserAuthentication) is
+     * `protected static` and Context-API requires every consuming controller
+     * to wire DI for a single config-fallback string.
+     */
+    private function resolveBackendUserLanguage(): string
+    {
+        /** @var BackendUserAuthentication|null $beUser */
+        $beUser = $GLOBALS['BE_USER'] ?? null;
+        if (!$beUser instanceof BackendUserAuthentication) {
+            return 'default';
+        }
+        $uc = $beUser->uc;
+        $lang = $uc['lang'] ?? null;
+        return is_string($lang) && $lang !== '' ? $lang : 'default';
     }
 
     /**

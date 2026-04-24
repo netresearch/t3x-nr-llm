@@ -76,10 +76,10 @@
                                     </td>
                                     <td class="col-control">
                                         <div class="btn-group" role="group">
-                                            <a href="{editUrls.{model.uid}}" class="btn btn-default btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
+                                            <a href="{editUrls.{model.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
                                                 <core:icon identifier="actions-open" size="small" />
                                             </a>
-                                            <button type="button" class="btn btn-default btn-sm js-toggle-active"
+                                            <button type="button" class="btn btn-secondary btn-sm js-toggle-active"
                                                     data-uid="{model.uid}"
                                                     title="{f:if(condition: model.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
                                                 <f:if condition="{model.isActive}">
@@ -87,13 +87,13 @@
                                                     <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
                                                 </f:if>
                                             </button>
-                                            <button type="button" class="btn btn-default btn-sm js-set-default"
+                                            <button type="button" class="btn btn-secondary btn-sm js-set-default"
                                                     data-uid="{model.uid}"
                                                     title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setDefault')}"
                                                     {f:if(condition: model.isDefault, then: 'disabled')}>
                                                 <core:icon identifier="actions-star" size="small" />
                                             </button>
-                                            <button type="button" class="btn btn-default btn-sm js-test-model"
+                                            <button type="button" class="btn btn-secondary btn-sm js-test-model"
                                                     data-uid="{model.uid}"
                                                     data-name="{model.name}"
                                                     title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testModel')}">
@@ -176,7 +176,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-bs-dismiss="modal"><f:translate key="LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:close" default="Close" /></button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><f:translate key="LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:close" default="Close" /></button>
                 </div>
             </div>
         </div>
