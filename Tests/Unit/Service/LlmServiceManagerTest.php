@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
@@ -33,6 +34,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -837,9 +839,9 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         self::assertCount(1, $spy->calls);
         $metadata = $spy->calls[0]['metadata'];
-        self::assertArrayHasKey(\Netresearch\NrLlm\Provider\Middleware\CacheMiddleware::METADATA_CACHE_KEY, $metadata);
-        self::assertArrayHasKey(\Netresearch\NrLlm\Provider\Middleware\CacheMiddleware::METADATA_CACHE_TTL, $metadata);
-        self::assertSame(86400, $metadata[\Netresearch\NrLlm\Provider\Middleware\CacheMiddleware::METADATA_CACHE_TTL]);
+        self::assertArrayHasKey(CacheMiddleware::METADATA_CACHE_KEY, $metadata);
+        self::assertArrayHasKey(CacheMiddleware::METADATA_CACHE_TTL, $metadata);
+        self::assertSame(86400, $metadata[CacheMiddleware::METADATA_CACHE_TTL]);
     }
 
     #[Test]
@@ -848,11 +850,11 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $spy     = new RecordingMiddleware();
         $manager = $this->buildManagerWithMiddleware([$spy]);
 
-        $manager->embed('text', \Netresearch\NrLlm\Service\Option\EmbeddingOptions::noCache());
+        $manager->embed('text', EmbeddingOptions::noCache());
 
         self::assertCount(1, $spy->calls);
         $metadata = $spy->calls[0]['metadata'];
-        self::assertArrayNotHasKey(\Netresearch\NrLlm\Provider\Middleware\CacheMiddleware::METADATA_CACHE_KEY, $metadata);
+        self::assertArrayNotHasKey(CacheMiddleware::METADATA_CACHE_KEY, $metadata);
     }
 
     /**
