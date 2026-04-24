@@ -828,7 +828,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
      * and (optionally) a non-default TestableProvider. Separate setup from the
      * default subject so ad-hoc tests can inspect a specific middleware stack.
      *
-     * @param list<\Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface> $middleware
+     * @param list<ProviderMiddlewareInterface> $middleware
      */
     private function buildManagerWithMiddleware(
         array $middleware,
