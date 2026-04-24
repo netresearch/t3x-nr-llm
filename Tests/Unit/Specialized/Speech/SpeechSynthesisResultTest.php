@@ -273,7 +273,9 @@ class SpeechSynthesisResultTest extends AbstractUnitTestCase
         self::assertEquals($audioContent, file_get_contents($tempFile));
 
         // Cleanup
-        @unlink($tempFile);
+        if (file_exists($tempFile)) {
+            unlink($tempFile);
+        }
     }
 
     #[Test]

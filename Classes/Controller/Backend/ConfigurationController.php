@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -29,7 +30,6 @@ use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\Components\ButtonBar;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
-use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Imaging\IconSize;
@@ -47,7 +47,6 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class ConfigurationController extends ActionController
 {
-    use TestPromptTrait;
     private const TABLE_NAME = 'tx_nrllm_configuration';
 
     private ModuleTemplate $moduleTemplate;
@@ -63,7 +62,7 @@ final class ConfigurationController extends ActionController
         private readonly WizardGeneratorService $wizardGeneratorService,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
-        private readonly ExtensionConfiguration $extensionConfiguration,
+        private readonly TestPromptResolverInterface $testPromptResolver,
     ) {}
 
     protected function initializeAction(): void
@@ -298,7 +297,7 @@ final class ConfigurationController extends ActionController
                 return new JsonResponse((new ErrorResponse('Configuration has no model assigned'))->jsonSerialize(), 400);
             }
 
-            $testPrompt = $this->resolveTestPrompt();
+            $testPrompt = $this->testPromptResolver->resolve();
             $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
             $options = $configuration->toOptionsArray();
             $response = $adapter->complete($testPrompt, $options);

@@ -16,20 +16,19 @@ use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
-use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 
 #[AsController]
 final class LlmModuleController extends ActionController
 {
-    use TestPromptTrait;
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly LlmServiceManagerInterface $llmServiceManager,
@@ -38,7 +37,7 @@ final class LlmModuleController extends ActionController
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly TaskRepository $taskRepository,
         private readonly BackendUriBuilder $backendUriBuilder,
-        private readonly ExtensionConfiguration $extensionConfiguration,
+        private readonly TestPromptResolverInterface $testPromptResolver,
     ) {}
 
     public function indexAction(): ResponseInterface
@@ -128,7 +127,7 @@ final class LlmModuleController extends ActionController
     {
         $body = $this->request->getParsedBody();
         $provider = $this->extractStringFromBody($body, 'provider');
-        $prompt = $this->extractStringFromBody($body, 'prompt', $this->resolveTestPrompt());
+        $prompt = $this->extractStringFromBody($body, 'prompt', $this->testPromptResolver->resolve());
 
         if ($provider === '') {
             return new JsonResponse(['error' => 'No provider specified'], 400);

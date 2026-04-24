@@ -1,0 +1,41 @@
+#!/bin/bash
+
+## Description: One-shot setup — install TYPO3 v14 + nr_llm + docs + ollama
+## Usage: setup
+## Example: ddev setup
+##
+## This is the canonical entry point for getting nr_llm running locally.
+## Equivalent to running install-v14 + docs build + ollama check, but as a
+## single discoverable `ddev setup` command (matches the Netresearch
+## .ddev/commands/web/setup convention used across all TYPO3 projects).
+
+set -e
+
+echo "🚀 nr_llm one-shot setup"
+echo ""
+
+# 1) Install TYPO3 v14 with the extension
+ddev install-v14
+
+# 2) Render documentation (docs.nr-llm.ddev.site)
+echo ""
+echo "📚 Rendering documentation..."
+ddev docs || echo "⚠️  Docs render skipped (non-fatal)"
+
+# 3) Pull and verify the local Ollama model
+echo ""
+echo "🤖 Checking Ollama..."
+ddev ollama list || echo "⚠️  Ollama not pulled yet — run: ddev ollama pull"
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ Setup complete!"
+echo ""
+echo "🌐 TYPO3 Backend: https://v14.nr-llm.ddev.site/typo3/"
+echo "   Username: admin | Password: Joh316!!"
+echo ""
+echo "📚 Documentation: https://docs.nr-llm.ddev.site/"
+echo ""
+echo "🤖 LLM ready: Local Ollama with qwen3:0.6b"
+echo "   Test: ddev ollama chat"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

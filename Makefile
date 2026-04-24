@@ -51,20 +51,13 @@ help:
 	@echo "Maintenance:"
 	@echo "  clean       Remove generated files"
 
-# ONE COMMAND - complete setup
-up: start install docs ollama
-	@echo ""
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "✅ Setup complete!"
-	@echo ""
-	@echo "🌐 TYPO3 Backend: https://v14.nr-llm.ddev.site/typo3/"
-	@echo "   Username: admin | Password: Joh316!!"
-	@echo ""
-	@echo "📚 Documentation: https://docs.nr-llm.ddev.site/"
-	@echo ""
-	@echo "🤖 LLM ready: Local Ollama with qwen3:0.6b"
-	@echo "   Test: ddev ollama chat"
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+# ONE COMMAND — delegates to the DDEV-native canonical setup script.
+# `.ddev/commands/web/setup` is the single source of truth (Netresearch
+# convention across all TYPO3 projects). Makefile just provides a host-
+# side alias for users who type `make` first.
+up:
+	ddev start
+	ddev setup
 
 # Environment targets
 start:

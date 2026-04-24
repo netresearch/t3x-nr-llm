@@ -157,6 +157,14 @@ Options:
     -p <8.2|8.3|8.4|8.5>
         PHP version (default: 8.2)
 
+    -t <13|13.4|14|^13.4|...>
+        TYPO3 core version to require before running the suite.
+        Runs `composer require typo3/cms-core:<constraint>` + update in a
+        short-lived container. Bare numerics become `^<n>` (`-t 14` →
+        `^14`). Skip to use whatever composer.lock resolves to.
+        Matches the matrix cell in .github/workflows/ci.yml so local
+        runs are reproducible against CI combinations.
+
     -x
         Enable Xdebug for debugging
 
@@ -199,6 +207,11 @@ DATABASE_DRIVER=""
 DBMS="sqlite"
 DBMS_VERSION=""
 PHP_VERSION="8.2"
+# TYPO3 core version constraint. Empty = use what's already installed
+# (whatever composer.json / composer.lock resolves to). Set via -t to
+# require a specific major, e.g. `-t 13.4` runs the suite against
+# typo3/cms-core:^13.4. Matches the CI matrix in .github/workflows/ci.yml.
+TYPO3_VERSION=""
 PHP_XDEBUG_ON=0
 PHP_XDEBUG_PORT=9003
 CGLCHECK_DRY_RUN=0
@@ -209,7 +222,7 @@ SUITE_EXIT_CODE=0
 
 # Parse options
 OPTIND=1
-while getopts "a:b:d:i:s:p:xy:nhu" OPT; do
+while getopts "a:b:d:i:s:p:t:xy:nhu" OPT; do
     case ${OPT} in
         a) DATABASE_DRIVER=${OPTARG} ;;
         s) TEST_SUITE=${OPTARG} ;;
@@ -217,6 +230,7 @@ while getopts "a:b:d:i:s:p:xy:nhu" OPT; do
         d) DBMS=${OPTARG} ;;
         i) DBMS_VERSION=${OPTARG} ;;
         p) PHP_VERSION=${OPTARG} ;;
+        t) TYPO3_VERSION=${OPTARG} ;;
         x) PHP_XDEBUG_ON=1 ;;
         y) PHP_XDEBUG_PORT=${OPTARG} ;;
         n) CGLCHECK_DRY_RUN=1 ;;
@@ -297,6 +311,37 @@ if [ ${PHP_XDEBUG_ON} -eq 0 ]; then
 else
     XDEBUG_MODE="-e XDEBUG_MODE=debug -e XDEBUG_TRIGGER=foo"
     XDEBUG_CONFIG="client_port=${PHP_XDEBUG_PORT} client_host=${CONTAINER_HOST}"
+fi
+
+# If -t <major> was given, require that TYPO3 core version before running
+# the suite. Runs inside the same PHP image / user mapping / COMPOSER cache
+# as the rest of the script so the resolved composer.lock and .Build/vendor
+# match the PHP version of the suite container.
+if [[ -n "${TYPO3_VERSION}" ]]; then
+    # Normalise bare majors/"major.minor" to caret ranges; keep explicit
+    # constraint strings (e.g. "^14.0", ">=13.4 <15") verbatim.
+    if [[ "${TYPO3_VERSION}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+        TYPO3_CONSTRAINT="^${TYPO3_VERSION}"
+    else
+        TYPO3_CONSTRAINT="${TYPO3_VERSION}"
+    fi
+    echo "⟳ Requiring typo3/cms-core:${TYPO3_CONSTRAINT} (matches -t ${TYPO3_VERSION})"
+    ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name typo3-require-${SUFFIX} \
+        -e COMPOSER_CACHE_DIR=.Build/.cache/composer \
+        -e COMPOSER_ROOT_VERSION=${COMPOSER_ROOT_VERSION} \
+        -e CAPTAINHOOK_DISABLE=true \
+        ${IMAGE_PHP} composer require \
+            --no-interaction --no-progress --no-scripts --no-update \
+            "typo3/cms-core:${TYPO3_CONSTRAINT}" \
+        || { echo "typo3/cms-core require failed for ${TYPO3_CONSTRAINT}"; exit 1; }
+    ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name typo3-update-${SUFFIX} \
+        -e COMPOSER_CACHE_DIR=.Build/.cache/composer \
+        -e COMPOSER_ROOT_VERSION=${COMPOSER_ROOT_VERSION} \
+        -e CAPTAINHOOK_DISABLE=true \
+        ${IMAGE_PHP} composer update \
+            --no-interaction --no-progress --no-scripts --with-all-dependencies \
+            typo3/cms-core \
+        || { echo "typo3/cms-core update failed for ${TYPO3_CONSTRAINT}"; exit 1; }
 fi
 
 # PHP performance options

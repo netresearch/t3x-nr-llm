@@ -85,14 +85,13 @@ final readonly class ImageGenerationResult
         $content = $this->getBinaryContent();
 
         if ($content === null) {
-            // Try to download from URL
-            $content = @file_get_contents($this->url);
+            $content = self::silenced(fn(): string|false => file_get_contents($this->url));
             if ($content === false) {
                 return false;
             }
         }
 
-        $result = @file_put_contents($path, $content);
+        $result = self::silenced(static fn(): int|false => file_put_contents($path, $content));
         return $result !== false;
     }
 
@@ -103,8 +102,30 @@ final readonly class ImageGenerationResult
      */
     public function downloadFromUrl(): ?string
     {
-        $content = @file_get_contents($this->url);
+        $content = self::silenced(fn(): string|false => file_get_contents($this->url));
         return $content !== false ? $content : null;
+    }
+
+    /**
+     * Run a filesystem call with warnings silenced via a scoped error handler.
+     *
+     * This replaces `@` suppression without hiding the result — callers still
+     * inspect the return value for failure.
+     *
+     * @template T
+     *
+     * @param callable(): T $fn
+     *
+     * @return T
+     */
+    private static function silenced(callable $fn): mixed
+    {
+        set_error_handler(static fn(): bool => true);
+        try {
+            return $fn();
+        } finally {
+            restore_error_handler();
+        }
     }
 
     /**

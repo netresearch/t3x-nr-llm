@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -27,7 +28,6 @@ use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
-use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Imaging\IconSize;
@@ -45,7 +45,6 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class ModelController extends ActionController
 {
-    use TestPromptTrait;
     private const TABLE_NAME = 'tx_nrllm_model';
 
     private ModuleTemplate $moduleTemplate;
@@ -60,7 +59,7 @@ final class ModelController extends ActionController
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly ProviderAdapterRegistry $providerAdapterRegistry,
         private readonly ModelDiscoveryInterface $modelDiscovery,
-        private readonly ExtensionConfiguration $extensionConfiguration,
+        private readonly TestPromptResolverInterface $testPromptResolver,
     ) {}
 
     protected function initializeAction(): void
@@ -242,7 +241,7 @@ final class ModelController extends ActionController
             $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
 
             // Make a simple test call - use enough tokens for models with thinking
-            $testPrompt = $this->resolveTestPrompt();
+            $testPrompt = $this->testPromptResolver->resolve();
             $response = $adapter->complete($testPrompt, [
                 'model' => $model->getModelId(),
                 'max_tokens' => 100,
