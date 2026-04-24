@@ -3,6 +3,8 @@
 
 -include .Build/vendor/netresearch/typo3-ci-workflows/Makefile.include
 
+RUNTESTS := Build/Scripts/runTests.sh
+
 .PHONY: help up start down restart install install-all sync seed seed-tasks ollama test test-unit test-integration test-functional test-fuzzy test-e2e coverage mutation cgl cgl-fix phpstan rector rector-fix docs clean ci ci-full
 
 # Default target
@@ -94,47 +96,49 @@ ollama:
 	@echo "🤖 Ollama Status:"
 	@ddev ollama list || echo "   Model not yet pulled. Run: ddev ollama pull"
 
-# Testing targets
+# Testing targets (use runTests.sh Docker runner exclusively)
 test:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c Build/phpunit.xml --testsuite unit,integration,fuzzy"
+	$(RUNTESTS) -s unit
+	$(RUNTESTS) -s integration
+	$(RUNTESTS) -s fuzzy
 
 test-unit:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c Build/phpunit.xml --testsuite unit"
+	$(RUNTESTS) -s unit
 
 test-integration:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c Build/phpunit.xml --testsuite integration"
+	$(RUNTESTS) -s integration
 
 test-func:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c Build/FunctionalTests.xml"
+	$(RUNTESTS) -s functional
 
 test-fuzzy:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/phpunit -c Build/phpunit.xml --testsuite fuzzy"
+	$(RUNTESTS) -s fuzzy
 
 test-e2e:
-	cd Tests/E2E/Playwright && npm run test
+	$(RUNTESTS) -s e2e
 
 coverage:
-	ddev exec "cd /var/www/nr_llm && XDEBUG_MODE=coverage .Build/bin/phpunit -c Build/phpunit.xml --coverage-html .Build/coverage"
-	@echo "Coverage report: .Build/coverage/index.html"
+	$(RUNTESTS) -s unitCoverage
+	@echo "Coverage report: .Build/coverage/html-unit/index.html"
 
 mutation:
-	ddev exec "cd /var/www/nr_llm && .Build/bin/infection --configuration=infection.json.dist --threads=4 --show-mutations --no-progress"
+	$(RUNTESTS) -s mutation
 
 # Quality targets
 cgl: ## Check code style (dry-run)
-	composer ci:test:php:cgl
+	$(RUNTESTS) -s cgl -n
 
 cgl-fix: ## Fix code style
-	composer ci:cgl
+	$(RUNTESTS) -s cgl
 
 phpstan: ## Run PHPStan static analysis
-	composer ci:test:php:phpstan
+	$(RUNTESTS) -s phpstan
 
 rector: ## Run Rector dry-run
-	composer ci:test:php:rector
+	$(RUNTESTS) -s rector -n
 
 rector-fix:
-	composer rector
+	$(RUNTESTS) -s rector
 
 ci: cgl phpstan test-unit test-integration test-fuzzy
 	@echo "All CI checks passed"
