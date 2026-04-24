@@ -15,11 +15,11 @@ declare(strict_types=1);
  */
 
 use Rector\Config\RectorConfig;
-use Ssch\TYPO3Rector\CodeQuality\General\AddErrorCodeToExceptionRector;
 use Rector\Php81\Rector\Property\ReadOnlyPropertyRector;
 use Rector\PHPUnit\Set\PHPUnitSetList;
 use Rector\TypeDeclaration\Rector\ClassMethod\AddVoidReturnTypeWhereNoReturnRector;
 use Rector\ValueObject\PhpVersion;
+use Ssch\TYPO3Rector\CodeQuality\General\AddErrorCodeToExceptionRector;
 use Ssch\TYPO3Rector\CodeQuality\General\ExtEmConfRector;
 use Ssch\TYPO3Rector\Configuration\Typo3Option;
 use Ssch\TYPO3Rector\Set\Typo3LevelSetList;
