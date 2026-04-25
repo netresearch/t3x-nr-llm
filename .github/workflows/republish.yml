@@ -22,7 +22,7 @@ permissions: {}
 
 jobs:
   republish:
-    uses: netresearch/typo3-ci-workflows/.github/workflows/republish.yml@v1.3.1
+    uses: netresearch/typo3-ci-workflows/.github/workflows/republish.yml@v1.3.2
     permissions:
       contents: read
     with:
