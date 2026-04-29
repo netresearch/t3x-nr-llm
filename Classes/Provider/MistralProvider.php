@@ -14,6 +14,7 @@ use JsonException;
 use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 
@@ -163,24 +164,12 @@ final class MistralProvider extends AbstractProvider implements
         $message = $this->getArray($choice, 'message');
         $usage = $this->getArray($response, 'usage');
 
-        $toolCalls = null;
+        $toolCalls    = null;
         $rawToolCalls = $this->getArray($message, 'tool_calls');
         if ($rawToolCalls !== []) {
             $toolCalls = [];
             foreach ($rawToolCalls as $tc) {
-                $tcArray = $this->asArray($tc);
-                $function = $this->getArray($tcArray, 'function');
-                $arguments = $this->getString($function, 'arguments');
-                $decodedArgs = json_decode($arguments, true);
-
-                $toolCalls[] = [
-                    'id' => $this->getString($tcArray, 'id'),
-                    'type' => $this->getString($tcArray, 'type'),
-                    'function' => [
-                        'name' => $this->getString($function, 'name'),
-                        'arguments' => is_array($decodedArgs) ? $decodedArgs : [],
-                    ],
-                ];
+                $toolCalls[] = ToolCall::fromArray($this->asArray($tc));
             }
         }
 

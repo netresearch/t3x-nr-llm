@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
@@ -423,7 +424,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             finishReason: 'tool_calls',
             provider: 'openai',
             toolCalls: [
-                ['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'get_weather', 'arguments' => []]],
+                ToolCall::function('call_1', 'get_weather', []),
             ],
         ));
         $this->subject->registerProvider($toolProvider);

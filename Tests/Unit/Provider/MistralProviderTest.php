@@ -271,10 +271,9 @@ class MistralProviderTest extends AbstractUnitTestCase
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertNotNull($result->toolCalls);
         self::assertCount(1, $result->toolCalls);
-        /** @var array{function: array{name: string, arguments: array<string, string>}} $toolCall */
         $toolCall = $result->toolCalls[0];
-        self::assertEquals('get_weather', $toolCall['function']['name']);
-        self::assertEquals(['location' => 'Paris'], $toolCall['function']['arguments']);
+        self::assertEquals('get_weather', $toolCall->name);
+        self::assertEquals(['location' => 'Paris'], $toolCall->arguments);
     }
 
     #[Test]
@@ -553,9 +552,8 @@ class MistralProviderTest extends AbstractUnitTestCase
         self::assertNotNull($result->toolCalls);
         self::assertCount(1, $result->toolCalls);
         // Invalid JSON should return empty array for arguments
-        /** @var array{function: array{arguments: array<mixed>}} $toolCall */
         $toolCall = $result->toolCalls[0];
-        self::assertEquals([], $toolCall['function']['arguments']);
+        self::assertEquals([], $toolCall->arguments);
     }
 
     // ==================== Streaming tests ====================

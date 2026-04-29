@@ -443,10 +443,9 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertNotNull($result->toolCalls);
         self::assertCount(1, $result->toolCalls);
-        /** @var array{function: array{name: string, arguments: array<string, mixed>}} $toolCall */
         $toolCall = $result->toolCalls[0];
-        self::assertEquals('get_weather', $toolCall['function']['name']);
-        self::assertEquals(['location' => 'Tokyo'], $toolCall['function']['arguments']);
+        self::assertEquals('get_weather', $toolCall->name);
+        self::assertEquals(['location' => 'Tokyo'], $toolCall->arguments);
     }
 
     #[Test]
@@ -947,10 +946,9 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $result = $this->subject->chatCompletionWithTools($messages, $tools);
 
         self::assertNotNull($result->toolCalls);
-        /** @var array{function: array{name: string, arguments: array<string, mixed>}} $toolCall */
         $toolCall = $result->toolCalls[0];
         // Invalid JSON arguments should fall back to empty array
-        self::assertEquals([], $toolCall['function']['arguments']);
+        self::assertEquals([], $toolCall->arguments);
     }
 
     #[Test]
