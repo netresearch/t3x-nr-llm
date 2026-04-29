@@ -18,7 +18,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
-use Netresearch\NrLlm\Service\LlmConfigurationService;
+use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
@@ -54,7 +54,7 @@ final class ConfigurationController extends ActionController
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly IconFactory $iconFactory,
-        private readonly LlmConfigurationService $configurationService,
+        private readonly LlmConfigurationServiceInterface $configurationService,
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly ModelRepository $modelRepository,
         private readonly LlmServiceManagerInterface $llmServiceManager,

@@ -24,12 +24,12 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  * Provides access control enforcement, usage limit checking,
  * and configuration resolution for LLM operations.
  */
-class LlmConfigurationService implements SingletonInterface
+final readonly class LlmConfigurationService implements LlmConfigurationServiceInterface, SingletonInterface
 {
     public function __construct(
-        private readonly LlmConfigurationRepository $configurationRepository,
-        private readonly PersistenceManagerInterface $persistenceManager,
-        private readonly Context $context,
+        private LlmConfigurationRepository $configurationRepository,
+        private PersistenceManagerInterface $persistenceManager,
+        private Context $context,
     ) {}
 
     /**
@@ -87,6 +87,14 @@ class LlmConfigurationService implements SingletonInterface
      */
     public function getAccessibleConfigurations(): array
     {
+        // Mirror hasAccess(): no BE user context => no access. Without
+        // this guard the call would fall through to the empty-groupIds
+        // branch and return any configurations without group restrictions
+        // — the wrong default for unauthenticated callers.
+        if (!$this->isBackendUserLoggedIn()) {
+            return [];
+        }
+
         // Admin users can access all configurations
         if ($this->isCurrentUserAdmin()) {
             return $this->configurationRepository->findActive()->toArray();

@@ -102,6 +102,10 @@ services:
   Netresearch\NrLlm\Service\LlmConfigurationService:
     public: true
 
+  Netresearch\NrLlm\Service\LlmConfigurationServiceInterface:
+    alias: Netresearch\NrLlm\Service\LlmConfigurationService
+    public: true
+
   Netresearch\NrLlm\Service\UsageTrackerService:
     public: true
 

@@ -19,7 +19,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
-use Netresearch\NrLlm\Service\LlmConfigurationService;
+use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -41,7 +41,7 @@ use TYPO3\CMS\Core\Http\ServerRequest;
 final class ConfigurationControllerTest extends TestCase
 {
     private LlmConfigurationRepository&MockObject $configurationRepository;
-    private LlmConfigurationService&MockObject $configurationService;
+    private LlmConfigurationServiceInterface&MockObject $configurationService;
     private LlmServiceManagerInterface&MockObject $llmServiceManager;
     private ProviderAdapterRegistryInterface&MockObject $providerAdapterRegistry;
     private ModelRepository&MockObject $modelRepository;
@@ -53,7 +53,7 @@ final class ConfigurationControllerTest extends TestCase
         parent::setUp();
 
         $this->configurationRepository = $this->createMock(LlmConfigurationRepository::class);
-        $this->configurationService = $this->createMock(LlmConfigurationService::class);
+        $this->configurationService = $this->createMock(LlmConfigurationServiceInterface::class);
         $this->llmServiceManager = $this->createMock(LlmServiceManagerInterface::class);
         $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $this->modelRepository = $this->createMock(ModelRepository::class);
