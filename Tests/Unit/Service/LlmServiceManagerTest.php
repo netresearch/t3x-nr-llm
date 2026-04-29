@@ -33,7 +33,7 @@ use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
-use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -51,7 +51,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     private LlmServiceManager $subject;
     private ExtensionConfiguration $extensionConfigStub;
     private LoggerInterface $loggerStub;
-    private ProviderAdapterRegistry $adapterRegistryStub;
+    private ProviderAdapterRegistryInterface $adapterRegistryStub;
     private TestableProvider $provider;
 
     protected function setUp(): void
@@ -67,7 +67,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             ]);
 
         $this->loggerStub = self::createStub(LoggerInterface::class);
-        $this->adapterRegistryStub = self::createStub(ProviderAdapterRegistry::class);
+        $this->adapterRegistryStub = self::createStub(ProviderAdapterRegistryInterface::class);
 
         $this->subject = new LlmServiceManager(
             $this->extensionConfigStub,
@@ -569,7 +569,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $model = self::createStub(Model::class);
         $mockAdapter = self::createStub(ProviderInterface::class);
 
-        $registryMock = $this->createMock(ProviderAdapterRegistry::class);
+        $registryMock = $this->createMock(ProviderAdapterRegistryInterface::class);
         $registryMock->expects(self::once())
             ->method('createAdapterFromModel')
             ->with($model)
@@ -592,7 +592,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $mockAdapter = self::createStub(ProviderInterface::class);
 
-        $registryMock = $this->createMock(ProviderAdapterRegistry::class);
+        $registryMock = $this->createMock(ProviderAdapterRegistryInterface::class);
         $registryMock->expects(self::once())
             ->method('createAdapterFromModel')
             ->with($model)
@@ -644,7 +644,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             )
             ->willReturn($expectedResponse);
 
-        $registryMock = self::createStub(ProviderAdapterRegistry::class);
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
         $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
 
         $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
@@ -680,7 +680,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             ->with('Test prompt', ['temperature' => 0.5])
             ->willReturn($expectedResponse);
 
-        $registryMock = self::createStub(ProviderAdapterRegistry::class);
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
         $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
 
         $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
@@ -755,7 +755,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             }
         };
 
-        $registryMock = self::createStub(ProviderAdapterRegistry::class);
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
         $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
 
         $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
@@ -781,7 +781,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $mockAdapter = self::createStub(ProviderInterface::class);
         $mockAdapter->method('getIdentifier')->willReturn('non-streaming');
 
-        $registryMock = self::createStub(ProviderAdapterRegistry::class);
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
         $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
 
         $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));

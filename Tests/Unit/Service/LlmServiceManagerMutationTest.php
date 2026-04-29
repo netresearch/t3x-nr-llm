@@ -11,7 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service;
 
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
-use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -36,7 +36,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
             ->willReturn($config);
 
         $loggerStub = self::createStub(LoggerInterface::class);
-        $adapterRegistryStub = self::createStub(ProviderAdapterRegistry::class);
+        $adapterRegistryStub = self::createStub(ProviderAdapterRegistryInterface::class);
 
         return new LlmServiceManager($extensionConfigStub, $loggerStub, $adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
     }

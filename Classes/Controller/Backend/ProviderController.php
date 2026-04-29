@@ -14,7 +14,7 @@ use Netresearch\NrLlm\Controller\Backend\Response\TestConnectionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
-use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -47,7 +47,7 @@ final class ProviderController extends ActionController
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly IconFactory $iconFactory,
         private readonly ProviderRepository $providerRepository,
-        private readonly ProviderAdapterRegistry $providerAdapterRegistry,
+        private readonly ProviderAdapterRegistryInterface $providerAdapterRegistry,
         private readonly PersistenceManagerInterface $persistenceManager,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,

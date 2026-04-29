@@ -45,6 +45,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   composition or open an issue if a documented extension point is needed.
   The base `ProviderException` and `ProviderAdapterRegistry` remain
   non-final pending interface extraction.
+- `ProviderAdapterRegistry` is now `final` and implements the new
+  `ProviderAdapterRegistryInterface`. Downstream consumers that
+  constructor-injected the concrete class should typehint the interface
+  instead. The Symfony alias
+  `ProviderAdapterRegistryInterface → ProviderAdapterRegistry` is wired
+  in `Configuration/Services.yaml` so existing autowiring keeps working.
 
 ## [0.7.0] - 2026-04-22
 

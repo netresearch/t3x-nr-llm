@@ -17,7 +17,7 @@ use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
-use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
@@ -58,7 +58,7 @@ final class ConfigurationController extends ActionController
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly ModelRepository $modelRepository,
         private readonly LlmServiceManagerInterface $llmServiceManager,
-        private readonly ProviderAdapterRegistry $providerAdapterRegistry,
+        private readonly ProviderAdapterRegistryInterface $providerAdapterRegistry,
         private readonly WizardGeneratorService $wizardGeneratorService,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,

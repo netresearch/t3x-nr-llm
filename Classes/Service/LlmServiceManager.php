@@ -29,7 +29,7 @@ use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
-use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
@@ -51,7 +51,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     public function __construct(
         private readonly ExtensionConfiguration $extensionConfiguration,
         private readonly LoggerInterface $logger,
-        private readonly ProviderAdapterRegistry $adapterRegistry,
+        private readonly ProviderAdapterRegistryInterface $adapterRegistry,
         private readonly MiddlewarePipeline $pipeline,
         private readonly CacheManagerInterface $cacheManager,
     ) {
@@ -613,7 +613,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     /**
      * Get provider adapter registry.
      */
-    public function getAdapterRegistry(): ProviderAdapterRegistry
+    public function getAdapterRegistry(): ProviderAdapterRegistryInterface
     {
         return $this->adapterRegistry;
     }

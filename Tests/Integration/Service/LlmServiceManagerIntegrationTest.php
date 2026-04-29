@@ -14,7 +14,7 @@ use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
-use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -38,7 +38,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 {
     private LlmServiceManager $subject;
     private ExtensionConfiguration&MockObject $extensionConfigStub;
-    private ProviderAdapterRegistry&Stub $adapterRegistryStub;
+    private ProviderAdapterRegistryInterface&Stub $adapterRegistryStub;
 
     protected function setUp(): void
     {
@@ -61,7 +61,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
                 ],
             ]);
 
-        $this->adapterRegistryStub = self::createStub(ProviderAdapterRegistry::class);
+        $this->adapterRegistryStub = self::createStub(ProviderAdapterRegistryInterface::class);
 
         $this->subject = new LlmServiceManager(
             $this->extensionConfigStub,
