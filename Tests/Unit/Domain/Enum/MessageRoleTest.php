@@ -47,7 +47,7 @@ final class MessageRoleTest extends TestCase
     #[Test]
     public function tryFromStringMatchesBuiltInTryFrom(): void
     {
-        self::assertSame(MessageRole::User, MessageRole::tryFromString('user'));
+        self::assertSame(MessageRole::USER, MessageRole::tryFromString('user'));
         self::assertNull(MessageRole::tryFromString('moderator'));
     }
 }

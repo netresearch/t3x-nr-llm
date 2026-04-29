@@ -73,7 +73,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public static function system(string $content): self
     {
-        return new self(MessageRole::System, $content);
+        return new self(MessageRole::SYSTEM, $content);
     }
 
     /**
@@ -81,7 +81,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public static function user(string $content): self
     {
-        return new self(MessageRole::User, $content);
+        return new self(MessageRole::USER, $content);
     }
 
     /**
@@ -89,7 +89,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public static function assistant(string $content): self
     {
-        return new self(MessageRole::Assistant, $content);
+        return new self(MessageRole::ASSISTANT, $content);
     }
 
     /**
@@ -97,7 +97,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public static function tool(string $content): self
     {
-        return new self(MessageRole::Tool, $content);
+        return new self(MessageRole::TOOL, $content);
     }
 
     /**
@@ -139,7 +139,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public function isSystem(): bool
     {
-        return $this->role === MessageRole::System->value;
+        return $this->role === MessageRole::SYSTEM->value;
     }
 
     /**
@@ -147,7 +147,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public function isUser(): bool
     {
-        return $this->role === MessageRole::User->value;
+        return $this->role === MessageRole::USER->value;
     }
 
     /**
@@ -155,7 +155,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public function isAssistant(): bool
     {
-        return $this->role === MessageRole::Assistant->value;
+        return $this->role === MessageRole::ASSISTANT->value;
     }
 
     /**
@@ -163,7 +163,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public function isTool(): bool
     {
-        return $this->role === MessageRole::Tool->value;
+        return $this->role === MessageRole::TOOL->value;
     }
 
     /**

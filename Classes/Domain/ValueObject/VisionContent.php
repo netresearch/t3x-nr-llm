@@ -34,11 +34,22 @@ final readonly class VisionContent implements JsonSerializable
     public const TYPE_TEXT      = 'text';
     public const TYPE_IMAGE_URL = 'image_url';
 
+    public const DETAIL_LOW  = 'low';
+    public const DETAIL_HIGH = 'high';
+    public const DETAIL_AUTO = 'auto';
+
     /**
      * @var list<string> recognised discriminator values, mirroring the
      *                   wire format of every supported provider
      */
     public const KNOWN_TYPES = [self::TYPE_TEXT, self::TYPE_IMAGE_URL];
+
+    /**
+     * @var list<string> recognised values for the OpenAI `image_url.detail`
+     *                   knob; provider-specific use only — Claude / Gemini
+     *                   ignore it
+     */
+    public const KNOWN_DETAILS = [self::DETAIL_LOW, self::DETAIL_HIGH, self::DETAIL_AUTO];
 
     /**
      * @param string      $type     one of the `TYPE_*` constants
@@ -47,11 +58,18 @@ final readonly class VisionContent implements JsonSerializable
      * @param string|null $imageUrl URL or `data:` URI when
      *                              `$type === TYPE_IMAGE_URL`, `null`
      *                              otherwise
+     * @param string|null $detail   OpenAI image-detail level (`low` /
+     *                              `high` / `auto`); only meaningful with
+     *                              `TYPE_IMAGE_URL`. Other providers
+     *                              ignore it but the field is preserved
+     *                              through `toArray()` for round-trip
+     *                              fidelity.
      */
     public function __construct(
         public string $type,
         public ?string $text = null,
         public ?string $imageUrl = null,
+        public ?string $detail = null,
     ) {
         if (!\in_array($this->type, self::KNOWN_TYPES, true)) {
             throw new InvalidArgumentException(
@@ -75,6 +93,22 @@ final readonly class VisionContent implements JsonSerializable
                 1745420003,
             );
         }
+        if ($this->detail !== null && !\in_array($this->detail, self::KNOWN_DETAILS, true)) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Invalid VisionContent detail "%s". Valid values: %s',
+                    $this->detail,
+                    implode(', ', self::KNOWN_DETAILS),
+                ),
+                1745420004,
+            );
+        }
+        if ($this->detail !== null && $this->type !== self::TYPE_IMAGE_URL) {
+            throw new InvalidArgumentException(
+                'VisionContent detail can only be set on image_url items.',
+                1745420005,
+            );
+        }
     }
 
     /**
@@ -91,10 +125,13 @@ final readonly class VisionContent implements JsonSerializable
      * `$url` may be a remote URL or a `data:image/...;base64,...` URI;
      * the VO does not validate the URL form because every provider
      * accepts both transparently.
+     *
+     * `$detail` is OpenAI-specific (`low` / `high` / `auto`); other
+     * providers silently ignore it. Use one of the `DETAIL_*` constants.
      */
-    public static function imageUrl(string $url): self
+    public static function imageUrl(string $url, ?string $detail = null): self
     {
-        return new self(type: self::TYPE_IMAGE_URL, imageUrl: $url);
+        return new self(type: self::TYPE_IMAGE_URL, imageUrl: $url, detail: $detail);
     }
 
     /**
@@ -119,9 +156,15 @@ final readonly class VisionContent implements JsonSerializable
         }
 
         if ($type === self::TYPE_IMAGE_URL) {
+            $imageUrl = $data['image_url'] ?? null;
+            $detail   = is_array($imageUrl) && isset($imageUrl['detail']) && is_string($imageUrl['detail'])
+                ? $imageUrl['detail']
+                : null;
+
             return new self(
                 type: self::TYPE_IMAGE_URL,
-                imageUrl: self::extractImageUrl($data['image_url'] ?? null),
+                imageUrl: self::extractImageUrl($imageUrl),
+                detail: $detail,
             );
         }
 
@@ -135,7 +178,7 @@ final readonly class VisionContent implements JsonSerializable
      * Serialise to the wire shape every supported provider accepts.
      * Idempotent: `VisionContent::fromArray($vc->toArray()) == $vc`.
      *
-     * @return array{type: string, text?: string, image_url?: array{url: string}}
+     * @return array{type: string, text?: string, image_url?: array{url: string, detail?: string}}
      */
     public function toArray(): array
     {
@@ -146,14 +189,19 @@ final readonly class VisionContent implements JsonSerializable
             ];
         }
 
+        $imageUrl = ['url' => $this->imageUrl ?? ''];
+        if ($this->detail !== null) {
+            $imageUrl['detail'] = $this->detail;
+        }
+
         return [
-            'type' => self::TYPE_IMAGE_URL,
-            'image_url' => ['url' => $this->imageUrl ?? ''],
+            'type'      => self::TYPE_IMAGE_URL,
+            'image_url' => $imageUrl,
         ];
     }
 
     /**
-     * @return array{type: string, text?: string, image_url?: array{url: string}}
+     * @return array{type: string, text?: string, image_url?: array{url: string, detail?: string}}
      */
     public function jsonSerialize(): array
     {

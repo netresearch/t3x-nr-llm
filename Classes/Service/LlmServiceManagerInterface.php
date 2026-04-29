@@ -94,8 +94,11 @@ interface LlmServiceManagerInterface
     public function streamChat(array $messages, ?ChatOptions $options = null): Generator;
 
     /**
+     * Legacy array-shaped tool fixtures are accepted for back-compat
+     * and normalised via `ToolSpec::fromArray()` before dispatch.
+     *
      * @param array<int, array{role: string, content: string}> $messages
-     * @param list<ToolSpec>                                    $tools
+     * @param list<ToolSpec|array<string, mixed>>              $tools
      */
     public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse;
 

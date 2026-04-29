@@ -111,6 +111,18 @@ final class ToolSpecTest extends TestCase
     }
 
     #[Test]
+    public function fromArrayThrowsWhenFunctionKeyIsNotAnArray(): void
+    {
+        // Defensive: a malformed payload could send a string / null / object.
+        // The factory must reject before reaching offset access on $function.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1745410003);
+
+        /** @phpstan-ignore-next-line argument.type intentional malformed input */
+        ToolSpec::fromArray(['type' => 'function', 'function' => 'not-an-array']);
+    }
+
+    #[Test]
     public function fromArrayThrowsWhenFunctionNameMissing(): void
     {
         $this->expectException(InvalidArgumentException::class);

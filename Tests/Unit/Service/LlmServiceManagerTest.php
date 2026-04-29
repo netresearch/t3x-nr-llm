@@ -443,6 +443,36 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function chatWithToolsAcceptsLegacyArrayShapedToolFixtures(): void
+    {
+        // Back-compat path: callers passing the pre-#158 array fixture
+        // shape are normalised via ToolSpec::fromArray() inside
+        // chatWithTools(). The provider sees only ToolSpec instances.
+        $toolProvider = new TestableToolProvider();
+        $toolProvider->setNextResponse(new CompletionResponse(
+            content: '',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(5, 5, 10),
+            finishReason: 'tool_calls',
+            provider: 'openai',
+            toolCalls: [ToolCall::function('call_1', 'echo', [])],
+        ));
+        $this->subject->registerProvider($toolProvider);
+        $this->subject->setDefaultProvider('openai-tools');
+
+        $messages    = [['role' => 'user', 'content' => 'echo back']];
+        $legacyTools = [
+            ['type' => 'function', 'function' => ['name' => 'echo', 'description' => 'echoes input', 'parameters' => []]],
+        ];
+
+        $result = $this->subject->chatWithTools($messages, $legacyTools);
+
+        self::assertNotNull($result->toolCalls);
+        self::assertCount(1, $result->toolCalls);
+        self::assertSame('echo', $result->toolCalls[0]->name);
+    }
+
+    #[Test]
     public function chatWithToolsThrowsWhenProviderDoesNotSupportTools(): void
     {
         $this->expectException(UnsupportedFeatureException::class);

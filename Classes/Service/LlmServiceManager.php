@@ -302,8 +302,14 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     /**
      * Chat completion with tool calling.
      *
+     * Accepts either typed `ToolSpec` instances or legacy array fixtures
+     * (`{type: 'function', function: {name, description, parameters}}`)
+     * for back-compat — array entries are normalised via
+     * `ToolSpec::fromArray()` so the downstream provider always receives
+     * `list<ToolSpec>` and never has to defend against mixed input.
+     *
      * @param array<int, array{role: string, content: string}> $messages
-     * @param list<ToolSpec>                                   $tools
+     * @param list<ToolSpec|array<string, mixed>>              $tools
      */
     public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse
     {
@@ -312,10 +318,15 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
         unset($optionsArray['provider']);
 
+        $normalisedTools = array_map(
+            static fn(ToolSpec|array $tool): ToolSpec => $tool instanceof ToolSpec ? $tool : ToolSpec::fromArray($tool),
+            $tools,
+        );
+
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Tools, $providerKey),
             ProviderOperation::Tools,
-            function () use ($messages, $tools, $optionsArray, $providerKey): CompletionResponse {
+            function () use ($messages, $normalisedTools, $optionsArray, $providerKey): CompletionResponse {
                 $provider = $this->getProvider($providerKey);
                 if (!$provider instanceof ToolCapableInterface) {
                     throw new UnsupportedFeatureException(
@@ -324,7 +335,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                     );
                 }
 
-                return $provider->chatCompletionWithTools($messages, $tools, $optionsArray);
+                return $provider->chatCompletionWithTools($messages, $normalisedTools, $optionsArray);
             },
         );
     }
