@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
@@ -129,7 +130,7 @@ final class OpenAiProvider extends AbstractProvider implements
 
     /**
      * @param array<int, array<string, mixed>> $messages
-     * @param array<int, array<string, mixed>> $tools
+     * @param list<ToolSpec>                   $tools
      * @param array<string, mixed>             $options
      */
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
@@ -139,7 +140,7 @@ final class OpenAiProvider extends AbstractProvider implements
         $payload = [
             'model' => $model,
             'messages' => $messages,
-            'tools' => $tools,
+            'tools' => array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $tools),
             'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
             ...$this->buildSamplingParams($model, $options),
         ];

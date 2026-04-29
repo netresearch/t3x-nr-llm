@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
@@ -432,7 +433,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $messages = [['role' => 'user', 'content' => 'What is the weather?']];
         $tools = [
-            ['type' => 'function', 'function' => ['name' => 'get_weather', 'description' => 'Get weather', 'parameters' => []]],
+            ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'get_weather', 'description' => 'Get weather', 'parameters' => []]]),
         ];
 
         $result = $this->subject->chatWithTools($messages, $tools);
@@ -448,7 +449,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $this->expectExceptionMessage('does not support tool calling');
 
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [['type' => 'function', 'function' => ['name' => 'test', 'description' => 'test', 'parameters' => []]]];
+        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'test', 'parameters' => []]])];
 
         $this->subject->chatWithTools($messages, $tools);
     }
@@ -821,7 +822,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $manager->chatWithTools(
             [['role' => 'user', 'content' => 'hi']],
-            [['type' => 'function', 'function' => ['name' => 'noop', 'description' => '', 'parameters' => []]]],
+            [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'noop', 'description' => '', 'parameters' => []]])],
         );
 
         self::assertCount(1, $spy->calls);

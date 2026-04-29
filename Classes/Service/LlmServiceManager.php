@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
@@ -301,8 +302,8 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     /**
      * Chat completion with tool calling.
      *
-     * @param array<int, array{role: string, content: string}>                                                                      $messages
-     * @param array<int, array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> $tools
+     * @param array<int, array{role: string, content: string}> $messages
+     * @param list<ToolSpec>                                   $tools
      */
     public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse
     {

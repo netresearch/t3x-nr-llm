@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
@@ -397,7 +398,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         $messages = [['role' => 'user', 'content' => 'What is the weather?']];
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_weather',
@@ -407,7 +408,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
                         'properties' => ['location' => ['type' => 'string']],
                     ],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -453,10 +454,10 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         $messages = [['role' => 'user', 'content' => 'Get weather']];
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => ['name' => 'get_weather', 'parameters' => []],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -880,7 +881,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         $messages = [['role' => 'user', 'content' => 'Hello']];
         $tools = [
-            ['type' => 'function', 'function' => ['name' => 'test', 'parameters' => []]],
+            ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'parameters' => []]]),
         ];
 
         // Response has no tool_calls key at all (not even empty)
@@ -912,7 +913,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     {
         $messages = [['role' => 'user', 'content' => 'Get weather']];
         $tools = [
-            ['type' => 'function', 'function' => ['name' => 'get_weather', 'parameters' => []]],
+            ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'get_weather', 'parameters' => []]]),
         ];
 
         $apiResponse = [

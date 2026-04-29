@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
@@ -93,8 +94,8 @@ interface LlmServiceManagerInterface
     public function streamChat(array $messages, ?ChatOptions $options = null): Generator;
 
     /**
-     * @param array<int, array{role: string, content: string}>                                                                      $messages
-     * @param array<int, array{type: string, function: array{name: string, description: string, parameters: array<string, mixed>}}> $tools
+     * @param array<int, array{role: string, content: string}> $messages
+     * @param list<ToolSpec>                                    $tools
      */
     public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse;
 

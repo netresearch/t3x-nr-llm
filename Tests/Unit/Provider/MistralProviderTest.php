@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\MistralProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -215,7 +216,7 @@ class MistralProviderTest extends AbstractUnitTestCase
         ];
 
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_weather',
@@ -227,7 +228,7 @@ class MistralProviderTest extends AbstractUnitTestCase
                         ],
                     ],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -413,14 +414,14 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $messages = [['role' => 'user', 'content' => 'Test']];
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'test_function',
                     'description' => 'A test function',
                     'parameters' => ['type' => 'object', 'properties' => []],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -504,14 +505,14 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         $messages = [['role' => 'user', 'content' => 'Test']];
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'test_function',
                     'description' => 'Test',
                     'parameters' => ['type' => 'object', 'properties' => []],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
