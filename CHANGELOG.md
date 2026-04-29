@@ -43,8 +43,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`Service/ModelSelectionService`, `Service/PromptTemplateService`).
   Downstream consumers that extended any of these classes should switch to
   composition or open an issue if a documented extension point is needed.
-  The base `ProviderException` and `ProviderAdapterRegistry` remain
-  non-final pending interface extraction.
+  The base `ProviderException` is the only deliberately non-final class
+  remaining (it parents the leaf exceptions); `LlmConfigurationService` and
+  `BudgetService` are still non-final pending the same interface-extract
+  pattern applied to the registry below.
 - `ProviderAdapterRegistry` is now `final` and implements the new
   `ProviderAdapterRegistryInterface`. Downstream consumers that
   constructor-injected the concrete class should typehint the interface
