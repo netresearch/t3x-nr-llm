@@ -303,15 +303,16 @@ final class ClaudeProvider extends AbstractProvider implements
             $imageUrl = $item->imageUrl ?? '';
             // Handle base64 data URLs
             if (str_starts_with($imageUrl, 'data:')) {
-                preg_match('/^data:(image\/\w+);base64,(.+)$/', $imageUrl, $matches);
-                $claudeContent[] = [
-                    'type' => 'image',
-                    'source' => [
-                        'type'       => 'base64',
-                        'media_type' => $matches[1] ?? 'image/jpeg',
-                        'data'       => $matches[2] ?? '',
-                    ],
-                ];
+                if (preg_match('/^data:([^;]+);base64,(.+)$/', $imageUrl, $matches) === 1) {
+                    $claudeContent[] = [
+                        'type' => 'image',
+                        'source' => [
+                            'type'       => 'base64',
+                            'media_type' => $matches[1],
+                            'data'       => $matches[2],
+                        ],
+                    ];
+                }
             } else {
                 // For URLs, Claude accepts either url or base64 source.
                 $claudeContent[] = [

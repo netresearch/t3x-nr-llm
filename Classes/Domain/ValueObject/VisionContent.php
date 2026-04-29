@@ -157,9 +157,16 @@ final readonly class VisionContent implements JsonSerializable
 
         if ($type === self::TYPE_IMAGE_URL) {
             $imageUrl = $data['image_url'] ?? null;
-            $detail   = is_array($imageUrl) && isset($imageUrl['detail']) && is_string($imageUrl['detail'])
-                ? $imageUrl['detail']
-                : null;
+            $detail   = null;
+            if (\is_array($imageUrl) && \array_key_exists('detail', $imageUrl)) {
+                if (!\is_string($imageUrl['detail'])) {
+                    throw new InvalidArgumentException(
+                        'VisionContent image_url.detail must be a string when present.',
+                        1745420004,
+                    );
+                }
+                $detail = $imageUrl['detail'];
+            }
 
             return new self(
                 type: self::TYPE_IMAGE_URL,

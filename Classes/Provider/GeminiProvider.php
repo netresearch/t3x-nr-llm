@@ -294,10 +294,9 @@ final class GeminiProvider extends AbstractProvider implements
         $parts = [];
         foreach ($content as $item) {
             if ($item->isText()) {
-                $text = $item->text ?? '';
-                if ($text !== '') {
-                    $parts[] = ['text' => $text];
-                }
+                // VisionContent::__construct enforces non-empty text for TYPE_TEXT,
+                // so $item->text is guaranteed to be a non-empty string here.
+                $parts[] = ['text' => $item->text];
                 continue;
             }
 
@@ -307,13 +306,14 @@ final class GeminiProvider extends AbstractProvider implements
 
             $imageUrl = $item->imageUrl ?? '';
             if (str_starts_with($imageUrl, 'data:')) {
-                preg_match('/^data:(image\/\w+);base64,(.+)$/', $imageUrl, $matches);
-                $parts[] = [
-                    'inlineData' => [
-                        'mimeType' => $matches[1] ?? 'image/jpeg',
-                        'data'     => $matches[2] ?? '',
-                    ],
-                ];
+                if (preg_match('/^data:([^;]+);base64,(.+)$/', $imageUrl, $matches) === 1) {
+                    $parts[] = [
+                        'inlineData' => [
+                            'mimeType' => $matches[1],
+                            'data'     => $matches[2],
+                        ],
+                    ];
+                }
             } else {
                 $parts[] = [
                     'fileData' => [

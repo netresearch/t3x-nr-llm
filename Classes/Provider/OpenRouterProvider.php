@@ -456,7 +456,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         $messages = [
             [
                 'role' => 'user',
-                'content' => array_map(static fn(VisionContent $vc): array => $vc->toArray(), $content),
+                'content' => array_values(array_map(static fn(VisionContent $vc): array => $vc->toArray(), $content)),
             ],
         ];
 
