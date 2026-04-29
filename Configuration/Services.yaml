@@ -127,6 +127,13 @@ services:
   Netresearch\NrLlm\Service\BudgetService:
     public: true
 
+  Netresearch\NrLlm\Service\BudgetServiceInterface:
+    alias: Netresearch\NrLlm\Service\BudgetService
+    public: true
+
+  Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface:
+    alias: Netresearch\NrLlm\Service\Budget\UserBudgetUsageWindows
+
   # ========================================
   # Translation Registry
   # ========================================

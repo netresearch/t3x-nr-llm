@@ -16,7 +16,7 @@ use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
-use Netresearch\NrLlm\Service\BudgetService;
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -28,12 +28,12 @@ use PHPUnit\Framework\MockObject\MockObject;
 #[AllowMockObjectsWithoutExpectations]
 final class BudgetMiddlewareTest extends AbstractUnitTestCase
 {
-    private BudgetService&MockObject $budgetService;
+    private BudgetServiceInterface&MockObject $budgetService;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->budgetService = $this->createMock(BudgetService::class);
+        $this->budgetService = $this->createMock(BudgetServiceInterface::class);
     }
 
     #[Test]
