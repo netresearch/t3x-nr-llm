@@ -96,9 +96,9 @@ final readonly class ToolSpec implements JsonSerializable
      */
     public static function fromArray(array $data): self
     {
-        if (!isset($data['function'])) {
+        if (!isset($data['function']) || !\is_array($data['function'])) {
             throw new InvalidArgumentException(
-                'ToolSpec array missing required "function" key.',
+                'ToolSpec array requires a "function" key with an array value.',
                 1745410003,
             );
         }

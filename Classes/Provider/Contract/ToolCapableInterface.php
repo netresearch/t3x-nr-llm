@@ -15,18 +15,12 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 interface ToolCapableInterface
 {
     /**
+     * Implementations may assume every `$tools` entry is a `ToolSpec` —
+     * `LlmServiceManager::chatWithTools()` normalises any legacy
+     * array-shaped fixture via `ToolSpec::fromArray()` before forwarding.
+     *
      * @param array<int, array<string, mixed>> $messages
-     * @param list<ToolSpec>                   $tools    Typed tool declarations
-     *                                                   the model is allowed to
-     *                                                   invoke. Provider
-     *                                                   implementations are
-     *                                                   responsible for any
-     *                                                   per-vendor wire-format
-     *                                                   conversion (most call
-     *                                                   `$spec->toArray()` for
-     *                                                   the OpenAI shape; Claude
-     *                                                   / Gemini read the typed
-     *                                                   fields directly).
+     * @param list<ToolSpec>                   $tools
      * @param array<string, mixed>             $options
      */
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse;

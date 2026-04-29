@@ -188,4 +188,96 @@ final class VisionContentTest extends TestCase
 
         self::assertSame($vc->toArray(), $vc->jsonSerialize());
     }
+
+    // ──────────────────────────────────────────────────────────────────
+    // detail field (OpenAI image_url.detail = low|high|auto)
+    // ──────────────────────────────────────────────────────────────────
+
+    #[Test]
+    public function imageUrlFactoryCarriesOptionalDetail(): void
+    {
+        $vc = VisionContent::imageUrl('https://example.com/a.png', VisionContent::DETAIL_HIGH);
+
+        self::assertSame(VisionContent::DETAIL_HIGH, $vc->detail);
+    }
+
+    #[Test]
+    public function detailDefaultsToNull(): void
+    {
+        $vc = VisionContent::imageUrl('https://example.com/a.png');
+
+        self::assertNull($vc->detail);
+    }
+
+    #[Test]
+    public function constructorRejectsUnknownDetailValue(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1745420004);
+
+        new VisionContent(
+            type: VisionContent::TYPE_IMAGE_URL,
+            imageUrl: 'https://example.com/a.png',
+            detail: 'extra-high',
+        );
+    }
+
+    #[Test]
+    public function constructorRejectsDetailOnTextItem(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1745420005);
+
+        new VisionContent(
+            type: VisionContent::TYPE_TEXT,
+            text: 'caption',
+            detail: VisionContent::DETAIL_HIGH,
+        );
+    }
+
+    #[Test]
+    public function fromArrayReadsDetailFromImageUrlEnvelope(): void
+    {
+        $vc = VisionContent::fromArray([
+            'type'      => 'image_url',
+            'image_url' => ['url' => 'https://example.com/x.png', 'detail' => 'low'],
+        ]);
+
+        self::assertSame(VisionContent::DETAIL_LOW, $vc->detail);
+    }
+
+    #[Test]
+    public function toArrayIncludesDetailWhenSet(): void
+    {
+        $vc = VisionContent::imageUrl('https://example.com/a.png', VisionContent::DETAIL_AUTO);
+
+        self::assertSame(
+            [
+                'type'      => 'image_url',
+                'image_url' => ['url' => 'https://example.com/a.png', 'detail' => 'auto'],
+            ],
+            $vc->toArray(),
+        );
+    }
+
+    #[Test]
+    public function toArrayOmitsDetailWhenNull(): void
+    {
+        $vc = VisionContent::imageUrl('https://example.com/a.png');
+
+        $arr = $vc->toArray();
+
+        self::assertArrayNotHasKey('detail', $arr['image_url'] ?? []);
+    }
+
+    #[Test]
+    public function fromArrayAndToArrayRoundTripImageWithDetail(): void
+    {
+        $shape = [
+            'type'      => 'image_url',
+            'image_url' => ['url' => 'https://example.com/r.png', 'detail' => 'high'],
+        ];
+
+        self::assertSame($shape, VisionContent::fromArray($shape)->toArray());
+    }
 }

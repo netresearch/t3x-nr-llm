@@ -96,10 +96,10 @@ class ChatMessageTest extends AbstractUnitTestCase
     {
         $content = $this->faker->sentence();
 
-        $message = new ChatMessage(MessageRole::Assistant, $content);
+        $message = new ChatMessage(MessageRole::ASSISTANT, $content);
 
         self::assertSame('assistant', $message->role);
-        self::assertSame(MessageRole::Assistant, $message->getRole());
+        self::assertSame(MessageRole::ASSISTANT, $message->getRole());
         self::assertSame($content, $message->content);
     }
 
@@ -108,7 +108,7 @@ class ChatMessageTest extends AbstractUnitTestCase
     {
         $message = new ChatMessage('tool', 'output');
 
-        self::assertSame(MessageRole::Tool, $message->getRole());
+        self::assertSame(MessageRole::TOOL, $message->getRole());
     }
 
     // ──────────────────────────────────────────────

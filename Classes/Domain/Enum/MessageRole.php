@@ -24,10 +24,10 @@ namespace Netresearch\NrLlm\Domain\Enum;
  */
 enum MessageRole: string
 {
-    case System    = 'system';
-    case User      = 'user';
-    case Assistant = 'assistant';
-    case Tool      = 'tool';
+    case SYSTEM    = 'system';
+    case USER      = 'user';
+    case ASSISTANT = 'assistant';
+    case TOOL      = 'tool';
 
     /**
      * Get all role values as a flat list of strings.
