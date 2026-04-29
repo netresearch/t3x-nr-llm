@@ -64,6 +64,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `BudgetUsageWindowsInterface → UserBudgetUsageWindows` keep autowiring
   transparent for callers that injected via `BudgetService`. Direct
   instantiation (rare) needs the new constructor signature.
+- `LlmConfigurationService` is now `final readonly` and implements the
+  new `LlmConfigurationServiceInterface`. Same migration story as the
+  registry above: typehint the interface in constructor injection; the
+  `LlmConfigurationServiceInterface → LlmConfigurationService` Symfony
+  alias keeps autowiring transparent.
 
 ## [0.7.0] - 2026-04-22
 

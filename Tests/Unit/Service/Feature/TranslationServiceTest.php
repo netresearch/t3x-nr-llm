@@ -15,7 +15,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Feature\TranslationService;
-use Netresearch\NrLlm\Service\LlmConfigurationService;
+use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
@@ -35,7 +35,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 {
     private LlmServiceManagerInterface&Stub $llmManagerStub;
     private TranslatorRegistryInterface&MockObject $translatorRegistryMock;
-    private LlmConfigurationService&Stub $configServiceStub;
+    private LlmConfigurationServiceInterface&Stub $configServiceStub;
     private TranslationService $subject;
 
     protected function setUp(): void
@@ -44,7 +44,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $this->llmManagerStub = self::createStub(LlmServiceManagerInterface::class);
         $this->translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
-        $this->configServiceStub = self::createStub(LlmConfigurationService::class);
+        $this->configServiceStub = self::createStub(LlmConfigurationServiceInterface::class);
 
         $this->subject = new TranslationService(
             $this->llmManagerStub,
@@ -851,7 +851,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function resolveTranslatorUsesPresetTranslatorWhenConfigurationFound(): void
     {
-        $configServiceMock = $this->createMock(LlmConfigurationService::class);
+        $configServiceMock = $this->createMock(LlmConfigurationServiceInterface::class);
         $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
 
         $configurationStub = self::createStub(LlmConfiguration::class);
@@ -886,7 +886,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function resolveTranslatorFallsBackToLlmWhenPresetConfigurationNotFound(): void
     {
-        $configServiceMock = $this->createMock(LlmConfigurationService::class);
+        $configServiceMock = $this->createMock(LlmConfigurationServiceInterface::class);
         $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
 
         $configServiceMock
@@ -917,7 +917,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     #[Test]
     public function resolveTranslatorFallsBackToLlmWhenPresetHasNoTranslator(): void
     {
-        $configServiceMock = $this->createMock(LlmConfigurationService::class);
+        $configServiceMock = $this->createMock(LlmConfigurationServiceInterface::class);
         $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
 
         // Configuration found but translator field is empty string

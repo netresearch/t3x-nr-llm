@@ -24,12 +24,12 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  * Provides access control enforcement, usage limit checking,
  * and configuration resolution for LLM operations.
  */
-class LlmConfigurationService implements SingletonInterface
+final readonly class LlmConfigurationService implements LlmConfigurationServiceInterface, SingletonInterface
 {
     public function __construct(
-        private readonly LlmConfigurationRepository $configurationRepository,
-        private readonly PersistenceManagerInterface $persistenceManager,
-        private readonly Context $context,
+        private LlmConfigurationRepository $configurationRepository,
+        private PersistenceManagerInterface $persistenceManager,
+        private Context $context,
     ) {}
 
     /**

@@ -12,7 +12,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
-use Netresearch\NrLlm\Service\LlmConfigurationService;
+use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
@@ -39,7 +39,7 @@ final readonly class TranslationService
     public function __construct(
         private LlmServiceManagerInterface $llmManager,
         private TranslatorRegistryInterface $translatorRegistry,
-        private LlmConfigurationService $configurationService,
+        private LlmConfigurationServiceInterface $configurationService,
     ) {}
 
     /**
