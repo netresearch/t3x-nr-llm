@@ -11,7 +11,7 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
-use Netresearch\NrLlm\Service\BudgetService;
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
 
 /**
  * Pre-flight budget check middleware (ADR-025).
@@ -56,7 +56,7 @@ final readonly class BudgetMiddleware implements ProviderMiddlewareInterface
     public const METADATA_PLANNED_COST = 'plannedCost';
 
     public function __construct(
-        private BudgetService $budgetService,
+        private BudgetServiceInterface $budgetService,
     ) {}
 
     /**

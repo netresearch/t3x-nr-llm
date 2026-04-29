@@ -53,6 +53,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instead. The Symfony alias
   `ProviderAdapterRegistryInterface → ProviderAdapterRegistry` is wired
   in `Configuration/Services.yaml` so existing autowiring keeps working.
+- `BudgetService` is now `final readonly` and implements the new
+  `BudgetServiceInterface`. The DB-aggregation step previously embedded
+  in the service's `aggregateWindowUsage()` method moved to a separate
+  collaborator: `Service/Budget/UserBudgetUsageWindows` implementing
+  `BudgetUsageWindowsInterface`. `BudgetService::__construct()` now
+  takes `(UserBudgetRepository, BudgetUsageWindowsInterface)` rather
+  than `(UserBudgetRepository, ConnectionPool)`. Symfony aliases
+  `BudgetServiceInterface → BudgetService` and
+  `BudgetUsageWindowsInterface → UserBudgetUsageWindows` keep autowiring
+  transparent for callers that injected via `BudgetService`. Direct
+  instantiation (rare) needs the new constructor signature.
 
 ## [0.7.0] - 2026-04-22
 

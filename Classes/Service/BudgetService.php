@@ -12,7 +12,7 @@ namespace Netresearch\NrLlm\Service;
 use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
-use TYPO3\CMS\Core\Database\ConnectionPool;
+use Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface;
 
 /**
  * Enforces per-backend-user daily and monthly AI spending ceilings.
@@ -35,26 +35,13 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * Like CapabilityPermissionService, this ships the primitive; wiring the
  * check into individual feature services is a deliberate follow-up.
  */
-class BudgetService
+final readonly class BudgetService implements BudgetServiceInterface
 {
-    private const USAGE_TABLE = 'tx_nrllm_service_usage';
-
     public function __construct(
-        private readonly UserBudgetRepository $repository,
-        private readonly ConnectionPool $connectionPool,
+        private UserBudgetRepository $repository,
+        private BudgetUsageWindowsInterface $usageWindows,
     ) {}
 
-    /**
-     * Pre-flight check: is the user allowed to make a request whose
-     * expected cost is $plannedCost?
-     *
-     * Resolution:
-     *   1. No budget record -> allowed (admin hasn't capped this user)
-     *   2. Budget is inactive -> allowed (admin muted the cap)
-     *   3. Budget has no limits set -> allowed
-     *   4. Otherwise check current-day and current-month buckets in order.
-     *      The first bucket to exceed its limit wins and is reported back.
-     */
     public function check(int $beUserUid, float $plannedCost = 0.0): BudgetCheckResult
     {
         if ($beUserUid <= 0) {
@@ -81,11 +68,7 @@ class BudgetService
         $dayStart = $now->setTime(0, 0, 0)->getTimestamp();
         $monthStart = $now->modify('first day of this month')->setTime(0, 0, 0)->getTimestamp();
 
-        // ONE DB roundtrip covering both windows. When only one window is
-        // configured the other aggregate is cheap (the row count is tiny
-        // since tx_nrllm_service_usage is already a per-user/per-day
-        // rollup, not a per-request log).
-        $windows = $this->aggregateWindowUsage(
+        $windows = $this->usageWindows->aggregate(
             $beUserUid,
             $hasDailyLimits ? $dayStart : null,
             $hasMonthlyLimits ? $monthStart : null,
@@ -161,68 +144,5 @@ class BudgetService
             );
         }
         return BudgetCheckResult::allowed();
-    }
-
-    /**
-     * Aggregate per-user usage for the daily AND monthly windows in a
-     * single DB roundtrip, using conditional SUM() expressions. Protected
-     * so tests can stub out the DB layer without mocking the QueryBuilder
-     * chain. `null` for a window means "limit not configured" — the
-     * matching aggregate is returned as a zeroed bucket.
-     *
-     * @return array{daily: array{requests: int, tokens: int, cost: float}, monthly: array{requests: int, tokens: int, cost: float}}
-     */
-    protected function aggregateWindowUsage(
-        int $beUserUid,
-        ?int $dailyFromTimestamp,
-        ?int $monthlyFromTimestamp,
-        int $toTimestamp,
-    ): array {
-        $empty = ['requests' => 0, 'tokens' => 0, 'cost' => 0.0];
-        if ($dailyFromTimestamp === null && $monthlyFromTimestamp === null) {
-            return ['daily' => $empty, 'monthly' => $empty];
-        }
-
-        // The lower bound for the SQL WHERE: monthly is always the wider
-        // window, so if it's set we use that; otherwise fall back to the
-        // daily bound.
-        $lowerBound = $monthlyFromTimestamp ?? $dailyFromTimestamp;
-
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::USAGE_TABLE);
-        $dailyFromParam = $queryBuilder->createNamedParameter($dailyFromTimestamp ?? PHP_INT_MAX);
-        $monthlyFromParam = $queryBuilder->createNamedParameter($monthlyFromTimestamp ?? PHP_INT_MAX);
-
-        $row = $queryBuilder
-            ->addSelectLiteral(sprintf('SUM(CASE WHEN request_date >= %s THEN request_count ELSE 0 END) AS daily_requests', $dailyFromParam))
-            ->addSelectLiteral(sprintf('SUM(CASE WHEN request_date >= %s THEN tokens_used ELSE 0 END) AS daily_tokens', $dailyFromParam))
-            ->addSelectLiteral(sprintf('SUM(CASE WHEN request_date >= %s THEN estimated_cost ELSE 0 END) AS daily_cost', $dailyFromParam))
-            ->addSelectLiteral(sprintf('SUM(CASE WHEN request_date >= %s THEN request_count ELSE 0 END) AS monthly_requests', $monthlyFromParam))
-            ->addSelectLiteral(sprintf('SUM(CASE WHEN request_date >= %s THEN tokens_used ELSE 0 END) AS monthly_tokens', $monthlyFromParam))
-            ->addSelectLiteral(sprintf('SUM(CASE WHEN request_date >= %s THEN estimated_cost ELSE 0 END) AS monthly_cost', $monthlyFromParam))
-            ->from(self::USAGE_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('be_user', $queryBuilder->createNamedParameter($beUserUid)),
-                $queryBuilder->expr()->gte('request_date', $queryBuilder->createNamedParameter($lowerBound)),
-                $queryBuilder->expr()->lte('request_date', $queryBuilder->createNamedParameter($toTimestamp)),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
-
-        if (!is_array($row)) {
-            return ['daily' => $empty, 'monthly' => $empty];
-        }
-
-        return [
-            'daily' => [
-                'requests' => is_numeric($row['daily_requests'] ?? null) ? (int)$row['daily_requests'] : 0,
-                'tokens' => is_numeric($row['daily_tokens'] ?? null) ? (int)$row['daily_tokens'] : 0,
-                'cost' => is_numeric($row['daily_cost'] ?? null) ? (float)$row['daily_cost'] : 0.0,
-            ],
-            'monthly' => [
-                'requests' => is_numeric($row['monthly_requests'] ?? null) ? (int)$row['monthly_requests'] : 0,
-                'tokens' => is_numeric($row['monthly_tokens'] ?? null) ? (int)$row['monthly_tokens'] : 0,
-                'cost' => is_numeric($row['monthly_cost'] ?? null) ? (float)$row['monthly_cost'] : 0.0,
-            ],
-        ];
     }
 }

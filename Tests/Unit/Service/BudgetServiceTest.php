@@ -12,24 +12,23 @@ namespace Netresearch\NrLlm\Tests\Unit\Service;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Model\UserBudget;
 use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
+use Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface;
 use Netresearch\NrLlm\Service\BudgetService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
-use TYPO3\CMS\Core\Database\ConnectionPool;
 
 #[CoversClass(BudgetService::class)]
 class BudgetServiceTest extends AbstractUnitTestCase
 {
     private UserBudgetRepository&Stub $repositoryStub;
-    private ConnectionPool&Stub $connectionPoolStub;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->repositoryStub = self::createStub(UserBudgetRepository::class);
-        $this->connectionPoolStub = self::createStub(ConnectionPool::class);
     }
 
     #[Test]
@@ -225,41 +224,36 @@ class BudgetServiceTest extends AbstractUnitTestCase
         $budget = $this->makeBudget(dailyRequests: 100, monthlyRequests: 100);
         $this->repositoryStub->method('findOneByBeUser')->willReturn($budget);
 
-        $service = new class ($this->repositoryStub, $this->connectionPoolStub) extends BudgetService {
-            public int $callCount = 0;
-
-            public ?int $capturedDailyFrom = null;
-
-            public ?int $capturedMonthlyFrom = null;
-
-            /**
-             * @return array{daily: array{requests: int, tokens: int, cost: float}, monthly: array{requests: int, tokens: int, cost: float}}
-             */
-            protected function aggregateWindowUsage(
+        /** @var BudgetUsageWindowsInterface&MockObject $usageWindows */
+        $usageWindows = $this->createMock(BudgetUsageWindowsInterface::class);
+        $capturedDailyFrom = null;
+        $capturedMonthlyFrom = null;
+        $usageWindows->expects(self::once())
+            ->method('aggregate')
+            ->willReturnCallback(static function (
                 int $beUserUid,
                 ?int $dailyFromTimestamp,
                 ?int $monthlyFromTimestamp,
                 int $toTimestamp,
-            ): array {
-                $this->callCount++;
-                $this->capturedDailyFrom = $dailyFromTimestamp;
-                $this->capturedMonthlyFrom = $monthlyFromTimestamp;
+            ) use (&$capturedDailyFrom, &$capturedMonthlyFrom): array {
+                $capturedDailyFrom = $dailyFromTimestamp;
+                $capturedMonthlyFrom = $monthlyFromTimestamp;
                 return [
                     'daily' => ['requests' => 3, 'tokens' => 0, 'cost' => 0.0],
                     'monthly' => ['requests' => 50, 'tokens' => 0, 'cost' => 0.0],
                 ];
-            }
-        };
+            });
+
+        $service = new BudgetService($this->repositoryStub, $usageWindows);
 
         $result = $service->check(42);
 
         self::assertTrue($result->allowed);
-        self::assertSame(1, $service->callCount, 'Should make exactly one DB aggregation call');
-        self::assertNotNull($service->capturedDailyFrom, 'Daily window should be requested');
-        self::assertNotNull($service->capturedMonthlyFrom, 'Monthly window should be requested');
+        self::assertNotNull($capturedDailyFrom, 'Daily window should be requested');
+        self::assertNotNull($capturedMonthlyFrom, 'Monthly window should be requested');
         self::assertLessThan(
-            $service->capturedDailyFrom,
-            $service->capturedMonthlyFrom,
+            $capturedDailyFrom,
+            $capturedMonthlyFrom,
             'Monthly start must precede daily start',
         );
     }
@@ -293,34 +287,13 @@ class BudgetServiceTest extends AbstractUnitTestCase
      */
     private function makeService(array $daily = null, array $monthly = null): BudgetService
     {
-        $dailyWindow = $daily ?? ['requests' => 0, 'tokens' => 0, 'cost' => 0.0];
-        $monthlyWindow = $monthly ?? ['requests' => 0, 'tokens' => 0, 'cost' => 0.0];
-        return new class ($this->repositoryStub, $this->connectionPoolStub, $dailyWindow, $monthlyWindow) extends BudgetService {
-            /**
-             * @param array{requests: int, tokens: int, cost: float} $fakeDaily
-             * @param array{requests: int, tokens: int, cost: float} $fakeMonthly
-             */
-            public function __construct(
-                UserBudgetRepository $repository,
-                ConnectionPool $connectionPool,
-                private readonly array $fakeDaily,
-                private readonly array $fakeMonthly,
-            ) {
-                parent::__construct($repository, $connectionPool);
-            }
+        $usageWindows = self::createStub(BudgetUsageWindowsInterface::class);
+        $usageWindows->method('aggregate')->willReturn([
+            'daily' => $daily ?? ['requests' => 0, 'tokens' => 0, 'cost' => 0.0],
+            'monthly' => $monthly ?? ['requests' => 0, 'tokens' => 0, 'cost' => 0.0],
+        ]);
 
-            protected function aggregateWindowUsage(
-                int $beUserUid,
-                ?int $dailyFromTimestamp,
-                ?int $monthlyFromTimestamp,
-                int $toTimestamp,
-            ): array {
-                return [
-                    'daily' => $this->fakeDaily,
-                    'monthly' => $this->fakeMonthly,
-                ];
-            }
-        };
+        return new BudgetService($this->repositoryStub, $usageWindows);
     }
 
     private function makeBudget(
