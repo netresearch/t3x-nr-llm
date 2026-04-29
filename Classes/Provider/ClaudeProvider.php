@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
@@ -222,14 +223,11 @@ final class ClaudeProvider extends AbstractProvider implements
             } elseif ($blockType === 'thinking') {
                 $nativeThinkingBlocks[] = $this->getString($blockArray, 'thinking');
             } elseif ($blockType === 'tool_use') {
-                $toolCalls[] = [
-                    'id' => $this->getString($blockArray, 'id'),
-                    'type' => 'function',
-                    'function' => [
-                        'name' => $this->getString($blockArray, 'name'),
-                        'arguments' => $this->getArray($blockArray, 'input'),
-                    ],
-                ];
+                $toolCalls[] = ToolCall::function(
+                    id: $this->getString($blockArray, 'id'),
+                    name: $this->getString($blockArray, 'name'),
+                    arguments: $this->getArray($blockArray, 'input'),
+                );
             }
         }
 

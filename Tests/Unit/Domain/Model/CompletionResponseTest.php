@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\Model;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -22,9 +23,9 @@ class CompletionResponseTest extends AbstractUnitTestCase
     #[Test]
     public function constructorSetsAllProperties(): void
     {
-        $usage = new UsageStatistics(100, 50, 150);
-        $toolCalls = [['id' => 'call_1', 'type' => 'function']];
-        $metadata = ['id' => 'chatcmpl-123'];
+        $usage     = new UsageStatistics(100, 50, 150);
+        $toolCalls = [ToolCall::function('call_1', 'fn', [])];
+        $metadata  = ['id' => 'chatcmpl-123'];
 
         $response = new CompletionResponse(
             content: 'Hello, world!',
@@ -285,9 +286,9 @@ class CompletionResponseTest extends AbstractUnitTestCase
     public function multipleToolCallsAreStored(): void
     {
         $toolCalls = [
-            ['id' => 'call_1', 'function' => ['name' => 'func1']],
-            ['id' => 'call_2', 'function' => ['name' => 'func2']],
-            ['id' => 'call_3', 'function' => ['name' => 'func3']],
+            ToolCall::function('call_1', 'func1', []),
+            ToolCall::function('call_2', 'func2', []),
+            ToolCall::function('call_3', 'func3', []),
         ];
 
         $response = new CompletionResponse(
@@ -300,6 +301,6 @@ class CompletionResponseTest extends AbstractUnitTestCase
 
         self::assertNotNull($response->toolCalls);
         self::assertCount(3, $response->toolCalls);
-        self::assertEquals('call_2', $response->toolCalls[1]['id']);
+        self::assertSame('call_2', $response->toolCalls[1]->id);
     }
 }

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
@@ -196,14 +197,11 @@ final class GeminiProvider extends AbstractProvider implements
 
             $functionCall = $this->getArray($partArray, 'functionCall');
             if ($functionCall !== []) {
-                $toolCalls[] = [
-                    'id' => 'call_' . uniqid(),
-                    'type' => 'function',
-                    'function' => [
-                        'name' => $this->getString($functionCall, 'name'),
-                        'arguments' => $this->getArray($functionCall, 'args'),
-                    ],
-                ];
+                $toolCalls[] = ToolCall::function(
+                    id: 'call_' . uniqid(),
+                    name: $this->getString($functionCall, 'name'),
+                    arguments: $this->getArray($functionCall, 'args'),
+                );
             }
         }
 

@@ -9,14 +9,18 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+
 /**
  * Response object for text completion requests.
  */
 final readonly class CompletionResponse
 {
     /**
-     * @param array<int, array<string, mixed>>|null $toolCalls
-     * @param array<string, mixed>|null             $metadata
+     * @param list<ToolCall>|null       $toolCalls Typed tool invocations the
+     *                                             model emitted; `null` when
+     *                                             no tools were invoked.
+     * @param array<string, mixed>|null $metadata
      */
     public function __construct(
         public string $content,

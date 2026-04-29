@@ -386,10 +386,9 @@ class GeminiProviderTest extends AbstractUnitTestCase
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertNotNull($result->toolCalls);
         self::assertCount(1, $result->toolCalls);
-        /** @var array{function: array{name: string, arguments: array<string, string>}} $toolCall */
         $toolCall = $result->toolCalls[0];
-        self::assertEquals('get_weather', $toolCall['function']['name']);
-        self::assertEquals(['location' => 'London'], $toolCall['function']['arguments']);
+        self::assertEquals('get_weather', $toolCall->name);
+        self::assertEquals(['location' => 'London'], $toolCall->arguments);
     }
 
     #[Test]
@@ -770,9 +769,8 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $result = $subject->chatCompletionWithTools($messages, $tools);
 
         self::assertNotNull($result->toolCalls);
-        /** @var array{function: array{name: string}} $toolCall */
         $toolCall = $result->toolCalls[0];
-        self::assertEquals('get_weather', $toolCall['function']['name']);
+        self::assertEquals('get_weather', $toolCall->name);
     }
 
     #[Test]
