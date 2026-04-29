@@ -10,12 +10,18 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Contract;
 
 use Generator;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 
 interface StreamingCapableInterface
 {
     /**
-     * @param array<int, array{role: string, content: string}> $messages
-     * @param array<string, mixed>                             $options
+     * `LlmServiceManager` normalises every entry to a `ChatMessage` before
+     * forwarding the call. Implementations called directly may also receive
+     * legacy `['role' => ..., 'content' => ...]` array fixtures and are
+     * responsible for normalising mixed input via `ChatMessage::fromArray()`.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $options
      *
      * @return Generator<int, string, mixed, void>
      */

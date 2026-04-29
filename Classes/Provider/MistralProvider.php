@@ -14,6 +14,7 @@ use JsonException;
 use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
@@ -91,11 +92,17 @@ final class MistralProvider extends AbstractProvider implements
     }
 
     /**
-     * @param array<int, array<string, mixed>> $messages
-     * @param array<string, mixed>             $options
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $options
      */
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
+        $messages = array_map(
+            static fn(ChatMessage|array $m): array
+                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            $messages,
+        );
+
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
@@ -138,12 +145,18 @@ final class MistralProvider extends AbstractProvider implements
     }
 
     /**
-     * @param array<int, array<string, mixed>> $messages
-     * @param list<ToolSpec>                   $tools
-     * @param array<string, mixed>             $options
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $tools
+     * @param array<string, mixed>                   $options
      */
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
+        $messages = array_map(
+            static fn(ChatMessage|array $m): array
+                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            $messages,
+        );
+
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         $payload = [
@@ -237,13 +250,19 @@ final class MistralProvider extends AbstractProvider implements
     }
 
     /**
-     * @param array<int, array<string, mixed>> $messages
-     * @param array<string, mixed>             $options
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $options
      *
      * @return Generator<int, string, mixed, void>
      */
     public function streamChatCompletion(array $messages, array $options = []): Generator
     {
+        $messages = array_map(
+            static fn(ChatMessage|array $m): array
+                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            $messages,
+        );
+
         $payload = [
             'model' => $this->getString($options, 'model', $this->getDefaultModel()),
             'messages' => $messages,

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
@@ -109,11 +110,17 @@ final class ClaudeProvider extends AbstractProvider implements
     }
 
     /**
-     * @param array<int, array<string, mixed>> $messages
-     * @param array<string, mixed>             $options
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $options
      */
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
+        $messages = array_map(
+            static fn(ChatMessage|array $m): array
+                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            $messages,
+        );
+
         $converted = $this->convertMessagesForClaude($messages);
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
@@ -173,12 +180,18 @@ final class ClaudeProvider extends AbstractProvider implements
     }
 
     /**
-     * @param array<int, array<string, mixed>> $messages
-     * @param list<ToolSpec>                   $tools
-     * @param array<string, mixed>             $options
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $tools
+     * @param array<string, mixed>                   $options
      */
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
+        $messages = array_map(
+            static fn(ChatMessage|array $m): array
+                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            $messages,
+        );
+
         $converted = $this->convertMessagesForClaude($messages);
 
         // Convert OpenAI-shaped ToolSpec into Claude's `input_schema` format.
@@ -387,13 +400,19 @@ final class ClaudeProvider extends AbstractProvider implements
     }
 
     /**
-     * @param array<int, array<string, mixed>> $messages
-     * @param array<string, mixed>             $options
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $options
      *
      * @return Generator<int, string, mixed, void>
      */
     public function streamChatCompletion(array $messages, array $options = []): Generator
     {
+        $messages = array_map(
+            static fn(ChatMessage|array $m): array
+                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            $messages,
+        );
+
         $converted = $this->convertMessagesForClaude($messages);
 
         $payload = [
@@ -464,6 +483,9 @@ final class ClaudeProvider extends AbstractProvider implements
      *
      * Handles system message extraction, tool result messages (role='tool'),
      * assistant messages with tool_calls, and multimodal content arrays.
+     *
+     * Receives the already-flattened OpenAI-style array shapes produced by
+     * `ChatMessage::toArray()` at the public entry points.
      *
      * @param array<int, array<string, mixed>> $messages
      *
@@ -546,7 +568,7 @@ final class ClaudeProvider extends AbstractProvider implements
             }
 
             // Plain text message: pass through
-            $filteredMessages[] = $message;
+            $filteredMessages[] = $msgArray;
         }
 
         // Flush remaining tool results

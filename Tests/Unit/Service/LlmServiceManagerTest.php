@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\AbstractProvider;
@@ -630,7 +631,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $mockAdapter->expects(self::once())
             ->method('chatCompletion')
             ->with(
-                [['role' => 'user', 'content' => 'Hello']],
+                [ChatMessage::fromArray(['role' => 'user', 'content' => 'Hello'])],
                 ['temperature' => 0.7],  // provider key should be removed
             )
             ->willReturn($expectedResponse);

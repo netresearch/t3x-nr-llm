@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
@@ -50,7 +51,10 @@ interface LlmServiceManagerInterface
     public function getDefaultProvider(): ?string;
 
     /**
-     * @param array<int, array{role: string, content: string}> $messages
+     * Legacy array-shaped message fixtures are accepted for back-compat
+     * and normalised via `ChatMessage::fromArray()` before dispatch.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
      */
     public function chat(array $messages, ?ChatOptions $options = null): CompletionResponse;
 
@@ -64,14 +68,20 @@ interface LlmServiceManagerInterface
     /**
      * Chat using a specific LLM configuration (database-backed provider resolution).
      *
-     * @param array<int, array{role: string, content: string}> $messages
+     * Legacy array-shaped message fixtures are accepted for back-compat
+     * and normalised via `ChatMessage::fromArray()` before dispatch.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
      */
     public function chatWithConfiguration(array $messages, LlmConfiguration $configuration): CompletionResponse;
 
     /**
      * Stream chat completion using a specific LLM configuration.
      *
-     * @param array<int, array{role: string, content: string}> $messages
+     * Legacy array-shaped message fixtures are accepted for back-compat
+     * and normalised via `ChatMessage::fromArray()` before dispatch.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
      *
      * @return Generator<int, string, mixed, void>
      */
@@ -92,18 +102,22 @@ interface LlmServiceManagerInterface
     public function vision(array $content, ?VisionOptions $options = null): VisionResponse;
 
     /**
-     * @param array<int, array{role: string, content: string}> $messages
+     * Legacy array-shaped message fixtures are accepted for back-compat
+     * and normalised via `ChatMessage::fromArray()` before dispatch.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
      *
      * @return Generator<int, string, mixed, void>
      */
     public function streamChat(array $messages, ?ChatOptions $options = null): Generator;
 
     /**
-     * Legacy array-shaped tool fixtures are accepted for back-compat
-     * and normalised via `ToolSpec::fromArray()` before dispatch.
+     * Legacy array-shaped message and tool fixtures are accepted for
+     * back-compat and normalised via `ChatMessage::fromArray()` /
+     * `ToolSpec::fromArray()` before dispatch.
      *
-     * @param array<int, array{role: string, content: string}> $messages
-     * @param list<ToolSpec|array<string, mixed>>              $tools
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec|array<string, mixed>>    $tools
      */
     public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse;
 

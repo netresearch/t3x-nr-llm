@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
@@ -149,7 +150,10 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     /**
      * Send a chat completion request.
      *
-     * @param array<int, array{role: string, content: string}> $messages
+     * Legacy array-shaped messages are accepted for back-compat and
+     * normalised via `ChatMessage::fromArray()` before dispatch.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
      */
     public function chat(array $messages, ?ChatOptions $options = null): CompletionResponse
     {
@@ -158,10 +162,12 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
         unset($optionsArray['provider']);
 
+        $normalisedMessages = $this->normaliseMessages($messages);
+
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Chat, $providerKey),
             ProviderOperation::Chat,
-            fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($messages, $optionsArray),
+            fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($normalisedMessages, $optionsArray),
         );
     }
 
@@ -290,7 +296,10 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     /**
      * Stream a chat completion response.
      *
-     * @param array<int, array{role: string, content: string}> $messages
+     * Legacy array-shaped messages are accepted for back-compat and
+     * normalised via `ChatMessage::fromArray()` before dispatch.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
      *
      * @return Generator<int, string, mixed, void>
      */
@@ -309,20 +318,19 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             );
         }
 
-        return $provider->streamChatCompletion($messages, $optionsArray);
+        return $provider->streamChatCompletion($this->normaliseMessages($messages), $optionsArray);
     }
 
     /**
      * Chat completion with tool calling.
      *
-     * Accepts either typed `ToolSpec` instances or legacy array fixtures
-     * (`{type: 'function', function: {name, description, parameters}}`)
-     * for back-compat — array entries are normalised via
-     * `ToolSpec::fromArray()` so the downstream provider always receives
-     * `list<ToolSpec>` and never has to defend against mixed input.
+     * Accepts both typed `ChatMessage` / `ToolSpec` instances and legacy
+     * array fixtures for back-compat — each non-typed entry is routed
+     * through the matching `fromArray()` factory so the downstream
+     * provider always receives `list<ChatMessage>` + `list<ToolSpec>`.
      *
-     * @param array<int, array{role: string, content: string}> $messages
-     * @param list<ToolSpec|array<string, mixed>>              $tools
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec|array<string, mixed>>    $tools
      */
     public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse
     {
@@ -331,7 +339,8 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
         unset($optionsArray['provider']);
 
-        $normalisedTools = array_map(
+        $normalisedMessages = $this->normaliseMessages($messages);
+        $normalisedTools    = array_map(
             static fn(ToolSpec|array $tool): ToolSpec => $tool instanceof ToolSpec ? $tool : ToolSpec::fromArray($tool),
             $tools,
         );
@@ -339,7 +348,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Tools, $providerKey),
             ProviderOperation::Tools,
-            function () use ($messages, $normalisedTools, $optionsArray, $providerKey): CompletionResponse {
+            function () use ($normalisedMessages, $normalisedTools, $optionsArray, $providerKey): CompletionResponse {
                 $provider = $this->getProvider($providerKey);
                 if (!$provider instanceof ToolCapableInterface) {
                     throw new UnsupportedFeatureException(
@@ -348,7 +357,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                     );
                 }
 
-                return $provider->chatCompletionWithTools($messages, $normalisedTools, $optionsArray);
+                return $provider->chatCompletionWithTools($normalisedMessages, $normalisedTools, $optionsArray);
             },
         );
     }
@@ -429,18 +438,23 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      * on the primary (network, 5xx, 429) transparently re-run the request
      * against each fallback configuration in order.
      *
-     * @param array<int, array{role: string, content: string}> $messages
+     * Legacy array-shaped messages are accepted for back-compat and
+     * normalised via `ChatMessage::fromArray()` before dispatch.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
      */
     public function chatWithConfiguration(array $messages, LlmConfiguration $configuration): CompletionResponse
     {
+        $normalisedMessages = $this->normaliseMessages($messages);
+
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Chat,
-            function (LlmConfiguration $config) use ($messages): CompletionResponse {
+            function (LlmConfiguration $config) use ($normalisedMessages): CompletionResponse {
                 $adapter = $this->getAdapterFromConfiguration($config);
                 $options = $config->toOptionsArray();
                 unset($options['provider']);
-                return $adapter->chatCompletion($messages, $options);
+                return $adapter->chatCompletion($normalisedMessages, $options);
             },
         );
     }
@@ -492,6 +506,27 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
+     * Normalise a public-API messages list into `list<ChatMessage>`.
+     *
+     * Legacy array fixtures (`['role' => '...', 'content' => '...']`) are
+     * routed through `ChatMessage::fromArray()` so providers downstream
+     * always receive typed instances and never have to defend against
+     * mixed input. Pre-typed entries pass through verbatim.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     *
+     * @return list<ChatMessage>
+     */
+    private function normaliseMessages(array $messages): array
+    {
+        return array_map(
+            static fn(ChatMessage|array $message): ChatMessage
+                => $message instanceof ChatMessage ? $message : ChatMessage::fromArray($message),
+            $messages,
+        );
+    }
+
+    /**
      * Build a transient LlmConfiguration for direct (ad-hoc) provider calls.
      *
      * Direct API methods — `chat()`, `complete()`, `embed()`, `vision()`,
@@ -529,7 +564,10 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      * chunk has been yielded to the caller we cannot swap providers mid-stream.
      * Use chatWithConfiguration() if fallback protection is required.
      *
-     * @param array<int, array{role: string, content: string}> $messages
+     * Legacy array-shaped messages are accepted for back-compat and
+     * normalised via `ChatMessage::fromArray()` before dispatch.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
      *
      * @return Generator<int, string, mixed, void>
      */
@@ -548,7 +586,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             );
         }
 
-        return $adapter->streamChatCompletion($messages, $options);
+        return $adapter->streamChatCompletion($this->normaliseMessages($messages), $options);
     }
 
     /**
