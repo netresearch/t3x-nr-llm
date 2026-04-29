@@ -31,15 +31,15 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
  * - LLM-based translation (default)
  * - Specialized translators (DeepL, etc.) via TranslatorRegistry
  */
-final class TranslationService
+final readonly class TranslationService
 {
     private const SUPPORTED_FORMALITIES = ['default', 'formal', 'informal'];
     private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
     public function __construct(
-        private readonly LlmServiceManagerInterface $llmManager,
-        private readonly TranslatorRegistryInterface $translatorRegistry,
-        private readonly LlmConfigurationService $configurationService,
+        private LlmServiceManagerInterface $llmManager,
+        private TranslatorRegistryInterface $translatorRegistry,
+        private LlmConfigurationService $configurationService,
     ) {}
 
     /**

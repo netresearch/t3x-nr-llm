@@ -21,10 +21,10 @@ use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
  * `LlmServiceManager::embed()` — this service only owns the vector-math
  * utilities (cosine similarity, normalisation, top-k) and input validation.
  */
-final class EmbeddingService
+final readonly class EmbeddingService
 {
     public function __construct(
-        private readonly LlmServiceManagerInterface $llmManager,
+        private LlmServiceManagerInterface $llmManager,
     ) {}
 
     /**

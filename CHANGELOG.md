@@ -31,6 +31,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `Resources/Public/Icons/Extension.svg` brand colour corrected to the official
   Netresearch teal `#2F99A4` (was `#2999a4` typo).
 
+### BREAKING
+
+- The following classes are now `final` (and `final readonly` where applicable)
+  and can no longer be subclassed by downstream extensions: the four leaf
+  provider exceptions (`ProviderConfigurationException`,
+  `ProviderConnectionException`, `ProviderResponseException`,
+  `UnsupportedFeatureException`); the four feature services
+  (`Service/Feature/CompletionService`, `EmbeddingService`,
+  `TranslationService`, `VisionService`); the two supporting services
+  (`Service/ModelSelectionService`, `Service/PromptTemplateService`).
+  Downstream consumers that extended any of these classes should switch to
+  composition or open an issue if a documented extension point is needed.
+  The base `ProviderException` and `ProviderAdapterRegistry` remain
+  non-final pending interface extraction.
+
 ## [0.7.0] - 2026-04-22
 
 Initial public release. See git history for prior commits.
