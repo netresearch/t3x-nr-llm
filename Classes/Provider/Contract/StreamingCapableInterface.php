@@ -15,10 +15,12 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 interface StreamingCapableInterface
 {
     /**
-     * `LlmServiceManager` normalises every entry to a `ChatMessage` before
-     * forwarding the call. Implementations called directly may also receive
-     * legacy `['role' => ..., 'content' => ...]` array fixtures and are
-     * responsible for normalising mixed input via `ChatMessage::fromArray()`.
+     * `LlmServiceManager` may forward simple `{role, content}` fixtures as
+     * typed `ChatMessage` instances; richer provider-specific shapes are
+     * passed through as arrays. Implementations called directly may also
+     * receive legacy array fixtures. Implementations should therefore
+     * normalise mixed input by converting `ChatMessage` entries via
+     * `toArray()` and leaving array fixtures untouched.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $options

@@ -16,11 +16,13 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 interface ToolCapableInterface
 {
     /**
-     * `LlmServiceManager::chatWithTools()` normalises every `$messages`
-     * entry to a `ChatMessage` and every `$tools` entry to a `ToolSpec`
-     * before forwarding. Implementations called directly may also receive
-     * legacy array fixtures and are responsible for normalising mixed
-     * input via `ChatMessage::fromArray()` / `ToolSpec::fromArray()`.
+     * `LlmServiceManager::chatWithTools()` always normalises every `$tools`
+     * entry to a typed `ToolSpec` before forwarding (legacy array tool
+     * fixtures are accepted at the public API only, never reach this layer).
+     * Messages may arrive as a mix of typed `ChatMessage` and richer
+     * provider-specific arrays (tool result shapes, multimodal content) so
+     * implementations should normalise messages by converting `ChatMessage`
+     * entries via `toArray()` and leaving array fixtures untouched.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param list<ToolSpec>                         $tools
