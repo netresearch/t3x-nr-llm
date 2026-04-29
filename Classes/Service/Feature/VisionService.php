@@ -20,7 +20,7 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
  * Provides specialized image analysis with accessibility,
  * SEO, and descriptive prompts.
  */
-class VisionService
+final class VisionService
 {
     private const PROMPT_ALT_TEXT = 'Generate a concise alt text for this image, under 125 characters, focused on essential information for screen readers. Be descriptive but brief.';
     private const PROMPT_SEO_TITLE = 'Generate an SEO-optimized title for this image, under 60 characters, that is compelling and keyword-rich for search rankings.';

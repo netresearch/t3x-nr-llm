@@ -31,7 +31,7 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
  * - LLM-based translation (default)
  * - Specialized translators (DeepL, etc.) via TranslatorRegistry
  */
-class TranslationService
+final class TranslationService
 {
     private const SUPPORTED_FORMALITIES = ['default', 'formal', 'informal'];
     private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
