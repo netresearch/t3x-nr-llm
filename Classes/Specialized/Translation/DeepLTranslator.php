@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized\Translation;
 
 use Exception;
+use Netresearch\NrLlm\Attribute\AsTranslator;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -36,6 +37,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  *
  * @see https://developers.deepl.com/docs
  */
+#[AsTranslator(identifier: 'deepl', priority: 90)]
 final class DeepLTranslator implements TranslatorInterface
 {
     private const API_VERSION = 'v2';

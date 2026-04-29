@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Translation;
 
+use Netresearch\NrLlm\Attribute\AsTranslator;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
@@ -22,6 +23,7 @@ use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
  * This is the default translator and is always available if any LLM provider
  * is configured.
  */
+#[AsTranslator(identifier: 'llm', priority: 100)]
 final readonly class LlmTranslator implements TranslatorInterface
 {
     private const SUPPORTED_LANGUAGES = [
