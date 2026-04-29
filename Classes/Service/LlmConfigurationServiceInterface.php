@@ -41,9 +41,11 @@ interface LlmConfigurationServiceInterface
     /**
      * Get all configurations accessible to the current backend user.
      *
-     * Admin users see every active configuration; non-admin users see
-     * only configurations whose access-restriction groups intersect with
-     * their own group memberships.
+     * Returns an empty array when no backend user is logged in
+     * (consistent with `hasAccess()` returning `false` in that case);
+     * admin users see every active configuration; non-admin users see
+     * only configurations whose access-restriction groups intersect
+     * with their own group memberships.
      *
      * @return array<LlmConfiguration>
      */

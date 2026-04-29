@@ -87,6 +87,14 @@ final readonly class LlmConfigurationService implements LlmConfigurationServiceI
      */
     public function getAccessibleConfigurations(): array
     {
+        // Mirror hasAccess(): no BE user context => no access. Without
+        // this guard the call would fall through to the empty-groupIds
+        // branch and return any configurations without group restrictions
+        // — the wrong default for unauthenticated callers.
+        if (!$this->isBackendUserLoggedIn()) {
+            return [];
+        }
+
         // Admin users can access all configurations
         if ($this->isCurrentUserAdmin()) {
             return $this->configurationRepository->findActive()->toArray();
