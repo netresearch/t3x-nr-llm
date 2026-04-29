@@ -532,7 +532,9 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                 }
 
                 if (
-                    array_keys($message) === ['role', 'content']
+                    count($message) === 2
+                    && array_key_exists('role', $message)
+                    && array_key_exists('content', $message)
                     && is_string($message['role'])
                     && is_string($message['content'])
                 ) {
