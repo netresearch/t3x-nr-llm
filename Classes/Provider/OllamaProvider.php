@@ -14,6 +14,7 @@ use JsonException;
 use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Throwable;
@@ -104,11 +105,17 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
     }
 
     /**
-     * @param array<int, array<string, mixed>> $messages
-     * @param array<string, mixed>             $options
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $options
      */
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
+        $messages = array_map(
+            static fn(ChatMessage|array $m): array
+                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            $messages,
+        );
+
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         /** @var array<string, mixed> $payloadOptions */
@@ -187,13 +194,19 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
     }
 
     /**
-     * @param array<int, array<string, mixed>> $messages
-     * @param array<string, mixed>             $options
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $options
      *
      * @return Generator<int, string, mixed, void>
      */
     public function streamChatCompletion(array $messages, array $options = []): Generator
     {
+        $messages = array_map(
+            static fn(ChatMessage|array $m): array
+                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            $messages,
+        );
+
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         /** @var array<string, mixed> $payloadOptions */

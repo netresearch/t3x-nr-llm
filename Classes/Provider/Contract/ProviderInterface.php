@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Provider\Contract;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 
 interface ProviderInterface
@@ -32,8 +33,14 @@ interface ProviderInterface
     public function supportsFeature(string|ModelCapability $feature): bool;
 
     /**
-     * @param array<int, array<string, mixed>> $messages
-     * @param array<string, mixed>             $options
+     * `LlmServiceManager` normalises every entry to a `ChatMessage` before
+     * forwarding the call. Implementations called directly (e.g. from tests
+     * or one-off scripts) may also receive legacy `['role' => ..., 'content'
+     * => ...]` array fixtures; each implementation is responsible for
+     * normalising mixed input via `ChatMessage::fromArray()`.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $options
      */
     public function chatCompletion(array $messages, array $options = []): CompletionResponse;
 

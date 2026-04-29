@@ -10,18 +10,21 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Contract;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 
 interface ToolCapableInterface
 {
     /**
-     * Implementations may assume every `$tools` entry is a `ToolSpec` —
-     * `LlmServiceManager::chatWithTools()` normalises any legacy
-     * array-shaped fixture via `ToolSpec::fromArray()` before forwarding.
+     * `LlmServiceManager::chatWithTools()` normalises every `$messages`
+     * entry to a `ChatMessage` and every `$tools` entry to a `ToolSpec`
+     * before forwarding. Implementations called directly may also receive
+     * legacy array fixtures and are responsible for normalising mixed
+     * input via `ChatMessage::fromArray()` / `ToolSpec::fromArray()`.
      *
-     * @param array<int, array<string, mixed>> $messages
-     * @param list<ToolSpec>                   $tools
-     * @param array<string, mixed>             $options
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $tools
+     * @param array<string, mixed>                   $options
      */
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse;
 
