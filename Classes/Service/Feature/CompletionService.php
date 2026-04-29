@@ -20,10 +20,10 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
  * Provides simple text generation with configurable creativity,
  * format control, and token management.
  */
-class CompletionService
+final readonly class CompletionService
 {
     public function __construct(
-        private readonly LlmServiceManagerInterface $llmManager,
+        private LlmServiceManagerInterface $llmManager,
     ) {}
 
     /**

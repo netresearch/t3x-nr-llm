@@ -9,4 +9,4 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Exception;
 
-class ProviderConnectionException extends ProviderException {}
+final class ProviderConnectionException extends ProviderException {}
