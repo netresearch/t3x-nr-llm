@@ -10,12 +10,17 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Contract;
 
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 
 interface VisionCapableInterface
 {
     /**
-     * @param array<int, array{type: string, image_url?: array{url: string}, text?: string}> $content
-     * @param array<string, mixed>                                                           $options
+     * Implementations may assume every `$content` entry is a `VisionContent` —
+     * `LlmServiceManager::vision()` normalises any legacy array fixture
+     * via `VisionContent::fromArray()` before forwarding the call.
+     *
+     * @param list<VisionContent>  $content
+     * @param array<string, mixed> $options
      */
     public function analyzeImage(array $content, array $options = []): VisionResponse;
 

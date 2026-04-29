@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
@@ -270,8 +271,8 @@ final class GeminiProvider extends AbstractProvider implements
     }
 
     /**
-     * @param array<int, array<string, mixed>> $content
-     * @param array<string, mixed>             $options
+     * @param list<VisionContent>  $content
+     * @param array<string, mixed> $options
      */
     public function analyzeImage(array $content, array $options = []): VisionResponse
     {
@@ -279,33 +280,34 @@ final class GeminiProvider extends AbstractProvider implements
 
         $parts = [];
         foreach ($content as $item) {
-            $itemArray = $this->asArray($item);
-            $itemType = $this->getString($itemArray, 'type');
-
-            if ($itemType === 'text') {
-                $text = $this->getString($itemArray, 'text');
+            if ($item->isText()) {
+                $text = $item->text ?? '';
                 if ($text !== '') {
                     $parts[] = ['text' => $text];
                 }
-            } elseif ($itemType === 'image_url') {
-                $imageUrl = $this->getNestedString($itemArray, 'image_url.url');
+                continue;
+            }
 
-                if (str_starts_with($imageUrl, 'data:')) {
-                    preg_match('/^data:(image\/\w+);base64,(.+)$/', $imageUrl, $matches);
-                    $parts[] = [
-                        'inlineData' => [
-                            'mimeType' => $matches[1] ?? 'image/jpeg',
-                            'data' => $matches[2] ?? '',
-                        ],
-                    ];
-                } else {
-                    $parts[] = [
-                        'fileData' => [
-                            'mimeType' => 'image/jpeg',
-                            'fileUri' => $imageUrl,
-                        ],
-                    ];
-                }
+            if (!$item->isImage()) {
+                continue;
+            }
+
+            $imageUrl = $item->imageUrl ?? '';
+            if (str_starts_with($imageUrl, 'data:')) {
+                preg_match('/^data:(image\/\w+);base64,(.+)$/', $imageUrl, $matches);
+                $parts[] = [
+                    'inlineData' => [
+                        'mimeType' => $matches[1] ?? 'image/jpeg',
+                        'data'     => $matches[2] ?? '',
+                    ],
+                ];
+            } else {
+                $parts[] = [
+                    'fileData' => [
+                        'mimeType' => 'image/jpeg',
+                        'fileUri'  => $imageUrl,
+                    ],
+                ];
             }
         }
 

@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
@@ -431,8 +432,8 @@ final class OpenRouterProvider extends AbstractProvider implements
     }
 
     /**
-     * @param array<int, array<string, mixed>> $content
-     * @param array<string, mixed>             $options
+     * @param list<VisionContent>  $content
+     * @param array<string, mixed> $options
      */
     public function analyzeImage(array $content, array $options = []): VisionResponse
     {
@@ -442,7 +443,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         $messages = [
             [
                 'role' => 'user',
-                'content' => $content,
+                'content' => array_map(static fn(VisionContent $vc): array => $vc->toArray(), $content),
             ],
         ];
 

@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -421,8 +422,8 @@ class GeminiProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $content = [
-            ['type' => 'text', 'text' => 'Describe this image'],
-            ['type' => 'image_url', 'image_url' => ['url' => 'data:image/jpeg;base64,/9j/4AAQSkZJRg==']],
+            VisionContent::fromArray(['type' => 'text', 'text' => 'Describe this image']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'data:image/jpeg;base64,/9j/4AAQSkZJRg==']]),
         ];
 
         $apiResponse = [
@@ -780,8 +781,8 @@ class GeminiProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $content = [
-            ['type' => 'text', 'text' => 'Describe this'],
-            ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/image.jpg']],
+            VisionContent::fromArray(['type' => 'text', 'text' => 'Describe this']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/image.jpg']]),
         ];
 
         $apiResponse = [
@@ -816,8 +817,8 @@ class GeminiProviderTest extends AbstractUnitTestCase
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $content = [
-            ['type' => 'text', 'text' => 'What is this?'],
-            ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,iVBORw0KGgo=']],
+            VisionContent::fromArray(['type' => 'text', 'text' => 'What is this?']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,iVBORw0KGgo=']]),
         ];
 
         $apiResponse = [
@@ -847,13 +848,19 @@ class GeminiProviderTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function analyzeImageWithEmptyText(): void
+    public function analyzeImageWithImageOnlyContent(): void
     {
+        // Pre-VisionContent migration this test passed an empty-text item
+        // alongside the image and asserted Gemini silently dropped it. The
+        // typed VO now rejects empty-text payloads at construction (covered
+        // by VisionContentTest::constructorRejectsEmptyTextPayload), so the
+        // scenario degenerates into "image-only content also works" — that
+        // path remains worth exercising on Gemini, where the previous code
+        // had a defensive `if ($text !== '')` branch.
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
 
         $content = [
-            ['type' => 'text', 'text' => ''],
-            ['type' => 'image_url', 'image_url' => ['url' => 'data:image/jpeg;base64,/9j/4AAQ']],
+            VisionContent::imageUrl('data:image/jpeg;base64,/9j/4AAQ'),
         ];
 
         $apiResponse = [

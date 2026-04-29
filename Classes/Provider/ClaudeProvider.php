@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
@@ -265,47 +266,48 @@ final class ClaudeProvider extends AbstractProvider implements
     }
 
     /**
-     * @param array<int, array<string, mixed>> $content
-     * @param array<string, mixed>             $options
+     * @param list<VisionContent>  $content
+     * @param array<string, mixed> $options
      */
     public function analyzeImage(array $content, array $options = []): VisionResponse
     {
-        // Convert content array to Claude's vision format
+        // Convert each VisionContent into Claude's vision-block format.
         $claudeContent = [];
 
         foreach ($content as $item) {
-            $itemArray = $this->asArray($item);
-            $itemType = $this->getString($itemArray, 'type');
-
-            if ($itemType === 'text') {
+            if ($item->isText()) {
                 $claudeContent[] = [
                     'type' => 'text',
-                    'text' => $this->getString($itemArray, 'text'),
+                    'text' => $item->text ?? '',
                 ];
-            } elseif ($itemType === 'image_url') {
-                $imageUrl = $this->getNestedString($itemArray, 'image_url.url');
+                continue;
+            }
 
-                // Handle base64 data URLs
-                if (str_starts_with($imageUrl, 'data:')) {
-                    preg_match('/^data:(image\/\w+);base64,(.+)$/', $imageUrl, $matches);
-                    $claudeContent[] = [
-                        'type' => 'image',
-                        'source' => [
-                            'type' => 'base64',
-                            'media_type' => $matches[1] ?? 'image/jpeg',
-                            'data' => $matches[2] ?? '',
-                        ],
-                    ];
-                } else {
-                    // For URLs, Claude requires base64 encoding
-                    $claudeContent[] = [
-                        'type' => 'image',
-                        'source' => [
-                            'type' => 'url',
-                            'url' => $imageUrl,
-                        ],
-                    ];
-                }
+            if (!$item->isImage()) {
+                continue;
+            }
+
+            $imageUrl = $item->imageUrl ?? '';
+            // Handle base64 data URLs
+            if (str_starts_with($imageUrl, 'data:')) {
+                preg_match('/^data:(image\/\w+);base64,(.+)$/', $imageUrl, $matches);
+                $claudeContent[] = [
+                    'type' => 'image',
+                    'source' => [
+                        'type'       => 'base64',
+                        'media_type' => $matches[1] ?? 'image/jpeg',
+                        'data'       => $matches[2] ?? '',
+                    ],
+                ];
+            } else {
+                // For URLs, Claude accepts either url or base64 source.
+                $claudeContent[] = [
+                    'type' => 'image',
+                    'source' => [
+                        'type' => 'url',
+                        'url'  => $imageUrl,
+                    ],
+                ];
             }
         }
 

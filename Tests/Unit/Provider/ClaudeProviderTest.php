@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
@@ -498,8 +499,8 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function analyzeImageReturnsVisionResponse(): void
     {
         $content = [
-            ['type' => 'text', 'text' => 'Describe this image'],
-            ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/image.png']],
+            VisionContent::fromArray(['type' => 'text', 'text' => 'Describe this image']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/image.png']]),
         ];
 
         $apiResponse = [
@@ -526,8 +527,8 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function analyzeImageHandlesBase64DataUrl(): void
     {
         $content = [
-            ['type' => 'text', 'text' => 'What is this?'],
-            ['type' => 'image_url', 'image_url' => ['url' => 'data:image/jpeg;base64,/9j/4AAQSkZJRg==']],
+            VisionContent::fromArray(['type' => 'text', 'text' => 'What is this?']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'data:image/jpeg;base64,/9j/4AAQSkZJRg==']]),
         ];
 
         $apiResponse = [
@@ -552,7 +553,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     #[Test]
     public function analyzeImageWithSystemPrompt(): void
     {
-        $content = [['type' => 'text', 'text' => 'Describe']];
+        $content = [VisionContent::fromArray(['type' => 'text', 'text' => 'Describe'])];
         $options = ['system_prompt' => 'Be concise'];
 
         $apiResponse = [
@@ -761,7 +762,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     #[Test]
     public function analyzeImageHandlesMultipleContentBlocks(): void
     {
-        $content = [['type' => 'text', 'text' => 'Describe']];
+        $content = [VisionContent::fromArray(['type' => 'text', 'text' => 'Describe'])];
 
         $apiResponse = [
             'id' => 'msg_test',
@@ -788,7 +789,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     #[Test]
     public function analyzeImageWithExplicitModel(): void
     {
-        $content = [['type' => 'text', 'text' => 'What is this?']];
+        $content = [VisionContent::fromArray(['type' => 'text', 'text' => 'What is this?'])];
         $options = ['model' => 'claude-opus-4-5-20251124'];
 
         $apiResponse = [
