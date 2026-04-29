@@ -17,7 +17,7 @@ use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
-use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
@@ -57,7 +57,7 @@ final class ModelController extends ActionController
         private readonly PersistenceManagerInterface $persistenceManager,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
-        private readonly ProviderAdapterRegistry $providerAdapterRegistry,
+        private readonly ProviderAdapterRegistryInterface $providerAdapterRegistry,
         private readonly ModelDiscoveryInterface $modelDiscovery,
         private readonly TestPromptResolverInterface $testPromptResolver,
     ) {}

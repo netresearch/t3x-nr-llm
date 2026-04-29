@@ -69,6 +69,10 @@ services:
   Netresearch\NrLlm\Provider\ProviderAdapterRegistry:
     public: true
 
+  Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface:
+    alias: Netresearch\NrLlm\Provider\ProviderAdapterRegistry
+    public: true
+
   # ========================================
   # Feature Services (PUBLIC)
   # ========================================

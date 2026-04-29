@@ -12,7 +12,7 @@ namespace Netresearch\NrLlm\Tests\E2E;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
-use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Feature\EmbeddingService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
@@ -54,7 +54,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
-        $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
+        $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
@@ -88,7 +88,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
-        $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
+        $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
 
         // Mock cache manager returning cached embeddings with full structure
@@ -172,7 +172,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
-        $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
+        $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
@@ -239,7 +239,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
-        $adapterRegistry = self::createStub(ProviderAdapterRegistry::class);
+        $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
         $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()

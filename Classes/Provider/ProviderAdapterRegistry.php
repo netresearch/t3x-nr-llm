@@ -28,7 +28,7 @@ use TYPO3\CMS\Core\SingletonInterface;
  * This registry bridges database Provider entities with PHP adapter implementations.
  * It creates and configures adapter instances on demand based on provider settings.
  */
-class ProviderAdapterRegistry implements SingletonInterface
+final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface, SingletonInterface
 {
     /**
      * Mapping of adapter types to provider class names.

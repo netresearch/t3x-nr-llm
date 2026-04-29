@@ -13,7 +13,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Provider\AbstractProvider;
-use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
@@ -49,7 +49,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             ]);
 
         $loggerStub = self::createStub(LoggerInterface::class);
-        $adapterRegistryStub = self::createStub(ProviderAdapterRegistry::class);
+        $adapterRegistryStub = self::createStub(ProviderAdapterRegistryInterface::class);
 
         $this->llmManager = new LlmServiceManager(
             $extensionConfigStub,

@@ -17,7 +17,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
-use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
@@ -45,7 +45,7 @@ final class ModelControllerTest extends TestCase
     private ModelRepository&MockObject $modelRepository;
     private ProviderRepository&MockObject $providerRepository;
     private PersistenceManagerInterface&MockObject $persistenceManager;
-    private ProviderAdapterRegistry&MockObject $providerAdapterRegistry;
+    private ProviderAdapterRegistryInterface&MockObject $providerAdapterRegistry;
     private ModelDiscoveryInterface&MockObject $modelDiscovery;
     private TestPromptResolverInterface&MockObject $testPromptResolver;
     private ModelController $subject;
@@ -57,7 +57,7 @@ final class ModelControllerTest extends TestCase
         $this->modelRepository = $this->createMock(ModelRepository::class);
         $this->providerRepository = $this->createMock(ProviderRepository::class);
         $this->persistenceManager = $this->createMock(PersistenceManagerInterface::class);
-        $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+        $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $this->modelDiscovery = $this->createMock(ModelDiscoveryInterface::class);
         $this->testPromptResolver = $this->createMock(TestPromptResolverInterface::class);
         $this->testPromptResolver->method('resolve')->willReturn('Hello, test prompt');

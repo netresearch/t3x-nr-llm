@@ -18,7 +18,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
-use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
@@ -43,7 +43,7 @@ final class ConfigurationControllerTest extends TestCase
     private LlmConfigurationRepository&MockObject $configurationRepository;
     private LlmConfigurationService&MockObject $configurationService;
     private LlmServiceManagerInterface&MockObject $llmServiceManager;
-    private ProviderAdapterRegistry&MockObject $providerAdapterRegistry;
+    private ProviderAdapterRegistryInterface&MockObject $providerAdapterRegistry;
     private ModelRepository&MockObject $modelRepository;
     private TestPromptResolverInterface&MockObject $testPromptResolver;
     private ConfigurationController $subject;
@@ -55,7 +55,7 @@ final class ConfigurationControllerTest extends TestCase
         $this->configurationRepository = $this->createMock(LlmConfigurationRepository::class);
         $this->configurationService = $this->createMock(LlmConfigurationService::class);
         $this->llmServiceManager = $this->createMock(LlmServiceManagerInterface::class);
-        $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+        $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $this->modelRepository = $this->createMock(ModelRepository::class);
         $this->testPromptResolver = $this->createMock(TestPromptResolverInterface::class);
         $this->testPromptResolver->method('resolve')->willReturn('Hello, test prompt');

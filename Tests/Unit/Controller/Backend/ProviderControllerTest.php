@@ -12,7 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
-use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
+use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -34,7 +34,7 @@ final class ProviderControllerTest extends TestCase
 {
     private ProviderRepository&MockObject $providerRepository;
     private PersistenceManagerInterface&MockObject $persistenceManager;
-    private ProviderAdapterRegistry&MockObject $providerAdapterRegistry;
+    private ProviderAdapterRegistryInterface&MockObject $providerAdapterRegistry;
     private ProviderController $subject;
 
     protected function setUp(): void
@@ -42,7 +42,7 @@ final class ProviderControllerTest extends TestCase
         parent::setUp();
 
         $this->providerRepository = $this->createMock(ProviderRepository::class);
-        $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistry::class);
+        $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $this->persistenceManager = $this->createMock(PersistenceManagerInterface::class);
 
         // Create controller using reflection to inject only required dependencies
