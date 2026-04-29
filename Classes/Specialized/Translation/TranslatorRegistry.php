@@ -32,7 +32,7 @@ final class TranslatorRegistry implements TranslatorRegistryInterface, Singleton
      * @param iterable<TranslatorInterface> $translators
      */
     public function __construct(
-        #[TaggedIterator('nr_llm.translator')]
+        #[TaggedIterator(tag: 'nr_llm.translator', defaultPriorityMethod: 'getPriority')]
         iterable $translators,
     ) {
         foreach ($translators as $translator) {

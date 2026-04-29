@@ -8,12 +8,14 @@
 declare(strict_types=1);
 
 use Netresearch\NrLlm\DependencyInjection\ProviderCompilerPass;
+use Netresearch\NrLlm\DependencyInjection\TranslatorCompilerPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use TYPO3\CMS\Dashboard\Widgets\WidgetInterface;
 
 return static function (ContainerConfigurator $containerConfigurator, ContainerBuilder $containerBuilder): void {
     $containerBuilder->addCompilerPass(new ProviderCompilerPass());
+    $containerBuilder->addCompilerPass(new TranslatorCompilerPass());
 
     // Dashboard widgets ship only when typo3/cms-dashboard is installed.
     // Guarding here keeps TYPO3 installs without dashboard from blowing up

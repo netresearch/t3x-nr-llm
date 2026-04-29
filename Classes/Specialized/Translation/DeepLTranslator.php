@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized\Translation;
 
 use Exception;
+use Netresearch\NrLlm\Attribute\AsTranslator;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -36,6 +37,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  *
  * @see https://developers.deepl.com/docs
  */
+#[AsTranslator]
 final class DeepLTranslator implements TranslatorInterface
 {
     private const API_VERSION = 'v2';
@@ -91,6 +93,11 @@ final class DeepLTranslator implements TranslatorInterface
     public function getName(): string
     {
         return 'DeepL Translation';
+    }
+
+    public static function getPriority(): int
+    {
+        return 90;
     }
 
     public function isAvailable(): bool

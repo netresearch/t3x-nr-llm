@@ -148,19 +148,15 @@ services:
   # ========================================
   # Specialized Translators
   # ========================================
-  # All translators are registered via tags and auto-configured
-
-  Netresearch\NrLlm\Specialized\Translation\LlmTranslator:
-    public: true
-    tags:
-      - name: nr_llm.translator
-        priority: 100
-
-  Netresearch\NrLlm\Specialized\Translation\DeepLTranslator:
-    public: true
-    tags:
-      - name: nr_llm.translator
-        priority: 90
+  # Translators are marked with #[AsTranslator] on the class.
+  # TranslatorCompilerPass scans for the attribute and auto-tags matching
+  # services with `nr_llm.translator`. Translator identifier and ordering
+  # priority live on the TranslatorInterface methods (`getIdentifier()`,
+  # `getPriority()`); TranslatorRegistry consumes the tagged iterable via
+  # #[TaggedIterator(defaultPriorityMethod: 'getPriority')]. Services
+  # remain private — the registry never resolves them by class name.
+  # Services.yaml `tags:` entries still work for third-party translators
+  # outside the Netresearch\NrLlm\Specialized\Translation\ namespace.
 
   # ========================================
   # Speech Services
