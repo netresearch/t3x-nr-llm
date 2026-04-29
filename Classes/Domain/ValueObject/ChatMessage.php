@@ -11,31 +11,61 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
 
 use InvalidArgumentException;
 use JsonSerializable;
+use Netresearch\NrLlm\Domain\Enum\MessageRole;
 
 /**
  * Value Object representing a chat message.
  *
  * Immutable representation of a message in a chat conversation,
- * consisting of a role (system, user, assistant) and content.
+ * consisting of a role (system, user, assistant, tool) and content.
+ *
+ * The constructor accepts either the `MessageRole` enum or a raw string;
+ * unknown strings are rejected with the same `InvalidArgumentException`
+ * code as before this class moved to the enum so downstream catches stay
+ * stable. The public `string $role` field is preserved for back-compat —
+ * it is sourced from the enum's value, so the two cannot drift. New
+ * code is encouraged to read `getRole(): MessageRole` instead of the
+ * string field.
  */
 final readonly class ChatMessage implements JsonSerializable
 {
-    private const VALID_ROLES = ['system', 'user', 'assistant', 'tool'];
+    public string $role;
 
     /**
-     * @param string $role    The message role (system, user, assistant, tool)
-     * @param string $content The message content
+     * @param string|MessageRole $role Either a backed enum value or its
+     *                                 string equivalent — the legacy
+     *                                 string form is preserved so
+     *                                 existing call sites do not need
+     *                                 to migrate immediately.
      */
     public function __construct(
-        public string $role,
+        string|MessageRole $role,
         public string $content,
     ) {
-        if (!in_array($this->role, self::VALID_ROLES, true)) {
+        $resolved = $role instanceof MessageRole ? $role : MessageRole::tryFrom($role);
+        if ($resolved === null) {
             throw new InvalidArgumentException(
-                sprintf('Invalid role "%s". Valid roles: %s', $this->role, implode(', ', self::VALID_ROLES)),
+                sprintf(
+                    'Invalid role "%s". Valid roles: %s',
+                    is_string($role) ? $role : $role->value,
+                    implode(', ', MessageRole::values()),
+                ),
                 1736502001,
             );
         }
+        $this->role = $resolved->value;
+    }
+
+    /**
+     * Get the message role as the typed enum.
+     *
+     * Prefer this over reading the `$role` string field in new code —
+     * the enum gives `match` exhaustiveness and prevents typos.
+     */
+    public function getRole(): MessageRole
+    {
+        // Cannot return null: the constructor already validated the value.
+        return MessageRole::from($this->role);
     }
 
     /**
@@ -43,7 +73,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public static function system(string $content): self
     {
-        return new self('system', $content);
+        return new self(MessageRole::System, $content);
     }
 
     /**
@@ -51,7 +81,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public static function user(string $content): self
     {
-        return new self('user', $content);
+        return new self(MessageRole::User, $content);
     }
 
     /**
@@ -59,7 +89,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public static function assistant(string $content): self
     {
-        return new self('assistant', $content);
+        return new self(MessageRole::Assistant, $content);
     }
 
     /**
@@ -67,7 +97,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public static function tool(string $content): self
     {
-        return new self('tool', $content);
+        return new self(MessageRole::Tool, $content);
     }
 
     /**
@@ -109,7 +139,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public function isSystem(): bool
     {
-        return $this->role === 'system';
+        return $this->role === MessageRole::System->value;
     }
 
     /**
@@ -117,7 +147,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public function isUser(): bool
     {
-        return $this->role === 'user';
+        return $this->role === MessageRole::User->value;
     }
 
     /**
@@ -125,7 +155,7 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public function isAssistant(): bool
     {
-        return $this->role === 'assistant';
+        return $this->role === MessageRole::Assistant->value;
     }
 
     /**
@@ -133,16 +163,20 @@ final readonly class ChatMessage implements JsonSerializable
      */
     public function isTool(): bool
     {
-        return $this->role === 'tool';
+        return $this->role === MessageRole::Tool->value;
     }
 
     /**
      * Get valid roles.
      *
+     * Retained for back-compat with callers that consume the string list.
+     * New code should call `MessageRole::values()` (or `MessageRole::cases()`)
+     * directly.
+     *
      * @return list<string>
      */
     public static function getValidRoles(): array
     {
-        return self::VALID_ROLES;
+        return MessageRole::values();
     }
 }

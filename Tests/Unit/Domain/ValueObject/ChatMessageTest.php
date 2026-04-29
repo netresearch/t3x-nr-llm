@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
 use InvalidArgumentException;
+use Netresearch\NrLlm\Domain\Enum\MessageRole;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -17,6 +18,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
 #[CoversClass(ChatMessage::class)]
+#[CoversClass(MessageRole::class)]
 class ChatMessageTest extends AbstractUnitTestCase
 {
     // ──────────────────────────────────────────────
@@ -87,6 +89,26 @@ class ChatMessageTest extends AbstractUnitTestCase
         $message = new ChatMessage('user', '');
 
         self::assertSame('', $message->content);
+    }
+
+    #[Test]
+    public function constructorAcceptsMessageRoleEnumDirectly(): void
+    {
+        $content = $this->faker->sentence();
+
+        $message = new ChatMessage(MessageRole::Assistant, $content);
+
+        self::assertSame('assistant', $message->role);
+        self::assertSame(MessageRole::Assistant, $message->getRole());
+        self::assertSame($content, $message->content);
+    }
+
+    #[Test]
+    public function getRoleReturnsTypedEnumForStringConstruction(): void
+    {
+        $message = new ChatMessage('tool', 'output');
+
+        self::assertSame(MessageRole::Tool, $message->getRole());
     }
 
     // ──────────────────────────────────────────────
