@@ -270,11 +270,11 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
         unset($optionsArray['provider']);
 
-        $normalisedContent = array_map(
+        $normalisedContent = array_values(array_map(
             static fn(VisionContent|array $item): VisionContent
                 => $item instanceof VisionContent ? $item : VisionContent::fromArray($item),
             $content,
-        );
+        ));
 
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Vision, $providerKey),
@@ -340,10 +340,10 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         unset($optionsArray['provider']);
 
         $normalisedMessages = $this->normaliseMessages($messages);
-        $normalisedTools    = array_map(
+        $normalisedTools    = array_values(array_map(
             static fn(ToolSpec|array $tool): ToolSpec => $tool instanceof ToolSpec ? $tool : ToolSpec::fromArray($tool),
             $tools,
-        );
+        ));
 
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Tools, $providerKey),
@@ -525,14 +525,16 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     private function normaliseMessages(array $messages): array
     {
-        return array_map(
+        return array_values(array_map(
             static function (ChatMessage|array $message): ChatMessage|array {
                 if ($message instanceof ChatMessage) {
                     return $message;
                 }
 
                 if (
-                    array_keys($message) === ['role', 'content']
+                    count($message) === 2
+                    && array_key_exists('role', $message)
+                    && array_key_exists('content', $message)
                     && is_string($message['role'])
                     && is_string($message['content'])
                 ) {
@@ -542,7 +544,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                 return $message;
             },
             $messages,
-        );
+        ));
     }
 
     /**

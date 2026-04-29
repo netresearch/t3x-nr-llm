@@ -471,6 +471,14 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         self::assertNotNull($result->toolCalls);
         self::assertCount(1, $result->toolCalls);
         self::assertSame('echo', $result->toolCalls[0]->name);
+
+        // The provider must have received typed ToolSpec instances — otherwise
+        // LlmServiceManager forwarded the legacy array shape unchanged and
+        // the normalisation contract is broken.
+        self::assertCount(1, $toolProvider->capturedTools);
+        self::assertInstanceOf(ToolSpec::class, $toolProvider->capturedTools[0]);
+        self::assertSame('echo', $toolProvider->capturedTools[0]->name);
+        self::assertSame('echoes input', $toolProvider->capturedTools[0]->description);
     }
 
     #[Test]
@@ -1149,6 +1157,9 @@ class TestableStreamingProvider extends TestableProvider implements StreamingCap
  */
 class TestableToolProvider extends TestableProvider implements ToolCapableInterface
 {
+    /** @var list<ToolSpec> */
+    public array $capturedTools = [];
+
     public function __construct()
     {
         parent::__construct('openai-tools', 'OpenAI Tools', true);
@@ -1156,9 +1167,10 @@ class TestableToolProvider extends TestableProvider implements ToolCapableInterf
 
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
-        // Return response with tool calls from parent
-        $response = $this->chatCompletion($messages, $options);
-        return $response;
+        // Capture so tests can assert that LlmServiceManager normalised
+        // legacy array fixtures into typed ToolSpec instances before forwarding.
+        $this->capturedTools = $tools;
+        return $this->chatCompletion($messages, $options);
     }
 
     public function supportsTools(): bool

@@ -603,20 +603,22 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $capabilities = [];
         foreach ($providers as $provider) {
             $models = $this->modelRepository->findByProvider($provider);
-            $capabilities[$provider->getIdentifier()] = [
-                'provider' => $provider->getName(),
-                'adapterType' => $provider->getAdapterType(),
-                'modelCount' => $models->count(),
-                'models' => [],
-            ];
 
+            $modelEntries = [];
             foreach ($models as $model) {
-                $capabilities[$provider->getIdentifier()]['models'][] = [
+                $modelEntries[] = [
                     'name' => $model->getName(),
                     'modelId' => $model->getModelId(),
                     'contextLength' => $model->getContextLength(),
                 ];
             }
+
+            $capabilities[$provider->getIdentifier()] = [
+                'provider' => $provider->getName(),
+                'adapterType' => $provider->getAdapterType(),
+                'modelCount' => $models->count(),
+                'models' => $modelEntries,
+            ];
         }
 
         // Each provider should have retrievable capabilities
