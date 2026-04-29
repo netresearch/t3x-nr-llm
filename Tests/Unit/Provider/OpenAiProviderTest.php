@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
@@ -485,8 +486,8 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function analyzeImageReturnsVisionResponse(): void
     {
         $content = [
-            ['type' => 'text', 'text' => 'What is in this image?'],
-            ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/image.jpg']],
+            VisionContent::fromArray(['type' => 'text', 'text' => 'What is in this image?']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/image.jpg']]),
         ];
 
         $apiResponse = [
@@ -516,8 +517,8 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function analyzeImageWithSystemPrompt(): void
     {
         $content = [
-            ['type' => 'text', 'text' => 'Describe this'],
-            ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,abc123']],
+            VisionContent::fromArray(['type' => 'text', 'text' => 'Describe this']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,abc123']]),
         ];
 
         $apiResponse = [
@@ -1136,8 +1137,8 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     public function analyzeImageWithCustomModel(): void
     {
         $content = [
-            ['type' => 'text', 'text' => 'What is this?'],
-            ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/img.jpg']],
+            VisionContent::fromArray(['type' => 'text', 'text' => 'What is this?']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/img.jpg']]),
         ];
 
         $apiResponse = [

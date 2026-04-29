@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
@@ -82,7 +83,11 @@ interface LlmServiceManagerInterface
     public function embed(string|array $input, ?EmbeddingOptions $options = null): EmbeddingResponse;
 
     /**
-     * @param array<int, array{type: string, image_url?: array{url: string}, text?: string}> $content
+     * Legacy array-shaped vision-content fixtures are accepted for
+     * back-compat and normalised via `VisionContent::fromArray()`
+     * before dispatch.
+     *
+     * @param list<VisionContent|array<string, mixed>> $content
      */
     public function vision(array $content, ?VisionOptions $options = null): VisionResponse;
 

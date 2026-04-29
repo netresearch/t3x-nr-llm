@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
@@ -248,7 +249,13 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     /**
      * Analyze an image with vision capabilities.
      *
-     * @param array<int, array{type: string, image_url?: array{url: string}, text?: string}> $content
+     * Accepts either typed `VisionContent` instances or legacy array
+     * fixtures (`{type: 'text'|'image_url', ...}`) for back-compat —
+     * array entries are normalised via `VisionContent::fromArray()` so
+     * the downstream provider always receives `list<VisionContent>` and
+     * never has to defend against mixed input.
+     *
+     * @param list<VisionContent|array<string, mixed>> $content
      */
     public function vision(array $content, ?VisionOptions $options = null): VisionResponse
     {
@@ -257,10 +264,16 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
         unset($optionsArray['provider']);
 
+        $normalisedContent = array_map(
+            static fn(VisionContent|array $item): VisionContent
+                => $item instanceof VisionContent ? $item : VisionContent::fromArray($item),
+            $content,
+        );
+
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Vision, $providerKey),
             ProviderOperation::Vision,
-            function () use ($content, $optionsArray, $providerKey): VisionResponse {
+            function () use ($normalisedContent, $optionsArray, $providerKey): VisionResponse {
                 $provider = $this->getProvider($providerKey);
                 if (!$provider instanceof VisionCapableInterface) {
                     throw new UnsupportedFeatureException(
@@ -269,7 +282,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                     );
                 }
 
-                return $provider->analyzeImage($content, $optionsArray);
+                return $provider->analyzeImage($normalisedContent, $optionsArray);
             },
         );
     }

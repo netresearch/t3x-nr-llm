@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -615,8 +616,8 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     public function analyzeImageReturnsVisionResponse(): void
     {
         $content = [
-            ['type' => 'text', 'text' => 'Describe this image'],
-            ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/image.png']],
+            VisionContent::fromArray(['type' => 'text', 'text' => 'Describe this image']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/image.png']]),
         ];
 
         $apiResponse = [
@@ -645,7 +646,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     #[Test]
     public function analyzeImageWithSystemPrompt(): void
     {
-        $content = [['type' => 'text', 'text' => 'What is this?']];
+        $content = [VisionContent::fromArray(['type' => 'text', 'text' => 'What is this?'])];
         $options = ['system_prompt' => 'You are a helpful assistant'];
 
         $apiResponse = [
@@ -1260,7 +1261,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                 $this->createJsonResponseMock($visionResponse),
             );
 
-        $content = [['type' => 'text', 'text' => 'Describe this']];
+        $content = [VisionContent::fromArray(['type' => 'text', 'text' => 'Describe this'])];
         $result = $this->subject->analyzeImage($content);
 
         self::assertInstanceOf(VisionResponse::class, $result);
