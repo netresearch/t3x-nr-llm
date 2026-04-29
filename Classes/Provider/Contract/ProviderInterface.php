@@ -33,11 +33,15 @@ interface ProviderInterface
     public function supportsFeature(string|ModelCapability $feature): bool;
 
     /**
-     * `LlmServiceManager` normalises every entry to a `ChatMessage` before
-     * forwarding the call. Implementations called directly (e.g. from tests
-     * or one-off scripts) may also receive legacy `['role' => ..., 'content'
-     * => ...]` array fixtures; each implementation is responsible for
-     * normalising mixed input via `ChatMessage::fromArray()`.
+     * `LlmServiceManager` may forward simple `{role, content}` fixtures as
+     * typed `ChatMessage` instances, but richer provider-specific shapes
+     * (tool result messages, multimodal content) are passed through as
+     * arrays so their additional fields survive. Implementations called
+     * directly (e.g. from tests or one-off scripts) may also receive
+     * legacy `['role' => ..., 'content' => ...]` array fixtures.
+     * Implementations should therefore normalise mixed input by converting
+     * `ChatMessage` entries via `toArray()` and leaving array fixtures
+     * untouched.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $options

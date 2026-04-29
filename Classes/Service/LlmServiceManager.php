@@ -506,22 +506,41 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Normalise a public-API messages list into `list<ChatMessage>`.
+     * Normalise a public-API messages list for forwarding to providers.
      *
-     * Legacy array fixtures (`['role' => '...', 'content' => '...']`) are
-     * routed through `ChatMessage::fromArray()` so providers downstream
-     * always receive typed instances and never have to defend against
-     * mixed input. Pre-typed entries pass through verbatim.
+     * Simple legacy fixtures matching the `ChatMessage` shape (`{role: string,
+     * content: string}` only) are routed through `ChatMessage::fromArray()`
+     * so providers downstream see typed VOs whenever the sender used the
+     * documented shape. Richer provider-specific arrays carrying
+     * `tool_call_id`, `tool_calls`, `name`, or multimodal `content` arrays
+     * are passed through unchanged so their additional fields survive the
+     * round-trip — `ChatMessage` does not currently model those shapes and
+     * eagerly running them through `fromArray()` would silently drop the
+     * extra keys (and break `ClaudeProvider::convertMessagesForClaude()` for
+     * tool-result and multimodal messages).
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      *
-     * @return list<ChatMessage>
+     * @return list<ChatMessage|array<string, mixed>>
      */
     private function normaliseMessages(array $messages): array
     {
         return array_map(
-            static fn(ChatMessage|array $message): ChatMessage
-                => $message instanceof ChatMessage ? $message : ChatMessage::fromArray($message),
+            static function (ChatMessage|array $message): ChatMessage|array {
+                if ($message instanceof ChatMessage) {
+                    return $message;
+                }
+
+                if (
+                    array_keys($message) === ['role', 'content']
+                    && is_string($message['role'])
+                    && is_string($message['content'])
+                ) {
+                    return ChatMessage::fromArray($message);
+                }
+
+                return $message;
+            },
             $messages,
         );
     }
