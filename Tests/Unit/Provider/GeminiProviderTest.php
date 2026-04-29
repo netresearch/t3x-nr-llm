@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -338,7 +339,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         ];
 
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_weather',
@@ -350,7 +351,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
                         ],
                     ],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -671,14 +672,14 @@ class GeminiProviderTest extends AbstractUnitTestCase
         ];
 
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_weather',
                     'description' => 'Get current weather',
                     'parameters' => ['type' => 'object'],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -728,14 +729,14 @@ class GeminiProviderTest extends AbstractUnitTestCase
         ];
 
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_weather',
                     'description' => 'Get weather',
                     'parameters' => ['type' => 'object'],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -1250,7 +1251,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         ];
 
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_weather',
@@ -1260,7 +1261,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
                         'properties' => ['location' => ['type' => 'string']],
                     ],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -1317,14 +1318,14 @@ class GeminiProviderTest extends AbstractUnitTestCase
         ];
 
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_weather',
                     'description' => 'Get weather',
                     'parameters' => ['type' => 'object'],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -1380,14 +1381,14 @@ class GeminiProviderTest extends AbstractUnitTestCase
         ];
 
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_weather',
                     'description' => 'Get weather',
                     'parameters' => ['type' => 'object', 'properties' => ['city' => ['type' => 'string']]],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [

@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
@@ -141,7 +142,7 @@ final class GeminiProvider extends AbstractProvider implements
 
     /**
      * @param array<int, array<string, mixed>> $messages
-     * @param array<int, array<string, mixed>> $tools
+     * @param list<ToolSpec>                   $tools
      * @param array<string, mixed>             $options
      */
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
@@ -149,17 +150,13 @@ final class GeminiProvider extends AbstractProvider implements
         $model = $this->getString($options, 'model', $this->getDefaultModel());
         $geminiContents = $this->convertToGeminiFormat($messages);
 
-        // Convert OpenAI tool format to Gemini format
+        // Convert OpenAI-shaped ToolSpec into Gemini's `functionDeclarations` format.
         $geminiTools = [
-            'functionDeclarations' => array_map(function (array $tool): array {
-                $toolArray = $this->asArray($tool);
-                $function = $this->getArray($toolArray, 'function');
-                return [
-                    'name' => $this->getString($function, 'name'),
-                    'description' => $this->getString($function, 'description'),
-                    'parameters' => $this->getArray($function, 'parameters'),
-                ];
-            }, $tools),
+            'functionDeclarations' => array_map(static fn(ToolSpec $spec): array => [
+                'name'        => $spec->name,
+                'description' => $spec->description,
+                'parameters'  => $spec->parameters,
+            ], $tools),
         ];
 
         $payload = [

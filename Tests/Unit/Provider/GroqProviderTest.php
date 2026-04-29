@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\GroqProvider;
@@ -215,7 +216,7 @@ class GroqProviderTest extends AbstractUnitTestCase
         ];
 
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_weather',
@@ -227,7 +228,7 @@ class GroqProviderTest extends AbstractUnitTestCase
                         ],
                     ],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -360,14 +361,14 @@ class GroqProviderTest extends AbstractUnitTestCase
 
         $messages = [['role' => 'user', 'content' => 'Test']];
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'test_function',
                     'description' => 'A test function',
                     'parameters' => ['type' => 'object', 'properties' => []],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -491,14 +492,14 @@ class GroqProviderTest extends AbstractUnitTestCase
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_data',
                     'description' => 'Get data',
                     'parameters' => ['type' => 'object'],
                 ],
-            ],
+            ]),
         ];
 
         $result = $subject->chatCompletionWithTools(

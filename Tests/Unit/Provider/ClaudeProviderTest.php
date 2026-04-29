@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
@@ -311,7 +312,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     {
         $messages = [['role' => 'user', 'content' => 'What is the weather?']];
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_weather',
@@ -321,7 +322,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
                         'properties' => ['location' => ['type' => 'string']],
                     ],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -359,7 +360,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsHandlesToolChoice(): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]]];
+        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
         $options = ['tool_choice' => 'auto'];
 
         $apiResponse = [
@@ -388,7 +389,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             ['role' => 'system', 'content' => 'You are helpful'],
             ['role' => 'user', 'content' => 'test'],
         ];
-        $tools = [['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]]];
+        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
 
         $apiResponse = [
             'id' => 'msg_test',
@@ -413,7 +414,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsMixedContentBlocks(): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]]];
+        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
 
         $apiResponse = [
             'id' => 'msg_test',
@@ -448,7 +449,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsMapsDifferentToolChoices(mixed $toolChoice): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]]];
+        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
         $options = ['tool_choice' => $toolChoice];
 
         $apiResponse = [
@@ -900,7 +901,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsExtractsThinking(): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]]];
+        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
 
         $apiResponse = [
             'id' => 'msg_test',
@@ -976,14 +977,14 @@ class ClaudeProviderTest extends AbstractUnitTestCase
             ],
         ];
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'describe_image',
                     'description' => 'Describe an image',
                     'parameters' => ['type' => 'object'],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -1101,7 +1102,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_weather',
@@ -1111,7 +1112,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
                         'properties' => ['location' => ['type' => 'string']],
                     ],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -1161,14 +1162,14 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_weather',
                     'description' => 'Get weather',
                     'parameters' => ['type' => 'object'],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -1217,10 +1218,10 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         ];
 
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => ['name' => 'get_weather', 'description' => 'Get weather', 'parameters' => ['type' => 'object']],
-            ],
+            ]),
         ];
 
         $apiResponse = [

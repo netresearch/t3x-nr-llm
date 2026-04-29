@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -471,7 +472,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         $messages = [['role' => 'user', 'content' => 'What is the weather?']];
         $tools = [
-            [
+            ToolSpec::fromArray([
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_weather',
@@ -483,7 +484,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                         ],
                     ],
                 ],
-            ],
+            ]),
         ];
 
         $apiResponse = [
@@ -530,7 +531,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     public function chatCompletionWithToolsHandlesToolChoice(): void
     {
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [['type' => 'function', 'function' => ['name' => 'test']]];
+        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test']])];
         $options = ['tool_choice' => 'auto'];
 
         $apiResponse = [
@@ -1169,7 +1170,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $provider = $this->createProviderWithConfig(['autoFallback' => false]);
 
         $messages = [['role' => 'user', 'content' => 'test']];
-        $tools = [['type' => 'function', 'function' => ['name' => 'test']]];
+        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test']])];
 
         $apiResponse = [
             'id' => 'gen-test',
