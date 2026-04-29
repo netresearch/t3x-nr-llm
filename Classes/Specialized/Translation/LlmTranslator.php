@@ -23,7 +23,7 @@ use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
  * This is the default translator and is always available if any LLM provider
  * is configured.
  */
-#[AsTranslator(identifier: 'llm', priority: 100)]
+#[AsTranslator]
 final readonly class LlmTranslator implements TranslatorInterface
 {
     private const SUPPORTED_LANGUAGES = [
@@ -57,6 +57,11 @@ final readonly class LlmTranslator implements TranslatorInterface
     public function getName(): string
     {
         return 'LLM-based Translation';
+    }
+
+    public function getPriority(): int
+    {
+        return 100;
     }
 
     public function isAvailable(): bool

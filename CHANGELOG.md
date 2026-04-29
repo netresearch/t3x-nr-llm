@@ -25,12 +25,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `e2e-backend` (lowercase, conventional).
 - E2E test fixtures use vault-UUID-style placeholders or runtime-built
   prefix concatenations rather than literal API-key strings.
-- Specialized translators register via the new `#[AsTranslator(identifier:
-  '...', priority: N)]` attribute, mirroring the `#[AsLlmProvider]` pattern
-  used for LLM providers. `TranslatorCompilerPass` auto-tags the matching
-  services so the existing `Services.yaml` `tags:` entries on
-  `LlmTranslator` / `DeepLTranslator` are no longer needed (and were
-  removed). Third-party translators outside the
+- Specialized translators register via the new `#[AsTranslator]` marker
+  attribute, mirroring the `#[AsLlmProvider]` pattern used for LLM
+  providers. The attribute carries no fields — translator identifier
+  comes from `TranslatorInterface::getIdentifier()` (existing) and
+  registration order from the new `TranslatorInterface::getPriority()`
+  method (used by Symfony's `#[TaggedIterator(defaultPriorityMethod:
+  'getPriority')]` in `TranslatorRegistry`). `TranslatorCompilerPass`
+  auto-tags matching services so the existing `Services.yaml` `tags:`
+  entries on `LlmTranslator` / `DeepLTranslator` are no longer needed
+  (and were removed). Third-party translators outside the
   `Netresearch\NrLlm\Specialized\Translation\` namespace can keep using
   the legacy yaml-tag path; both mechanisms remain supported.
 

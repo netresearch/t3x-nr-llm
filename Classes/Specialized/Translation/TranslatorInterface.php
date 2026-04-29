@@ -30,6 +30,16 @@ interface TranslatorInterface
     public function getName(): string;
 
     /**
+     * Get the registration priority of this translator.
+     *
+     * Higher priority translators are listed first by Symfony's
+     * `#[TaggedIterator(defaultPriorityMethod: 'getPriority')]` collection
+     * in `TranslatorRegistry`. This is an ordering hint only — the
+     * registry resolves translators by `getIdentifier()` at runtime.
+     */
+    public function getPriority(): int;
+
+    /**
      * Check if translator is available (configured and ready).
      */
     public function isAvailable(): bool;

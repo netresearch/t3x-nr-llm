@@ -37,7 +37,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  *
  * @see https://developers.deepl.com/docs
  */
-#[AsTranslator(identifier: 'deepl', priority: 90)]
+#[AsTranslator]
 final class DeepLTranslator implements TranslatorInterface
 {
     private const API_VERSION = 'v2';
@@ -93,6 +93,11 @@ final class DeepLTranslator implements TranslatorInterface
     public function getName(): string
     {
         return 'DeepL Translation';
+    }
+
+    public function getPriority(): int
+    {
+        return 90;
     }
 
     public function isAvailable(): bool

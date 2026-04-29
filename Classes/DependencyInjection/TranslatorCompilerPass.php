@@ -28,14 +28,23 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  * translators outside the scan namespace can opt in via the legacy yaml
  * tag path, which remains the supported escape hatch.
  */
-final class TranslatorCompilerPass implements CompilerPassInterface
+final readonly class TranslatorCompilerPass implements CompilerPassInterface
 {
     /**
-     * Namespace prefix used to limit the attribute-discovery scan.
+     * Default namespace prefix used to limit the attribute-discovery scan.
      * Third-party translators that sit outside this namespace can still
      * opt in via a manual `nr_llm.translator` tag in their own services.yaml.
      */
-    private const SCAN_NAMESPACE_PREFIX = 'Netresearch\\NrLlm\\Specialized\\Translation\\';
+    public const DEFAULT_SCAN_NAMESPACE_PREFIX = 'Netresearch\\NrLlm\\Specialized\\Translation\\';
+
+    /**
+     * @param string $scanNamespacePrefix Override the default for tests
+     *                                    that need fixture classes outside
+     *                                    the production namespace.
+     */
+    public function __construct(
+        private string $scanNamespacePrefix = self::DEFAULT_SCAN_NAMESPACE_PREFIX,
+    ) {}
 
     public function process(ContainerBuilder $container): void
     {
@@ -45,7 +54,7 @@ final class TranslatorCompilerPass implements CompilerPassInterface
             }
 
             $class = $definition->getClass() ?? $serviceId;
-            if (!is_string($class) || $class === '' || !str_starts_with($class, self::SCAN_NAMESPACE_PREFIX)) {
+            if (!is_string($class) || $class === '' || !str_starts_with($class, $this->scanNamespacePrefix)) {
                 continue;
             }
 
@@ -54,15 +63,16 @@ final class TranslatorCompilerPass implements CompilerPassInterface
                 continue;
             }
 
-            $attributes = $reflection->getAttributes(AsTranslator::class);
-            if ($attributes === []) {
+            if ($reflection->getAttributes(AsTranslator::class) === []) {
                 continue;
             }
 
-            $attribute = $attributes[0]->newInstance();
-
-            $definition->addTag(AsTranslator::TAG_NAME, ['priority' => $attribute->priority]);
-            $definition->setPublic(true);
+            // Tag only — no priority on the tag itself, since
+            // TranslatorRegistry uses #[TaggedIterator(defaultPriorityMethod:
+            // 'getPriority')] to derive ordering from the interface method.
+            // Services stay private: the registry consumes them via the
+            // tagged iterator, so direct container lookup is never needed.
+            $definition->addTag(AsTranslator::TAG_NAME);
         }
     }
 }
