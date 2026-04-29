@@ -95,7 +95,7 @@ final class DeepLTranslator implements TranslatorInterface
         return 'DeepL Translation';
     }
 
-    public function getPriority(): int
+    public static function getPriority(): int
     {
         return 90;
     }

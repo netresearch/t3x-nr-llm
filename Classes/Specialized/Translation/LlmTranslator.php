@@ -59,7 +59,7 @@ final readonly class LlmTranslator implements TranslatorInterface
         return 'LLM-based Translation';
     }
 
-    public function getPriority(): int
+    public static function getPriority(): int
     {
         return 100;
     }

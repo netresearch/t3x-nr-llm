@@ -36,8 +36,12 @@ interface TranslatorInterface
      * `#[TaggedIterator(defaultPriorityMethod: 'getPriority')]` collection
      * in `TranslatorRegistry`. This is an ordering hint only — the
      * registry resolves translators by `getIdentifier()` at runtime.
+     *
+     * Must be `static`: Symfony's PriorityTaggedServiceTrait calls this
+     * method without instantiating the translator (avoids constructing
+     * services with HTTP-client dependencies just to learn their order).
      */
-    public function getPriority(): int;
+    public static function getPriority(): int;
 
     /**
      * Check if translator is available (configured and ready).
