@@ -301,9 +301,16 @@ final class ClaudeProvider extends AbstractProvider implements
             }
 
             $imageUrl = $item->imageUrl ?? '';
-            // Handle base64 data URLs
+            // Handle base64 data URLs.
+            // analyzeImage() is image-only — skip data URIs whose MIME type
+            // isn't `image/*` rather than forwarding malformed Claude requests
+            // (e.g. `data:application/pdf;base64,...`). Non-image documents
+            // belong on the document path, not vision.
             if (str_starts_with($imageUrl, 'data:')) {
-                if (preg_match('/^data:([^;]+);base64,(.+)$/', $imageUrl, $matches) === 1) {
+                if (
+                    preg_match('/^data:([^;]+);base64,(.+)$/', $imageUrl, $matches) === 1
+                    && str_starts_with($matches[1], 'image/')
+                ) {
                     $claudeContent[] = [
                         'type' => 'image',
                         'source' => [

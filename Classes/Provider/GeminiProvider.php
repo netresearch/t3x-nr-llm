@@ -305,8 +305,14 @@ final class GeminiProvider extends AbstractProvider implements
             }
 
             $imageUrl = $item->imageUrl ?? '';
+            // analyzeImage() is image-only — skip data URIs whose MIME type
+            // isn't `image/*` so non-image documents (e.g. `data:application/pdf`)
+            // never reach the vision endpoint.
             if (str_starts_with($imageUrl, 'data:')) {
-                if (preg_match('/^data:([^;]+);base64,(.+)$/', $imageUrl, $matches) === 1) {
+                if (
+                    preg_match('/^data:([^;]+);base64,(.+)$/', $imageUrl, $matches) === 1
+                    && str_starts_with($matches[1], 'image/')
+                ) {
                     $parts[] = [
                         'inlineData' => [
                             'mimeType' => $matches[1],
