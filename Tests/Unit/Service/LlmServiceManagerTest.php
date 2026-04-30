@@ -40,6 +40,7 @@ use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -985,6 +986,73 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $metadata = $spy->calls[0]['metadata'];
         self::assertSame(21, $metadata[BudgetMiddleware::METADATA_BE_USER_UID]);
         self::assertSame(0.05, $metadata[BudgetMiddleware::METADATA_PLANNED_COST]);
+    }
+
+    #[Test]
+    public function embedPlumbsBudgetMetadataFromOptions(): void
+    {
+        // REC #4 slice 15b — same wiring as chat()/complete() but
+        // through the embed() entry point, which already maintained
+        // its own metadata array (cache keys). Budget keys must
+        // coexist with cache keys without overwriting them.
+        $spy     = new RecordingMiddleware();
+        $manager = $this->buildManagerWithMiddleware([$spy]);
+
+        $options = (new EmbeddingOptions(cacheTtl: 0))
+            ->withBeUserUid(7)
+            ->withPlannedCost(0.42);
+
+        $manager->embed('hello', $options);
+
+        self::assertCount(1, $spy->calls);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertSame(7, $metadata[BudgetMiddleware::METADATA_BE_USER_UID]);
+        self::assertSame(0.42, $metadata[BudgetMiddleware::METADATA_PLANNED_COST]);
+    }
+
+    #[Test]
+    public function embedKeepsBudgetAndCacheMetadataTogether(): void
+    {
+        // Budget metadata must not collide with cache metadata in the
+        // embed() pipeline — both must reach the middleware so
+        // BudgetMiddleware AND CacheMiddleware can both do their job.
+        $spy     = new RecordingMiddleware();
+        $manager = $this->buildManagerWithMiddleware([$spy]);
+
+        $options = (new EmbeddingOptions())
+            ->withBeUserUid(11)
+            ->withPlannedCost(0.05);
+
+        $manager->embed('hello', $options);
+
+        self::assertCount(1, $spy->calls);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertSame(11, $metadata[BudgetMiddleware::METADATA_BE_USER_UID]);
+        self::assertSame(0.05, $metadata[BudgetMiddleware::METADATA_PLANNED_COST]);
+        self::assertArrayHasKey(CacheMiddleware::METADATA_CACHE_KEY, $metadata);
+        self::assertArrayHasKey(CacheMiddleware::METADATA_CACHE_TTL, $metadata);
+    }
+
+    #[Test]
+    public function visionPlumbsBudgetMetadataFromOptions(): void
+    {
+        $spy      = new RecordingMiddleware();
+        $provider = new TestableVisionProvider();
+        $manager  = $this->buildManagerWithMiddleware([$spy], $provider);
+
+        $options = (new VisionOptions())
+            ->withBeUserUid(21)
+            ->withPlannedCost(0.10);
+
+        $manager->vision(
+            [['type' => 'image_url', 'image_url' => ['url' => 'https://example.test/i.png']]],
+            $options,
+        );
+
+        self::assertCount(1, $spy->calls);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertSame(21, $metadata[BudgetMiddleware::METADATA_BE_USER_UID]);
+        self::assertSame(0.10, $metadata[BudgetMiddleware::METADATA_PLANNED_COST]);
     }
 
     #[Test]

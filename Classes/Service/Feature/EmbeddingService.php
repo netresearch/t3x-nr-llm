@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Budget\AutoPopulatesBeUserUidTrait;
+use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 
@@ -20,11 +22,23 @@ use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
  * Caching is handled transparently by `CacheMiddleware` inside
  * `LlmServiceManager::embed()` — this service only owns the vector-math
  * utilities (cosine similarity, normalisation, top-k) and input validation.
+ *
+ * Budget pre-flight (REC #4 slice 15b): mirrors the wiring on
+ * `CompletionService` (slice 15a) — when a caller does not set an
+ * explicit `beUserUid` on the options, the service consults
+ * `BackendUserContextResolverInterface` and populates the option so
+ * `BudgetMiddleware` can enforce per-user limits without every caller
+ * having to remember the wiring. The resolver is optional so unit
+ * tests omit it; production DI always autowires it via
+ * `Configuration/Services.yaml`.
  */
 final readonly class EmbeddingService
 {
+    use AutoPopulatesBeUserUidTrait;
+
     public function __construct(
         private LlmServiceManagerInterface $llmManager,
+        private ?BackendUserContextResolverInterface $beUserContextResolver = null,
     ) {}
 
     /**
@@ -50,7 +64,7 @@ final readonly class EmbeddingService
             throw new InvalidArgumentException('Text cannot be empty', 6048498820);
         }
 
-        return $this->llmManager->embed($text, $options);
+        return $this->llmManager->embed($text, $this->autoPopulateBeUserUid($options ?? new EmbeddingOptions()));
     }
 
     /**
@@ -66,7 +80,7 @@ final readonly class EmbeddingService
             return [];
         }
 
-        $options ??= new EmbeddingOptions();
+        $options = $this->autoPopulateBeUserUid($options ?? new EmbeddingOptions());
         $response = $this->llmManager->embed($texts, $options);
         return $response->embeddings;
     }
@@ -168,4 +182,5 @@ final readonly class EmbeddingService
         return array_map(static fn($x) => $x / $magnitude, $vector);
     }
 
+    // `autoPopulateBeUserUid()` is provided by `AutoPopulatesBeUserUidTrait`.
 }

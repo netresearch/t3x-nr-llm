@@ -276,4 +276,62 @@ class VisionOptionsTest extends AbstractUnitTestCase
         self::assertEquals('openai', $options->getProvider());
         self::assertEquals('gpt-4-vision', $options->getModel());
     }
+
+    #[Test]
+    public function constructorAcceptsBudgetFields(): void
+    {
+        $options = new VisionOptions(beUserUid: 7, plannedCost: 0.42);
+
+        self::assertSame(7, $options->getBeUserUid());
+        self::assertSame(0.42, $options->getPlannedCost());
+    }
+
+    #[Test]
+    public function constructorRejectsNegativeBeUserUid(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('be_user_uid must be >= 0');
+
+        new VisionOptions(beUserUid: -2);
+    }
+
+    #[Test]
+    public function constructorRejectsNegativePlannedCost(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('planned_cost must be >= 0.0');
+
+        new VisionOptions(plannedCost: -0.5);
+    }
+
+    #[Test]
+    public function withBeUserUidReturnsCloneAndValidates(): void
+    {
+        $modified = (new VisionOptions())->withBeUserUid(11);
+
+        self::assertSame(11, $modified->getBeUserUid());
+
+        $this->expectException(InvalidArgumentException::class);
+        (new VisionOptions())->withBeUserUid(-1);
+    }
+
+    #[Test]
+    public function withPlannedCostReturnsCloneAndValidates(): void
+    {
+        $modified = (new VisionOptions())->withPlannedCost(0.05);
+
+        self::assertSame(0.05, $modified->getPlannedCost());
+
+        $this->expectException(InvalidArgumentException::class);
+        (new VisionOptions())->withPlannedCost(-0.01);
+    }
+
+    #[Test]
+    public function budgetFieldsAreOmittedFromToArray(): void
+    {
+        $array = (new VisionOptions(beUserUid: 7, plannedCost: 0.5))->toArray();
+
+        self::assertArrayNotHasKey('be_user_uid', $array);
+        self::assertArrayNotHasKey('planned_cost', $array);
+    }
 }

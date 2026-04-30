@@ -20,19 +20,32 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   resolver returns `null` (rather than `0`) when no BE user is in scope
   so `BudgetMiddleware`'s "skip the check" branch fires for CLI /
   scheduler / FE callers without faking an unauthenticated principal.
-  `CompletionService` injects the resolver and auto-populates
-  `ChatOptions::beUserUid` when the caller did not set one — slice 15a
-  of REC #4 (automatic budget pre-flight wiring; downstream feature
-  services Embedding / Translation / Vision follow in slice 15b).
+  `CompletionService`, `EmbeddingService`, `VisionService` and
+  `TranslationService` inject the resolver and auto-populate
+  `beUserUid` on their respective options when the caller did not set
+  one — slices 15a (`CompletionService`) and 15b (`EmbeddingService` /
+  `VisionService` / `TranslationService`) of REC #4 (automatic budget
+  pre-flight wiring across all feature services).
   `ChatOptions` (and by extension `ToolOptions`) gained typed
   `beUserUid` / `plannedCost` fields with `withBeUserUid()` /
-  `withPlannedCost()` setters; `LlmServiceManager::chat()` translates
-  these into `BudgetMiddleware::METADATA_BE_USER_UID` /
+  `withPlannedCost()` setters; slice 15b extends the same fields to
+  `EmbeddingOptions`, `VisionOptions` and `TranslationOptions`.
+  `LlmServiceManager::chat()` / `complete()` / `chatWithTools()` /
+  `embed()` / `vision()` translate the values into
+  `BudgetMiddleware::METADATA_BE_USER_UID` /
   `METADATA_PLANNED_COST` on the `ProviderCallContext` so the existing
-  middleware reads them without changes. Fields are deliberately kept
-  off `ChatOptions::toArray()` — they are pipeline metadata, not
-  provider-side options, and must never reach the provider wire
-  payload.
+  middleware reads them without changes; the helper
+  `buildBudgetMetadata()` takes raw nullable values rather than a
+  typed option object so every option type can reuse it without a
+  marker interface. Fields are deliberately kept off every option
+  type's `toArray()` — they are pipeline metadata, not provider-side
+  options, and must never reach the provider wire payload.
+  `TranslationService` is the only service that builds `ChatOptions`
+  internally (translate / detectLanguage / scoreTranslationQuality);
+  each construction site forwards `beUserUid` (resolver-resolved or
+  explicit) and `plannedCost` so the BudgetMiddleware sees them.
+  Specialized translators (DeepL et al.) bypass `LlmServiceManager`
+  entirely and are not subject to BudgetMiddleware in this slice.
 
 ### Changed
 

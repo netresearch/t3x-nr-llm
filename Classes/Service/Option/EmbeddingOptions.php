@@ -16,8 +16,10 @@ namespace Netresearch\NrLlm\Service\Option;
  *
  * @phpstan-consistent-constructor
  */
-class EmbeddingOptions extends AbstractOptions
+class EmbeddingOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 {
+    use BudgetFieldsTrait;
+
     private const DEFAULT_CACHE_TTL = 86400; // 24 hours
 
     public function __construct(
@@ -25,7 +27,10 @@ class EmbeddingOptions extends AbstractOptions
         private ?int $dimensions = null,
         private ?int $cacheTtl = self::DEFAULT_CACHE_TTL,
         private ?string $provider = null,
+        ?int $beUserUid = null,
+        ?float $plannedCost = null,
     ) {
+        $this->setBudgetFields($beUserUid, $plannedCost);
         $this->validate();
     }
 
@@ -109,6 +114,8 @@ class EmbeddingOptions extends AbstractOptions
         return $clone;
     }
 
+    // Budget pre-flight setters provided by `BudgetFieldsTrait`.
+
     // ========================================
     // Getters
     // ========================================
@@ -132,6 +139,8 @@ class EmbeddingOptions extends AbstractOptions
     {
         return $this->provider;
     }
+
+    // Budget pre-flight getters provided by `BudgetFieldsTrait`.
 
     // ========================================
     // Array Conversion
@@ -160,5 +169,7 @@ class EmbeddingOptions extends AbstractOptions
         if ($this->cacheTtl !== null && $this->cacheTtl < 0) {
             self::validateRange($this->cacheTtl, 0, PHP_INT_MAX, 'cache_ttl');
         }
+
+        $this->validateBudgetFields();
     }
 }

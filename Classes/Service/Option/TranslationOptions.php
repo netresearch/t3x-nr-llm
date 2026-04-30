@@ -14,8 +14,10 @@ namespace Netresearch\NrLlm\Service\Option;
  *
  * @phpstan-consistent-constructor
  */
-class TranslationOptions extends AbstractOptions
+class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 {
+    use BudgetFieldsTrait;
+
     private const FORMALITIES = ['default', 'formal', 'informal'];
     private const DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
@@ -30,7 +32,10 @@ class TranslationOptions extends AbstractOptions
         private ?int $maxTokens = null,
         private ?string $provider = null,
         private ?string $model = null,
+        ?int $beUserUid = null,
+        ?float $plannedCost = null,
     ) {
+        $this->setBudgetFields($beUserUid, $plannedCost);
         $this->validate();
     }
 
@@ -187,6 +192,8 @@ class TranslationOptions extends AbstractOptions
         return $clone;
     }
 
+    // Budget pre-flight setters provided by `BudgetFieldsTrait`.
+
     // ========================================
     // Getters
     // ========================================
@@ -239,6 +246,8 @@ class TranslationOptions extends AbstractOptions
         return $this->model;
     }
 
+    // Budget pre-flight getters provided by `BudgetFieldsTrait`.
+
     // ========================================
     // Array Conversion
     // ========================================
@@ -279,5 +288,7 @@ class TranslationOptions extends AbstractOptions
         if ($this->maxTokens !== null) {
             self::validatePositiveInt($this->maxTokens, 'max_tokens');
         }
+
+        $this->validateBudgetFields();
     }
 }

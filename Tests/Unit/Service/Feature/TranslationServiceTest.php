@@ -14,9 +14,11 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\Feature\TranslationService;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface;
@@ -1047,5 +1049,127 @@ class TranslationServiceTest extends AbstractUnitTestCase
         $reflection = new ReflectionClass($this->subject);
         $method = $reflection->getMethod('validateOptions');
         $method->invoke($this->subject, ['glossary' => 'not-an-array']);
+    }
+
+    // ==================== budget pre-flight tests (REC #4 slice 15b) ====================
+
+    #[Test]
+    public function translateForwardsResolvedBeUserUidOnInternalChatOptions(): void
+    {
+        // The LLM-based translation path internally builds a ChatOptions
+        // for the manager. The resolver-supplied uid must reach the
+        // internal options so BudgetMiddleware sees it.
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->expects(self::atLeastOnce())
+            ->method('resolveBeUserUid')
+            ->willReturn(42);
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+            $resolver,
+        );
+
+        $llmManagerMock->expects(self::atLeastOnce())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(static fn(ChatOptions $opts): bool
+                    => $opts->getBeUserUid() === 42),
+            )
+            ->willReturn($this->createChatResponse('Hallo Welt'));
+
+        $subject->translate('Hello World', 'de', 'en');
+    }
+
+    #[Test]
+    public function translateRespectsExplicitBeUserUidOverResolver(): void
+    {
+        // Caller-supplied uid wins; resolver must NOT be called.
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->expects(self::never())
+            ->method('resolveBeUserUid');
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+            $resolver,
+        );
+
+        $llmManagerMock->expects(self::atLeastOnce())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(static fn(ChatOptions $opts): bool
+                    => $opts->getBeUserUid() === 99
+                    && $opts->getPlannedCost() === 0.05),
+            )
+            ->willReturn($this->createChatResponse('Hallo Welt'));
+
+        $opts = (new TranslationOptions())
+            ->withBeUserUid(99)
+            ->withPlannedCost(0.05);
+
+        $subject->translate('Hello', 'de', 'en', $opts);
+    }
+
+    #[Test]
+    public function detectLanguageForwardsBudgetFieldsToInternalChatOptions(): void
+    {
+        // Coverage for the second internal ChatOptions construction
+        // site (language detection).
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->method('resolveBeUserUid')->willReturn(7);
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+            $resolver,
+        );
+
+        $llmManagerMock->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(static fn(ChatOptions $opts): bool
+                    => $opts->getBeUserUid() === 7),
+            )
+            ->willReturn($this->createChatResponse('en'));
+
+        $subject->detectLanguage('hello world');
+    }
+
+    #[Test]
+    public function scoreTranslationQualityForwardsBudgetFieldsToInternalChatOptions(): void
+    {
+        // Coverage for the third internal ChatOptions construction
+        // site (quality scoring).
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->method('resolveBeUserUid')->willReturn(11);
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+            $resolver,
+        );
+
+        $llmManagerMock->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(static fn(ChatOptions $opts): bool
+                    => $opts->getBeUserUid() === 11),
+            )
+            ->willReturn($this->createChatResponse('0.9'));
+
+        $subject->scoreTranslationQuality('Hello', 'Hallo', 'de');
     }
 }

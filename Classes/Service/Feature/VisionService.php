@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Budget\AutoPopulatesBeUserUidTrait;
+use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 
@@ -19,15 +21,22 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
  *
  * Provides specialized image analysis with accessibility,
  * SEO, and descriptive prompts.
+ *
+ * Budget pre-flight (REC #4 slice 15b): mirrors `CompletionService`
+ * (slice 15a). The resolver is optional so unit tests omit it;
+ * production DI autowires it.
  */
 final readonly class VisionService
 {
+    use AutoPopulatesBeUserUidTrait;
+
     private const PROMPT_ALT_TEXT = 'Generate a concise alt text for this image, under 125 characters, focused on essential information for screen readers. Be descriptive but brief.';
     private const PROMPT_SEO_TITLE = 'Generate an SEO-optimized title for this image, under 60 characters, that is compelling and keyword-rich for search rankings.';
     private const PROMPT_DESCRIPTION = 'Provide a comprehensive description of this image including subjects, setting, colors, mood, composition, and notable details.';
 
     public function __construct(
         private LlmServiceManagerInterface $llmManager,
+        private ?BackendUserContextResolverInterface $beUserContextResolver = null,
     ) {}
 
     /**
@@ -148,7 +157,7 @@ final readonly class VisionService
         string $prompt,
         ?VisionOptions $options = null,
     ): VisionResponse {
-        $options ??= new VisionOptions();
+        $options = $this->autoPopulateBeUserUid($options ?? new VisionOptions());
         $optionsArray = $options->toArray();
         $this->validateImageUrl($imageUrl);
 
@@ -166,12 +175,20 @@ final readonly class VisionService
             ],
         ];
 
-        // Create new options without detail_level
+        // Create new options without detail_level. Every typed field
+        // must be copied across — the budget pre-flight fields
+        // (`beUserUid` / `plannedCost`) are easy to miss because the
+        // constructor accepts `?T = null` for every parameter, so a
+        // missing field looks like "use the default" to PHPStan. Same
+        // class of bug Gemini caught on PR #177's stop_sequences
+        // rebuild in `CompletionService`.
         $visionOptions = new VisionOptions(
             maxTokens: $options->getMaxTokens(),
             temperature: $options->getTemperature(),
             provider: $options->getProvider(),
             model: $options->getModel(),
+            beUserUid: $options->getBeUserUid(),
+            plannedCost: $options->getPlannedCost(),
         );
 
         return $this->llmManager->vision($content, $visionOptions);
@@ -228,4 +245,6 @@ final readonly class VisionService
             }
         }
     }
+
+    // `autoPopulateBeUserUid()` is provided by `AutoPopulatesBeUserUidTrait`.
 }

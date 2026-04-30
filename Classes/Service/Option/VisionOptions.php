@@ -14,8 +14,10 @@ namespace Netresearch\NrLlm\Service\Option;
  *
  * @phpstan-consistent-constructor
  */
-class VisionOptions extends AbstractOptions
+class VisionOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 {
+    use BudgetFieldsTrait;
+
     private const DETAIL_LEVELS = ['auto', 'low', 'high'];
 
     public function __construct(
@@ -24,7 +26,10 @@ class VisionOptions extends AbstractOptions
         private ?float $temperature = null,
         private ?string $provider = null,
         private ?string $model = null,
+        ?int $beUserUid = null,
+        ?float $plannedCost = null,
     ) {
+        $this->setBudgetFields($beUserUid, $plannedCost);
         $this->validate();
     }
 
@@ -122,6 +127,8 @@ class VisionOptions extends AbstractOptions
         return $clone;
     }
 
+    // Budget pre-flight setters provided by `BudgetFieldsTrait`.
+
     // ========================================
     // Getters
     // ========================================
@@ -150,6 +157,8 @@ class VisionOptions extends AbstractOptions
     {
         return $this->model;
     }
+
+    // Budget pre-flight getters provided by `BudgetFieldsTrait`.
 
     // ========================================
     // Array Conversion
@@ -183,5 +192,7 @@ class VisionOptions extends AbstractOptions
         if ($this->temperature !== null) {
             self::validateRange($this->temperature, 0.0, 2.0, 'temperature');
         }
+
+        $this->validateBudgetFields();
     }
 }
