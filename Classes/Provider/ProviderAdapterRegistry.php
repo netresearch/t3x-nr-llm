@@ -27,11 +27,24 @@ use TYPO3\CMS\Core\SingletonInterface;
  *
  * This registry bridges database Provider entities with PHP adapter implementations.
  * It creates and configures adapter instances on demand based on provider settings.
+ *
+ * The registry is `final` and exposes no public mutator: the adapter map
+ * is the union of {@see self::ADAPTER_CLASS_MAP} (built-ins) and the
+ * `$adapterOverrides` argument passed at construction time. Production
+ * code uses the empty default; tests and edge-case extension scenarios
+ * pass an override map. See audit 2026-04-23 REC #3.
  */
 final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface, SingletonInterface
 {
     /**
      * Mapping of adapter types to provider class names.
+     *
+     * Single source of truth for the built-in adapters that ship with
+     * this extension. New built-in adapter types are added here together
+     * with a {@see AdapterType} enum case. Third parties that need to
+     * substitute a built-in adapter pass an override via the constructor
+     * `$adapterOverrides` argument; runtime mutation is intentionally
+     * not supported.
      *
      * @var array<string, class-string<AbstractProvider>>
      */
@@ -55,40 +68,46 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
     private array $adapterCache = [];
 
     /**
-     * Custom adapter class registrations.
+     * Effective adapter map (built-ins merged with constructor overrides).
+     *
+     * Keys are adapter-type identifiers (matching {@see AdapterType}
+     * values for built-ins, or arbitrary strings for custom types).
+     * Values are FQCNs of `AbstractProvider` subclasses.
      *
      * @var array<string, class-string<AbstractProvider>>
      */
-    private array $customAdapters = [];
+    private readonly array $adapterMap;
 
+    /**
+     * @param array<string, class-string<AbstractProvider>> $adapterOverrides
+     *                                                                        Optional adapter-type → class map. Entries override built-ins
+     *                                                                        on a per-type basis; new keys add custom adapter types. The
+     *                                                                        production container passes an empty array (the default);
+     *                                                                        tests use this seam to exercise override / custom-type /
+     *                                                                        invalid-class handling without runtime mutation.
+     *
+     * @throws ProviderConfigurationException when an override class does not extend AbstractProvider
+     */
     public function __construct(
         private readonly RequestFactoryInterface $requestFactory,
         private readonly StreamFactoryInterface $streamFactory,
         private readonly LoggerInterface $logger,
         private readonly VaultServiceInterface $vault,
         private readonly SecureHttpClientFactory $httpClientFactory,
-    ) {}
-
-    /**
-     * Register a custom adapter class for an adapter type.
-     *
-     * @param string                         $adapterType  The adapter type identifier
-     * @param class-string<AbstractProvider> $adapterClass The adapter class name
-     */
-    public function registerAdapter(string $adapterType, string $adapterClass): void
-    {
-        // @phpstan-ignore function.alreadyNarrowedType (runtime validation for external callers)
-        if (!is_subclass_of($adapterClass, AbstractProvider::class)) {
-            throw new ProviderConfigurationException(
-                sprintf('Adapter class %s must extend %s', $adapterClass, AbstractProvider::class),
-                1735300001,
-            );
+        array $adapterOverrides = [],
+    ) {
+        foreach ($adapterOverrides as $adapterClass) {
+            // @phpstan-ignore function.alreadyNarrowedType (runtime validation for callers passing untyped arrays)
+            if (!is_subclass_of($adapterClass, AbstractProvider::class)) {
+                throw new ProviderConfigurationException(
+                    sprintf('Adapter class %s must extend %s', $adapterClass, AbstractProvider::class),
+                    1735300001,
+                );
+            }
         }
-        $this->customAdapters[$adapterType] = $adapterClass;
-        $this->logger->debug('Registered custom adapter', [
-            'adapterType' => $adapterType,
-            'adapterClass' => $adapterClass,
-        ]);
+
+        // Overrides win over built-ins (array_merge: later keys overwrite).
+        $this->adapterMap = array_merge(self::ADAPTER_CLASS_MAP, $adapterOverrides);
     }
 
     /**
@@ -98,14 +117,8 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
      */
     public function getAdapterClass(string $adapterType): string
     {
-        // Check custom registrations first
-        if (isset($this->customAdapters[$adapterType])) {
-            return $this->customAdapters[$adapterType];
-        }
-
-        // Fall back to built-in mappings
-        if (isset(self::ADAPTER_CLASS_MAP[$adapterType])) {
-            return self::ADAPTER_CLASS_MAP[$adapterType];
+        if (isset($this->adapterMap[$adapterType])) {
+            return $this->adapterMap[$adapterType];
         }
 
         // Default to OpenAI-compatible for unknown types
@@ -120,8 +133,7 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
      */
     public function hasAdapter(string $adapterType): bool
     {
-        return isset($this->customAdapters[$adapterType])
-            || isset(self::ADAPTER_CLASS_MAP[$adapterType]);
+        return isset($this->adapterMap[$adapterType]);
     }
 
     /**
@@ -133,8 +145,9 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
     {
         $adapters = Provider::getAdapterTypes();
 
-        // Add custom adapters
-        foreach ($this->customAdapters as $type => $class) {
+        // Surface override-only / custom types that are not part of the
+        // built-in TCA select list, so backend diagnostics can see them.
+        foreach (array_keys($this->adapterMap) as $type) {
             if (!isset($adapters[$type])) {
                 $adapters[$type] = $type;
             }

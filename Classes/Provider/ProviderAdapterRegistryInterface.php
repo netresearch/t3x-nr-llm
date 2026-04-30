@@ -20,18 +20,16 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
  * Consumers (controllers, the manager, tests) should depend on this
  * interface rather than the concrete `ProviderAdapterRegistry` so the
  * implementation can be substituted without inheritance.
+ *
+ * The contract is **read-only**: there is no public mutator. The set
+ * of adapter classes is fixed at construction time (built-in map +
+ * optional constructor-injected overrides) — see audit 2026-04-23
+ * REC #3 ("lock the registry, no public mutator"). Adding a new
+ * built-in adapter type means adding a case to {@see \Netresearch\NrLlm\Domain\Model\AdapterType}
+ * and an entry to `ProviderAdapterRegistry::ADAPTER_CLASS_MAP`.
  */
 interface ProviderAdapterRegistryInterface
 {
-    /**
-     * Register a custom adapter class for an adapter type.
-     *
-     * @param class-string<AbstractProvider> $adapterClass The adapter class name
-     *
-     * @throws ProviderConfigurationException when the class does not extend AbstractProvider
-     */
-    public function registerAdapter(string $adapterType, string $adapterClass): void;
-
     /**
      * Get an adapter class for the given adapter type.
      *
@@ -42,7 +40,7 @@ interface ProviderAdapterRegistryInterface
     public function getAdapterClass(string $adapterType): string;
 
     /**
-     * Check if an adapter type is supported (built-in or custom).
+     * Check if an adapter type is supported (built-in or override).
      */
     public function hasAdapter(string $adapterType): bool;
 

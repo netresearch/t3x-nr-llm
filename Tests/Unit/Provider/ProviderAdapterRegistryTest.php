@@ -103,59 +103,57 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function registerAdapterOverridesBuiltInType(): void
+    public function constructorOverrideReplacesBuiltInType(): void
     {
-        // Register custom adapter for openai type
-        $this->subject->registerAdapter(AdapterType::OpenAI->value, ClaudeProvider::class);
+        // Override the built-in openai adapter type at construction time.
+        $subject = new ProviderAdapterRegistry(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+            [AdapterType::OpenAI->value => ClaudeProvider::class],
+        );
 
-        $result = $this->subject->getAdapterClass(AdapterType::OpenAI->value);
+        $result = $subject->getAdapterClass(AdapterType::OpenAI->value);
 
-        // Should return custom registration, not built-in
+        // Should return override, not built-in
         self::assertEquals(ClaudeProvider::class, $result);
     }
 
     #[Test]
-    public function registerAdapterAcceptsCustomType(): void
+    public function constructorOverrideAcceptsCustomType(): void
     {
-        $this->subject->registerAdapter('my_custom_provider', GeminiProvider::class);
+        $subject = new ProviderAdapterRegistry(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+            ['my_custom_provider' => GeminiProvider::class],
+        );
 
-        $result = $this->subject->getAdapterClass('my_custom_provider');
+        $result = $subject->getAdapterClass('my_custom_provider');
 
         self::assertEquals(GeminiProvider::class, $result);
     }
 
     #[Test]
-    public function registerAdapterThrowsForInvalidClass(): void
+    public function constructorThrowsForInvalidOverrideClass(): void
     {
         $this->expectException(ProviderConfigurationException::class);
         $this->expectExceptionMessage('must extend');
 
         // stdClass is not a subclass of AbstractProvider
-        /** @phpstan-ignore argument.type */
-        $this->subject->registerAdapter('invalid', stdClass::class);
-    }
-
-    #[Test]
-    public function registerAdapterLogsDebugMessage(): void
-    {
-        $loggerMock = $this->createMock(LoggerInterface::class);
-        $loggerMock->expects(self::once())
-            ->method('debug')
-            ->with(
-                'Registered custom adapter',
-                self::callback(static fn(array $context): bool
-                    => isset($context['adapterType'], $context['adapterClass'])),
-            );
-
-        $subject = new ProviderAdapterRegistry(
+        new ProviderAdapterRegistry(
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
-            $loggerMock,
+            $this->loggerStub,
             $this->createVaultServiceMock(),
             $this->createSecureHttpClientFactoryMock(),
+            /** @phpstan-ignore argument.type */
+            ['invalid' => stdClass::class],
         );
-
-        $subject->registerAdapter('test_type', OpenAiProvider::class);
     }
 
     #[Test]
@@ -182,13 +180,22 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function hasAdapterReturnsTrueForCustomRegistration(): void
+    public function hasAdapterReturnsTrueForConstructorOverride(): void
     {
+        // Default registry does not know `my_custom_type`.
         self::assertFalse($this->subject->hasAdapter('my_custom_type'));
 
-        $this->subject->registerAdapter('my_custom_type', OpenAiProvider::class);
+        // A registry constructed with that type as an override does.
+        $subject = new ProviderAdapterRegistry(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+            ['my_custom_type' => OpenAiProvider::class],
+        );
 
-        self::assertTrue($this->subject->hasAdapter('my_custom_type'));
+        self::assertTrue($subject->hasAdapter('my_custom_type'));
     }
 
     #[Test]
@@ -203,11 +210,18 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function getRegisteredAdaptersIncludesCustomAdapters(): void
+    public function getRegisteredAdaptersIncludesConstructorOverrides(): void
     {
-        $this->subject->registerAdapter('my_custom_type', OpenAiProvider::class);
+        $subject = new ProviderAdapterRegistry(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+            ['my_custom_type' => OpenAiProvider::class],
+        );
 
-        $result = $this->subject->getRegisteredAdapters();
+        $result = $subject->getRegisteredAdapters();
 
         self::assertArrayHasKey('my_custom_type', $result);
     }
@@ -451,14 +465,21 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function getRegisteredAdaptersDoesNotDuplicateCustomTypes(): void
+    public function getRegisteredAdaptersDoesNotDuplicateOverriddenBuiltIns(): void
     {
-        // Register a custom adapter with same key as a built-in one
-        $this->subject->registerAdapter(AdapterType::OpenAI->value, ClaudeProvider::class);
+        // Construct a registry that overrides a built-in key.
+        $subject = new ProviderAdapterRegistry(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+            [AdapterType::OpenAI->value => ClaudeProvider::class],
+        );
 
-        $result = $this->subject->getRegisteredAdapters();
+        $result = $subject->getRegisteredAdapters();
 
-        // Should still have the openai key but only once
+        // Should still have the openai key but only once.
         self::assertArrayHasKey(AdapterType::OpenAI->value, $result);
     }
 
