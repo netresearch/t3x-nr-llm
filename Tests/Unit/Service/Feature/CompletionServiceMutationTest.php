@@ -219,7 +219,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
                 self::callback(function (array $messages): bool {
                     $systemMessage = $messages[0] ?? null;
                     return $systemMessage instanceof ChatMessage
-                        && $systemMessage->role === 'system'
+                        && $systemMessage->isSystem()
                         && str_contains($systemMessage->content, 'Markdown');
                 }),
                 self::anything(),
@@ -450,7 +450,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
                     function (array $messages): bool {
                         $msg = $messages[0] ?? null;
                         return $msg instanceof ChatMessage
-                            && $msg->role === 'system'
+                            && $msg->isSystem()
                             && str_contains($msg->content, 'Markdown');
                     },
                 ),
@@ -479,9 +479,9 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
                     $msg1 = $messages[1];
                     return $msg0 instanceof ChatMessage
                         && $msg1 instanceof ChatMessage
-                        && $msg0->role === 'system'
+                        && $msg0->isSystem()
                         && $msg0->content === 'Be helpful'
-                        && $msg1->role === 'user';
+                        && $msg1->isUser();
                 }),
                 self::anything(),
             )
@@ -507,7 +507,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
                     }
                     $msg = $messages[0];
                     return $msg instanceof ChatMessage
-                        && $msg->role === 'user'
+                        && $msg->isUser()
                         && $msg->content === 'User prompt';
                 }),
                 self::anything(),

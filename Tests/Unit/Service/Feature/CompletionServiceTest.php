@@ -66,7 +66,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
                 self::callback(function (array $messages) use ($prompt): bool {
                     $msg = $messages[0];
                     return $msg instanceof ChatMessage
-                        && $msg->role === 'user'
+                        && $msg->isUser()
                         && $msg->content === $prompt;
                 }),
                 self::anything(),
@@ -102,9 +102,9 @@ class CompletionServiceTest extends AbstractUnitTestCase
                     $msg1 = $messages[1];
                     return $msg0 instanceof ChatMessage
                         && $msg1 instanceof ChatMessage
-                        && $msg0->role === 'system'
+                        && $msg0->isSystem()
                         && $msg0->content === $systemPrompt
-                        && $msg1->role === 'user'
+                        && $msg1->isUser()
                         && $msg1->content === $prompt;
                 }),
                 self::anything(),
