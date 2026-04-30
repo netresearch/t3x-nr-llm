@@ -83,7 +83,13 @@ final readonly class CompletionService
             $optionsArray['stop'] = $optionsArray['stop_sequences'];
             unset($optionsArray['stop_sequences']);
 
-            // Create temporary options with modified array
+            // Create temporary options with modified array. Every typed
+            // field that ChatOptions exposes must be copied across — the
+            // new constructor call would otherwise silently drop the
+            // budget pre-flight fields (REC #4) and let stop-sequence
+            // callers bypass the BudgetMiddleware. PHPStan won't catch
+            // this because every parameter is `?T = null`, so missing
+            // fields look like "use the default".
             $tempOptions = new ChatOptions(
                 temperature: $options->getTemperature(),
                 maxTokens: $options->getMaxTokens(),
@@ -93,6 +99,8 @@ final readonly class CompletionService
                 responseFormat: $options->getResponseFormat(),
                 provider: $options->getProvider(),
                 model: $options->getModel(),
+                beUserUid: $options->getBeUserUid(),
+                plannedCost: $options->getPlannedCost(),
             );
             return $this->llmManager->chat($messages, $tempOptions);
         }

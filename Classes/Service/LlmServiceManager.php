@@ -187,6 +187,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             $this->synthesizeTransientConfiguration(ProviderOperation::Completion, $providerKey),
             ProviderOperation::Completion,
             fn(): CompletionResponse => $this->getProvider($providerKey)->complete($prompt, $optionsArray),
+            $this->buildBudgetMetadata($options),
         );
     }
 
@@ -361,6 +362,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
                 return $provider->chatCompletionWithTools($normalisedMessages, $normalisedTools, $optionsArray);
             },
+            $this->buildBudgetMetadata($options),
         );
     }
 

@@ -377,4 +377,104 @@ class ChatOptionsTest extends AbstractUnitTestCase
         self::assertEquals('openai', $options->getProvider());
         self::assertEquals('gpt-4o', $options->getModel());
     }
+
+    #[Test]
+    public function constructorAcceptsBudgetFields(): void
+    {
+        $options = new ChatOptions(beUserUid: 7, plannedCost: 0.42);
+
+        self::assertSame(7, $options->getBeUserUid());
+        self::assertSame(0.42, $options->getPlannedCost());
+    }
+
+    #[Test]
+    public function withBeUserUidReturnsCloneWithFieldSet(): void
+    {
+        $original = new ChatOptions();
+        $modified = $original->withBeUserUid(11);
+
+        self::assertNull($original->getBeUserUid());
+        self::assertSame(11, $modified->getBeUserUid());
+    }
+
+    #[Test]
+    public function withPlannedCostReturnsCloneWithFieldSet(): void
+    {
+        $original = new ChatOptions();
+        $modified = $original->withPlannedCost(0.05);
+
+        self::assertNull($original->getPlannedCost());
+        self::assertSame(0.05, $modified->getPlannedCost());
+    }
+
+    #[Test]
+    public function constructorRejectsNegativeBeUserUid(): void
+    {
+        // Per BudgetMiddleware contract: 0 = anonymous / skip, positive
+        // = real BE user. Negative is always a caller bug.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('be_user_uid must be >= 0');
+
+        new ChatOptions(beUserUid: -1);
+    }
+
+    #[Test]
+    public function withBeUserUidRejectsNegativeValue(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        (new ChatOptions())->withBeUserUid(-5);
+    }
+
+    #[Test]
+    public function constructorRejectsNegativePlannedCost(): void
+    {
+        // Negative cost would credit the per-day ceiling — i.e. a
+        // budget bypass. Refuse it at construction time.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('planned_cost must be >= 0.0');
+
+        new ChatOptions(plannedCost: -0.01);
+    }
+
+    #[Test]
+    public function withPlannedCostRejectsNegativeValue(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        (new ChatOptions())->withPlannedCost(-1.0);
+    }
+
+    #[Test]
+    public function constructorAcceptsZeroBeUserUidAsAnonymousMarker(): void
+    {
+        // 0 is documented as "skip the check" — must not throw.
+        $options = new ChatOptions(beUserUid: 0);
+
+        self::assertSame(0, $options->getBeUserUid());
+    }
+
+    #[Test]
+    public function constructorAcceptsZeroPlannedCost(): void
+    {
+        $options = new ChatOptions(plannedCost: 0.0);
+
+        self::assertSame(0.0, $options->getPlannedCost());
+    }
+
+    #[Test]
+    public function budgetFieldsAreOmittedFromToArray(): void
+    {
+        // beUserUid / plannedCost are pipeline metadata, not provider
+        // wire payload — the manager reads them via typed getters and
+        // they must never reach the provider's options array.
+        $options = new ChatOptions(beUserUid: 7, plannedCost: 0.5);
+
+        $array = $options->toArray();
+
+        self::assertArrayNotHasKey('be_user_uid', $array);
+        self::assertArrayNotHasKey('beUserUid', $array);
+        self::assertArrayNotHasKey('planned_cost', $array);
+        self::assertArrayNotHasKey('plannedCost', $array);
+    }
 }

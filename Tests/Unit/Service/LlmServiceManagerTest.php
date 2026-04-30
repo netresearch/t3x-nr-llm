@@ -39,6 +39,7 @@ use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
+use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -935,6 +936,55 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $metadata = $spy->calls[0]['metadata'];
         self::assertArrayNotHasKey(BudgetMiddleware::METADATA_BE_USER_UID, $metadata);
         self::assertArrayNotHasKey(BudgetMiddleware::METADATA_PLANNED_COST, $metadata);
+    }
+
+    #[Test]
+    public function completePlumbsBudgetMetadataFromOptions(): void
+    {
+        // Mirror of chatPlumbsBudgetMetadataFromOptions for the
+        // complete() entry point — closes the metadata-bypass that
+        // PR #177 review (Copilot) found in slice 15a where only
+        // chat() carried the metadata.
+        $spy     = new RecordingMiddleware();
+        $manager = $this->buildManagerWithMiddleware([$spy]);
+
+        $options = (new ChatOptions())
+            ->withBeUserUid(13)
+            ->withPlannedCost(0.17);
+
+        $manager->complete('hello', $options);
+
+        self::assertCount(1, $spy->calls);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertSame(13, $metadata[BudgetMiddleware::METADATA_BE_USER_UID]);
+        self::assertSame(0.17, $metadata[BudgetMiddleware::METADATA_PLANNED_COST]);
+    }
+
+    #[Test]
+    public function chatWithToolsPlumbsBudgetMetadataFromOptions(): void
+    {
+        // ToolOptions extends ChatOptions, so the typed budget fields
+        // are already present on the subclass — just need to be plumbed
+        // through the chatWithTools() entrypoint identically to chat().
+        $spy      = new RecordingMiddleware();
+        $provider = new TestableToolProvider();
+        $manager  = $this->buildManagerWithMiddleware([$spy], $provider);
+
+        $options = new ToolOptions(
+            beUserUid: 21,
+            plannedCost: 0.05,
+        );
+
+        $manager->chatWithTools(
+            [['role' => 'user', 'content' => 'hi']],
+            [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'noop', 'description' => '', 'parameters' => []]])],
+            $options,
+        );
+
+        self::assertCount(1, $spy->calls);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertSame(21, $metadata[BudgetMiddleware::METADATA_BE_USER_UID]);
+        self::assertSame(0.05, $metadata[BudgetMiddleware::METADATA_PLANNED_COST]);
     }
 
     #[Test]

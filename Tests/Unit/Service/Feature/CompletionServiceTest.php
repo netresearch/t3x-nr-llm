@@ -797,6 +797,38 @@ class CompletionServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function completePreservesBudgetFieldsThroughStopSequencesRebuild(): void
+    {
+        // Regression test for the Gemini high-priority finding on
+        // PR #177: when the caller supplies stopSequences, the service
+        // rebuilds a temporary ChatOptions from the typed getters.
+        // Earlier passes of slice 15a copied every typed field except
+        // the new beUserUid / plannedCost, silently dropping them and
+        // letting stop-sequence callers bypass BudgetMiddleware. The
+        // rebuild now copies all 12 typed fields.
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $subject = new CompletionService($llmManagerMock);
+
+        $llmManagerMock->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(static fn(ChatOptions $forwarded): bool => $forwarded->getBeUserUid() === 13
+                        && $forwarded->getPlannedCost() === 0.07
+                        // Sanity: the stop_sequences path itself still
+                        // works (the rebuild's job).
+                        && $forwarded->getStopSequences() === null),
+            )
+            ->willReturn($this->createMockResponse('ok'));
+
+        $options = (new ChatOptions(stopSequences: ['END']))
+            ->withBeUserUid(13)
+            ->withPlannedCost(0.07);
+
+        $subject->complete('hello', $options);
+    }
+
+    #[Test]
     public function completeWorksWithoutResolverDependency(): void
     {
         // Existing callers that don't pass a resolver (legacy DI wiring,

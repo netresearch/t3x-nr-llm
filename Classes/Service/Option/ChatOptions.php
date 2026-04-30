@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Option;
 
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
+
 /**
  * Options for chat completion requests.
  *
@@ -207,6 +209,7 @@ class ChatOptions extends AbstractOptions
     {
         $clone = clone $this;
         $clone->beUserUid = $beUserUid;
+        $clone->validate();
         return $clone;
     }
 
@@ -222,6 +225,7 @@ class ChatOptions extends AbstractOptions
     {
         $clone = clone $this;
         $clone->plannedCost = $plannedCost;
+        $clone->validate();
         return $clone;
     }
 
@@ -355,6 +359,29 @@ class ChatOptions extends AbstractOptions
 
         if ($this->responseFormat !== null) {
             self::validateEnum($this->responseFormat, self::RESPONSE_FORMATS, 'response_format');
+        }
+
+        if ($this->beUserUid !== null && $this->beUserUid < 0) {
+            // 0 is documented as "anonymous / skip the check" by the
+            // BudgetMiddleware contract; positive uids identify real BE
+            // users. A negative value can only be a caller bug — refuse
+            // it loudly rather than letting it fall through to a budget
+            // service lookup that would either error or, worse, match
+            // an unrelated row by absolute value.
+            throw new InvalidArgumentException(
+                sprintf('be_user_uid must be >= 0, got %d', $this->beUserUid),
+                7461293501,
+            );
+        }
+
+        if ($this->plannedCost !== null && $this->plannedCost < 0.0) {
+            // Negative cost has no semantic — providers do not refund.
+            // The BudgetMiddleware would evaluate it as a credit toward
+            // the per-day cost ceiling, which would be a budget bypass.
+            throw new InvalidArgumentException(
+                sprintf('planned_cost must be >= 0.0, got %s', $this->plannedCost),
+                4658297014,
+            );
         }
     }
 }
