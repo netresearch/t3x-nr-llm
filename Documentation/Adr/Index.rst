@@ -259,3 +259,4 @@ Modern architecture (v0.4+)
    Adr024DashboardWidgets
    Adr025PerUserBudgets
    Adr026ProviderMiddlewarePipeline
+   Adr027SplitTaskController
