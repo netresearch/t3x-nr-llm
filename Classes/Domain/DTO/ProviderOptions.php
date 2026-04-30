@@ -207,7 +207,11 @@ final readonly class ProviderOptions implements JsonSerializable
         return match ($key) {
             'proxy' => $this->proxy ?? $default,
             'customHeaders' => $this->customHeaders === [] ? $default : $this->customHeaders,
-            default => $this->extra[$key] ?? $default,
+            // `array_key_exists` instead of `??` so a stored `null`
+            // value is preserved instead of being replaced with the
+            // default — keeps `get()` and `has()` semantics aligned
+            // (the latter already uses `array_key_exists`).
+            default => array_key_exists($key, $this->extra) ? $this->extra[$key] : $default,
         };
     }
 
