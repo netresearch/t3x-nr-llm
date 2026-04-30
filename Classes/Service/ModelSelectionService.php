@@ -22,7 +22,7 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
  * - Minimum context length requirements
  * - Cost constraints and preferences
  */
-final readonly class ModelSelectionService
+final readonly class ModelSelectionService implements ModelSelectionServiceInterface
 {
     public function __construct(
         private ModelRepository $modelRepository,

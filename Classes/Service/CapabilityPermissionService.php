@@ -27,7 +27,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * Call isAllowed() before dispatching; branch on the result or throw an
  * AccessDeniedException with context.
  */
-final readonly class CapabilityPermissionService
+final readonly class CapabilityPermissionService implements CapabilityPermissionServiceInterface
 {
     public const PERM_NAMESPACE = 'nrllm';
 
