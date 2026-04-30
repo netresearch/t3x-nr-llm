@@ -169,7 +169,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             $this->synthesizeTransientConfiguration(ProviderOperation::Chat, $providerKey),
             ProviderOperation::Chat,
             fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($normalisedMessages, $optionsArray),
-            $this->buildBudgetMetadata($options),
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
         );
     }
 
@@ -187,7 +187,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             $this->synthesizeTransientConfiguration(ProviderOperation::Completion, $providerKey),
             ProviderOperation::Completion,
             fn(): CompletionResponse => $this->getProvider($providerKey)->complete($prompt, $optionsArray),
-            $this->buildBudgetMetadata($options),
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
         );
     }
 
@@ -209,10 +209,10 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         // the key out of metadata so the middleware becomes a no-op for
         // this call.
         $cacheTtl = is_int($optionsArray['cache_ttl'] ?? null) ? $optionsArray['cache_ttl'] : 0;
-        $metadata = [];
+        $metadata = $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost());
         if ($cacheTtl > 0) {
             $resolvedProvider = $providerKey ?? $this->defaultProvider ?? 'default';
-            $metadata = [
+            $metadata += [
                 CacheMiddleware::METADATA_CACHE_KEY => $this->cacheManager->generateCacheKey(
                     $resolvedProvider,
                     'embeddings',
@@ -293,6 +293,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
                 return $provider->analyzeImage($normalisedContent, $optionsArray);
             },
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
         );
     }
 
@@ -362,7 +363,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
                 return $provider->chatCompletionWithTools($normalisedMessages, $normalisedTools, $optionsArray);
             },
-            $this->buildBudgetMetadata($options),
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
         );
     }
 
@@ -517,30 +518,33 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Translate the budget-relevant fields on the typed options object
-     * into the metadata keys the BudgetMiddleware reads. Only fields that
-     * the caller has explicitly set (non-null) become metadata — the
-     * middleware's "skip the check" branch then naturally fires for
-     * absent values, matching its documented contract (see
+     * Translate the budget-relevant fields into the metadata keys the
+     * BudgetMiddleware reads. Only non-null values become metadata —
+     * the middleware's "skip the check" branch naturally fires for
+     * absent keys, matching its documented contract (see
      * `BudgetMiddleware::handle()`).
      *
-     * Lives on the manager rather than on the option object itself so
-     * the manager owns the mapping between "public typed surface" and
-     * "internal pipeline contract" — option objects do not need to know
-     * which middleware exists or how it reads metadata.
+     * Takes raw nullable values rather than a typed option object so
+     * every entry point can reuse it: `chat()` reads from `ChatOptions`,
+     * `embed()` from `EmbeddingOptions`, `vision()` from `VisionOptions`,
+     * `chatWithTools()` from `ToolOptions` — none of which share a
+     * common base interface for these two fields. A small option-type-
+     * agnostic helper is simpler than introducing a marker interface
+     * just to thread two fields.
+     *
+     * Lives on the manager rather than on the option objects so the
+     * options layer does not need to know which middleware exists.
      *
      * @return array<string, mixed>
      */
-    private function buildBudgetMetadata(ChatOptions $options): array
+    private function buildBudgetMetadata(?int $beUserUid, ?float $plannedCost): array
     {
         $metadata = [];
 
-        $beUserUid = $options->getBeUserUid();
         if ($beUserUid !== null) {
             $metadata[BudgetMiddleware::METADATA_BE_USER_UID] = $beUserUid;
         }
 
-        $plannedCost = $options->getPlannedCost();
         if ($plannedCost !== null) {
             $metadata[BudgetMiddleware::METADATA_PLANNED_COST] = $plannedCost;
         }

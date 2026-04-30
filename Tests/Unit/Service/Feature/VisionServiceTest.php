@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\Feature\VisionService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
@@ -226,6 +227,76 @@ class VisionServiceTest extends AbstractUnitTestCase
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
         $subject->generateAltText($imageUrl, new VisionOptions(detailLevel: 'high'));
+    }
+
+    #[Test]
+    public function analyzeImageFullAutoPopulatesBeUserUidFromResolver(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->expects(self::once())
+            ->method('resolveBeUserUid')
+            ->willReturn(42);
+
+        $subject = new VisionService($llmManagerMock, $resolver);
+
+        $llmManagerMock->expects(self::once())
+            ->method('vision')
+            ->with(
+                self::anything(),
+                self::callback(static fn(VisionOptions $options): bool
+                    => $options->getBeUserUid() === 42),
+            )
+            ->willReturn($this->createMockVisionResponse('Alt text'));
+
+        $subject->analyzeImageFull('https://example.com/image.jpg', 'describe');
+    }
+
+    #[Test]
+    public function analyzeImageFullPreservesBudgetFieldsThroughDetailLevelRebuild(): void
+    {
+        // Regression test for the same class of bug Gemini caught on
+        // PR #177 (CompletionService stop_sequences). VisionService
+        // also rebuilds VisionOptions to drop `detail_level` after
+        // copying it onto the content payload — the rebuild must
+        // copy `beUserUid` and `plannedCost` across, otherwise
+        // BudgetMiddleware sees no metadata.
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $subject = new VisionService($llmManagerMock);
+
+        $llmManagerMock->expects(self::once())
+            ->method('vision')
+            ->with(
+                self::anything(),
+                self::callback(static fn(VisionOptions $options): bool
+                    => $options->getBeUserUid() === 13
+                    && $options->getPlannedCost() === 0.07),
+            )
+            ->willReturn($this->createMockVisionResponse('OK'));
+
+        $options = (new VisionOptions(detailLevel: 'high'))
+            ->withBeUserUid(13)
+            ->withPlannedCost(0.07);
+
+        $subject->analyzeImageFull('https://example.com/i.jpg', 'p', $options);
+    }
+
+    #[Test]
+    public function analyzeImageFullWorksWithoutResolverDependency(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $subject = new VisionService($llmManagerMock);
+
+        $llmManagerMock->expects(self::once())
+            ->method('vision')
+            ->with(
+                self::anything(),
+                self::callback(static fn(VisionOptions $options): bool
+                    => $options->getBeUserUid() === null),
+            )
+            ->willReturn($this->createMockVisionResponse('OK'));
+
+        $subject->analyzeImageFull('https://example.com/i.jpg', 'p');
     }
 
     /**

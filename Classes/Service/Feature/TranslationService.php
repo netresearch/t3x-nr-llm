@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -30,6 +31,17 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
  * Supports dual-path translation:
  * - LLM-based translation (default)
  * - Specialized translators (DeepL, etc.) via TranslatorRegistry
+ *
+ * Budget pre-flight (REC #4 slice 15b): the LLM-based translation
+ * path (translate / detectLanguage / scoreTranslationQuality) goes
+ * through `LlmServiceManager::chat()` which is BudgetMiddleware-
+ * aware as of slice 15a — this service forwards the budget fields
+ * from `TranslationOptions` onto the internally-built `ChatOptions`
+ * so the metadata reaches the pipeline. The specialized-translator
+ * path (DeepL et al.) does NOT go through `LlmServiceManager`, so
+ * the BudgetMiddleware does not currently apply there; ADR / future
+ * slice can route specialized translators through a similar
+ * pre-flight if needed.
  */
 final readonly class TranslationService
 {
@@ -40,6 +52,7 @@ final readonly class TranslationService
         private LlmServiceManagerInterface $llmManager,
         private TranslatorRegistryInterface $translatorRegistry,
         private LlmConfigurationServiceInterface $configurationService,
+        private ?BackendUserContextResolverInterface $beUserContextResolver = null,
     ) {}
 
     /**
@@ -98,6 +111,8 @@ final readonly class TranslationService
             temperature: $options->getTemperature() ?? 0.3,
             maxTokens: $options->getMaxTokens() ?? 2000,
             provider: $options->getProvider(),
+            beUserUid: $this->resolveBeUserUid($options),
+            plannedCost: $options->getPlannedCost(),
         );
 
         $response = $this->llmManager->chat($messages, $chatOptions);
@@ -165,6 +180,8 @@ final readonly class TranslationService
             temperature: 0.1,
             maxTokens: 10,
             provider: $options->getProvider(),
+            beUserUid: $this->resolveBeUserUid($options),
+            plannedCost: $options->getPlannedCost(),
         );
 
         $response = $this->llmManager->chat($messages, $chatOptions);
@@ -218,6 +235,8 @@ final readonly class TranslationService
             temperature: 0.1,
             maxTokens: 10,
             provider: $options->getProvider(),
+            beUserUid: $this->resolveBeUserUid($options),
+            plannedCost: $options->getPlannedCost(),
         );
 
         $response = $this->llmManager->chat($messages, $chatOptions);
@@ -509,5 +528,24 @@ final readonly class TranslationService
         ];
 
         return $languages[$code] ?? $code;
+    }
+
+    /**
+     * Resolve the backend user uid for budget pre-flight (REC #4
+     * slice 15b). Honours an explicit caller-supplied uid (including
+     * `0` for "skip the check") and falls back to the resolver only
+     * when the option was left null. Mirrors the pattern in
+     * `CompletionService::autoPopulateBeUserUid()` from slice 15a.
+     */
+    private function resolveBeUserUid(TranslationOptions $options): ?int
+    {
+        $explicit = $options->getBeUserUid();
+        if ($explicit !== null) {
+            return $explicit;
+        }
+        if ($this->beUserContextResolver === null) {
+            return null;
+        }
+        return $this->beUserContextResolver->resolveBeUserUid();
     }
 }

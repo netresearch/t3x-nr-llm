@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Option;
 
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
+
 /**
  * Options for translation requests.
  *
@@ -30,6 +32,8 @@ class TranslationOptions extends AbstractOptions
         private ?int $maxTokens = null,
         private ?string $provider = null,
         private ?string $model = null,
+        private ?int $beUserUid = null,
+        private ?float $plannedCost = null,
     ) {
         $this->validate();
     }
@@ -187,6 +191,28 @@ class TranslationOptions extends AbstractOptions
         return $clone;
     }
 
+    /**
+     * Set the backend user uid for budget pre-flight (REC #4).
+     */
+    public function withBeUserUid(int $beUserUid): static
+    {
+        $clone = clone $this;
+        $clone->beUserUid = $beUserUid;
+        $clone->validate();
+        return $clone;
+    }
+
+    /**
+     * Set the expected cost of the call for budget pre-flight (REC #4).
+     */
+    public function withPlannedCost(float $plannedCost): static
+    {
+        $clone = clone $this;
+        $clone->plannedCost = $plannedCost;
+        $clone->validate();
+        return $clone;
+    }
+
     // ========================================
     // Getters
     // ========================================
@@ -239,6 +265,16 @@ class TranslationOptions extends AbstractOptions
         return $this->model;
     }
 
+    public function getBeUserUid(): ?int
+    {
+        return $this->beUserUid;
+    }
+
+    public function getPlannedCost(): ?float
+    {
+        return $this->plannedCost;
+    }
+
     // ========================================
     // Array Conversion
     // ========================================
@@ -278,6 +314,20 @@ class TranslationOptions extends AbstractOptions
 
         if ($this->maxTokens !== null) {
             self::validatePositiveInt($this->maxTokens, 'max_tokens');
+        }
+
+        if ($this->beUserUid !== null && $this->beUserUid < 0) {
+            throw new InvalidArgumentException(
+                sprintf('be_user_uid must be >= 0, got %d', $this->beUserUid),
+                7461293504,
+            );
+        }
+
+        if ($this->plannedCost !== null && $this->plannedCost < 0.0) {
+            throw new InvalidArgumentException(
+                sprintf('planned_cost must be >= 0.0, got %s', $this->plannedCost),
+                4658297017,
+            );
         }
     }
 }

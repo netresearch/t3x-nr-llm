@@ -12,8 +12,10 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\Feature\EmbeddingService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -181,6 +183,80 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
         $result = $this->subject->embedBatch([]);
 
         self::assertSame([], $result);
+    }
+
+    #[Test]
+    public function embedFullAutoPopulatesBeUserUidFromResolver(): void
+    {
+        // REC #4 slice 15b: identical wiring to slice 15a's
+        // CompletionService — the resolver fills `beUserUid` only
+        // when the caller did not set one.
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->expects(self::once())
+            ->method('resolveBeUserUid')
+            ->willReturn(42);
+
+        $subject = new EmbeddingService($llmManagerMock, $resolver);
+
+        $llmManagerMock->expects(self::once())
+            ->method('embed')
+            ->with(
+                'hello',
+                self::callback(static fn(EmbeddingOptions $options): bool
+                    => $options->getBeUserUid() === 42),
+            )
+            ->willReturn($this->createMockEmbeddingResponse([[0.1, 0.2]]));
+
+        $subject->embedFull('hello');
+    }
+
+    #[Test]
+    public function embedFullRespectsExplicitBeUserUidOverResolver(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->expects(self::never())
+            ->method('resolveBeUserUid');
+
+        $subject = new EmbeddingService($llmManagerMock, $resolver);
+
+        $llmManagerMock->expects(self::once())
+            ->method('embed')
+            ->with(
+                'hello',
+                self::callback(static fn(EmbeddingOptions $options): bool
+                    => $options->getBeUserUid() === 99),
+            )
+            ->willReturn($this->createMockEmbeddingResponse([[0.1]]));
+
+        $subject->embedFull('hello', (new EmbeddingOptions())->withBeUserUid(99));
+    }
+
+    #[Test]
+    public function embedBatchAutoPopulatesBeUserUidFromResolver(): void
+    {
+        // The batch path takes its own option-construction route
+        // (`?? new EmbeddingOptions()`); explicit coverage so the
+        // resolver hook is not silently bypassed for batch callers.
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->expects(self::once())
+            ->method('resolveBeUserUid')
+            ->willReturn(7);
+
+        $subject = new EmbeddingService($llmManagerMock, $resolver);
+
+        $llmManagerMock->expects(self::once())
+            ->method('embed')
+            ->with(
+                ['a', 'b'],
+                self::callback(static fn(EmbeddingOptions $options): bool
+                    => $options->getBeUserUid() === 7),
+            )
+            ->willReturn($this->createMockEmbeddingResponse([[0.1], [0.2]]));
+
+        $subject->embedBatch(['a', 'b']);
     }
 
     /**

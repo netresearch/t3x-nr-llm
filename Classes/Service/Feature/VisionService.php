@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 
@@ -19,6 +20,10 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
  *
  * Provides specialized image analysis with accessibility,
  * SEO, and descriptive prompts.
+ *
+ * Budget pre-flight (REC #4 slice 15b): mirrors `CompletionService`
+ * (slice 15a). The resolver is optional so unit tests omit it;
+ * production DI autowires it.
  */
 final readonly class VisionService
 {
@@ -28,6 +33,7 @@ final readonly class VisionService
 
     public function __construct(
         private LlmServiceManagerInterface $llmManager,
+        private ?BackendUserContextResolverInterface $beUserContextResolver = null,
     ) {}
 
     /**
@@ -148,7 +154,7 @@ final readonly class VisionService
         string $prompt,
         ?VisionOptions $options = null,
     ): VisionResponse {
-        $options ??= new VisionOptions();
+        $options = $this->autoPopulateBeUserUid($options);
         $optionsArray = $options->toArray();
         $this->validateImageUrl($imageUrl);
 
@@ -166,12 +172,20 @@ final readonly class VisionService
             ],
         ];
 
-        // Create new options without detail_level
+        // Create new options without detail_level. Every typed field
+        // must be copied across — the budget pre-flight fields
+        // (`beUserUid` / `plannedCost`) are easy to miss because the
+        // constructor accepts `?T = null` for every parameter, so a
+        // missing field looks like "use the default" to PHPStan. Same
+        // class of bug Gemini caught on PR #177's stop_sequences
+        // rebuild in `CompletionService`.
         $visionOptions = new VisionOptions(
             maxTokens: $options->getMaxTokens(),
             temperature: $options->getTemperature(),
             provider: $options->getProvider(),
             model: $options->getModel(),
+            beUserUid: $options->getBeUserUid(),
+            plannedCost: $options->getPlannedCost(),
         );
 
         return $this->llmManager->vision($content, $visionOptions);
@@ -227,5 +241,28 @@ final readonly class VisionService
                 );
             }
         }
+    }
+
+    /**
+     * Auto-populate `beUserUid` from the resolver when the caller did
+     * not set it (REC #4 slice 15b). Mirrors
+     * `CompletionService::autoPopulateBeUserUid()` from slice 15a.
+     */
+    private function autoPopulateBeUserUid(?VisionOptions $options): VisionOptions
+    {
+        $options ??= new VisionOptions();
+        if ($options->getBeUserUid() !== null) {
+            return $options;
+        }
+        if ($this->beUserContextResolver === null) {
+            return $options;
+        }
+
+        $resolved = $this->beUserContextResolver->resolveBeUserUid();
+        if ($resolved === null) {
+            return $options;
+        }
+
+        return $options->withBeUserUid($resolved);
     }
 }
