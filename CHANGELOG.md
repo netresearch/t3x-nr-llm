@@ -26,6 +26,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecated
 
+- `Provider::getOptions(): string` and `setOptions(string)` are
+  deprecated since 0.8.0 in favour of the typed
+  `getOptionsArray(): array<string, mixed>` /
+  `setOptionsArray(array<string, mixed>)` accessors. Same rationale
+  as the parallel `LlmConfiguration` deprecation in slice 16e — the
+  `options` field carries provider-adapter-specific extras beyond
+  the typed entity columns (`apiKey`, `endpoint`, `timeout`,
+  `maxRetries`) and its shape is open-ended by design, so REC #6
+  stops at the array-typed surface rather than introducing a typed
+  DTO. The legacy raw-JSON methods remain for Extbase property
+  mapping and will not be removed before a major version bump.
+  REC #6 slice 16f — closes REC #6.
 - `LlmConfiguration::getOptions(): string` and `setOptions(string)` are
   deprecated since 0.8.0 in favour of the typed
   `getOptionsArray(): array<string, mixed>` /
