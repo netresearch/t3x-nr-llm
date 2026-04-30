@@ -15,10 +15,10 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
+use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
@@ -59,17 +59,17 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $llmServiceManager = $this->get(LlmServiceManagerInterface::class);
         self::assertInstanceOf(LlmServiceManagerInterface::class, $llmServiceManager);
 
-        $connectionPool = $this->get(ConnectionPool::class);
-        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $recordTableReader = $this->get(RecordTableReaderInterface::class);
+        self::assertInstanceOf(RecordTableReaderInterface::class, $recordTableReader);
 
-        $tcaSchemaFactory = $this->get(TcaSchemaFactory::class);
-        self::assertInstanceOf(TcaSchemaFactory::class, $tcaSchemaFactory);
+        $taskInputResolver = $this->get(TaskInputResolverInterface::class);
+        self::assertInstanceOf(TaskInputResolverInterface::class, $taskInputResolver);
 
         return $this->createControllerWithReflection(TaskController::class, [
-            'taskRepository' => $this->taskRepository,
+            'taskRepository'    => $this->taskRepository,
             'llmServiceManager' => $llmServiceManager,
-            'connectionPool' => $connectionPool,
-            'tcaSchemaFactory' => $tcaSchemaFactory,
+            'recordTableReader' => $recordTableReader,
+            'taskInputResolver' => $taskInputResolver,
         ]);
     }
 

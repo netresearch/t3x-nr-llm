@@ -260,6 +260,9 @@
             <trans-unit id="task.table.readError">
                 <source>Error reading table: %s</source>
             </trans-unit>
+            <trans-unit id="task.syslog.readError">
+                <source>Error reading sys_log: %s</source>
+            </trans-unit>
 
             <!-- Configuration controller -->
             <trans-unit id="configuration.notConfigured">
