@@ -69,6 +69,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   REC #4 budget pre-flight, with the hook point documented in the
   service's class docblock. Behaviour is unchanged. Slice 13c of the
   `TaskController` split (ADR-027).
+- Every `TaskController` AJAX action now returns a typed `Response/*`
+  DTO instead of a raw `JsonResponse([...])` literal — five new
+  responses join the existing `ConfigurationController` /
+  `ProviderController` precedent: `TableListResponse` (picker
+  dropdown), `RecordListResponse` (picker fetch), `RecordDataResponse`
+  (picker load by uid), `TaskExecutionResponse` (execute success;
+  static `fromResult()` factory adapts the service-layer
+  `TaskExecutionResult`), `TaskInputResponse` (refresh-input). All
+  error branches now use the existing `ErrorResponse`. The wire shape
+  consumed by `Backend/TaskExecute.js` and friends is preserved
+  byte-for-byte. Slice 13d of the `TaskController` split (ADR-027).
 - Specialized translators register via the new `#[AsTranslator]` marker
   attribute, mirroring the `#[AsLlmProvider]` pattern used for LLM
   providers. The attribute carries no fields — translator identifier

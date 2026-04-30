@@ -24,13 +24,16 @@ final readonly class ErrorResponse implements JsonSerializable
     ) {}
 
     /**
-     * @return array{error: string, success: bool}
+     * @return array{success: bool, error: string}
      */
     public function jsonSerialize(): array
     {
+        // `success` first matches the natural read order and the
+        // pre-typed JSON literals (`['success' => false, 'error' => ...]`)
+        // every controller used before slice 13d.
         return [
-            'error' => $this->error,
             'success' => $this->success,
+            'error'   => $this->error,
         ];
     }
 }

@@ -13,13 +13,19 @@ use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ModelListItemResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ModelListResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ProviderModelsResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\RecordDataResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\RecordListResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\TableListResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\TaskExecutionResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\TaskInputResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TestConfigurationResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TestConnectionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\UsageResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Service\Task\TaskExecutionResult;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -36,6 +42,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ModelListResponse::class)]
 #[CoversClass(ProviderModelsResponse::class)]
 #[CoversClass(TestConnectionResponse::class)]
+#[CoversClass(TableListResponse::class)]
+#[CoversClass(RecordListResponse::class)]
+#[CoversClass(RecordDataResponse::class)]
+#[CoversClass(TaskExecutionResponse::class)]
+#[CoversClass(TaskInputResponse::class)]
 final class ResponseDtoTest extends TestCase
 {
     public function testErrorResponseContainsAllRequiredKeys(): void
@@ -273,5 +284,130 @@ final class ResponseDtoTest extends TestCase
         self::assertFalse($data['success']);
         self::assertSame('Connection failed', $data['message']);
         self::assertSame([], $data['models']);
+    }
+
+    // ========================================
+    // Task pathway responses (slice 13d)
+    // ========================================
+
+    public function testTableListResponseShape(): void
+    {
+        $tables = [
+            ['name' => 'tt_content', 'label' => 'Tt Content'],
+            ['name' => 'sys_log', 'label' => 'System: Log'],
+        ];
+        $data = (new TableListResponse(tables: $tables))->jsonSerialize();
+
+        // success first matches the controller's pre-typed literal order
+        self::assertSame(['success', 'tables'], array_keys($data));
+        self::assertTrue($data['success']);
+        self::assertSame($tables, $data['tables']);
+    }
+
+    public function testRecordListResponseShape(): void
+    {
+        $records = [
+            ['uid' => 1, 'label' => 'First'],
+            ['uid' => 42, 'label' => '[UID 42]'],
+        ];
+        $data = (new RecordListResponse(
+            records: $records,
+            labelField: 'header',
+            total: 2,
+        ))->jsonSerialize();
+
+        self::assertSame(['success', 'records', 'labelField', 'total'], array_keys($data));
+        self::assertTrue($data['success']);
+        self::assertSame($records, $data['records']);
+        self::assertSame('header', $data['labelField']);
+        self::assertSame(2, $data['total']);
+    }
+
+    public function testRecordDataResponseShape(): void
+    {
+        $payload = '[{"uid":1}]';
+        $data = (new RecordDataResponse(
+            data: $payload,
+            recordCount: 1,
+        ))->jsonSerialize();
+
+        self::assertSame(['success', 'data', 'recordCount'], array_keys($data));
+        self::assertTrue($data['success']);
+        self::assertSame($payload, $data['data']);
+        self::assertSame(1, $data['recordCount']);
+    }
+
+    public function testTaskExecutionResponseShape(): void
+    {
+        $usage = new UsageStatistics(
+            promptTokens: 100,
+            completionTokens: 50,
+            totalTokens: 150,
+        );
+        $data = (new TaskExecutionResponse(
+            content: 'Hello',
+            model: 'gpt-4',
+            outputFormat: 'markdown',
+            promptTokens: $usage->promptTokens,
+            completionTokens: $usage->completionTokens,
+            totalTokens: $usage->totalTokens,
+        ))->jsonSerialize();
+
+        self::assertSame(['success', 'content', 'model', 'outputFormat', 'usage'], array_keys($data));
+        self::assertTrue($data['success']);
+        self::assertSame('Hello', $data['content']);
+        self::assertSame('gpt-4', $data['model']);
+        self::assertSame('markdown', $data['outputFormat']);
+        self::assertSame(
+            ['promptTokens' => 100, 'completionTokens' => 50, 'totalTokens' => 150],
+            $data['usage'],
+        );
+    }
+
+    public function testTaskExecutionResponseFromResult(): void
+    {
+        $result = new TaskExecutionResult(
+            content: 'World',
+            model: 'claude-3-5-sonnet',
+            outputFormat: 'plain',
+            usage: new UsageStatistics(promptTokens: 7, completionTokens: 13, totalTokens: 20),
+        );
+        $data = TaskExecutionResponse::fromResult($result)->jsonSerialize();
+
+        self::assertSame('World', $data['content']);
+        self::assertSame('claude-3-5-sonnet', $data['model']);
+        self::assertSame('plain', $data['outputFormat']);
+        self::assertSame(
+            ['promptTokens' => 7, 'completionTokens' => 13, 'totalTokens' => 20],
+            $data['usage'],
+        );
+    }
+
+    public function testTaskInputResponseShape(): void
+    {
+        $data = (new TaskInputResponse(
+            inputData: 'log line 1',
+            inputType: 'syslog',
+            isEmpty: false,
+        ))->jsonSerialize();
+
+        self::assertSame(['success', 'inputData', 'inputType', 'isEmpty'], array_keys($data));
+        self::assertTrue($data['success']);
+        self::assertSame('log line 1', $data['inputData']);
+        self::assertSame('syslog', $data['inputType']);
+        self::assertFalse($data['isEmpty']);
+    }
+
+    public function testErrorResponseKeyOrder(): void
+    {
+        // `success` first matches the natural read order and the
+        // pre-typed JSON literals every controller used before
+        // slice 13d. Tests that compare full body shape via
+        // assertSame() depend on this ordering.
+        $data = (new ErrorResponse('boom'))->jsonSerialize();
+
+        self::assertSame(['success', 'error'], array_keys($data));
+        self::assertFalse($data['success']);
+        self::assertSame('boom', $data['error']);
     }
 }

@@ -14,6 +14,12 @@ use Netresearch\NrLlm\Controller\Backend\DTO\ExecuteTaskRequest;
 use Netresearch\NrLlm\Controller\Backend\DTO\FetchRecordsRequest;
 use Netresearch\NrLlm\Controller\Backend\DTO\LoadRecordDataRequest;
 use Netresearch\NrLlm\Controller\Backend\DTO\RefreshInputRequest;
+use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\RecordDataResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\RecordListResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\TableListResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\TaskExecutionResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\TaskInputResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Task;
@@ -474,11 +480,11 @@ final class TaskController extends ActionController
 
         $task = $this->taskRepository->findByUid($dto->uid);
         if ($task === null) {
-            return new JsonResponse(['success' => false, 'error' => 'Task not found'], 404);
+            return new JsonResponse((new ErrorResponse('Task not found'))->jsonSerialize(), 404);
         }
 
         if (!$task->isActive()) {
-            return new JsonResponse(['success' => false, 'error' => 'Task is not active'], 400);
+            return new JsonResponse((new ErrorResponse('Task is not active'))->jsonSerialize(), 400);
         }
 
         try {
@@ -486,23 +492,10 @@ final class TaskController extends ActionController
         } catch (Throwable $e) {
             // Return 200 with success:false so JavaScript can read the error message
             // HTTP 500 causes TYPO3's AjaxRequest to throw before parsing the JSON
-            return new JsonResponse([
-                'success' => false,
-                'error'   => $e->getMessage(),
-            ]);
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize());
         }
 
-        return new JsonResponse([
-            'success'      => true,
-            'content'      => $result->content,
-            'model'        => $result->model,
-            'outputFormat' => $result->outputFormat,
-            'usage'        => [
-                'promptTokens'     => $result->usage->promptTokens,
-                'completionTokens' => $result->usage->completionTokens,
-                'totalTokens'      => $result->usage->totalTokens,
-            ],
-        ]);
+        return new JsonResponse(TaskExecutionResponse::fromResult($result)->jsonSerialize());
     }
 
     /**
@@ -511,15 +504,11 @@ final class TaskController extends ActionController
     public function listTablesAction(): ResponseInterface
     {
         try {
-            return new JsonResponse([
-                'success' => true,
-                'tables'  => $this->recordTableReader->listAllowedTables(),
-            ]);
+            return new JsonResponse((new TableListResponse(
+                tables: $this->recordTableReader->listAllowedTables(),
+            ))->jsonSerialize());
         } catch (Throwable $e) {
-            return new JsonResponse([
-                'success' => false,
-                'error'   => $e->getMessage(),
-            ], 500);
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
         }
     }
 
@@ -531,7 +520,7 @@ final class TaskController extends ActionController
         $dto = FetchRecordsRequest::fromRequest($request);
 
         if (!$dto->isValid()) {
-            return new JsonResponse(['success' => false, 'error' => 'No table specified'], 400);
+            return new JsonResponse((new ErrorResponse('No table specified'))->jsonSerialize(), 400);
         }
 
         try {
@@ -539,12 +528,11 @@ final class TaskController extends ActionController
             // back the picker. Short-circuit with an empty payload —
             // matches the previous behaviour.
             if (!$this->recordTableReader->tableHasUidColumn($dto->table)) {
-                return new JsonResponse([
-                    'success'    => true,
-                    'records'    => [],
-                    'labelField' => '',
-                    'total'      => 0,
-                ]);
+                return new JsonResponse((new RecordListResponse(
+                    records: [],
+                    labelField: '',
+                    total: 0,
+                ))->jsonSerialize());
             }
 
             $labelField = $dto->labelField !== ''
@@ -557,17 +545,13 @@ final class TaskController extends ActionController
                 $dto->limit,
             );
 
-            return new JsonResponse([
-                'success'    => true,
-                'records'    => $records,
-                'labelField' => $labelField,
-                'total'      => count($records),
-            ]);
+            return new JsonResponse((new RecordListResponse(
+                records: $records,
+                labelField: $labelField,
+                total: count($records),
+            ))->jsonSerialize());
         } catch (Throwable $e) {
-            return new JsonResponse([
-                'success' => false,
-                'error'   => $e->getMessage(),
-            ], 500);
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
         }
     }
 
@@ -582,22 +566,25 @@ final class TaskController extends ActionController
             $error = $dto->table === '' || $dto->uids === ''
                 ? 'Table and UIDs required'
                 : 'No valid UIDs provided';
-            return new JsonResponse(['success' => false, 'error' => $error], 400);
+            return new JsonResponse((new ErrorResponse($error))->jsonSerialize(), 400);
         }
 
         try {
             $rows = $this->recordTableReader->loadRecordsByUids($dto->table, $dto->uidList);
+            $encoded = json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            if ($encoded === false) {
+                return new JsonResponse(
+                    (new ErrorResponse('Failed to encode record payload: ' . json_last_error_msg()))->jsonSerialize(),
+                    500,
+                );
+            }
 
-            return new JsonResponse([
-                'success'     => true,
-                'data'        => json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
-                'recordCount' => count($rows),
-            ]);
+            return new JsonResponse((new RecordDataResponse(
+                data: $encoded,
+                recordCount: count($rows),
+            ))->jsonSerialize());
         } catch (Throwable $e) {
-            return new JsonResponse([
-                'success' => false,
-                'error'   => $e->getMessage(),
-            ], 500);
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
         }
     }
 
@@ -610,17 +597,16 @@ final class TaskController extends ActionController
 
         $task = $this->taskRepository->findByUid($dto->uid);
         if ($task === null) {
-            return new JsonResponse(['success' => false, 'error' => 'Task not found'], 404);
+            return new JsonResponse((new ErrorResponse('Task not found'))->jsonSerialize(), 404);
         }
 
         $inputData = $this->getInputData($task);
 
-        return new JsonResponse([
-            'success' => true,
-            'inputData' => $inputData,
-            'inputType' => $task->getInputType(),
-            'isEmpty' => $inputData === '' || $inputData === 'No deprecation log file found.',
-        ]);
+        return new JsonResponse((new TaskInputResponse(
+            inputData: $inputData,
+            inputType: $task->getInputType(),
+            isEmpty: $inputData === '' || $inputData === 'No deprecation log file found.',
+        ))->jsonSerialize());
     }
 
     /**
