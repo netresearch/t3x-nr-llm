@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized;
 
-use Exception;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -159,6 +158,13 @@ abstract class AbstractSpecializedService
      * `buildAuthHeaders()` are applied, and the payload is
      * `json_encode`d with `JSON_THROW_ON_ERROR`.
      *
+     * Body-less methods (`GET`, `HEAD`, `DELETE`) skip the JSON body
+     * even when `$payload` is non-empty — some upstreams and proxies
+     * reject GET-with-body and the right place to put query data on
+     * a GET is the URL itself, not the body. Subclasses that need to
+     * send GET data should serialise it onto the endpoint string they
+     * pass in.
+     *
      * @param array<string, mixed> $payload
      *
      * @throws ServiceUnavailableException
@@ -176,16 +182,29 @@ abstract class AbstractSpecializedService
             $request = $request->withHeader($name, $value);
         }
 
-        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR));
-        $request = $request->withBody($body);
+        if ($this->methodAllowsBody($method)) {
+            $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR));
+            $request = $request->withBody($body);
+        }
 
         return $this->executeRequest($request);
     }
 
     /**
+     * Body-less HTTP methods per RFC 9110. `TRACE` and `OPTIONS` are
+     * the other body-less methods but neither is in active use here.
+     */
+    private function methodAllowsBody(string $method): bool
+    {
+        return !in_array(strtoupper($method), ['GET', 'HEAD', 'DELETE'], true);
+    }
+
+    /**
      * Concatenate `$this->baseUrl` and a relative endpoint with
-     * exactly one separating slash. `$endpoint` may be empty (the
-     * service POSTs directly to the base URL — DALL-E TTS does this).
+     * exactly one separating slash. `$endpoint` may be empty, in
+     * which case the request targets the base URL directly (the
+     * `TextToSpeechService` does this — its base URL already
+     * resolves to `/v1/audio/speech`).
      */
     protected function buildEndpointUrl(string $endpoint): string
     {
@@ -346,7 +365,12 @@ abstract class AbstractSpecializedService
             }
             /** @var array<string, mixed> $config */
             $this->loadServiceConfiguration($config);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+            // Catch `Throwable` not `Exception` because mis-typed
+            // extension config (or a subclass parsing it as the wrong
+            // shape) raises `TypeError` — which extends `Error`, not
+            // `Exception`. We want `isAvailable() === false` and a
+            // log line in either case rather than a bootstrap fatal.
             $this->logger->warning(
                 sprintf('Failed to load %s configuration', $this->getProviderLabel()),
                 ['exception' => $e],

@@ -77,7 +77,7 @@ trait MultipartBodyBuilderTrait
     {
         $body = '';
         foreach ($parts as $part) {
-            $name = isset($part['name']) && is_string($part['name']) ? $part['name'] : '';
+            $name = $this->sanitizeHeaderToken(isset($part['name']) && is_string($part['name']) ? $part['name'] : '');
             if ($name === '') {
                 continue;
             }
@@ -86,9 +86,12 @@ trait MultipartBodyBuilderTrait
 
             $isFile = isset($part['filename']);
             if ($isFile) {
-                $filename    = is_string($part['filename'] ?? null) ? $part['filename'] : '';
+                $filename    = $this->sanitizeHeaderToken(is_string($part['filename'] ?? null) ? $part['filename'] : '');
                 $content     = is_string($part['content'] ?? null) ? $part['content'] : '';
-                $contentType = is_string($part['contentType'] ?? null) ? $part['contentType'] : 'application/octet-stream';
+                $contentType = $this->sanitizeHeaderToken(is_string($part['contentType'] ?? null) ? $part['contentType'] : 'application/octet-stream');
+                if ($contentType === '') {
+                    $contentType = 'application/octet-stream';
+                }
                 $body .= sprintf(
                     "Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n",
                     $name,
@@ -108,5 +111,23 @@ trait MultipartBodyBuilderTrait
         $body .= "--{$boundary}--\r\n";
 
         return $body;
+    }
+
+    /**
+     * Strip CR/LF and double-quote characters from a value that
+     * lands in a header line. The multipart body interpolates
+     * `name` / `filename` / `contentType` directly into
+     * `Content-Disposition` and `Content-Type` headers; an attacker
+     * (or a careless caller) passing `"\r\nX-Injected: yes"` in a
+     * filename could otherwise inject arbitrary headers or break
+     * the body framing. Header values that consist only of unsafe
+     * characters return the empty string — the caller's part is
+     * then dropped by the body builder.
+     */
+    private function sanitizeHeaderToken(string $value): string
+    {
+        // Strip CR, LF, NUL, and double-quote — these are the only
+        // characters that could break header framing in this context.
+        return str_replace(["\r", "\n", "\0", '"'], '', $value);
     }
 }

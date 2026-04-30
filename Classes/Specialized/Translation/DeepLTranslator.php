@@ -298,11 +298,20 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
      */
     protected function loadServiceConfiguration(array $config): void
     {
-        /** @var array{translators?: array{deepl?: array{apiKey?: string, timeout?: int, baseUrl?: string}}} $config */
-        $deeplConfig = $config['translators']['deepl'] ?? [];
+        $translators = $config['translators'] ?? null;
+        $deeplConfig = is_array($translators) && is_array($translators['deepl'] ?? null)
+            ? $translators['deepl']
+            : [];
 
-        $this->apiKey = $deeplConfig['apiKey'] ?? '';
-        $this->timeout = (int)($deeplConfig['timeout'] ?? $this->getDefaultTimeout());
+        // is_string() / is_numeric() guards: extension config is YAML
+        // and the documented shape is not a runtime guarantee. Direct
+        // assignment would TypeError on a non-string apiKey and defeat
+        // the base's fail-soft contract.
+        $apiKey = $deeplConfig['apiKey'] ?? null;
+        $this->apiKey = is_string($apiKey) ? $apiKey : '';
+
+        $timeout = $deeplConfig['timeout'] ?? null;
+        $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
 
         // DeepL Free vs Pro routing: free keys end with `:fx`. The Pro
         // URL is the documented default; explicit `baseUrl` override
@@ -310,7 +319,8 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         if ($this->apiKey !== '' && str_ends_with($this->apiKey, ':fx')) {
             $this->baseUrl = self::FREE_API_URL;
         } else {
-            $this->baseUrl = $deeplConfig['baseUrl'] ?? self::PRO_API_URL;
+            $baseUrl = $deeplConfig['baseUrl'] ?? null;
+            $this->baseUrl = is_string($baseUrl) ? $baseUrl : self::PRO_API_URL;
         }
     }
 

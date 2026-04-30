@@ -276,6 +276,93 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function sendJsonRequestSkipsBodyForBodylessMethods(): void
+    {
+        // Regression: GET-with-body requests are non-standard and
+        // some upstreams / proxies reject them outright. The base
+        // must NOT attach a JSON body when the method is GET / HEAD /
+        // DELETE, even if `$payload` is non-empty.
+        $captured = null;
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient->expects(self::once())
+            ->method('sendRequest')
+            ->willReturnCallback(function (RequestInterface $request) use (&$captured) {
+                $captured = $request;
+                return $this->createJsonResponseMock([], 200);
+            });
+
+        $subject = $this->createSubject(apiKey: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+
+        $subject->callSendJsonRequest('endpoint', ['ignored' => 'on-get'], 'GET');
+
+        self::assertNotNull($captured);
+        self::assertInstanceOf(TestableRequest::class, $captured);
+        // wasBodySet() tracks whether withBody() was ever called
+        // on the TestableRequest; for GET it should not have been.
+        self::assertFalse($captured->wasBodySet());
+    }
+
+    #[Test]
+    public function loadConfigurationIsResilientAgainstTypeError(): void
+    {
+        // Regression: previous catch was `Exception` only, but
+        // `TypeError` extends `Error`. A subclass parsing a malformed
+        // config that flips a property assignment from string to int
+        // would have raised a bootstrap fatal. Now it degrades to
+        // `isAvailable() === false`.
+        $extConf = self::createStub(ExtensionConfiguration::class);
+        $extConf->method('get')->willReturn(['apiKey' => 12345, 'baseUrl' => 'https://api.test']);
+
+        $subject = new TestableTypeErrorSpecializedService(
+            httpClient: self::createStub(ClientInterface::class),
+            requestFactory: $this->passthroughRequestFactory(),
+            streamFactory: $this->passthroughStreamFactory(),
+            extensionConfiguration: $extConf,
+            usageTracker: self::createStub(UsageTrackerServiceInterface::class),
+            logger: self::createStub(LoggerInterface::class),
+        );
+
+        self::assertFalse($subject->isAvailable());
+    }
+
+    #[Test]
+    public function multipartTraitStripsCrLfAndQuoteFromHeaderValues(): void
+    {
+        // Regression for the header-injection concern: untrusted
+        // filename / name / contentType values must have CR / LF /
+        // double-quote stripped before they land in the
+        // `Content-Disposition` / `Content-Type` headers, otherwise
+        // an attacker can inject arbitrary headers or break the
+        // body framing. The literal text "X-Injected: yes" may still
+        // appear AS DATA inside the value (CR/LF removed → no header
+        // boundary), but it must NOT appear on its own line.
+        $subject = $this->createSubject(apiKey: 'k', baseUrl: 'https://api.test');
+
+        $body = $subject->callEncodeMultipartBody([
+            [
+                'name'        => "evil\r\nX-Injected: yes",
+                'filename'    => 'a".bin',
+                'content'     => 'BIN',
+                'contentType' => "image/png\r\nX-Forged: 1",
+            ],
+        ], 'BOUNDARY');
+
+        // The smoking-gun assertions: no CR before the injected
+        // header text, no LF before it. This catches the actual
+        // injection vector (header-on-its-own-line) while permitting
+        // the now-defanged literal text to remain inside the value.
+        self::assertStringNotContainsString("\r\nX-Injected", $body);
+        self::assertStringNotContainsString("\nX-Injected", $body);
+        self::assertStringNotContainsString("\r\nX-Forged", $body);
+        // No bare double-quote that would break the `name="..."` /
+        // `filename="..."` framing.
+        self::assertStringNotContainsString('filename="a".bin"', $body);
+        // Content survives, headers are clean.
+        self::assertStringContainsString('BIN', $body);
+        self::assertStringEndsWith("--BOUNDARY--\r\n", $body);
+    }
+
+    #[Test]
     public function multipartTraitSkipsPartsMissingName(): void
     {
         // Defensive: a caller that hands us a malformed part dict
@@ -360,9 +447,9 @@ final class TestableSpecializedService extends AbstractSpecializedService
      *
      * @return array<string, mixed>
      */
-    public function callSendJsonRequest(string $endpoint, array $payload): array
+    public function callSendJsonRequest(string $endpoint, array $payload, string $method = 'POST'): array
     {
-        return $this->sendJsonRequest($endpoint, $payload);
+        return $this->sendJsonRequest($endpoint, $payload, $method);
     }
 
     /**
@@ -417,6 +504,8 @@ final class TestableRequest implements RequestInterface
 
     private ?StreamInterface $body = null;
 
+    private bool $bodyWasSet = false;
+
     public function __construct(
         private readonly string $method,
         private readonly string $uri,
@@ -433,7 +522,13 @@ final class TestableRequest implements RequestInterface
     {
         $clone = clone $this;
         $clone->body = $body;
+        $clone->bodyWasSet = true;
         return $clone;
+    }
+
+    public function wasBodySet(): bool
+    {
+        return $this->bodyWasSet;
     }
 
     public function getHeaderLine(string $name): string
@@ -513,5 +608,48 @@ final class TestableRequest implements RequestInterface
     public function withUri(UriInterface $uri, bool $preserveHost = false): static
     {
         return $this;
+    }
+}
+
+/**
+ * Fixture whose `loadServiceConfiguration()` deliberately raises a
+ * `TypeError` (assigning an int to a `string`-typed property). Used
+ * to verify the base catches `Throwable` rather than `Exception`.
+ */
+final class TestableTypeErrorSpecializedService extends AbstractSpecializedService
+{
+    protected function getServiceDomain(): string
+    {
+        return 'test';
+    }
+
+    protected function getServiceProvider(): string
+    {
+        return 'typeerror';
+    }
+
+    protected function getDefaultBaseUrl(): string
+    {
+        return 'https://api.example.test';
+    }
+
+    protected function getDefaultTimeout(): int
+    {
+        return 30;
+    }
+
+    protected function loadServiceConfiguration(array $config): void
+    {
+        // Direct assignment without is_string() guard — TypeError when
+        // the config value is not a string. Mirrors the bug Copilot
+        // caught on PR #186 (DallE / DeepL `loadServiceConfiguration`
+        // before the fix).
+        /** @phpstan-ignore assign.propertyType */
+        $this->apiKey = $config['apiKey']; // @phpstan-ignore-line
+    }
+
+    protected function buildAuthHeaders(): array
+    {
+        return ['Authorization' => 'Bearer ' . $this->apiKey];
     }
 }

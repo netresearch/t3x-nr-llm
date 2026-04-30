@@ -334,10 +334,37 @@ final class DallEImageService extends AbstractSpecializedService
      */
     protected function loadServiceConfiguration(array $config): void
     {
-        /** @var array{providers?: array{openai?: array{apiKey?: string}}, image?: array{dalle?: array{baseUrl?: string, timeout?: int}}} $config */
-        $this->apiKey  = $config['providers']['openai']['apiKey'] ?? '';
-        $this->baseUrl = $config['image']['dalle']['baseUrl'] ?? self::API_URL;
-        $this->timeout = (int)($config['image']['dalle']['timeout'] ?? $this->getDefaultTimeout());
+        // is_string() guards: the extension config tree is user-editable
+        // YAML and the @var hint above describes the documented shape,
+        // not a runtime guarantee. Direct assignment without guards
+        // would TypeError on `non-string apiKey` and defeat the
+        // base's fail-soft contract.
+        $apiKey  = $this->resolveScalarConfig($config, ['providers', 'openai', 'apiKey']);
+        $baseUrl = $this->resolveScalarConfig($config, ['image', 'dalle', 'baseUrl']);
+        $timeout = $this->resolveScalarConfig($config, ['image', 'dalle', 'timeout']);
+
+        $this->apiKey  = is_string($apiKey) ? $apiKey : '';
+        $this->baseUrl = is_string($baseUrl) ? $baseUrl : self::API_URL;
+        $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
+    }
+
+    /**
+     * Walk a nested array path safely. Returns the leaf value or null
+     * if any intermediate hop is missing / not an array.
+     *
+     * @param array<string, mixed> $config
+     * @param list<string>         $path
+     */
+    private function resolveScalarConfig(array $config, array $path): mixed
+    {
+        $current = $config;
+        foreach ($path as $key) {
+            if (!is_array($current) || !array_key_exists($key, $current)) {
+                return null;
+            }
+            $current = $current[$key];
+        }
+        return $current;
     }
 
     protected function buildAuthHeaders(): array
