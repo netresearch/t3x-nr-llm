@@ -22,6 +22,9 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Task\DeprecationLogReaderInterface;
+use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
+use Netresearch\NrLlm\Service\Task\SystemLogReaderInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Psr\Http\Message\ResponseInterface;
@@ -31,7 +34,6 @@ use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\Components\ButtonBar;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
-use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Imaging\IconFactory;
@@ -39,8 +41,6 @@ use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
-use TYPO3\CMS\Core\Schema\Capability\TcaSchemaCapability;
-use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
@@ -75,10 +75,11 @@ final class TaskController extends ActionController
         private readonly WizardGeneratorService $wizardGeneratorService,
         private readonly PersistenceManagerInterface $persistenceManager,
         private readonly FlashMessageService $flashMessageService,
-        private readonly ConnectionPool $connectionPool,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
-        private readonly TcaSchemaFactory $tcaSchemaFactory,
+        private readonly RecordTableReaderInterface $recordTableReader,
+        private readonly SystemLogReaderInterface $systemLogReader,
+        private readonly DeprecationLogReaderInterface $deprecationLogReader,
     ) {}
 
     /**
@@ -524,39 +525,14 @@ final class TaskController extends ActionController
     public function listTablesAction(): ResponseInterface
     {
         try {
-            $connection = $this->connectionPool->getConnectionByName('Default');
-            $tables = $connection->createSchemaManager()->listTableNames();
-
-            // Filter out internal/cache tables and format for display
-            $relevantTables = [];
-            foreach ($tables as $table) {
-                // Skip cache, session, and some internal tables
-                if (
-                    str_starts_with($table, 'cache_')
-                    || str_starts_with($table, 'cf_')
-                    || str_starts_with($table, 'index_')
-                    || in_array($table, ['sys_refindex', 'sys_registry', 'sys_history', 'sys_lockedrecords'], true)
-                ) {
-                    continue;
-                }
-
-                $relevantTables[] = [
-                    'name' => $table,
-                    'label' => $this->formatTableLabel($table),
-                ];
-            }
-
-            // Sort by label
-            usort($relevantTables, fn($a, $b) => strcasecmp($a['label'], $b['label']));
-
             return new JsonResponse([
                 'success' => true,
-                'tables' => $relevantTables,
+                'tables'  => $this->recordTableReader->listAllowedTables(),
             ]);
         } catch (Throwable $e) {
             return new JsonResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
@@ -573,67 +549,38 @@ final class TaskController extends ActionController
         }
 
         try {
-            // Check if the table has a uid column — some tables (e.g. tx_scheduler_task) may not
-            $connection = $this->connectionPool->getConnectionForTable($dto->table);
-            $columns = $connection->createSchemaManager()->listTableColumns($dto->table);
-            if (!isset($columns['uid'])) {
+            // Tables without a uid column (e.g. tx_scheduler_task) cannot
+            // back the picker. Short-circuit with an empty payload —
+            // matches the previous behaviour.
+            if (!$this->recordTableReader->tableHasUidColumn($dto->table)) {
                 return new JsonResponse([
-                    'success' => true,
-                    'records' => [],
+                    'success'    => true,
+                    'records'    => [],
                     'labelField' => '',
-                    'total' => 0,
+                    'total'      => 0,
                 ]);
             }
 
-            // Determine label field if not specified
             $labelField = $dto->labelField !== ''
                 ? $dto->labelField
-                : $this->detectLabelField($dto->table);
+                : $this->recordTableReader->detectLabelField($dto->table);
 
-            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($dto->table);
-
-            // Build select fields
-            $selectFields = ['uid'];
-            if ($labelField !== '' && $labelField !== 'uid') {
-                $selectFields[] = $labelField;
-            }
-
-            $queryBuilder
-                ->select(...$selectFields)
-                ->from($dto->table)
-                ->setMaxResults($dto->limit);
-
-            // Add ordering if we have a label field
-            if ($labelField !== '' && $labelField !== 'uid') {
-                $queryBuilder->orderBy($labelField, 'ASC');
-            } else {
-                $queryBuilder->orderBy('uid', 'DESC');
-            }
-
-            $rows = $queryBuilder->executeQuery()->fetchAllAssociative();
-
-            // Format for display
-            $records = array_map(static function (array $row) use ($labelField): array {
-                $uid = isset($row['uid']) && is_numeric($row['uid']) ? (int)$row['uid'] : 0;
-                $label = $labelField !== '' && isset($row[$labelField]) && is_scalar($row[$labelField])
-                    ? (string)$row[$labelField]
-                    : '';
-                return [
-                    'uid' => $uid,
-                    'label' => $label !== '' ? $label : '[UID ' . $uid . ']',
-                ];
-            }, $rows);
+            $records = $this->recordTableReader->fetchSampleRecords(
+                $dto->table,
+                $labelField,
+                $dto->limit,
+            );
 
             return new JsonResponse([
-                'success' => true,
-                'records' => $records,
+                'success'    => true,
+                'records'    => $records,
                 'labelField' => $labelField,
-                'total' => count($records),
+                'total'      => count($records),
             ]);
         } catch (Throwable $e) {
             return new JsonResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
@@ -653,28 +600,17 @@ final class TaskController extends ActionController
         }
 
         try {
-            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($dto->table);
-            $queryBuilder
-                ->select('*')
-                ->from($dto->table)
-                ->where(
-                    $queryBuilder->expr()->in('uid', $dto->uidList),
-                );
-
-            $rows = $queryBuilder->executeQuery()->fetchAllAssociative();
-
-            // Format as JSON for the input
-            $formattedData = json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            $rows = $this->recordTableReader->loadRecordsByUids($dto->table, $dto->uidList);
 
             return new JsonResponse([
-                'success' => true,
-                'data' => $formattedData,
+                'success'     => true,
+                'data'        => json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
                 'recordCount' => count($rows),
             ]);
         } catch (Throwable $e) {
             return new JsonResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
@@ -734,55 +670,6 @@ final class TaskController extends ActionController
     /**
      * Format table name for display.
      */
-    private function formatTableLabel(string $table): string
-    {
-        // Remove common prefixes
-        $label = $table;
-        if (str_starts_with($label, 'tx_')) {
-            $label = substr($label, 3);
-        } elseif (str_starts_with($label, 'sys_')) {
-            $label = 'System: ' . substr($label, 4);
-        } elseif (str_starts_with($label, 'be_')) {
-            $label = 'Backend: ' . substr($label, 3);
-        } elseif (str_starts_with($label, 'fe_')) {
-            $label = 'Frontend: ' . substr($label, 3);
-        }
-
-        // Convert underscores to spaces and capitalize
-        return ucwords(str_replace('_', ' ', $label));
-    }
-
-    /**
-     * Detect the label field for a table.
-     */
-    private function detectLabelField(string $table): string
-    {
-        // Check TCA schema for label field
-        if ($this->tcaSchemaFactory->has($table)) {
-            $schema = $this->tcaSchemaFactory->get($table);
-            if ($schema->hasCapability(TcaSchemaCapability::Label)) {
-                $labelCapability = $schema->getCapability(TcaSchemaCapability::Label);
-                $labelFieldName = $labelCapability->getPrimaryFieldName();
-                if ($labelFieldName !== null) {
-                    return $labelFieldName;
-                }
-            }
-        }
-
-        // Common label field names as fallback
-        $commonFields = ['name', 'title', 'header', 'subject', 'username', 'email', 'identifier'];
-        $connection = $this->connectionPool->getConnectionForTable($table);
-        $columns = $connection->createSchemaManager()->listTableColumns($table);
-
-        foreach ($commonFields as $field) {
-            if (isset($columns[$field])) {
-                return $field;
-            }
-        }
-
-        return '';
-    }
-
     /**
      * Get input data for a task based on its input type.
      */
@@ -790,7 +677,7 @@ final class TaskController extends ActionController
     {
         return match ($task->getInputType()) {
             Task::INPUT_SYSLOG => $this->getSyslogData($task),
-            Task::INPUT_DEPRECATION_LOG => $this->getDeprecationLogData(),
+            Task::INPUT_DEPRECATION_LOG => $this->deprecationLogReader->readTail(),
             Task::INPUT_TABLE => $this->getTableData($task),
             default => '',
         };
@@ -805,20 +692,7 @@ final class TaskController extends ActionController
         $limit = isset($config['limit']) && is_numeric($config['limit']) ? (int)$config['limit'] : 50;
         $errorOnly = isset($config['error_only']) ? (bool)$config['error_only'] : true;
 
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('sys_log');
-        $queryBuilder
-            ->select('*')
-            ->from('sys_log')
-            ->orderBy('tstamp', 'DESC')
-            ->setMaxResults($limit);
-
-        if ($errorOnly) {
-            $queryBuilder->where(
-                $queryBuilder->expr()->gt('error', 0),
-            );
-        }
-
-        $rows = $queryBuilder->executeQuery()->fetchAllAssociative();
+        $rows = $this->systemLogReader->readRecent($limit, $errorOnly);
 
         $output = [];
         foreach ($rows as $row) {
@@ -846,28 +720,6 @@ final class TaskController extends ActionController
     }
 
     /**
-     * Get deprecation log data.
-     */
-    private function getDeprecationLogData(): string
-    {
-        $logFile = GeneralUtility::getFileAbsFileName('var/log/typo3_deprecations.log');
-        if (!file_exists($logFile)) {
-            return LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.deprecationLog.notFound', 'NrLlm') ?? 'No deprecation log file found.';
-        }
-
-        $content = file_get_contents($logFile);
-        if ($content === false) {
-            return LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.deprecationLog.readError', 'NrLlm') ?? 'Could not read deprecation log.';
-        }
-
-        // Get last 100 lines
-        $lines = explode("\n", $content);
-        $lines = array_slice($lines, -100);
-
-        return implode("\n", $lines);
-    }
-
-    /**
      * Get data from a database table.
      */
     private function getTableData(Task $task): string
@@ -880,22 +732,9 @@ final class TaskController extends ActionController
             return LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.table.notConfigured', 'NrLlm') ?? 'No table configured.';
         }
 
-        try {
-            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
-            $queryBuilder
-                ->select('*')
-                ->from($table)
-                ->setMaxResults($limit);
+        $rows = $this->recordTableReader->fetchAll($table, $limit);
 
-            $rows = $queryBuilder->executeQuery()->fetchAllAssociative();
-
-            return json_encode($rows, JSON_PRETTY_PRINT) ?: '[]';
-        } catch (Throwable $e) {
-            return sprintf(
-                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.table.readError', 'NrLlm') ?? 'Error reading table: %s',
-                $e->getMessage(),
-            );
-        }
+        return json_encode($rows, JSON_PRETTY_PRINT) ?: '[]';
     }
 
     /**

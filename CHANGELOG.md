@@ -25,6 +25,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `e2e-backend` (lowercase, conventional).
 - E2E test fixtures use vault-UUID-style placeholders or runtime-built
   prefix concatenations rather than literal API-key strings.
+- `TaskController` no longer carries inline SQL or filesystem reads.
+  The eight `ConnectionPool` / `QueryBuilder` call sites and the
+  `var/log/typo3_deprecations.log` read move to three new
+  reader services under `Classes/Service/Task/`:
+
+  - `RecordTableReader` (with `RecordTableReaderInterface`) — owns
+    the schema-introspection + query work for the record-picker
+    (list allowed tables, format table label, detect label field,
+    fetch a record sample, load records by uid, fetch all rows for
+    the table-input branch).
+  - `SystemLogReader` (with `SystemLogReaderInterface`) — wraps
+    the `sys_log` query used by the syslog input branch.
+  - `DeprecationLogReader` (with `DeprecationLogReaderInterface`) —
+    wraps the deprecation-log filesystem read.
+
+  `TaskController`'s constructor loses the `ConnectionPool` and
+  `TcaSchemaFactory` dependencies; it now injects the three reader
+  interfaces. Behaviour is unchanged. This is slice 13a of the
+  `TaskController` split (ADR-027).
 - Specialized translators register via the new `#[AsTranslator]` marker
   attribute, mirroring the `#[AsLlmProvider]` pattern used for LLM
   providers. The attribute carries no fields — translator identifier
