@@ -337,6 +337,13 @@ class LlmConfiguration extends AbstractEntity
      * Get the raw JSON fallback chain (as stored in the database).
      *
      * Extbase reads this getter during property mapping.
+     *
+     * @deprecated since 0.8.0 — application code should use the typed
+     *             `getFallbackChainDTO()` (returns a `FallbackChain`
+     *             value object). The raw-JSON accessor is retained for
+     *             Extbase property mapping (the framework hydrates the
+     *             entity through this getter / setter pair) and will
+     *             not be removed before a major version bump.
      */
     public function getFallbackChain(): string
     {
@@ -501,6 +508,19 @@ class LlmConfiguration extends AbstractEntity
 
     /**
      * Set fallback chain from raw JSON (used by Extbase when hydrating from DB).
+     *
+     * @deprecated since 0.8.0 — application code should use the typed
+     *             `setFallbackChainDTO()` so the persisted JSON is
+     *             produced by the DTO's own serialiser rather than
+     *             passed in as an arbitrary string. Identifier
+     *             normalisation (deduplication, trim, lowercase)
+     *             depends on how the `FallbackChain` DTO was
+     *             constructed — the public constructor trusts its
+     *             input verbatim; the factories `FallbackChain::fromJson()` /
+     *             `fromArray()` and the mutators `withLink()` /
+     *             `without()` apply normalisation. The raw-JSON setter
+     *             is retained for Extbase property mapping and will not
+     *             be removed before a major version bump.
      */
     public function setFallbackChain(string $fallbackChain): void
     {

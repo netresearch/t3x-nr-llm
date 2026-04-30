@@ -26,6 +26,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecated
 
+- `LlmConfiguration::getFallbackChain(): string` and
+  `setFallbackChain(string)` are deprecated since 0.8.0 in favour of
+  the typed `getFallbackChainDTO(): FallbackChain` /
+  `setFallbackChainDTO(FallbackChain)` accessors (the typed `FallbackChain`
+  DTO has lived in `Classes/Domain/DTO/` since the middleware-pipeline
+  rework — see ADR-026 — and every production caller already routes
+  through it; the slice's only delta is to nudge new application code
+  off the raw JSON string surface). The legacy methods remain for
+  Extbase property mapping (the framework hydrates the entity through
+  this getter / setter pair) and will not be removed before a major
+  version bump. REC #6 slice 16c.
 - `Model::getCapabilities()`, `getCapabilitiesArray()`,
   `getCapabilitiesAsEnums()`, `setCapabilities()`,
   `setCapabilitiesArray()`, `hasCapability()`, `addCapability()`,
