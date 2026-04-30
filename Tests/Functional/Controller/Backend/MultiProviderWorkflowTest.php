@@ -134,6 +134,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
             $pageRenderer,
             $backendUriBuilder,
             $extensionConfiguration,
+            new \Psr\Log\NullLogger(),
         );
     }
 
@@ -165,6 +166,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
             $persistenceManager,
             $pageRenderer,
             $backendUriBuilder,
+            new \Psr\Log\NullLogger(),
         );
     }
 

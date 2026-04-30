@@ -6,6 +6,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **REC #8b (slice 23b):** Replaced catch-all `catch (Throwable $e)`
+  blocks with typed exception handlers across the four admin
+  controllers (`ProviderController`, `ModelController`,
+  `ConfigurationController`, `LlmModuleController`). 13 catch sites
+  updated. Provider errors (`ProviderResponseException`, base
+  `ProviderException`) and Doctrine DBAL errors now route to specific
+  arms with appropriate HTTP statuses (502 for upstream provider
+  failures); the final `Throwable` arm logs full exception detail and
+  surfaces a generic message instead of leaking `$e->getMessage()`
+  (which can carry SQL error text or provider response bodies). All
+  four controllers gained a `LoggerInterface` constructor parameter
+  (autowired by Symfony DI). The `ConfigurationController::testConfigurationAction`
+  intentionally still surfaces `ProviderResponseException::getMessage()`
+  with the upstream HTTP status — the message is already sanitised
+  by `AbstractProvider::sanitizeErrorMessage()` and the frontend toast
+  needs the model-specific text to be useful for diagnostics. Unit
+  test assertions updated to assert "See system log" instead of the
+  raw exception text — verifying the new generic-message contract.
+
 ### Removed
 
 - `ProviderAdapterRegistryInterface::registerAdapter()` and the

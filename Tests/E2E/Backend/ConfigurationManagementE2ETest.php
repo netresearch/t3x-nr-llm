@@ -117,6 +117,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
             $pageRenderer,
             $backendUriBuilder,
             $extensionConfiguration,
+            new \Psr\Log\NullLogger(),
         );
     }
 

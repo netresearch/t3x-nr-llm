@@ -80,6 +80,11 @@ final class ConfigurationControllerTest extends TestCase
         $this->setPrivateProperty($controller, 'providerAdapterRegistry', $this->providerAdapterRegistry);
         $this->setPrivateProperty($controller, 'modelRepository', $this->modelRepository);
         $this->setPrivateProperty($controller, 'testPromptResolver', $this->testPromptResolver);
+        // REC #8b: typed catches log via LoggerInterface — use a NullLogger
+        // for unit tests so the property is initialised but no output is
+        // produced. Real logging behaviour is exercised by the functional
+        // suite where the container provides a real logger.
+        $this->setPrivateProperty($controller, 'logger', new \Psr\Log\NullLogger());
 
         return $controller;
     }
@@ -270,7 +275,7 @@ final class ConfigurationControllerTest extends TestCase
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
         self::assertIsString($data['error']);
-        self::assertStringContainsString('Database error', $data['error']);
+        self::assertStringContainsString('See system log', $data['error']);
     }
 
     // setDefaultAction tests
@@ -360,7 +365,7 @@ final class ConfigurationControllerTest extends TestCase
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
         self::assertIsString($data['error']);
-        self::assertStringContainsString('Database error', $data['error']);
+        self::assertStringContainsString('See system log', $data['error']);
     }
 
     // getModelsAction tests
@@ -444,7 +449,7 @@ final class ConfigurationControllerTest extends TestCase
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
         self::assertIsString($data['error']);
-        self::assertStringContainsString('Provider error', $data['error']);
+        self::assertStringContainsString('See system log', $data['error']);
     }
 
     // testConfigurationAction tests
@@ -559,7 +564,7 @@ final class ConfigurationControllerTest extends TestCase
         self::assertFalse($data['success']);
         self::assertArrayHasKey('error', $data);
         self::assertIsString($data['error']);
-        self::assertStringContainsString('API error', $data['error']);
+        self::assertStringContainsString('See system log', $data['error']);
     }
 
     #[Test]

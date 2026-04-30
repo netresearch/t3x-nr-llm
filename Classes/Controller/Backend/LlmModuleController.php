@@ -14,10 +14,12 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
@@ -38,6 +40,7 @@ final class LlmModuleController extends ActionController
         private readonly TaskRepository $taskRepository,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly TestPromptResolverInterface $testPromptResolver,
+        private readonly LoggerInterface $logger,
     ) {}
 
     public function indexAction(): ResponseInterface
@@ -147,10 +150,17 @@ final class LlmModuleController extends ActionController
                     'totalTokens' => $response->usage->totalTokens,
                 ],
             ]);
-        } catch (Throwable $e) {
+        } catch (ProviderException $e) {
+            $this->logger->warning('LlmModule test: provider error', ['exception' => $e]);
             return new JsonResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error'   => 'LLM provider error during test. See system log for details.',
+            ], 502);
+        } catch (Throwable $e) {
+            $this->logger->error('LlmModule test: unexpected error', ['exception' => $e]);
+            return new JsonResponse([
+                'success' => false,
+                'error'   => 'Test failed. See system log for details.',
             ], 500);
         }
     }

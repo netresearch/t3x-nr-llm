@@ -118,6 +118,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
             $pageRenderer,
             $backendUriBuilder,
             $extensionConfiguration,
+            new \Psr\Log\NullLogger(),
         );
     }
 

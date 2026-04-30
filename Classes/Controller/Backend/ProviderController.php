@@ -9,14 +9,18 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Doctrine\DBAL\Exception as DbalException;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TestConnectionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
+use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
@@ -51,6 +55,7 @@ final class ProviderController extends ActionController
         private readonly PersistenceManagerInterface $persistenceManager,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly LoggerInterface $logger,
     ) {}
 
     protected function initializeAction(): void
@@ -142,8 +147,25 @@ final class ProviderController extends ActionController
                 success: true,
                 isActive: $provider->isActive(),
             ))->jsonSerialize());
+        } catch (DbalException $e) {
+            // REC #8b: SQL error text → log, surface generic message.
+            $this->logger->error('Provider toggleActive: persistence failed', [
+                'exception'    => $e,
+                'provider_uid' => $uid,
+            ]);
+            return new JsonResponse(
+                (new ErrorResponse('Database error while toggling provider status.'))->jsonSerialize(),
+                500,
+            );
         } catch (Throwable $e) {
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
+            $this->logger->error('Provider toggleActive: unexpected error', [
+                'exception'    => $e,
+                'provider_uid' => $uid,
+            ]);
+            return new JsonResponse(
+                (new ErrorResponse('Failed to toggle provider status. See system log for details.'))->jsonSerialize(),
+                500,
+            );
         }
     }
 
@@ -168,8 +190,37 @@ final class ProviderController extends ActionController
             $result = $this->providerAdapterRegistry->testProviderConnection($provider);
 
             return new JsonResponse(TestConnectionResponse::fromResult($result)->jsonSerialize());
+        } catch (ProviderResponseException $e) {
+            // REC #8b: provider response bodies often reference upstream
+            // endpoints / model names — log full detail, surface generic.
+            $this->logger->error('Provider testConnection: provider returned an error', [
+                'exception'    => $e,
+                'http_status'  => $e->httpStatus,
+                'endpoint'     => $e->endpoint,
+                'provider_uid' => $uid,
+            ]);
+            return new JsonResponse(
+                (new ErrorResponse('Upstream LLM provider returned an error during connection test.'))->jsonSerialize(),
+                502,
+            );
+        } catch (ProviderException $e) {
+            $this->logger->error('Provider testConnection: provider error', [
+                'exception'    => $e,
+                'provider_uid' => $uid,
+            ]);
+            return new JsonResponse(
+                (new ErrorResponse('LLM provider error during connection test. See system log for details.'))->jsonSerialize(),
+                502,
+            );
         } catch (Throwable $e) {
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
+            $this->logger->error('Provider testConnection: unexpected error', [
+                'exception'    => $e,
+                'provider_uid' => $uid,
+            ]);
+            return new JsonResponse(
+                (new ErrorResponse('Connection test failed. See system log for details.'))->jsonSerialize(),
+                500,
+            );
         }
     }
 

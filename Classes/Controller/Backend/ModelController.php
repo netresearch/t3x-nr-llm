@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Doctrine\DBAL\Exception as DbalException;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ModelListResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
@@ -17,12 +18,14 @@ use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
@@ -60,6 +63,7 @@ final class ModelController extends ActionController
         private readonly ProviderAdapterRegistryInterface $providerAdapterRegistry,
         private readonly ModelDiscoveryInterface $modelDiscovery,
         private readonly TestPromptResolverInterface $testPromptResolver,
+        private readonly LoggerInterface $logger,
     ) {}
 
     protected function initializeAction(): void
@@ -156,8 +160,18 @@ final class ModelController extends ActionController
                 success: true,
                 isActive: $model->isActive(),
             ))->jsonSerialize());
+        } catch (DbalException $e) {
+            $this->logger->error('Model toggleActive: persistence failed', ['exception' => $e, 'model_uid' => $uid]);
+            return new JsonResponse(
+                (new ErrorResponse('Database error while toggling model status.'))->jsonSerialize(),
+                500,
+            );
         } catch (Throwable $e) {
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
+            $this->logger->error('Model toggleActive: unexpected error', ['exception' => $e, 'model_uid' => $uid]);
+            return new JsonResponse(
+                (new ErrorResponse('Failed to toggle model status. See system log for details.'))->jsonSerialize(),
+                500,
+            );
         }
     }
 
@@ -182,8 +196,18 @@ final class ModelController extends ActionController
             $this->modelRepository->setAsDefault($model);
             $this->persistenceManager->persistAll();
             return new JsonResponse((new SuccessResponse())->jsonSerialize());
+        } catch (DbalException $e) {
+            $this->logger->error('Model setDefault: persistence failed', ['exception' => $e, 'model_uid' => $uid]);
+            return new JsonResponse(
+                (new ErrorResponse('Database error while setting default model.'))->jsonSerialize(),
+                500,
+            );
         } catch (Throwable $e) {
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
+            $this->logger->error('Model setDefault: unexpected error', ['exception' => $e, 'model_uid' => $uid]);
+            return new JsonResponse(
+                (new ErrorResponse('Failed to set default model. See system log for details.'))->jsonSerialize(),
+                500,
+            );
         }
     }
 
@@ -202,8 +226,18 @@ final class ModelController extends ActionController
         try {
             $models = $this->modelRepository->findByProviderUid($providerUid);
             return new JsonResponse(ModelListResponse::fromModels($models)->jsonSerialize());
+        } catch (DbalException $e) {
+            $this->logger->error('Model getByProvider: query failed', ['exception' => $e, 'provider_uid' => $providerUid]);
+            return new JsonResponse(
+                (new ErrorResponse('Database error while loading models.'))->jsonSerialize(),
+                500,
+            );
         } catch (Throwable $e) {
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
+            $this->logger->error('Model getByProvider: unexpected error', ['exception' => $e, 'provider_uid' => $providerUid]);
+            return new JsonResponse(
+                (new ErrorResponse('Failed to load models. See system log for details.'))->jsonSerialize(),
+                500,
+            );
         }
     }
 
@@ -272,10 +306,28 @@ final class ModelController extends ActionController
                 success: true,
                 message: $message,
             ))->jsonSerialize());
-        } catch (Throwable $e) {
+        } catch (ProviderException $e) {
+            // REC #8b: provider error text often references upstream
+            // bodies / endpoints / auth artefacts — log full detail,
+            // surface a short upstream-error message stripped of
+            // internal context. The frontend renders this verbatim
+            // in the test-connection toast.
+            $this->logger->warning('Model test: provider rejected request', [
+                'exception' => $e,
+                'model_uid' => $uid,
+            ]);
             return new JsonResponse((new TestConnectionResponse(
                 success: false,
-                message: $e->getMessage(),
+                message: 'LLM provider rejected the test request. See system log for details.',
+            ))->jsonSerialize());
+        } catch (Throwable $e) {
+            $this->logger->error('Model test: unexpected error', [
+                'exception' => $e,
+                'model_uid' => $uid,
+            ]);
+            return new JsonResponse((new TestConnectionResponse(
+                success: false,
+                message: 'Test failed. See system log for details.',
             ))->jsonSerialize());
         }
     }
@@ -341,10 +393,17 @@ final class ModelController extends ActionController
                 'models' => $models,
                 'providerName' => $provider->getName(),
             ]);
-        } catch (Throwable $e) {
+        } catch (ProviderException $e) {
+            $this->logger->warning('Model fetchAvailableIds: provider error', ['exception' => $e]);
             return new JsonResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => 'LLM provider error while fetching model IDs. See system log for details.',
+            ], 502);
+        } catch (Throwable $e) {
+            $this->logger->error('Model fetchAvailableIds: unexpected error', ['exception' => $e]);
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'Failed to fetch model IDs. See system log for details.',
             ], 500);
         }
     }
@@ -424,10 +483,17 @@ final class ModelController extends ActionController
                 'costInput' => $foundModel->costInput,
                 'costOutput' => $foundModel->costOutput,
             ]);
-        } catch (Throwable $e) {
+        } catch (ProviderException $e) {
+            $this->logger->warning('Model detectLimits: provider error', ['exception' => $e]);
             return new JsonResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => 'LLM provider error while detecting model limits. See system log for details.',
+            ], 502);
+        } catch (Throwable $e) {
+            $this->logger->error('Model detectLimits: unexpected error', ['exception' => $e]);
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'Failed to detect model limits. See system log for details.',
             ], 500);
         }
     }
