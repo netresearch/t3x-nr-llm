@@ -30,8 +30,11 @@ distinct user-facing pathways:
   record) — :code:`listTablesAction()`, :code:`fetchRecordsAction()`,
   :code:`loadRecordDataAction()`.
 
-The 2026-04 architecture audit (``claudedocs/audit-2026-04-23-architecture.md``)
-flagged three concrete problems with the controller as it stands:
+The 2026-04 architecture audit — generated locally and kept under the
+gitignored ``claudedocs/`` directory rather than checked in (the
+codebase intentionally excludes Claude Code working notes from version
+control via ``.gitignore``) — flagged three concrete problems with the
+controller as it stands:
 
 1. **Inline SQL.** Eight call sites use :php:`ConnectionPool` /
    :php:`QueryBuilder` directly to query :code:`sys_log`, the picked
@@ -146,7 +149,7 @@ Rollout plan
 ============
 
 The split lands as a sequence of slices, each its own PR, each
-independently revertable. A single mega-PR would block on every
+independently revertible. A single mega-PR would block on every
 review iteration; small slices keep each step reviewable.
 
 Sequence
@@ -164,13 +167,24 @@ Sequence
    ADR-025 / ADR-026).
 #. **Slice 13d** — introduce typed responses; convert every
    ``JsonResponse(['success' => …])`` site.
-#. **Slice 13e** — split the controller. Four new controllers
-   register new ``#[AsController]`` services, the original
-   ``TaskController`` becomes a thin shim that re-exports each
-   action via an internal method-call to the new controllers, then
-   gets removed (along with its routes registered in
-   ``Configuration/Backend/AjaxRoutes.php`` repointed to the new
-   controllers).
+#. **Slice 13e** — split the controller in two passes:
+
+   #. Register the four new controllers (each with the
+      :code:`#[AsController]` attribute) and repoint every entry in
+      ``Configuration/Backend/AjaxRoutes.php`` and
+      ``Configuration/Backend/Modules.php`` from
+      :php:`TaskController::actionXxx` to the matching action on the
+      new per-pathway controller. ``TaskController`` itself remains
+      in the tree at this point, but no production code references
+      it any more — every route resolves to a new controller.
+   #. In a follow-up commit (or follow-up PR if review surface gets
+      large), delete ``TaskController.php`` along with any test
+      doubles still referencing it. This pass is mechanical: drop
+      the file, drop test imports, run the test suite.
+
+   Sequencing matters. Routes must move *before* the file is
+   deleted, otherwise the container compile would fail at the
+   intermediate step.
 
 Each slice maintains AJAX URL stability. JavaScript ``ajaxUrls``
 constants registered via :code:`PageRenderer::addInlineSettingArray()`
@@ -249,7 +263,9 @@ C. **One mega-PR** — perform every extraction in a single change.
 References
 ==========
 
-* Audit: ``claudedocs/audit-2026-04-23-architecture.md`` § REC #5.
+* Audit: ``claudedocs/audit-2026-04-23-architecture.md`` § REC #5
+  (kept locally under the gitignored ``claudedocs/`` directory; not
+  part of the published documentation tree).
 * Existing controller patterns: :php:`ConfigurationController`,
   :php:`ProviderController`, :php:`ModelController`.
 * :ref:`ADR-024 <adr-024>` (Dashboard Widgets) — typed-response
