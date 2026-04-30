@@ -79,9 +79,9 @@ final class ModelTest extends TestCase
         $model = new Model();
         $model->setCapabilities('chat,vision,tools');
 
-        self::assertTrue($model->hasCapability(Model::CAPABILITY_CHAT));
-        self::assertTrue($model->hasCapability(Model::CAPABILITY_VISION));
-        self::assertTrue($model->hasCapability(Model::CAPABILITY_TOOLS));
+        self::assertTrue($model->hasCapability(ModelCapability::CHAT->value));
+        self::assertTrue($model->hasCapability(ModelCapability::VISION->value));
+        self::assertTrue($model->hasCapability(ModelCapability::TOOLS->value));
     }
 
     #[Test]
@@ -90,8 +90,8 @@ final class ModelTest extends TestCase
         $model = new Model();
         $model->setCapabilities('chat,vision');
 
-        self::assertFalse($model->hasCapability(Model::CAPABILITY_TOOLS));
-        self::assertFalse($model->hasCapability(Model::CAPABILITY_EMBEDDINGS));
+        self::assertFalse($model->hasCapability(ModelCapability::TOOLS->value));
+        self::assertFalse($model->hasCapability(ModelCapability::EMBEDDINGS->value));
     }
 
     #[Test]
@@ -143,22 +143,26 @@ final class ModelTest extends TestCase
     }
 
     // ========================================
-    // Capability constants tests
+    // Capability label map (UI helper used by ModelController)
     // ========================================
 
     #[Test]
     public function getAllCapabilitiesReturnsExpectedCapabilities(): void
     {
+        // After REC #10 the legacy `Model::CAPABILITY_*` constants are
+        // gone; the source of truth is the `ModelCapability` enum.
+        // `getAllCapabilities()` stays as a UI label-map helper used
+        // by `ModelController` and is keyed on the enum values.
         $capabilities = Model::getAllCapabilities();
 
-        self::assertArrayHasKey(Model::CAPABILITY_CHAT, $capabilities);
-        self::assertArrayHasKey(Model::CAPABILITY_COMPLETION, $capabilities);
-        self::assertArrayHasKey(Model::CAPABILITY_EMBEDDINGS, $capabilities);
-        self::assertArrayHasKey(Model::CAPABILITY_VISION, $capabilities);
-        self::assertArrayHasKey(Model::CAPABILITY_STREAMING, $capabilities);
-        self::assertArrayHasKey(Model::CAPABILITY_TOOLS, $capabilities);
-        self::assertArrayHasKey(Model::CAPABILITY_JSON_MODE, $capabilities);
-        self::assertArrayHasKey(Model::CAPABILITY_AUDIO, $capabilities);
+        self::assertArrayHasKey(ModelCapability::CHAT->value, $capabilities);
+        self::assertArrayHasKey(ModelCapability::COMPLETION->value, $capabilities);
+        self::assertArrayHasKey(ModelCapability::EMBEDDINGS->value, $capabilities);
+        self::assertArrayHasKey(ModelCapability::VISION->value, $capabilities);
+        self::assertArrayHasKey(ModelCapability::STREAMING->value, $capabilities);
+        self::assertArrayHasKey(ModelCapability::TOOLS->value, $capabilities);
+        self::assertArrayHasKey(ModelCapability::JSON_MODE->value, $capabilities);
+        self::assertArrayHasKey(ModelCapability::AUDIO->value, $capabilities);
     }
 
     // ========================================

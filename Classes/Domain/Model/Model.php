@@ -21,27 +21,6 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
  */
 class Model extends AbstractEntity
 {
-    /**
-     * Capability constants.
-     *
-     * @deprecated Use ModelCapability enum instead
-     */
-    public const CAPABILITY_CHAT = 'chat';
-    /** @deprecated Use ModelCapability enum instead */
-    public const CAPABILITY_COMPLETION = 'completion';
-    /** @deprecated Use ModelCapability enum instead */
-    public const CAPABILITY_EMBEDDINGS = 'embeddings';
-    /** @deprecated Use ModelCapability enum instead */
-    public const CAPABILITY_VISION = 'vision';
-    /** @deprecated Use ModelCapability enum instead */
-    public const CAPABILITY_STREAMING = 'streaming';
-    /** @deprecated Use ModelCapability enum instead */
-    public const CAPABILITY_TOOLS = 'tools';
-    /** @deprecated Use ModelCapability enum instead */
-    public const CAPABILITY_JSON_MODE = 'json_mode';
-    /** @deprecated Use ModelCapability enum instead */
-    public const CAPABILITY_AUDIO = 'audio';
-
     protected string $identifier = '';
     protected string $name = '';
     protected string $description = '';

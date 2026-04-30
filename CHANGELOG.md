@@ -273,7 +273,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### BREAKING
 
-- The following classes are now `final` (and `final readonly` where applicable)
+- The eight `Model::CAPABILITY_*` legacy public class constants
+  (`CAPABILITY_CHAT`, `CAPABILITY_COMPLETION`, `CAPABILITY_EMBEDDINGS`,
+  `CAPABILITY_VISION`, `CAPABILITY_STREAMING`, `CAPABILITY_TOOLS`,
+  `CAPABILITY_JSON_MODE`, `CAPABILITY_AUDIO`) have been REMOVED. They
+  have been marked `@deprecated` since the introduction of the
+  `Domain\Enum\ModelCapability` backed enum, and the architecture
+  audit (REC #10) flagged the parallel-truths state as a structural
+  debt to clear. Downstream consumers must migrate references to the
+  enum value: `Model::CAPABILITY_CHAT` → `ModelCapability::CHAT->value`
+  (or pass the enum directly anywhere that accepts
+  `string|ModelCapability` — e.g. `CapabilitySet::has()`,
+  `with()`, `without()`). The `Model::getAllCapabilities()` static
+  helper (used by `ModelController` to populate the BE list view's
+  capability label dropdown) is unchanged — it is keyed on the enum
+  values, not on the removed constants. REC #10. (and `final readonly` where applicable)
   and can no longer be subclassed by downstream extensions: the four leaf
   provider exceptions (`ProviderConfigurationException`,
   `ProviderConnectionException`, `ProviderResponseException`,
