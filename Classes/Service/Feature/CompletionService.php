@@ -32,7 +32,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
  * Symfony container always autowires it from
  * `Configuration/Services.yaml`.
  */
-final readonly class CompletionService
+final readonly class CompletionService implements CompletionServiceInterface
 {
     use AutoPopulatesBeUserUidTrait;
 

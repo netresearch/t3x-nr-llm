@@ -32,7 +32,7 @@ use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
  * tests omit it; production DI always autowires it via
  * `Configuration/Services.yaml`.
  */
-final readonly class EmbeddingService
+final readonly class EmbeddingService implements EmbeddingServiceInterface
 {
     use AutoPopulatesBeUserUidTrait;
 

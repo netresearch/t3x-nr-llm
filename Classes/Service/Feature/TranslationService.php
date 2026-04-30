@@ -43,7 +43,7 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
  * slice can route specialized translators through a similar
  * pre-flight if needed.
  */
-final readonly class TranslationService
+final readonly class TranslationService implements TranslationServiceInterface
 {
     private const SUPPORTED_FORMALITIES = ['default', 'formal', 'informal'];
     private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
