@@ -12,7 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 use GuzzleHttp\Psr7\ServerRequest;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
-use Netresearch\NrLlm\Controller\Backend\TaskController;
+use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
@@ -21,6 +21,8 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
+use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -29,11 +31,9 @@ use ReflectionClass;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
-use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Page\PageRenderer;
-use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 
@@ -51,11 +51,11 @@ use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
  */
 #[CoversClass(ConfigurationController::class)]
 #[CoversClass(LlmModuleController::class)]
-#[CoversClass(TaskController::class)]
+#[CoversClass(TaskExecutionController::class)]
 final class ErrorHandlingTest extends AbstractFunctionalTestCase
 {
     private ConfigurationController $configController;
-    private TaskController $taskController;
+    private TaskExecutionController $taskController;
     private LlmModuleController $llmModuleController;
     private LlmConfigurationRepository $configurationRepository;
 
@@ -126,27 +126,23 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         );
     }
 
-    private function createTaskController(): TaskController
+    private function createTaskController(): TaskExecutionController
     {
         $taskRepository = $this->get(TaskRepository::class);
         self::assertInstanceOf(TaskRepository::class, $taskRepository);
 
-        $llmServiceManager = $this->get(LlmServiceManagerInterface::class);
-        self::assertInstanceOf(LlmServiceManagerInterface::class, $llmServiceManager);
+        $taskExecutionService = $this->get(TaskExecutionServiceInterface::class);
+        self::assertInstanceOf(TaskExecutionServiceInterface::class, $taskExecutionService);
 
-        $connectionPool = $this->get(ConnectionPool::class);
-        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $taskInputResolver = $this->get(TaskInputResolverInterface::class);
+        self::assertInstanceOf(TaskInputResolverInterface::class, $taskInputResolver);
 
-        $tcaSchemaFactory = $this->get(TcaSchemaFactory::class);
-        self::assertInstanceOf(TcaSchemaFactory::class, $tcaSchemaFactory);
-
-        $reflection = new ReflectionClass(TaskController::class);
+        $reflection = new ReflectionClass(TaskExecutionController::class);
         $controller = $reflection->newInstanceWithoutConstructor();
 
         $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
-        $this->setPrivateProperty($controller, 'llmServiceManager', $llmServiceManager);
-        $this->setPrivateProperty($controller, 'connectionPool', $connectionPool);
-        $this->setPrivateProperty($controller, 'tcaSchemaFactory', $tcaSchemaFactory);
+        $this->setPrivateProperty($controller, 'taskExecutionService', $taskExecutionService);
+        $this->setPrivateProperty($controller, 'taskInputResolver', $taskInputResolver);
 
         return $controller;
     }

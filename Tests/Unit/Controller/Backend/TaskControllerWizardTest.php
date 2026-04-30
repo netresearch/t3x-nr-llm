@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
-use Netresearch\NrLlm\Controller\Backend\TaskController;
+use Netresearch\NrLlm\Controller\Backend\TaskWizardController;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -17,10 +17,15 @@ use ReflectionMethod;
 use stdClass;
 
 /**
- * Unit tests for TaskController wizard helper methods.
+ * Unit tests for the wizard helper methods (`SafeCastTrait`'s
+ * `toStr` / `toInt` / `toFloat`) as exercised by
+ * `TaskWizardController`.
  *
- * Tests the private static helper methods (toStr, toInt, toFloat)
- * via reflection. These are pure functions with no dependencies.
+ * The trait lives in `Classes/Utility/SafeCastTrait.php`; this
+ * suite anchors the behaviour at the wizard-controller seam where
+ * it is consumed for parsing wizard form-post bodies. Each method
+ * is a pure function with no dependencies, so reflection-based
+ * private invocation is safe.
  */
 final class TaskControllerWizardTest extends TestCase
 {
@@ -32,7 +37,7 @@ final class TaskControllerWizardTest extends TestCase
     {
         parent::setUp();
 
-        $reflection = new ReflectionClass(TaskController::class);
+        $reflection = new ReflectionClass(TaskWizardController::class);
 
         $this->toStr = $reflection->getMethod('toStr');
         $this->toInt = $reflection->getMethod('toInt');

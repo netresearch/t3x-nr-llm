@@ -14,7 +14,7 @@ use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
-use Netresearch\NrLlm\Controller\Backend\TaskController;
+use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
@@ -27,6 +27,8 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
+use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
+use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Message\ResponseInterface;
@@ -54,7 +56,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
     private ProviderController $providerController;
     private ModelController $modelController;
     private ConfigurationController $configController;
-    private TaskController $taskController;
+    private TaskExecutionController $taskController;
     private LlmModuleController $dashboardController;
     private ProviderRepository $providerRepository;
     private ModelRepository $modelRepository;
@@ -149,14 +151,18 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         ]);
     }
 
-    private function createTaskController(): TaskController
+    private function createTaskController(): TaskExecutionController
     {
-        $llmServiceManager = $this->get(LlmServiceManager::class);
-        self::assertInstanceOf(LlmServiceManager::class, $llmServiceManager);
+        $taskExecutionService = $this->get(TaskExecutionServiceInterface::class);
+        self::assertInstanceOf(TaskExecutionServiceInterface::class, $taskExecutionService);
 
-        return $this->createControllerWithReflection(TaskController::class, [
-            'taskRepository' => $this->taskRepository,
-            'llmServiceManager' => $llmServiceManager,
+        $taskInputResolver = $this->get(TaskInputResolverInterface::class);
+        self::assertInstanceOf(TaskInputResolverInterface::class, $taskInputResolver);
+
+        return $this->createControllerWithReflection(TaskExecutionController::class, [
+            'taskRepository'       => $this->taskRepository,
+            'taskExecutionService' => $taskExecutionService,
+            'taskInputResolver'    => $taskInputResolver,
         ]);
     }
 
