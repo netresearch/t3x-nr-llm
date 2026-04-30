@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Feature\CompletionService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -216,11 +217,10 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::callback(function (array $messages): bool {
-                    /** @var array{role: string, content: string}|null $systemMessage */
                     $systemMessage = $messages[0] ?? null;
-                    return $systemMessage !== null
-                        && $systemMessage['role'] === 'system'
-                        && str_contains($systemMessage['content'], 'Markdown');
+                    return $systemMessage instanceof ChatMessage
+                        && $systemMessage->isSystem()
+                        && str_contains($systemMessage->content, 'Markdown');
                 }),
                 self::anything(),
             )
@@ -448,11 +448,10 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
                 self::callback(
                     // Should have system message when markdown format
                     function (array $messages): bool {
-                        /** @var array{role: string, content: string}|null $msg */
                         $msg = $messages[0] ?? null;
-                        return $msg !== null
-                            && $msg['role'] === 'system'
-                            && str_contains($msg['content'], 'Markdown');
+                        return $msg instanceof ChatMessage
+                            && $msg->isSystem()
+                            && str_contains($msg->content, 'Markdown');
                     },
                 ),
                 self::anything(),
@@ -476,13 +475,13 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
                     if (count($messages) !== 2) {
                         return false;
                     }
-                    /** @var array{role: string, content: string} $msg0 */
                     $msg0 = $messages[0];
-                    /** @var array{role: string, content: string} $msg1 */
                     $msg1 = $messages[1];
-                    return $msg0['role'] === 'system'
-                        && $msg0['content'] === 'Be helpful'
-                        && $msg1['role'] === 'user';
+                    return $msg0 instanceof ChatMessage
+                        && $msg1 instanceof ChatMessage
+                        && $msg0->isSystem()
+                        && $msg0->content === 'Be helpful'
+                        && $msg1->isUser();
                 }),
                 self::anything(),
             )
@@ -506,10 +505,10 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
                     if (count($messages) !== 1) {
                         return false;
                     }
-                    /** @var array{role: string, content: string} $msg */
                     $msg = $messages[0];
-                    return $msg['role'] === 'user'
-                        && $msg['content'] === 'User prompt';
+                    return $msg instanceof ChatMessage
+                        && $msg->isUser()
+                        && $msg->content === 'User prompt';
                 }),
                 self::anything(),
             )
