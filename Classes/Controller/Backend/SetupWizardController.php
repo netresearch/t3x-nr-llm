@@ -9,6 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Controller\Backend\Response\DiscoveredModelsResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\GeneratedConfigurationsResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\ProviderDetectionResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\WizardSaveResponse;
+use Netresearch\NrLlm\Controller\Backend\Response\WizardTestConnectionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
@@ -18,7 +24,6 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
-use Netresearch\NrLlm\Service\SetupWizard\DTO\SuggestedConfiguration;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -129,18 +134,17 @@ final class SetupWizardController extends ActionController
         $endpoint = $this->extractStringFromBody($body, 'endpoint');
 
         if ($endpoint === '') {
-            return new JsonResponse([
-                'success' => false,
-                'error' => 'Endpoint URL is required',
-            ], 400);
+            return new JsonResponse(
+                (new ErrorResponse('Endpoint URL is required'))->jsonSerialize(),
+                400,
+            );
         }
 
         $detected = $this->providerDetector->detect($endpoint);
 
-        return new JsonResponse([
-            'success' => true,
-            'provider' => $detected->toArray(),
-        ]);
+        return new JsonResponse(
+            ProviderDetectionResponse::fromDetectedProvider($detected)->jsonSerialize(),
+        );
     }
 
     /**
@@ -154,10 +158,10 @@ final class SetupWizardController extends ActionController
         $adapterType = $this->extractStringFromBody($body, 'adapterType', 'openai');
 
         if ($endpoint === '') {
-            return new JsonResponse([
-                'success' => false,
-                'error' => 'Endpoint URL is required',
-            ], 400);
+            return new JsonResponse(
+                (new ErrorResponse('Endpoint URL is required'))->jsonSerialize(),
+                400,
+            );
         }
 
         $detected = new DetectedProvider(
@@ -168,10 +172,9 @@ final class SetupWizardController extends ActionController
 
         $result = $this->modelDiscovery->testConnection($detected, $apiKey);
 
-        return new JsonResponse([
-            'success' => $result['success'],
-            'message' => $result['message'],
-        ]);
+        return new JsonResponse(
+            WizardTestConnectionResponse::fromResult($result)->jsonSerialize(),
+        );
     }
 
     /**
@@ -185,10 +188,10 @@ final class SetupWizardController extends ActionController
         $adapterType = $this->extractStringFromBody($body, 'adapterType', 'openai');
 
         if ($endpoint === '') {
-            return new JsonResponse([
-                'success' => false,
-                'error' => 'Endpoint URL is required',
-            ], 400);
+            return new JsonResponse(
+                (new ErrorResponse('Endpoint URL is required'))->jsonSerialize(),
+                400,
+            );
         }
 
         $detected = new DetectedProvider(
@@ -197,12 +200,11 @@ final class SetupWizardController extends ActionController
             endpoint: $endpoint,
         );
 
-        $models = $this->modelDiscovery->discover($detected, $apiKey);
+        $models = array_values($this->modelDiscovery->discover($detected, $apiKey));
 
-        return new JsonResponse([
-            'success' => true,
-            'models' => array_map(fn(DiscoveredModel $m) => $m->toArray(), $models),
-        ]);
+        return new JsonResponse(
+            DiscoveredModelsResponse::fromDiscoveredModels($models)->jsonSerialize(),
+        );
     }
 
     /**
@@ -217,10 +219,10 @@ final class SetupWizardController extends ActionController
         $modelsData = $this->extractArrayFromBody($body, 'models');
 
         if ($endpoint === '' || $modelsData === []) {
-            return new JsonResponse([
-                'success' => false,
-                'error' => 'Endpoint and models are required',
-            ], 400);
+            return new JsonResponse(
+                (new ErrorResponse('Endpoint and models are required'))->jsonSerialize(),
+                400,
+            );
         }
 
         $detected = new DetectedProvider(
@@ -246,12 +248,13 @@ final class SetupWizardController extends ActionController
             );
         }
 
-        $configurations = $this->configurationGenerator->generate($detected, $apiKey, $models);
+        $configurations = array_values(
+            $this->configurationGenerator->generate($detected, $apiKey, $models),
+        );
 
-        return new JsonResponse([
-            'success' => true,
-            'configurations' => array_map(fn(SuggestedConfiguration $c) => $c->toArray(), $configurations),
-        ]);
+        return new JsonResponse(
+            GeneratedConfigurationsResponse::fromSuggestedConfigurations($configurations)->jsonSerialize(),
+        );
     }
 
     /**
@@ -266,10 +269,10 @@ final class SetupWizardController extends ActionController
         $pid = $this->extractIntFromBody($body, 'pid');
 
         if ($providerData === [] || $modelsData === []) {
-            return new JsonResponse([
-                'success' => false,
-                'error' => 'Provider and models are required',
-            ], 400);
+            return new JsonResponse(
+                (new ErrorResponse('Provider and models are required'))->jsonSerialize(),
+                400,
+            );
         }
 
         try {
@@ -290,10 +293,10 @@ final class SetupWizardController extends ActionController
                         'source' => 'setup_wizard',
                     ]);
                 } catch (Throwable $e) {
-                    return new JsonResponse([
-                        'success' => false,
-                        'error' => 'Failed to store API key securely: ' . $e->getMessage(),
-                    ], 500);
+                    return new JsonResponse(
+                        (new ErrorResponse('Failed to store API key securely: ' . $e->getMessage()))->jsonSerialize(),
+                        500,
+                    );
                 }
             }
 
@@ -311,7 +314,6 @@ final class SetupWizardController extends ActionController
             $this->providerRepository->add($provider);
             $this->persistenceManager->persistAll();
 
-            $providerUid = $provider->getUid();
             /** @var array<string, Model> $savedModels */
             $savedModels = [];
 
@@ -417,21 +419,18 @@ final class SetupWizardController extends ActionController
                 }
             }
 
-            return new JsonResponse([
-                'success' => true,
-                'message' => 'Configuration saved successfully',
-                'provider' => [
-                    'uid' => $providerUid,
-                    'name' => $provider->getName(),
-                ],
-                'modelsCount' => count($savedModels),
-                'configurationsCount' => $configCount,
-            ]);
+            return new JsonResponse(
+                WizardSaveResponse::fromProvider(
+                    provider: $provider,
+                    modelsCount: count($savedModels),
+                    configurationsCount: $configCount,
+                )->jsonSerialize(),
+            );
         } catch (Throwable $e) {
-            return new JsonResponse([
-                'success' => false,
-                'error' => 'Failed to save: ' . $e->getMessage(),
-            ], 500);
+            return new JsonResponse(
+                (new ErrorResponse('Failed to save: ' . $e->getMessage()))->jsonSerialize(),
+                500,
+            );
         }
     }
 
