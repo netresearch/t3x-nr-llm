@@ -10,7 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Doctrine\DBAL\Exception as DbalException;
-use InvalidArgumentException;
+// Aliased so the catch arm reads as PHP's built-in (raised by
+// `RecordTableReader::ensureNotExcluded`) rather than the
+// project-level `Netresearch\NrLlm\Exception\InvalidArgumentException`.
+use InvalidArgumentException as PhpInvalidArgumentException;
 use Netresearch\NrLlm\Controller\Backend\DTO\FetchRecordsRequest;
 use Netresearch\NrLlm\Controller\Backend\DTO\LoadRecordDataRequest;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
@@ -107,7 +110,7 @@ final class TaskRecordsController extends ActionController
                 labelField: $labelField,
                 total: count($records),
             ))->jsonSerialize());
-        } catch (InvalidArgumentException $e) {
+        } catch (PhpInvalidArgumentException $e) {
             // RecordTableReader::ensureNotExcluded() rejects forbidden tables.
             // Message is vetted ("Table 'xyz' is excluded ...") and safe to surface.
             return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 400);
@@ -155,7 +158,7 @@ final class TaskRecordsController extends ActionController
                 data: $encoded,
                 recordCount: count($rows),
             ))->jsonSerialize());
-        } catch (InvalidArgumentException $e) {
+        } catch (PhpInvalidArgumentException $e) {
             return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 400);
         } catch (DbalException $e) {
             // REC #8b: SQL error text → log + generic.

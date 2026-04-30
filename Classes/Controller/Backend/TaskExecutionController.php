@@ -16,7 +16,12 @@ use Netresearch\NrLlm\Controller\Backend\Response\TaskExecutionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TaskInputResponse;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
-use Netresearch\NrLlm\Exception\InvalidArgumentException;
+// Aliased to make the catch arm explicit about which
+// `InvalidArgumentException` it expects — the project-level one
+// thrown by `TaskExecutionService::execute()`, not PHP's built-in
+// (which is also raised in sibling controllers, e.g. by
+// `RecordTableReader::ensureNotExcluded` in `TaskRecordsController`).
+use Netresearch\NrLlm\Exception\InvalidArgumentException as DomainInvalidArgumentException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
@@ -185,7 +190,7 @@ final class TaskExecutionController extends ActionController
 
         try {
             $result = $this->taskExecutionService->execute($task, $dto->input);
-        } catch (InvalidArgumentException $e) {
+        } catch (DomainInvalidArgumentException $e) {
             // Domain validation: message is vetted internal text safe to surface.
             return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize());
         } catch (ProviderResponseException $e) {
