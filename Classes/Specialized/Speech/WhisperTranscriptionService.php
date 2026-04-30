@@ -9,18 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Speech;
 
-use Exception;
-use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
+use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Exception\UnsupportedFormatException;
+use Netresearch\NrLlm\Specialized\MultipartBodyBuilderTrait;
 use Netresearch\NrLlm\Specialized\Option\TranscriptionOptions;
-use Psr\Http\Client\ClientInterface;
-use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\StreamFactoryInterface;
-use Psr\Log\LoggerInterface;
 use Throwable;
-use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * Whisper speech-to-text transcription service.
@@ -34,10 +29,18 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * - Word-level timestamps (verbose mode)
  * - Prompt guidance for improved accuracy
  *
+ * Owns its own multipart-request execution rather than using the
+ * trait's `sendMultipartRequest()` because Whisper returns raw
+ * `string` bodies for the `text`/`srt`/`vtt` response formats — the
+ * base's `executeRequest()` always JSON-decodes. Only the body
+ * construction (`encodeMultipartBody`) is shared via the trait.
+ *
  * @see https://platform.openai.com/docs/guides/speech-to-text
  */
-final class WhisperTranscriptionService
+final class WhisperTranscriptionService extends AbstractSpecializedService
 {
+    use MultipartBodyBuilderTrait;
+
     private const API_URL = 'https://api.openai.com/v1/audio';
     private const DEFAULT_MODEL = 'whisper-1';
     private const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
@@ -51,30 +54,6 @@ final class WhisperTranscriptionService
     private const RESPONSE_FORMATS = [
         'json', 'text', 'srt', 'vtt', 'verbose_json',
     ];
-
-    private string $apiKey = '';
-    private string $baseUrl = '';
-    /** @phpstan-ignore property.onlyWritten (intended for future HTTP client configuration) */
-    private int $timeout = 120; // Transcription can take longer
-
-    public function __construct(
-        private readonly ClientInterface $httpClient,
-        private readonly RequestFactoryInterface $requestFactory,
-        private readonly StreamFactoryInterface $streamFactory,
-        private readonly ExtensionConfiguration $extensionConfiguration,
-        private readonly UsageTrackerServiceInterface $usageTracker,
-        private readonly LoggerInterface $logger,
-    ) {
-        $this->loadConfiguration();
-    }
-
-    /**
-     * Check if service is available.
-     */
-    public function isAvailable(): bool
-    {
-        return $this->apiKey !== '';
-    }
 
     /**
      * Transcribe audio file to text.
@@ -97,13 +76,10 @@ final class WhisperTranscriptionService
             ? $options
             : TranscriptionOptions::fromArray($options);
 
-        // Validate file
         $this->validateAudioFile($audioPath);
 
-        // Build multipart request
         $response = $this->sendTranscriptionRequest($audioPath, $options);
 
-        // Parse response based on format
         return $this->parseTranscriptionResponse($response, $options);
     }
 
@@ -127,7 +103,6 @@ final class WhisperTranscriptionService
             ? $options
             : TranscriptionOptions::fromArray($options);
 
-        // Validate content size
         if (strlen($audioContent) > self::MAX_FILE_SIZE) {
             throw new UnsupportedFormatException(
                 sprintf('Audio content exceeds maximum size of %d MB', self::MAX_FILE_SIZE / 1024 / 1024),
@@ -135,13 +110,11 @@ final class WhisperTranscriptionService
             );
         }
 
-        // Validate format from filename
         $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
         if (!in_array($extension, self::SUPPORTED_FORMATS, true)) {
             throw UnsupportedFormatException::audioFormat($extension);
         }
 
-        // Build multipart request with content
         $response = $this->sendTranscriptionRequestFromContent($audioContent, $filename, $options);
 
         return $this->parseTranscriptionResponse($response, $options);
@@ -174,7 +147,6 @@ final class WhisperTranscriptionService
 
         $result = $this->parseTranscriptionResponse($response, $options);
 
-        // Track usage
         $this->usageTracker->trackUsage('speech', 'whisper:translation', [
             'file_size' => filesize($audioPath),
         ]);
@@ -202,39 +174,46 @@ final class WhisperTranscriptionService
         return self::RESPONSE_FORMATS;
     }
 
-    /**
-     * Load configuration from extension settings.
-     */
-    private function loadConfiguration(): void
+    protected function getServiceDomain(): string
     {
-        try {
-            $config = $this->extensionConfiguration->get('nr_llm');
-            if (!is_array($config)) {
-                return;
-            }
+        return 'speech';
+    }
 
-            // Use OpenAI API key for Whisper
-            /** @var array{providers?: array{openai?: array{apiKey?: string}}, speech?: array{whisper?: array{baseUrl?: string, timeout?: int}}} $config */
-            $this->apiKey = (string)($config['providers']['openai']['apiKey'] ?? '');
-            $this->baseUrl = (string)($config['speech']['whisper']['baseUrl'] ?? self::API_URL);
-            $this->timeout = (int)($config['speech']['whisper']['timeout'] ?? 120);
-        } catch (Exception $e) {
-            $this->logger->warning('Failed to load Whisper configuration', [
-                'exception' => $e->getMessage(),
-            ]);
-        }
+    protected function getServiceProvider(): string
+    {
+        return 'whisper';
+    }
+
+    protected function getDefaultBaseUrl(): string
+    {
+        return self::API_URL;
+    }
+
+    protected function getDefaultTimeout(): int
+    {
+        // Transcription can take longer than other operations.
+        return 120;
     }
 
     /**
-     * Ensure service is available.
-     *
-     * @throws ServiceUnavailableException
+     * @param array<string, mixed> $config
      */
-    private function ensureAvailable(): void
+    protected function loadServiceConfiguration(array $config): void
     {
-        if (!$this->isAvailable()) {
-            throw ServiceUnavailableException::notConfigured('speech', 'whisper');
-        }
+        /** @var array{providers?: array{openai?: array{apiKey?: string}}, speech?: array{whisper?: array{baseUrl?: string, timeout?: int}}} $config */
+        $this->apiKey  = (string)($config['providers']['openai']['apiKey'] ?? '');
+        $this->baseUrl = (string)($config['speech']['whisper']['baseUrl'] ?? self::API_URL);
+        $this->timeout = (int)($config['speech']['whisper']['timeout'] ?? $this->getDefaultTimeout());
+    }
+
+    protected function buildAuthHeaders(): array
+    {
+        return ['Authorization' => 'Bearer ' . $this->apiKey];
+    }
+
+    protected function getProviderLabel(): string
+    {
+        return 'Whisper';
     }
 
     /**
@@ -274,12 +253,17 @@ final class WhisperTranscriptionService
         string $audioPath,
         TranscriptionOptions $options,
     ): array|string {
-        $url = rtrim($this->baseUrl, '/') . '/transcriptions';
+        $content = file_get_contents($audioPath);
+        if ($content === false) {
+            throw new ServiceUnavailableException(
+                sprintf('Failed to read audio file: %s', $audioPath),
+                'speech',
+                ['audioPath' => $audioPath],
+            );
+        }
+        $parts = $this->buildTranscriptionParts(basename($audioPath), $content, $options);
 
-        $boundary = 'whisper' . uniqid();
-        $body = $this->buildMultipartBody($audioPath, $options, $boundary);
-
-        return $this->sendMultipartRequest($url, $body, $boundary, $options);
+        return $this->dispatchMultipart('transcriptions', $parts, $options);
     }
 
     /**
@@ -292,12 +276,9 @@ final class WhisperTranscriptionService
         string $filename,
         TranscriptionOptions $options,
     ): array|string {
-        $url = rtrim($this->baseUrl, '/') . '/transcriptions';
+        $parts = $this->buildTranscriptionParts($filename, $audioContent, $options);
 
-        $boundary = 'whisper' . uniqid();
-        $body = $this->buildMultipartBodyFromContent($audioContent, $filename, $options, $boundary);
-
-        return $this->sendMultipartRequest($url, $body, $boundary, $options);
+        return $this->dispatchMultipart('transcriptions', $parts, $options);
     }
 
     /**
@@ -309,26 +290,6 @@ final class WhisperTranscriptionService
         string $audioPath,
         TranscriptionOptions $options,
     ): array|string {
-        $url = rtrim($this->baseUrl, '/') . '/translations';
-
-        $boundary = 'whisper' . uniqid();
-        $body = $this->buildMultipartBody($audioPath, $options, $boundary);
-
-        return $this->sendMultipartRequest($url, $body, $boundary, $options);
-    }
-
-    /**
-     * Build multipart form body from file.
-     */
-    private function buildMultipartBody(
-        string $audioPath,
-        TranscriptionOptions $options,
-        string $boundary,
-    ): string {
-        $body = '';
-
-        // Add file
-        $filename = basename($audioPath);
         $content = file_get_contents($audioPath);
         if ($content === false) {
             throw new ServiceUnavailableException(
@@ -337,117 +298,79 @@ final class WhisperTranscriptionService
                 ['audioPath' => $audioPath],
             );
         }
-        $body .= "--{$boundary}\r\n";
-        $body .= "Content-Disposition: form-data; name=\"file\"; filename=\"{$filename}\"\r\n";
-        $body .= "Content-Type: application/octet-stream\r\n\r\n";
-        $body .= $content . "\r\n";
+        $parts = $this->buildTranscriptionParts(basename($audioPath), $content, $options);
 
-        // Add model
-        $model = $options->model ?? self::DEFAULT_MODEL;
-        $body .= "--{$boundary}\r\n";
-        $body .= "Content-Disposition: form-data; name=\"model\"\r\n\r\n";
-        $body .= $model . "\r\n";
-
-        // Add optional parameters
-        if ($options->language !== null) {
-            $body .= "--{$boundary}\r\n";
-            $body .= "Content-Disposition: form-data; name=\"language\"\r\n\r\n";
-            $body .= $options->language . "\r\n";
-        }
-
-        if ($options->format !== null) {
-            $body .= "--{$boundary}\r\n";
-            $body .= "Content-Disposition: form-data; name=\"response_format\"\r\n\r\n";
-            $body .= $options->format . "\r\n";
-        }
-
-        if ($options->prompt !== null) {
-            $body .= "--{$boundary}\r\n";
-            $body .= "Content-Disposition: form-data; name=\"prompt\"\r\n\r\n";
-            $body .= $options->prompt . "\r\n";
-        }
-
-        if ($options->temperature !== null) {
-            $body .= "--{$boundary}\r\n";
-            $body .= "Content-Disposition: form-data; name=\"temperature\"\r\n\r\n";
-            $body .= (string)$options->temperature . "\r\n";
-        }
-
-        $body .= "--{$boundary}--\r\n";
-
-        return $body;
+        return $this->dispatchMultipart('translations', $parts, $options);
     }
 
     /**
-     * Build multipart form body from content.
+     * Compose the multipart parts list shared by transcription /
+     * translation paths. The file part comes first; optional fields
+     * follow only when set on the options object.
+     *
+     * @return list<array<string, mixed>>
      */
-    private function buildMultipartBodyFromContent(
-        string $audioContent,
+    private function buildTranscriptionParts(
         string $filename,
+        string $audioContent,
         TranscriptionOptions $options,
-        string $boundary,
-    ): string {
-        $body = '';
+    ): array {
+        $parts = [
+            [
+                'name'        => 'file',
+                'filename'    => $filename,
+                'content'     => $audioContent,
+                'contentType' => 'application/octet-stream',
+            ],
+            [
+                'name'  => 'model',
+                'value' => $options->model ?? self::DEFAULT_MODEL,
+            ],
+        ];
 
-        // Add file content
-        $body .= "--{$boundary}\r\n";
-        $body .= "Content-Disposition: form-data; name=\"file\"; filename=\"{$filename}\"\r\n";
-        $body .= "Content-Type: application/octet-stream\r\n\r\n";
-        $body .= $audioContent . "\r\n";
-
-        // Add model
-        $model = $options->model ?? self::DEFAULT_MODEL;
-        $body .= "--{$boundary}\r\n";
-        $body .= "Content-Disposition: form-data; name=\"model\"\r\n\r\n";
-        $body .= $model . "\r\n";
-
-        // Add optional parameters (same as file version)
         if ($options->language !== null) {
-            $body .= "--{$boundary}\r\n";
-            $body .= "Content-Disposition: form-data; name=\"language\"\r\n\r\n";
-            $body .= $options->language . "\r\n";
+            $parts[] = ['name' => 'language', 'value' => $options->language];
         }
-
         if ($options->format !== null) {
-            $body .= "--{$boundary}\r\n";
-            $body .= "Content-Disposition: form-data; name=\"response_format\"\r\n\r\n";
-            $body .= $options->format . "\r\n";
+            $parts[] = ['name' => 'response_format', 'value' => $options->format];
         }
-
         if ($options->prompt !== null) {
-            $body .= "--{$boundary}\r\n";
-            $body .= "Content-Disposition: form-data; name=\"prompt\"\r\n\r\n";
-            $body .= $options->prompt . "\r\n";
+            $parts[] = ['name' => 'prompt', 'value' => $options->prompt];
         }
-
         if ($options->temperature !== null) {
-            $body .= "--{$boundary}\r\n";
-            $body .= "Content-Disposition: form-data; name=\"temperature\"\r\n\r\n";
-            $body .= (string)$options->temperature . "\r\n";
+            $parts[] = ['name' => 'temperature', 'value' => (string)$options->temperature];
         }
 
-        $body .= "--{$boundary}--\r\n";
-
-        return $body;
+        return $parts;
     }
 
     /**
-     * Send multipart request.
+     * Send the multipart request and return either the JSON-decoded
+     * body (for `json` / `verbose_json`) or the raw string body
+     * (`text` / `srt` / `vtt`). Whisper's response shape is
+     * format-dependent so the base's strict-array `executeRequest()`
+     * does not fit; this method owns the request lifecycle while
+     * still using the trait's `encodeMultipartBody()` for the wire
+     * payload and the base's `buildAuthHeaders()` for auth.
+     *
+     * @param list<array<string, mixed>> $parts
      *
      * @throws ServiceUnavailableException
+     * @throws ServiceConfigurationException
      *
-     * @return array<string, mixed>|string Response data
+     * @return array<string, mixed>|string
      */
-    private function sendMultipartRequest(
-        string $url,
-        string $body,
-        string $boundary,
-        TranscriptionOptions $options,
-    ): array|string {
-        $request = $this->requestFactory->createRequest('POST', $url)
-            ->withHeader('Authorization', 'Bearer ' . $this->apiKey)
-            ->withHeader('Content-Type', 'multipart/form-data; boundary=' . $boundary);
+    private function dispatchMultipart(string $endpoint, array $parts, TranscriptionOptions $options): array|string
+    {
+        $boundary = 'whisper-' . uniqid('', true);
+        $body     = $this->encodeMultipartBody($parts, $boundary);
+        $url      = $this->buildEndpointUrl($endpoint);
 
+        $request = $this->requestFactory->createRequest('POST', $url)
+            ->withHeader('Content-Type', 'multipart/form-data; boundary=' . $boundary);
+        foreach ($this->buildAuthHeaders() as $name => $value) {
+            $request = $request->withHeader($name, $value);
+        }
         $request = $request->withBody($this->streamFactory->createStream($body));
 
         try {
@@ -456,10 +379,8 @@ final class WhisperTranscriptionService
             $responseBody = (string)$response->getBody();
 
             if ($statusCode >= 200 && $statusCode < 300) {
-                // Track usage for successful requests
                 $this->usageTracker->trackUsage('speech', 'whisper:transcription', []);
 
-                // Return raw text for text/srt/vtt formats
                 $format = $options->format ?? 'json';
                 if (in_array($format, ['text', 'srt', 'vtt'], true)) {
                     return $responseBody;
@@ -469,22 +390,14 @@ final class WhisperTranscriptionService
                 return json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
             }
 
-            /** @var array{error?: array{message?: string}} $error */
-            $error = json_decode($responseBody, true) ?? [];
-            $errorMessage = is_string($error['error']['message'] ?? null)
-                ? $error['error']['message']
-                : 'Unknown Whisper API error';
+            $errorMessage = $this->decodeErrorMessage($responseBody);
 
             $this->logger->error('Whisper API error', [
                 'status_code' => $statusCode,
-                'error' => $errorMessage,
+                'error'       => $errorMessage,
             ]);
 
-            throw match ($statusCode) {
-                401, 403 => ServiceConfigurationException::invalidApiKey('speech', 'whisper'),
-                429 => new ServiceUnavailableException('Whisper API rate limit exceeded', 'speech', ['provider' => 'whisper']),
-                default => new ServiceUnavailableException('Whisper API error: ' . $errorMessage, 'speech', ['provider' => 'whisper']),
-            };
+            throw $this->mapErrorStatus($statusCode, $errorMessage);
         } catch (ServiceUnavailableException|ServiceConfigurationException $e) {
             throw $e;
         } catch (Throwable $e) {
@@ -513,7 +426,6 @@ final class WhisperTranscriptionService
     ): TranscriptionResult {
         $format = $options->format ?? 'json';
 
-        // Handle text formats
         if (is_string($response)) {
             return new TranscriptionResult(
                 text: $response,
@@ -522,7 +434,6 @@ final class WhisperTranscriptionService
             );
         }
 
-        // Handle JSON formats
         $text = is_string($response['text'] ?? null) ? $response['text'] : '';
         $language = is_string($response['language'] ?? null)
             ? $response['language']
@@ -531,7 +442,6 @@ final class WhisperTranscriptionService
             ? (float)$response['duration']
             : null;
 
-        // Parse segments for verbose_json
         /** @var array<int, Segment>|null $segments */
         $segments = null;
         if ($format === 'verbose_json' && isset($response['segments']) && is_array($response['segments'])) {

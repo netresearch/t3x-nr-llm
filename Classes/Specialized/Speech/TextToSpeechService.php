@@ -9,17 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Speech;
 
-use Exception;
-use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
+use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
-use Psr\Http\Client\ClientInterface;
-use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\StreamFactoryInterface;
-use Psr\Log\LoggerInterface;
 use Throwable;
-use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * Text-to-speech synthesis service using OpenAI TTS.
@@ -33,9 +27,14 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * - Multiple output formats (mp3, opus, aac, flac, wav, pcm)
  * - Maximum input of 4096 characters per request
  *
+ * Owns its own request execution because TTS returns raw binary
+ * audio bytes — the base's `executeRequest()` always JSON-decodes.
+ * Everything else (config loading, availability, auth headers,
+ * endpoint construction) comes from `AbstractSpecializedService`.
+ *
  * @see https://platform.openai.com/docs/guides/text-to-speech
  */
-final class TextToSpeechService
+final class TextToSpeechService extends AbstractSpecializedService
 {
     private const API_URL = 'https://api.openai.com/v1/audio/speech';
     private const DEFAULT_MODEL = 'tts-1';
@@ -61,30 +60,6 @@ final class TextToSpeechService
     /** Supported output formats. */
     private const FORMATS = ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'];
 
-    private string $apiKey = '';
-    private string $baseUrl = '';
-    /** @phpstan-ignore property.onlyWritten (intended for future HTTP client configuration) */
-    private int $timeout = 60;
-
-    public function __construct(
-        private readonly ClientInterface $httpClient,
-        private readonly RequestFactoryInterface $requestFactory,
-        private readonly StreamFactoryInterface $streamFactory,
-        private readonly ExtensionConfiguration $extensionConfiguration,
-        private readonly UsageTrackerServiceInterface $usageTracker,
-        private readonly LoggerInterface $logger,
-    ) {
-        $this->loadConfiguration();
-    }
-
-    /**
-     * Check if service is available.
-     */
-    public function isAvailable(): bool
-    {
-        return $this->apiKey !== '';
-    }
-
     /**
      * Synthesize speech from text.
      *
@@ -105,10 +80,8 @@ final class TextToSpeechService
             ? $options
             : SpeechSynthesisOptions::fromArray($options);
 
-        // Validate input
         $this->validateInput($text);
 
-        // Build request
         $optionsArray = $options->toArray();
         $modelValue = $optionsArray['model'] ?? null;
         $model = is_string($modelValue) ? $modelValue : self::DEFAULT_MODEL;
@@ -127,10 +100,8 @@ final class TextToSpeechService
             'speed' => $speed,
         ];
 
-        // Send request
-        $audioContent = $this->sendRequest($payload);
+        $audioContent = $this->sendBinaryRequest($payload);
 
-        // Track usage
         $this->usageTracker->trackUsage('speech', 'tts:' . $model, [
             'characters' => mb_strlen($text),
             'voice' => $voice,
@@ -196,12 +167,10 @@ final class TextToSpeechService
             ? $options
             : SpeechSynthesisOptions::fromArray($options);
 
-        // If text fits in single request, use normal synthesis
         if (mb_strlen($text) <= self::MAX_INPUT_LENGTH) {
             return [$this->synthesize($text, $options)];
         }
 
-        // Split into chunks at sentence boundaries
         $chunks = $this->splitTextIntoChunks($text);
         $results = [];
 
@@ -250,55 +219,61 @@ final class TextToSpeechService
         return self::MAX_INPUT_LENGTH;
     }
 
-    /**
-     * Load configuration from extension settings.
-     */
-    private function loadConfiguration(): void
+    protected function getServiceDomain(): string
     {
-        try {
-            $config = $this->extensionConfiguration->get('nr_llm');
-            if (!is_array($config)) {
-                return;
-            }
+        return 'speech';
+    }
 
-            // Use OpenAI API key for TTS
-            $providers = $config['providers'] ?? null;
-            if (is_array($providers)) {
-                $openai = $providers['openai'] ?? null;
-                if (is_array($openai)) {
-                    $apiKey = $openai['apiKey'] ?? '';
-                    $this->apiKey = is_string($apiKey) ? $apiKey : '';
-                }
-            }
+    protected function getServiceProvider(): string
+    {
+        return 'tts';
+    }
 
-            // Load speech configuration
-            $speech = $config['speech'] ?? null;
-            if (is_array($speech)) {
-                $tts = $speech['tts'] ?? null;
-                if (is_array($tts)) {
-                    $baseUrl = $tts['baseUrl'] ?? null;
-                    $this->baseUrl = is_string($baseUrl) ? $baseUrl : self::API_URL;
-                    $timeout = $tts['timeout'] ?? null;
-                    $this->timeout = is_numeric($timeout) ? (int)$timeout : 60;
-                }
-            }
-        } catch (Exception $e) {
-            $this->logger->warning('Failed to load TTS configuration', [
-                'exception' => $e->getMessage(),
-            ]);
-        }
+    protected function getDefaultBaseUrl(): string
+    {
+        return self::API_URL;
+    }
+
+    protected function getDefaultTimeout(): int
+    {
+        return 60;
     }
 
     /**
-     * Ensure service is available.
-     *
-     * @throws ServiceUnavailableException
+     * @param array<string, mixed> $config
      */
-    private function ensureAvailable(): void
+    protected function loadServiceConfiguration(array $config): void
     {
-        if (!$this->isAvailable()) {
-            throw ServiceUnavailableException::notConfigured('speech', 'tts');
+        $providers = $config['providers'] ?? null;
+        if (is_array($providers)) {
+            $openai = $providers['openai'] ?? null;
+            if (is_array($openai)) {
+                $apiKey = $openai['apiKey'] ?? '';
+                $this->apiKey = is_string($apiKey) ? $apiKey : '';
+            }
         }
+
+        $this->baseUrl = self::API_URL;
+        $speech = $config['speech'] ?? null;
+        if (is_array($speech)) {
+            $tts = $speech['tts'] ?? null;
+            if (is_array($tts)) {
+                $baseUrl = $tts['baseUrl'] ?? null;
+                $this->baseUrl = is_string($baseUrl) ? $baseUrl : self::API_URL;
+                $timeout = $tts['timeout'] ?? null;
+                $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
+            }
+        }
+    }
+
+    protected function buildAuthHeaders(): array
+    {
+        return ['Authorization' => 'Bearer ' . $this->apiKey];
+    }
+
+    protected function getProviderLabel(): string
+    {
+        return 'TTS';
     }
 
     /**
@@ -338,22 +313,18 @@ final class TextToSpeechService
         $chunks = [];
         $currentChunk = '';
 
-        // Split into sentences (simple approach)
         $sentences = preg_split('/(?<=[.!?])\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
 
         if ($sentences === false) {
-            // Fallback: split by length
             return str_split($text, self::MAX_INPUT_LENGTH) ?: [$text];
         }
 
         foreach ($sentences as $sentence) {
-            // If single sentence is too long, split it
             if (mb_strlen($sentence) > self::MAX_INPUT_LENGTH) {
                 if ($currentChunk !== '') {
                     $chunks[] = $currentChunk;
                     $currentChunk = '';
                 }
-                // Split long sentence by commas or force-split
                 $subChunks = $this->splitLongSentence($sentence);
                 foreach ($subChunks as $subChunk) {
                     $chunks[] = $subChunk;
@@ -361,13 +332,11 @@ final class TextToSpeechService
                 continue;
             }
 
-            // Check if adding this sentence exceeds limit
             $testChunk = $currentChunk === '' ? $sentence : $currentChunk . ' ' . $sentence;
 
             if (mb_strlen($testChunk) <= self::MAX_INPUT_LENGTH) {
                 $currentChunk = $testChunk;
             } else {
-                // Save current chunk and start new one
                 if ($currentChunk !== '') {
                     $chunks[] = $currentChunk;
                 }
@@ -375,7 +344,6 @@ final class TextToSpeechService
             }
         }
 
-        // Add remaining chunk
         if ($currentChunk !== '') {
             $chunks[] = $currentChunk;
         }
@@ -390,7 +358,6 @@ final class TextToSpeechService
      */
     private function splitLongSentence(string $sentence): array
     {
-        // Try to split at commas first
         $parts = explode(', ', $sentence);
 
         if (count($parts) > 1) {
@@ -418,27 +385,28 @@ final class TextToSpeechService
             return $chunks;
         }
 
-        // Force-split if no natural break points
         return str_split($sentence, self::MAX_INPUT_LENGTH) ?: [$sentence];
     }
 
     /**
-     * Send synthesis request.
+     * Send synthesis request and return the binary audio body.
+     * Cannot use the base's `sendJsonRequest()` because that one
+     * JSON-decodes the response — TTS gives us raw bytes.
      *
-     * @param array<string, mixed> $payload Request payload
+     * @param array<string, mixed> $payload
      *
      * @throws ServiceUnavailableException
-     *
-     * @return string Binary audio content
      */
-    private function sendRequest(array $payload): string
+    private function sendBinaryRequest(array $payload): string
     {
-        $request = $this->requestFactory->createRequest('POST', $this->baseUrl)
-            ->withHeader('Authorization', 'Bearer ' . $this->apiKey)
+        $request = $this->requestFactory->createRequest('POST', $this->buildEndpointUrl(''))
             ->withHeader('Content-Type', 'application/json');
-
-        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR));
-        $request = $request->withBody($body);
+        foreach ($this->buildAuthHeaders() as $name => $value) {
+            $request = $request->withHeader($name, $value);
+        }
+        $request = $request->withBody(
+            $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR)),
+        );
 
         try {
             $response = $this->httpClient->sendRequest($request);
@@ -448,29 +416,14 @@ final class TextToSpeechService
                 return (string)$response->getBody();
             }
 
-            $responseBody = (string)$response->getBody();
-            $decoded = json_decode($responseBody, true);
-            $errorMessage = 'Unknown TTS API error';
-            if (is_array($decoded)) {
-                $errorData = $decoded['error'] ?? null;
-                if (is_array($errorData)) {
-                    $message = $errorData['message'] ?? null;
-                    if (is_string($message)) {
-                        $errorMessage = $message;
-                    }
-                }
-            }
+            $errorMessage = $this->decodeErrorMessage((string)$response->getBody());
 
             $this->logger->error('TTS API error', [
                 'status_code' => $statusCode,
-                'error' => $errorMessage,
+                'error'       => $errorMessage,
             ]);
 
-            throw match ($statusCode) {
-                401, 403 => ServiceConfigurationException::invalidApiKey('speech', 'tts'),
-                429 => new ServiceUnavailableException('TTS API rate limit exceeded', 'speech', ['provider' => 'tts']),
-                default => new ServiceUnavailableException('TTS API error: ' . $errorMessage, 'speech', ['provider' => 'tts']),
-            };
+            throw $this->mapErrorStatus($statusCode, $errorMessage);
         } catch (ServiceUnavailableException|ServiceConfigurationException $e) {
             throw $e;
         } catch (Throwable $e) {
