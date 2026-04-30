@@ -307,11 +307,12 @@ final class ConfigurationController extends ActionController
                 TestConfigurationResponse::fromCompletionResponse($response)->jsonSerialize(),
             );
         } catch (ProviderResponseException $e) {
-            // Provider returned a typed 4xx — surface the actual upstream
-            // HTTP status so the JS frontend can distinguish "your API key
-            // is wrong" (401) from "your prompt was rejected" (400) from
-            // "the model is overloaded" (5xx fallback caught by the
-            // Throwable branch below).
+            // Provider returned a typed error response — surface the actual
+            // upstream HTTP status (4xx OR 5xx; OpenRouter's default branch
+            // wraps server errors in this exception too) so the JS frontend
+            // can distinguish "your API key is wrong" (401), "your prompt
+            // was rejected" (400), and "the model is overloaded" (5xx)
+            // instead of always seeing 500.
             return new JsonResponse(
                 (new ErrorResponse($e->getMessage()))->jsonSerialize(),
                 $e->httpStatus >= 400 && $e->httpStatus < 600 ? $e->httpStatus : 500,

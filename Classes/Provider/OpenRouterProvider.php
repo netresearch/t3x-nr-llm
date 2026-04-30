@@ -825,7 +825,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         $responseBody = $response->getBody()->getContents();
 
         if ($statusCode !== 200) {
-            $this->handleOpenRouterError($statusCode, $responseBody);
+            $this->handleOpenRouterError($statusCode, $responseBody, $endpoint);
         }
 
         return $this->decodeJsonResponse($responseBody);
@@ -834,7 +834,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     /**
      * Handle OpenRouter-specific errors.
      */
-    private function handleOpenRouterError(int $statusCode, string $responseBody): never
+    private function handleOpenRouterError(int $statusCode, string $responseBody, string $endpoint): never
     {
         $decoded = json_decode($responseBody, true);
         /** @var array<string, mixed> $decodedArray */
@@ -866,7 +866,7 @@ final class OpenRouterProvider extends AbstractProvider implements
                     : "OpenRouter API error ({$statusCode}): {$message}",
                 httpStatus: $statusCode,
                 responseBody: $responseBody,
-                endpoint: 'chat/completions',
+                endpoint: $endpoint,
             ),
         };
     }

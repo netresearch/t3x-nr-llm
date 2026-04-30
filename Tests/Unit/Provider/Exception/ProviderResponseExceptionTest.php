@@ -35,12 +35,12 @@ final class ProviderResponseExceptionTest extends TestCase
     }
 
     #[Test]
-    public function defaultsCleanlyForCallersThatOnlySupplyMessage(): void
+    public function legacyTwoArgConstructorStillWorks(): void
     {
-        // Back-compat path — the pre-REC-#8 callers passed only message
-        // and an integer status as `code`. The latter still works
-        // (httpStatus picks up the same value) but the new defaults
-        // for the other typed fields keep the API forgiving.
+        // Back-compat path — pre-REC-#8 callers passed only
+        // `(message, statusCode)`. The status code lands as both the
+        // exception code and the new typed `httpStatus`; the new typed
+        // fields default to empty strings.
         $exception = new ProviderResponseException('OpenRouter API error (500): boom', 500);
 
         self::assertSame(500, $exception->httpStatus);
@@ -50,7 +50,25 @@ final class ProviderResponseExceptionTest extends TestCase
     }
 
     #[Test]
-    public function previousChainPropagates(): void
+    public function legacyThreeArgPositionalConstructorStillWorks(): void
+    {
+        // The riskiest back-compat path: callers that wrote
+        // `new ProviderResponseException($msg, $status, $previous)`
+        // positionally. The constructor parameter order is preserved
+        // so $previous still lands as the previous exception (not
+        // silently coerced into responseBody, which would have
+        // raised a TypeError).
+        $cause = new RuntimeException('low-level network reset');
+        $exception = new ProviderResponseException('Bad gateway', 502, $cause);
+
+        self::assertSame(502, $exception->httpStatus);
+        self::assertSame($cause, $exception->getPrevious());
+        self::assertSame('', $exception->responseBody);
+        self::assertSame('', $exception->endpoint);
+    }
+
+    #[Test]
+    public function previousChainPropagatesViaNamedArg(): void
     {
         $cause = new RuntimeException('low-level network reset');
         $exception = new ProviderResponseException(
@@ -60,5 +78,22 @@ final class ProviderResponseExceptionTest extends TestCase
         );
 
         self::assertSame($cause, $exception->getPrevious());
+    }
+
+    #[Test]
+    public function endpointStripsQueryStringToPreventSecretLeak(): void
+    {
+        // Gemini and similar providers ship the API key on the URL
+        // (`?key=<secret>`). The exception field is meant for diagnostics
+        // only and must never leak credentials to log sinks / telemetry.
+        $exception = new ProviderResponseException(
+            message: 'Quota exceeded',
+            httpStatus: 429,
+            endpoint: 'v1beta/models/gemini-pro:generateContent?key=AIzaSecret123&alt=json',
+        );
+
+        self::assertSame('v1beta/models/gemini-pro:generateContent', $exception->endpoint);
+        self::assertStringNotContainsString('AIzaSecret123', $exception->endpoint);
+        self::assertStringNotContainsString('?', $exception->endpoint);
     }
 }
