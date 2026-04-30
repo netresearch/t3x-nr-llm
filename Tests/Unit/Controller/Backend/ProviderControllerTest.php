@@ -62,6 +62,9 @@ final class ProviderControllerTest extends TestCase
         $this->setPrivateProperty($controller, 'providerRepository', $this->providerRepository);
         $this->setPrivateProperty($controller, 'providerAdapterRegistry', $this->providerAdapterRegistry);
         $this->setPrivateProperty($controller, 'persistenceManager', $this->persistenceManager);
+        // REC #8b: typed catches log via LoggerInterface — NullLogger
+        // for unit tests so the property is initialised.
+        $this->setPrivateProperty($controller, 'logger', new \Psr\Log\NullLogger());
 
         return $controller;
     }
@@ -228,7 +231,7 @@ final class ProviderControllerTest extends TestCase
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
         self::assertIsString($data['error']);
-        self::assertStringContainsString('Database error', $data['error']);
+        self::assertStringContainsString('See system log', $data['error']);
     }
 
     #[Test]
@@ -319,7 +322,7 @@ final class ProviderControllerTest extends TestCase
         self::assertSame(500, $response->getStatusCode());
         self::assertFalse($data['success']);
         self::assertIsString($data['error']);
-        self::assertStringContainsString('Connection failed', $data['error']);
+        self::assertStringContainsString('See system log', $data['error']);
     }
 
     #[Test]

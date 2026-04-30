@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Doctrine\DBAL\Exception as DbalException;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ProviderModelsResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
@@ -17,6 +18,7 @@ use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
@@ -25,6 +27,7 @@ use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
@@ -64,6 +67,7 @@ final class ConfigurationController extends ActionController
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly TestPromptResolverInterface $testPromptResolver,
+        private readonly LoggerInterface $logger,
     ) {}
 
     protected function initializeAction(): void
@@ -184,8 +188,13 @@ final class ConfigurationController extends ActionController
                 'configurationUid' => $configurationUid,
             ]);
             return $this->moduleTemplate->renderResponse('Backend/Configuration/WizardPreview');
+        } catch (ProviderException $e) {
+            $this->logger->error('Configuration wizard: provider error', ['exception' => $e]);
+            $this->addFlashMessage('Generation failed (LLM provider error). See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+            return $this->redirect('wizardForm');
         } catch (Throwable $e) {
-            $this->addFlashMessage('Generation failed: ' . $e->getMessage(), 'Error', ContextualFeedbackSeverity::ERROR);
+            $this->logger->error('Configuration wizard: unexpected error', ['exception' => $e]);
+            $this->addFlashMessage('Generation failed. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
             return $this->redirect('wizardForm');
         }
     }
@@ -213,8 +222,18 @@ final class ConfigurationController extends ActionController
                 success: true,
                 isActive: $configuration->isActive(),
             ))->jsonSerialize());
+        } catch (DbalException $e) {
+            $this->logger->error('Configuration toggleActive: persistence failed', ['exception' => $e, 'config_uid' => $uid]);
+            return new JsonResponse(
+                (new ErrorResponse('Database error while toggling configuration status.'))->jsonSerialize(),
+                500,
+            );
         } catch (Throwable $e) {
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
+            $this->logger->error('Configuration toggleActive: unexpected error', ['exception' => $e, 'config_uid' => $uid]);
+            return new JsonResponse(
+                (new ErrorResponse('Failed to toggle configuration status. See system log for details.'))->jsonSerialize(),
+                500,
+            );
         }
     }
 
@@ -238,8 +257,18 @@ final class ConfigurationController extends ActionController
         try {
             $this->configurationService->setAsDefault($configuration);
             return new JsonResponse((new SuccessResponse())->jsonSerialize());
+        } catch (DbalException $e) {
+            $this->logger->error('Configuration setDefault: persistence failed', ['exception' => $e, 'config_uid' => $uid]);
+            return new JsonResponse(
+                (new ErrorResponse('Database error while setting default configuration.'))->jsonSerialize(),
+                500,
+            );
         } catch (Throwable $e) {
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
+            $this->logger->error('Configuration setDefault: unexpected error', ['exception' => $e, 'config_uid' => $uid]);
+            return new JsonResponse(
+                (new ErrorResponse('Failed to set default configuration. See system log for details.'))->jsonSerialize(),
+                500,
+            );
         }
     }
 
@@ -270,8 +299,18 @@ final class ConfigurationController extends ActionController
                 models: $models,
                 defaultModel: $defaultModel,
             ))->jsonSerialize());
+        } catch (ProviderException $e) {
+            $this->logger->warning('Configuration getModels: provider error', ['exception' => $e, 'provider' => $providerKey]);
+            return new JsonResponse(
+                (new ErrorResponse('LLM provider error while listing models. See system log for details.'))->jsonSerialize(),
+                502,
+            );
         } catch (Throwable $e) {
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
+            $this->logger->error('Configuration getModels: unexpected error', ['exception' => $e, 'provider' => $providerKey]);
+            return new JsonResponse(
+                (new ErrorResponse('Failed to load models. See system log for details.'))->jsonSerialize(),
+                500,
+            );
         }
     }
 
@@ -307,18 +346,34 @@ final class ConfigurationController extends ActionController
                 TestConfigurationResponse::fromCompletionResponse($response)->jsonSerialize(),
             );
         } catch (ProviderResponseException $e) {
-            // Provider returned a typed error response — surface the actual
-            // upstream HTTP status (4xx OR 5xx; OpenRouter's default branch
-            // wraps server errors in this exception too) so the JS frontend
-            // can distinguish "your API key is wrong" (401), "your prompt
-            // was rejected" (400), and "the model is overloaded" (5xx)
-            // instead of always seeing 500.
+            // Provider returned a typed error response. Surface the actual
+            // upstream HTTP status so the JS frontend can distinguish
+            // "your API key is wrong" (401), "your prompt was rejected"
+            // (400), and "the model is overloaded" (5xx). The message is
+            // already sanitised (`AbstractProvider::sanitizeErrorMessage()`
+            // strips API keys from URLs) so it's safe to surface.
+            $this->logger->warning('Configuration test: provider returned an error', [
+                'exception'   => $e,
+                'http_status' => $e->httpStatus,
+                'endpoint'    => $e->endpoint,
+                'config_uid'  => $uid,
+            ]);
             return new JsonResponse(
                 (new ErrorResponse($e->getMessage()))->jsonSerialize(),
                 $e->httpStatus >= 400 && $e->httpStatus < 600 ? $e->httpStatus : 500,
             );
+        } catch (ProviderException $e) {
+            $this->logger->error('Configuration test: provider error', ['exception' => $e, 'config_uid' => $uid]);
+            return new JsonResponse(
+                (new ErrorResponse('LLM provider error during configuration test. See system log for details.'))->jsonSerialize(),
+                502,
+            );
         } catch (Throwable $e) {
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
+            $this->logger->error('Configuration test: unexpected error', ['exception' => $e, 'config_uid' => $uid]);
+            return new JsonResponse(
+                (new ErrorResponse('Configuration test failed. See system log for details.'))->jsonSerialize(),
+                500,
+            );
         }
     }
 

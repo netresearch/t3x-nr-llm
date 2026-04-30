@@ -82,6 +82,9 @@ final class ModelControllerTest extends TestCase
         $this->setPrivateProperty($controller, 'providerAdapterRegistry', $this->providerAdapterRegistry);
         $this->setPrivateProperty($controller, 'modelDiscovery', $this->modelDiscovery);
         $this->setPrivateProperty($controller, 'testPromptResolver', $this->testPromptResolver);
+        // REC #8b: typed catches log via LoggerInterface — NullLogger
+        // for unit tests so the property is initialised.
+        $this->setPrivateProperty($controller, 'logger', new \Psr\Log\NullLogger());
 
         return $controller;
     }
@@ -251,7 +254,7 @@ final class ModelControllerTest extends TestCase
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
         self::assertIsString($data['error']);
-        self::assertStringContainsString('Database error', $data['error']);
+        self::assertStringContainsString('See system log', $data['error']);
     }
 
     // setDefaultAction tests
@@ -344,7 +347,7 @@ final class ModelControllerTest extends TestCase
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
         self::assertIsString($data['error']);
-        self::assertStringContainsString('Database error', $data['error']);
+        self::assertStringContainsString('See system log', $data['error']);
     }
 
     // getByProviderAction tests
@@ -486,7 +489,7 @@ final class ModelControllerTest extends TestCase
         self::assertSame(500, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
         self::assertIsString($data['error']);
-        self::assertStringContainsString('Database error', $data['error']);
+        self::assertStringContainsString('See system log', $data['error']);
     }
 
     // testModelAction tests
@@ -644,7 +647,7 @@ final class ModelControllerTest extends TestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertFalse($data['success']);
         self::assertIsString($data['message']);
-        self::assertStringContainsString('API connection failed', $data['message']);
+        self::assertStringContainsString('See system log', $data['message']);
     }
 
     private function createProvider(int $uid): Provider
@@ -774,7 +777,7 @@ final class ModelControllerTest extends TestCase
         self::assertSame(500, $response->getStatusCode());
         self::assertFalse($data['success']);
         self::assertIsString($data['error']);
-        self::assertStringContainsString('API unavailable', $data['error']);
+        self::assertStringContainsString('See system log', $data['error']);
     }
 
     // detectLimitsAction tests
@@ -924,7 +927,7 @@ final class ModelControllerTest extends TestCase
         self::assertSame(500, $response->getStatusCode());
         self::assertFalse($data['success']);
         self::assertIsString($data['error']);
-        self::assertStringContainsString('API unavailable', $data['error']);
+        self::assertStringContainsString('See system log', $data['error']);
     }
 
     // Edge case tests for non-array body

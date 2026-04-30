@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -119,8 +120,8 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $wizardGeneratorService = $this->get(WizardGeneratorService::class);
         self::assertInstanceOf(WizardGeneratorService::class, $wizardGeneratorService);
 
-        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
-        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+        $testPromptResolver = $this->get(TestPromptResolverInterface::class);
+        self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
         return new ConfigurationController(
             $moduleTemplateFactory,
@@ -133,7 +134,8 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
             $wizardGeneratorService,
             $pageRenderer,
             $backendUriBuilder,
-            $extensionConfiguration,
+            $testPromptResolver,
+            new \Psr\Log\NullLogger(),
         );
     }
 
@@ -165,6 +167,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
             $persistenceManager,
             $pageRenderer,
             $backendUriBuilder,
+            new \Psr\Log\NullLogger(),
         );
     }
 
@@ -186,6 +189,10 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $this->setPrivateProperty($controller, 'providerRepository', $this->providerRepository);
         $this->setPrivateProperty($controller, 'providerAdapterRegistry', $providerAdapterRegistry);
         $this->setPrivateProperty($controller, 'extensionConfiguration', $extensionConfiguration);
+        // REC #8b: typed catches log via LoggerInterface — initialise
+        // the new property so any exercised exception path doesn't
+        // hit an uninitialised typed property error.
+        $this->setPrivateProperty($controller, 'logger', new \Psr\Log\NullLogger());
 
         return $controller;
     }
@@ -213,6 +220,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $this->setPrivateProperty($controller, 'configurationRepository', $this->configurationRepository);
         $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
         $this->setPrivateProperty($controller, 'extensionConfiguration', $extensionConfiguration);
+        $this->setPrivateProperty($controller, 'logger', new \Psr\Log\NullLogger());
 
         return $controller;
     }

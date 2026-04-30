@@ -19,12 +19,12 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
-use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
@@ -102,8 +102,8 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $wizardGeneratorService = $this->get(WizardGeneratorService::class);
         self::assertInstanceOf(WizardGeneratorService::class, $wizardGeneratorService);
 
-        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
-        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+        $testPromptResolver = $this->get(TestPromptResolverInterface::class);
+        self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
         return new ConfigurationController(
             $moduleTemplateFactory,
@@ -116,7 +116,8 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
             $wizardGeneratorService,
             $pageRenderer,
             $backendUriBuilder,
-            $extensionConfiguration,
+            $testPromptResolver,
+            new \Psr\Log\NullLogger(),
         );
     }
 
