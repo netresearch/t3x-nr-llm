@@ -114,10 +114,15 @@ class Model extends AbstractEntity
      * @return string[]
      *
      * @deprecated since 0.8.0 — use `getCapabilitySet()->toStringList()`
-     *             (deduplicated) or `getCapabilitySet()->capabilities`
-     *             (typed `list<ModelCapability>`). Kept for back-compat
-     *             — note this accessor preserves duplicates from the
-     *             persisted CSV verbatim, while the typed DTO dedupes.
+     *             (deduplicated, only valid enum tokens) or
+     *             `getCapabilitySet()->capabilities` (typed
+     *             `list<ModelCapability>`). Kept for back-compat —
+     *             this accessor preserves duplicate tokens and order
+     *             from the persisted CSV (it does NOT dedupe, unlike
+     *             the typed DTO) but it DOES trim surrounding
+     *             whitespace on every token. Unknown tokens are
+     *             passed through verbatim as raw strings; the typed
+     *             DTO would drop them at parse time.
      */
     public function getCapabilitiesArray(): array
     {
@@ -141,8 +146,13 @@ class Model extends AbstractEntity
      *
      * @deprecated since 0.8.0 — use `getCapabilitySet()->capabilities`
      *             unless you specifically need the duplicate-
-     *             preserving behaviour (typed DTO dedupes; this
-     *             method preserves CSV duplicates verbatim).
+     *             preserving behaviour. The two accessors behave
+     *             identically for *valid* tokens that occur once,
+     *             and both drop unknown tokens (this method via
+     *             `ModelCapability::tryFrom()` returning null, the
+     *             typed DTO via `coerceToEnum()`); the only delta is
+     *             that this method preserves duplicates from the
+     *             persisted CSV while the typed DTO dedupes.
      */
     public function getCapabilitiesAsEnums(): array
     {

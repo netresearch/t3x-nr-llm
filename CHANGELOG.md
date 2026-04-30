@@ -10,12 +10,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `ModelSelectionService::modelMatchesCriteria()` now routes capability
   membership through the typed `Model::getCapabilitySet()->has()` instead
-  of the legacy string-CSV `Model::hasCapability()`. Same observable
-  outcome for every previously-valid input; the typed path additionally
-  rejects unknown capability tokens (typos, schema drift) and trims
-  whitespace consistently — both regressions captured in
-  `modelMatchesCriteriaRejectsUnknownCapabilityToken` /
-  `…TrimsCapabilityTokensFromExternalInput`. REC #6 slice 16b.
+  of the legacy string-CSV `Model::hasCapability()`. The legacy strict
+  `in_array(... , true)` over `explode(',')` already returned `false`
+  for unknown criteria tokens, so the observable outcome is unchanged
+  for every previously-valid input. The behavioural delta is in two
+  edge cases: capability tokens from external input are now trimmed and
+  enum-validated consistently (so `' chat'` resolves the same as
+  `'chat'`), and unknown tokens that may exist in the persisted CSV
+  (schema drift, removed-but-still-stored capabilities) are dropped at
+  parse time rather than matched against an equally-unknown criteria
+  string. Coverage:
+  `modelMatchesCriteriaTrimsCapabilityTokensFromExternalInput` (the
+  trim case) and `modelMatchesCriteriaRejectsUnknownCapabilityToken`
+  (documents the no-change-for-unknowns contract). REC #6 slice 16b.
 
 ### Deprecated
 
@@ -27,7 +34,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Domain\DTO\CapabilitySet`). The legacy accessors remain functional
   and are not removed before a major version bump — TCA-driven
   persistence still hands the entity raw CSV strings, and the
-  deduplication-preserving semantics of the legacy accessors
+  duplicate-preserving semantics of the legacy accessors
   (relevant when callers iterate the CSV directly) are kept
   byte-for-byte. REC #6 slice 16b.
 

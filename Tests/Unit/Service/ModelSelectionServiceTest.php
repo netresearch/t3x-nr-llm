@@ -327,11 +327,13 @@ final class ModelSelectionServiceTest extends TestCase
     #[Test]
     public function modelMatchesCriteriaRejectsUnknownCapabilityToken(): void
     {
-        // REC #6 slice 16b: after the migration to
-        // `getCapabilitySet()->has()`, an unknown capability string
-        // (typo, schema drift, attacker probing) short-circuits to
-        // false via `ModelCapability::tryFrom()` rather than scanning
-        // the CSV for a substring match.
+        // Documents the no-change-for-unknowns contract across the
+        // slice 16b migration: legacy `hasCapability()` already used
+        // strict `in_array(...,true)` over `explode(',')` so unknown
+        // criteria tokens already returned false; the typed path
+        // continues to do so via `ModelCapability::tryFrom()`. The
+        // assertion stays passing both before and after the migration —
+        // pinning that this property is preserved.
         $model = $this->createModel(1, 'chat,vision');
 
         self::assertFalse($this->subject->modelMatchesCriteria($model, [
