@@ -507,9 +507,9 @@ final class DallEImageService extends AbstractSpecializedService
         $imageContent = file_get_contents($imagePath);
         if ($imageContent === false) {
             throw new ServiceUnavailableException(
-                'Failed to read image file',
+                sprintf('Failed to read image file: %s', $imagePath),
                 'image',
-                ['provider' => 'dall-e'],
+                ['provider' => 'dall-e', 'path' => $imagePath],
             );
         }
 
@@ -521,9 +521,9 @@ final class DallEImageService extends AbstractSpecializedService
             $maskContent = file_get_contents($maskPath);
             if ($maskContent === false) {
                 throw new ServiceUnavailableException(
-                    'Failed to read mask file',
+                    sprintf('Failed to read mask file: %s', $maskPath),
                     'image',
-                    ['provider' => 'dall-e'],
+                    ['provider' => 'dall-e', 'path' => $maskPath],
                 );
             }
             $parts[] = ['name' => 'mask', 'filename' => 'mask.png', 'content' => $maskContent, 'contentType' => 'image/png'];
