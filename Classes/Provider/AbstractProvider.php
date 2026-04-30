@@ -229,8 +229,10 @@ abstract class AbstractProvider implements ProviderInterface
                     $decoded = json_decode($body, true);
                     $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => 'Unknown error']];
                     throw new ProviderResponseException(
-                        $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
-                        $statusCode,
+                        message: $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
+                        httpStatus: $statusCode,
+                        responseBody: $body,
+                        endpoint: $endpoint,
                     );
                 }
 

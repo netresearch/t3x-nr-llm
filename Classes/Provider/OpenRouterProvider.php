@@ -861,10 +861,12 @@ final class OpenRouterProvider extends AbstractProvider implements
                 $statusCode,
             ),
             default => throw new ProviderResponseException(
-                $statusCode >= 400 && $statusCode < 500
+                message: $statusCode >= 400 && $statusCode < 500
                     ? "Bad request: {$message}"
                     : "OpenRouter API error ({$statusCode}): {$message}",
-                $statusCode,
+                httpStatus: $statusCode,
+                responseBody: $responseBody,
+                endpoint: 'chat/completions',
             ),
         };
     }
