@@ -287,7 +287,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `with()`, `without()`). The `Model::getAllCapabilities()` static
   helper (used by `ModelController` to populate the BE list view's
   capability label dropdown) is unchanged — it is keyed on the enum
-  values, not on the removed constants. REC #10. (and `final readonly` where applicable)
+  values, not on the removed constants. REC #10.
+- The following classes are now `final` (and `final readonly` where applicable)
   and can no longer be subclassed by downstream extensions: the four leaf
   provider exceptions (`ProviderConfigurationException`,
   `ProviderConnectionException`, `ProviderResponseException`,
