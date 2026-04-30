@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Doctrine\DBAL\Exception as DbalException;
+use InvalidArgumentException;
 use Netresearch\NrLlm\Controller\Backend\DTO\FetchRecordsRequest;
 use Netresearch\NrLlm\Controller\Backend\DTO\LoadRecordDataRequest;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
@@ -18,6 +20,7 @@ use Netresearch\NrLlm\Controller\Backend\Response\TableListResponse;
 use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Core\Http\JsonResponse;
@@ -45,6 +48,7 @@ final class TaskRecordsController extends ActionController
 {
     public function __construct(
         private readonly RecordTableReaderInterface $recordTableReader,
+        private readonly LoggerInterface $logger,
     ) {}
 
     /**
@@ -56,8 +60,13 @@ final class TaskRecordsController extends ActionController
             return new JsonResponse((new TableListResponse(
                 tables: $this->recordTableReader->listAllowedTables(),
             ))->jsonSerialize());
+        } catch (DbalException $e) {
+            // REC #8b: SQL error text leaks schema details — log + generic message.
+            $this->logger->error('Task records: listAllowedTables failed', ['exception' => $e]);
+            return new JsonResponse((new ErrorResponse('Database error while listing tables.'))->jsonSerialize(), 500);
         } catch (Throwable $e) {
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
+            $this->logger->error('Task records: listAllowedTables failed unexpectedly', ['exception' => $e]);
+            return new JsonResponse((new ErrorResponse('Failed to list tables. See system log for details.'))->jsonSerialize(), 500);
         }
     }
 
@@ -98,8 +107,23 @@ final class TaskRecordsController extends ActionController
                 labelField: $labelField,
                 total: count($records),
             ))->jsonSerialize());
+        } catch (InvalidArgumentException $e) {
+            // RecordTableReader::ensureNotExcluded() rejects forbidden tables.
+            // Message is vetted ("Table 'xyz' is excluded ...") and safe to surface.
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 400);
+        } catch (DbalException $e) {
+            // REC #8b: never surface raw SQL error text — log + generic.
+            $this->logger->error('Task records: fetchSampleRecords failed', [
+                'exception' => $e,
+                'table'     => $dto->table,
+            ]);
+            return new JsonResponse((new ErrorResponse('Database error while fetching records.'))->jsonSerialize(), 500);
         } catch (Throwable $e) {
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
+            $this->logger->error('Task records: fetchSampleRecords failed unexpectedly', [
+                'exception' => $e,
+                'table'     => $dto->table,
+            ]);
+            return new JsonResponse((new ErrorResponse('Failed to fetch records. See system log for details.'))->jsonSerialize(), 500);
         }
     }
 
@@ -131,8 +155,21 @@ final class TaskRecordsController extends ActionController
                 data: $encoded,
                 recordCount: count($rows),
             ))->jsonSerialize());
+        } catch (InvalidArgumentException $e) {
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 400);
+        } catch (DbalException $e) {
+            // REC #8b: SQL error text → log + generic.
+            $this->logger->error('Task records: loadRecordsByUids failed', [
+                'exception' => $e,
+                'table'     => $dto->table,
+            ]);
+            return new JsonResponse((new ErrorResponse('Database error while loading records.'))->jsonSerialize(), 500);
         } catch (Throwable $e) {
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
+            $this->logger->error('Task records: loadRecordsByUids failed unexpectedly', [
+                'exception' => $e,
+                'table'     => $dto->table,
+            ]);
+            return new JsonResponse((new ErrorResponse('Failed to load records. See system log for details.'))->jsonSerialize(), 500);
         }
     }
 }

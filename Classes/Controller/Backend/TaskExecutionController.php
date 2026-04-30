@@ -16,10 +16,14 @@ use Netresearch\NrLlm\Controller\Backend\Response\TaskExecutionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TaskInputResponse;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
+use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
 use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
@@ -66,6 +70,7 @@ final class TaskExecutionController extends ActionController
         private readonly FlashMessageService $flashMessageService,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly LoggerInterface $logger,
     ) {}
 
     /**
@@ -180,10 +185,37 @@ final class TaskExecutionController extends ActionController
 
         try {
             $result = $this->taskExecutionService->execute($task, $dto->input);
-        } catch (Throwable $e) {
-            // Return 200 with success:false so JavaScript can read the error message —
-            // HTTP 500 makes TYPO3's AjaxRequest throw before parsing the JSON.
+        } catch (InvalidArgumentException $e) {
+            // Domain validation: message is vetted internal text safe to surface.
             return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize());
+        } catch (ProviderResponseException $e) {
+            // REC #8b: never leak raw provider error bodies to the frontend.
+            // Log full detail (httpStatus / endpoint) for ops, surface generic.
+            $this->logger->error('Task execution failed: provider returned an error', [
+                'exception'   => $e,
+                'http_status' => $e->httpStatus,
+                'endpoint'    => $e->endpoint,
+                'task_uid'    => $task->getUid(),
+            ]);
+            return new JsonResponse((new ErrorResponse('Upstream LLM provider returned an error.'))->jsonSerialize());
+        } catch (ProviderException $e) {
+            // Other provider failures (connection / configuration / fallback exhausted /
+            // unsupported feature). Log and surface a generic message — the underlying
+            // exception text often references provider internals.
+            $this->logger->error('Task execution failed: provider error', [
+                'exception' => $e,
+                'task_uid'  => $task->getUid(),
+            ]);
+            return new JsonResponse((new ErrorResponse('LLM provider error. See system log for details.'))->jsonSerialize());
+        } catch (Throwable $e) {
+            // Stay on HTTP 200 (frontend AjaxRequest contract) but log the full
+            // exception and surface a generic message — `$e->getMessage()` may
+            // contain internals we don't want in the response body.
+            $this->logger->error('Task execution failed: unexpected error', [
+                'exception' => $e,
+                'task_uid'  => $task->getUid(),
+            ]);
+            return new JsonResponse((new ErrorResponse('Task execution failed. See system log for details.'))->jsonSerialize());
         }
 
         return new JsonResponse(TaskExecutionResponse::fromResult($result)->jsonSerialize());
