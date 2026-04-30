@@ -13,12 +13,13 @@ use GuzzleHttp\Psr7\ServerRequest;
 use Netresearch\NrLlm\Controller\Backend\TaskController;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
+use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 /**
@@ -53,11 +54,11 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $llmServiceManager = $this->get(LlmServiceManagerInterface::class);
         self::assertInstanceOf(LlmServiceManagerInterface::class, $llmServiceManager);
 
-        $connectionPool = $this->get(ConnectionPool::class);
-        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $recordTableReader = $this->get(RecordTableReaderInterface::class);
+        self::assertInstanceOf(RecordTableReaderInterface::class, $recordTableReader);
 
-        $tcaSchemaFactory = $this->get(TcaSchemaFactory::class);
-        self::assertInstanceOf(TcaSchemaFactory::class, $tcaSchemaFactory);
+        $taskInputResolver = $this->get(TaskInputResolverInterface::class);
+        self::assertInstanceOf(TaskInputResolverInterface::class, $taskInputResolver);
 
         $persistenceManager = $this->get(PersistenceManagerInterface::class);
         self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
@@ -67,8 +68,8 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $this->controller = $this->createControllerWithDependencies(
             $taskRepository,
             $llmServiceManager,
-            $connectionPool,
-            $tcaSchemaFactory,
+            $recordTableReader,
+            $taskInputResolver,
         );
     }
 
@@ -79,8 +80,8 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
     private function createControllerWithDependencies(
         TaskRepository $taskRepository,
         LlmServiceManagerInterface $llmServiceManager,
-        ConnectionPool $connectionPool,
-        TcaSchemaFactory $tcaSchemaFactory,
+        RecordTableReaderInterface $recordTableReader,
+        TaskInputResolverInterface $taskInputResolver,
     ): TaskController {
         $reflection = new ReflectionClass(TaskController::class);
         $controller = $reflection->newInstanceWithoutConstructor();
@@ -88,8 +89,8 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         // Set only the properties needed for AJAX actions
         $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
         $this->setPrivateProperty($controller, 'llmServiceManager', $llmServiceManager);
-        $this->setPrivateProperty($controller, 'connectionPool', $connectionPool);
-        $this->setPrivateProperty($controller, 'tcaSchemaFactory', $tcaSchemaFactory);
+        $this->setPrivateProperty($controller, 'recordTableReader', $recordTableReader);
+        $this->setPrivateProperty($controller, 'taskInputResolver', $taskInputResolver);
 
         return $controller;
     }

@@ -54,7 +54,17 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
         $limit     = isset($config['limit']) && is_numeric($config['limit']) ? (int)$config['limit'] : self::SYSLOG_DEFAULT_LIMIT;
         $errorOnly = isset($config['error_only']) ? (bool)$config['error_only'] : true;
 
-        $rows = $this->systemLogReader->readRecent($limit, $errorOnly);
+        try {
+            $rows = $this->systemLogReader->readRecent($limit, $errorOnly);
+        } catch (Throwable $e) {
+            return sprintf(
+                LocalizationUtility::translate(
+                    'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.readError',
+                    'NrLlm',
+                ) ?? 'Error reading sys_log: %s',
+                $e->getMessage(),
+            );
+        }
 
         $output = [];
         foreach ($rows as $row) {
