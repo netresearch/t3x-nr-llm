@@ -6,6 +6,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed
+
+- `ProviderAdapterRegistryInterface::registerAdapter()` and the
+  matching `ProviderAdapterRegistry::registerAdapter()` public
+  mutator have been removed (audit 2026-04-23 REC #3, slice 22).
+  The registry now exposes a read-only contract: the adapter map
+  is fixed at construction time as the union of the built-in
+  `ADAPTER_CLASS_MAP` and an optional `array $adapterOverrides`
+  constructor argument (defaults to `[]`; production wiring uses
+  the empty default). Custom-adapter / built-in-override registration
+  is therefore a constructor concern rather than a runtime
+  service-locator call. There were no production callers of the
+  removed method (the search yielded only test usages). The
+  `customAdapters` private property is gone; the per-call
+  "Registered custom adapter" debug log is gone with it (registration
+  is now construction-time and side-effect-free for valid input).
+  Validation of override classes (must extend `AbstractProvider`)
+  still throws `ProviderConfigurationException` — the same exception
+  type that was thrown by `registerAdapter()`, raised from the
+  constructor instead. The `ProviderAdapterRegistry` class stays
+  `final`, public-in-DI (so the backend module can resolve it for
+  diagnostics — REC #9c is a separate slice).
+
 ### Added
 
 - `Classes/Domain/DTO/ProviderOptions` — typed value object for
