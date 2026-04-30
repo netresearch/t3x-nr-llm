@@ -35,13 +35,11 @@ interface CapabilityPermissionServiceInterface
         ?BackendUserAuthentication $backendUser = null,
     ): bool;
 
-    /**
-     * Build the TYPO3 permission string, e.g. "nrllm:capability_vision".
-     */
-    public static function permissionString(ModelCapability $capability): string;
-
-    /**
-     * The identifier used as the customPermOptions item key.
-     */
-    public static function permissionKey(ModelCapability $capability): string;
+    // Pure capability->string transforms `permissionString()` and
+    // `permissionKey()` are intentionally NOT in this interface —
+    // they are stateless and remain as `public static` on
+    // `CapabilityPermissionService`. Interfaces meant for DI
+    // substitution should expose only methods that benefit from
+    // polymorphism. Callers reach the helpers via
+    // `CapabilityPermissionService::permissionKey($capability)`.
 }

@@ -52,10 +52,10 @@ interface ModelSelectionServiceInterface
      */
     public function modelMatchesCriteria(Model $model, array $criteria): bool;
 
-    /**
-     * Get available selection modes.
-     *
-     * @return array<string, string>
-     */
-    public static function getSelectionModes(): array;
+    // `getSelectionModes()` is a stateless lookup of the available
+    // mode constants and is intentionally NOT part of this interface
+    // — interfaces meant for DI substitution should expose only
+    // methods that benefit from polymorphism. It remains `public
+    // static` on `ModelSelectionService`; callers reach it via
+    // `ModelSelectionService::getSelectionModes()`.
 }
