@@ -151,6 +151,9 @@ services:
   Netresearch\NrLlm\Service\Task\DeprecationLogReaderInterface:
     alias: Netresearch\NrLlm\Service\Task\DeprecationLogReader
 
+  Netresearch\NrLlm\Service\Task\TaskInputResolverInterface:
+    alias: Netresearch\NrLlm\Service\Task\TaskInputResolver
+
   # ========================================
   # Translation Registry
   # ========================================

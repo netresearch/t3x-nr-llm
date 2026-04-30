@@ -22,9 +22,8 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
-use Netresearch\NrLlm\Service\Task\DeprecationLogReaderInterface;
 use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
-use Netresearch\NrLlm\Service\Task\SystemLogReaderInterface;
+use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Psr\Http\Message\ResponseInterface;
@@ -78,8 +77,7 @@ final class TaskController extends ActionController
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly RecordTableReaderInterface $recordTableReader,
-        private readonly SystemLogReaderInterface $systemLogReader,
-        private readonly DeprecationLogReaderInterface $deprecationLogReader,
+        private readonly TaskInputResolverInterface $taskInputResolver,
     ) {}
 
     /**
@@ -675,73 +673,7 @@ final class TaskController extends ActionController
      */
     private function getInputData(Task $task): string
     {
-        return match ($task->getInputType()) {
-            Task::INPUT_SYSLOG => $this->getSyslogData($task),
-            Task::INPUT_DEPRECATION_LOG => $this->deprecationLogReader->readTail(),
-            Task::INPUT_TABLE => $this->getTableData($task),
-            default => '',
-        };
-    }
-
-    /**
-     * Get system log data.
-     */
-    private function getSyslogData(Task $task): string
-    {
-        $config = $task->getInputSourceArray();
-        $limit = isset($config['limit']) && is_numeric($config['limit']) ? (int)$config['limit'] : 50;
-        $errorOnly = isset($config['error_only']) ? (bool)$config['error_only'] : true;
-
-        $rows = $this->systemLogReader->readRecent($limit, $errorOnly);
-
-        $output = [];
-        foreach ($rows as $row) {
-            $tstamp = isset($row['tstamp']) && is_numeric($row['tstamp']) ? (int)$row['tstamp'] : 0;
-            $typeValue = isset($row['type']) && is_numeric($row['type']) ? (int)$row['type'] : 0;
-            $errorValue = isset($row['error']) && is_numeric($row['error']) ? (int)$row['error'] : 0;
-            $details = isset($row['details']) && is_scalar($row['details']) ? (string)$row['details'] : '';
-
-            $time = date('Y-m-d H:i:s', $tstamp);
-            $type = match ($typeValue) {
-                1 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.db', 'NrLlm') ?? 'DB',
-                2 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.file', 'NrLlm') ?? 'FILE',
-                3 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.cache', 'NrLlm') ?? 'CACHE',
-                4 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.extension', 'NrLlm') ?? 'EXTENSION',
-                5 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.error', 'NrLlm') ?? 'ERROR',
-                254 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.setting', 'NrLlm') ?? 'SETTING',
-                255 => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.login', 'NrLlm') ?? 'LOGIN',
-                default => LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.type.other', 'NrLlm') ?? 'OTHER',
-            };
-            $error = $errorValue > 0 ? (LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.errorMarker', 'NrLlm') ?? '[ERROR]') : '';
-            $output[] = "[{$time}] [{$type}] {$error} {$details}";
-        }
-
-        return implode("\n", $output);
-    }
-
-    /**
-     * Get data from a database table.
-     */
-    private function getTableData(Task $task): string
-    {
-        $config = $task->getInputSourceArray();
-        $table = isset($config['table']) && is_scalar($config['table']) ? (string)$config['table'] : '';
-        $limit = isset($config['limit']) && is_numeric($config['limit']) ? (int)$config['limit'] : 50;
-
-        if ($table === '') {
-            return LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.table.notConfigured', 'NrLlm') ?? 'No table configured.';
-        }
-
-        try {
-            $rows = $this->recordTableReader->fetchAll($table, $limit);
-        } catch (Throwable $e) {
-            return sprintf(
-                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.table.readError', 'NrLlm') ?? 'Error reading table: %s',
-                $e->getMessage(),
-            );
-        }
-
-        return json_encode($rows, JSON_PRETTY_PRINT) ?: '[]';
+        return $this->taskInputResolver->resolve($task);
     }
 
     /**

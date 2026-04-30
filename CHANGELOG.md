@@ -44,6 +44,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `TcaSchemaFactory` dependencies; it now injects the three reader
   interfaces. Behaviour is unchanged. This is slice 13a of the
   `TaskController` split (ADR-027).
+- `TaskController` no longer carries the input-source dispatch logic.
+  The `getInputData()` / `getSyslogData()` / `getTableData()` private
+  helpers move into a new `Service/Task/TaskInputResolver` (with
+  `TaskInputResolverInterface`). The resolver owns the `Task::INPUT_*`
+  match plus the per-source formatting (timestamp + type-label
+  localisation for syslog rows, "no table configured" / "read failed"
+  placeholders for the table source) and delegates the actual data
+  fetching to the slice-13a reader services. The controller's
+  `getInputData()` becomes a single delegation; the `SystemLogReader`
+  and `DeprecationLogReader` are no longer injected directly into the
+  controller (the resolver owns them). Behaviour is unchanged. Slice
+  13b of the `TaskController` split (ADR-027).
 - Specialized translators register via the new `#[AsTranslator]` marker
   attribute, mirroring the `#[AsLlmProvider]` pattern used for LLM
   providers. The attribute carries no fields — translator identifier
