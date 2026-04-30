@@ -80,13 +80,29 @@ services:
   Netresearch\NrLlm\Service\Feature\CompletionService:
     public: true
 
+  Netresearch\NrLlm\Service\Feature\CompletionServiceInterface:
+    alias: Netresearch\NrLlm\Service\Feature\CompletionService
+    public: true
+
   Netresearch\NrLlm\Service\Feature\VisionService:
+    public: true
+
+  Netresearch\NrLlm\Service\Feature\VisionServiceInterface:
+    alias: Netresearch\NrLlm\Service\Feature\VisionService
     public: true
 
   Netresearch\NrLlm\Service\Feature\EmbeddingService:
     public: true
 
+  Netresearch\NrLlm\Service\Feature\EmbeddingServiceInterface:
+    alias: Netresearch\NrLlm\Service\Feature\EmbeddingService
+    public: true
+
   Netresearch\NrLlm\Service\Feature\TranslationService:
+    public: true
+
+  Netresearch\NrLlm\Service\Feature\TranslationServiceInterface:
+    alias: Netresearch\NrLlm\Service\Feature\TranslationService
     public: true
 
   # ========================================

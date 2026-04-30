@@ -26,7 +26,7 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
  * (slice 15a). The resolver is optional so unit tests omit it;
  * production DI autowires it.
  */
-final readonly class VisionService
+final readonly class VisionService implements VisionServiceInterface
 {
     use AutoPopulatesBeUserUidTrait;
 
