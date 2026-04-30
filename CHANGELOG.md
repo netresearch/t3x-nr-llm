@@ -8,6 +8,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `Domain/DTO/CapabilitySet` — typed value object wrapping a deduplicated,
+  order-preserving `list<ModelCapability>` for the model's capability set.
+  `Model` gains `getCapabilitySet(): CapabilitySet` and
+  `setCapabilitySet(CapabilitySet)` accessors; the legacy
+  `getCapabilities()` / `getCapabilitiesArray()` / `getCapabilitiesAsEnums()`
+  / `setCapabilities()` / `setCapabilitiesArray()` accessors remain for
+  back-compat. CSV serialisation of the entity field is unchanged
+  (`Model::$capabilities` stays `string`); the DTO is the typed runtime
+  representation. Slice 16a of REC #6; slice 16b will migrate callers to
+  the typed accessors. Both `fromCsv()` and `fromArray()` defensively
+  drop unknown tokens (schema drift, capitalisation, whitespace) so an
+  old DB row carrying a capability that has since been removed from the
+  enum cannot crash readers.
 - `CHANGELOG.md`, `CODEOWNERS`, GitHub issue templates (bug report, feature request).
 - External JavaScript files for the Test and WizardChainPreview backend templates
   (replaces inline `<script>` tags to satisfy Content Security Policy).

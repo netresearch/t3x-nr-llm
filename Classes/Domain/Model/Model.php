@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use Netresearch\NrLlm\Domain\DTO\CapabilitySet;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
@@ -121,14 +122,20 @@ class Model extends AbstractEntity
      */
     public function getCapabilitiesAsEnums(): array
     {
-        $enums = [];
-        foreach ($this->getCapabilitiesArray() as $capability) {
-            $enum = ModelCapability::tryFrom($capability);
-            if ($enum !== null) {
-                $enums[] = $enum;
-            }
-        }
-        return $enums;
+        return $this->getCapabilitySet()->capabilities;
+    }
+
+    /**
+     * Get capabilities as a typed `CapabilitySet` value object (REC #6).
+     *
+     * Preferred accessor for callers that need to query capability
+     * membership; the legacy `getCapabilities()` (CSV string),
+     * `getCapabilitiesArray()` (string list) and `getCapabilitiesAsEnums()`
+     * (enum list) are kept for back-compat and route through this method.
+     */
+    public function getCapabilitySet(): CapabilitySet
+    {
+        return CapabilitySet::fromCsv($this->capabilities);
     }
 
     public function getDefaultTimeout(): int
@@ -249,6 +256,19 @@ class Model extends AbstractEntity
     public function setCapabilitiesArray(array $capabilities): void
     {
         $this->capabilities = implode(',', array_map(trim(...), $capabilities));
+    }
+
+    /**
+     * Set capabilities from a typed `CapabilitySet` value object (REC #6).
+     *
+     * Preferred setter — invariants on the DTO (deduplicated, only
+     * known enum values) flow through to the persisted CSV. The
+     * legacy `setCapabilities()` and `setCapabilitiesArray()` setters
+     * are kept for back-compat and accept arbitrary strings.
+     */
+    public function setCapabilitySet(CapabilitySet $capabilitySet): void
+    {
+        $this->capabilities = $capabilitySet->toCsv();
     }
 
     public function setDefaultTimeout(int $defaultTimeout): void
