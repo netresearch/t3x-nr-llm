@@ -192,9 +192,9 @@ final class TaskWizardController extends ActionController
                 $model = $this->modelRepository->findDefault();
             }
             if (!$model instanceof Model) {
-                foreach ($this->modelRepository->findActive() as $m) {
-                    $model = $m;
-                    break;
+                $first = $this->modelRepository->findActive()->getFirst();
+                if ($first instanceof Model) {
+                    $model = $first;
                 }
             }
 
@@ -256,7 +256,7 @@ final class TaskWizardController extends ActionController
                 );
             }
 
-            return new RedirectResponse($this->uriBuilder->reset()->uriFor('list', controller: 'TaskList'));
+            return new RedirectResponse($this->uriBuilder->reset()->uriFor('list', [], 'TaskList'));
         } catch (Throwable $e) {
             $this->enqueueFlashMessage('Failed to create task: ' . $e->getMessage(), 'Error', ContextualFeedbackSeverity::ERROR);
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));

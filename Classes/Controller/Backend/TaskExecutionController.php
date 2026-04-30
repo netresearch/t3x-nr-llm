@@ -83,7 +83,7 @@ final class TaskExecutionController extends ActionController
                 LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.error', 'NrLlm') ?? 'Error',
                 ContextualFeedbackSeverity::ERROR,
             );
-            return new RedirectResponse($this->uriBuilder->reset()->uriFor('list', controller: 'TaskList'));
+            return new RedirectResponse($this->uriBuilder->reset()->uriFor('list', [], 'TaskList'));
         }
 
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
@@ -203,10 +203,19 @@ final class TaskExecutionController extends ActionController
 
         $inputData = $this->taskInputResolver->resolve($task);
 
+        // Empty when the resolver returned the empty string OR the
+        // localized "no deprecation log file found" placeholder. Compare
+        // against the *translated* string so non-English backends don't
+        // see `isEmpty=false` for what is really a missing log.
+        $deprecationNotFound = LocalizationUtility::translate(
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.deprecationLog.notFound',
+            'NrLlm',
+        ) ?? 'No deprecation log file found.';
+
         return new JsonResponse((new TaskInputResponse(
             inputData: $inputData,
             inputType: $task->getInputType(),
-            isEmpty: $inputData === '' || $inputData === 'No deprecation log file found.',
+            isEmpty: $inputData === '' || $inputData === $deprecationNotFound,
         ))->jsonSerialize());
     }
 

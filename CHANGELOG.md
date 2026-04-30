@@ -89,17 +89,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Controller/Backend/TaskController.php` is removed. Slice 13e
   of the `TaskController` split (ADR-027), and the closure of the
   audit's REC #5.
-- Every `TaskController` AJAX action now returns a typed `Response/*`
-  DTO instead of a raw `JsonResponse([...])` literal — five new
-  responses join the existing `ConfigurationController` /
-  `ProviderController` precedent: `TableListResponse` (picker
-  dropdown), `RecordListResponse` (picker fetch), `RecordDataResponse`
-  (picker load by uid), `TaskExecutionResponse` (execute success;
-  static `fromResult()` factory adapts the service-layer
-  `TaskExecutionResult`), `TaskInputResponse` (refresh-input). All
-  error branches now use the existing `ErrorResponse`. The wire shape
-  consumed by `Backend/TaskExecute.js` and friends is preserved
-  byte-for-byte. Slice 13d of the `TaskController` split (ADR-027).
+- Every Task AJAX action now returns a typed `Response/*` DTO instead
+  of a raw `JsonResponse([...])` literal — five new responses join the
+  existing `ConfigurationController` / `ProviderController` precedent:
+  `TableListResponse` (picker dropdown), `RecordListResponse` (picker
+  fetch), `RecordDataResponse` (picker load by uid),
+  `TaskExecutionResponse` (execute success; static `fromResult()`
+  factory adapts the service-layer `TaskExecutionResult`),
+  `TaskInputResponse` (refresh-input). All error branches now use the
+  existing `ErrorResponse`. The wire shape consumed by
+  `Backend/TaskExecute.js` and friends is preserved byte-for-byte.
+  Slice 13d of the controller split (ADR-027); after slice 13e these
+  actions live on `TaskExecutionController` and `TaskRecordsController`.
 - Specialized translators register via the new `#[AsTranslator]` marker
   attribute, mirroring the `#[AsLlmProvider]` pattern used for LLM
   providers. The attribute carries no fields — translator identifier

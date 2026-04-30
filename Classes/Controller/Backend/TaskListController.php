@@ -104,7 +104,7 @@ final class TaskListController extends ActionController
             ->setIcon($this->iconFactory->getIcon('actions-bolt', IconSize::SMALL))
             ->setTitle('Create with AI')
             ->setShowLabelText(true)
-            ->setHref($this->uriBuilder->reset()->uriFor('wizardForm', controller: 'TaskWizard'));
+            ->setHref($this->uriBuilder->reset()->uriFor('wizardForm', [], 'TaskWizard'));
         $buttonBar->addButton($aiButton, ButtonBar::BUTTON_POSITION_LEFT, 2);
 
         return $moduleTemplate->renderResponse('Backend/Task/List');

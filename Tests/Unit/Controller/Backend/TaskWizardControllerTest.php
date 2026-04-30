@@ -27,7 +27,7 @@ use stdClass;
  * is a pure function with no dependencies, so reflection-based
  * private invocation is safe.
  */
-final class TaskControllerWizardTest extends TestCase
+final class TaskWizardControllerTest extends TestCase
 {
     private ReflectionMethod $toStr;
     private ReflectionMethod $toInt;

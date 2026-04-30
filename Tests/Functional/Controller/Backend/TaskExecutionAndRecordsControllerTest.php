@@ -41,7 +41,7 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  */
 #[CoversClass(TaskExecutionController::class)]
 #[CoversClass(TaskRecordsController::class)]
-final class TaskControllerTest extends AbstractFunctionalTestCase
+final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTestCase
 {
     private TaskExecutionController $executionController;
     private TaskRecordsController $recordsController;
