@@ -69,17 +69,38 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   REC #4 budget pre-flight, with the hook point documented in the
   service's class docblock. Behaviour is unchanged. Slice 13c of the
   `TaskController` split (ADR-027).
-- Every `TaskController` AJAX action now returns a typed `Response/*`
-  DTO instead of a raw `JsonResponse([...])` literal — five new
-  responses join the existing `ConfigurationController` /
-  `ProviderController` precedent: `TableListResponse` (picker
-  dropdown), `RecordListResponse` (picker fetch), `RecordDataResponse`
-  (picker load by uid), `TaskExecutionResponse` (execute success;
-  static `fromResult()` factory adapts the service-layer
-  `TaskExecutionResult`), `TaskInputResponse` (refresh-input). All
-  error branches now use the existing `ErrorResponse`. The wire shape
-  consumed by `Backend/TaskExecute.js` and friends is preserved
-  byte-for-byte. Slice 13d of the `TaskController` split (ADR-027).
+- `TaskController` is split into four per-pathway controllers,
+  closing REC #5 and the entire ADR-027 work:
+
+  - `TaskListController` (135 LOC, 4 deps) — `list`.
+  - `TaskWizardController` (270 LOC, 9 deps) — `wizardForm`,
+    `wizardGenerate`, `wizardGenerateChain`, `wizardCreate`.
+  - `TaskExecutionController` (210 LOC, 8 deps) — `executeForm`,
+    `executeAction`, `refreshInputAction`.
+  - `TaskRecordsController` (135 LOC, 1 dep) — `listTablesAction`,
+    `fetchRecordsAction`, `loadRecordDataAction`.
+
+  AJAX route identifiers and paths are unchanged; only the route
+  `target:` field repoints to the new controllers, so the JS
+  frontend (resolved via `PageRenderer::addInlineSettingArray`)
+  needs no update. Backend module identifier `nrllm_tasks` is
+  unchanged; `controllerActions` now distributes the action names
+  across the three render-controllers. The original
+  `Controller/Backend/TaskController.php` is removed. Slice 13e
+  of the `TaskController` split (ADR-027), and the closure of the
+  audit's REC #5.
+- Every Task AJAX action now returns a typed `Response/*` DTO instead
+  of a raw `JsonResponse([...])` literal — five new responses join the
+  existing `ConfigurationController` / `ProviderController` precedent:
+  `TableListResponse` (picker dropdown), `RecordListResponse` (picker
+  fetch), `RecordDataResponse` (picker load by uid),
+  `TaskExecutionResponse` (execute success; static `fromResult()`
+  factory adapts the service-layer `TaskExecutionResult`),
+  `TaskInputResponse` (refresh-input). All error branches now use the
+  existing `ErrorResponse`. The wire shape consumed by
+  `Backend/TaskExecute.js` and friends is preserved byte-for-byte.
+  Slice 13d of the controller split (ADR-027); after slice 13e these
+  actions live on `TaskExecutionController` and `TaskRecordsController`.
 - Specialized translators register via the new `#[AsTranslator]` marker
   attribute, mirroring the `#[AsLlmProvider]` pattern used for LLM
   providers. The attribute carries no fields — translator identifier

@@ -10,7 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use GuzzleHttp\Psr7\ServerRequest;
-use Netresearch\NrLlm\Controller\Backend\TaskController;
+use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
+use Netresearch\NrLlm\Controller\Backend\TaskRecordsController;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
 use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
@@ -23,20 +24,27 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 /**
- * Functional tests for TaskController AJAX actions.
+ * Functional tests for the Task AJAX actions, exercising the
+ * post-slice-13e split: `TaskExecutionController` (execute /
+ * refresh-input) and `TaskRecordsController` (list-tables /
+ * fetch-records / load-record-data).
  *
  * Tests user pathways:
  * - Pathway 5.2: Execute Task with Manual Input
  * - Pathway 5.3: List Tables / Fetch Records
  * - Error cases: missing uid, non-existent task, inactive task
  *
- * Uses reflection to create controller with only AJAX-required dependencies,
- * bypassing Extbase ActionController initialization that requires request context.
+ * The two controllers are instantiated via reflection so the
+ * Extbase ActionController initialisation (which needs a real
+ * request context) can be skipped — every test exercises a single
+ * action method directly.
  */
-#[CoversClass(TaskController::class)]
-final class TaskControllerTest extends AbstractFunctionalTestCase
+#[CoversClass(TaskExecutionController::class)]
+#[CoversClass(TaskRecordsController::class)]
+final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTestCase
 {
-    private TaskController $controller;
+    private TaskExecutionController $executionController;
+    private TaskRecordsController $recordsController;
     private TaskRepository $taskRepository;
 
     protected function setUp(): void
@@ -46,7 +54,6 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $this->importFixture('LlmConfigurations.csv');
         $this->importFixture('Tasks.csv');
 
-        // Get real services from container
         $taskRepository = $this->get(TaskRepository::class);
         self::assertInstanceOf(TaskRepository::class, $taskRepository);
         $this->taskRepository = $taskRepository;
@@ -63,34 +70,36 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $persistenceManager = $this->get(PersistenceManagerInterface::class);
         self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
 
-        // Create controller via reflection to inject only AJAX-required dependencies
-        // This bypasses initializeAction() which requires Extbase request context
-        $this->controller = $this->createControllerWithDependencies(
+        $this->executionController = $this->createExecutionController(
             $taskRepository,
             $taskExecutionService,
-            $recordTableReader,
             $taskInputResolver,
         );
+        $this->recordsController = $this->createRecordsController($recordTableReader);
     }
 
-    /**
-     * Create controller instance with only the dependencies needed for AJAX actions.
-     * Uses reflection to bypass constructor and set only required properties.
-     */
-    private function createControllerWithDependencies(
+    private function createExecutionController(
         TaskRepository $taskRepository,
         TaskExecutionServiceInterface $taskExecutionService,
-        RecordTableReaderInterface $recordTableReader,
         TaskInputResolverInterface $taskInputResolver,
-    ): TaskController {
-        $reflection = new ReflectionClass(TaskController::class);
+    ): TaskExecutionController {
+        $reflection = new ReflectionClass(TaskExecutionController::class);
         $controller = $reflection->newInstanceWithoutConstructor();
 
-        // Set only the properties needed for AJAX actions
         $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
         $this->setPrivateProperty($controller, 'taskExecutionService', $taskExecutionService);
-        $this->setPrivateProperty($controller, 'recordTableReader', $recordTableReader);
         $this->setPrivateProperty($controller, 'taskInputResolver', $taskInputResolver);
+
+        return $controller;
+    }
+
+    private function createRecordsController(
+        RecordTableReaderInterface $recordTableReader,
+    ): TaskRecordsController {
+        $reflection = new ReflectionClass(TaskRecordsController::class);
+        $controller = $reflection->newInstanceWithoutConstructor();
+
+        $this->setPrivateProperty($controller, 'recordTableReader', $recordTableReader);
 
         return $controller;
     }
@@ -113,7 +122,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 999, 'input' => 'test input']);
 
         // Act
-        $response = $this->controller->executeAction($request);
+        $response = $this->executionController->executeAction($request);
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
@@ -131,7 +140,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 3, 'input' => 'test input']);
 
         // Act
-        $response = $this->controller->executeAction($request);
+        $response = $this->executionController->executeAction($request);
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
@@ -149,7 +158,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 0, 'input' => 'test input']);
 
         // Act
-        $response = $this->controller->executeAction($request);
+        $response = $this->executionController->executeAction($request);
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
@@ -167,7 +176,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => '999', 'input' => 'test input']);
 
         // Act
-        $response = $this->controller->executeAction($request);
+        $response = $this->executionController->executeAction($request);
 
         // Assert - should still process as 404 (non-existent task)
         self::assertSame(404, $response->getStatusCode());
@@ -186,7 +195,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 1, 'input' => 'Test input for analysis']);
 
         // Act
-        $response = $this->controller->executeAction($request);
+        $response = $this->executionController->executeAction($request);
 
         // Assert - response is 200 but success may be false due to LLM unavailability
         // The controller returns 200 with success:false for LLM errors (see line 200 in controller)
@@ -208,7 +217,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
     public function listTablesActionReturnsTablesList(): void
     {
         // Act
-        $response = $this->controller->listTablesAction();
+        $response = $this->recordsController->listTablesAction();
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -232,7 +241,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
     public function listTablesActionExcludesCacheTables(): void
     {
         // Act
-        $response = $this->controller->listTablesAction();
+        $response = $this->recordsController->listTablesAction();
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -255,7 +264,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
     public function listTablesActionIncludesExtensionTables(): void
     {
         // Act
-        $response = $this->controller->listTablesAction();
+        $response = $this->recordsController->listTablesAction();
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -281,7 +290,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['table' => 'tx_nrllm_task']);
 
         // Act
-        $response = $this->controller->fetchRecordsAction($request);
+        $response = $this->recordsController->fetchRecordsAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -304,7 +313,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['table' => 'tx_nrllm_task']);
 
         // Act
-        $response = $this->controller->fetchRecordsAction($request);
+        $response = $this->recordsController->fetchRecordsAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -332,7 +341,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody([]);
 
         // Act
-        $response = $this->controller->fetchRecordsAction($request);
+        $response = $this->recordsController->fetchRecordsAction($request);
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
@@ -349,7 +358,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['table' => '']);
 
         // Act
-        $response = $this->controller->fetchRecordsAction($request);
+        $response = $this->recordsController->fetchRecordsAction($request);
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
@@ -366,7 +375,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['table' => 'non_existent_table_xyz']);
 
         // Act
-        $response = $this->controller->fetchRecordsAction($request);
+        $response = $this->recordsController->fetchRecordsAction($request);
 
         // Assert - should return 500 with error message from database layer
         self::assertSame(500, $response->getStatusCode());
@@ -383,7 +392,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['table' => 'tx_nrllm_task', 'limit' => 2]);
 
         // Act
-        $response = $this->controller->fetchRecordsAction($request);
+        $response = $this->recordsController->fetchRecordsAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -405,7 +414,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         ]);
 
         // Act
-        $response = $this->controller->fetchRecordsAction($request);
+        $response = $this->recordsController->fetchRecordsAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -467,7 +476,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uids' => '1,2,3']);
 
         // Act
-        $response = $this->controller->loadRecordDataAction($request);
+        $response = $this->recordsController->loadRecordDataAction($request);
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
@@ -484,7 +493,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['table' => 'tx_nrllm_task']);
 
         // Act
-        $response = $this->controller->loadRecordDataAction($request);
+        $response = $this->recordsController->loadRecordDataAction($request);
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
@@ -504,7 +513,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         ]);
 
         // Act
-        $response = $this->controller->loadRecordDataAction($request);
+        $response = $this->recordsController->loadRecordDataAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -532,7 +541,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         ]);
 
         // Act
-        $response = $this->controller->loadRecordDataAction($request);
+        $response = $this->recordsController->loadRecordDataAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -553,7 +562,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 999]);
 
         // Act
-        $response = $this->controller->refreshInputAction($request);
+        $response = $this->executionController->refreshInputAction($request);
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
@@ -570,7 +579,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 1]);
 
         // Act
-        $response = $this->controller->refreshInputAction($request);
+        $response = $this->executionController->refreshInputAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -589,7 +598,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 0]);
 
         // Act
-        $response = $this->controller->refreshInputAction($request);
+        $response = $this->executionController->refreshInputAction($request);
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
@@ -614,7 +623,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 2]);
 
         // Act
-        $response = $this->controller->refreshInputAction($request);
+        $response = $this->executionController->refreshInputAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -638,7 +647,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 2]);
 
         // Act
-        $response = $this->controller->refreshInputAction($request);
+        $response = $this->executionController->refreshInputAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -669,7 +678,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         ]);
 
         // Act
-        $response = $this->controller->executeAction($request);
+        $response = $this->executionController->executeAction($request);
 
         // Assert - response should be 200 (LLM may fail, but action flow is correct)
         self::assertSame(200, $response->getStatusCode());
@@ -692,7 +701,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 1]); // manual task
 
         // Act
-        $response = $this->controller->refreshInputAction($request);
+        $response = $this->executionController->refreshInputAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -722,7 +731,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
             $request = new ServerRequest('POST', '/ajax/nrllm/task/fetch-records');
             $request = $request->withParsedBody(['table' => 'test_no_uid']);
 
-            $response = $this->controller->fetchRecordsAction($request);
+            $response = $this->recordsController->fetchRecordsAction($request);
 
             self::assertSame(200, $response->getStatusCode());
             $body = json_decode((string)$response->getBody(), true);
@@ -743,7 +752,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['table' => 'tx_nrllm_task']);
 
         // Act
-        $response = $this->controller->fetchRecordsAction($request);
+        $response = $this->recordsController->fetchRecordsAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -765,7 +774,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         ]);
 
         // Act
-        $response = $this->controller->loadRecordDataAction($request);
+        $response = $this->recordsController->loadRecordDataAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -799,7 +808,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         ]);
 
         // Act
-        $response = $this->controller->loadRecordDataAction($request);
+        $response = $this->recordsController->loadRecordDataAction($request);
 
         // Assert
         self::assertSame(200, $response->getStatusCode());
@@ -820,7 +829,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         ]);
 
         // Act
-        $response = $this->controller->loadRecordDataAction($request);
+        $response = $this->recordsController->loadRecordDataAction($request);
 
         // Assert - should return 400 for invalid UIDs
         self::assertSame(400, $response->getStatusCode());

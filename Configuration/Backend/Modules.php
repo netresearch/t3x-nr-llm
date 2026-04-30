@@ -12,7 +12,9 @@ use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
-use Netresearch\NrLlm\Controller\Backend\TaskController;
+use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
+use Netresearch\NrLlm\Controller\Backend\TaskListController;
+use Netresearch\NrLlm\Controller\Backend\TaskWizardController;
 
 /**
  * Backend module registration for nr_llm.
@@ -134,10 +136,14 @@ return [
         'path' => '/module/nrllm/tasks',
         'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_task.xlf',
         'extensionName' => 'NrLlm',
+        // Slice 13e split (ADR-027): list / execute / wizard each
+        // own a focused controller. Module identifier stays
+        // `nrllm_tasks` and the action names are unchanged so any
+        // bookmarked URL or backend-history link keeps resolving.
         'controllerActions' => [
-            TaskController::class => [
-                'list',
-                'executeForm',
+            TaskListController::class      => ['list'],
+            TaskExecutionController::class => ['executeForm'],
+            TaskWizardController::class    => [
                 'wizardForm',
                 'wizardGenerate',
                 'wizardGenerateChain',
