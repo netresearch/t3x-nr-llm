@@ -99,10 +99,16 @@ final readonly class ModelSelectionService
      */
     public function modelMatchesCriteria(Model $model, array $criteria): bool
     {
-        // Check required capabilities
+        // Check required capabilities. The criteria's `capabilities` array
+        // is a `string[]` from external input (configuration / wizard form),
+        // so we route through the typed `CapabilitySet` which trims and
+        // resolves each token via `ModelCapability::tryFrom()` — unknown
+        // capability strings short-circuit to false rather than silently
+        // matching nothing in a CSV scan (REC #6 slice 16b).
         if (!empty($criteria['capabilities'])) {
+            $capabilities = $model->getCapabilitySet();
             foreach ($criteria['capabilities'] as $capability) {
-                if (!$model->hasCapability($capability)) {
+                if (!$capabilities->has($capability)) {
                     return false;
                 }
             }

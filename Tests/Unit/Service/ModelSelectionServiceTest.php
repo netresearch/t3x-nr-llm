@@ -325,6 +325,41 @@ final class ModelSelectionServiceTest extends TestCase
     }
 
     #[Test]
+    public function modelMatchesCriteriaRejectsUnknownCapabilityToken(): void
+    {
+        // REC #6 slice 16b: after the migration to
+        // `getCapabilitySet()->has()`, an unknown capability string
+        // (typo, schema drift, attacker probing) short-circuits to
+        // false via `ModelCapability::tryFrom()` rather than scanning
+        // the CSV for a substring match.
+        $model = $this->createModel(1, 'chat,vision');
+
+        self::assertFalse($this->subject->modelMatchesCriteria($model, [
+            'capabilities' => ['not-a-real-capability'],
+        ]));
+
+        // And mixed — a valid capability the model HAS, plus an
+        // unknown one, should still fail (every required capability
+        // must match).
+        self::assertFalse($this->subject->modelMatchesCriteria($model, [
+            'capabilities' => ['chat', 'not-a-real-capability'],
+        ]));
+    }
+
+    #[Test]
+    public function modelMatchesCriteriaTrimsCapabilityTokensFromExternalInput(): void
+    {
+        // External input (configuration form, wizard form) sometimes
+        // carries stray whitespace; the typed CapabilitySet trims
+        // before `tryFrom()` so `' chat'` resolves the same as `'chat'`.
+        $model = $this->createModel(1, 'chat,vision');
+
+        self::assertTrue($this->subject->modelMatchesCriteria($model, [
+            'capabilities' => [' chat'],
+        ]));
+    }
+
+    #[Test]
     public function modelMatchesCriteriaChecksAdapterTypes(): void
     {
         $model = $this->createModel(1, 'chat', 'openai');

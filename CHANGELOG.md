@@ -6,6 +6,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `ModelSelectionService::modelMatchesCriteria()` now routes capability
+  membership through the typed `Model::getCapabilitySet()->has()` instead
+  of the legacy string-CSV `Model::hasCapability()`. Same observable
+  outcome for every previously-valid input; the typed path additionally
+  rejects unknown capability tokens (typos, schema drift) and trims
+  whitespace consistently — both regressions captured in
+  `modelMatchesCriteriaRejectsUnknownCapabilityToken` /
+  `…TrimsCapabilityTokensFromExternalInput`. REC #6 slice 16b.
+
+### Deprecated
+
+- `Model::getCapabilities()`, `getCapabilitiesArray()`,
+  `getCapabilitiesAsEnums()`, `setCapabilities()`,
+  `setCapabilitiesArray()`, `hasCapability()`, `addCapability()`,
+  `removeCapability()` are deprecated since 0.8.0 in favour of
+  `getCapabilitySet()` / `setCapabilitySet()` (typed
+  `Domain\DTO\CapabilitySet`). The legacy accessors remain functional
+  and are not removed before a major version bump — TCA-driven
+  persistence still hands the entity raw CSV strings, and the
+  deduplication-preserving semantics of the legacy accessors
+  (relevant when callers iterate the CSV directly) are kept
+  byte-for-byte. REC #6 slice 16b.
+
 ### Added
 
 - `Domain/DTO/CapabilitySet` — typed value object wrapping a deduplicated,
