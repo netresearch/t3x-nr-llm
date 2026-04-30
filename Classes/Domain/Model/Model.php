@@ -97,6 +97,12 @@ class Model extends AbstractEntity
         return $this->maxOutputTokens;
     }
 
+    /**
+     * @deprecated since 0.8.0 — use `getCapabilitySet()` for a typed
+     *             `Domain\DTO\CapabilitySet`. Kept for back-compat;
+     *             will not be removed before a major version bump.
+     *             See REC #6 slice 16a/16b.
+     */
     public function getCapabilities(): string
     {
         return $this->capabilities;
@@ -106,6 +112,17 @@ class Model extends AbstractEntity
      * Get capabilities as array.
      *
      * @return string[]
+     *
+     * @deprecated since 0.8.0 — use `getCapabilitySet()->toStringList()`
+     *             (deduplicated, only valid enum tokens) or
+     *             `getCapabilitySet()->capabilities` (typed
+     *             `list<ModelCapability>`). Kept for back-compat —
+     *             this accessor preserves duplicate tokens and order
+     *             from the persisted CSV (it does NOT dedupe, unlike
+     *             the typed DTO) but it DOES trim surrounding
+     *             whitespace on every token. Unknown tokens are
+     *             passed through verbatim as raw strings; the typed
+     *             DTO would drop them at parse time.
      */
     public function getCapabilitiesArray(): array
     {
@@ -122,11 +139,20 @@ class Model extends AbstractEntity
      * typed DTO deduplicates on construction, and a caller that has
      * been holding a duplicate-preserving list (because the persisted
      * CSV does — `setCapabilities()`/`addCapability()` do not dedupe)
-     * would observe a behaviour change. Slice 16b will migrate
-     * callers that don't care about duplicates to `getCapabilitySet()`
-     * one by one. This accessor stays byte-for-byte identical.
+     * would observe a behaviour change. This accessor stays
+     * byte-for-byte identical.
      *
      * @return list<ModelCapability>
+     *
+     * @deprecated since 0.8.0 — use `getCapabilitySet()->capabilities`
+     *             unless you specifically need the duplicate-
+     *             preserving behaviour. The two accessors behave
+     *             identically for *valid* tokens that occur once,
+     *             and both drop unknown tokens (this method via
+     *             `ModelCapability::tryFrom()` returning null, the
+     *             typed DTO via `coerceToEnum()`); the only delta is
+     *             that this method preserves duplicates from the
+     *             persisted CSV while the typed DTO dedupes.
      */
     public function getCapabilitiesAsEnums(): array
     {
@@ -264,6 +290,13 @@ class Model extends AbstractEntity
         $this->maxOutputTokens = max(0, $maxOutputTokens);
     }
 
+    /**
+     * @deprecated since 0.8.0 — use `setCapabilitySet()` with a typed
+     *             `CapabilitySet` to ensure validation against the
+     *             `ModelCapability` enum and deduplication. Kept for
+     *             back-compat (TCA-driven persistence still hands us
+     *             raw CSV strings).
+     */
     public function setCapabilities(string $capabilities): void
     {
         $this->capabilities = $capabilities;
@@ -273,6 +306,9 @@ class Model extends AbstractEntity
      * Set capabilities from array.
      *
      * @param string[] $capabilities
+     *
+     * @deprecated since 0.8.0 — use `setCapabilitySet(CapabilitySet::fromArray(...))`
+     *             instead. Kept for back-compat.
      */
     public function setCapabilitiesArray(array $capabilities): void
     {
@@ -344,6 +380,11 @@ class Model extends AbstractEntity
 
     /**
      * Check if model has a specific capability.
+     *
+     * @deprecated since 0.8.0 — use `getCapabilitySet()->has($capability)`
+     *             which accepts both the typed enum and the legacy
+     *             string form, trims whitespace, and validates the
+     *             string against `ModelCapability::tryFrom()`.
      */
     public function hasCapability(string $capability): bool
     {
@@ -352,6 +393,9 @@ class Model extends AbstractEntity
 
     /**
      * Add a capability.
+     *
+     * @deprecated since 0.8.0 — use
+     *             `setCapabilitySet(getCapabilitySet()->with($capability))`.
      */
     public function addCapability(string $capability): void
     {
@@ -364,6 +408,9 @@ class Model extends AbstractEntity
 
     /**
      * Remove a capability.
+     *
+     * @deprecated since 0.8.0 — use
+     *             `setCapabilitySet(getCapabilitySet()->without($capability))`.
      */
     public function removeCapability(string $capability): void
     {

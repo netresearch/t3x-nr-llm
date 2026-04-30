@@ -325,6 +325,43 @@ final class ModelSelectionServiceTest extends TestCase
     }
 
     #[Test]
+    public function modelMatchesCriteriaRejectsUnknownCapabilityToken(): void
+    {
+        // Documents the no-change-for-unknowns contract across the
+        // slice 16b migration: legacy `hasCapability()` already used
+        // strict `in_array(...,true)` over `explode(',')` so unknown
+        // criteria tokens already returned false; the typed path
+        // continues to do so via `ModelCapability::tryFrom()`. The
+        // assertion stays passing both before and after the migration —
+        // pinning that this property is preserved.
+        $model = $this->createModel(1, 'chat,vision');
+
+        self::assertFalse($this->subject->modelMatchesCriteria($model, [
+            'capabilities' => ['not-a-real-capability'],
+        ]));
+
+        // And mixed — a valid capability the model HAS, plus an
+        // unknown one, should still fail (every required capability
+        // must match).
+        self::assertFalse($this->subject->modelMatchesCriteria($model, [
+            'capabilities' => ['chat', 'not-a-real-capability'],
+        ]));
+    }
+
+    #[Test]
+    public function modelMatchesCriteriaTrimsCapabilityTokensFromExternalInput(): void
+    {
+        // External input (configuration form, wizard form) sometimes
+        // carries stray whitespace; the typed CapabilitySet trims
+        // before `tryFrom()` so `' chat'` resolves the same as `'chat'`.
+        $model = $this->createModel(1, 'chat,vision');
+
+        self::assertTrue($this->subject->modelMatchesCriteria($model, [
+            'capabilities' => [' chat'],
+        ]));
+    }
+
+    #[Test]
     public function modelMatchesCriteriaChecksAdapterTypes(): void
     {
         $model = $this->createModel(1, 'chat', 'openai');

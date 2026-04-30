@@ -99,10 +99,22 @@ final readonly class ModelSelectionService
      */
     public function modelMatchesCriteria(Model $model, array $criteria): bool
     {
-        // Check required capabilities
+        // Check required capabilities. The criteria's `capabilities` array
+        // is a `string[]` from external input (configuration / wizard form),
+        // so we route through the typed `CapabilitySet`. Behaviour is
+        // unchanged for every previously-valid criteria token (legacy
+        // `hasCapability()` already used strict `in_array(...,true)` over
+        // `explode(',')`); the migration's real value is twofold —
+        // criteria tokens are trimmed before `ModelCapability::tryFrom()`
+        // (so `' chat'` resolves the same as `'chat'`), and unknown
+        // tokens that may exist in the persisted CSV (schema drift,
+        // removed-but-still-stored capabilities) are dropped at parse
+        // time rather than matched against an equally-unknown criteria
+        // string (REC #6 slice 16b).
         if (!empty($criteria['capabilities'])) {
+            $capabilities = $model->getCapabilitySet();
             foreach ($criteria['capabilities'] as $capability) {
-                if (!$model->hasCapability($capability)) {
+                if (!$capabilities->has($capability)) {
                     return false;
                 }
             }
