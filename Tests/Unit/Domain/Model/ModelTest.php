@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Domain\Model;
 
+use Netresearch\NrLlm\Domain\DTO\CapabilitySet;
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use PHPUnit\Framework\Attributes\Test;
@@ -157,5 +159,102 @@ final class ModelTest extends TestCase
         self::assertArrayHasKey(Model::CAPABILITY_TOOLS, $capabilities);
         self::assertArrayHasKey(Model::CAPABILITY_JSON_MODE, $capabilities);
         self::assertArrayHasKey(Model::CAPABILITY_AUDIO, $capabilities);
+    }
+
+    // ========================================
+    // CapabilitySet (REC #6 slice 16a)
+    // ========================================
+
+    #[Test]
+    public function getCapabilitySetReturnsTypedDtoBuiltFromCsv(): void
+    {
+        $model = new Model();
+        $model->setCapabilities('chat,vision,tools');
+
+        $set = $model->getCapabilitySet();
+
+        self::assertInstanceOf(CapabilitySet::class, $set);
+        self::assertSame([
+            ModelCapability::CHAT,
+            ModelCapability::VISION,
+            ModelCapability::TOOLS,
+        ], $set->capabilities);
+    }
+
+    #[Test]
+    public function getCapabilitySetReturnsEmptyDtoWhenCsvIsEmpty(): void
+    {
+        $model = new Model();
+
+        self::assertTrue($model->getCapabilitySet()->isEmpty());
+    }
+
+    #[Test]
+    public function setCapabilitySetWritesCsv(): void
+    {
+        $model = new Model();
+        $model->setCapabilitySet(CapabilitySet::fromArray([
+            ModelCapability::CHAT,
+            ModelCapability::EMBEDDINGS,
+        ]));
+
+        self::assertSame('chat,embeddings', $model->getCapabilities());
+        self::assertSame([
+            ModelCapability::CHAT,
+            ModelCapability::EMBEDDINGS,
+        ], $model->getCapabilitySet()->capabilities);
+    }
+
+    #[Test]
+    public function setCapabilitySetSurvivesRoundTripThroughLegacyAccessors(): void
+    {
+        // Slice 16b will migrate the legacy accessors caller-by-caller;
+        // until then the new typed setter must coexist with old string
+        // and array readers without confusion.
+        $model = new Model();
+        $model->setCapabilitySet(CapabilitySet::fromArray([
+            ModelCapability::CHAT,
+            ModelCapability::VISION,
+        ]));
+
+        self::assertSame('chat,vision', $model->getCapabilities());
+        self::assertSame(['chat', 'vision'], $model->getCapabilitiesArray());
+        self::assertSame([
+            ModelCapability::CHAT,
+            ModelCapability::VISION,
+        ], $model->getCapabilitiesAsEnums());
+    }
+
+    #[Test]
+    public function getCapabilitiesAsEnumsDropsUnknownTokensButPreservesDuplicates(): void
+    {
+        // Regression guard: `getCapabilitiesAsEnums()` keeps its
+        // pre-REC-#6 byte-for-byte semantics — drops unknown tokens
+        // defensively, but PRESERVES duplicates if the persisted CSV
+        // happens to carry them (the legacy setters do not dedupe).
+        // Callers that want dedup should use `getCapabilitySet()`.
+        $model = new Model();
+        $model->setCapabilities('chat,unknown_obsolete_capability,tools,chat');
+
+        self::assertSame([
+            ModelCapability::CHAT,
+            ModelCapability::TOOLS,
+            ModelCapability::CHAT,
+        ], $model->getCapabilitiesAsEnums());
+    }
+
+    #[Test]
+    public function getCapabilitySetDeduplicatesPersistedDuplicates(): void
+    {
+        // Counterpart guard: `getCapabilitySet()` IS the dedup-aware
+        // typed accessor; a CSV with duplicates must come back as a
+        // single set entry per capability.
+        $model = new Model();
+        $model->setCapabilities('chat,tools,chat');
+
+        self::assertSame([
+            ModelCapability::CHAT,
+            ModelCapability::TOOLS,
+        ], $model->getCapabilitySet()->capabilities);
     }
 }

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use Netresearch\NrLlm\Domain\DTO\CapabilitySet;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
@@ -117,6 +118,14 @@ class Model extends AbstractEntity
     /**
      * Get capabilities as enum array.
      *
+     * Intentionally does NOT delegate to `getCapabilitySet()`: the
+     * typed DTO deduplicates on construction, and a caller that has
+     * been holding a duplicate-preserving list (because the persisted
+     * CSV does — `setCapabilities()`/`addCapability()` do not dedupe)
+     * would observe a behaviour change. Slice 16b will migrate
+     * callers that don't care about duplicates to `getCapabilitySet()`
+     * one by one. This accessor stays byte-for-byte identical.
+     *
      * @return list<ModelCapability>
      */
     public function getCapabilitiesAsEnums(): array
@@ -129,6 +138,25 @@ class Model extends AbstractEntity
             }
         }
         return $enums;
+    }
+
+    /**
+     * Get capabilities as a typed `CapabilitySet` value object (REC #6).
+     *
+     * Preferred accessor for new callers that need to query capability
+     * membership. The DTO is built fresh from the persisted CSV on each
+     * call (cheap — splits a string and runs `tryFrom` per token); it
+     * deduplicates and drops unknown tokens.
+     *
+     * The legacy string accessors (`getCapabilities()`,
+     * `getCapabilitiesArray()`, `getCapabilitiesAsEnums()`) do NOT
+     * route through this method — they preserve their pre-REC-#6
+     * behaviour byte-for-byte (including any duplicates the persisted
+     * CSV may carry). Slice 16b will migrate callers caller-by-caller.
+     */
+    public function getCapabilitySet(): CapabilitySet
+    {
+        return CapabilitySet::fromCsv($this->capabilities);
     }
 
     public function getDefaultTimeout(): int
@@ -249,6 +277,19 @@ class Model extends AbstractEntity
     public function setCapabilitiesArray(array $capabilities): void
     {
         $this->capabilities = implode(',', array_map(trim(...), $capabilities));
+    }
+
+    /**
+     * Set capabilities from a typed `CapabilitySet` value object (REC #6).
+     *
+     * Preferred setter — invariants on the DTO (deduplicated, only
+     * known enum values) flow through to the persisted CSV. The
+     * legacy `setCapabilities()` and `setCapabilitiesArray()` setters
+     * are kept for back-compat and accept arbitrary strings.
+     */
+    public function setCapabilitySet(CapabilitySet $capabilitySet): void
+    {
+        $this->capabilities = $capabilitySet->toCsv();
     }
 
     public function setDefaultTimeout(int $defaultTimeout): void
