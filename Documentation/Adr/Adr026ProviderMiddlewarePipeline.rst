@@ -206,6 +206,42 @@ has been moved behind :php:`CacheMiddleware`:
   :php:`CacheManagerInterface`; it is a pure vector-math façade on top
   of :php:`LlmServiceManager::embed()`.
 
+.. _adr-026-diagnostic-bypass:
+
+Diagnostic / connectivity calls intentionally bypass the pipeline
+=================================================================
+
+The connectivity-test paths in
+:php:`ProviderAdapterRegistry::testProviderConnection()` (called from
+:php:`ProviderController::testConnectionAction`,
+:php:`ConfigurationController::testConfigurationAction`, and
+:php:`ModelController::testModelAction`) construct an adapter and
+invoke :php:`ProviderInterface::testConnection()` *directly*, with
+their own ``try`` / ``catch`` block and an
+:php:`AbstractProvider::sanitizeErrorMessage()` step. They do **not**
+go through :php:`MiddlewarePipeline::run()`. This is deliberate:
+
+* **Budget** — a connectivity probe must not be charged against a
+  user's monthly bucket. The probe is a backend-admin action; it has
+  no end-user budget owner.
+* **Usage** — recording a probe in the usage table would distort
+  cost / token dashboards. Probes are administrative, not productive
+  traffic.
+* **Fallback** — a probe must surface the failure of the *probed*
+  provider. Silently swapping to a healthy alternative would mask the
+  very condition the probe was designed to detect.
+* **Cache** — caching the result of a probe would defeat the purpose
+  of probing.
+
+The diagnostic path is consequently the only documented exemption
+from the "all provider calls go through the pipeline" rule of
+:ref:`adr-026-followups` step 5. New diagnostic / health-check entry
+points should follow the same pattern: build the adapter via
+:php:`ProviderAdapterRegistry`, call the capability method directly,
+sanitize and surface the error themselves. New *productive* entry
+points must go through :php:`MiddlewarePipeline::run()` — there are
+no other exemptions.
+
 .. _adr-026-alternatives:
 
 Alternatives considered

@@ -52,6 +52,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **REC #15 (audit 2026-04-30):** ADR-026 gains a new
+  "Diagnostic / connectivity calls intentionally bypass the pipeline"
+  section. Documents why
+  `ProviderAdapterRegistry::testProviderConnection()` and the three
+  controller test-actions
+  (`ProviderController::testConnectionAction`,
+  `ConfigurationController::testConfigurationAction`,
+  `ModelController::testModelAction`) call the adapter directly
+  rather than going through `MiddlewarePipeline::run()` —
+  Budget would mis-charge, Usage would distort dashboards, Fallback
+  would mask the very condition the probe was designed to detect,
+  and Cache would defeat the purpose of probing. This is the only
+  documented exemption from the "all provider calls go through the
+  pipeline" rule of ADR-026 step 5; new productive entry points
+  still go through the pipeline. Pure documentation slice — no
+  code change.
 - **REC #9c (slice 25):** ADR-028 documents the
   `Configuration/Services.yaml` `public: true` policy. The 37
   current overrides are categorised (public LLM API surface,
