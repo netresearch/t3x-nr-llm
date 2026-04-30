@@ -154,6 +154,9 @@ services:
   Netresearch\NrLlm\Service\Task\TaskInputResolverInterface:
     alias: Netresearch\NrLlm\Service\Task\TaskInputResolver
 
+  Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface:
+    alias: Netresearch\NrLlm\Service\Task\TaskExecutionService
+
   # ========================================
   # Translation Registry
   # ========================================
