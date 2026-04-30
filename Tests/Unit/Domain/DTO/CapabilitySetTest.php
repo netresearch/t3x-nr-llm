@@ -190,4 +190,69 @@ final class CapabilitySetTest extends TestCase
         self::assertSame(['chat', 'vision'], $set->jsonSerialize());
         self::assertSame('["chat","vision"]', json_encode($set, JSON_THROW_ON_ERROR));
     }
+
+    #[Test]
+    public function nativeCountWorksThroughCountableInterface(): void
+    {
+        // Implementing \Countable lets callers use `count($set)` and
+        // works around PHP 8.x's "Countable behaviour change" warnings
+        // that would otherwise treat a non-Countable object as 1.
+        $set = CapabilitySet::fromArray([
+            ModelCapability::CHAT,
+            ModelCapability::VISION,
+        ]);
+
+        self::assertCount(2, $set);
+        self::assertCount(2, $set);
+    }
+
+    #[Test]
+    public function hasTrimsStringInputs(): void
+    {
+        // Same normalisation as fromArray() so the string entry
+        // points behave consistently — `' chat'` resolves to
+        // `ModelCapability::CHAT`, not "unknown".
+        $set = CapabilitySet::fromArray([ModelCapability::CHAT]);
+
+        self::assertTrue($set->has(' chat'));
+        self::assertTrue($set->has("chat\n"));
+    }
+
+    #[Test]
+    public function withTrimsStringInputs(): void
+    {
+        $set = (new CapabilitySet())->with(' chat ');
+
+        self::assertTrue($set->has(ModelCapability::CHAT));
+    }
+
+    #[Test]
+    public function withoutTrimsStringInputs(): void
+    {
+        $set = CapabilitySet::fromArray([ModelCapability::CHAT, ModelCapability::TOOLS]);
+
+        $reduced = $set->without(' chat');
+
+        self::assertFalse($reduced->has(ModelCapability::CHAT));
+        self::assertTrue($reduced->has(ModelCapability::TOOLS));
+    }
+
+    #[Test]
+    public function publicConstructorTrustsCallerInputForDuplicates(): void
+    {
+        // Documented contract: the public constructor TRUSTS its
+        // input. Use `fromArray()` / `fromCsv()` for arbitrary input.
+        // This test pins the contract so an accidental "let's add
+        // dedup to the constructor" change forces a deliberate
+        // decision.
+        $set = new CapabilitySet([
+            ModelCapability::CHAT,
+            ModelCapability::CHAT,
+        ]);
+
+        self::assertSame([
+            ModelCapability::CHAT,
+            ModelCapability::CHAT,
+        ], $set->capabilities);
+    }
 }

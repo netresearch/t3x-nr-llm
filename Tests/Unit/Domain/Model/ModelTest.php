@@ -226,17 +226,35 @@ final class ModelTest extends TestCase
     }
 
     #[Test]
-    public function getCapabilitiesAsEnumsRoutesThroughTypedSet(): void
+    public function getCapabilitiesAsEnumsDropsUnknownTokensButPreservesDuplicates(): void
     {
-        // Regression guard: the legacy `getCapabilitiesAsEnums()` was
-        // refactored to delegate to `getCapabilitySet()->capabilities`
-        // — must keep dropping unknown tokens defensively.
+        // Regression guard: `getCapabilitiesAsEnums()` keeps its
+        // pre-REC-#6 byte-for-byte semantics — drops unknown tokens
+        // defensively, but PRESERVES duplicates if the persisted CSV
+        // happens to carry them (the legacy setters do not dedupe).
+        // Callers that want dedup should use `getCapabilitySet()`.
         $model = new Model();
-        $model->setCapabilities('chat,unknown_obsolete_capability,tools');
+        $model->setCapabilities('chat,unknown_obsolete_capability,tools,chat');
 
         self::assertSame([
             ModelCapability::CHAT,
             ModelCapability::TOOLS,
+            ModelCapability::CHAT,
         ], $model->getCapabilitiesAsEnums());
+    }
+
+    #[Test]
+    public function getCapabilitySetDeduplicatesPersistedDuplicates(): void
+    {
+        // Counterpart guard: `getCapabilitySet()` IS the dedup-aware
+        // typed accessor; a CSV with duplicates must come back as a
+        // single set entry per capability.
+        $model = new Model();
+        $model->setCapabilities('chat,tools,chat');
+
+        self::assertSame([
+            ModelCapability::CHAT,
+            ModelCapability::TOOLS,
+        ], $model->getCapabilitySet()->capabilities);
     }
 }

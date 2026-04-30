@@ -13,14 +13,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Model` gains `getCapabilitySet(): CapabilitySet` and
   `setCapabilitySet(CapabilitySet)` accessors; the legacy
   `getCapabilities()` / `getCapabilitiesArray()` / `getCapabilitiesAsEnums()`
-  / `setCapabilities()` / `setCapabilitiesArray()` accessors remain for
-  back-compat. CSV serialisation of the entity field is unchanged
-  (`Model::$capabilities` stays `string`); the DTO is the typed runtime
-  representation. Slice 16a of REC #6; slice 16b will migrate callers to
-  the typed accessors. Both `fromCsv()` and `fromArray()` defensively
-  drop unknown tokens (schema drift, capitalisation, whitespace) so an
-  old DB row carrying a capability that has since been removed from the
-  enum cannot crash readers.
+  / `setCapabilities()` / `setCapabilitiesArray()` accessors remain
+  byte-for-byte unchanged (they do NOT route through the new DTO so
+  duplicate-preserving semantics survive intact). CSV serialisation of
+  the entity field is unchanged (`Model::$capabilities` stays `string`);
+  the DTO is the typed runtime representation. Slice 16a of REC #6;
+  slice 16b will migrate callers to the typed accessors. The DTO's
+  factories `fromCsv()` and `fromArray()` defensively drop unknown
+  tokens (schema drift, stray whitespace via trim) so an old DB row
+  carrying a capability that has since been removed from the enum
+  cannot crash readers. Token matching is case-sensitive — the
+  persisted CSV is always lowercase (TCA `eval=trim,lower`).
 - `CHANGELOG.md`, `CODEOWNERS`, GitHub issue templates (bug report, feature request).
 - External JavaScript files for the Test and WizardChainPreview backend templates
   (replaces inline `<script>` tags to satisfy Content Security Policy).

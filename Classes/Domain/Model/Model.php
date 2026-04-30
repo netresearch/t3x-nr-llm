@@ -118,20 +118,41 @@ class Model extends AbstractEntity
     /**
      * Get capabilities as enum array.
      *
+     * Intentionally does NOT delegate to `getCapabilitySet()`: the
+     * typed DTO deduplicates on construction, and a caller that has
+     * been holding a duplicate-preserving list (because the persisted
+     * CSV does — `setCapabilities()`/`addCapability()` do not dedupe)
+     * would observe a behaviour change. Slice 16b will migrate
+     * callers that don't care about duplicates to `getCapabilitySet()`
+     * one by one. This accessor stays byte-for-byte identical.
+     *
      * @return list<ModelCapability>
      */
     public function getCapabilitiesAsEnums(): array
     {
-        return $this->getCapabilitySet()->capabilities;
+        $enums = [];
+        foreach ($this->getCapabilitiesArray() as $capability) {
+            $enum = ModelCapability::tryFrom($capability);
+            if ($enum !== null) {
+                $enums[] = $enum;
+            }
+        }
+        return $enums;
     }
 
     /**
      * Get capabilities as a typed `CapabilitySet` value object (REC #6).
      *
-     * Preferred accessor for callers that need to query capability
-     * membership; the legacy `getCapabilities()` (CSV string),
-     * `getCapabilitiesArray()` (string list) and `getCapabilitiesAsEnums()`
-     * (enum list) are kept for back-compat and route through this method.
+     * Preferred accessor for new callers that need to query capability
+     * membership. The DTO is built fresh from the persisted CSV on each
+     * call (cheap — splits a string and runs `tryFrom` per token); it
+     * deduplicates and drops unknown tokens.
+     *
+     * The legacy string accessors (`getCapabilities()`,
+     * `getCapabilitiesArray()`, `getCapabilitiesAsEnums()`) do NOT
+     * route through this method — they preserve their pre-REC-#6
+     * behaviour byte-for-byte (including any duplicates the persisted
+     * CSV may carry). Slice 16b will migrate callers caller-by-caller.
      */
     public function getCapabilitySet(): CapabilitySet
     {

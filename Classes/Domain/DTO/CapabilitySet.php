@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\DTO;
 
+use Countable;
 use JsonSerializable;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 
@@ -30,17 +31,27 @@ use Netresearch\NrLlm\Domain\Enum\ModelCapability;
  * migrate to this DTO; the legacy string accessors on `Model` are kept
  * for back-compat (slice 16b will migrate them caller-by-caller).
  *
- * Construction is invariant-safe: invalid CSV tokens (typos, capitalisation
- * drift, stray whitespace, removed-but-still-stored capabilities like a
- * future `OLD_NAME → NEW_NAME` rename) are dropped silently — same
- * defensive posture as `Model::getCapabilitiesAsEnums()` already takes.
- * Callers that need to know about invalid tokens should validate against
+ * Defensive parsing: `fromCsv()` and `fromArray()` drop unknown enum
+ * tokens silently (typos, removed-but-still-stored capabilities from a
+ * future `OLD_NAME → NEW_NAME` rename, stray whitespace via the trim
+ * pass). Token matching is case-SENSITIVE — `ModelCapability::tryFrom()`
+ * does not lowercase, and `chat` ≠ `CHAT` to it. Callers that need to
+ * know about invalid tokens should validate against
  * `ModelCapability::isValid()` before construction.
+ *
+ * Constructor contract: like `Domain/DTO/FallbackChain`, the public
+ * constructor TRUSTS its `$capabilities` argument — pass already-typed
+ * `ModelCapability` enums and accept that duplicates are the caller's
+ * problem. The factories `fromCsv()` / `fromArray()` are the safe
+ * entry points for arbitrary input; they dedupe and skip unknown
+ * tokens. Tests can construct directly when they need a known shape.
  */
-final readonly class CapabilitySet implements JsonSerializable
+final readonly class CapabilitySet implements Countable, JsonSerializable
 {
     /**
-     * @param list<ModelCapability> $capabilities Deduplicated, order-preserving
+     * @param list<ModelCapability> $capabilities Trusted: already-typed enums.
+     *                                            Use `fromArray()` / `fromCsv()`
+     *                                            for arbitrary / untrusted input.
      */
     public function __construct(
         public array $capabilities = [],
@@ -71,11 +82,7 @@ final readonly class CapabilitySet implements JsonSerializable
         $seen = [];
         $out  = [];
         foreach ($tokens as $token) {
-            $enum = match (true) {
-                $token instanceof ModelCapability => $token,
-                is_string($token)                 => ModelCapability::tryFrom(trim($token)),
-                default                           => null,
-            };
+            $enum = self::coerceToEnum($token);
             if ($enum === null || isset($seen[$enum->value])) {
                 continue;
             }
@@ -111,30 +118,28 @@ final readonly class CapabilitySet implements JsonSerializable
     /**
      * Membership check. Accepts both the typed enum and the legacy
      * string form so callers in transition (slice 16b will migrate
-     * them) do not need an immediate change.
+     * them) do not need an immediate change. Strings are normalised
+     * via `coerceToEnum()` so `' chat'` resolves the same as `'chat'`.
      */
     public function has(ModelCapability|string $capability): bool
     {
-        $needle = $capability instanceof ModelCapability ? $capability : ModelCapability::tryFrom($capability);
+        $needle = self::coerceToEnum($capability);
         if ($needle === null) {
             return false;
         }
-        foreach ($this->capabilities as $cap) {
-            if ($cap === $needle) {
-                return true;
-            }
-        }
-        return false;
+        // PHP enums are singletons, so strict equality is enough — and
+        // `in_array(..., true)` short-circuits on first match.
+        return in_array($needle, $this->capabilities, true);
     }
 
     /**
      * Return a new set with the given capability added (idempotent).
-     * Strings are looked up against the enum; unknown strings yield
-     * an unchanged set rather than a silent corruption.
+     * Strings are normalised via `coerceToEnum()`; unknown strings
+     * yield an unchanged set rather than a silent corruption.
      */
     public function with(ModelCapability|string $capability): self
     {
-        $enum = $capability instanceof ModelCapability ? $capability : ModelCapability::tryFrom($capability);
+        $enum = self::coerceToEnum($capability);
         if ($enum === null || $this->has($enum)) {
             return $this;
         }
@@ -147,7 +152,7 @@ final readonly class CapabilitySet implements JsonSerializable
      */
     public function without(ModelCapability|string $capability): self
     {
-        $enum = $capability instanceof ModelCapability ? $capability : ModelCapability::tryFrom($capability);
+        $enum = self::coerceToEnum($capability);
         if ($enum === null || !$this->has($enum)) {
             return $this;
         }
@@ -164,5 +169,28 @@ final readonly class CapabilitySet implements JsonSerializable
     public function jsonSerialize(): array
     {
         return $this->toStringList();
+    }
+
+    /**
+     * Single normalisation point shared by `fromArray()`, `has()`,
+     * `with()`, `without()`. Ensures that `' chat'`, `'chat'`, and
+     * `ModelCapability::CHAT` all resolve to the same enum case.
+     * Returns null for unknown / non-string / non-enum input.
+     *
+     * Note: case-SENSITIVE matching only — `ModelCapability::tryFrom()`
+     * does not lowercase, and the persisted CSV is always lowercase
+     * (TCA `eval=trim,lower`), so `'CHAT'` will be dropped as unknown.
+     * Callers that want case-insensitive resolution must lowercase
+     * before passing in.
+     */
+    private static function coerceToEnum(mixed $token): ?ModelCapability
+    {
+        if ($token instanceof ModelCapability) {
+            return $token;
+        }
+        if (!is_string($token)) {
+            return null;
+        }
+        return ModelCapability::tryFrom(trim($token));
     }
 }
