@@ -69,6 +69,28 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   REC #4 budget pre-flight, with the hook point documented in the
   service's class docblock. Behaviour is unchanged. Slice 13c of the
   `TaskController` split (ADR-027).
+- `ProviderResponseException` carries typed `httpStatus`,
+  `responseBody`, and `endpoint` properties so callers can branch on
+  the actual HTTP semantics rather than re-parsing the message string.
+  The previous positional constructor signature
+  `(string $message, int $httpStatus = 0, ?Throwable $previous = null)`
+  is preserved verbatim — the new `responseBody` and `endpoint`
+  fields are appended after `$previous`, so existing callers writing
+  `new ProviderResponseException($msg, $status, $previous)` keep
+  working without silent type confusion. New callers populate the
+  typed fields by name. Production call sites
+  (`AbstractProvider::sendRequest()`, `OpenRouterProvider::handleOpenRouterError()`)
+  populate the new fields; OpenRouter's handler now also receives the
+  actual endpoint so non-`chat/completions` calls (e.g. `embeddings`)
+  carry correct metadata. The `endpoint` field is sanitised before
+  storage — any query string is stripped so providers like Gemini
+  (which embed the API key as `?key=<secret>`) cannot leak
+  credentials through exception logging or telemetry. Demonstrated
+  the new typed-catch pattern in
+  `ConfigurationController::testConfigurationAction()`, which now
+  catches `ProviderResponseException` ahead of the generic
+  `Throwable` and surfaces the upstream HTTP status as the AJAX
+  response status (was always 500). REC #8 from the audit.
 - `TaskController` is split into four per-pathway controllers,
   closing REC #5 and the entire ADR-027 work:
 

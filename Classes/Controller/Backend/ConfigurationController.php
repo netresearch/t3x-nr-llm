@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -304,6 +305,17 @@ final class ConfigurationController extends ActionController
 
             return new JsonResponse(
                 TestConfigurationResponse::fromCompletionResponse($response)->jsonSerialize(),
+            );
+        } catch (ProviderResponseException $e) {
+            // Provider returned a typed error response — surface the actual
+            // upstream HTTP status (4xx OR 5xx; OpenRouter's default branch
+            // wraps server errors in this exception too) so the JS frontend
+            // can distinguish "your API key is wrong" (401), "your prompt
+            // was rejected" (400), and "the model is overloaded" (5xx)
+            // instead of always seeing 500.
+            return new JsonResponse(
+                (new ErrorResponse($e->getMessage()))->jsonSerialize(),
+                $e->httpStatus >= 400 && $e->httpStatus < 600 ? $e->httpStatus : 500,
             );
         } catch (Throwable $e) {
             return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 500);
