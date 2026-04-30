@@ -92,14 +92,21 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             }
 
             return $result;
-        } catch (Throwable) {
-            // Return default models if we can't fetch from server
+        } catch (Throwable $e) {
+            // Server unreachable — fall back to a small hardcoded list so the
+            // model picker still has something to show. Log so operators know
+            // their Ollama endpoint isn't responding (REC #11).
+            $this->logger->warning('Ollama: getAvailableModels failed, returning hardcoded defaults', [
+                'exception' => $e,
+                'baseUrl'   => $this->baseUrl,
+            ]);
+
             return [
-                'llama3.2' => 'Llama 3.2',
+                'llama3.2'     => 'Llama 3.2',
                 'llama3.2:70b' => 'Llama 3.2 70B',
-                'mistral' => 'Mistral',
-                'codellama' => 'Code Llama',
-                'phi3' => 'Phi-3',
+                'mistral'      => 'Mistral',
+                'codellama'    => 'Code Llama',
+                'phi3'         => 'Phi-3',
             ];
         }
     }

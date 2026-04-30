@@ -8,6 +8,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **REC #11 (audit 2026-04-30, partial):** Bare `catch (Throwable)`
+  cleanup outside REC #8b's admin-controller scope. Two surgical
+  changes:
+  - `OllamaProvider::getAvailableModels()` — the catch arm that
+    falls back to a hardcoded model list when the Ollama server is
+    unreachable now logs a `warning` (with `exception` and
+    `baseUrl` context) before returning the defaults. Operators
+    can see when their endpoint is silently down instead of
+    discovering it later via "the model picker only shows five
+    options". `$this->logger` is already injected by
+    `AbstractProvider`.
+  - `Provider::getDecryptedApiKey()` — the silent
+    `catch (Throwable) { return ''; }` is **kept** but the comment
+    is sharpened to document why: the empty-string return is
+    load-bearing for `isFullyConfigured()`, `toFullArray()`, and
+    the two `ModelController` adapter-construction sites; adding a
+    logger here trips `failOnWarning=true` in unit-test paths that
+    construct providers without a vault service. The operational
+    signal belongs at the controller call sites — deferred to a
+    follow-up. Two other sites flagged by the audit
+    (`TaskInputResolver:59,133`, `TextToSpeechService:429`) are
+    not touched in this slice — see audit doc for the rationale
+    (TaskInputResolver needs a test-first refactor; TextToSpeechService
+    is already a typed-final-arm pattern that matches REC #8b's
+    intent).
 - **REC #8b (slice 23b):** Replaced catch-all `catch (Throwable $e)`
   blocks with typed exception handlers across the four admin
   controllers (`ProviderController`, `ModelController`,

@@ -133,7 +133,21 @@ class Provider extends AbstractEntity
             $vault = GeneralUtility::makeInstance(VaultServiceInterface::class);
             return $vault->retrieve($this->apiKey) ?? '';
         } catch (Throwable) {
-            // If retrieval fails, return empty string
+            // Vault retrieval failed — return empty string so callers fall
+            // through to "API key may be missing" rather than crashing the
+            // whole admin page. The empty-string return is load-bearing
+            // for `isFullyConfigured()`, `toFullArray()`, and the two
+            // `ModelController` adapter-construction sites — each of those
+            // already surfaces a user-visible "API key missing" / "provider
+            // not configured" message at the operational call site.
+            //
+            // We do NOT log here: the model is constructed in countless
+            // unit-test paths that do not bootstrap a vault service, and
+            // the failure is already surfaced operationally. Adding a
+            // logger seam to a domain-entity getter would either invert
+            // the dependency (entity → service-locator) or require
+            // touching every caller. Moving the logging to the controller
+            // call sites is the right slice — see audit doc REC #11.
             return '';
         }
     }
