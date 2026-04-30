@@ -12,7 +12,8 @@ use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
-use Netresearch\NrLlm\Controller\Backend\TaskController;
+use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
+use Netresearch\NrLlm\Controller\Backend\TaskRecordsController;
 
 /**
  * AJAX routes for nr_llm backend module.
@@ -86,26 +87,30 @@ return [
         'target' => ConfigurationController::class . '::getModelConstraintsAction',
     ],
 
-    // Task routes
+    // Task routes — slice 13e split (ADR-027): record-picker AJAX
+    // moves to TaskRecordsController, execute / refresh-input AJAX
+    // moves to TaskExecutionController. Route identifiers stay so
+    // the JS frontend (resolved via PageRenderer::addInlineSettingArray)
+    // is unaffected.
     'nrllm_task_list_tables' => [
         'path' => '/nrllm/task/list-tables',
-        'target' => TaskController::class . '::listTablesAction',
+        'target' => TaskRecordsController::class . '::listTablesAction',
     ],
     'nrllm_task_fetch_records' => [
         'path' => '/nrllm/task/fetch-records',
-        'target' => TaskController::class . '::fetchRecordsAction',
+        'target' => TaskRecordsController::class . '::fetchRecordsAction',
     ],
     'nrllm_task_load_record_data' => [
         'path' => '/nrllm/task/load-record-data',
-        'target' => TaskController::class . '::loadRecordDataAction',
+        'target' => TaskRecordsController::class . '::loadRecordDataAction',
     ],
     'nrllm_task_refresh_input' => [
         'path' => '/nrllm/task/refresh-input',
-        'target' => TaskController::class . '::refreshInputAction',
+        'target' => TaskExecutionController::class . '::refreshInputAction',
     ],
     'nrllm_task_execute' => [
         'path' => '/nrllm/task/execute',
-        'target' => TaskController::class . '::executeAction',
+        'target' => TaskExecutionController::class . '::executeAction',
     ],
 
     // Setup Wizard routes
