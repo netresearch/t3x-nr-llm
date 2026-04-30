@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Budget\AutoPopulatesBeUserUidTrait;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
@@ -33,6 +34,8 @@ use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
  */
 final readonly class EmbeddingService
 {
+    use AutoPopulatesBeUserUidTrait;
+
     public function __construct(
         private LlmServiceManagerInterface $llmManager,
         private ?BackendUserContextResolverInterface $beUserContextResolver = null,
@@ -61,7 +64,7 @@ final readonly class EmbeddingService
             throw new InvalidArgumentException('Text cannot be empty', 6048498820);
         }
 
-        return $this->llmManager->embed($text, $this->autoPopulateBeUserUid($options));
+        return $this->llmManager->embed($text, $this->autoPopulateBeUserUid($options ?? new EmbeddingOptions()));
     }
 
     /**
@@ -179,26 +182,5 @@ final readonly class EmbeddingService
         return array_map(static fn($x) => $x / $magnitude, $vector);
     }
 
-    /**
-     * Auto-populate `beUserUid` on the options from the resolver when
-     * the caller did not set it explicitly. Mirrors
-     * `CompletionService::autoPopulateBeUserUid()` from slice 15a.
-     */
-    private function autoPopulateBeUserUid(?EmbeddingOptions $options): EmbeddingOptions
-    {
-        $options ??= new EmbeddingOptions();
-        if ($options->getBeUserUid() !== null) {
-            return $options;
-        }
-        if ($this->beUserContextResolver === null) {
-            return $options;
-        }
-
-        $resolved = $this->beUserContextResolver->resolveBeUserUid();
-        if ($resolved === null) {
-            return $options;
-        }
-
-        return $options->withBeUserUid($resolved);
-    }
+    // `autoPopulateBeUserUid()` is provided by `AutoPopulatesBeUserUidTrait`.
 }

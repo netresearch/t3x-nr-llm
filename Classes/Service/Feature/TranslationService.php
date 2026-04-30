@@ -534,18 +534,17 @@ final readonly class TranslationService
      * Resolve the backend user uid for budget pre-flight (REC #4
      * slice 15b). Honours an explicit caller-supplied uid (including
      * `0` for "skip the check") and falls back to the resolver only
-     * when the option was left null. Mirrors the pattern in
-     * `CompletionService::autoPopulateBeUserUid()` from slice 15a.
+     * when the option was left null.
+     *
+     * Different shape from the other feature services: this service
+     * builds *new* `ChatOptions` from `TranslationOptions` rather
+     * than mutating an existing options object, so it returns a raw
+     * `?int` that each construction site forwards to the new
+     * `ChatOptions` constructor — `AutoPopulatesBeUserUidTrait` does
+     * not fit (it expects an options object the caller can mutate).
      */
     private function resolveBeUserUid(TranslationOptions $options): ?int
     {
-        $explicit = $options->getBeUserUid();
-        if ($explicit !== null) {
-            return $explicit;
-        }
-        if ($this->beUserContextResolver === null) {
-            return null;
-        }
-        return $this->beUserContextResolver->resolveBeUserUid();
+        return $options->getBeUserUid() ?? $this->beUserContextResolver?->resolveBeUserUid();
     }
 }

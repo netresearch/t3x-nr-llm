@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Budget\AutoPopulatesBeUserUidTrait;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
@@ -27,6 +28,8 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
  */
 final readonly class VisionService
 {
+    use AutoPopulatesBeUserUidTrait;
+
     private const PROMPT_ALT_TEXT = 'Generate a concise alt text for this image, under 125 characters, focused on essential information for screen readers. Be descriptive but brief.';
     private const PROMPT_SEO_TITLE = 'Generate an SEO-optimized title for this image, under 60 characters, that is compelling and keyword-rich for search rankings.';
     private const PROMPT_DESCRIPTION = 'Provide a comprehensive description of this image including subjects, setting, colors, mood, composition, and notable details.';
@@ -154,7 +157,7 @@ final readonly class VisionService
         string $prompt,
         ?VisionOptions $options = null,
     ): VisionResponse {
-        $options = $this->autoPopulateBeUserUid($options);
+        $options = $this->autoPopulateBeUserUid($options ?? new VisionOptions());
         $optionsArray = $options->toArray();
         $this->validateImageUrl($imageUrl);
 
@@ -243,26 +246,5 @@ final readonly class VisionService
         }
     }
 
-    /**
-     * Auto-populate `beUserUid` from the resolver when the caller did
-     * not set it (REC #4 slice 15b). Mirrors
-     * `CompletionService::autoPopulateBeUserUid()` from slice 15a.
-     */
-    private function autoPopulateBeUserUid(?VisionOptions $options): VisionOptions
-    {
-        $options ??= new VisionOptions();
-        if ($options->getBeUserUid() !== null) {
-            return $options;
-        }
-        if ($this->beUserContextResolver === null) {
-            return $options;
-        }
-
-        $resolved = $this->beUserContextResolver->resolveBeUserUid();
-        if ($resolved === null) {
-            return $options;
-        }
-
-        return $options->withBeUserUid($resolved);
-    }
+    // `autoPopulateBeUserUid()` is provided by `AutoPopulatesBeUserUidTrait`.
 }

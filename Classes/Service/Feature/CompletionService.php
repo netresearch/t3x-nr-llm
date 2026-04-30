@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Budget\AutoPopulatesBeUserUidTrait;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -33,6 +34,8 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
  */
 final readonly class CompletionService
 {
+    use AutoPopulatesBeUserUidTrait;
+
     public function __construct(
         private LlmServiceManagerInterface $llmManager,
         private ?BackendUserContextResolverInterface $beUserContextResolver = null,
@@ -270,28 +273,7 @@ final readonly class CompletionService
         };
     }
 
-    /**
-     * Auto-populate `beUserUid` from the resolver when the caller did
-     * not set it explicitly (REC #4). Callers that pass a uid (including
-     * `0` for "anonymous / skip the check") win over the resolver — only
-     * `null` triggers the lookup. Returns the (possibly enriched) options
-     * unchanged when no resolver is wired or when the resolver itself
-     * returns `null` (CLI / scheduler / FE contexts).
-     */
-    private function autoPopulateBeUserUid(ChatOptions $options): ChatOptions
-    {
-        if ($options->getBeUserUid() !== null) {
-            return $options;
-        }
-        if ($this->beUserContextResolver === null) {
-            return $options;
-        }
-
-        $resolved = $this->beUserContextResolver->resolveBeUserUid();
-        if ($resolved === null) {
-            return $options;
-        }
-
-        return $options->withBeUserUid($resolved);
-    }
+    // `autoPopulateBeUserUid()` is provided by `AutoPopulatesBeUserUidTrait`
+    // — shared with EmbeddingService and VisionService since the wiring
+    // is identical across feature services.
 }
