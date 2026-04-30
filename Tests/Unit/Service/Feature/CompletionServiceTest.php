@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionService;
@@ -63,9 +64,10 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::callback(function (array $messages) use ($prompt): bool {
-                    /** @var array{role: string, content: string} $msg */
                     $msg = $messages[0];
-                    return $msg['role'] === 'user' && $msg['content'] === $prompt;
+                    return $msg instanceof ChatMessage
+                        && $msg->role === 'user'
+                        && $msg->content === $prompt;
                 }),
                 self::anything(),
             )
@@ -96,14 +98,14 @@ class CompletionServiceTest extends AbstractUnitTestCase
                     if (count($messages) !== 2) {
                         return false;
                     }
-                    /** @var array{role: string, content: string} $msg0 */
                     $msg0 = $messages[0];
-                    /** @var array{role: string, content: string} $msg1 */
                     $msg1 = $messages[1];
-                    return $msg0['role'] === 'system'
-                        && $msg0['content'] === $systemPrompt
-                        && $msg1['role'] === 'user'
-                        && $msg1['content'] === $prompt;
+                    return $msg0 instanceof ChatMessage
+                        && $msg1 instanceof ChatMessage
+                        && $msg0->role === 'system'
+                        && $msg0->content === $systemPrompt
+                        && $msg1->role === 'user'
+                        && $msg1->content === $prompt;
                 }),
                 self::anything(),
             )

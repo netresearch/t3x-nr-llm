@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Budget\AutoPopulatesBeUserUidTrait;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
@@ -57,19 +58,16 @@ final readonly class CompletionService implements CompletionServiceInterface
 
         $messages = [];
 
-        // Add system prompt if provided
+        // REC #2 closure: build typed `ChatMessage` VOs at construction
+        // rather than relying on `LlmServiceManager`'s back-compat
+        // normalisation. Typed-from-the-source means PHPStan catches
+        // shape drift earlier and the call site is self-documenting.
         $systemPrompt = $optionsArray['system_prompt'] ?? null;
         if (is_string($systemPrompt) && $systemPrompt !== '') {
-            $messages[] = [
-                'role' => 'system',
-                'content' => $systemPrompt,
-            ];
+            $messages[] = ChatMessage::system($systemPrompt);
         }
 
-        $messages[] = [
-            'role' => 'user',
-            'content' => $prompt,
-        ];
+        $messages[] = ChatMessage::user($prompt);
 
         // Handle response format
         $responseFormat = $optionsArray['response_format'] ?? null;

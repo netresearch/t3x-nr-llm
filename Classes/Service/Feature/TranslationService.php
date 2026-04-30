@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
@@ -95,16 +96,12 @@ final readonly class TranslationService implements TranslationServiceInterface
             $optionsArray,
         );
 
-        // Execute translation
+        // Execute translation. REC #2 closure: build typed
+        // `ChatMessage` VOs at the construction site rather than
+        // relying on LlmServiceManager's back-compat normalisation.
         $messages = [
-            [
-                'role' => 'system',
-                'content' => $prompt['system'],
-            ],
-            [
-                'role' => 'user',
-                'content' => $prompt['user'],
-            ],
+            ChatMessage::system($prompt['system']),
+            ChatMessage::user($prompt['user']),
         ];
 
         $chatOptions = new ChatOptions(
@@ -166,14 +163,8 @@ final readonly class TranslationService implements TranslationServiceInterface
     {
         $options ??= new TranslationOptions();
         $messages = [
-            [
-                'role' => 'system',
-                'content' => 'You are a language detection expert. Respond with ONLY the ISO 639-1 language code (e.g., "en", "de", "fr"). No explanation.',
-            ],
-            [
-                'role' => 'user',
-                'content' => "Detect the language of this text:\n\n" . $text,
-            ],
+            ChatMessage::system('You are a language detection expert. Respond with ONLY the ISO 639-1 language code (e.g., "en", "de", "fr"). No explanation.'),
+            ChatMessage::user("Detect the language of this text:\n\n" . $text),
         ];
 
         $chatOptions = new ChatOptions(
@@ -216,19 +207,13 @@ final readonly class TranslationService implements TranslationServiceInterface
     ): float {
         $options ??= new TranslationOptions();
         $messages = [
-            [
-                'role' => 'system',
-                'content' => 'You are a translation quality expert. Evaluate the translation quality based on accuracy, fluency, and consistency. Respond with ONLY a number between 0.0 and 1.0 (e.g., "0.85"). No explanation.',
-            ],
-            [
-                'role' => 'user',
-                'content' => sprintf(
-                    "Source text:\n%s\n\nTranslation to %s:\n%s\n\nQuality score:",
-                    $sourceText,
-                    $targetLanguage,
-                    $translatedText,
-                ),
-            ],
+            ChatMessage::system('You are a translation quality expert. Evaluate the translation quality based on accuracy, fluency, and consistency. Respond with ONLY a number between 0.0 and 1.0 (e.g., "0.85"). No explanation.'),
+            ChatMessage::user(sprintf(
+                "Source text:\n%s\n\nTranslation to %s:\n%s\n\nQuality score:",
+                $sourceText,
+                $targetLanguage,
+                $translatedText,
+            )),
         ];
 
         $chatOptions = new ChatOptions(

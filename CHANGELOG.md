@@ -31,6 +31,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **REC #2 (slice 24):** Feature services (`CompletionService`,
+  `TranslationService`) now build typed `ChatMessage` VOs at the
+  point of construction instead of inline associative arrays.
+  `LlmServiceManager` would normalise either shape via
+  `ChatMessage::fromArray()`, but typed-from-the-source means
+  PHPStan catches role/content drift earlier and the call site is
+  self-documenting. The provider/manager interfaces keep accepting
+  the `list<ChatMessage|array<string, mixed>>` union for back-compat
+  with third-party callers — that's the intentional end-state
+  documented on the interface itself. Tests updated to assert
+  `instanceof ChatMessage` + `->role` / `->content` field access
+  instead of `$messages[0]['role']` array shape.
 - `DallEImageService`, `FalImageService`, `WhisperTranscriptionService`,
   `TextToSpeechService`, and `DeepLTranslator` now extend
   `AbstractSpecializedService` instead of carrying their own copies
