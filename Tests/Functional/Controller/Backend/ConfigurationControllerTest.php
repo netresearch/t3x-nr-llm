@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Imaging\IconFactory;
@@ -118,7 +119,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
             $pageRenderer,
             $backendUriBuilder,
             $testPromptResolver,
-            new \Psr\Log\NullLogger(),
+            new NullLogger(),
         );
     }
 

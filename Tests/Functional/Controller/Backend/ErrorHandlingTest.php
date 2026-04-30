@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
@@ -124,7 +125,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
             $pageRenderer,
             $backendUriBuilder,
             $testPromptResolver,
-            new \Psr\Log\NullLogger(),
+            new NullLogger(),
         );
     }
 
@@ -148,7 +149,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // REC #8b: typed catches log via LoggerInterface — initialise
         // with a NullLogger so the typed property exists for any
         // exception path the test exercises.
-        $this->setPrivateProperty($controller, 'logger', new \Psr\Log\NullLogger());
+        $this->setPrivateProperty($controller, 'logger', new NullLogger());
 
         return $controller;
     }
@@ -182,7 +183,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $this->setPrivateProperty($controller, 'configurationRepository', $configurationRepository);
         $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
         $this->setPrivateProperty($controller, 'extensionConfiguration', $extensionConfiguration);
-        $this->setPrivateProperty($controller, 'logger', new \Psr\Log\NullLogger());
+        $this->setPrivateProperty($controller, 'logger', new NullLogger());
 
         return $controller;
     }

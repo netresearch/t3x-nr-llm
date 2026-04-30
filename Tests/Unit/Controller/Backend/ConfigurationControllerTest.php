@@ -27,6 +27,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use RuntimeException;
 use TYPO3\CMS\Core\Http\ServerRequest;
@@ -84,7 +85,7 @@ final class ConfigurationControllerTest extends TestCase
         // for unit tests so the property is initialised but no output is
         // produced. Real logging behaviour is exercised by the functional
         // suite where the container provides a real logger.
-        $this->setPrivateProperty($controller, 'logger', new \Psr\Log\NullLogger());
+        $this->setPrivateProperty($controller, 'logger', new NullLogger());
 
         return $controller;
     }
