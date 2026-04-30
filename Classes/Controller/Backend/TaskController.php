@@ -20,9 +20,8 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
-use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
-use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
+use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
 use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -70,7 +69,7 @@ final class TaskController extends ActionController
         private readonly TaskRepository $taskRepository,
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly ModelRepository $modelRepository,
-        private readonly LlmServiceManagerInterface $llmServiceManager,
+        private readonly TaskExecutionServiceInterface $taskExecutionService,
         private readonly WizardGeneratorService $wizardGeneratorService,
         private readonly PersistenceManagerInterface $persistenceManager,
         private readonly FlashMessageService $flashMessageService,
@@ -483,38 +482,27 @@ final class TaskController extends ActionController
         }
 
         try {
-            // Build the prompt with input
-            $prompt = $task->buildPrompt(['input' => $dto->input]);
-
-            // Get configuration (lazy-loaded by Extbase)
-            $configuration = $task->getConfiguration();
-
-            // Execute the prompt
-            if ($configuration !== null) {
-                $response = $this->llmServiceManager->completeWithConfiguration($prompt, $configuration);
-            } else {
-                $response = $this->llmServiceManager->complete($prompt, new ChatOptions());
-            }
-
-            return new JsonResponse([
-                'success' => true,
-                'content' => $response->content,
-                'model' => $response->model,
-                'outputFormat' => $task->getOutputFormat(),
-                'usage' => [
-                    'promptTokens' => $response->usage->promptTokens,
-                    'completionTokens' => $response->usage->completionTokens,
-                    'totalTokens' => $response->usage->totalTokens,
-                ],
-            ]);
+            $result = $this->taskExecutionService->execute($task, $dto->input);
         } catch (Throwable $e) {
             // Return 200 with success:false so JavaScript can read the error message
             // HTTP 500 causes TYPO3's AjaxRequest to throw before parsing the JSON
             return new JsonResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ]);
         }
+
+        return new JsonResponse([
+            'success'      => true,
+            'content'      => $result->content,
+            'model'        => $result->model,
+            'outputFormat' => $result->outputFormat,
+            'usage'        => [
+                'promptTokens'     => $result->usage->promptTokens,
+                'completionTokens' => $result->usage->completionTokens,
+                'totalTokens'      => $result->usage->totalTokens,
+            ],
+        ]);
     }
 
     /**

@@ -56,6 +56,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and `DeprecationLogReader` are no longer injected directly into the
   controller (the resolver owns them). Behaviour is unchanged. Slice
   13b of the `TaskController` split (ADR-027).
+- `TaskController::executeAction()` no longer carries the LLM
+  orchestration logic. Prompt building, configuration lookup, and
+  dispatch to `LlmServiceManager` move into a new
+  `Service/Task/TaskExecutionService` (with
+  `TaskExecutionServiceInterface`). The service returns a typed
+  `TaskExecutionResult` (`content`, `model`, `outputFormat`, `usage`)
+  rather than a `CompletionResponse` so future Task-specific fields
+  can attach without leaking into the LLM abstraction. The controller
+  loses its direct `LlmServiceManagerInterface` injection (the service
+  owns it now); the new service is the natural seam for the future
+  REC #4 budget pre-flight, with the hook point documented in the
+  service's class docblock. Behaviour is unchanged. Slice 13c of the
+  `TaskController` split (ADR-027).
 - Specialized translators register via the new `#[AsTranslator]` marker
   attribute, mirroring the `#[AsLlmProvider]` pattern used for LLM
   providers. The attribute carries no fields — translator identifier

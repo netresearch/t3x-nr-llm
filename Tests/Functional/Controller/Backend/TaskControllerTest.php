@@ -12,8 +12,8 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 use GuzzleHttp\Psr7\ServerRequest;
 use Netresearch\NrLlm\Controller\Backend\TaskController;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
-use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
+use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
 use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -51,8 +51,8 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(TaskRepository::class, $taskRepository);
         $this->taskRepository = $taskRepository;
 
-        $llmServiceManager = $this->get(LlmServiceManagerInterface::class);
-        self::assertInstanceOf(LlmServiceManagerInterface::class, $llmServiceManager);
+        $taskExecutionService = $this->get(TaskExecutionServiceInterface::class);
+        self::assertInstanceOf(TaskExecutionServiceInterface::class, $taskExecutionService);
 
         $recordTableReader = $this->get(RecordTableReaderInterface::class);
         self::assertInstanceOf(RecordTableReaderInterface::class, $recordTableReader);
@@ -67,7 +67,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
         // This bypasses initializeAction() which requires Extbase request context
         $this->controller = $this->createControllerWithDependencies(
             $taskRepository,
-            $llmServiceManager,
+            $taskExecutionService,
             $recordTableReader,
             $taskInputResolver,
         );
@@ -79,7 +79,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
      */
     private function createControllerWithDependencies(
         TaskRepository $taskRepository,
-        LlmServiceManagerInterface $llmServiceManager,
+        TaskExecutionServiceInterface $taskExecutionService,
         RecordTableReaderInterface $recordTableReader,
         TaskInputResolverInterface $taskInputResolver,
     ): TaskController {
@@ -88,7 +88,7 @@ final class TaskControllerTest extends AbstractFunctionalTestCase
 
         // Set only the properties needed for AJAX actions
         $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
-        $this->setPrivateProperty($controller, 'llmServiceManager', $llmServiceManager);
+        $this->setPrivateProperty($controller, 'taskExecutionService', $taskExecutionService);
         $this->setPrivateProperty($controller, 'recordTableReader', $recordTableReader);
         $this->setPrivateProperty($controller, 'taskInputResolver', $taskInputResolver);
 

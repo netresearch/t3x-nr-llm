@@ -14,8 +14,8 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
-use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
+use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
 use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -56,8 +56,8 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
     private function createController(): TaskController
     {
-        $llmServiceManager = $this->get(LlmServiceManagerInterface::class);
-        self::assertInstanceOf(LlmServiceManagerInterface::class, $llmServiceManager);
+        $taskExecutionService = $this->get(TaskExecutionServiceInterface::class);
+        self::assertInstanceOf(TaskExecutionServiceInterface::class, $taskExecutionService);
 
         $recordTableReader = $this->get(RecordTableReaderInterface::class);
         self::assertInstanceOf(RecordTableReaderInterface::class, $recordTableReader);
@@ -66,10 +66,10 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertInstanceOf(TaskInputResolverInterface::class, $taskInputResolver);
 
         return $this->createControllerWithReflection(TaskController::class, [
-            'taskRepository'    => $this->taskRepository,
-            'llmServiceManager' => $llmServiceManager,
-            'recordTableReader' => $recordTableReader,
-            'taskInputResolver' => $taskInputResolver,
+            'taskRepository'       => $this->taskRepository,
+            'taskExecutionService' => $taskExecutionService,
+            'recordTableReader'    => $recordTableReader,
+            'taskInputResolver'    => $taskInputResolver,
         ]);
     }
 
