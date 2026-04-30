@@ -15,9 +15,11 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
@@ -63,6 +65,7 @@ final class TaskWizardController extends ActionController
         private readonly FlashMessageService $flashMessageService,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly LoggerInterface $logger,
     ) {}
 
     public function wizardFormAction(): ResponseInterface
@@ -121,8 +124,15 @@ final class TaskWizardController extends ActionController
                 'configurationUid' => $configurationUid,
             ]);
             return $moduleTemplate->renderResponse('Backend/Task/WizardPreview');
+        } catch (ProviderException $e) {
+            // REC #8b: provider error text often references endpoints / payloads /
+            // model names that aren't safe to render verbatim into the backend UI.
+            $this->logger->error('Task wizard: single-task generation failed (provider)', ['exception' => $e]);
+            $this->enqueueFlashMessage('Generation failed (LLM provider error). See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+            return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         } catch (Throwable $e) {
-            $this->enqueueFlashMessage('Generation failed: ' . $e->getMessage(), 'Error', ContextualFeedbackSeverity::ERROR);
+            $this->logger->error('Task wizard: single-task generation failed unexpectedly', ['exception' => $e]);
+            $this->enqueueFlashMessage('Generation failed. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
     }
@@ -161,8 +171,13 @@ final class TaskWizardController extends ActionController
                 'configurationUid' => $configurationUid,
             ]);
             return $moduleTemplate->renderResponse('Backend/Task/WizardChainPreview');
+        } catch (ProviderException $e) {
+            $this->logger->error('Task wizard: chain generation failed (provider)', ['exception' => $e]);
+            $this->enqueueFlashMessage('Generation failed (LLM provider error). See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+            return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         } catch (Throwable $e) {
-            $this->enqueueFlashMessage('Generation failed: ' . $e->getMessage(), 'Error', ContextualFeedbackSeverity::ERROR);
+            $this->logger->error('Task wizard: chain generation failed unexpectedly', ['exception' => $e]);
+            $this->enqueueFlashMessage('Generation failed. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
     }
@@ -258,7 +273,13 @@ final class TaskWizardController extends ActionController
 
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('list', [], 'TaskList'));
         } catch (Throwable $e) {
-            $this->enqueueFlashMessage('Failed to create task: ' . $e->getMessage(), 'Error', ContextualFeedbackSeverity::ERROR);
+            // wizardCreateAction persists Extbase entities through the
+            // PersistenceManager. Failure modes are mostly Doctrine /
+            // Extbase persistence errors whose messages reference
+            // schema and connection internals — log and surface a
+            // generic message.
+            $this->logger->error('Task wizard: failed to persist generated task', ['exception' => $e]);
+            $this->enqueueFlashMessage('Failed to create task. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
     }

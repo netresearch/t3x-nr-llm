@@ -99,6 +99,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **REC #8b (slice 23a):** Replaced catch-all `catch (Throwable $e)`
+  blocks with typed exception handlers across the three Task pathway
+  controllers (`TaskExecutionController`, `TaskRecordsController`,
+  `TaskWizardController`). Seven catch sites updated. Provider errors
+  (`ProviderResponseException`, base `ProviderException`), Doctrine
+  DBAL errors, and domain `InvalidArgumentException` now route to
+  specific arms with appropriate HTTP statuses; the final `Throwable`
+  arm logs full exception detail and surfaces a generic message
+  instead of leaking `$e->getMessage()` (which can carry SQL error
+  text or provider response bodies). All three controllers gained a
+  `LoggerInterface` constructor parameter (autowired by Symfony DI;
+  TYPO3 v13's container handles `Psr\Log\LoggerInterface` natively).
+  No HTTP-status changes for AJAX paths — `TaskExecutionController`
+  keeps its intentional 200-with-`success:false` envelope so the
+  frontend `AjaxRequest` can read the JSON.
 - **REC #2 (slice 24):** Feature services (`CompletionService`,
   `TranslationService`) now build typed `ChatMessage` VOs at the
   point of construction instead of inline associative arrays.
