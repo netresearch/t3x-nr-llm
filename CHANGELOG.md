@@ -26,6 +26,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecated
 
+- `LlmConfiguration::getOptions(): string` and `setOptions(string)` are
+  deprecated since 0.8.0 in favour of the typed
+  `getOptionsArray(): array<string, mixed>` /
+  `setOptionsArray(array<string, mixed>)` accessors. The `options`
+  field carries provider-specific extras beyond the typed entity
+  columns (`temperature`, `maxTokens`, `topP`, `frequencyPenalty`,
+  `presencePenalty`, `systemPrompt`, …) — its shape is open-ended by
+  design and varies per provider, so REC #6 stops at the array-typed
+  surface rather than introducing a typed DTO that would impose
+  false structure. The legacy raw-JSON methods remain for Extbase
+  property mapping (the framework hydrates the entity through this
+  getter / setter pair) and will not be removed before a major
+  version bump. REC #6 slice 16e.
 - `LlmConfiguration::getModelSelectionCriteria(): string` and
   `setModelSelectionCriteria(string)` are deprecated since 0.8.0 in
   favour of the typed `getModelSelectionCriteriaDTO(): ModelSelectionCriteria` /

@@ -261,6 +261,21 @@ class LlmConfiguration extends AbstractEntity
         return self::DEFAULT_TIMEOUT;
     }
 
+    /**
+     * @deprecated since 0.8.0 — application code should use the typed
+     *             `getOptionsArray()` (returns `array<string, mixed>`).
+     *             The `options` field carries provider-specific extras
+     *             beyond the typed entity columns
+     *             (`temperature` / `maxTokens` / `topP` / etc.) — its
+     *             shape is open-ended by design and varies per
+     *             provider, so REC #6 stops at the array-typed
+     *             surface rather than introducing a typed DTO that
+     *             would impose false structure. The raw-JSON accessor
+     *             is retained for Extbase property mapping (the
+     *             framework hydrates the entity through this getter /
+     *             setter pair) and will not be removed before a major
+     *             version bump.
+     */
     public function getOptions(): string
     {
         return $this->options;
@@ -478,6 +493,14 @@ class LlmConfiguration extends AbstractEntity
         $this->timeout = max(0, $timeout);
     }
 
+    /**
+     * @deprecated since 0.8.0 — application code should use the typed
+     *             `setOptionsArray(array<string, mixed>)` so the
+     *             persisted JSON is produced by `json_encode()` rather
+     *             than passed in as an arbitrary string. The raw-JSON
+     *             setter is retained for Extbase property mapping and
+     *             will not be removed before a major version bump.
+     */
     public function setOptions(string $options): void
     {
         $this->options = $options;
