@@ -26,6 +26,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use RuntimeException;
 use TYPO3\CMS\Core\Http\ServerRequest;
@@ -84,7 +85,7 @@ final class ModelControllerTest extends TestCase
         $this->setPrivateProperty($controller, 'testPromptResolver', $this->testPromptResolver);
         // REC #8b: typed catches log via LoggerInterface — NullLogger
         // for unit tests so the property is initialised.
-        $this->setPrivateProperty($controller, 'logger', new \Psr\Log\NullLogger());
+        $this->setPrivateProperty($controller, 'logger', new NullLogger());
 
         return $controller;
     }

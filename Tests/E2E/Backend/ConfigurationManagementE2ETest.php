@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Imaging\IconFactory;
@@ -117,7 +118,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
             $pageRenderer,
             $backendUriBuilder,
             $testPromptResolver,
-            new \Psr\Log\NullLogger(),
+            new NullLogger(),
         );
     }
 
