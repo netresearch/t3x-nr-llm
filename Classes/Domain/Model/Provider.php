@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 use InvalidArgumentException;
+use Netresearch\NrLlm\Domain\DTO\ProviderOptions;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Throwable;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -162,16 +163,11 @@ class Provider extends AbstractEntity
 
     /**
      * @deprecated since 0.8.0 — application code should use the typed
-     *             `getOptionsArray()` (returns `array<string, mixed>`).
-     *             The `options` field carries provider-adapter-specific
-     *             extras beyond the typed entity columns; its shape is
-     *             open-ended by design and varies per adapter, so
-     *             REC #6 stops at the array-typed surface rather than
-     *             introducing a typed DTO that would impose false
-     *             structure. The raw-JSON accessor is retained for
-     *             Extbase property mapping (the framework hydrates the
-     *             entity through this getter / setter pair) and will
-     *             not be removed before a major version bump.
+     *             `getOptionsObject(): ProviderOptions` (REC #6 slice 20).
+     *             The raw-JSON accessor is retained for Extbase property
+     *             mapping (the framework hydrates the entity through this
+     *             getter / setter pair) and will not be removed before a
+     *             major version bump.
      */
     public function getOptions(): string
     {
@@ -182,6 +178,14 @@ class Provider extends AbstractEntity
      * Get parsed options array.
      *
      * @return array<string, mixed>
+     *
+     * @deprecated since 0.8.0 — use `getOptionsObject()` for the typed
+     *             `ProviderOptions` value object (REC #6 slice 20). The
+     *             array accessor is retained for back-compat with
+     *             pre-DTO callers (`ProviderAdapterRegistry` merges it
+     *             into the adapter-init config) and will not be removed
+     *             before a major version bump; new code should consume
+     *             the DTO directly.
      */
     public function getOptionsArray(): array
     {
@@ -194,6 +198,25 @@ class Provider extends AbstractEntity
         }
         /** @var array<string, mixed> $decoded */
         return $decoded;
+    }
+
+    /**
+     * Get options as a typed `ProviderOptions` value object (REC #6 slice 20).
+     *
+     * Preferred accessor for new callers. The DTO is built fresh from
+     * the persisted JSON on each call (cheap — single `json_decode`
+     * plus a few key extractions); it never throws on malformed input
+     * (returns an empty object instead) so consumers never have to
+     * defensive-decode.
+     *
+     * The legacy string / array accessors do NOT route through this
+     * method — they preserve their pre-REC-#6 behaviour byte-for-byte.
+     * A future slice will migrate `ProviderAdapterRegistry` and other
+     * call sites onto this typed surface.
+     */
+    public function getOptionsObject(): ProviderOptions
+    {
+        return ProviderOptions::fromJson($this->options);
     }
 
     public function getIsActive(): bool
@@ -332,8 +355,8 @@ class Provider extends AbstractEntity
 
     /**
      * @deprecated since 0.8.0 — application code should use the typed
-     *             `setOptionsArray(array<string, mixed>)` so the
-     *             persisted JSON is produced by `json_encode()` rather
+     *             `setOptionsObject(ProviderOptions)` so the persisted
+     *             JSON is produced by the DTO's own serialiser rather
      *             than passed in as an arbitrary string. The raw-JSON
      *             setter is retained for Extbase property mapping and
      *             will not be removed before a major version bump.
@@ -347,10 +370,32 @@ class Provider extends AbstractEntity
      * Set options from array.
      *
      * @param array<string, mixed> $options
+     *
+     * @deprecated since 0.8.0 — use `setOptionsObject(ProviderOptions)`
+     *             for typed validation of well-known fields (`proxy`,
+     *             `customHeaders`) and to centralise the encoding rule.
+     *             The array setter is retained for back-compat and
+     *             will not be removed before a major version bump.
      */
     public function setOptionsArray(array $options): void
     {
         $this->options = json_encode($options, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * Set options from a typed `ProviderOptions` value object (REC #6 slice 20).
+     *
+     * Preferred setter — invariants on the DTO (`proxy` is `?string`,
+     * `customHeaders` is `array<string, string>`) flow through to the
+     * persisted JSON. An empty DTO collapses to the empty-string
+     * sentinel `''` (matching how `setOptions('')` historically
+     * cleared the field) rather than persisting `'[]'`, so the
+     * round-trip through Extbase does not produce noisier JSON than
+     * the entity actually needs.
+     */
+    public function setOptionsObject(ProviderOptions $options): void
+    {
+        $this->options = $options->isEmpty() ? '' : $options->toJson();
     }
 
     public function setIsActive(bool $isActive): void
