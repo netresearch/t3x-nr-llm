@@ -21,7 +21,7 @@ use Netresearch\NrLlm\Exception\PromptTemplateNotFoundException;
  * Handles template loading, variable substitution, versioning,
  * and performance tracking.
  */
-final readonly class PromptTemplateService
+final readonly class PromptTemplateService implements PromptTemplateServiceInterface
 {
     public function __construct(
         private PromptTemplateRepository $repository,

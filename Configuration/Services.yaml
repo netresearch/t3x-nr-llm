@@ -112,6 +112,10 @@ services:
   Netresearch\NrLlm\Service\PromptTemplateService:
     public: true
 
+  Netresearch\NrLlm\Service\PromptTemplateServiceInterface:
+    alias: Netresearch\NrLlm\Service\PromptTemplateService
+    public: true
+
   Netresearch\NrLlm\Service\CacheManager:
     public: true
 
@@ -124,6 +128,23 @@ services:
 
   Netresearch\NrLlm\Service\UsageTrackerService:
     public: true
+
+  # ========================================
+  # Supporting service interfaces (private)
+  # ========================================
+  # Aliases that let consumers wire against the interface rather than the
+  # concrete class. The concrete services are auto-registered as private
+  # by the namespace resource block above; these aliases match that
+  # visibility (REC #9b — supporting interface extraction).
+
+  Netresearch\NrLlm\Service\ModelSelectionServiceInterface:
+    alias: Netresearch\NrLlm\Service\ModelSelectionService
+
+  Netresearch\NrLlm\Service\CapabilityPermissionServiceInterface:
+    alias: Netresearch\NrLlm\Service\CapabilityPermissionService
+
+  Netresearch\NrLlm\Service\WizardGeneratorServiceInterface:
+    alias: Netresearch\NrLlm\Service\WizardGeneratorService
 
   # ========================================
   # Repositories (PUBLIC)

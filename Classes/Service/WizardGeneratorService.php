@@ -23,7 +23,7 @@ use Throwable;
  * from a natural-language description. Falls back to sensible defaults when
  * no LLM is available.
  */
-final readonly class WizardGeneratorService
+final readonly class WizardGeneratorService implements WizardGeneratorServiceInterface
 {
     use SafeCastTrait;
 
