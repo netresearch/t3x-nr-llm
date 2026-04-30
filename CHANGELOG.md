@@ -26,6 +26,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecated
 
+- `LlmConfiguration::getModelSelectionCriteria(): string` and
+  `setModelSelectionCriteria(string)` are deprecated since 0.8.0 in
+  favour of the typed `getModelSelectionCriteriaDTO(): ModelSelectionCriteria` /
+  `setModelSelectionCriteriaDTO(ModelSelectionCriteria)` accessors
+  (the typed `ModelSelectionCriteria` DTO has lived in
+  `Classes/Domain/DTO/` for a while and is the documented
+  application-level surface). The legacy methods remain for Extbase
+  property mapping (the framework hydrates the entity through this
+  getter / setter pair) and will not be removed before a major
+  version bump. Production callers that consume the array shape
+  (`ModelSelectionService::executeForConfiguration()` via
+  `getModelSelectionCriteriaArray()`) are NOT migrated in this slice
+  — `findMatchingModel(array $criteria)` keeps its array signature
+  for now; a future slice can adopt the typed DTO end-to-end. REC #6
+  slice 16d.
 - `LlmConfiguration::getFallbackChain(): string` and
   `setFallbackChain(string)` are deprecated since 0.8.0 in favour of
   the typed `getFallbackChainDTO(): FallbackChain` /

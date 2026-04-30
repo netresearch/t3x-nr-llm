@@ -131,6 +131,15 @@ class LlmConfiguration extends AbstractEntity
         return ModelSelectionMode::tryFrom($this->modelSelectionMode);
     }
 
+    /**
+     * @deprecated since 0.8.0 — application code should use the typed
+     *             `getModelSelectionCriteriaDTO()` (returns a
+     *             `ModelSelectionCriteria` value object). The raw-JSON
+     *             accessor is retained for Extbase property mapping (the
+     *             framework hydrates the entity through this getter /
+     *             setter pair) and will not be removed before a major
+     *             version bump.
+     */
     public function getModelSelectionCriteria(): string
     {
         return $this->modelSelectionCriteria;
@@ -398,6 +407,14 @@ class LlmConfiguration extends AbstractEntity
         $this->modelSelectionMode = $modelSelectionMode;
     }
 
+    /**
+     * @deprecated since 0.8.0 — application code should use the typed
+     *             `setModelSelectionCriteriaDTO()` so the persisted JSON
+     *             is produced by the DTO's own serialiser rather than
+     *             passed in as an arbitrary string. The raw-JSON setter
+     *             is retained for Extbase property mapping and will not
+     *             be removed before a major version bump.
+     */
     public function setModelSelectionCriteria(string $modelSelectionCriteria): void
     {
         $this->modelSelectionCriteria = $modelSelectionCriteria;
