@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -38,6 +39,7 @@ use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
+use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -896,6 +898,113 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         self::assertCount(1, $spy->calls);
         $metadata = $spy->calls[0]['metadata'];
         self::assertArrayNotHasKey(CacheMiddleware::METADATA_CACHE_KEY, $metadata);
+    }
+
+    #[Test]
+    public function chatPlumbsBudgetMetadataFromOptions(): void
+    {
+        // REC #4 slice 15a — the manager translates the typed
+        // ChatOptions::beUserUid / plannedCost fields into the metadata
+        // keys that BudgetMiddleware reads from the ProviderCallContext.
+        $spy     = new RecordingMiddleware();
+        $manager = $this->buildManagerWithMiddleware([$spy]);
+
+        $options = (new ChatOptions())
+            ->withBeUserUid(7)
+            ->withPlannedCost(0.42);
+
+        $manager->chat([['role' => 'user', 'content' => 'hi']], $options);
+
+        self::assertCount(1, $spy->calls);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertSame(7, $metadata[BudgetMiddleware::METADATA_BE_USER_UID]);
+        self::assertSame(0.42, $metadata[BudgetMiddleware::METADATA_PLANNED_COST]);
+    }
+
+    #[Test]
+    public function chatOmitsBudgetMetadataWhenOptionsAreUnset(): void
+    {
+        // Default ChatOptions leave both fields null — the manager must
+        // not fabricate keys for them. BudgetMiddleware then takes its
+        // documented "skip the check" branch.
+        $spy     = new RecordingMiddleware();
+        $manager = $this->buildManagerWithMiddleware([$spy]);
+
+        $manager->chat([['role' => 'user', 'content' => 'hi']]);
+
+        self::assertCount(1, $spy->calls);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertArrayNotHasKey(BudgetMiddleware::METADATA_BE_USER_UID, $metadata);
+        self::assertArrayNotHasKey(BudgetMiddleware::METADATA_PLANNED_COST, $metadata);
+    }
+
+    #[Test]
+    public function completePlumbsBudgetMetadataFromOptions(): void
+    {
+        // Mirror of chatPlumbsBudgetMetadataFromOptions for the
+        // complete() entry point — closes the metadata-bypass that
+        // PR #177 review (Copilot) found in slice 15a where only
+        // chat() carried the metadata.
+        $spy     = new RecordingMiddleware();
+        $manager = $this->buildManagerWithMiddleware([$spy]);
+
+        $options = (new ChatOptions())
+            ->withBeUserUid(13)
+            ->withPlannedCost(0.17);
+
+        $manager->complete('hello', $options);
+
+        self::assertCount(1, $spy->calls);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertSame(13, $metadata[BudgetMiddleware::METADATA_BE_USER_UID]);
+        self::assertSame(0.17, $metadata[BudgetMiddleware::METADATA_PLANNED_COST]);
+    }
+
+    #[Test]
+    public function chatWithToolsPlumbsBudgetMetadataFromOptions(): void
+    {
+        // ToolOptions extends ChatOptions, so the typed budget fields
+        // are already present on the subclass — just need to be plumbed
+        // through the chatWithTools() entrypoint identically to chat().
+        $spy      = new RecordingMiddleware();
+        $provider = new TestableToolProvider();
+        $manager  = $this->buildManagerWithMiddleware([$spy], $provider);
+
+        $options = new ToolOptions(
+            beUserUid: 21,
+            plannedCost: 0.05,
+        );
+
+        $manager->chatWithTools(
+            [['role' => 'user', 'content' => 'hi']],
+            [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'noop', 'description' => '', 'parameters' => []]])],
+            $options,
+        );
+
+        self::assertCount(1, $spy->calls);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertSame(21, $metadata[BudgetMiddleware::METADATA_BE_USER_UID]);
+        self::assertSame(0.05, $metadata[BudgetMiddleware::METADATA_PLANNED_COST]);
+    }
+
+    #[Test]
+    public function chatPlumbsOnlyBeUserUidWhenPlannedCostUnset(): void
+    {
+        // Each field is independently optional — a uid-only call (the
+        // common "I know who but not the cost" shape from CompletionService
+        // auto-populate) must not leak a planned_cost: 0.0 entry that
+        // would change BudgetMiddleware behaviour vs. the absent-key path.
+        $spy     = new RecordingMiddleware();
+        $manager = $this->buildManagerWithMiddleware([$spy]);
+
+        $options = (new ChatOptions())->withBeUserUid(11);
+
+        $manager->chat([['role' => 'user', 'content' => 'hi']], $options);
+
+        self::assertCount(1, $spy->calls);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertSame(11, $metadata[BudgetMiddleware::METADATA_BE_USER_UID]);
+        self::assertArrayNotHasKey(BudgetMiddleware::METADATA_PLANNED_COST, $metadata);
     }
 
     /**

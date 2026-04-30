@@ -34,6 +34,8 @@ class ToolOptions extends ChatOptions
         ?array $stopSequences = null,
         ?string $provider = null,
         ?string $model = null,
+        ?int $beUserUid = null,
+        ?float $plannedCost = null,
         private ?string $toolChoice = null,
         private ?bool $parallelToolCalls = null,
     ) {
@@ -48,6 +50,8 @@ class ToolOptions extends ChatOptions
             $stopSequences,
             $provider,
             $model,
+            $beUserUid,
+            $plannedCost,
         );
         $this->validateToolOptions();
     }
