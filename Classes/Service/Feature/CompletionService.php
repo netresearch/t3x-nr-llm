@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 
@@ -19,11 +20,22 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
  *
  * Provides simple text generation with configurable creativity,
  * format control, and token management.
+ *
+ * Budget pre-flight (REC #4): when a caller does not set an explicit
+ * `beUserUid` on the options, the service consults
+ * `BackendUserContextResolverInterface` to find the active backend user
+ * and populates the option so the BudgetMiddleware in the pipeline can
+ * enforce per-user limits without every caller having to remember the
+ * wiring. The resolver injection is optional so unit tests that only
+ * care about the messaging path can omit it; in production DI the
+ * Symfony container always autowires it from
+ * `Configuration/Services.yaml`.
  */
 final readonly class CompletionService
 {
     public function __construct(
         private LlmServiceManagerInterface $llmManager,
+        private ?BackendUserContextResolverInterface $beUserContextResolver = null,
     ) {}
 
     /**
@@ -36,6 +48,7 @@ final readonly class CompletionService
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
         $options ??= new ChatOptions();
+        $options = $this->autoPopulateBeUserUid($options);
         $optionsArray = $options->toArray();
         $this->validateOptions($optionsArray);
 
@@ -247,5 +260,30 @@ final readonly class CompletionService
             'markdown', 'text' => 'text',
             default => 'text',
         };
+    }
+
+    /**
+     * Auto-populate `beUserUid` from the resolver when the caller did
+     * not set it explicitly (REC #4). Callers that pass a uid (including
+     * `0` for "anonymous / skip the check") win over the resolver — only
+     * `null` triggers the lookup. Returns the (possibly enriched) options
+     * unchanged when no resolver is wired or when the resolver itself
+     * returns `null` (CLI / scheduler / FE contexts).
+     */
+    private function autoPopulateBeUserUid(ChatOptions $options): ChatOptions
+    {
+        if ($options->getBeUserUid() !== null) {
+            return $options;
+        }
+        if ($this->beUserContextResolver === null) {
+            return $options;
+        }
+
+        $resolved = $this->beUserContextResolver->resolveBeUserUid();
+        if ($resolved === null) {
+            return $options;
+        }
+
+        return $options->withBeUserUid($resolved);
     }
 }

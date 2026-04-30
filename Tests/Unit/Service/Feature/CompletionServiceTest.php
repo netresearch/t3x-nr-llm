@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\Feature\CompletionService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -714,6 +715,105 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $result = $subject->completeMarkdown('Test', null);
 
         self::assertEquals('# Title', $result);
+    }
+
+    #[Test]
+    public function completeAutoPopulatesBeUserUidFromResolverWhenCallerLeftItUnset(): void
+    {
+        // REC #4 slice 15a: when callers don't pass beUserUid, the
+        // service consults the resolver and forwards the resolved uid
+        // to LlmServiceManager via the typed option. The middleware
+        // pipeline picks it up from the option's getter once the
+        // manager translates it into ProviderCallContext metadata.
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->expects(self::once())
+            ->method('resolveBeUserUid')
+            ->willReturn(42);
+
+        $subject = new CompletionService($llmManagerMock, $resolver);
+
+        $llmManagerMock->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(static fn(ChatOptions $options): bool
+                    => $options->getBeUserUid() === 42),
+            )
+            ->willReturn($this->createMockResponse('ok'));
+
+        $subject->complete('hello');
+    }
+
+    #[Test]
+    public function completeRespectsExplicitBeUserUidOverResolver(): void
+    {
+        // Caller-supplied uid wins — the resolver is for the absent-default
+        // case only. We assert by giving the resolver an expectation that
+        // would fail the test if it were ever called.
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->expects(self::never())
+            ->method('resolveBeUserUid');
+
+        $subject = new CompletionService($llmManagerMock, $resolver);
+
+        $llmManagerMock->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(static fn(ChatOptions $options): bool
+                    => $options->getBeUserUid() === 99),
+            )
+            ->willReturn($this->createMockResponse('ok'));
+
+        $subject->complete('hello', (new ChatOptions())->withBeUserUid(99));
+    }
+
+    #[Test]
+    public function completeLeavesBeUserUidUnsetWhenResolverReturnsNull(): void
+    {
+        // Non-BE contexts (CLI, scheduler, FE) — the resolver returns
+        // null and we do not fabricate a 0. The BudgetMiddleware's
+        // "skip the check" branch then fires for the missing uid.
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->expects(self::once())
+            ->method('resolveBeUserUid')
+            ->willReturn(null);
+
+        $subject = new CompletionService($llmManagerMock, $resolver);
+
+        $llmManagerMock->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(static fn(ChatOptions $options): bool
+                    => $options->getBeUserUid() === null),
+            )
+            ->willReturn($this->createMockResponse('ok'));
+
+        $subject->complete('hello');
+    }
+
+    #[Test]
+    public function completeWorksWithoutResolverDependency(): void
+    {
+        // Existing callers that don't pass a resolver (legacy DI wiring,
+        // older tests) keep working — beUserUid simply stays null.
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $subject = new CompletionService($llmManagerMock);
+
+        $llmManagerMock->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(static fn(ChatOptions $options): bool
+                    => $options->getBeUserUid() === null),
+            )
+            ->willReturn($this->createMockResponse('ok'));
+
+        $subject->complete('hello');
     }
 
     /**

@@ -14,6 +14,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Canonical sections in `AGENTS.md` (Commands, Testing, Development Workflow,
   Architecture, File Map, Critical Constraints, Heuristics, Shared Utilities,
   Golden Samples).
+- `Service/Budget/BackendUserContextResolverInterface` (with default
+  implementation `BackendUserContextResolver`) — single seam for resolving
+  the active TYPO3 backend user uid out of `$GLOBALS['BE_USER']`. The
+  resolver returns `null` (rather than `0`) when no BE user is in scope
+  so `BudgetMiddleware`'s "skip the check" branch fires for CLI /
+  scheduler / FE callers without faking an unauthenticated principal.
+  `CompletionService` injects the resolver and auto-populates
+  `ChatOptions::beUserUid` when the caller did not set one — slice 15a
+  of REC #4 (automatic budget pre-flight wiring; downstream feature
+  services Embedding / Translation / Vision follow in slice 15b).
+  `ChatOptions` (and by extension `ToolOptions`) gained typed
+  `beUserUid` / `plannedCost` fields with `withBeUserUid()` /
+  `withPlannedCost()` setters; `LlmServiceManager::chat()` translates
+  these into `BudgetMiddleware::METADATA_BE_USER_UID` /
+  `METADATA_PLANNED_COST` on the `ProviderCallContext` so the existing
+  middleware reads them without changes. Fields are deliberately kept
+  off `ChatOptions::toArray()` — they are pipeline metadata, not
+  provider-side options, and must never reach the provider wire
+  payload.
 
 ### Changed
 

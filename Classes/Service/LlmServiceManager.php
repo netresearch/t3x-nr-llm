@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -168,6 +169,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             $this->synthesizeTransientConfiguration(ProviderOperation::Chat, $providerKey),
             ProviderOperation::Chat,
             fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($normalisedMessages, $optionsArray),
+            $this->buildBudgetMetadata($options),
         );
     }
 
@@ -487,9 +489,15 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      * operation kind (so middleware can filter by operation) and the
      * terminal closure that performs the actual provider invocation.
      *
+     * Optional `$metadata` is forwarded onto the `ProviderCallContext` so
+     * cross-cutting middleware (BudgetMiddleware, CacheMiddleware, …) can
+     * read what each entry-point knows. Entry points that have no extra
+     * context (legacy callers, fixed-shape calls) pass an empty array.
+     *
      * @template T
      *
      * @param callable(LlmConfiguration): T $terminal
+     * @param array<string, mixed>          $metadata
      *
      * @return T
      */
@@ -497,12 +505,45 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         LlmConfiguration $configuration,
         ProviderOperation $operation,
         callable $terminal,
+        array $metadata = [],
     ): mixed {
         return $this->pipeline->run(
-            ProviderCallContext::for($operation),
+            ProviderCallContext::for($operation, $metadata),
             $configuration,
             $terminal,
         );
+    }
+
+    /**
+     * Translate the budget-relevant fields on the typed options object
+     * into the metadata keys the BudgetMiddleware reads. Only fields that
+     * the caller has explicitly set (non-null) become metadata — the
+     * middleware's "skip the check" branch then naturally fires for
+     * absent values, matching its documented contract (see
+     * `BudgetMiddleware::handle()`).
+     *
+     * Lives on the manager rather than on the option object itself so
+     * the manager owns the mapping between "public typed surface" and
+     * "internal pipeline contract" — option objects do not need to know
+     * which middleware exists or how it reads metadata.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildBudgetMetadata(ChatOptions $options): array
+    {
+        $metadata = [];
+
+        $beUserUid = $options->getBeUserUid();
+        if ($beUserUid !== null) {
+            $metadata[BudgetMiddleware::METADATA_BE_USER_UID] = $beUserUid;
+        }
+
+        $plannedCost = $options->getPlannedCost();
+        if ($plannedCost !== null) {
+            $metadata[BudgetMiddleware::METADATA_PLANNED_COST] = $plannedCost;
+        }
+
+        return $metadata;
     }
 
     /**

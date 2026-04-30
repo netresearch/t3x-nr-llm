@@ -138,6 +138,9 @@ services:
   Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface:
     alias: Netresearch\NrLlm\Service\Budget\UserBudgetUsageWindows
 
+  Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface:
+    alias: Netresearch\NrLlm\Service\Budget\BackendUserContextResolver
+
   # ========================================
   # Task pathway readers (slice 13a — ADR-027)
   # ========================================

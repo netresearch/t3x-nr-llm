@@ -33,6 +33,8 @@ class ChatOptions extends AbstractOptions
         private ?array $stopSequences = null,
         private ?string $provider = null,
         private ?string $model = null,
+        private ?int $beUserUid = null,
+        private ?float $plannedCost = null,
     ) {
         $this->validate();
     }
@@ -191,6 +193,38 @@ class ChatOptions extends AbstractOptions
         return $clone;
     }
 
+    /**
+     * Set the backend user uid for budget pre-flight (REC #4).
+     *
+     * Callers that already know the BE user (controllers wiring an explicit
+     * uid) should set it here so feature services skip resolver lookup.
+     * Leaving it `null` lets the feature service auto-populate from the
+     * `BackendUserContextResolverInterface`. Pass `0` to explicitly opt
+     * out of the budget check (the BudgetMiddleware treats `0` as
+     * "no user — skip the check").
+     */
+    public function withBeUserUid(int $beUserUid): static
+    {
+        $clone = clone $this;
+        $clone->beUserUid = $beUserUid;
+        return $clone;
+    }
+
+    /**
+     * Set the expected cost of the call for budget pre-flight (REC #4).
+     *
+     * Use when the caller has a meaningful estimate (token counter +
+     * model rate). Leaving it `null` / `0.0` tells the BudgetMiddleware
+     * to evaluate only the non-cost limits (request count, prior usage
+     * totals); real cost is accounted post-flight by UsageMiddleware.
+     */
+    public function withPlannedCost(float $plannedCost): static
+    {
+        $clone = clone $this;
+        $clone->plannedCost = $plannedCost;
+        return $clone;
+    }
+
     // ========================================
     // Getters
     // ========================================
@@ -246,6 +280,16 @@ class ChatOptions extends AbstractOptions
     public function getModel(): ?string
     {
         return $this->model;
+    }
+
+    public function getBeUserUid(): ?int
+    {
+        return $this->beUserUid;
+    }
+
+    public function getPlannedCost(): ?float
+    {
+        return $this->plannedCost;
     }
 
     // ========================================
