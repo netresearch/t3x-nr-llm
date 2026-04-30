@@ -163,16 +163,15 @@ class Provider extends AbstractEntity
     /**
      * @deprecated since 0.8.0 — application code should use the typed
      *             `getOptionsArray()` (returns `array<string, mixed>`).
-     *             The `options` field carries provider-specific extras
-     *             beyond the typed entity columns (`apiKey`, `endpoint`,
-     *             `timeout`, `maxRetries`) — its shape is open-ended by
-     *             design and varies per adapter, so REC #6 stops at the
-     *             array-typed surface rather than introducing a typed
-     *             DTO that would impose false structure. The raw-JSON
-     *             accessor is retained for Extbase property mapping
-     *             (the framework hydrates the entity through this
-     *             getter / setter pair) and will not be removed before
-     *             a major version bump.
+     *             The `options` field carries provider-adapter-specific
+     *             extras beyond the typed entity columns; its shape is
+     *             open-ended by design and varies per adapter, so
+     *             REC #6 stops at the array-typed surface rather than
+     *             introducing a typed DTO that would impose false
+     *             structure. The raw-JSON accessor is retained for
+     *             Extbase property mapping (the framework hydrates the
+     *             entity through this getter / setter pair) and will
+     *             not be removed before a major version bump.
      */
     public function getOptions(): string
     {
