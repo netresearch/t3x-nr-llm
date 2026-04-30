@@ -31,6 +31,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **REC #9c (slice 25):** ADR-028 documents the
+  `Configuration/Services.yaml` `public: true` policy. The 37
+  current overrides are categorised (public LLM API surface,
+  specialized services, test-resolvable repositories, SetupWizard
+  collaborators) and each carries a load-bearing reason for being
+  public. New `Tests/Unit/Configuration/PublicServicesPolicyTest`
+  asserts the count and the ADR's presence — so a future
+  `public: true` addition either matches the documented set or the
+  PR fails with a prompt to update both the ADR and the test
+  expectation. Audit recommendation: "reduce to only those genuinely
+  needed". Resolution: the count is the deliberate set, locked in
+  the ADR + test rather than mass-reduced (which would break
+  ~22 functional tests that resolve repositories/wizard services
+  via `$this->get()` — see ADR-028 "Alternative considered").
 - `Classes/Domain/DTO/ProviderOptions` — typed value object for
   `Provider::$options` (REC #6 slice 20, closes the typed-DTO follow-up
   to slice 16f). `final readonly class` with three fields: `proxy`
