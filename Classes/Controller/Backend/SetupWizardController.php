@@ -200,10 +200,12 @@ final class SetupWizardController extends ActionController
             endpoint: $endpoint,
         );
 
-        $models = array_values($this->modelDiscovery->discover($detected, $apiKey));
-
+        // `fromDiscoveredModels()` reindexes via `array_values(array_map(...))`
+        // internally, so passing the raw discover() result here is fine.
         return new JsonResponse(
-            DiscoveredModelsResponse::fromDiscoveredModels($models)->jsonSerialize(),
+            DiscoveredModelsResponse::fromDiscoveredModels(
+                $this->modelDiscovery->discover($detected, $apiKey),
+            )->jsonSerialize(),
         );
     }
 
@@ -248,12 +250,14 @@ final class SetupWizardController extends ActionController
             );
         }
 
-        $configurations = array_values(
-            $this->configurationGenerator->generate($detected, $apiKey, $models),
-        );
-
+        // `fromSuggestedConfigurations()` reindexes via
+        // `array_values(array_map(...))` internally — the redundant
+        // `array_values()` wrapper here was a leftover from the
+        // pre-DTO inline-array shape.
         return new JsonResponse(
-            GeneratedConfigurationsResponse::fromSuggestedConfigurations($configurations)->jsonSerialize(),
+            GeneratedConfigurationsResponse::fromSuggestedConfigurations(
+                $this->configurationGenerator->generate($detected, $apiKey, $models),
+            )->jsonSerialize(),
         );
     }
 

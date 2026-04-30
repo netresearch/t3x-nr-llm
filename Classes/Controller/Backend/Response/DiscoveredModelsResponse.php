@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend\Response;
 
+use InvalidArgumentException;
 use JsonSerializable;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 
@@ -28,11 +29,26 @@ final readonly class DiscoveredModelsResponse implements JsonSerializable
 {
     /**
      * @param list<array<string, mixed>> $models Models as produced by `DiscoveredModel::toArray()`
+     *
+     * @throws InvalidArgumentException when `$models` is not a list
      */
     public function __construct(
         public array $models,
         public bool $success = true,
-    ) {}
+    ) {
+        // Enforce list-ness so the wire shape is always a JSON array
+        // (`[]`) rather than an object (`{...}`). The factory below
+        // always produces a list, but the constructor is `public` and
+        // a hand-rolled caller could otherwise pass an associative
+        // array — that would silently flip the JSON serialisation and
+        // break the frontend's `Array.isArray(...)` check.
+        if (!array_is_list($models)) {
+            throw new InvalidArgumentException(
+                'DiscoveredModelsResponse::$models must be a list (sequential int keys); got an associative array.',
+                1735300010,
+            );
+        }
+    }
 
     /**
      * @param list<DiscoveredModel> $models

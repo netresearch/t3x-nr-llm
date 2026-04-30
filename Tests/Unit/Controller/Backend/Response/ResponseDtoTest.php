@@ -605,21 +605,43 @@ final class ResponseDtoTest extends TestCase
         self::assertSame(0, $data['configurationsCount']);
     }
 
-    public function testWizardSaveResponseFromProviderHandlesNullUid(): void
+    public function testWizardSaveResponseFromProviderPassesNullUidThrough(): void
     {
-        // Stubs default scalar return values to zero/empty values, so
-        // `getUid()` returning null cannot be exercised through the
-        // standard stub path. Verify the constructor's contract: the
-        // `providerUid` slot accepts the int the factory falls back
-        // to (`?? 0`) when an unpersisted entity is passed.
-        $data = (new WizardSaveResponse(
-            message: 'Configuration saved successfully',
-            providerUid: 0,
-            providerName: 'Detached',
+        // Pre-DTO controller code returned `$provider->getUid()`
+        // directly; substituting `0` would change the wire shape and
+        // break the frontend's "did the entity get a uid?" check.
+        // Use a real Provider instance whose `getUid()` returns null
+        // (the default for an unpersisted entity).
+        $provider = new Provider();
+        $provider->setName('Detached');
+
+        self::assertNull($provider->getUid());
+
+        $data = WizardSaveResponse::fromProvider(
+            provider: $provider,
             modelsCount: 1,
             configurationsCount: 1,
-        ))->jsonSerialize();
+        )->jsonSerialize();
 
-        self::assertSame(0, $data['provider']['uid']);
+        self::assertNull($data['provider']['uid']);
+        self::assertSame('Detached', $data['provider']['name']);
+    }
+
+    public function testWizardSaveResponseFromProviderEmitsPersistedUid(): void
+    {
+        // Mirror image of the previous test: when the entity has a
+        // uid, that uid round-trips through the DTO unchanged.
+        $provider = new Provider();
+        $provider->setName('Production OpenAI');
+        $provider->_setProperty('uid', 42);
+
+        $data = WizardSaveResponse::fromProvider(
+            provider: $provider,
+            modelsCount: 5,
+            configurationsCount: 0,
+        )->jsonSerialize();
+
+        self::assertSame(42, $data['provider']['uid']);
+        self::assertSame('Production OpenAI', $data['provider']['name']);
     }
 }

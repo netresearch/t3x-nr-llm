@@ -26,7 +26,7 @@ final readonly class WizardSaveResponse implements JsonSerializable
 {
     public function __construct(
         public string $message,
-        public int $providerUid,
+        public ?int $providerUid,
         public string $providerName,
         public int $modelsCount,
         public int $configurationsCount,
@@ -39,9 +39,14 @@ final readonly class WizardSaveResponse implements JsonSerializable
         int $configurationsCount,
         string $message = 'Configuration saved successfully',
     ): self {
+        // Pass `null` through verbatim — the pre-DTO controller code
+        // returned `$provider->getUid()` directly, which can be null
+        // for an entity whose persistAll() hasn't run yet. Substituting
+        // `0` here would change the wire shape and confuse the
+        // frontend's "did the entity get a uid?" check.
         return new self(
             message: $message,
-            providerUid: $provider->getUid() ?? 0,
+            providerUid: $provider->getUid(),
             providerName: $provider->getName(),
             modelsCount: $modelsCount,
             configurationsCount: $configurationsCount,
@@ -52,7 +57,7 @@ final readonly class WizardSaveResponse implements JsonSerializable
      * @return array{
      *   success: bool,
      *   message: string,
-     *   provider: array{uid: int, name: string},
+     *   provider: array{uid: int|null, name: string},
      *   modelsCount: int,
      *   configurationsCount: int
      * }
