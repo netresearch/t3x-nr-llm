@@ -36,7 +36,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   property mapping (the framework hydrates the entity through this
   getter / setter pair) and will not be removed before a major
   version bump. Production callers that consume the array shape
-  (`ModelSelectionService::executeForConfiguration()` via
+  (`ModelSelectionService::resolveModel()` via
   `getModelSelectionCriteriaArray()`) are NOT migrated in this slice
   — `findMatchingModel(array $criteria)` keeps its array signature
   for now; a future slice can adopt the typed DTO end-to-end. REC #6
