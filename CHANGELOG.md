@@ -58,6 +58,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `setOptions('')` historically cleared the field. The legacy string
   / array accessors do NOT route through the typed accessor — they
   preserve their pre-REC-#6 behaviour byte-for-byte.
+- Five typed Response DTOs for the Setup Wizard backend AJAX
+  endpoints (slice 21, REC #5b — closes the audit gap left over
+  from the slice-13 `TaskController` split):
+  `Response/ProviderDetectionResponse` (wraps a `DetectedProvider`
+  for `detectAction`), `Response/WizardTestConnectionResponse`
+  (slim `{success, message}` shape for `testAction` — distinct from
+  the existing `TestConnectionResponse` that also carries a model
+  list), `Response/DiscoveredModelsResponse` (wraps the
+  `DiscoveredModel` list from `discoverAction`),
+  `Response/GeneratedConfigurationsResponse` (wraps the
+  `SuggestedConfiguration` list from `generateAction`), and
+  `Response/WizardSaveResponse` (success payload for `saveAction`
+  with the persisted-provider summary). Each DTO follows the
+  established `final readonly` + `implements JsonSerializable` +
+  typed `jsonSerialize()` return shape pattern. The wire shape
+  consumed by `Backend/SetupWizard.js` is preserved byte-for-byte
+  — every new DTO's `jsonSerialize()` returns exactly the array
+  shape the previous inline literal produced.
 - `Classes/Specialized/AbstractSpecializedService` — base class for
   every single-task AI service that talks to a provider over HTTP
   (DALL-E, FAL, Whisper, TTS, DeepL — slice 18, REC #7). Concentrates
@@ -93,6 +111,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   documented on the interface itself. Tests updated to assert
   `instanceof ChatMessage` + `->role` / `->content` field access
   instead of `$messages[0]['role']` array shape.
+- `SetupWizardController` (`detectAction`, `testAction`,
+  `discoverAction`, `generateAction`, `saveAction`) now returns
+  every JSON body through a typed `Response/*` DTO instead of an
+  ad-hoc `new JsonResponse([...])` literal. Ten call sites
+  migrated total (five success replies + five error/exception
+  replies; `ErrorResponse` was reused for every error branch).
+  Closes the REC #5 follow-up audit item; brings the wizard
+  controller in line with the
+  `ConfigurationController` / `ProviderController` /
+  post-split task controllers precedent. No behaviour change —
+  the AJAX wire format consumed by `Backend/SetupWizard.js` is
+  byte-identical to the pre-DTO output. Slice 21.
 - `DallEImageService`, `FalImageService`, `WhisperTranscriptionService`,
   `TextToSpeechService`, and `DeepLTranslator` now extend
   `AbstractSpecializedService` instead of carrying their own copies
