@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Task;
 
+use InvalidArgumentException;
 use Throwable;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Schema\Capability\TcaSchemaCapability;
@@ -117,10 +118,14 @@ final readonly class RecordTableReader implements RecordTableReaderInterface
     }
 
     /**
+     * @throws InvalidArgumentException when the table is on the picker exclusion list
+     *
      * @return list<array{uid: int, label: string}>
      */
     public function fetchSampleRecords(string $table, string $labelField, int $limit): array
     {
+        $this->ensureNotExcluded($table);
+
         $resolvedLabelField = $labelField !== '' ? $labelField : $this->detectLabelField($table);
 
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
@@ -163,10 +168,14 @@ final readonly class RecordTableReader implements RecordTableReaderInterface
     /**
      * @param list<int> $uids
      *
+     * @throws InvalidArgumentException when the table is on the picker exclusion list
+     *
      * @return list<array<string, mixed>>
      */
     public function loadRecordsByUids(string $table, array $uids): array
     {
+        $this->ensureNotExcluded($table);
+
         if ($uids === []) {
             return [];
         }
@@ -183,27 +192,26 @@ final readonly class RecordTableReader implements RecordTableReaderInterface
     }
 
     /**
+     * @throws Throwable when the read fails (table missing, permission
+     *                   denied, etc.) — caller decides how to surface
+     *                   the failure (typically by formatting a
+     *                   localised error message)
+     *
      * @return list<array<string, mixed>>
      */
     public function fetchAll(string $table, int $limit): array
     {
-        try {
-            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
-            return array_values(
-                $queryBuilder
-                    ->select('*')
-                    ->from($table)
-                    ->setMaxResults($limit)
-                    ->executeQuery()
-                    ->fetchAllAssociative(),
-            );
-        } catch (Throwable) {
-            // Caller decides how to surface this — table may be missing,
-            // permission may be denied, etc. Returning [] keeps the
-            // pre-existing behaviour where the caller treated any read
-            // failure as "no data available".
-            return [];
-        }
+        $this->ensureNotExcluded($table);
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        return array_values(
+            $queryBuilder
+                ->select('*')
+                ->from($table)
+                ->setMaxResults($limit)
+                ->executeQuery()
+                ->fetchAllAssociative(),
+        );
     }
 
     private function isExcluded(string $table): bool
@@ -214,5 +222,25 @@ final readonly class RecordTableReader implements RecordTableReaderInterface
             }
         }
         return in_array($table, $this->excludedTableNames, true);
+    }
+
+    /**
+     * Reject tables that are off the picker's allowlist.
+     *
+     * The picker AJAX endpoints accept user-supplied table names. Without
+     * this guard a caller could bypass `listAllowedTables()`'s filter
+     * by directly passing e.g. `cache_pages_tags` or `sys_refindex` to
+     * `fetchSampleRecords()` / `loadRecordsByUids()` / `fetchAll()`.
+     *
+     * @throws InvalidArgumentException when the table is excluded
+     */
+    private function ensureNotExcluded(string $table): void
+    {
+        if ($this->isExcluded($table)) {
+            throw new InvalidArgumentException(
+                sprintf('Table "%s" is excluded from the record-picker allowlist.', $table),
+                1745430001,
+            );
+        }
     }
 }

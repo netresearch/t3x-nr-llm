@@ -139,6 +139,19 @@ services:
     alias: Netresearch\NrLlm\Service\Budget\UserBudgetUsageWindows
 
   # ========================================
+  # Task pathway readers (slice 13a — ADR-027)
+  # ========================================
+
+  Netresearch\NrLlm\Service\Task\RecordTableReaderInterface:
+    alias: Netresearch\NrLlm\Service\Task\RecordTableReader
+
+  Netresearch\NrLlm\Service\Task\SystemLogReaderInterface:
+    alias: Netresearch\NrLlm\Service\Task\SystemLogReader
+
+  Netresearch\NrLlm\Service\Task\DeprecationLogReaderInterface:
+    alias: Netresearch\NrLlm\Service\Task\DeprecationLogReader
+
+  # ========================================
   # Translation Registry
   # ========================================
 

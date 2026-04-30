@@ -732,7 +732,14 @@ final class TaskController extends ActionController
             return LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.table.notConfigured', 'NrLlm') ?? 'No table configured.';
         }
 
-        $rows = $this->recordTableReader->fetchAll($table, $limit);
+        try {
+            $rows = $this->recordTableReader->fetchAll($table, $limit);
+        } catch (Throwable $e) {
+            return sprintf(
+                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.table.readError', 'NrLlm') ?? 'Error reading table: %s',
+                $e->getMessage(),
+            );
+        }
 
         return json_encode($rows, JSON_PRETTY_PRINT) ?: '[]';
     }
