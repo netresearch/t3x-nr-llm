@@ -6,8 +6,51 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `Classes/Specialized/AbstractSpecializedService` — base class for
+  every single-task AI service that talks to a provider over HTTP
+  (DALL-E, FAL, Whisper, TTS, DeepL — slice 18, REC #7). Concentrates
+  the HTTP scaffolding that each service was reimplementing
+  separately: extension-config loading (with fail-soft logging),
+  availability check, JSON POST, status-code → typed-exception
+  mapping (`ServiceConfigurationException` for 401/403,
+  `ServiceUnavailableException` for 429 / 5xx / network errors),
+  endpoint URL construction. Subclasses declare their identity
+  (`getServiceDomain()` / `getServiceProvider()` for exception
+  payloads, `getProviderLabel()` for log messages) and the auth
+  scheme (`buildAuthHeaders()` — three are in active use today:
+  `Bearer ` (OpenAI), `Key ` (FAL), `DeepL-Auth-Key ` (DeepL)).
+- `Classes/Specialized/MultipartBodyBuilderTrait` — multipart/form-data
+  body construction for services that upload files
+  (`WhisperTranscriptionService`, `DallEImageService`). Kept out of
+  the base class so JSON-only services don't carry the trait's
+  footprint. Pure body builder (`encodeMultipartBody()`) plus a
+  full request dispatcher (`sendMultipartRequest()`) that ties into
+  the base's `executeRequest()`.
+
 ### Changed
 
+- `DallEImageService`, `FalImageService`, `WhisperTranscriptionService`,
+  `TextToSpeechService`, and `DeepLTranslator` now extend
+  `AbstractSpecializedService` instead of carrying their own copies
+  of `loadConfiguration()`, `ensureAvailable()`, `executeRequest()`,
+  and the auth-header / JSON-POST boilerplate. **Public API is
+  unchanged** — every public method on every service keeps its
+  signature, and the constructor signature is identical (Symfony DI
+  autowires the same dep set as before). Whisper and TTS retain
+  their own request-execution path (Whisper because text/srt/vtt
+  formats return raw strings, not JSON; TTS because the response
+  is binary audio bytes); the rest of the scaffolding still comes
+  from the base. Per-service variation points (DALL-E's 400
+  validation branch, FAL's 422 branch, DeepL's 456 quota branch,
+  FAL's `detail`/`message` error shape, DeepL's top-level `message`
+  error shape) override `mapErrorStatus()` / `decodeErrorMessage()`
+  hooks on the base. Closes REC #7. Net per-service LOC reduction
+  averages ~12% (2828 → 2491 across the five services), but the
+  real win is centralisation: a future bug in HTTP error handling
+  or auth-header threading lives in one place to fix instead of
+  five.
 - `ModelSelectionService::modelMatchesCriteria()` now routes capability
   membership through the typed `Model::getCapabilitySet()->has()` instead
   of the legacy string-CSV `Model::hasCapability()`. The legacy strict
