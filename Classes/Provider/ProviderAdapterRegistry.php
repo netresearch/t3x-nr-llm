@@ -96,8 +96,37 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
         private readonly SecureHttpClientFactory $httpClientFactory,
         array $adapterOverrides = [],
     ) {
-        foreach ($adapterOverrides as $adapterClass) {
-            // @phpstan-ignore function.alreadyNarrowedType (runtime validation for callers passing untyped arrays)
+        foreach ($adapterOverrides as $adapterType => $adapterClass) {
+            // Defensive: callers may pass untyped arrays; validate keys
+            // and values explicitly so a malformed entry produces a
+            // domain exception rather than a `TypeError`. Numeric /
+            // empty / non-string keys would also reindex inside
+            // `array_merge`, breaking the adapter-type lookup.
+            // PHPStan's `array<string, class-string<AbstractProvider>>`
+            // narrowing tells it `$adapterType` is always a string here,
+            // but at runtime the caller may pass an untyped array. The
+            // ignore comments below are defensive guards, not dead code.
+            // @phpstan-ignore function.alreadyNarrowedType (defensive runtime guard)
+            if (!is_string($adapterType) || $adapterType === '') {
+                throw new ProviderConfigurationException(
+                    sprintf(
+                        'Adapter override key must be a non-empty string adapter type, got %s',
+                        // @phpstan-ignore function.alreadyNarrowedType
+                        is_string($adapterType) ? '""' : get_debug_type($adapterType),
+                    ),
+                    1735300002,
+                );
+            }
+            if (!is_string($adapterClass) || $adapterClass === '') {
+                throw new ProviderConfigurationException(
+                    sprintf(
+                        'Adapter override for "%s" must be a class-string, got %s',
+                        $adapterType,
+                        get_debug_type($adapterClass),
+                    ),
+                    1735300003,
+                );
+            }
             if (!is_subclass_of($adapterClass, AbstractProvider::class)) {
                 throw new ProviderConfigurationException(
                     sprintf('Adapter class %s must extend %s', $adapterClass, AbstractProvider::class),
@@ -107,6 +136,10 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
         }
 
         // Overrides win over built-ins (array_merge: later keys overwrite).
+        // After the loop above every value is a `class-string<AbstractProvider>`
+        // and every key is a non-empty string, so the merge result satisfies
+        // the typed `$adapterMap` property.
+        /** @var array<string, class-string<AbstractProvider>> $adapterOverrides */
         $this->adapterMap = array_merge(self::ADAPTER_CLASS_MAP, $adapterOverrides);
     }
 

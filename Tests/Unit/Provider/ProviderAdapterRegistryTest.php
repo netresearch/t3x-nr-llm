@@ -157,6 +157,61 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function constructorThrowsForNumericOverrideKey(): void
+    {
+        $this->expectException(ProviderConfigurationException::class);
+        $this->expectExceptionMessage('Adapter override key');
+
+        // Numeric (int) keys would be re-indexed by array_merge,
+        // breaking the adapter-type lookup. Reject at the boundary.
+        new ProviderAdapterRegistry(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+            /** @phpstan-ignore argument.type */
+            [0 => OpenAiProvider::class],
+        );
+    }
+
+    #[Test]
+    public function constructorThrowsForEmptyStringOverrideKey(): void
+    {
+        $this->expectException(ProviderConfigurationException::class);
+        $this->expectExceptionMessage('Adapter override key');
+
+        new ProviderAdapterRegistry(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+            ['' => OpenAiProvider::class],
+        );
+    }
+
+    #[Test]
+    public function constructorThrowsForNonStringOverrideValue(): void
+    {
+        $this->expectException(ProviderConfigurationException::class);
+        $this->expectExceptionMessage('must be a class-string');
+
+        // A non-string value would have caused TypeError inside
+        // is_subclass_of(); the explicit guard surfaces it as a
+        // domain exception instead.
+        new ProviderAdapterRegistry(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+            /** @phpstan-ignore argument.type */
+            ['custom' => 42],
+        );
+    }
+
+    #[Test]
     #[DataProvider('hasAdapterProvider')]
     public function hasAdapterReturnsCorrectResult(string $adapterType, bool $expected): void
     {
