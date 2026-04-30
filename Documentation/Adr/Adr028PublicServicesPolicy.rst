@@ -15,7 +15,7 @@ Context
 
 The 2026-04-23 architecture audit (``claudedocs/audit-2026-04-23-architecture.md``)
 flagged the count of ``public: true`` overrides in
-``Configuration/Services.yaml`` (32 at the time of the audit; 38 after
+``Configuration/Services.yaml`` (32 at the time of the audit; 37 after
 intermediate slices added new typed-interface aliases) as
 "excessive". The default in this extension's ``_defaults`` block is
 ``public: false``, so every ``public: true`` line is an explicit
@@ -32,10 +32,9 @@ each with a load-bearing reason. New ``public: true`` entries must fit
 one of these categories or add a new one (with rationale appended to
 this ADR).
 
-A new architecture test
-(``Tests/Architecture/PublicServicesPolicyTest.php``) keeps the count
-honest going forward — when the policy adds a new category it must
-also record the rationale.
+A new unit test (``Tests/Unit/Configuration/PublicServicesPolicyTest.php``)
+keeps the count honest going forward — when the policy adds a new
+category it must also record the rationale.
 
 Categories
 ----------
@@ -114,21 +113,55 @@ consumer.
 Constraint and enforcement
 ==========================
 
-The architecture test
-``Tests/Architecture/PublicServicesPolicyTest.php`` parses
+The unit test
+``Tests/Unit/Configuration/PublicServicesPolicyTest.php`` parses
 ``Configuration/Services.yaml`` and asserts:
 
 * The total count of ``public: true`` keys matches the expected
-  number documented above (currently **37** —
-  12 LLM API concrete services + 9 LLM API interface aliases +
-  4 specialized + 5 repositories + 3 wizard collaborators +
-  1 wizard interface alias + 3 additional wiring entries).
-* Every ``public: true`` entry corresponds to a category in this ADR;
-  any new entry without an ADR update fails CI.
+  total (currently **37**).
+* The ADR file exists and references both ``REC #9c`` and the
+  ``public: true`` policy text.
+
+Breakdown of the 37:
+
+* **21** Category 1 — Public LLM API surface
+  (12 concrete services + 9 interface aliases).
+  Note the 12 / 9 asymmetry: ``CompletionService``,
+  ``EmbeddingService``, ``TranslationService``, ``VisionService``
+  contribute 4 concrete entries but their interface aliases are
+  registered separately (4 aliases). The remaining 8 concrete
+  services pair with 5 interface aliases; three core services
+  (``LlmServiceManager``, ``ProviderAdapterRegistry``,
+  ``TranslatorRegistry``) keep the interface-alias entry while
+  ``BudgetService``, ``CacheManager``, ``UsageTrackerService``,
+  ``LlmConfigurationService``, ``PromptTemplateService`` each have
+  both a concrete + interface entry. The maths: 12 concrete + 9
+  aliases = 21.
+* **4** Category 2 — Specialized services
+  (Whisper, TextToSpeech, DallE, Fal).
+* **5** Category 3 — Repositories
+  (LlmConfiguration, Provider, Model, Task, UserBudget).
+* **4** Category 4 — SetupWizard
+  (3 concrete: ProviderDetector, ModelDiscovery,
+  ConfigurationGenerator + 1 alias: ModelDiscoveryInterface).
+* **3** Doctrine + provider-adapter wiring tail —
+  small set of services that the host instance / dashboard widgets
+  resolve by class-name through the public container.
+
+The current test enforces only the **count** and the **ADR's
+presence**. It does not statically validate that each individual
+``public: true`` entry maps to a category line in this ADR — that
+would require parsing the ADR's bullet lists. The intentional
+friction is therefore: a contributor who adds a ``public: true``
+line bumps the count, the test fails with a prompt to update both
+this ADR and the constant. Reviewers verify the entry against the
+categories during PR review.
 
 Adding a new public service therefore requires three things in the
-same PR: the service definition, the ADR update, and the test
-expectation update. That is the deliberate friction.
+same PR: the service definition, this ADR amended (with the new
+entry placed in the appropriate category, and the running total in
+the test docblock updated), and the
+``EXPECTED_PUBLIC_TRUE_COUNT`` constant bumped.
 
 Consequences
 ============

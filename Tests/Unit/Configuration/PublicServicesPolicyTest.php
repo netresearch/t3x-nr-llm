@@ -33,17 +33,26 @@ use PHPUnit\Framework\TestCase;
 final class PublicServicesPolicyTest extends TestCase
 {
     /**
-     * Documented as of slice 25 (REC #9c, ADR-028):
-     * - 12 concrete LLM-API services (Category 1)
-     * - 9 interface aliases mirroring the LLM-API services
-     * - 4 specialized services (Category 2)
-     * - 5 repositories (Category 3)
-     * - 3 SetupWizard collaborators (Category 4)
-     * - 1 wizard interface alias (ModelDiscoveryInterface)
+     * Audited count of `public: true` overrides as of slice 25
+     * (REC #9c, ADR-028). Categories per ADR-028:
      *
-     * Total: 34. Add 4 for the four feature-service interface aliases
-     * landed in slice-19a but not separately enumerated above. Final
-     * audited count: 38.
+     * - Category 1 (Public LLM API surface): 12 concrete services
+     *   + 9 interface aliases = 21
+     * - Category 2 (Specialized services): 4
+     * - Category 3 (Repositories — required public for
+     *   FunctionalTestCase::get()): 5
+     * - Category 4 (SetupWizard collaborators): 3 concrete +
+     *   1 interface alias = 4
+     * - Doctrine + provider wiring tail (services exposed for
+     *   LlmServiceManager / dashboard widget resolution by
+     *   class-name): 3
+     *
+     * Total: 21 + 4 + 5 + 4 + 3 = **37**.
+     *
+     * To intentionally change this number: update both this
+     * constant AND the matching breakdown in
+     * `Documentation/Adr/Adr028PublicServicesPolicy.rst` in the
+     * same PR — the diff is the audit trail.
      */
     private const EXPECTED_PUBLIC_TRUE_COUNT = 37;
 
