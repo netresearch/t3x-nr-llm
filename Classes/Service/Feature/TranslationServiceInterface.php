@@ -109,12 +109,20 @@ interface TranslationServiceInterface
      */
     public function getAvailableTranslators(): array;
 
+    /**
+     * Whether a translator is registered under the given identifier.
+     */
     public function hasTranslator(string $identifier): bool;
 
     /**
+     * Look up a registered translator by identifier.
+     *
      * @throws ServiceUnavailableException when no translator is registered under `$identifier`
      */
     public function getTranslator(string $identifier): TranslatorInterface;
 
+    /**
+     * Pick the highest-priority translator that supports the given language pair, or `null` when none match.
+     */
     public function findBestTranslator(string $sourceLanguage, string $targetLanguage): ?TranslatorInterface;
 }
