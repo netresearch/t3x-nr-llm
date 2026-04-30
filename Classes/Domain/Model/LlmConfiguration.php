@@ -339,14 +339,11 @@ class LlmConfiguration extends AbstractEntity
      * Extbase reads this getter during property mapping.
      *
      * @deprecated since 0.8.0 — application code should use the typed
-     *             `getFallbackChainDTO()` (returns a typed `FallbackChain`
-     *             value object that exposes `isEmpty()`,
-     *             `configurationIdentifiers`, `contains()`, `withLink()`,
-     *             `without()`). The raw-JSON accessor is retained for
+     *             `getFallbackChainDTO()` (returns a `FallbackChain`
+     *             value object). The raw-JSON accessor is retained for
      *             Extbase property mapping (the framework hydrates the
      *             entity through this getter / setter pair) and will
-     *             not be removed before a major version bump. REC #6
-     *             slice 16c.
+     *             not be removed before a major version bump.
      */
     public function getFallbackChain(): string
     {
@@ -514,12 +511,16 @@ class LlmConfiguration extends AbstractEntity
      *
      * @deprecated since 0.8.0 — application code should use the typed
      *             `setFallbackChainDTO()` so the persisted JSON is
-     *             produced by the DTO's own serialiser (deduplicated,
-     *             trimmed, lowercased identifiers — see
-     *             `Domain/DTO/FallbackChain::sanitize()`) rather than
-     *             passed in as an arbitrary string. The raw-JSON setter
+     *             produced by the DTO's own serialiser rather than
+     *             passed in as an arbitrary string. Identifier
+     *             normalisation (deduplication, trim, lowercase)
+     *             depends on how the `FallbackChain` DTO was
+     *             constructed — the public constructor trusts its
+     *             input verbatim; the factories `FallbackChain::fromJson()` /
+     *             `fromArray()` and the mutators `withLink()` /
+     *             `without()` apply normalisation. The raw-JSON setter
      *             is retained for Extbase property mapping and will not
-     *             be removed before a major version bump. REC #6 slice 16c.
+     *             be removed before a major version bump.
      */
     public function setFallbackChain(string $fallbackChain): void
     {
