@@ -8,6 +8,33 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `Classes/Domain/DTO/ProviderOptions` — typed value object for
+  `Provider::$options` (REC #6 slice 20, closes the typed-DTO follow-up
+  to slice 16f). `final readonly class` with three fields: `proxy`
+  (`?string`), `customHeaders` (`array<string, string>`), and `extra`
+  (`array<string, mixed>`) for everything else. The well-known fields
+  cover the transport-level options that real adapters consume today
+  (the TCA placeholder is `{"custom_header": "value"}` and existing
+  test fixtures use `proxy`); the rest of the open-ended JSON column
+  flows through `$extra` so a hand-edited DB row never silently loses
+  data. Permissive parsing — `fromArray()` / `fromJson()` drop
+  type-mismatched well-known fields rather than throwing; sibling
+  helpers (`get()`, `has()`, `withProxy()`, `withCustomHeaders()`,
+  `withExtra()`) mirror the read patterns existing
+  `getOptionsArray()` callers already use so migration is a straight
+  substitution. The DTO is the typed application-level surface; the
+  entity still persists JSON to keep Extbase property mapping working
+  unchanged.
+- `Provider::getOptionsObject(): ProviderOptions` and
+  `Provider::setOptionsObject(ProviderOptions): void` — typed accessors
+  on the entity (REC #6 slice 20). The DTO is built fresh from the
+  persisted JSON on each `get` call (cheap — single `json_decode` plus
+  a few key extractions) and never throws on malformed input.
+  `setOptionsObject()` collapses an empty DTO to the empty-string
+  sentinel `''` rather than persisting `'[]'`, matching how
+  `setOptions('')` historically cleared the field. The legacy string
+  / array accessors do NOT route through the typed accessor — they
+  preserve their pre-REC-#6 behaviour byte-for-byte.
 - `Classes/Specialized/AbstractSpecializedService` — base class for
   every single-task AI service that talks to a provider over HTTP
   (DALL-E, FAL, Whisper, TTS, DeepL — slice 18, REC #7). Concentrates
@@ -69,17 +96,34 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecated
 
+- `Provider::getOptionsArray(): array<string, mixed>` and
+  `setOptionsArray(array<string, mixed>)` are now also deprecated
+  since 0.8.0 in favour of the typed
+  `getOptionsObject(): ProviderOptions` /
+  `setOptionsObject(ProviderOptions)` accessors (REC #6 slice 20 —
+  follow-up to slice 16f). Slice 16f had stopped at the array-typed
+  surface on the rationale that the `options` column was too
+  open-ended for a typed DTO; that argument was reconsidered against
+  the parallel `Capabilities`/`FallbackChain`/`ModelSelectionCriteria`
+  DTOs and the small but well-defined transport keys actually used
+  in production (TCA placeholder `{"custom_header": "value"}`, test
+  fixtures `proxy`, `custom_param`). The new `ProviderOptions` DTO
+  types those well-known keys (`proxy`, `customHeaders`) and routes
+  everything else through an `extra: array<string, mixed>` bag so no
+  existing data is lost. The array accessor is retained for
+  back-compat with the `ProviderAdapterRegistry::buildAdapterConfig()`
+  call site that merges it into the adapter-init config; that call
+  site will migrate in a follow-up slice. The string and array
+  accessors will not be removed before a major version bump.
 - `Provider::getOptions(): string` and `setOptions(string)` are
   deprecated since 0.8.0 in favour of the typed
-  `getOptionsArray(): array<string, mixed>` /
-  `setOptionsArray(array<string, mixed>)` accessors. Same rationale
-  as the parallel `LlmConfiguration` deprecation in slice 16e — the
-  `options` field carries provider-adapter-specific extras beyond
-  the typed `Provider` entity columns and its shape is open-ended
-  by design, so REC #6 stops at the array-typed surface rather
-  than introducing a typed DTO. The legacy raw-JSON methods remain
-  for Extbase property mapping and will not be removed before a
-  major version bump. REC #6 slice 16f — closes REC #6.
+  `getOptionsObject(): ProviderOptions` /
+  `setOptionsObject(ProviderOptions)` accessors (REC #6 slice 20,
+  updated rationale from slice 16f). The legacy raw-JSON methods
+  remain for Extbase property mapping (the framework hydrates the
+  entity through this getter / setter pair) and will not be removed
+  before a major version bump. REC #6 slice 16f — superseded by
+  slice 20.
 - `LlmConfiguration::getOptions(): string` and `setOptions(string)` are
   deprecated since 0.8.0 in favour of the typed
   `getOptionsArray(): array<string, mixed>` /

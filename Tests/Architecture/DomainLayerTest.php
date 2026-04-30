@@ -119,6 +119,8 @@ final class DomainLayerTest
             ->classes(
                 // Other domain models
                 Selector::inNamespace('Netresearch\NrLlm\Domain\Model'),
+                // Domain DTOs (typed value objects — REC #6: ProviderOptions)
+                Selector::inNamespace('Netresearch\NrLlm\Domain\DTO'),
                 // Vault service (required for API key handling via nr-vault)
                 Selector::inNamespace('Netresearch\NrVault\Service'),
                 // Extbase infrastructure
