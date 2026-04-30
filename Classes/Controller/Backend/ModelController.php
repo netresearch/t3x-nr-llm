@@ -394,13 +394,13 @@ final class ModelController extends ActionController
                 'providerName' => $provider->getName(),
             ]);
         } catch (ProviderException $e) {
-            $this->logger->warning('Model fetchAvailableIds: provider error', ['exception' => $e]);
+            $this->logger->warning('Model fetchAvailableModels: provider error', ['exception' => $e]);
             return new JsonResponse([
                 'success' => false,
                 'error' => 'LLM provider error while fetching model IDs. See system log for details.',
             ], 502);
         } catch (Throwable $e) {
-            $this->logger->error('Model fetchAvailableIds: unexpected error', ['exception' => $e]);
+            $this->logger->error('Model fetchAvailableModels: unexpected error', ['exception' => $e]);
             return new JsonResponse([
                 'success' => false,
                 'error' => 'Failed to fetch model IDs. See system log for details.',

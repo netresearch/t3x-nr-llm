@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
 use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -108,8 +109,8 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $wizardGeneratorService = $this->get(WizardGeneratorService::class);
         self::assertInstanceOf(WizardGeneratorService::class, $wizardGeneratorService);
 
-        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
-        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+        $testPromptResolver = $this->get(TestPromptResolverInterface::class);
+        self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
         return new ConfigurationController(
             $moduleTemplateFactory,
@@ -122,7 +123,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
             $wizardGeneratorService,
             $pageRenderer,
             $backendUriBuilder,
-            $extensionConfiguration,
+            $testPromptResolver,
             new \Psr\Log\NullLogger(),
         );
     }
@@ -144,6 +145,10 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
         $this->setPrivateProperty($controller, 'taskExecutionService', $taskExecutionService);
         $this->setPrivateProperty($controller, 'taskInputResolver', $taskInputResolver);
+        // REC #8b: typed catches log via LoggerInterface — initialise
+        // with a NullLogger so the typed property exists for any
+        // exception path the test exercises.
+        $this->setPrivateProperty($controller, 'logger', new \Psr\Log\NullLogger());
 
         return $controller;
     }
@@ -177,6 +182,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $this->setPrivateProperty($controller, 'configurationRepository', $configurationRepository);
         $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
         $this->setPrivateProperty($controller, 'extensionConfiguration', $extensionConfiguration);
+        $this->setPrivateProperty($controller, 'logger', new \Psr\Log\NullLogger());
 
         return $controller;
     }
