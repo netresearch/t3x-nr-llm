@@ -54,20 +54,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **REC #15 (audit 2026-04-30):** ADR-026 gains a new
   "Diagnostic / connectivity calls intentionally bypass the pipeline"
-  section. Documents why
-  `ProviderAdapterRegistry::testProviderConnection()` and the three
-  controller test-actions
-  (`ProviderController::testConnectionAction`,
-  `ConfigurationController::testConfigurationAction`,
-  `ModelController::testModelAction`) call the adapter directly
-  rather than going through `MiddlewarePipeline::run()` —
-  Budget would mis-charge, Usage would distort dashboards, Fallback
-  would mask the very condition the probe was designed to detect,
-  and Cache would defeat the purpose of probing. This is the only
-  documented exemption from the "all provider calls go through the
-  pipeline" rule of ADR-026 step 5; new productive entry points
-  still go through the pipeline. Pure documentation slice — no
-  code change.
+  section. Documents the three actual call paths used by the
+  test-action controllers — `ProviderController::testConnectionAction`
+  goes through `ProviderAdapterRegistry::testProviderConnection()` →
+  `ProviderInterface::testConnection()` (with an inline
+  `preg_replace` sanitiser that mirrors
+  `AbstractProvider::sanitizeErrorMessage()`'s shape but is
+  implemented locally so the registry stays independent of the
+  provider base class), while
+  `ConfigurationController::testConfigurationAction` and
+  `ModelController::testModelAction` go through
+  `ProviderAdapterRegistry::createAdapterFromModel()` →
+  `ProviderInterface::complete()` (sanitisation happens inside the
+  adapter via `AbstractProvider::sanitizeErrorMessage()` before the
+  `ProviderResponseException` reaches the controller). All three
+  bypass `MiddlewarePipeline::run()` deliberately — Budget would
+  mis-charge, Usage would distort dashboards, Fallback would mask
+  the very condition the probe was designed to detect, and Cache
+  would defeat the purpose of probing. Together with streaming
+  (already documented in ADR-026 step 5), these three diagnostic
+  actions are the documented exemptions from the "productive
+  provider calls go through the pipeline" rule. New non-streaming
+  productive entry points still go through the pipeline. Pure
+  documentation slice — no code change.
 - **REC #9c (slice 25):** ADR-028 documents the
   `Configuration/Services.yaml` `public: true` policy. The 37
   current overrides are categorised (public LLM API surface,
