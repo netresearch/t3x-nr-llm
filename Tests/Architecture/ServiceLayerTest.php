@@ -9,13 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Architecture;
 
-use Netresearch\NrLlm\Provider\ClaudeProvider;
-use Netresearch\NrLlm\Provider\GeminiProvider;
-use Netresearch\NrLlm\Provider\GroqProvider;
-use Netresearch\NrLlm\Provider\MistralProvider;
-use Netresearch\NrLlm\Provider\OllamaProvider;
-use Netresearch\NrLlm\Provider\OpenAiProvider;
-use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
@@ -63,6 +56,14 @@ final class ServiceLayerTest
      * the `Provider\Middleware\MiddlewarePipeline`, or `ProviderAdapterRegistry`.
      * Importing a concrete adapter (e.g. `OpenAiProvider`) bypasses Fallback,
      * Budget, Usage, and Cache middleware — see ADR-026.
+     *
+     * The deny set is expressed as a regex over the FQCN so newly added
+     * adapter classes (any `Netresearch\NrLlm\Provider\<Name>Provider`
+     * directly under the `Provider` namespace, including `AbstractProvider`)
+     * are caught automatically without anyone remembering to update this
+     * test. Sub-namespaces (`Provider\Contract`, `Provider\Middleware`,
+     * `Provider\Exception`) and sibling classes that don't end in
+     * `Provider` (`ProviderAdapterRegistry`) are intentionally excluded.
      */
     public function testServicesDoNotDependOnConcreteProviderAdapters(): Rule
     {
@@ -70,13 +71,7 @@ final class ServiceLayerTest
             ->classes(Selector::inNamespace('Netresearch\NrLlm\Service'))
             ->shouldNotDependOn()
             ->classes(
-                Selector::classname(OpenAiProvider::class),
-                Selector::classname(ClaudeProvider::class),
-                Selector::classname(GeminiProvider::class),
-                Selector::classname(OllamaProvider::class),
-                Selector::classname(GroqProvider::class),
-                Selector::classname(MistralProvider::class),
-                Selector::classname(OpenRouterProvider::class),
+                Selector::classname('/^Netresearch\\\\NrLlm\\\\Provider\\\\[A-Z][A-Za-z0-9]*Provider$/', true),
             )
             ->because('Services must invoke providers through ProviderInterface / MiddlewarePipeline / ProviderAdapterRegistry, never via concrete adapter classes (ADR-026).');
     }
