@@ -258,10 +258,10 @@
                 <source>No table configured.</source>
             </trans-unit>
             <trans-unit id="task.table.readError">
-                <source>Error reading table: %s</source>
+                <source>Error reading table. See system log for details.</source>
             </trans-unit>
             <trans-unit id="task.syslog.readError">
-                <source>Error reading sys_log: %s</source>
+                <source>Error reading sys_log. See system log for details.</source>
             </trans-unit>
 
             <!-- Configuration controller -->

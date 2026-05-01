@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Task;
 
+use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Model\Task;
+use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
@@ -25,7 +27,15 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  * `ConnectionPool` / filesystem coupling.
  *
  * Behaviour matches the pre-13b `TaskController::getInputData()`
- * private helper exactly — this slice is a pure refactor.
+ * private helper exactly with one deliberate exception: REC #11b
+ * (audit 2026-04-30) replaced the `$e->getMessage()` interpolation
+ * in the two read-error arms with a generic "see system log"
+ * message and a `LoggerInterface::warning()` call carrying the full
+ * exception. The previous behaviour leaked DBAL error text (table
+ * names, column hints, sometimes SQL fragments) into the LLM input
+ * string and onward to the model and the user-visible task output;
+ * the new behaviour preserves the operational signal in `sys_log`
+ * where it belongs.
  */
 final readonly class TaskInputResolver implements TaskInputResolverInterface
 {
@@ -36,6 +46,7 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
         private SystemLogReaderInterface $systemLogReader,
         private DeprecationLogReaderInterface $deprecationLogReader,
         private RecordTableReaderInterface $recordTableReader,
+        private LoggerInterface $logger,
     ) {}
 
     public function resolve(Task $task): string
@@ -57,12 +68,16 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
         try {
             $rows = $this->systemLogReader->readRecent($limit, $errorOnly);
         } catch (Throwable $e) {
-            return sprintf(
-                LocalizationUtility::translate(
-                    'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.readError',
-                    'NrLlm',
-                ) ?? 'Error reading sys_log: %s',
-                $e->getMessage(),
+            $this->logger->warning('Task syslog input: sys_log read failed', [
+                'exception' => $e,
+                'taskUid'   => $task->getUid(),
+                'limit'     => $limit,
+                'errorOnly' => $errorOnly,
+            ]);
+
+            return $this->translate(
+                'task.syslog.readError',
+                'Error reading sys_log. See system log for details.',
             );
         }
 
@@ -76,7 +91,7 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
             $time  = date('Y-m-d H:i:s', $tstamp);
             $type  = $this->translateSyslogType($typeValue);
             $error = $errorValue > 0
-                ? (LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.syslog.errorMarker', 'NrLlm') ?? '[ERROR]')
+                ? $this->translate('task.syslog.errorMarker', '[ERROR]')
                 : '';
 
             $output[] = "[{$time}] [{$type}] {$error} {$details}";
@@ -109,10 +124,7 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
             default => 'OTHER',
         };
 
-        return LocalizationUtility::translate(
-            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:' . $key,
-            'NrLlm',
-        ) ?? $fallback;
+        return $this->translate($key, $fallback);
     }
 
     private function resolveTable(Task $task): string
@@ -122,24 +134,64 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
         $limit  = isset($config['limit']) && is_numeric($config['limit']) ? (int)$config['limit'] : self::TABLE_DEFAULT_LIMIT;
 
         if ($table === '') {
-            return LocalizationUtility::translate(
-                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.table.notConfigured',
-                'NrLlm',
-            ) ?? 'No table configured.';
+            return $this->translate('task.table.notConfigured', 'No table configured.');
         }
 
         try {
             $rows = $this->recordTableReader->fetchAll($table, $limit);
+        } catch (InvalidArgumentException $e) {
+            // Table on the picker exclusion list. The exception text
+            // describes the policy ("Table 'xyz' is not allowed for
+            // record selection"); it doesn't carry user data and is
+            // safe to surface, but we still log so an admin can see
+            // the rejection in the system log.
+            $this->logger->info('Task table input: table rejected by record-picker policy', [
+                'exception' => $e,
+                'taskUid'   => $task->getUid(),
+                'table'     => $table,
+            ]);
+
+            return $this->translate(
+                'task.table.readError',
+                'Error reading table. See system log for details.',
+            );
         } catch (Throwable $e) {
-            return sprintf(
-                LocalizationUtility::translate(
-                    'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.table.readError',
-                    'NrLlm',
-                ) ?? 'Error reading table: %s',
-                $e->getMessage(),
+            $this->logger->warning('Task table input: table read failed', [
+                'exception' => $e,
+                'taskUid'   => $task->getUid(),
+                'table'     => $table,
+                'limit'     => $limit,
+            ]);
+
+            return $this->translate(
+                'task.table.readError',
+                'Error reading table. See system log for details.',
             );
         }
 
         return json_encode($rows, JSON_PRETTY_PRINT) ?: '[]';
+    }
+
+    /**
+     * Translate a locallang key with a hardcoded English fallback.
+     *
+     * `LocalizationUtility::translate()` is the canonical translator,
+     * but it can throw in unit-test contexts where the language
+     * service hasn't been bootstrapped. Wrapping it lets callers stay
+     * straight-line while preserving the production translation
+     * behaviour and giving unit tests a deterministic fallback.
+     */
+    private function translate(string $key, string $fallback): string
+    {
+        try {
+            $translated = LocalizationUtility::translate(
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:' . $key,
+                'NrLlm',
+            );
+        } catch (Throwable) {
+            return $fallback;
+        }
+
+        return $translated ?? $fallback;
     }
 }
