@@ -19,9 +19,9 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
-use Psr\Log\LoggerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
+use Psr\Log\LoggerInterface;
 use ReflectionClass;
 use RuntimeException;
 
