@@ -10,11 +10,20 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Domain\Enum;
 
 use Netresearch\NrLlm\Domain\Enum\MessageRole;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(MessageRole::class)]
+/**
+ * `MessageRole` is a backed enum and `Classes/Domain/Enum/` is excluded from
+ * the coverage source set in `Build/phpunit.xml` (PHPUnit 12 cannot attribute
+ * coverage to enum classes). The behaviour is still tested below — we just
+ * cannot claim coverage for it via `#[CoversClass]`. Use `#[CoversNothing]`
+ * to silence the "not a valid target for code coverage" warning under
+ * `--coverage` runs (which `failOnWarning=true` would otherwise turn fatal,
+ * breaking Infection's initial test suite).
+ */
+#[CoversNothing]
 final class MessageRoleTest extends TestCase
 {
     #[Test]

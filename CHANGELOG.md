@@ -6,6 +6,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Mutation testing tool error (audit 2026-04-30, deferred item):**
+  `Build/Scripts/runTests.sh -s mutation` previously errored out
+  partway through Infection's initial test suite phase with an
+  opaque `[ERROR]` and never reached the mutation step. Root cause:
+  three test classes carried `#[CoversClass(...)]` attributes
+  pointing at classes that are excluded from the coverage source
+  in `Build/phpunit.xml` — `MessageRole` (an enum, whole
+  `Classes/Domain/Enum/` directory excluded), `ProviderResponseException`
+  (whole `Classes/Provider/Exception/` excluded), and the
+  `MessageRole` reference on `ChatMessageTest`. PHPUnit 12 raises
+  "Class … is not a valid target for code coverage" warnings for
+  those, and `failOnWarning=true` turns them fatal under
+  `--coverage` runs only — which is what Infection does. Replaced
+  the offending `#[CoversClass]` attributes with `#[CoversNothing]`
+  on `MessageRoleTest` and `ProviderResponseExceptionTest`, and
+  dropped the `#[CoversClass(MessageRole::class)]` line from
+  `ChatMessageTest` (the `#[CoversClass(ChatMessage::class)]`
+  attribution stays). The warnings drop from 39 to 0 under the
+  `unitCoverage` suite; Infection can now run end-to-end. Mirrors
+  the guidance already in `Tests/AGENTS.md`: "use
+  `#[CoversNothing]` for enums/exceptions".
+
 ### Changed
 
 - **REC #11b (audit 2026-04-30, follow-up to REC #11):**

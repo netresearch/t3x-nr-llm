@@ -10,12 +10,23 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Provider\Exception;
 
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
-#[CoversClass(ProviderResponseException::class)]
+/**
+ * `ProviderResponseException` lives under `Classes/Provider/Exception/` which
+ * is excluded from the coverage source set in `Build/phpunit.xml` (the whole
+ * exception hierarchy carries no logic worth measuring). The behaviour
+ * exercised below — typed properties, legacy constructor signatures,
+ * endpoint sanitisation — is still tested; we just cannot claim coverage
+ * for it via `#[CoversClass]`. Use `#[CoversNothing]` to silence the
+ * "not a valid target for code coverage" warning under `--coverage` runs
+ * (which `failOnWarning=true` would otherwise turn fatal, breaking
+ * Infection's initial test suite).
+ */
+#[CoversNothing]
 final class ProviderResponseExceptionTest extends TestCase
 {
     #[Test]

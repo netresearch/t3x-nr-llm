@@ -17,8 +17,11 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
+// MessageRole is a backed enum and `Classes/Domain/Enum/` is excluded from
+// the coverage source set, so PHPUnit 12 rejects `#[CoversClass(MessageRole::class)]`
+// with a "not a valid target for code coverage" warning. Coverage for
+// `ChatMessage` itself stays attributed below.
 #[CoversClass(ChatMessage::class)]
-#[CoversClass(MessageRole::class)]
 class ChatMessageTest extends AbstractUnitTestCase
 {
     // ──────────────────────────────────────────────
