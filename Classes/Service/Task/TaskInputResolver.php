@@ -140,11 +140,16 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
         try {
             $rows = $this->recordTableReader->fetchAll($table, $limit);
         } catch (InvalidArgumentException $e) {
-            // Table on the picker exclusion list. The exception text
-            // describes the policy ("Table 'xyz' is not allowed for
-            // record selection"); it doesn't carry user data and is
-            // safe to surface, but we still log so an admin can see
-            // the rejection in the system log.
+            // Table on the picker exclusion list — a policy rejection,
+            // not a runtime error, so route through `info` rather than
+            // `warning`. The user-facing return value is the same generic
+            // "see system log" string the broad arm below produces; the
+            // specific policy reason ("Table 'xyz' is not allowed for
+            // record selection") stays in the log for the admin and is
+            // deliberately NOT surfaced to the LLM input — the REC #11b
+            // contract is that error-arm output never carries
+            // `$e->getMessage()` regardless of the underlying exception
+            // type.
             $this->logger->info('Task table input: table rejected by record-picker policy', [
                 'exception' => $e,
                 'taskUid'   => $task->getUid(),

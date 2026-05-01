@@ -16,14 +16,16 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 /**
- * `ProviderResponseException` lives under `Classes/Provider/Exception/` which
- * is excluded from the coverage source set in `Build/phpunit.xml` (the whole
- * exception hierarchy carries no logic worth measuring). The behaviour
+ * `ProviderResponseException.php` is excluded from the coverage source set
+ * in `Build/phpunit.xml` (along with most other files in
+ * `Classes/Provider/Exception/` — but not all of them: e.g.
+ * `FallbackChainExhaustedException.php` is not on the exclude list, so
+ * the exclusion is per-file, not directory-wide). The behaviour
  * exercised below — typed properties, legacy constructor signatures,
  * endpoint sanitisation — is still tested; we just cannot claim coverage
  * for it via `#[CoversClass]`. Use `#[CoversNothing]` to silence the
- * "not a valid target for code coverage" warning under `--coverage` runs
- * (which `failOnWarning=true` would otherwise turn fatal, breaking
+ * "not a valid target for code coverage" warning under `--coverage`
+ * runs (which `failOnWarning=true` would otherwise turn fatal, breaking
  * Infection's initial test suite).
  */
 #[CoversNothing]

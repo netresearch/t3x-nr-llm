@@ -14,21 +14,49 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   opaque `[ERROR]` and never reached the mutation step. Root cause:
   three test classes carried `#[CoversClass(...)]` attributes
   pointing at classes that are excluded from the coverage source
-  in `Build/phpunit.xml` — `MessageRole` (an enum, whole
-  `Classes/Domain/Enum/` directory excluded), `ProviderResponseException`
-  (whole `Classes/Provider/Exception/` excluded), and the
-  `MessageRole` reference on `ChatMessageTest`. PHPUnit 12 raises
-  "Class … is not a valid target for code coverage" warnings for
-  those, and `failOnWarning=true` turns them fatal under
-  `--coverage` runs only — which is what Infection does. Replaced
-  the offending `#[CoversClass]` attributes with `#[CoversNothing]`
-  on `MessageRoleTest` and `ProviderResponseExceptionTest`, and
-  dropped the `#[CoversClass(MessageRole::class)]` line from
-  `ChatMessageTest` (the `#[CoversClass(ChatMessage::class)]`
-  attribution stays). The warnings drop from 39 to 0 under the
-  `unitCoverage` suite; Infection can now run end-to-end. Mirrors
-  the guidance already in `Tests/AGENTS.md`: "use
-  `#[CoversNothing]` for enums/exceptions".
+  in `Build/phpunit.xml` — `MessageRole` (an enum; the whole
+  `Classes/Domain/Enum/` directory is excluded), `ProviderResponseException.php`
+  excluded as a specific file (alongside most other files in
+  `Classes/Provider/Exception/`, but not all — e.g.
+  `FallbackChainExhaustedException.php` is not on the exclude
+  list), and the `MessageRole` reference on `ChatMessageTest`.
+  PHPUnit 12 raises "Class … is not a valid target for code
+  coverage" warnings for those, and `failOnWarning=true` turns
+  them fatal under `--coverage` runs only — which is what
+  Infection does. Replaced the offending `#[CoversClass]`
+  attributes with `#[CoversNothing]` on `MessageRoleTest` and
+  `ProviderResponseExceptionTest`, and dropped the
+  `#[CoversClass(MessageRole::class)]` line from `ChatMessageTest`
+  (the `#[CoversClass(ChatMessage::class)]` attribution stays).
+  The warnings drop from 39 to 0 under the `unitCoverage` suite;
+  Infection can now run end-to-end. Mirrors the guidance already
+  in `Tests/AGENTS.md`: "use `#[CoversNothing]` for
+  enums/exceptions".
+- **Audit-review-followup (audit 2026-04-30):** Four review
+  comments left by Copilot and gemini-code-assist on the
+  audit-merged PRs (#202 and #203) were missed in the merge
+  rush — the merge queue does not gate on review-thread
+  resolution and the threads were not cleared before merge.
+  Addressed in this slice:
+  (a) `TaskInputResolver::resolveTable()` — the comment on the
+  `catch (InvalidArgumentException)` arm previously said the
+  exception text was "safe to surface", which conflicted with
+  the REC #11b contract that error-arm output never surfaces
+  `$e->getMessage()` regardless of type. Comment rewritten to
+  match what the code actually does.
+  (b) `Tests/Unit/Provider/Exception/ProviderResponseExceptionTest.php`
+  docblock — clarified that the coverage exclusion is per-file
+  in `Build/phpunit.xml`, not directory-wide
+  (`FallbackChainExhaustedException.php` is in the same directory
+  but is not excluded).
+  (c) `Tests/Unit/Domain/ValueObject/ChatMessageTest.php` — the
+  inline note about why `MessageRole` is no longer attributed
+  via `#[CoversClass]` is now a DocBlock (matches the rest of
+  the test suite), with bare class names rather than path-like
+  syntax.
+  (d) The CHANGELOG entry for the mutation-tool fix above is
+  rewritten not to overstate the directory-wide exclusion.
+  Pure follow-up — no code behaviour change.
 
 ### Changed
 
