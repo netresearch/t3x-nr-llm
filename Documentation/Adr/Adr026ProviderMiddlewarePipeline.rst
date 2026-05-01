@@ -206,6 +206,66 @@ has been moved behind :php:`CacheMiddleware`:
   :php:`CacheManagerInterface`; it is a pure vector-math façade on top
   of :php:`LlmServiceManager::embed()`.
 
+.. _adr-026-diagnostic-bypass:
+
+Diagnostic / connectivity calls intentionally bypass the pipeline
+=================================================================
+
+Three controller actions test provider connectivity by calling an
+adapter capability method directly, with their own ``try`` / ``catch``
+block; none of them go through :php:`MiddlewarePipeline::run()`.
+The exact call paths today are:
+
+* :php:`ProviderController::testConnectionAction` →
+  :php:`ProviderAdapterRegistry::testProviderConnection()` →
+  :php:`ProviderInterface::testConnection()`. The registry method
+  catches ``Throwable`` and runs an inline ``preg_replace`` over
+  ``$e->getMessage()`` to strip ``key`` / ``api_key`` / ``token`` /
+  ``secret`` / ``access_token`` query parameters before returning a
+  ``{success: false, message}`` shape. The regex mirrors what
+  :php:`AbstractProvider::sanitizeErrorMessage()` does for
+  inside-provider errors but is implemented locally to keep the
+  registry independent of the provider base class.
+* :php:`ConfigurationController::testConfigurationAction` →
+  :php:`ProviderAdapterRegistry::createAdapterFromModel()` →
+  :php:`ProviderInterface::complete()`. A short test prompt is sent
+  with the configuration's options. Sanitization happens at the
+  ``catch (ProviderResponseException $e)`` arm — by that point the
+  message has already been sanitised by
+  :php:`AbstractProvider::sanitizeErrorMessage()` inside the adapter
+  before the exception was thrown, so the controller surfaces the
+  upstream HTTP status verbatim.
+* :php:`ModelController::testModelAction` →
+  :php:`ProviderAdapterRegistry::createAdapterFromModel()` →
+  :php:`ProviderInterface::complete()` with a 100-token cap. Same
+  exception-arm sanitization story as the configuration test.
+
+In every case the bypass is deliberate:
+
+* **Budget** — a connectivity / configuration probe must not be
+  charged against a user's monthly bucket. These are backend-admin
+  actions; they have no end-user budget owner.
+* **Usage** — recording a probe in the usage table would distort
+  cost / token dashboards. Probes are administrative, not productive
+  traffic.
+* **Fallback** — a probe must surface the failure of the *probed*
+  provider. Silently swapping to a healthy alternative would mask the
+  very condition the probe was designed to detect.
+* **Cache** — caching the result of a probe would defeat the purpose
+  of probing.
+
+Together with streaming (see :ref:`adr-026-followups` step 5 — once
+the first chunk has been emitted we cannot swap providers
+mid-stream, and most middleware assume a single terminal result),
+these three diagnostic actions are the documented exemptions from
+the "productive provider calls go through the pipeline" rule. There
+are no others. New diagnostic / health-check entry points should
+follow the same pattern as the three listed here: build the adapter
+via :php:`ProviderAdapterRegistry`, call the capability method
+directly, sanitize and surface the error themselves. New
+non-streaming *productive* entry points must go through
+:php:`MiddlewarePipeline::run()`.
+
 .. _adr-026-alternatives:
 
 Alternatives considered
