@@ -251,10 +251,16 @@ class BudgetServiceTest extends AbstractUnitTestCase
         self::assertTrue($result->allowed);
         self::assertNotNull($capturedDailyFrom, 'Daily window should be requested');
         self::assertNotNull($capturedMonthlyFrom, 'Monthly window should be requested');
-        self::assertLessThan(
+        // Monthly start must be **at or before** daily start. On the first
+        // day of a month both windows start at the same instant (00:00 of
+        // the 1st), which is correct production behaviour — using strict
+        // `assertLessThan` here previously caused this test to fail every
+        // month-start when run in CI, even though the production code was
+        // doing the right thing.
+        self::assertLessThanOrEqual(
             $capturedDailyFrom,
             $capturedMonthlyFrom,
-            'Monthly start must precede daily start',
+            'Monthly start must precede or equal daily start',
         );
     }
 
