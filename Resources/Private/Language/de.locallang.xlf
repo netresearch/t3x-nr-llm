@@ -339,12 +339,12 @@
                 <target>Keine Tabelle konfiguriert.</target>
             </trans-unit>
             <trans-unit id="task.table.readError">
-                <source>Error reading table: %s</source>
-                <target>Fehler beim Lesen der Tabelle: %s</target>
+                <source>Error reading table. See system log for details.</source>
+                <target>Fehler beim Lesen der Tabelle. Details siehe Systemlog.</target>
             </trans-unit>
             <trans-unit id="task.syslog.readError">
-                <source>Error reading sys_log: %s</source>
-                <target>Fehler beim Lesen des sys_log: %s</target>
+                <source>Error reading sys_log. See system log for details.</source>
+                <target>Fehler beim Lesen des sys_log. Details siehe Systemlog.</target>
             </trans-unit>
 
             <!-- Configuration controller -->

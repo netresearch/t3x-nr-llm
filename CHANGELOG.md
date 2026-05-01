@@ -8,6 +8,39 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **REC #11b (audit 2026-04-30, follow-up to REC #11):**
+  `TaskInputResolver` no longer interpolates `$e->getMessage()` into
+  the LLM input string when sys_log or record-table reads fail.
+  Three behaviour changes, all in
+  `Classes/Service/Task/TaskInputResolver.php`:
+  1. The constructor takes a new `LoggerInterface` parameter (autowired
+     by Symfony DI — no `Services.yaml` change needed).
+  2. The two `catch (Throwable $e)` arms now `$this->logger->warning(...)`
+     the full exception together with task-uid / table / limit context,
+     and return a generic localised "see system log" message instead
+     of the raw exception text. The previous behaviour leaked DBAL
+     error fragments (table names, column hints, sometimes SQL) into
+     the LLM prompt and onward to user-visible task output.
+  3. The table branch grew a dedicated `catch (InvalidArgumentException)`
+     arm in front of the broad Throwable arm — picker-policy
+     rejections (table on the exclusion list) are not runtime errors
+     and now route through `$this->logger->info(...)` instead of
+     `warning`. The user-facing string is the same generic
+     "see system log" message.
+  XLIFF: `task.syslog.readError` and `task.table.readError` lost
+  their `: %s` placeholder — the new source / target strings are
+  "Error reading X. See system log for details." (EN) and
+  "Fehler beim Lesen ... Details siehe Systemlog." (DE). Plus a
+  new private `translate()` helper wraps `LocalizationUtility::translate()`
+  in a defensive try/catch so the resolver stays unit-testable
+  without bootstrapping `LanguageServiceFactory` (which
+  `LocalizationUtility::translate()` instantiates eagerly and
+  which throws when called outside the TYPO3 framework
+  bootstrap). New
+  `Tests/Unit/Service/Task/TaskInputResolverTest.php` provides 8
+  unit tests / 64 assertions covering the happy paths, both
+  read-failure regression contracts (no message leak + warning
+  emitted), and the picker-policy info-log routing.
 - **REC #11 (audit 2026-04-30, partial):** Bare `catch (Throwable)`
   cleanup outside REC #8b's admin-controller scope. Two surgical
   changes:
