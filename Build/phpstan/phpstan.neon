@@ -149,3 +149,7 @@ services:
     class: Netresearch\NrLlm\Tests\Architecture\ControllerLayerTest
     tags:
       - phpat.test
+  -
+    class: Netresearch\NrLlm\Tests\Architecture\ServiceLayerTest
+    tags:
+      - phpat.test

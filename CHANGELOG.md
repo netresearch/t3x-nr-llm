@@ -52,6 +52,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **REC #13 (audit 2026-04-30):** New
+  `Tests/Architecture/ServiceLayerTest.php` (phpat) codifies the
+  Service-layer rules previously enforced by convention only:
+  (1) `Service\*` must not depend on `Controller\*` (reverse-dependency
+  guard); (2) `Service\*` must not depend on concrete provider adapter
+  classes (`OpenAiProvider`, `ClaudeProvider`, …) — provider invocation
+  goes through `Provider\Contract\ProviderInterface` /
+  `Provider\Middleware\MiddlewarePipeline` /
+  `ProviderAdapterRegistry`, never via direct adapter imports
+  (ADR-026). Cross-feature `Service\Feature\*` coupling is still
+  convention-guarded — a precise rule is left to a follow-up because
+  the obvious form would also forbid each service depending on its
+  own `*ServiceInterface` in the same namespace. No code changes were
+  required: both new rules pass against the current tree.
 - **REC #9c (slice 25):** ADR-028 documents the
   `Configuration/Services.yaml` `public: true` policy. The 37
   current overrides are categorised (public LLM API surface,
