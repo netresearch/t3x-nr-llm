@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
+use Psr\Log\LoggerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 use ReflectionClass;
@@ -188,6 +189,68 @@ class OllamaProviderTest extends AbstractUnitTestCase
         $models = $this->subject->getAvailableModels();
 
         // Should return default models when server is unavailable
+        self::assertNotEmpty($models);
+        self::assertArrayHasKey('llama3.2', $models);
+    }
+
+    /**
+     * REC #11 (audit 2026-04-30): the catch arm that returns hardcoded
+     * defaults on transport failure must surface a `warning` log so
+     * operators see when their endpoint isn't responding instead of
+     * silently inheriting a stale model picker.
+     *
+     * The log payload's `baseUrl` field must be sanitised — userinfo
+     * and query/fragment stripped — so credentials accidentally
+     * embedded in a misconfigured baseUrl (`https://user:pass@host`)
+     * cannot leak into sys_log.
+     */
+    #[Test]
+    public function getAvailableModelsLogsWarningWithSanitisedBaseUrlOnFailure(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+
+        $subject = new OllamaProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $logger,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => '',
+            'defaultModel'     => 'llama3.2',
+            'baseUrl'          => 'https://leaky-user:leaky-pass@ollama.example:11434/v1?token=secret#frag',
+            'timeout'          => 30,
+        ]);
+        $httpClient = $this->createHttpClientMock();
+        $httpClient
+            ->method('sendRequest')
+            ->willThrowException(new RuntimeException('Connection refused'));
+        $subject->setHttpClient($httpClient);
+
+        $logger
+            ->expects(self::once())
+            ->method('warning')
+            ->with(
+                self::stringContains('getAvailableModels failed'),
+                self::callback(static function (array $context): bool {
+                    self::assertArrayHasKey('baseUrl', $context);
+                    self::assertArrayHasKey('exception', $context);
+                    self::assertIsString($context['baseUrl']);
+
+                    self::assertSame('https://ollama.example:11434/v1', $context['baseUrl']);
+                    self::assertStringNotContainsString('leaky-user', $context['baseUrl']);
+                    self::assertStringNotContainsString('leaky-pass', $context['baseUrl']);
+                    self::assertStringNotContainsString('token=secret', $context['baseUrl']);
+                    self::assertStringNotContainsString('#frag', $context['baseUrl']);
+
+                    return true;
+                }),
+            );
+
+        $models = $subject->getAvailableModels();
+
+        // Defaults are still returned — operational fallback unchanged.
         self::assertNotEmpty($models);
         self::assertArrayHasKey('llama3.2', $models);
     }
