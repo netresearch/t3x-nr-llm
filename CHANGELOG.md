@@ -8,6 +8,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **REC #11 (audit 2026-04-30, partial):** Bare `catch (Throwable)`
+  cleanup outside REC #8b's admin-controller scope. Two surgical
+  changes:
+  - `OllamaProvider::getAvailableModels()` — the catch arm that
+    falls back to a hardcoded model list when the Ollama server is
+    unreachable now logs a `warning` (with `exception` and
+    `baseUrl` context) before returning the defaults. Operators
+    can see when their endpoint is silently down instead of
+    discovering it later via "the model picker only shows five
+    options". `$this->logger` is already injected by
+    `AbstractProvider`.
+  - `Provider::getDecryptedApiKey()` — the silent
+    `catch (Throwable) { return ''; }` is **kept** but the comment
+    is sharpened to document why: the empty-string return is
+    load-bearing for `isFullyConfigured()`, `toFullArray()`, and
+    the two `ModelController` adapter-construction sites; adding a
+    logger here trips `failOnWarning=true` in unit-test paths that
+    construct providers without a vault service. The operational
+    signal belongs at the controller call sites — deferred to a
+    follow-up. Two other sites flagged by the audit
+    (`TaskInputResolver:59,133`, `TextToSpeechService:429`) are
+    not touched in this slice — see audit doc for the rationale
+    (TaskInputResolver needs a test-first refactor; TextToSpeechService
+    is already a typed-final-arm pattern that matches REC #8b's
+    intent).
 - **REC #8b (slice 23b):** Replaced catch-all `catch (Throwable $e)`
   blocks with typed exception handlers across the four admin
   controllers (`ProviderController`, `ModelController`,
@@ -77,6 +102,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   provider calls go through the pipeline" rule. New non-streaming
   productive entry points still go through the pipeline. Pure
   documentation slice — no code change.
+- **REC #13 (audit 2026-04-30):** New
+  `Tests/Architecture/ServiceLayerTest.php` (phpat) codifies the
+  Service-layer rules previously enforced by convention only:
+  (1) `Service\*` must not depend on `Controller\*` (reverse-dependency
+  guard); (2) `Service\*` must not depend on concrete provider adapter
+  classes (`OpenAiProvider`, `ClaudeProvider`, …) — provider invocation
+  goes through `Provider\Contract\ProviderInterface` /
+  `Provider\Middleware\MiddlewarePipeline` /
+  `ProviderAdapterRegistry`, never via direct adapter imports
+  (ADR-026). Cross-feature `Service\Feature\*` coupling is still
+  convention-guarded — a precise rule is left to a follow-up because
+  the obvious form would also forbid each service depending on its
+  own `*ServiceInterface` in the same namespace. No code changes were
+  required: both new rules pass against the current tree.
 - **REC #9c (slice 25):** ADR-028 documents the
   `Configuration/Services.yaml` `public: true` policy. The 37
   current overrides are categorised (public LLM API surface,

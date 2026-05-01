@@ -92,16 +92,58 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             }
 
             return $result;
-        } catch (Throwable) {
-            // Return default models if we can't fetch from server
+        } catch (Throwable $e) {
+            // Server unreachable — fall back to a small hardcoded list so the
+            // model picker still has something to show. Log so operators know
+            // their Ollama endpoint isn't responding (REC #11). Userinfo
+            // (`https://user:pass@host`) and query / fragment are stripped
+            // before the URL hits the log so credentials accidentally embedded
+            // in a misconfigured baseUrl don't leak into sys_log.
+            $this->logger->warning('Ollama: getAvailableModels failed, returning hardcoded defaults', [
+                'exception' => $e,
+                'baseUrl'   => self::sanitizeUrlForLog($this->baseUrl),
+            ]);
+
             return [
-                'llama3.2' => 'Llama 3.2',
+                'llama3.2'     => 'Llama 3.2',
                 'llama3.2:70b' => 'Llama 3.2 70B',
-                'mistral' => 'Mistral',
-                'codellama' => 'Code Llama',
-                'phi3' => 'Phi-3',
+                'mistral'      => 'Mistral',
+                'codellama'    => 'Code Llama',
+                'phi3'         => 'Phi-3',
             ];
         }
+    }
+
+    /**
+     * Strip userinfo + query + fragment from a URL so it is safe to log.
+     *
+     * Returns scheme://host[:port][/path] for valid URLs, or the empty
+     * string if the input is unparseable. Used by the
+     * `getAvailableModels()` failure log so a baseUrl misconfigured with
+     * embedded credentials (`https://user:pass@host:11434`) does not leak
+     * those credentials into sys_log.
+     */
+    private static function sanitizeUrlForLog(string $url): string
+    {
+        if ($url === '') {
+            return '';
+        }
+
+        $parts = parse_url($url);
+        if ($parts === false) {
+            return '';
+        }
+
+        $scheme = isset($parts['scheme']) ? $parts['scheme'] . '://' : '';
+        $host   = $parts['host'] ?? '';
+        $port   = isset($parts['port']) ? ':' . $parts['port'] : '';
+        $path   = $parts['path'] ?? '';
+
+        if ($host === '') {
+            return '';
+        }
+
+        return $scheme . $host . $port . $path;
     }
 
     /**
