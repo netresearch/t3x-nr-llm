@@ -92,7 +92,8 @@ final class LlmModuleController extends ActionController
             'dbConfigurationCount' => $dbConfigurationCount,
             'dbTaskCount' => $dbTaskCount,
             'taskWizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
-                'tx_nrllm_task[action]' => 'wizardForm',
+                'controller' => 'Backend\\TaskWizard',
+                'action'     => 'wizardForm',
             ]),
         ]);
 

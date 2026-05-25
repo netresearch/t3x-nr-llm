@@ -148,10 +148,22 @@ async function navigateToConfigWizard(page: Page): Promise<FrameLocator> {
 }
 
 /**
+ * Build the URL for a Task Execute form.
+ *
+ * The controller identifier is the Extbase alias; for a class in the
+ * Controller\Backend\ namespace that resolves to "Backend\TaskExecution"
+ * (%5C is the encoded backslash). Centralized so a future controller rename
+ * only touches one place.
+ */
+function taskExecuteFormUrl(uid: number): string {
+  return `/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=${uid}`;
+}
+
+/**
  * Navigate to Task Wizard form.
  */
 async function navigateToTaskWizard(page: Page): Promise<FrameLocator> {
-  await page.goto('/typo3/module/nrllm/tasks?action=wizardForm');
+  await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskWizard&action=wizardForm');
   const moduleFrame = getModuleFrame(page);
   await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
   return moduleFrame;
@@ -169,4 +181,5 @@ export {
   navigateToSetupWizard,
   navigateToConfigWizard,
   navigateToTaskWizard,
+  taskExecuteFormUrl,
 };
