@@ -100,11 +100,20 @@ final class TaskListController extends ActionController
             ->setHref($this->buildNewUrl());
         $buttonBar->addButton($createButton);
 
+        // The wizard action moved to TaskWizardController in the slice 13e
+        // split (ADR-027). Build a module-route URI to it directly; the
+        // controller identifier is the Extbase alias, which for a class in
+        // the Controller\Backend\ namespace resolves to "Backend\TaskWizard"
+        // (see ExtensionUtility::resolveControllerAliasFromControllerClassName).
+        $wizardUrl = (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
+            'controller' => 'Backend\\TaskWizard',
+            'action'     => 'wizardForm',
+        ]);
         $aiButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-bolt', IconSize::SMALL))
             ->setTitle('Create with AI')
             ->setShowLabelText(true)
-            ->setHref($this->uriBuilder->reset()->uriFor('wizardForm', [], 'TaskWizard'));
+            ->setHref($wizardUrl);
         $buttonBar->addButton($aiButton, ButtonBar::BUTTON_POSITION_LEFT, 2);
 
         return $moduleTemplate->renderResponse('Backend/Task/List');
