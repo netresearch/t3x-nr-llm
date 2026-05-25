@@ -1,4 +1,5 @@
-import { test, expect, getModuleFrame, navigateToTasks } from './fixtures';
+import { test, expect, getModuleFrame, navigateToTasks, taskExecuteFormUrl } from './fixtures';
+import type { Page, FrameLocator } from '@playwright/test';
 
 /**
  * E2E tests for the Task execution module.
@@ -6,6 +7,34 @@ import { test, expect, getModuleFrame, navigateToTasks } from './fixtures';
  * These tests verify the Task execute form loads correctly and
  * task execution functionality works as expected.
  */
+
+/**
+ * Open the Task execute form for the table-picker fixture task (uid 5) and
+ * return its module frame, or null when the test should bail early — the task
+ * is absent (controller redirects to list) or has no table picker. The
+ * relevant fallback is asserted before returning null.
+ */
+async function openTablePickerForm(page: Page): Promise<FrameLocator | null> {
+  await page.goto(taskExecuteFormUrl(5));
+  const moduleFrame = getModuleFrame(page);
+  await page.waitForTimeout(1000);
+
+  const tablePickerCard = moduleFrame.locator('#tablePickerCard');
+  const taskInput = moduleFrame.locator('#taskInput');
+
+  if ((await tablePickerCard.count()) === 0 && (await taskInput.count()) === 0) {
+    // Redirected to task list because the task doesn't exist.
+    await expect(moduleFrame.getByRole('heading', { level: 1 })).toBeVisible();
+    return null;
+  }
+  if ((await tablePickerCard.count()) === 0) {
+    // Task has no table picker - the plain input textarea is shown instead.
+    await expect(taskInput).toBeVisible();
+    return null;
+  }
+  return moduleFrame;
+}
+
 test.describe('Task Execute Module', () => {
   test.describe('Task List Page', () => {
     test('should load task list page without errors', async ({ authenticatedPage }) => {
@@ -38,7 +67,7 @@ test.describe('Task Execute Module', () => {
       const page = authenticatedPage;
 
       // Navigate directly to execute form for task UID 1
-      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
+      await page.goto(taskExecuteFormUrl(1));
 
       const moduleFrame = getModuleFrame(page);
 
@@ -54,7 +83,7 @@ test.describe('Task Execute Module', () => {
 
     test('should display input textarea for task execution', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
+      await page.goto(taskExecuteFormUrl(1));
 
       const moduleFrame = getModuleFrame(page);
 
@@ -72,7 +101,7 @@ test.describe('Task Execute Module', () => {
 
     test('should display execute button', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
+      await page.goto(taskExecuteFormUrl(1));
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
@@ -88,7 +117,7 @@ test.describe('Task Execute Module', () => {
 
     test('should display task details (prompt template preview)', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
+      await page.goto(taskExecuteFormUrl(1));
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
@@ -103,7 +132,7 @@ test.describe('Task Execute Module', () => {
 
     test('should have loading elements in DOM for execute button', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
+      await page.goto(taskExecuteFormUrl(1));
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
@@ -143,7 +172,7 @@ test.describe('Task Execute Module', () => {
 
     test('should have output panel with placeholder', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
+      await page.goto(taskExecuteFormUrl(1));
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
@@ -175,7 +204,7 @@ test.describe('Task Execute Module', () => {
       test.setTimeout(120000); // 2 minute timeout for LLM response
       const page = authenticatedPage;
 
-      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
+      await page.goto(taskExecuteFormUrl(1));
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
@@ -234,7 +263,7 @@ test.describe('Task Execute Module', () => {
   test.describe('Table Picker', () => {
     test('should have AJAX URLs available for table loading', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=5');
+      await page.goto(taskExecuteFormUrl(5));
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
@@ -275,26 +304,8 @@ test.describe('Task Execute Module', () => {
       });
 
       // Task UID 5 should have manual input type (which shows table picker)
-      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=5');
-
-      const moduleFrame = getModuleFrame(page);
-      await page.waitForTimeout(1000);
-
-      // Task UID 5 may not exist on fresh installs - controller redirects to list
-      const tablePickerCard = moduleFrame.locator('#tablePickerCard');
-      const taskInput = moduleFrame.locator('#taskInput');
-
-      if (await tablePickerCard.count() === 0 && await taskInput.count() === 0) {
-        // Redirected to task list because task doesn't exist - verify list page loaded
-        const heading = moduleFrame.getByRole('heading', { level: 1 });
-        await expect(heading).toBeVisible();
-        return;
-      }
-
-      // Check if table picker card exists (only for manual input tasks)
-      if (await tablePickerCard.count() === 0) {
-        // Task doesn't have table picker - verify the input textarea is shown instead
-        await expect(taskInput).toBeVisible();
+      const moduleFrame = await openTablePickerForm(page);
+      if (moduleFrame === null) {
         return;
       }
 
@@ -354,25 +365,8 @@ test.describe('Task Execute Module', () => {
     test('should show error notification if table loading fails', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
 
-      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=5');
-
-      const moduleFrame = getModuleFrame(page);
-      await page.waitForTimeout(1000);
-
-      // Task UID 5 may not exist on fresh installs - controller redirects to list
-      const tablePickerCard = moduleFrame.locator('#tablePickerCard');
-      const taskInput = moduleFrame.locator('#taskInput');
-
-      if (await tablePickerCard.count() === 0 && await taskInput.count() === 0) {
-        // Redirected to task list because task doesn't exist - verify list page loaded
-        const heading = moduleFrame.getByRole('heading', { level: 1 });
-        await expect(heading).toBeVisible();
-        return;
-      }
-
-      if (await tablePickerCard.count() === 0) {
-        // Task doesn't have table picker - verify the input textarea is shown instead
-        await expect(taskInput).toBeVisible();
+      const moduleFrame = await openTablePickerForm(page);
+      if (moduleFrame === null) {
         return;
       }
 
