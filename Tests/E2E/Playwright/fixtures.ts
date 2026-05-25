@@ -151,7 +151,7 @@ async function navigateToConfigWizard(page: Page): Promise<FrameLocator> {
  * Navigate to Task Wizard form.
  */
 async function navigateToTaskWizard(page: Page): Promise<FrameLocator> {
-  await page.goto('/typo3/module/nrllm/tasks?action=wizardForm');
+  await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskWizard&action=wizardForm');
   const moduleFrame = getModuleFrame(page);
   await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
   return moduleFrame;

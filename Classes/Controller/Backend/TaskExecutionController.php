@@ -93,7 +93,10 @@ final class TaskExecutionController extends ActionController
                 LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.error', 'NrLlm') ?? 'Error',
                 ContextualFeedbackSeverity::ERROR,
             );
-            return new RedirectResponse($this->uriBuilder->reset()->uriFor('list', [], 'TaskList'));
+            return new RedirectResponse($this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
+                'controller' => 'Backend\\TaskList',
+                'action'     => 'list',
+            ]));
         }
 
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [
@@ -118,8 +121,9 @@ final class TaskExecutionController extends ActionController
 
         // Return URL for FormEngine: back to this specific task's execute form.
         $executeReturnUrl = (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
-            'tx_nrllm_task[action]' => 'executeForm',
-            'tx_nrllm_task[uid]'    => $task->getUid(),
+            'controller' => 'Backend\\TaskExecution',
+            'action'     => 'executeForm',
+            'uid'        => $task->getUid(),
         ]);
 
         // Build edit URLs for the full chain: task → configuration → model → provider.

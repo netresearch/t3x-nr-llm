@@ -266,12 +266,17 @@ final class TaskWizardController extends ActionController
             // Redirect to the task's execute form (now on TaskExecutionController).
             $taskUid = $task->getUid();
             if ($taskUid !== null) {
-                return new RedirectResponse(
-                    $this->uriBuilder->reset()->uriFor('executeForm', ['uid' => $taskUid], 'TaskExecution'),
-                );
+                return new RedirectResponse($this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
+                    'controller' => 'Backend\\TaskExecution',
+                    'action'     => 'executeForm',
+                    'uid'        => $taskUid,
+                ]));
             }
 
-            return new RedirectResponse($this->uriBuilder->reset()->uriFor('list', [], 'TaskList'));
+            return new RedirectResponse($this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
+                'controller' => 'Backend\\TaskList',
+                'action'     => 'list',
+            ]));
         } catch (Throwable $e) {
             // wizardCreateAction persists Extbase entities through the
             // PersistenceManager. Failure modes are mostly Doctrine /

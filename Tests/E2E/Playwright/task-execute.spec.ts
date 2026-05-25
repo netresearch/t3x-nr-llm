@@ -38,7 +38,7 @@ test.describe('Task Execute Module', () => {
       const page = authenticatedPage;
 
       // Navigate directly to execute form for task UID 1
-      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=1');
+      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
 
       const moduleFrame = getModuleFrame(page);
 
@@ -54,7 +54,7 @@ test.describe('Task Execute Module', () => {
 
     test('should display input textarea for task execution', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=1');
+      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
 
       const moduleFrame = getModuleFrame(page);
 
@@ -72,7 +72,7 @@ test.describe('Task Execute Module', () => {
 
     test('should display execute button', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=1');
+      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
@@ -88,7 +88,7 @@ test.describe('Task Execute Module', () => {
 
     test('should display task details (prompt template preview)', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=1');
+      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
@@ -103,7 +103,7 @@ test.describe('Task Execute Module', () => {
 
     test('should have loading elements in DOM for execute button', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=1');
+      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
@@ -143,7 +143,7 @@ test.describe('Task Execute Module', () => {
 
     test('should have output panel with placeholder', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=1');
+      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
@@ -175,7 +175,7 @@ test.describe('Task Execute Module', () => {
       test.setTimeout(120000); // 2 minute timeout for LLM response
       const page = authenticatedPage;
 
-      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=1');
+      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=1');
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
@@ -234,7 +234,7 @@ test.describe('Task Execute Module', () => {
   test.describe('Table Picker', () => {
     test('should have AJAX URLs available for table loading', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
-      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=5');
+      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=5');
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
@@ -275,7 +275,7 @@ test.describe('Task Execute Module', () => {
       });
 
       // Task UID 5 should have manual input type (which shows table picker)
-      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=5');
+      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=5');
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
@@ -354,7 +354,7 @@ test.describe('Task Execute Module', () => {
     test('should show error notification if table loading fails', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
 
-      await page.goto('/typo3/module/nrllm/tasks?action=executeForm&uid=5');
+      await page.goto('/typo3/module/nrllm/tasks?controller=Backend%5CTaskExecution&action=executeForm&uid=5');
 
       const moduleFrame = getModuleFrame(page);
       await page.waitForTimeout(1000);
