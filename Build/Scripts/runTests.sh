@@ -287,7 +287,7 @@ IMAGE_ALPINE="${IMAGE_PREFIX}alpine:3.20"
 IMAGE_MARIADB="docker.io/mariadb:${DBMS_VERSION}"
 IMAGE_MYSQL="docker.io/mysql:${DBMS_VERSION}"
 IMAGE_POSTGRES="docker.io/postgres:${DBMS_VERSION}-alpine"
-IMAGE_PLAYWRIGHT="mcr.microsoft.com/playwright:v1.57.0-noble"
+IMAGE_PLAYWRIGHT="mcr.microsoft.com/playwright:v1.60.0-noble"
 
 shift $((OPTIND - 1))
 
