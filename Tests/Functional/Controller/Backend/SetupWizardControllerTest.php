@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
@@ -66,6 +67,11 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $persistenceManager = $this->get(PersistenceManagerInterface::class);
         self::assertInstanceOf(PersistenceManagerInterface::class, $persistenceManager);
 
+        // saveAction persists the API key through nr-vault, so the controller
+        // needs the vault service injected as well.
+        $vaultService = $this->get(VaultServiceInterface::class);
+        self::assertInstanceOf(VaultServiceInterface::class, $vaultService);
+
         // Create controller via reflection to inject only AJAX-required dependencies
         // This bypasses initializeAction() which requires Extbase request context
         $this->controller = $this->createControllerWithDependencies(
@@ -76,7 +82,14 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
             $modelRepository,
             $llmConfigurationRepository,
             $persistenceManager,
+            $vaultService,
         );
+    }
+
+    protected function tearDown(): void
+    {
+        unset($GLOBALS['BE_USER']);
+        parent::tearDown();
     }
 
     /**
@@ -91,6 +104,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         ModelRepository $modelRepository,
         LlmConfigurationRepository $llmConfigurationRepository,
         PersistenceManagerInterface $persistenceManager,
+        VaultServiceInterface $vaultService,
     ): SetupWizardController {
         $reflection = new ReflectionClass(SetupWizardController::class);
         $controller = $reflection->newInstanceWithoutConstructor();
@@ -103,6 +117,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $this->setPrivateProperty($controller, 'modelRepository', $modelRepository);
         $this->setPrivateProperty($controller, 'llmConfigurationRepository', $llmConfigurationRepository);
         $this->setPrivateProperty($controller, 'persistenceManager', $persistenceManager);
+        $this->setPrivateProperty($controller, 'vaultService', $vaultService);
 
         return $controller;
     }
@@ -423,6 +438,13 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function saveActionCreatesProviderAndModels(): void
     {
+        // saveAction stores the API key through nr-vault, which since
+        // nr-vault 0.6.0 requires an authorized actor (VaultService::store()
+        // calls canCreate()). The wizard's AJAX save route is backend-only in
+        // production, so set up the authenticated backend user it relies on.
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
         $request = new ServerRequest('POST', '/ajax/nrllm/wizard/save');
         $request = $request->withHeader('Content-Type', 'application/json');
         $request = $request->withBody(Utils::streamFor(json_encode([
@@ -467,6 +489,11 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function saveActionCreatesProviderWithConfigurations(): void
     {
+        // Authenticated backend user required for the nr-vault store() call
+        // (see saveActionCreatesProviderAndModels).
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
         $request = new ServerRequest('POST', '/ajax/nrllm/wizard/save');
         $request = $request->withHeader('Content-Type', 'application/json');
         $request = $request->withBody(Utils::streamFor(json_encode([
