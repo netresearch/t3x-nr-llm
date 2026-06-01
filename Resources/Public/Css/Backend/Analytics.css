@@ -1,0 +1,24 @@
+.nrllm-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.nrllm-kpi-tile {
+    border: 1px solid var(--typo3-component-border-color, #d7d7d7);
+    border-radius: 6px;
+    padding: 1rem;
+    background: var(--typo3-component-bg, #fff);
+}
+.nrllm-kpi-tile .nrllm-kpi-value { font-size: 1.6rem; font-weight: 600; }
+.nrllm-kpi-tile .nrllm-kpi-label { color: var(--typo3-text-color-secondary, #6c757d); font-size: .85rem; }
+.nrllm-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+}
+.nrllm-chart-box { min-height: 260px; }
+.nrllm-trend-box { height: 320px; margin-bottom: 1.5rem; }
+.nrllm-budget-bar { background: #e9ecef; border-radius: 4px; height: 8px; overflow: hidden; min-width: 120px; }
+.nrllm-budget-bar > span { display: block; height: 100%; background: #2f99a4; }

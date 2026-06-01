@@ -1,0 +1,101 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div class="nrllm-analytics">
+        <h1>LLM Usage Analytics</h1>
+
+        <div class="btn-group mb-3" role="group" aria-label="Date range">
+            <f:for each="{presets}" as="p">
+                <a href="{rangeLinks.{p}}"
+                   class="btn btn-sm {f:if(condition: '{p} == {preset}', then: 'btn-primary', else: 'btn-default')}">
+                    <f:switch expression="{p}">
+                        <f:case value="7d">7 days</f:case>
+                        <f:case value="30d">30 days</f:case>
+                        <f:case value="90d">90 days</f:case>
+                        <f:case value="month">This month</f:case>
+                        <f:defaultCase>{p}</f:defaultCase>
+                    </f:switch>
+                </a>
+            </f:for>
+            <span class="ms-3 text-body-secondary align-self-center">{from} – {to}</span>
+        </div>
+
+        <f:comment>KPI tiles</f:comment>
+        <div class="nrllm-kpi-grid">
+            <div class="nrllm-kpi-tile">
+                <div class="nrllm-kpi-value">~${kpi.cost -> f:format.number(decimals: 2)}</div>
+                <div class="nrllm-kpi-label">Estimated cost</div>
+            </div>
+            <div class="nrllm-kpi-tile">
+                <div class="nrllm-kpi-value">{kpi.requests -> f:format.number(decimals: 0)}</div>
+                <div class="nrllm-kpi-label">Requests</div>
+            </div>
+            <div class="nrllm-kpi-tile">
+                <div class="nrllm-kpi-value">{kpi.tokens -> f:format.number(decimals: 0)}</div>
+                <div class="nrllm-kpi-label">Tokens</div>
+            </div>
+            <div class="nrllm-kpi-tile">
+                <div class="nrllm-kpi-value">{kpi.providers}</div>
+                <div class="nrllm-kpi-label">Providers</div>
+            </div>
+            <div class="nrllm-kpi-tile">
+                <div class="nrllm-kpi-value">{kpi.models}</div>
+                <div class="nrllm-kpi-label">Models</div>
+            </div>
+        </div>
+
+        <f:comment>Chart mount points (rendered by Analytics.js once Task 7 lands)</f:comment>
+        <div class="nrllm-trend-box"><canvas id="nrllm-trend-chart"></canvas></div>
+        <div class="nrllm-chart-grid">
+            <div class="nrllm-chart-box"><h3>By provider</h3><canvas id="nrllm-provider-chart"></canvas></div>
+            <div class="nrllm-chart-box"><h3>By model</h3><canvas id="nrllm-model-chart"></canvas></div>
+            <div class="nrllm-chart-box"><h3>By service</h3><canvas id="nrllm-service-chart"></canvas></div>
+        </div>
+
+        <f:comment>Per-user table</f:comment>
+        <h3>Per backend user</h3>
+        <f:if condition="{perUser}">
+            <f:then>
+                <div class="table-fit">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr><th>User</th><th>Est. cost</th><th>Requests</th><th>Tokens</th><th>Monthly budget</th></tr>
+                        </thead>
+                        <tbody>
+                            <f:for each="{perUser}" as="u">
+                                <tr>
+                                    <td>{u.label}</td>
+                                    <td>~${u.cost -> f:format.number(decimals: 2)}</td>
+                                    <td>{u.requests -> f:format.number(decimals: 0)}</td>
+                                    <td>{u.tokens -> f:format.number(decimals: 0)}</td>
+                                    <td>
+                                        <f:if condition="{u.budget}">
+                                            <f:then>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="nrllm-budget-bar"><span style="width: {u.budget.percent -> f:format.number(decimals: 0)}%"></span></span>
+                                                    <span>{u.budget.percent -> f:format.number(decimals: 0)}% of ${u.budget.limitCost -> f:format.number(decimals: 2)}</span>
+                                                </div>
+                                            </f:then>
+                                            <f:else><span class="text-body-secondary">(no budget set)</span></f:else>
+                                        </f:if>
+                                    </td>
+                                </tr>
+                            </f:for>
+                        </tbody>
+                    </table>
+                </div>
+            </f:then>
+            <f:else>
+                <be:infobox title="No usage recorded" state="-1">
+                    <p>No LLM usage was recorded for this period. Run <code>ddev seed-usage</code> on a dev instance to populate demo data, or make some LLM requests.</p>
+                </be:infobox>
+            </f:else>
+        </f:if>
+    </div>
+</f:section>
+
+</html>

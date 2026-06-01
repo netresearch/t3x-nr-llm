@@ -31,6 +31,10 @@ return [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/Task.svg',
     ],
+    'module-nrllm-analytics' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/Analytics.svg',
+    ],
 
     // Provider type icons
     'nrllm-provider-openai' => [
