@@ -77,13 +77,16 @@ final class AnalyticsController extends ActionController
             'byModel'    => $byModel,
             'byService'  => $byService,
             'perUser'    => $this->analytics->getPerUserUsage($period->from, $period->to),
-            // JSON consumed by Analytics.js (Task 7).
+            // JSON consumed by Analytics.js, embedded in a <script> tag via
+            // f:format.raw(). JSON_HEX_* neutralises tag-breaking characters
+            // (e.g. a model_id/provider label containing "</script>") so the
+            // raw output cannot break out of the script element (XSS-safe).
             'chartData'  => json_encode([
                 'trend'      => $trend,
                 'byProvider' => $byProvider,
                 'byModel'    => $byModel,
                 'byService'  => $byService,
-            ], JSON_THROW_ON_ERROR),
+            ], JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT),
         ]);
 
         if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {

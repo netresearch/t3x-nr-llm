@@ -10,6 +10,10 @@
 .vscode/
 node_modules/
 vendor/
+# Vendored third-party frontend libraries (e.g. the Chart.js UMD bundle) —
+# minified upstream code, not ours to scan (avoids false-positive SAST findings
+# such as "prototype pollution" inside the minified library).
+Resources/Public/JavaScript/Vendor/
 
 # Test code is scanned by our own test suites + PHPStan; opengrep's
 # default ruleset flags legitimate test patterns such as unlink() for
