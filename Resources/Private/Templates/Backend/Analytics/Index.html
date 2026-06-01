@@ -6,17 +6,17 @@
 <f:section name="Content">
     <div class="nrllm-analytics">
         <script type="application/json" id="nrllm-analytics-data">{chartData -> f:format.raw()}</script>
-        <h1>LLM Usage Analytics</h1>
+        <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.title" /></h1>
 
         <div class="btn-group mb-3" role="group" aria-label="Date range">
             <f:for each="{presets}" as="p">
                 <a href="{rangeLinks.{p}}"
                    class="btn btn-sm {f:if(condition: '{p} == {preset}', then: 'btn-primary', else: 'btn-default')}">
                     <f:switch expression="{p}">
-                        <f:case value="7d">7 days</f:case>
-                        <f:case value="30d">30 days</f:case>
-                        <f:case value="90d">90 days</f:case>
-                        <f:case value="month">This month</f:case>
+                        <f:case value="7d"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.range.7d" /></f:case>
+                        <f:case value="30d"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.range.30d" /></f:case>
+                        <f:case value="90d"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.range.90d" /></f:case>
+                        <f:case value="month"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.range.month" /></f:case>
                         <f:defaultCase>{p}</f:defaultCase>
                     </f:switch>
                 </a>
@@ -28,42 +28,42 @@
         <div class="nrllm-kpi-grid">
             <div class="nrllm-kpi-tile">
                 <div class="nrllm-kpi-value">~${kpi.cost -> f:format.number(decimals: 2)}</div>
-                <div class="nrllm-kpi-label">Estimated cost</div>
+                <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.cost" /></div>
             </div>
             <div class="nrllm-kpi-tile">
                 <div class="nrllm-kpi-value">{kpi.requests -> f:format.number(decimals: 0)}</div>
-                <div class="nrllm-kpi-label">Requests</div>
+                <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.requests" /></div>
             </div>
             <div class="nrllm-kpi-tile">
                 <div class="nrllm-kpi-value">{kpi.tokens -> f:format.number(decimals: 0)}</div>
-                <div class="nrllm-kpi-label">Tokens</div>
+                <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.tokens" /></div>
             </div>
             <div class="nrllm-kpi-tile">
                 <div class="nrllm-kpi-value">{kpi.providers}</div>
-                <div class="nrllm-kpi-label">Providers</div>
+                <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.providers" /></div>
             </div>
             <div class="nrllm-kpi-tile">
                 <div class="nrllm-kpi-value">{kpi.models}</div>
-                <div class="nrllm-kpi-label">Models</div>
+                <div class="nrllm-kpi-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.kpi.models" /></div>
             </div>
         </div>
 
         <f:comment>Chart mount points (rendered by Analytics.js once Task 7 lands)</f:comment>
         <div class="nrllm-trend-box"><canvas id="nrllm-trend-chart"></canvas></div>
         <div class="nrllm-chart-grid">
-            <div class="nrllm-chart-box"><h3>By provider</h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-provider-chart"></canvas></div></div>
-            <div class="nrllm-chart-box"><h3>By model</h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-model-chart"></canvas></div></div>
-            <div class="nrllm-chart-box"><h3>By service</h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-service-chart"></canvas></div></div>
+            <div class="nrllm-chart-box"><h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.provider" /></h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-provider-chart"></canvas></div></div>
+            <div class="nrllm-chart-box"><h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.model" /></h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-model-chart"></canvas></div></div>
+            <div class="nrllm-chart-box"><h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.service" /></h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-service-chart"></canvas></div></div>
         </div>
 
         <f:comment>Per-user table</f:comment>
-        <h3>Per backend user</h3>
+        <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.peruser.title" /></h3>
         <f:if condition="{perUser}">
             <f:then>
                 <div class="table-fit">
                     <table class="table table-striped">
                         <thead>
-                            <tr><th>User</th><th>Est. cost</th><th>Requests</th><th>Tokens</th><th>Monthly budget</th></tr>
+                            <tr><th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.user" /></th><th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.cost" /></th><th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.requests" /></th><th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.tokens" /></th><th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.budget" /></th></tr>
                         </thead>
                         <tbody>
                             <f:for each="{perUser}" as="u">
@@ -77,10 +77,10 @@
                                             <f:then>
                                                 <div class="d-flex align-items-center gap-2">
                                                     <span class="nrllm-budget-bar"><span style="width: {u.budget.percent -> f:format.number(decimals: 0)}%"></span></span>
-                                                    <span>{u.budget.percent -> f:format.number(decimals: 0)}% of ${u.budget.limitCost -> f:format.number(decimals: 2)}</span>
+                                                    <span>{u.budget.percent -> f:format.number(decimals: 0)}% <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.of" /> ${u.budget.limitCost -> f:format.number(decimals: 2)}</span>
                                                 </div>
                                             </f:then>
-                                            <f:else><span class="text-body-secondary">(no budget set)</span></f:else>
+                                            <f:else><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.none" /></span></f:else>
                                         </f:if>
                                     </td>
                                 </tr>
@@ -90,8 +90,8 @@
                 </div>
             </f:then>
             <f:else>
-                <f:be.infobox title="No usage recorded" state="-1">
-                    <p>No LLM usage was recorded for this period. Run <code>ddev seed-usage</code> on a dev instance to populate demo data, or make some LLM requests.</p>
+                <f:be.infobox title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.empty.title')}" state="-1">
+                    <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.empty.message" /></p>
                 </f:be.infobox>
             </f:else>
         </f:if>
