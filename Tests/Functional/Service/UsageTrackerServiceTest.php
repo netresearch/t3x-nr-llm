@@ -294,4 +294,67 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
 
         self::assertGreaterThanOrEqual(0.056, $totalCost);
     }
+
+    #[Test]
+    public function trackUsageStoresModelDimensionAndTokenSplit(): void
+    {
+        $this->service->trackUsage(
+            'chat',
+            'openai',
+            ['tokens' => 1500, 'promptTokens' => 1000, 'completionTokens' => 500, 'cost' => 0.0125],
+            7,
+            42,
+            'gpt-4o',
+        );
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $row = $connection->select(
+            ['model_uid', 'model_id', 'prompt_tokens', 'completion_tokens', 'tokens_used', 'configuration_uid', 'estimated_cost'],
+            self::TABLE,
+            ['service_type' => 'chat', 'service_provider' => 'openai'],
+        )->fetchAssociative();
+
+        self::assertIsArray($row);
+        self::assertIsString($row['model_id']);
+        self::assertIsNumeric($row['estimated_cost']);
+        self::assertSame(42, (int)$row['model_uid']);
+        self::assertSame('gpt-4o', $row['model_id']);
+        self::assertSame(1000, (int)$row['prompt_tokens']);
+        self::assertSame(500, (int)$row['completion_tokens']);
+        self::assertSame(1500, (int)$row['tokens_used']);
+        self::assertSame(7, (int)$row['configuration_uid']);
+        self::assertEqualsWithDelta(0.0125, (float)$row['estimated_cost'], 0.0001);
+    }
+
+    #[Test]
+    public function trackUsageKeepsSeparateRowsPerModelSameDay(): void
+    {
+        $this->service->trackUsage('chat', 'openai', ['tokens' => 100], null, 1, 'gpt-4o');
+        $this->service->trackUsage('chat', 'openai', ['tokens' => 200], null, 2, 'gpt-4o-mini');
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $count = $connection->count('*', self::TABLE, ['service_type' => 'chat', 'service_provider' => 'openai']);
+
+        self::assertSame(2, $count);
+    }
+
+    #[Test]
+    public function trackUsageAggregatesSameModelSameDay(): void
+    {
+        $this->service->trackUsage('chat', 'openai', ['tokens' => 100, 'promptTokens' => 60, 'completionTokens' => 40], null, 1, 'gpt-4o');
+        $this->service->trackUsage('chat', 'openai', ['tokens' => 150, 'promptTokens' => 90, 'completionTokens' => 60], null, 1, 'gpt-4o');
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $row = $connection->select(
+            ['request_count', 'tokens_used', 'prompt_tokens', 'completion_tokens'],
+            self::TABLE,
+            ['service_type' => 'chat', 'model_uid' => 1],
+        )->fetchAssociative();
+
+        self::assertIsArray($row);
+        self::assertSame(2, (int)$row['request_count']);
+        self::assertSame(250, (int)$row['tokens_used']);
+        self::assertSame(150, (int)$row['prompt_tokens']);
+        self::assertSame(100, (int)$row['completion_tokens']);
+    }
 }

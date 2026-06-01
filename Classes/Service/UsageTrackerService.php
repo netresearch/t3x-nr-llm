@@ -33,22 +33,28 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
     /**
      * Track service usage with daily aggregation.
      *
-     * @param string $serviceType The service type (translation, speech, image)
-     * @param string $provider    The provider name (deepl, whisper, dall-e, etc.)
+     * @param string $serviceType The service type (chat, complete, embed, translation, speech, image)
+     * @param string $provider    The provider name (openai, claude, deepl, dall-e, ...)
      * @param array{
      *     tokens?: int,
+     *     promptTokens?: int,
+     *     completionTokens?: int,
      *     characters?: int,
      *     audioSeconds?: int,
      *     images?: int,
      *     cost?: float,
      * } $metrics Usage metrics to track
      * @param int|null $configurationUid Optional LlmConfiguration UID
+     * @param int      $modelUid         Model UID (0 when unknown / no DB model)
+     * @param string   $modelId          Model identifier label (e.g. "gpt-4o"); '' when unknown
      */
     public function trackUsage(
         string $serviceType,
         string $provider,
         array $metrics = [],
         ?int $configurationUid = null,
+        int $modelUid = 0,
+        string $modelId = '',
     ): void {
         $beUser = $this->getCurrentBackendUserId();
         $today = strtotime('today');
@@ -57,7 +63,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 
-        // Check if record exists for today
+        // Check if record exists for today (model_uid is part of the aggregation key)
         $existingUid = $queryBuilder
             ->select('uid')
             ->from(self::TABLE)
@@ -65,6 +71,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 $queryBuilder->expr()->eq('service_type', $queryBuilder->createNamedParameter($serviceType)),
                 $queryBuilder->expr()->eq('service_provider', $queryBuilder->createNamedParameter($provider)),
                 $queryBuilder->expr()->eq('be_user', $beUser),
+                $queryBuilder->expr()->eq('model_uid', $modelUid),
                 $queryBuilder->expr()->eq('request_date', $today),
             )
             ->executeQuery()
@@ -76,6 +83,8 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 'UPDATE ' . self::TABLE . ' SET
                     request_count = request_count + 1,
                     tokens_used = tokens_used + :tokens,
+                    prompt_tokens = prompt_tokens + :promptTokens,
+                    completion_tokens = completion_tokens + :completionTokens,
                     characters_used = characters_used + :characters,
                     audio_seconds_used = audio_seconds_used + :audioSeconds,
                     images_generated = images_generated + :images,
@@ -84,6 +93,8 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 WHERE uid = :uid',
                 [
                     'tokens' => $metrics['tokens'] ?? 0,
+                    'promptTokens' => $metrics['promptTokens'] ?? 0,
+                    'completionTokens' => $metrics['completionTokens'] ?? 0,
                     'characters' => $metrics['characters'] ?? 0,
                     'audioSeconds' => $metrics['audioSeconds'] ?? 0,
                     'images' => $metrics['images'] ?? 0,
@@ -99,9 +110,13 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 'service_type' => $serviceType,
                 'service_provider' => $provider,
                 'configuration_uid' => $configurationUid ?? 0,
+                'model_uid' => $modelUid,
+                'model_id' => $modelId,
                 'be_user' => $beUser,
                 'request_count' => 1,
                 'tokens_used' => $metrics['tokens'] ?? 0,
+                'prompt_tokens' => $metrics['promptTokens'] ?? 0,
+                'completion_tokens' => $metrics['completionTokens'] ?? 0,
                 'characters_used' => $metrics['characters'] ?? 0,
                 'audio_seconds_used' => $metrics['audioSeconds'] ?? 0,
                 'images_generated' => $metrics['images'] ?? 0,
