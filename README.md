@@ -245,7 +245,7 @@ The three-tier configuration hierarchy separates concerns cleanly:
 ## Requirements
 
 - PHP 8.2+
-- TYPO3 v13.4+ or v14.x
+- TYPO3 v13.4 LTS or v14.3 LTS
 - PSR-18 HTTP Client (e.g., guzzlehttp/guzzle)
 
 ## Installation
