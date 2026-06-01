@@ -6,8 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Usage Analytics dashboard** — new *Admin Tools → LLM → Analytics* submodule with cost/usage trends, breakdowns by provider/model/service, KPI tiles, and per-user usage with budget consumption.
+- **Real cost tracking** — `UsageMiddleware` now computes `estimated_cost` from model pricing (prompt/completion split); the `tx_nrllm_service_usage` table gained `model_uid`, `model_id`, `prompt_tokens`, `completion_tokens`.
+- **`ddev seed-usage`** — dev-only generator for ~90 days of realistic historic demo usage.
+
 ### Fixed
 
+- Cost was never recorded for LLM calls (`estimated_cost` was always `0.00`); the *AI cost this month* dashboard widget now shows real figures.
 - **Mutation testing tool error (audit 2026-04-30, deferred item):**
   `Build/Scripts/runTests.sh -s mutation` previously errored out
   partway through Infection's initial test suite phase with an

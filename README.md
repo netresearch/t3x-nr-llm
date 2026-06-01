@@ -148,6 +148,7 @@ The **Admin Tools > LLM** backend module gives you full control:
 - **Configurations** — Create use-case presets (temperature, system prompts, token limits)
 - **Tasks** — Define reusable prompt templates for editors
 - **User Budgets** — Cap per-backend-user spending across every preset (requests / tokens / cost × daily / monthly). See the [Administration guide](Documentation/Administration/UserBudgets.rst).
+- **Analytics** — Estimated cost and usage trends with breakdowns per provider, model, and service, plus per-user consumption against monthly budgets. See the [Administration guide](Documentation/Administration/Analytics.rst).
 
 ### Resilience
 
