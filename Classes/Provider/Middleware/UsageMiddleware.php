@@ -84,12 +84,25 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             return;
         }
 
-        /** @var array{tokens: int, cost?: float} $metrics */
+        $model    = $configuration->getLlmModel();
+        $modelUid = $model?->getUid() ?? 0;
+        $modelId  = $configuration->getModelId();
+
+        // Cost: prefer a cost the provider already computed; otherwise derive
+        // it from the model's pricing and the prompt/completion token split.
+        $cost = $usage->estimatedCost;
+        if ($cost === null && $model !== null && $model->hasPricing()) {
+            $cost = $model->estimateCost($usage->promptTokens, $usage->completionTokens);
+        }
+
+        /** @var array{tokens: int, promptTokens: int, completionTokens: int, cost?: float} $metrics */
         $metrics = [
-            'tokens' => $usage->totalTokens,
+            'tokens'           => $usage->totalTokens,
+            'promptTokens'     => $usage->promptTokens,
+            'completionTokens' => $usage->completionTokens,
         ];
-        if ($usage->estimatedCost !== null) {
-            $metrics['cost'] = $usage->estimatedCost;
+        if ($cost !== null) {
+            $metrics['cost'] = $cost;
         }
 
         $configUid = $configuration->getUid();
@@ -100,6 +113,8 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             provider: $provider !== '' ? $provider : 'unknown',
             metrics: $metrics,
             configurationUid: $uid,
+            modelUid: $modelUid,
+            modelId: $modelId,
         );
     }
 

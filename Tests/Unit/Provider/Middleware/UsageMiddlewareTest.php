@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
@@ -45,8 +46,10 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             ->with(
                 ProviderOperation::Chat->value,
                 'openai',
-                ['tokens' => 150, 'cost' => 0.0012],
+                ['tokens' => 150, 'promptTokens' => 100, 'completionTokens' => 50, 'cost' => 0.0012],
                 7,
+                0,
+                '',
             );
 
         $response = new CompletionResponse(
@@ -74,8 +77,10 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             ->with(
                 ProviderOperation::Embedding->value,
                 'claude',
-                ['tokens' => 42],
+                ['tokens' => 42, 'promptTokens' => 42, 'completionTokens' => 0],
                 null,
+                0,
+                '',
             );
 
         $response = new EmbeddingResponse(
@@ -100,8 +105,10 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             ->with(
                 ProviderOperation::Vision->value,
                 'gemini',
-                ['tokens' => 300, 'cost' => 0.003],
+                ['tokens' => 300, 'promptTokens' => 200, 'completionTokens' => 100, 'cost' => 0.003],
                 12,
+                0,
+                '',
             );
 
         $response = new VisionResponse(
@@ -126,8 +133,10 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             ->with(
                 ProviderOperation::Chat->value,
                 'unknown',
-                ['tokens' => 10],
+                ['tokens' => 10, 'promptTokens' => 5, 'completionTokens' => 5],
                 null,
+                0,
+                '',
             );
 
         $response = new CompletionResponse(
@@ -185,6 +194,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 self::anything(),
                 self::anything(),
                 null,
+                self::anything(),
+                self::anything(),
             );
 
         // Force uid = 0 via reflection (the public getter maps null -> int | null,
@@ -219,8 +230,10 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             ->with(
                 ProviderOperation::Embedding->value,
                 'openai',
-                ['tokens' => 42, 'cost' => 0.0015],
+                ['tokens' => 42, 'promptTokens' => 42, 'completionTokens' => 0, 'cost' => 0.0015],
                 null,
+                0,
+                '',
             );
 
         $payload = [
@@ -252,6 +265,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 'unknown',
+                self::anything(),
+                self::anything(),
                 self::anything(),
                 self::anything(),
             );
@@ -297,6 +312,80 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         );
     }
 
+    #[Test]
+    public function derivesCostFromModelPricingWhenResponseHasNoCost(): void
+    {
+        // gpt-4o demo pricing: $2.50 / 1M input, $10.00 / 1M output
+        // -> cost_input = 250 cents/1M, cost_output = 1000 cents/1M
+        // estimateCost(1000, 500) = (1000/1e6)*2.50 + (500/1e6)*10.00 = 0.0025 + 0.005 = 0.0075
+        $this->tracker->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                ProviderOperation::Chat->value,
+                'openai',
+                ['tokens' => 1500, 'promptTokens' => 1000, 'completionTokens' => 500, 'cost' => 0.0075],
+                7,
+                99,
+                'gpt-4o',
+            );
+
+        $model = new Model();
+        $model->setModelId('gpt-4o');
+        $model->setCostInput(250);
+        $model->setCostOutput(1000);
+        $this->setModelUid($model, 99);
+
+        $response = new CompletionResponse(
+            content: 'hi',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(1000, 500, 1500), // no cost on the response
+            finishReason: 'stop',
+            provider: 'openai',
+        );
+
+        $this->pipeline()->run(
+            context: ProviderCallContext::for(ProviderOperation::Chat),
+            configuration: $this->configurationWithModel($model, uid: 7),
+            terminal: static fn(LlmConfiguration $c): CompletionResponse => $response,
+        );
+    }
+
+    #[Test]
+    public function keepsResponseCostWhenPresentEvenIfModelHasPricing(): void
+    {
+        // estimatedCost on the response wins; we do not recompute.
+        $this->tracker->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                ProviderOperation::Chat->value,
+                'openai',
+                ['tokens' => 1500, 'promptTokens' => 1000, 'completionTokens' => 500, 'cost' => 0.99],
+                7,
+                99,
+                'gpt-4o',
+            );
+
+        $model = new Model();
+        $model->setModelId('gpt-4o');
+        $model->setCostInput(250);
+        $model->setCostOutput(1000);
+        $this->setModelUid($model, 99);
+
+        $response = new CompletionResponse(
+            content: 'hi',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(1000, 500, 1500, 0.99),
+            finishReason: 'stop',
+            provider: 'openai',
+        );
+
+        $this->pipeline()->run(
+            context: ProviderCallContext::for(ProviderOperation::Chat),
+            configuration: $this->configurationWithModel($model, uid: 7),
+            terminal: static fn(LlmConfiguration $c): CompletionResponse => $response,
+        );
+    }
+
     // -----------------------------------------------------------------------
     // Test helpers
     // -----------------------------------------------------------------------
@@ -321,5 +410,19 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
     {
         $prop = new ReflectionProperty($config, 'uid');
         $prop->setValue($config, $uid);
+    }
+
+    private function configurationWithModel(Model $model, ?int $uid = null): LlmConfiguration
+    {
+        $config = $this->configuration($uid);
+        $config->setLlmModel($model);
+
+        return $config;
+    }
+
+    private function setModelUid(Model $model, int $uid): void
+    {
+        $prop = new ReflectionProperty($model, 'uid');
+        $prop->setValue($model, $uid);
     }
 }
