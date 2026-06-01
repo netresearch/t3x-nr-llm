@@ -1,0 +1,25 @@
+#!/bin/bash
+
+## Description: Generate ~90 days of synthetic historic LLM usage for the Analytics dashboard (DEV ONLY)
+## Usage: seed-usage [database] [days]
+## Example: ddev seed-usage
+## Example: ddev seed-usage v14 90
+
+DATABASE="${1:-v14}"
+DAYS="${2:-90}"
+
+echo "📊 Generating ${DAYS} days of demo LLM usage into database: ${DATABASE}"
+echo "   (clears existing tx_nrllm_service_usage rows first; dev only)"
+echo ""
+
+ddev exec php /var/www/nr_llm/.ddev/scripts/seed-usage.php "$DATABASE" "$DAYS"
+
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "✅ Demo usage seeded."
+    echo "   Open: Admin Tools → LLM → Analytics"
+else
+    echo ""
+    echo "❌ Seeding failed. Ensure the instance is installed (ddev install-v14) and the schema is current."
+    exit 1
+fi
