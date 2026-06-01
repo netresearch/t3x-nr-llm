@@ -150,6 +150,8 @@ The **Admin Tools > LLM** backend module gives you full control:
 - **User Budgets** — Cap per-backend-user spending across every preset (requests / tokens / cost × daily / monthly). See the [Administration guide](Documentation/Administration/UserBudgets.rst).
 - **Analytics** — Estimated cost and usage trends with breakdowns per provider, model, and service, plus per-user consumption against monthly budgets. See the [Administration guide](Documentation/Administration/Analytics.rst).
 
+![LLM Usage Analytics dashboard — KPI tiles, a cost and request trend chart, breakdowns by provider, model, and service, and a per-user table with monthly budget bars](Documentation/Images/backend-analytics.png)
+
 ### Resilience
 
 - **Fallback chain** — Each configuration can list other configurations to retry against on a connection error, HTTP 5xx, or rate-limit. Streaming requests are excluded (chunks can't be replayed). See [ADR-021](Documentation/Adr/Adr021ProviderFallbackChain.rst).

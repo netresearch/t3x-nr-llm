@@ -12,6 +12,17 @@ spend and usage look like over time — cost and request trends,
 breakdowns by provider, model, and service, and per-user consumption
 against this month's budget.
 
+..  figure:: /Images/backend-analytics.png
+    :alt: LLM Usage Analytics dashboard — KPI tiles, a cost and request
+        trend chart, breakdowns by provider, model, and service, and a
+        per-user table with monthly budget bars
+    :class: with-border with-shadow
+    :zoom: lightbox
+
+    The Analytics dashboard: KPI summary tiles, the cost/request trend,
+    the provider / model / service breakdowns, and per-user consumption
+    against each user's monthly budget.
+
 ..  _administration-analytics-open:
 
 Opening the module
