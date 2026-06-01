@@ -357,4 +357,27 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
         self::assertSame(150, (int)$row['prompt_tokens']);
         self::assertSame(100, (int)$row['completion_tokens']);
     }
+
+    #[Test]
+    public function getTodayUsageSumsAcrossModelsSameServiceAndProvider(): void
+    {
+        $this->service->trackUsage('chat', 'openai', ['tokens' => 100], null, 1, 'gpt-4o');
+        $this->service->trackUsage('chat', 'openai', ['tokens' => 200], null, 2, 'gpt-4o-mini');
+
+        $usage = $this->service->getTodayUsage('chat', 'openai');
+
+        self::assertNotNull($usage);
+        self::assertIsNumeric($usage['request_count']);
+        self::assertIsNumeric($usage['tokens_used']);
+        self::assertSame(2, (int)$usage['request_count']);
+        self::assertSame(300, (int)$usage['tokens_used']);
+    }
+
+    #[Test]
+    public function getTodayUsageReturnsNullWhenNoUsageForServiceProvider(): void
+    {
+        $usage = $this->service->getTodayUsage('chat', 'openai');
+
+        self::assertNull($usage);
+    }
 }

@@ -229,15 +229,15 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
 
+        // Sum across all model_uid rows for today (model_uid is part of the storage key,
+        // so a single service/provider/day may span multiple rows — one per model).
         $row = $queryBuilder
-            ->select(
-                'request_count',
-                'tokens_used',
-                'characters_used',
-                'audio_seconds_used',
-                'images_generated',
-                'estimated_cost',
-            )
+            ->addSelectLiteral('SUM(request_count) AS request_count')
+            ->addSelectLiteral('SUM(tokens_used) AS tokens_used')
+            ->addSelectLiteral('SUM(characters_used) AS characters_used')
+            ->addSelectLiteral('SUM(audio_seconds_used) AS audio_seconds_used')
+            ->addSelectLiteral('SUM(images_generated) AS images_generated')
+            ->addSelectLiteral('SUM(estimated_cost) AS estimated_cost')
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('service_type', $queryBuilder->createNamedParameter($serviceType)),
@@ -248,7 +248,9 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
             ->executeQuery()
             ->fetchAssociative();
 
-        if ($row === false) {
+        // A SUM over zero matching rows returns a single row of NULLs, not false.
+        // isset() is false for a null value, so this detects both "no row" and "all-NULL sum".
+        if ($row === false || !isset($row['request_count'])) {
             return null;
         }
 
