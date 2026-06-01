@@ -19,6 +19,9 @@
     margin: 1.5rem 0;
 }
 .nrllm-chart-box { min-height: 260px; }
-.nrllm-trend-box { height: 320px; margin-bottom: 1.5rem; }
+/* Bounded wrapper: Chart.js (maintainAspectRatio:false) sizes the canvas to its
+   parent, so the parent MUST have a fixed height or the canvas grows unbounded. */
+.nrllm-canvas-wrap { position: relative; height: 240px; }
+.nrllm-trend-box { position: relative; height: 320px; margin-bottom: 1.5rem; }
 .nrllm-budget-bar { background: #e9ecef; border-radius: 4px; height: 8px; overflow: hidden; min-width: 120px; }
 .nrllm-budget-bar > span { display: block; height: 100%; background: #2f99a4; }
