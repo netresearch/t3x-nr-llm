@@ -146,7 +146,9 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
             if ($ts === null) {
                 continue;
             }
-            $key = (new DateTimeImmutable('@' . $ts))->setTime(0, 0, 0)->format('Y-m-d');
+            // setTimestamp() keeps the object's default (local) timezone; '@'.$ts
+            // would force UTC and misbucket local-midnight request_date values.
+            $key = (new DateTimeImmutable())->setTimestamp($ts)->format('Y-m-d');
             $byDate[$key] = [
                 'cost'     => is_numeric($row['cost'] ?? null) ? (float)$row['cost'] : 0.0,
                 'requests' => is_numeric($row['requests'] ?? null) ? (int)$row['requests'] : 0,

@@ -61,4 +61,28 @@ final class UsageAnalyticsServiceShaperTest extends TestCase
         self::assertSame('system', $merged[1]['label']);
         self::assertSame('user #7', $merged[2]['label']);
     }
+
+    #[Test]
+    public function fillDailyGapsAlignsBucketsUnderNonUtcTimezone(): void
+    {
+        $originalTimezone = date_default_timezone_get();
+        date_default_timezone_set('Europe/Berlin');
+        try {
+            // Berlin local midnight; '@'.$ts would bucket this as the previous UTC day.
+            $from = new DateTimeImmutable('2026-06-10 00:00:00');
+            $to = new DateTimeImmutable('2026-06-10 00:00:00');
+            $ts = (new DateTimeImmutable('2026-06-10 00:00:00'))->getTimestamp();
+            $rows = [
+                ['request_date' => $ts, 'cost' => 5.0, 'requests' => 1, 'tokens' => 10],
+            ];
+
+            $series = UsageAnalyticsService::fillDailyGaps($rows, $from, $to);
+
+            self::assertCount(1, $series);
+            self::assertSame('2026-06-10', $series[0]['date']);
+            self::assertSame(5.0, $series[0]['cost']);
+        } finally {
+            date_default_timezone_set($originalTimezone);
+        }
+    }
 }
