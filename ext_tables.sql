@@ -324,12 +324,18 @@ CREATE TABLE tx_nrllm_service_usage (
     service_provider varchar(50) DEFAULT '' NOT NULL,
     configuration_uid int(11) unsigned DEFAULT '0' NOT NULL,
 
+    -- Model dimension (usage analytics dashboard)
+    model_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    model_id varchar(150) DEFAULT '' NOT NULL,
+
     -- User context
     be_user int(11) unsigned DEFAULT '0' NOT NULL,
 
     -- Usage metrics
     request_count int(11) unsigned DEFAULT '0' NOT NULL,
     tokens_used int(11) unsigned DEFAULT '0' NOT NULL,
+    prompt_tokens int(11) unsigned DEFAULT '0' NOT NULL,
+    completion_tokens int(11) unsigned DEFAULT '0' NOT NULL,
     characters_used int(11) unsigned DEFAULT '0' NOT NULL,
     audio_seconds_used int(11) unsigned DEFAULT '0' NOT NULL,
     images_generated int(11) unsigned DEFAULT '0' NOT NULL,
@@ -346,7 +352,8 @@ CREATE TABLE tx_nrllm_service_usage (
 
     PRIMARY KEY (uid),
     KEY parent (pid),
-    KEY lookup (service_type, service_provider, request_date),
+    KEY lookup (service_type, service_provider, request_date, model_uid),
     KEY user_lookup (be_user, service_type, request_date),
-    KEY config_lookup (configuration_uid, request_date)
+    KEY config_lookup (configuration_uid, request_date),
+    KEY model_lookup (model_uid, request_date)
 );
