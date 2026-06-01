@@ -10,10 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service;
 
 use Throwable;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
-use TYPO3\CMS\Core\Context\UserAspect;
 
 /**
  * Resolves the backend test prompt, replacing `{lang}` with the current
@@ -74,36 +74,40 @@ final readonly class TestPromptResolverService implements TestPromptResolverInte
     }
 
     /**
-     * Read the backend user's `uc.lang` preference via the Context API.
+     * Read the authenticated backend user's interface language
+     * (the `be_users.lang` field).
+     *
+     * The Context `backend.user` aspect gates the lookup so non-backend
+     * contexts (CLI, frontend, tests) degrade gracefully. The aspect does not
+     * expose the user record, so the language itself is read from the backend
+     * user object.
      *
      * Returns `'default'` (→ English) when:
      *  - the backend.user aspect is not registered (non-BE context, CLI, tests)
+     *  - no backend user is logged in
      *  - the user has no language preference set
-     *  - the aspect exists but the user is not logged in
      */
     private function resolveBackendUserLanguage(): string
     {
         try {
-            $aspect = $this->context->getAspect('backend.user');
+            $isLoggedIn = (bool)$this->context->getAspect('backend.user')->get('isLoggedIn');
         } catch (AspectNotFoundException) {
             return 'default';
         }
 
-        if (!$aspect instanceof UserAspect) {
+        if (!$isLoggedIn) {
             return 'default';
         }
 
-        $user = $aspect->get('user');
-        if (!is_array($user)) {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if (!$backendUser instanceof BackendUserAuthentication) {
             return 'default';
         }
 
-        $uc = $user['uc'] ?? null;
-        if (!is_array($uc)) {
-            return 'default';
-        }
-
-        $lang = $uc['lang'] ?? null;
+        // BackendUserAuthentication::$user is untyped and may be null until a
+        // session is loaded; guard before the array access.
+        $record = $backendUser->user;
+        $lang = is_array($record) ? ($record['lang'] ?? null) : null;
         return is_string($lang) && $lang !== '' ? $lang : 'default';
     }
 }
