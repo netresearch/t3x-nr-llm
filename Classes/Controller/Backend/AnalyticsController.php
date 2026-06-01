@@ -16,6 +16,7 @@ use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 
 /**
@@ -32,12 +33,17 @@ final class AnalyticsController extends ActionController
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly UsageAnalyticsServiceInterface $analytics,
         private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly PageRenderer $pageRenderer,
     ) {}
 
     public function indexAction(): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->makeDocHeaderModuleMenu();
+
+        $this->pageRenderer->addCssFile('EXT:nr_llm/Resources/Public/Css/Backend/Analytics.css');
+        $this->pageRenderer->addJsFile('EXT:nr_llm/Resources/Public/JavaScript/Vendor/chart.umd.js');
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/Analytics.js');
 
         // Range arrives as a plain query param (?range=7d); the switcher links
         // are built with buildUriFromRoute below — consistent with the other
