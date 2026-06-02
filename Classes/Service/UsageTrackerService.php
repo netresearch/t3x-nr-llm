@@ -33,22 +33,30 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
     /**
      * Track service usage with daily aggregation.
      *
-     * @param string $serviceType The service type (translation, speech, image)
-     * @param string $provider    The provider name (deepl, whisper, dall-e, etc.)
+     * @param string $serviceType The service type (chat, complete, embed, translation, speech, image)
+     * @param string $provider    The provider name (openai, claude, deepl, dall-e, ...)
      * @param array{
      *     tokens?: int,
+     *     promptTokens?: int,
+     *     completionTokens?: int,
      *     characters?: int,
      *     audioSeconds?: int,
      *     images?: int,
      *     cost?: float,
      * } $metrics Usage metrics to track
      * @param int|null $configurationUid Optional LlmConfiguration UID
+     * @param int      $modelUid         Model UID (0 when unknown / no DB model)
+     * @param string   $modelId          Model identifier label (e.g. "gpt-4o"); '' when unknown
+     * @param int      $taskUid          Task UID (0 when the call is not a task execution)
      */
     public function trackUsage(
         string $serviceType,
         string $provider,
         array $metrics = [],
         ?int $configurationUid = null,
+        int $modelUid = 0,
+        string $modelId = '',
+        int $taskUid = 0,
     ): void {
         $beUser = $this->getCurrentBackendUserId();
         $today = strtotime('today');
@@ -57,7 +65,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 
-        // Check if record exists for today
+        // Check if record exists for today (model_uid is part of the aggregation key)
         $existingUid = $queryBuilder
             ->select('uid')
             ->from(self::TABLE)
@@ -65,6 +73,8 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 $queryBuilder->expr()->eq('service_type', $queryBuilder->createNamedParameter($serviceType)),
                 $queryBuilder->expr()->eq('service_provider', $queryBuilder->createNamedParameter($provider)),
                 $queryBuilder->expr()->eq('be_user', $beUser),
+                $queryBuilder->expr()->eq('model_uid', $modelUid),
+                $queryBuilder->expr()->eq('task_uid', $taskUid),
                 $queryBuilder->expr()->eq('request_date', $today),
             )
             ->executeQuery()
@@ -76,6 +86,8 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 'UPDATE ' . self::TABLE . ' SET
                     request_count = request_count + 1,
                     tokens_used = tokens_used + :tokens,
+                    prompt_tokens = prompt_tokens + :promptTokens,
+                    completion_tokens = completion_tokens + :completionTokens,
                     characters_used = characters_used + :characters,
                     audio_seconds_used = audio_seconds_used + :audioSeconds,
                     images_generated = images_generated + :images,
@@ -84,6 +96,8 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 WHERE uid = :uid',
                 [
                     'tokens' => $metrics['tokens'] ?? 0,
+                    'promptTokens' => $metrics['promptTokens'] ?? 0,
+                    'completionTokens' => $metrics['completionTokens'] ?? 0,
                     'characters' => $metrics['characters'] ?? 0,
                     'audioSeconds' => $metrics['audioSeconds'] ?? 0,
                     'images' => $metrics['images'] ?? 0,
@@ -99,9 +113,14 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 'service_type' => $serviceType,
                 'service_provider' => $provider,
                 'configuration_uid' => $configurationUid ?? 0,
+                'model_uid' => $modelUid,
+                'model_id' => $modelId,
+                'task_uid' => $taskUid,
                 'be_user' => $beUser,
                 'request_count' => 1,
                 'tokens_used' => $metrics['tokens'] ?? 0,
+                'prompt_tokens' => $metrics['promptTokens'] ?? 0,
+                'completion_tokens' => $metrics['completionTokens'] ?? 0,
                 'characters_used' => $metrics['characters'] ?? 0,
                 'audio_seconds_used' => $metrics['audioSeconds'] ?? 0,
                 'images_generated' => $metrics['images'] ?? 0,
@@ -214,15 +233,15 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
 
+        // Sum across all model_uid rows for today (model_uid is part of the storage key,
+        // so a single service/provider/day may span multiple rows — one per model).
         $row = $queryBuilder
-            ->select(
-                'request_count',
-                'tokens_used',
-                'characters_used',
-                'audio_seconds_used',
-                'images_generated',
-                'estimated_cost',
-            )
+            ->addSelectLiteral('SUM(request_count) AS request_count')
+            ->addSelectLiteral('SUM(tokens_used) AS tokens_used')
+            ->addSelectLiteral('SUM(characters_used) AS characters_used')
+            ->addSelectLiteral('SUM(audio_seconds_used) AS audio_seconds_used')
+            ->addSelectLiteral('SUM(images_generated) AS images_generated')
+            ->addSelectLiteral('SUM(estimated_cost) AS estimated_cost')
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('service_type', $queryBuilder->createNamedParameter($serviceType)),
@@ -233,7 +252,9 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
             ->executeQuery()
             ->fetchAssociative();
 
-        if ($row === false) {
+        // A SUM over zero matching rows returns a single row of NULLs, not false.
+        // isset() is false for a null value, so this detects both "no row" and "all-NULL sum".
+        if ($row === false || !isset($row['request_count'])) {
             return null;
         }
 

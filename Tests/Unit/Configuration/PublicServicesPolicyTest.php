@@ -44,17 +44,19 @@ final class PublicServicesPolicyTest extends TestCase
      * - Category 4 (SetupWizard collaborators): 3 concrete +
      *   1 interface alias = 4
      * - Doctrine + provider wiring tail (services exposed for
-     *   LlmServiceManager / dashboard widget resolution by
-     *   class-name): 3
+     *   LlmServiceManager / dashboard widget / analytics-module
+     *   resolution by class-name): 4. Includes
+     *   UsageAnalyticsService, public solely so the Analytics
+     *   functional test resolves it via FunctionalTestCase::get().
      *
-     * Total: 21 + 4 + 5 + 4 + 3 = **37**.
+     * Total: 21 + 4 + 5 + 4 + 4 = **38**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
      * `Documentation/Adr/Adr028PublicServicesPolicy.rst` in the
      * same PR — the diff is the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 37;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 38;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 

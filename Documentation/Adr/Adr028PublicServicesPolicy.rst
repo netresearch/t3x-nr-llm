@@ -118,11 +118,11 @@ The unit test
 ``Configuration/Services.yaml`` and asserts:
 
 * The total count of ``public: true`` keys matches the expected
-  total (currently **37**).
+  total (currently **38**).
 * The ADR file exists and references both ``REC #9c`` and the
   ``public: true`` policy text.
 
-Breakdown of the 37:
+Breakdown of the 38:
 
 * **21** Category 1 — Public LLM API surface
   (12 concrete services + 9 interface aliases).
@@ -144,9 +144,14 @@ Breakdown of the 37:
 * **4** Category 4 — SetupWizard
   (3 concrete: ProviderDetector, ModelDiscovery,
   ConfigurationGenerator + 1 alias: ModelDiscoveryInterface).
-* **3** Doctrine + provider-adapter wiring tail —
+* **4** Doctrine + provider-adapter wiring tail —
   small set of services that the host instance / dashboard widgets
-  resolve by class-name through the public container.
+  resolve by class-name through the public container. Includes
+  ``Service\UsageAnalyticsService``, the read-only Analytics-module
+  reporting service, which is public solely so its functional test
+  resolves it via ``FunctionalTestCase::get()`` (same rationale as
+  Category 3; production callers use constructor injection). Its
+  ``UsageAnalyticsServiceInterface`` alias stays private.
 
 The current test enforces only the **count** and the **ADR's
 presence**. It does not statically validate that each individual

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Task;
 
 use Netresearch\NrLlm\Domain\Model\Task;
+use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 
@@ -48,9 +49,12 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
     {
         $prompt = $task->buildPrompt(['input' => $input]);
 
+        $taskUid  = $task->getUid();
+        $metadata = ($taskUid !== null && $taskUid > 0) ? [UsageMiddleware::METADATA_TASK_UID => $taskUid] : [];
+
         $configuration = $task->getConfiguration();
         $response = $configuration !== null
-            ? $this->llmServiceManager->completeWithConfiguration($prompt, $configuration)
+            ? $this->llmServiceManager->completeWithConfiguration($prompt, $configuration, $metadata)
             : $this->llmServiceManager->complete($prompt, new ChatOptions());
 
         return new TaskExecutionResult(

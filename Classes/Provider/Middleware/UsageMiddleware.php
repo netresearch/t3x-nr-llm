@@ -55,6 +55,8 @@ use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
  */
 final readonly class UsageMiddleware implements ProviderMiddlewareInterface
 {
+    public const METADATA_TASK_UID = 'task_uid';
+
     public function __construct(
         private UsageTrackerServiceInterface $usageTracker,
     ) {}
@@ -84,22 +86,42 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             return;
         }
 
-        /** @var array{tokens: int, cost?: float} $metrics */
+        $model    = $configuration->getLlmModel();
+        $modelUid = $model?->getUid() ?? 0;
+        $modelId  = $configuration->getModelId();
+
+        // Cost: prefer a cost the provider already computed; otherwise derive
+        // it from the model's pricing and the prompt/completion token split.
+        $cost = $usage->estimatedCost;
+        if ($cost === null && $model !== null && $model->hasPricing()) {
+            $cost = $model->estimateCost($usage->promptTokens, $usage->completionTokens);
+        }
+
+        /** @var array{tokens: int, promptTokens: int, completionTokens: int, cost?: float} $metrics */
         $metrics = [
-            'tokens' => $usage->totalTokens,
+            'tokens'           => $usage->totalTokens,
+            'promptTokens'     => $usage->promptTokens,
+            'completionTokens' => $usage->completionTokens,
         ];
-        if ($usage->estimatedCost !== null) {
-            $metrics['cost'] = $usage->estimatedCost;
+        if ($cost !== null) {
+            $metrics['cost'] = $cost;
         }
 
         $configUid = $configuration->getUid();
         $uid       = ($configUid !== null && $configUid > 0) ? $configUid : null;
+
+        $taskUid = isset($context->metadata[self::METADATA_TASK_UID]) && is_int($context->metadata[self::METADATA_TASK_UID])
+            ? $context->metadata[self::METADATA_TASK_UID]
+            : 0;
 
         $this->usageTracker->trackUsage(
             serviceType: $context->operation->value,
             provider: $provider !== '' ? $provider : 'unknown',
             metrics: $metrics,
             configurationUid: $uid,
+            modelUid: $modelUid,
+            modelId: $modelId,
+            taskUid: $taskUid,
         );
     }
 

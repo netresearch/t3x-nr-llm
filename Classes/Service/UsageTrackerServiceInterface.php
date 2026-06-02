@@ -21,22 +21,30 @@ interface UsageTrackerServiceInterface
     /**
      * Track service usage with daily aggregation.
      *
-     * @param string $serviceType The service type (translation, speech, image)
-     * @param string $provider    The provider name (deepl, whisper, dall-e, etc.)
+     * @param string $serviceType The service type (chat, complete, embed, translation, speech, image)
+     * @param string $provider    The provider name (openai, claude, deepl, dall-e, ...)
      * @param array{
      *     tokens?: int,
+     *     promptTokens?: int,
+     *     completionTokens?: int,
      *     characters?: int,
      *     audioSeconds?: int,
      *     images?: int,
      *     cost?: float,
      * } $metrics Usage metrics to track
      * @param int|null $configurationUid Optional LlmConfiguration UID
+     * @param int      $modelUid         Model UID (0 when unknown / no DB model)
+     * @param string   $modelId          Model identifier label (e.g. "gpt-4o"); '' when unknown
+     * @param int      $taskUid          Task UID (0 when the call is not a task execution)
      */
     public function trackUsage(
         string $serviceType,
         string $provider,
         array $metrics = [],
         ?int $configurationUid = null,
+        int $modelUid = 0,
+        string $modelId = '',
+        int $taskUid = 0,
     ): void;
 
     /**

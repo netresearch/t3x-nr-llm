@@ -45,6 +45,9 @@ services:
     alias: Netresearch\NrLlm\Service\UsageTrackerService
     public: true
 
+  Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface:
+    alias: Netresearch\NrLlm\Service\UsageAnalyticsService
+
   Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface:
     alias: Netresearch\NrLlm\Specialized\Translation\TranslatorRegistry
     public: true
@@ -127,6 +130,9 @@ services:
     public: true
 
   Netresearch\NrLlm\Service\UsageTrackerService:
+    public: true
+
+  Netresearch\NrLlm\Service\UsageAnalyticsService:
     public: true
 
   # ========================================

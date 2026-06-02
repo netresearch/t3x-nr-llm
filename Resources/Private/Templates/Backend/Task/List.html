@@ -51,6 +51,9 @@
                                         <th>Identifier</th>
                                         <th>Input</th>
                                         <th>Output</th>
+                                        <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.cost" default="Cost (30d)" /></th>
+                                        <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.requests" default="Requests (30d)" /></th>
+                                        <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.tokens" default="Tokens (30d)" /></th>
                                         <th style="width: 200px;">Actions</th>
                                     </tr>
                                 </thead>
@@ -87,6 +90,9 @@
                                             <td>
                                                 <span class="badge text-bg-secondary">{task.outputFormat}</span>
                                             </td>
+                                            <td>{costByTask.{task.uid}}</td>
+                                            <td>{reqByTask.{task.uid}}</td>
+                                            <td>{tokByTask.{task.uid}}</td>
                                             <td>
                                                 <div class="btn-group btn-group-sm">
                                                     <f:if condition="{task.isActive}">

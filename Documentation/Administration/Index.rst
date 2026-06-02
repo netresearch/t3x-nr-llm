@@ -49,3 +49,4 @@ left-hand navigation:
    Tasks
    Wizards
    UserBudgets
+   Analytics

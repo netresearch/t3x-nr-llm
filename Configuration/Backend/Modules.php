@@ -7,6 +7,7 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Controller\Backend\AnalyticsController;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
@@ -162,6 +163,20 @@ return [
         'extensionName' => 'NrLlm',
         'controllerActions' => [
             SetupWizardController::class => [
+                'index',
+            ],
+        ],
+    ],
+    // Usage analytics dashboard - child of main module
+    'nrllm_analytics' => [
+        'parent' => 'nrllm',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-analytics',
+        'path' => '/module/nrllm/analytics',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_analytics.xlf',
+        'extensionName' => 'NrLlm',
+        'controllerActions' => [
+            AnalyticsController::class => [
                 'index',
             ],
         ],

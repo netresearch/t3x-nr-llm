@@ -276,6 +276,86 @@
             <trans-unit id="model.test.emptyResponse">
                 <source>Model "%s" connected successfully (tokens: %d in, %d out) - response content empty, model may use internal reasoning</source>
             </trans-unit>
+
+            <!-- Analytics dashboard -->
+            <trans-unit id="analytics.title">
+                <source>LLM Usage Analytics</source>
+            </trans-unit>
+            <trans-unit id="analytics.range.7d">
+                <source>7 days</source>
+            </trans-unit>
+            <trans-unit id="analytics.range.30d">
+                <source>30 days</source>
+            </trans-unit>
+            <trans-unit id="analytics.range.90d">
+                <source>90 days</source>
+            </trans-unit>
+            <trans-unit id="analytics.range.month">
+                <source>This month</source>
+            </trans-unit>
+            <trans-unit id="analytics.kpi.cost">
+                <source>Estimated cost</source>
+            </trans-unit>
+            <trans-unit id="analytics.kpi.requests">
+                <source>Requests</source>
+            </trans-unit>
+            <trans-unit id="analytics.kpi.tokens">
+                <source>Tokens</source>
+            </trans-unit>
+            <trans-unit id="analytics.kpi.providers">
+                <source>Providers</source>
+            </trans-unit>
+            <trans-unit id="analytics.kpi.models">
+                <source>Models</source>
+            </trans-unit>
+            <trans-unit id="analytics.breakdown.provider">
+                <source>By provider</source>
+            </trans-unit>
+            <trans-unit id="analytics.breakdown.model">
+                <source>By model</source>
+            </trans-unit>
+            <trans-unit id="analytics.breakdown.service">
+                <source>By service</source>
+            </trans-unit>
+            <trans-unit id="analytics.peruser.title">
+                <source>Per backend user</source>
+            </trans-unit>
+            <trans-unit id="analytics.table.user">
+                <source>User</source>
+            </trans-unit>
+            <trans-unit id="analytics.table.cost">
+                <source>Est. cost</source>
+            </trans-unit>
+            <trans-unit id="analytics.table.requests">
+                <source>Requests</source>
+            </trans-unit>
+            <trans-unit id="analytics.table.tokens">
+                <source>Tokens</source>
+            </trans-unit>
+            <trans-unit id="analytics.table.budget">
+                <source>Monthly budget</source>
+            </trans-unit>
+            <trans-unit id="analytics.budget.none">
+                <source>(no budget set)</source>
+            </trans-unit>
+            <trans-unit id="analytics.budget.of">
+                <source>of</source>
+            </trans-unit>
+            <trans-unit id="analytics.empty.title">
+                <source>No usage recorded</source>
+            </trans-unit>
+            <trans-unit id="analytics.empty.message">
+                <source>No LLM usage was recorded for this period. Run ddev seed-usage on a dev instance to populate demo data, or make some LLM requests.</source>
+            </trans-unit>
+            <trans-unit id="analytics.col.cost">
+                <source>Cost (30d)</source>
+            </trans-unit>
+            <trans-unit id="analytics.col.requests">
+                <source>Requests (30d)</source>
+            </trans-unit>
+            <trans-unit id="analytics.col.tokens">
+                <source>Tokens (30d)</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>
