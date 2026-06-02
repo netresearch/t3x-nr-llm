@@ -10,7 +10,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Usage Analytics dashboard** — new *Admin Tools → LLM → Analytics* submodule with cost/usage trends, breakdowns by provider/model/service, KPI tiles, and per-user usage with budget consumption.
 - **Real cost tracking** — `UsageMiddleware` now computes `estimated_cost` from model pricing (prompt/completion split); the `tx_nrllm_service_usage` table gained `model_uid`, `model_id`, `prompt_tokens`, `completion_tokens`.
-- **`ddev seed-usage`** — dev-only generator for ~90 days of realistic historic demo usage.
+- **Per-list usage columns** — the Providers, Models, Configurations, and Tasks list views show *Cost / Requests / Tokens (last 30 days)* per row.
+- **Per-task usage tracking** — task executions record their `task_uid` (threaded through the provider middleware pipeline), so usage rolls up per task.
+- **`ddev seed-usage`** — dev-only generator for ~90 days of realistic historic demo usage (creates paid demo providers/models/configurations/tasks so every list column and the dashboard have content).
 
 ### Fixed
 

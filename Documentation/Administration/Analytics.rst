@@ -134,6 +134,35 @@ record their requests and units, but their cost is currently shown as
 responses are not recorded at all, because chunked output has no single
 terminal token count to price.
 
+..  _administration-analytics-list-columns:
+
+Usage columns in the list views
+===============================
+
+The Providers, Models, Configurations, and Tasks list views each carry
+three extra columns — :guilabel:`Cost (30d)`, :guilabel:`Requests (30d)`
+and :guilabel:`Tokens (30d)` — summarising the last 30 days of usage for
+that row, so you can spot the heavy hitters without leaving the list.
+
+..  figure:: /Images/backend-models-usage.png
+    :alt: Models list with Cost / Requests / Tokens (30d) columns showing
+        per-model usage and estimated cost
+    :class: with-border with-shadow
+    :zoom: lightbox
+
+    The Models list with the 30-day usage columns. Models with no usage
+    in the window show blank cells; free local models show ``~$0.00``.
+
+Two attribution notes:
+
+*   The Providers column aggregates by **adapter type** (the value stored
+    on each usage row), not by individual provider record — two providers
+    that share an adapter therefore show the same figures.
+*   The Tasks column relies on per-task tracking: each task execution
+    records its ``task_uid`` so usage rolls up to the task that triggered
+    it. Calls made outside a task (direct API/service use) are not
+    attributed to any task row.
+
 ..  _administration-analytics-demo-data:
 
 Demo data for local development
