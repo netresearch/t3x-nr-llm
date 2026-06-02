@@ -11,6 +11,58 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-8-0:
+
+Version 0.8.0 (2026-06-02)
+===========================
+
+This release adds usage analytics and turns on real cost tracking, and
+completes the provider **middleware pipeline** that now powers fallback,
+pre-flight budget enforcement, usage accounting, and response caching
+around every provider call. It also migrates the domain API to typed
+value objects.
+
+For the complete, itemised list see the canonical
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-llm/blob/main/CHANGELOG.md>`__.
+
+Added
+-----
+
+-   **Usage Analytics dashboard.** A new *Admin Tools → LLM → Analytics*
+    submodule with cost and request trends, breakdowns by provider, model,
+    and service, KPI tiles, and per-user usage against each user's monthly
+    budget. The Providers, Models, Configurations, and Tasks list views also
+    gained per-row *Cost / Requests / Tokens (last 30 days)* columns. See
+    :ref:`administration-analytics`.
+
+-   **Real cost tracking.** Usage is now priced from the configured model
+    rates (prompt/completion token split), so the *AI cost this month* widget
+    and the dashboard show real figures instead of ``0``. The
+    :sql:`tx_nrllm_service_usage` table gained model and token-split columns
+    plus per-task attribution.
+
+-   **Automatic budget pre-flight.** Completion, embedding, translation, and
+    vision requests are checked against the configured budget before the call
+    is made.
+
+Changed
+-------
+
+-   The domain API moved to typed value objects (chat messages, tool specs,
+    vision content, capability sets, provider options). The legacy
+    string/array options accessors are deprecated in favour of the typed
+    equivalents.
+
+-   Requires ``netresearch/nr-vault`` ``^0.6.0``.
+
+Breaking
+--------
+
+-   The legacy :php:`Model::CAPABILITY_*` class constants have been **removed**
+    in favour of the :php:`ModelCapability` backed enum (for example
+    ``ModelCapability::CHAT->value``). They had been deprecated since the enum
+    was introduced.
+
 .. _version-0-7-0:
 
 Version 0.7.0 (2026-04-22)
