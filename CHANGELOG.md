@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-02
+
 ### Added
 
 - **Usage Analytics dashboard** — new *Admin Tools → LLM → Analytics* submodule with cost/usage trends, breakdowns by provider/model/service, KPI tiles, and per-user usage with budget consumption.
@@ -689,5 +691,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/netresearch/t3x-nr-llm/releases/tag/v0.7.0
