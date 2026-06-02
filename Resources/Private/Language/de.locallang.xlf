@@ -456,6 +456,18 @@
                 <source>No LLM usage was recorded for this period. Run ddev seed-usage on a dev instance to populate demo data, or make some LLM requests.</source>
                 <target>Für diesen Zeitraum wurde keine LLM-Nutzung erfasst. Führen Sie auf einer Dev-Instanz `ddev seed-usage` aus, um Demodaten zu erzeugen, oder lösen Sie einige LLM-Anfragen aus.</target>
             </trans-unit>
+            <trans-unit id="analytics.col.cost">
+                <source>Cost (30d)</source>
+                <target>Kosten (30 T.)</target>
+            </trans-unit>
+            <trans-unit id="analytics.col.requests">
+                <source>Requests (30d)</source>
+                <target>Anfragen (30 T.)</target>
+            </trans-unit>
+            <trans-unit id="analytics.col.tokens">
+                <source>Tokens (30d)</source>
+                <target>Tokens (30 T.)</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

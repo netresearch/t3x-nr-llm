@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
+use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -107,6 +108,9 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         $testPromptResolver = $this->get(TestPromptResolverInterface::class);
         self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
+        $analytics = $this->get(UsageAnalyticsServiceInterface::class);
+        self::assertInstanceOf(UsageAnalyticsServiceInterface::class, $analytics);
+
         return new ConfigurationController(
             $moduleTemplateFactory,
             $iconFactory,
@@ -119,6 +123,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
             $pageRenderer,
             $backendUriBuilder,
             $testPromptResolver,
+            $analytics,
             new NullLogger(),
         );
     }

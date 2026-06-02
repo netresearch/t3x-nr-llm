@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use DateTimeImmutable;
 use Doctrine\DBAL\Exception as DbalException;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ModelListResponse;
@@ -20,9 +21,11 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
+use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
+use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -63,6 +66,7 @@ final class ModelController extends ActionController
         private readonly ProviderAdapterRegistryInterface $providerAdapterRegistry,
         private readonly ModelDiscoveryInterface $modelDiscovery,
         private readonly TestPromptResolverInterface $testPromptResolver,
+        private readonly UsageAnalyticsServiceInterface $analytics,
         private readonly LoggerInterface $logger,
     ) {}
 
@@ -107,6 +111,17 @@ final class ModelController extends ActionController
             $editUrls[$uid] = $this->buildEditUrl($uid);
         }
 
+        $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
+        $totals = $this->analytics->getTotalsGroupedBy('model_uid', $period->from, $period->to);
+        $costBy = [];
+        $reqBy = [];
+        $tokBy = [];
+        foreach ($totals as $key => $t) {
+            $costBy[$key] = '~$' . number_format($t['cost'], 2);
+            $reqBy[$key]  = number_format((float)$t['requests']);
+            $tokBy[$key]  = number_format((float)$t['tokens']);
+        }
+
         $this->moduleTemplate->assignMultiple([
             'models' => $models,
             'providers' => $providers,
@@ -114,6 +129,9 @@ final class ModelController extends ActionController
             'editUrls' => $editUrls,
             'newUrl' => $this->buildNewUrl(),
             'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
+            'costByModel' => $costBy,
+            'reqByModel' => $reqBy,
+            'tokByModel' => $tokBy,
         ]);
 
         if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {

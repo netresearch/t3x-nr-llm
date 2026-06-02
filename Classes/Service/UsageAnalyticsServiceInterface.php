@@ -45,6 +45,16 @@ interface UsageAnalyticsServiceInterface
     public function getBreakdownByService(DateTimeInterface $from, DateTimeInterface $to): array;
 
     /**
+     * Sum cost/requests/tokens grouped by an internal column, keyed by that
+     * column's value. $column MUST be a hardcoded internal column name
+     * (never user input): 'service_provider', 'model_uid', 'configuration_uid',
+     * or 'task_uid'.
+     *
+     * @return array<int|string, array{cost: float, requests: int, tokens: int}>
+     */
+    public function getTotalsGroupedBy(string $column, DateTimeInterface $from, DateTimeInterface $to): array;
+
+    /**
      * @return list<array{
      *     beUserUid: int,
      *     label: string,

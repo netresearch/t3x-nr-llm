@@ -140,6 +140,30 @@ final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function getTotalsGroupedByKeysByColumnValue(): void
+    {
+        // Two rows share configuration_uid 5 (must SUM), one has 6.
+        $this->insertRow('2026-06-01', ['configuration_uid' => 5, 'estimated_cost' => 0.01, 'request_count' => 1, 'tokens_used' => 100]);
+        $this->insertRow('2026-06-01', ['configuration_uid' => 5, 'estimated_cost' => 0.01, 'request_count' => 1, 'tokens_used' => 100]);
+        $this->insertRow('2026-06-01', ['configuration_uid' => 6, 'estimated_cost' => 0.05, 'request_count' => 3, 'tokens_used' => 300]);
+
+        $totals = $this->service->getTotalsGroupedBy(
+            'configuration_uid',
+            new DateTimeImmutable('2026-06-01'),
+            new DateTimeImmutable('2026-06-01'),
+        );
+
+        self::assertArrayHasKey(5, $totals);
+        self::assertArrayHasKey(6, $totals);
+        self::assertEqualsWithDelta(0.02, $totals[5]['cost'], 0.0001);
+        self::assertSame(2, $totals[5]['requests']);
+        self::assertSame(200, $totals[5]['tokens']);
+        self::assertEqualsWithDelta(0.05, $totals[6]['cost'], 0.0001);
+        self::assertSame(3, $totals[6]['requests']);
+        self::assertSame(300, $totals[6]['tokens']);
+    }
+
+    #[Test]
     public function perUserUsageLabelsSystemForUidZero(): void
     {
         $this->insertRow('2026-06-01', ['be_user' => 0, 'estimated_cost' => 0.10]);

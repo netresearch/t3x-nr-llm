@@ -22,6 +22,9 @@
                                 <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.field.capabilities" default="Capabilities" /></th>
                                 <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.field.context" default="Context" /></th>
                                 <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.field.status" default="Status" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.cost" default="Cost (30d)" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.requests" default="Requests (30d)" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.tokens" default="Tokens (30d)" /></th>
                                 <th class="col-control"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
                             </tr>
                         </thead>
@@ -74,6 +77,9 @@
                                             </f:else>
                                         </f:if>
                                     </td>
+                                    <td>{costByModel.{model.uid}}</td>
+                                    <td>{reqByModel.{model.uid}}</td>
+                                    <td>{tokByModel.{model.uid}}</td>
                                     <td class="col-control">
                                         <div class="btn-group" role="group">
                                             <a href="{editUrls.{model.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">

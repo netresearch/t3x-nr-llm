@@ -347,6 +347,15 @@
             <trans-unit id="analytics.empty.message">
                 <source>No LLM usage was recorded for this period. Run ddev seed-usage on a dev instance to populate demo data, or make some LLM requests.</source>
             </trans-unit>
+            <trans-unit id="analytics.col.cost">
+                <source>Cost (30d)</source>
+            </trans-unit>
+            <trans-unit id="analytics.col.requests">
+                <source>Requests (30d)</source>
+            </trans-unit>
+            <trans-unit id="analytics.col.tokens">
+                <source>Tokens (30d)</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

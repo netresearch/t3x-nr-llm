@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use DateTimeImmutable;
 use Doctrine\DBAL\Exception as DbalException;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TestConnectionResponse;
@@ -18,6 +19,8 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
+use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
+use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -55,6 +58,7 @@ final class ProviderController extends ActionController
         private readonly PersistenceManagerInterface $persistenceManager,
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly UsageAnalyticsServiceInterface $analytics,
         private readonly LoggerInterface $logger,
     ) {}
 
@@ -95,12 +99,26 @@ final class ProviderController extends ActionController
             $editUrls[$uid] = $this->buildEditUrl($uid);
         }
 
+        $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
+        $totals = $this->analytics->getTotalsGroupedBy('service_provider', $period->from, $period->to);
+        $costBy = [];
+        $reqBy = [];
+        $tokBy = [];
+        foreach ($totals as $key => $t) {
+            $costBy[$key] = '~$' . number_format($t['cost'], 2);
+            $reqBy[$key]  = number_format((float)$t['requests']);
+            $tokBy[$key]  = number_format((float)$t['tokens']);
+        }
+
         $this->moduleTemplate->assignMultiple([
             'providers' => $providers,
             'adapterTypes' => Provider::getAdapterTypes(),
             'editUrls' => $editUrls,
             'newUrl' => $this->buildNewUrl(),
             'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
+            'costByProvider' => $costBy,
+            'reqByProvider' => $reqBy,
+            'tokByProvider' => $tokBy,
         ]);
 
         if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {

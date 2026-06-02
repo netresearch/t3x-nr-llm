@@ -22,6 +22,9 @@
                                 <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.apiKey" default="API Key" /></th>
                                 <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.status" default="Status" /></th>
                                 <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.priority" default="Priority" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.cost" default="Cost (30d)" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.requests" default="Requests (30d)" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.tokens" default="Tokens (30d)" /></th>
                                 <th class="col-control"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
                             </tr>
                         </thead>
@@ -71,6 +74,9 @@
                                     <td>
                                         <span class="badge text-bg-primary">{provider.priority}</span>
                                     </td>
+                                    <td>{costByProvider.{provider.adapterType}}</td>
+                                    <td>{reqByProvider.{provider.adapterType}}</td>
+                                    <td>{tokByProvider.{provider.adapterType}}</td>
                                     <td class="col-control">
                                         <div class="btn-group" role="group">
                                             <a href="{editUrls.{provider.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">

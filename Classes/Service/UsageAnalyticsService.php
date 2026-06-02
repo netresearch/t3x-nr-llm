@@ -102,6 +102,43 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         return $this->breakdown('service_type', $from, $to);
     }
 
+    public function getTotalsGroupedBy(string $column, DateTimeInterface $from, DateTimeInterface $to): array
+    {
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $rows = $qb
+            ->select($column)
+            ->addSelectLiteral('SUM(estimated_cost) AS cost')
+            ->addSelectLiteral('SUM(request_count) AS requests')
+            ->addSelectLiteral('SUM(tokens_used) AS tokens')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp())),
+                $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp())),
+            )
+            ->groupBy($column)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $out = [];
+        foreach ($rows as $row) {
+            $key = $row[$column] ?? null;
+            if (!is_string($key) && !is_int($key)) {
+                if (is_numeric($key)) {
+                    $key = (int)$key;
+                } else {
+                    continue;
+                }
+            }
+            $out[$key] = [
+                'cost'     => is_numeric($row['cost'] ?? null) ? (float)$row['cost'] : 0.0,
+                'requests' => is_numeric($row['requests'] ?? null) ? (int)$row['requests'] : 0,
+                'tokens'   => is_numeric($row['tokens'] ?? null) ? (int)$row['tokens'] : 0,
+            ];
+        }
+
+        return $out;
+    }
+
     public function getPerUserUsage(DateTimeInterface $from, DateTimeInterface $to): array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);

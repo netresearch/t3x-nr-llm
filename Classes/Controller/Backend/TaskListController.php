@@ -10,8 +10,11 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Countable;
+use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
+use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
@@ -39,6 +42,7 @@ final class TaskListController extends ActionController
         private readonly IconFactory $iconFactory,
         private readonly TaskRepository $taskRepository,
         private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly UsageAnalyticsServiceInterface $analytics,
     ) {}
 
     /**
@@ -84,12 +88,26 @@ final class TaskListController extends ActionController
 
         $groupedTasks = array_filter($groupedTasks, fn($group) => !empty($group['tasks']));
 
+        $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
+        $totals = $this->analytics->getTotalsGroupedBy('task_uid', $period->from, $period->to);
+        $costBy = [];
+        $reqBy = [];
+        $tokBy = [];
+        foreach ($totals as $key => $t) {
+            $costBy[$key] = '~$' . number_format($t['cost'], 2);
+            $reqBy[$key]  = number_format((float)$t['requests']);
+            $tokBy[$key]  = number_format((float)$t['tokens']);
+        }
+
         $moduleTemplate->assignMultiple([
             'groupedTasks' => $groupedTasks,
             'totalCount'   => $tasks->count(),
             'editUrls'     => $editUrls,
             'newUrl'       => $this->buildNewUrl(),
             'wizardUrl'    => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
+            'costByTask'   => $costBy,
+            'reqByTask'    => $reqBy,
+            'tokByTask'    => $tokBy,
         ]);
 
         $buttonBar = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
