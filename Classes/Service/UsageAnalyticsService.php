@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
 use Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\SingletonInterface;
 
 /**
@@ -27,6 +28,12 @@ use TYPO3\CMS\Core\SingletonInterface;
 final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInterface, SingletonInterface
 {
     private const TABLE = 'tx_nrllm_service_usage';
+
+    private const SUM_COST = 'SUM(estimated_cost) AS cost';
+
+    private const SUM_REQUESTS = 'SUM(request_count) AS requests';
+
+    private const SUM_TOKENS = 'SUM(tokens_used) AS tokens';
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -65,16 +72,9 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     public function getDailyTrend(DateTimeInterface $from, DateTimeInterface $to): array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb->select('request_date')->from(self::TABLE);
+        $this->selectUsageSums($qb, $from, $to);
         $rows = $qb
-            ->select('request_date')
-            ->addSelectLiteral('SUM(estimated_cost) AS cost')
-            ->addSelectLiteral('SUM(request_count) AS requests')
-            ->addSelectLiteral('SUM(tokens_used) AS tokens')
-            ->from(self::TABLE)
-            ->where(
-                $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp())),
-                $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp())),
-            )
             ->groupBy('request_date')
             ->orderBy('request_date', 'ASC')
             ->executeQuery()
@@ -105,16 +105,9 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     public function getTotalsGroupedBy(string $column, DateTimeInterface $from, DateTimeInterface $to): array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb->select($column)->from(self::TABLE);
+        $this->selectUsageSums($qb, $from, $to);
         $rows = $qb
-            ->select($column)
-            ->addSelectLiteral('SUM(estimated_cost) AS cost')
-            ->addSelectLiteral('SUM(request_count) AS requests')
-            ->addSelectLiteral('SUM(tokens_used) AS tokens')
-            ->from(self::TABLE)
-            ->where(
-                $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp())),
-                $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp())),
-            )
             ->groupBy($column)
             ->executeQuery()
             ->fetchAllAssociative();
@@ -241,21 +234,49 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     }
 
     /**
+     * Format raw per-key totals into display strings for the list-view columns.
+     *
+     * @param array<int|string, array{cost: float, requests: int, tokens: int}> $totals
+     *
+     * @return array{cost: array<int|string, string>, requests: array<int|string, string>, tokens: array<int|string, string>}
+     */
+    public static function formatUsageColumns(array $totals): array
+    {
+        $cost = [];
+        $requests = [];
+        $tokens = [];
+        foreach ($totals as $key => $t) {
+            $cost[$key]     = '~$' . number_format($t['cost'], 2);
+            $requests[$key] = number_format((float)$t['requests']);
+            $tokens[$key]   = number_format((float)$t['tokens']);
+        }
+
+        return ['cost' => $cost, 'requests' => $requests, 'tokens' => $tokens];
+    }
+
+    /**
+     * Apply the shared SUM selects and the request_date window WHERE to a query.
+     */
+    private function selectUsageSums(QueryBuilder $qb, DateTimeInterface $from, DateTimeInterface $to): void
+    {
+        $qb->addSelectLiteral(self::SUM_COST)
+            ->addSelectLiteral(self::SUM_REQUESTS)
+            ->addSelectLiteral(self::SUM_TOKENS)
+            ->where(
+                $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp())),
+                $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp())),
+            );
+    }
+
+    /**
      * @return list<array{label: string, cost: float, requests: int, tokens: int}>
      */
     private function breakdown(string $column, DateTimeInterface $from, DateTimeInterface $to): array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $qb->select($column)->from(self::TABLE);
+        $this->selectUsageSums($qb, $from, $to);
         $rows = $qb
-            ->select($column)
-            ->addSelectLiteral('SUM(estimated_cost) AS cost')
-            ->addSelectLiteral('SUM(request_count) AS requests')
-            ->addSelectLiteral('SUM(tokens_used) AS tokens')
-            ->from(self::TABLE)
-            ->where(
-                $qb->expr()->gte('request_date', $qb->createNamedParameter($from->getTimestamp())),
-                $qb->expr()->lte('request_date', $qb->createNamedParameter($to->getTimestamp())),
-            )
             ->groupBy($column)
             ->orderBy('cost', 'DESC')
             ->executeQuery()

@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
+use Netresearch\NrLlm\Service\UsageAnalyticsService;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -112,15 +113,9 @@ final class ModelController extends ActionController
         }
 
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
-        $totals = $this->analytics->getTotalsGroupedBy('model_uid', $period->from, $period->to);
-        $costBy = [];
-        $reqBy = [];
-        $tokBy = [];
-        foreach ($totals as $key => $t) {
-            $costBy[$key] = '~$' . number_format($t['cost'], 2);
-            $reqBy[$key]  = number_format((float)$t['requests']);
-            $tokBy[$key]  = number_format((float)$t['tokens']);
-        }
+        $usage = UsageAnalyticsService::formatUsageColumns(
+            $this->analytics->getTotalsGroupedBy('model_uid', $period->from, $period->to),
+        );
 
         $this->moduleTemplate->assignMultiple([
             'models' => $models,
@@ -129,9 +124,9 @@ final class ModelController extends ActionController
             'editUrls' => $editUrls,
             'newUrl' => $this->buildNewUrl(),
             'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
-            'costByModel' => $costBy,
-            'reqByModel' => $reqBy,
-            'tokByModel' => $tokBy,
+            'costByModel' => $usage['cost'],
+            'reqByModel' => $usage['requests'],
+            'tokByModel' => $usage['tokens'],
         ]);
 
         if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {

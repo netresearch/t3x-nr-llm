@@ -14,6 +14,7 @@ use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
+use Netresearch\NrLlm\Service\UsageAnalyticsService;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
@@ -89,15 +90,9 @@ final class TaskListController extends ActionController
         $groupedTasks = array_filter($groupedTasks, fn($group) => !empty($group['tasks']));
 
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
-        $totals = $this->analytics->getTotalsGroupedBy('task_uid', $period->from, $period->to);
-        $costBy = [];
-        $reqBy = [];
-        $tokBy = [];
-        foreach ($totals as $key => $t) {
-            $costBy[$key] = '~$' . number_format($t['cost'], 2);
-            $reqBy[$key]  = number_format((float)$t['requests']);
-            $tokBy[$key]  = number_format((float)$t['tokens']);
-        }
+        $usage = UsageAnalyticsService::formatUsageColumns(
+            $this->analytics->getTotalsGroupedBy('task_uid', $period->from, $period->to),
+        );
 
         $moduleTemplate->assignMultiple([
             'groupedTasks' => $groupedTasks,
@@ -105,9 +100,9 @@ final class TaskListController extends ActionController
             'editUrls'     => $editUrls,
             'newUrl'       => $this->buildNewUrl(),
             'wizardUrl'    => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
-            'costByTask'   => $costBy,
-            'reqByTask'    => $reqBy,
-            'tokByTask'    => $tokBy,
+            'costByTask'   => $usage['cost'],
+            'reqByTask'    => $usage['requests'],
+            'tokByTask'    => $usage['tokens'],
         ]);
 
         $buttonBar = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
