@@ -380,4 +380,28 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
 
         self::assertNull($usage);
     }
+
+    #[Test]
+    public function trackUsageStoresTaskUid(): void
+    {
+        $this->service->trackUsage('chat', 'openai', ['tokens' => 100], null, 1, 'gpt-4o', 77);
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $row = $connection->select(['task_uid'], self::TABLE, ['service_type' => 'chat'])->fetchAssociative();
+
+        self::assertIsArray($row);
+        self::assertSame(77, (int)$row['task_uid']);
+    }
+
+    #[Test]
+    public function trackUsageKeepsSeparateRowsPerTaskSameDay(): void
+    {
+        $this->service->trackUsage('chat', 'openai', ['tokens' => 100], null, 1, 'gpt-4o', 1);
+        $this->service->trackUsage('chat', 'openai', ['tokens' => 200], null, 1, 'gpt-4o', 2);
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $count = $connection->count('*', self::TABLE, ['service_type' => 'chat', 'service_provider' => 'openai']);
+
+        self::assertSame(2, $count);
+    }
 }

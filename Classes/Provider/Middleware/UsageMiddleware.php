@@ -55,6 +55,8 @@ use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
  */
 final readonly class UsageMiddleware implements ProviderMiddlewareInterface
 {
+    public const METADATA_TASK_UID = 'task_uid';
+
     public function __construct(
         private UsageTrackerServiceInterface $usageTracker,
     ) {}
@@ -108,6 +110,10 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         $configUid = $configuration->getUid();
         $uid       = ($configUid !== null && $configUid > 0) ? $configUid : null;
 
+        $taskUid = isset($context->metadata[self::METADATA_TASK_UID]) && is_int($context->metadata[self::METADATA_TASK_UID])
+            ? $context->metadata[self::METADATA_TASK_UID]
+            : 0;
+
         $this->usageTracker->trackUsage(
             serviceType: $context->operation->value,
             provider: $provider !== '' ? $provider : 'unknown',
@@ -115,6 +121,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             configurationUid: $uid,
             modelUid: $modelUid,
             modelId: $modelId,
+            taskUid: $taskUid,
         );
     }
 

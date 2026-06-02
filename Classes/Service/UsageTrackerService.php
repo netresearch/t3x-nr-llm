@@ -47,6 +47,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
      * @param int|null $configurationUid Optional LlmConfiguration UID
      * @param int      $modelUid         Model UID (0 when unknown / no DB model)
      * @param string   $modelId          Model identifier label (e.g. "gpt-4o"); '' when unknown
+     * @param int      $taskUid          Task UID (0 when the call is not a task execution)
      */
     public function trackUsage(
         string $serviceType,
@@ -55,6 +56,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
         ?int $configurationUid = null,
         int $modelUid = 0,
         string $modelId = '',
+        int $taskUid = 0,
     ): void {
         $beUser = $this->getCurrentBackendUserId();
         $today = strtotime('today');
@@ -72,6 +74,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 $queryBuilder->expr()->eq('service_provider', $queryBuilder->createNamedParameter($provider)),
                 $queryBuilder->expr()->eq('be_user', $beUser),
                 $queryBuilder->expr()->eq('model_uid', $modelUid),
+                $queryBuilder->expr()->eq('task_uid', $taskUid),
                 $queryBuilder->expr()->eq('request_date', $today),
             )
             ->executeQuery()
@@ -112,6 +115,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 'configuration_uid' => $configurationUid ?? 0,
                 'model_uid' => $modelUid,
                 'model_id' => $modelId,
+                'task_uid' => $taskUid,
                 'be_user' => $beUser,
                 'request_count' => 1,
                 'tokens_used' => $metrics['tokens'] ?? 0,

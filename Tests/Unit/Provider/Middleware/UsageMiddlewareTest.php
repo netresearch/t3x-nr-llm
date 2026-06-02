@@ -50,6 +50,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 7,
                 0,
                 '',
+                0,
             );
 
         $response = new CompletionResponse(
@@ -81,6 +82,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 null,
                 0,
                 '',
+                0,
             );
 
         $response = new EmbeddingResponse(
@@ -109,6 +111,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 12,
                 0,
                 '',
+                0,
             );
 
         $response = new VisionResponse(
@@ -137,6 +140,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 null,
                 0,
                 '',
+                0,
             );
 
         $response = new CompletionResponse(
@@ -196,6 +200,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 null,
                 self::anything(),
                 self::anything(),
+                self::anything(),
             );
 
         // Force uid = 0 via reflection (the public getter maps null -> int | null,
@@ -234,6 +239,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 null,
                 0,
                 '',
+                0,
             );
 
         $payload = [
@@ -265,6 +271,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 'unknown',
+                self::anything(),
                 self::anything(),
                 self::anything(),
                 self::anything(),
@@ -327,6 +334,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 7,
                 99,
                 'gpt-4o',
+                0,
             );
 
         $model = new Model();
@@ -363,6 +371,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 7,
                 99,
                 'gpt-4o',
+                0,
             );
 
         $model = new Model();
@@ -383,6 +392,33 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             context: ProviderCallContext::for(ProviderOperation::Chat),
             configuration: $this->configurationWithModel($model, uid: 7),
             terminal: static fn(LlmConfiguration $c): CompletionResponse => $response,
+        );
+    }
+
+    #[Test]
+    public function recordsTaskUidFromContextMetadata(): void
+    {
+        $this->tracker->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                ProviderOperation::Chat->value,
+                'openai',
+                ['tokens' => 10, 'promptTokens' => 5, 'completionTokens' => 5],
+                null,
+                0,
+                '',
+                42,
+            );
+
+        $this->pipeline()->run(
+            context: ProviderCallContext::for(ProviderOperation::Chat, [UsageMiddleware::METADATA_TASK_UID => 42]),
+            configuration: $this->configuration(),
+            terminal: static fn(LlmConfiguration $c): CompletionResponse => new CompletionResponse(
+                content: 'x',
+                model: 'm',
+                usage: new UsageStatistics(5, 5, 10),
+                provider: 'openai',
+            ),
         );
     }
 

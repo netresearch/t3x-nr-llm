@@ -35,6 +35,7 @@ interface UsageTrackerServiceInterface
      * @param int|null $configurationUid Optional LlmConfiguration UID
      * @param int      $modelUid         Model UID (0 when unknown / no DB model)
      * @param string   $modelId          Model identifier label (e.g. "gpt-4o"); '' when unknown
+     * @param int      $taskUid          Task UID (0 when the call is not a task execution)
      */
     public function trackUsage(
         string $serviceType,
@@ -43,6 +44,7 @@ interface UsageTrackerServiceInterface
         ?int $configurationUid = null,
         int $modelUid = 0,
         string $modelId = '',
+        int $taskUid = 0,
     ): void;
 
     /**

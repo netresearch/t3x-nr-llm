@@ -447,8 +447,9 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      * normalised via `ChatMessage::fromArray()` before dispatch.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $metadata
      */
-    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration): CompletionResponse
+    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = []): CompletionResponse
     {
         $normalisedMessages = $this->normaliseMessages($messages);
 
@@ -461,6 +462,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                 unset($options['provider']);
                 return $adapter->chatCompletion($normalisedMessages, $options);
             },
+            $metadata,
         );
     }
 
@@ -468,8 +470,10 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      * Execute completion using an LlmConfiguration entity.
      *
      * Fallback chain is applied when configured; see chatWithConfiguration().
+     *
+     * @param array<string, mixed> $metadata
      */
-    public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration): CompletionResponse
+    public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration, array $metadata = []): CompletionResponse
     {
         return $this->runThroughPipeline(
             $configuration,
@@ -480,6 +484,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                 unset($options['provider']);
                 return $adapter->complete($prompt, $options);
             },
+            $metadata,
         );
     }
 
