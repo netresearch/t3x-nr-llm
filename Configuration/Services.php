@@ -19,8 +19,11 @@ return static function (ContainerConfigurator $containerConfigurator, ContainerB
 
     // Dashboard widgets ship only when typo3/cms-dashboard is installed.
     // Guarding here keeps TYPO3 installs without dashboard from blowing up
-    // on unresolvable class references during container compile.
-    if (class_exists(WidgetInterface::class)) {
-        $containerConfigurator->import('Services.Dashboard.yaml');
+    // on unresolvable class references during container compile. WidgetInterface
+    // is an interface, so the guard must use interface_exists() (class_exists()
+    // returns false for interfaces). The imported file is PHP, not YAML, because
+    // the loader handling Services.php cannot resolve a YAML import.
+    if (interface_exists(WidgetInterface::class)) {
+        $containerConfigurator->import(__DIR__ . '/Services.Dashboard.php');
     }
 };
