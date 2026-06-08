@@ -256,7 +256,8 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('model must be one of');
 
-        new ImageGenerationOptions(model: $model);
+        $options = new ImageGenerationOptions(model: $model);
+        self::fail('Expected the constructor to reject model: ' . $options->model);
     }
 
     /**
@@ -300,7 +301,8 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid size');
 
-        new ImageGenerationOptions(model: 'gpt-image-1', size: '1792x1024');
+        $options = new ImageGenerationOptions(model: 'gpt-image-1', size: '1792x1024');
+        self::fail('Expected the constructor to reject size, got: ' . $options->size);
     }
 
     #[Test]
