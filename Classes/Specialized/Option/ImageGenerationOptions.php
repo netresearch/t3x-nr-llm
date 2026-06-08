@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Option;
 
-use InvalidArgumentException;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Option\AbstractOptions;
 
 /**
@@ -23,6 +23,11 @@ final class ImageGenerationOptions extends AbstractOptions
     private const VALID_FORMATS = ['url', 'b64_json'];
     private const VALID_SIZES_DALLE3 = ['1024x1024', '1792x1024', '1024x1792'];
     private const VALID_SIZES_DALLE2 = ['256x256', '512x512', '1024x1024'];
+    // OpenAI's gpt-image-* family (gpt-image-1, -mini, -1.5, -2, …) replaced DALL·E. It exposes
+    // a different square/landscape/portrait size set and always returns b64_json; `response_format`
+    // and `style` are not accepted (the service omits them for non-DALL·E models).
+    private const VALID_SIZES_GPT_IMAGE = ['1024x1024', '1536x1024', '1024x1536', 'auto'];
+    private const GPT_IMAGE_PREFIX = 'gpt-image';
 
     public function __construct(
         public readonly ?string $model = 'dall-e-3',
@@ -32,7 +37,7 @@ final class ImageGenerationOptions extends AbstractOptions
         public readonly ?string $format = 'url',
     ) {
         if ($this->model !== null) {
-            self::validateEnum($this->model, self::VALID_MODELS, 'model');
+            $this->validateModel($this->model);
         }
         if ($this->quality !== null) {
             self::validateEnum($this->quality, self::VALID_QUALITIES, 'quality');
@@ -46,15 +51,39 @@ final class ImageGenerationOptions extends AbstractOptions
         $this->validateSize();
     }
 
+    /**
+     * Accept the two DALL·E models plus any member of the gpt-image-* family (resolved by
+     * prefix so new point releases like gpt-image-2-2026-04-21 need no code change).
+     */
+    private function validateModel(string $model): void
+    {
+        if (in_array($model, self::VALID_MODELS, true) || str_starts_with($model, self::GPT_IMAGE_PREFIX)) {
+            return;
+        }
+
+        throw new InvalidArgumentException(
+            sprintf(
+                'model must be one of: %s, or a gpt-image-* model, got "%s"',
+                implode(', ', self::VALID_MODELS),
+                $model,
+            ),
+            8287317141,
+        );
+    }
+
     private function validateSize(): void
     {
         if ($this->size === null) {
             return;
         }
 
-        $validSizes = $this->model === 'dall-e-2'
-            ? self::VALID_SIZES_DALLE2
-            : self::VALID_SIZES_DALLE3;
+        if ($this->model !== null && str_starts_with($this->model, self::GPT_IMAGE_PREFIX)) {
+            $validSizes = self::VALID_SIZES_GPT_IMAGE;
+        } elseif ($this->model === 'dall-e-2') {
+            $validSizes = self::VALID_SIZES_DALLE2;
+        } else {
+            $validSizes = self::VALID_SIZES_DALLE3;
+        }
 
         if (!in_array($this->size, $validSizes, true)) {
             throw new InvalidArgumentException(
@@ -139,6 +168,10 @@ final class ImageGenerationOptions extends AbstractOptions
      */
     public static function getValidSizes(string $model = 'dall-e-3'): array
     {
+        if (str_starts_with($model, self::GPT_IMAGE_PREFIX)) {
+            return self::VALID_SIZES_GPT_IMAGE;
+        }
+
         return $model === 'dall-e-2' ? self::VALID_SIZES_DALLE2 : self::VALID_SIZES_DALLE3;
     }
 }

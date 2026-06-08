@@ -55,6 +55,16 @@ final class DallEImageService extends AbstractSpecializedService
             'supports_editing' => false,
             'supports_variations' => false,
         ],
+        // OpenAI's gpt-image-* family replaced DALL·E. It accepts neither `response_format`
+        // nor `style`/`quality:standard|hd`, always returns b64_json, and uses its own size set.
+        'gpt-image-1' => [
+            'sizes' => ['1024x1024', '1536x1024', '1024x1536', 'auto'],
+            'max_prompt_length' => 32000,
+            'supports_quality' => false,
+            'supports_style' => false,
+            'supports_editing' => true,
+            'supports_variations' => false,
+        ],
     ];
 
     /**
@@ -344,7 +354,10 @@ final class DallEImageService extends AbstractSpecializedService
         $timeout = $this->resolveScalarConfig($config, ['image', 'dalle', 'timeout']);
 
         $this->apiKey  = is_string($apiKey) ? $apiKey : '';
-        $this->baseUrl = is_string($baseUrl) ? $baseUrl : self::API_URL;
+        // An empty ext_conf baseUrl means "use the OpenAI default" (per the field label),
+        // NOT "send requests to an empty URL" — guarding on '' avoids a Guzzle
+        // "scheme \"\" is not allowed" failure on a stock install.
+        $this->baseUrl = (is_string($baseUrl) && $baseUrl !== '') ? $baseUrl : self::API_URL;
         $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
     }
 
@@ -470,8 +483,14 @@ final class DallEImageService extends AbstractSpecializedService
             'prompt' => $prompt,
             'n' => 1,
             'size' => $options['size'] ?? self::DEFAULT_SIZE,
-            'response_format' => $options['response_format'] ?? 'url',
         ];
+
+        // `response_format` (url|b64_json) is a dall-e-2-only parameter. dall-e-3 rejects it
+        // with "Unknown parameter: 'response_format'" and defaults to returning a URL, so we
+        // only send it for dall-e-2. (gpt-image-1 likewise omits it and always returns b64.)
+        if ($model === 'dall-e-2') {
+            $payload['response_format'] = $options['response_format'] ?? 'url';
+        }
 
         // DALL-E 3 specific options
         if ($model === 'dall-e-3') {
