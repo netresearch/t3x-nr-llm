@@ -430,8 +430,10 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $requestStub->method('withHeader')->willReturnSelf();
         $requestStub->method('withBody')->willReturnSelf();
         $this->requestFactoryStub->method('createRequest')->willReturnCallback(
-            function (string $method, string $url) use (&$capturedUrl, $requestStub): RequestInterface {
-                $capturedUrl = $url;
+            function () use (&$capturedUrl, $requestStub): RequestInterface {
+                // createRequest($method, $url) — capture the URL (the second positional argument).
+                $args = func_get_args();
+                $capturedUrl = is_string($args[1] ?? null) ? $args[1] : '';
                 return $requestStub;
             },
         );
@@ -452,16 +454,29 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function generateWithDalle2StillSendsResponseFormat(): void
+    #[DataProvider('dalleModelProvider')]
+    public function generateSendsResponseFormatForDalleModels(string $model): void
     {
-        // response_format is a dall-e-2 parameter and must still be sent for that model.
+        // response_format (url|b64_json) is accepted by BOTH dall-e-2 and dall-e-3 and must be
+        // sent for them — only gpt-image-* omits it.
         $captured = $this->captureGeneratePayload(
             ['data' => [['url' => 'https://example.com/i.png']]],
-            new ImageGenerationOptions(model: 'dall-e-2', size: '1024x1024'),
+            new ImageGenerationOptions(model: $model, size: '1024x1024'),
         );
 
-        self::assertSame('dall-e-2', $captured['payload']['model']);
+        self::assertSame($model, $captured['payload']['model']);
         self::assertSame('url', $captured['payload']['response_format']);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function dalleModelProvider(): array
+    {
+        return [
+            'dall-e-2' => ['dall-e-2'],
+            'dall-e-3' => ['dall-e-3'],
+        ];
     }
 
     /**

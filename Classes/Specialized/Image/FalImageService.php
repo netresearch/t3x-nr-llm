@@ -257,10 +257,9 @@ final class FalImageService extends AbstractSpecializedService
         $apiKey = $falConfig['apiKey'] ?? '';
         $this->apiKey = is_string($apiKey) ? $apiKey : '';
 
-        $baseUrl = $falConfig['baseUrl'] ?? self::API_URL;
-        // Empty ext_conf baseUrl means "use the default" (per the field label), not an
-        // empty request URL — guard on '' to avoid a Guzzle scheme failure on stock installs.
-        $this->baseUrl = (is_string($baseUrl) && $baseUrl !== '') ? $baseUrl : self::API_URL;
+        // Empty ext_conf baseUrl means "use the default" (per the field label), not an empty
+        // request URL — see nonEmptyStringOrDefault().
+        $this->baseUrl = $this->nonEmptyStringOrDefault($falConfig['baseUrl'] ?? null, self::API_URL);
 
         $timeout = $falConfig['timeout'] ?? $this->getDefaultTimeout();
         $this->timeout = is_int($timeout) ? $timeout : (is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout());

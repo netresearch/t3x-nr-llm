@@ -74,6 +74,16 @@ abstract class AbstractSpecializedService
     }
 
     /**
+     * Resolve a configured value to a non-empty string, falling back to a default. An empty
+     * ext_conf base-URL string (the documented "use the provider default" value) must not be
+     * used verbatim — a scheme-less URL makes the HTTP client fail — so empty falls back here.
+     */
+    protected function nonEmptyStringOrDefault(mixed $value, string $default): string
+    {
+        return is_string($value) && $value !== '' ? $value : $default;
+    }
+
+    /**
      * Service domain used by `ServiceUnavailableException` /
      * `ServiceConfigurationException` (`'image'`, `'speech'`,
      * `'translation'`, …) so log sinks and downstream catches can

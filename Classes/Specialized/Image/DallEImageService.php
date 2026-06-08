@@ -354,10 +354,9 @@ final class DallEImageService extends AbstractSpecializedService
         $timeout = $this->resolveScalarConfig($config, ['image', 'dalle', 'timeout']);
 
         $this->apiKey  = is_string($apiKey) ? $apiKey : '';
-        // An empty ext_conf baseUrl means "use the OpenAI default" (per the field label),
-        // NOT "send requests to an empty URL" — guarding on '' avoids a Guzzle
-        // "scheme \"\" is not allowed" failure on a stock install.
-        $this->baseUrl = (is_string($baseUrl) && $baseUrl !== '') ? $baseUrl : self::API_URL;
+        // An empty ext_conf baseUrl means "use the OpenAI default" (per the field label), NOT
+        // "send requests to an empty URL" — see nonEmptyStringOrDefault().
+        $this->baseUrl = $this->nonEmptyStringOrDefault($baseUrl, self::API_URL);
         $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
     }
 
@@ -496,10 +495,11 @@ final class DallEImageService extends AbstractSpecializedService
             'size' => $options['size'] ?? self::DEFAULT_SIZE,
         ];
 
-        // `response_format` (url|b64_json) is a dall-e-2-only parameter. dall-e-3 rejects it
-        // with "Unknown parameter: 'response_format'" and defaults to returning a URL, so we
-        // only send it for dall-e-2. (gpt-image-1 likewise omits it and always returns b64.)
-        if ($model === 'dall-e-2') {
+        // `response_format` (url|b64_json) is a DALL·E parameter that selects URL vs base64
+        // output; both dall-e-2 and dall-e-3 accept it. The gpt-image-* family rejects it
+        // ("Unknown parameter") and always returns b64_json, so send it for DALL·E models and
+        // omit it only for gpt-image-*.
+        if (!is_string($model) || !str_starts_with($model, 'gpt-image-')) {
             $payload['response_format'] = $options['response_format'] ?? 'url';
         }
 

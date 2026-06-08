@@ -258,10 +258,9 @@ final class TextToSpeechService extends AbstractSpecializedService
         if (is_array($speech)) {
             $tts = $speech['tts'] ?? null;
             if (is_array($tts)) {
-                $baseUrl = $tts['baseUrl'] ?? null;
                 // Empty ext_conf baseUrl means "use the OpenAI default" (per the field label),
-                // not an empty request URL — guard on '' to avoid a Guzzle scheme failure.
-                $this->baseUrl = (is_string($baseUrl) && $baseUrl !== '') ? $baseUrl : self::API_URL;
+                // not an empty request URL — see nonEmptyStringOrDefault().
+                $this->baseUrl = $this->nonEmptyStringOrDefault($tts['baseUrl'] ?? null, self::API_URL);
                 $timeout = $tts['timeout'] ?? null;
                 $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
             }
