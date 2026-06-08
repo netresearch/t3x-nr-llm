@@ -25,6 +25,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 
 #[CoversClass(OpenAiProvider::class)]
@@ -189,6 +190,83 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $result = $this->subject->chatCompletion($messages);
 
         self::assertEquals('Hi', $result->content);
+    }
+
+    #[Test]
+    public function chatCompletionMapsJsonResponseFormatToJsonObject(): void
+    {
+        $payload = $this->captureChatCompletionPayload(['response_format' => 'json']);
+
+        self::assertArrayHasKey('response_format', $payload);
+        self::assertSame(['type' => 'json_object'], $payload['response_format']);
+    }
+
+    #[Test]
+    public function chatCompletionOmitsResponseFormatForTextAndWhenUnset(): void
+    {
+        self::assertArrayNotHasKey(
+            'response_format',
+            $this->captureChatCompletionPayload(['response_format' => 'text']),
+        );
+        self::assertArrayNotHasKey(
+            'response_format',
+            $this->captureChatCompletionPayload([]),
+        );
+    }
+
+    /**
+     * Run chatCompletion with the given options and return the JSON request body the
+     * provider hands to the stream factory, so payload shaping can be asserted directly.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private function captureChatCompletionPayload(array $options): array
+    {
+        $captured = null;
+        $streamFactory = self::createStub(StreamFactoryInterface::class);
+        $streamFactory->method('createStream')->willReturnCallback(
+            function (string $content) use (&$captured): StreamInterface {
+                $captured = $content;
+                $stream = self::createStub(StreamInterface::class);
+                $stream->method('__toString')->willReturn($content);
+                $stream->method('getContents')->willReturn($content);
+                return $stream;
+            },
+        );
+
+        $subject = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $streamFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-4o',
+            'baseUrl' => '',
+            'timeout' => 30,
+        ]);
+
+        $httpClientStub = $this->createHttpClientMock();
+        $httpClientStub->method('sendRequest')->willReturn($this->createJsonResponseMock([
+            'id' => 'chatcmpl-test',
+            'choices' => [['message' => ['content' => '{}'], 'finish_reason' => 'stop']],
+            'model' => 'gpt-4o',
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+        ]));
+        $subject->setHttpClient($httpClientStub);
+
+        $subject->chatCompletion([['role' => 'user', 'content' => 'reply in json']], $options);
+
+        self::assertIsString($captured);
+        $decoded = json_decode($captured, true);
+        self::assertIsArray($decoded);
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
     }
 
     #[Test]
