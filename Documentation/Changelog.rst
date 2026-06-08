@@ -11,6 +11,39 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-9-0:
+
+Version 0.9.0 (2026-06-08)
+==========================
+
+This release migrates image generation to OpenAI's **gpt-image-\*** model
+family (DALL·E-3 was retired by OpenAI), makes chat JSON mode actually request
+JSON, and corrects the empty base-URL handling of the specialized services.
+
+For the complete, itemised list see the canonical
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-llm/blob/main/CHANGELOG.md>`__.
+
+Added
+-----
+
+-   **gpt-image-\* image generation.** ``ImageGenerationOptions`` accepts the
+    ``gpt-image-*`` family by prefix and validates its size set
+    (``1024x1024`` / ``1536x1024`` / ``1024x1536`` / ``auto``);
+    ``DallEImageService`` maps the family to a shared capability profile and
+    sends a minimal payload (gpt-image rejects ``response_format`` /
+    ``style`` / ``quality``), reading the returned ``b64_json``.
+
+Fixed
+-----
+
+-   **Chat JSON mode.** ``OpenAiProvider`` now maps ``response_format=json`` to
+    OpenAI's ``{"type":"json_object"}`` so ``CompletionService::completeJson()``
+    receives valid JSON instead of prose.
+
+-   **Empty base URL.** An empty ext_conf ``baseUrl`` for the DALL·E, FAL and
+    TTS services now falls back to the provider default instead of being used as
+    a scheme-less request URL.
+
 .. _version-0-8-0:
 
 Version 0.8.0 (2026-06-02)
