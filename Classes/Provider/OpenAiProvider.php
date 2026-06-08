@@ -111,6 +111,11 @@ final class OpenAiProvider extends AbstractProvider implements
             ...$this->buildSamplingParams($model, $options),
         ];
 
+        $responseFormat = $this->buildResponseFormat($options);
+        if ($responseFormat !== null) {
+            $payload['response_format'] = $responseFormat;
+        }
+
         if (isset($options['stop'])) {
             $payload['stop'] = $options['stop'];
         }
@@ -158,6 +163,11 @@ final class OpenAiProvider extends AbstractProvider implements
             'max_completion_tokens' => $this->getInt($options, 'max_tokens', 4096),
             ...$this->buildSamplingParams($model, $options),
         ];
+
+        $responseFormat = $this->buildResponseFormat($options);
+        if ($responseFormat !== null) {
+            $payload['response_format'] = $responseFormat;
+        }
 
         if (isset($options['tool_choice'])) {
             $payload['tool_choice'] = $options['tool_choice'];
@@ -394,6 +404,28 @@ final class OpenAiProvider extends AbstractProvider implements
     private function isReasoningModel(string $model): bool
     {
         return (bool)preg_match('/^(o[1-9]|gpt-5)/', $model);
+    }
+
+    /**
+     * Map the high-level `response_format` option to OpenAI's payload field.
+     *
+     * `completeJson()` requests `'json'` and then strictly `json_decode`s the
+     * reply, so the request MUST carry `response_format: {type: json_object}`
+     * — otherwise the model is free to wrap the JSON in prose/Markdown fences
+     * and the decode throws "Failed to decode JSON response". OpenAI's JSON
+     * mode requires the word "json" somewhere in the messages, which the
+     * callers (e.g. nr_repurpose's DocumentAnalyzer) already guarantee. `text`
+     * and `markdown` map to plain text, so we leave the field unset.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array{type: string}|null
+     */
+    private function buildResponseFormat(array $options): ?array
+    {
+        return $this->getString($options, 'response_format') === 'json'
+            ? ['type' => 'json_object']
+            : null;
     }
 
     /**

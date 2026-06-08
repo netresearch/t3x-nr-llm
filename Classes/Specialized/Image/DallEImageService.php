@@ -55,6 +55,16 @@ final class DallEImageService extends AbstractSpecializedService
             'supports_editing' => false,
             'supports_variations' => false,
         ],
+        // OpenAI's gpt-image-* family replaced DALL·E. It accepts neither `response_format`
+        // nor `style`/`quality:standard|hd`, always returns b64_json, and uses its own size set.
+        'gpt-image-1' => [
+            'sizes' => ['1024x1024', '1536x1024', '1024x1536', 'auto'],
+            'max_prompt_length' => 32000,
+            'supports_quality' => false,
+            'supports_style' => false,
+            'supports_editing' => true,
+            'supports_variations' => false,
+        ],
     ];
 
     /**
@@ -306,7 +316,7 @@ final class DallEImageService extends AbstractSpecializedService
      */
     public function getSupportedSizes(string $model = 'dall-e-3'): array
     {
-        return self::MODEL_CAPABILITIES[$model]['sizes'] ?? ['1024x1024'];
+        return self::MODEL_CAPABILITIES[$this->capabilityKey($model)]['sizes'] ?? ['1024x1024'];
     }
 
     protected function getServiceDomain(): string
@@ -344,7 +354,9 @@ final class DallEImageService extends AbstractSpecializedService
         $timeout = $this->resolveScalarConfig($config, ['image', 'dalle', 'timeout']);
 
         $this->apiKey  = is_string($apiKey) ? $apiKey : '';
-        $this->baseUrl = is_string($baseUrl) ? $baseUrl : self::API_URL;
+        // An empty ext_conf baseUrl means "use the OpenAI default" (per the field label), NOT
+        // "send requests to an empty URL" — see nonEmptyStringOrDefault().
+        $this->baseUrl = $this->nonEmptyStringOrDefault($baseUrl, self::API_URL);
         $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
     }
 
@@ -395,6 +407,17 @@ final class DallEImageService extends AbstractSpecializedService
     }
 
     /**
+     * Resolve a model id to its MODEL_CAPABILITIES key. The whole gpt-image-* family
+     * (gpt-image-1, -mini, -1.5, -2, …) shares one capability profile keyed under
+     * 'gpt-image-1'; without this, prefix-matched variants would miss the table and fall
+     * back to DALL·E defaults (4000 chars, 1024x1024 only).
+     */
+    private function capabilityKey(string $model): string
+    {
+        return str_starts_with($model, 'gpt-image-') ? 'gpt-image-1' : $model;
+    }
+
+    /**
      * Validate prompt for model.
      *
      * @throws ServiceUnavailableException
@@ -409,7 +432,7 @@ final class DallEImageService extends AbstractSpecializedService
             );
         }
 
-        $maxLength = self::MODEL_CAPABILITIES[$model]['max_prompt_length'] ?? 4000;
+        $maxLength = self::MODEL_CAPABILITIES[$this->capabilityKey($model)]['max_prompt_length'] ?? 4000;
 
         if (mb_strlen($prompt) > $maxLength) {
             throw new ServiceUnavailableException(
@@ -470,8 +493,15 @@ final class DallEImageService extends AbstractSpecializedService
             'prompt' => $prompt,
             'n' => 1,
             'size' => $options['size'] ?? self::DEFAULT_SIZE,
-            'response_format' => $options['response_format'] ?? 'url',
         ];
+
+        // `response_format` (url|b64_json) is a DALL·E parameter that selects URL vs base64
+        // output; both dall-e-2 and dall-e-3 accept it. The gpt-image-* family rejects it
+        // ("Unknown parameter") and always returns b64_json, so send it for DALL·E models and
+        // omit it only for gpt-image-*.
+        if (!is_string($model) || !str_starts_with($model, 'gpt-image-')) {
+            $payload['response_format'] = $options['response_format'] ?? 'url';
+        }
 
         // DALL-E 3 specific options
         if ($model === 'dall-e-3') {

@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -235,6 +236,33 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    #[DataProvider('gptImageVariantProvider')]
+    public function getSupportedSizesResolvesGptImageFamilyToSharedCapabilities(string $model): void
+    {
+        $subject = $this->createSubject();
+
+        // Every gpt-image-* variant shares the gpt-image-1 capability profile rather than
+        // silently falling back to the DALL·E default size set.
+        $sizes = $subject->getSupportedSizes($model);
+
+        self::assertContains('1536x1024', $sizes);
+        self::assertContains('1024x1536', $sizes);
+        self::assertNotContains('1792x1024', $sizes);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function gptImageVariantProvider(): array
+    {
+        return [
+            'gpt-image-1' => ['gpt-image-1'],
+            'gpt-image-1-mini' => ['gpt-image-1-mini'],
+            'gpt-image-2' => ['gpt-image-2'],
+        ];
+    }
+
+    #[Test]
     public function getSupportedSizesReturnsDefaultForUnknownModel(): void
     {
         $subject = $this->createSubject();
@@ -372,6 +400,123 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $result = $subject->generate('A portrait', $options);
 
         self::assertInstanceOf(ImageGenerationResult::class, $result);
+    }
+
+    #[Test]
+    public function generateWithGptImageModelSendsMinimalPayload(): void
+    {
+        // gpt-image-* reject response_format/style/quality and return b64_json; the request
+        // payload must therefore carry only model/prompt/n/size.
+        $captured = $this->captureGeneratePayload(
+            ['data' => [['b64_json' => base64_encode('img')]]],
+            new ImageGenerationOptions(model: 'gpt-image-1', size: '1536x1024'),
+        );
+
+        self::assertSame('gpt-image-1', $captured['payload']['model']);
+        self::assertSame('1536x1024', $captured['payload']['size']);
+        self::assertArrayNotHasKey('response_format', $captured['payload']);
+        self::assertArrayNotHasKey('style', $captured['payload']);
+        self::assertArrayNotHasKey('quality', $captured['payload']);
+        self::assertInstanceOf(ImageGenerationResult::class, $captured['result']);
+    }
+
+    #[Test]
+    public function generateFallsBackToDefaultUrlWhenConfiguredBaseUrlIsEmpty(): void
+    {
+        // The ext_conf default for image.dalle.baseUrl is an empty string meaning "use the
+        // OpenAI default" — it must NOT be sent as the (scheme-less) request URL.
+        $capturedUrl = null;
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+        $this->requestFactoryStub->method('createRequest')->willReturnCallback(
+            function () use (&$capturedUrl, $requestStub): RequestInterface {
+                // createRequest($method, $url) — capture the URL (the second positional argument).
+                $args = func_get_args();
+                $capturedUrl = is_string($args[1] ?? null) ? $args[1] : '';
+                return $requestStub;
+            },
+        );
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub->method('createStream')->willReturn($streamStub);
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn((string)json_encode(['data' => [['url' => 'x']]]));
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
+        $this->httpClientStub->method('sendRequest')->willReturn($responseStub);
+
+        $subject = $this->createSubject(['image' => ['dalle' => ['baseUrl' => '']]]);
+        $subject->generate('x', new ImageGenerationOptions(model: 'gpt-image-1', size: '1024x1024'));
+
+        self::assertIsString($capturedUrl);
+        self::assertStringStartsWith('https://api.openai.com/v1/images', $capturedUrl);
+    }
+
+    #[Test]
+    #[DataProvider('dalleModelProvider')]
+    public function generateSendsResponseFormatForDalleModels(string $model): void
+    {
+        // response_format (url|b64_json) is accepted by BOTH dall-e-2 and dall-e-3 and must be
+        // sent for them — only gpt-image-* omits it.
+        $captured = $this->captureGeneratePayload(
+            ['data' => [['url' => 'https://example.com/i.png']]],
+            new ImageGenerationOptions(model: $model, size: '1024x1024'),
+        );
+
+        self::assertSame($model, $captured['payload']['model']);
+        self::assertSame('url', $captured['payload']['response_format']);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function dalleModelProvider(): array
+    {
+        return [
+            'dall-e-2' => ['dall-e-2'],
+            'dall-e-3' => ['dall-e-3'],
+        ];
+    }
+
+    /**
+     * Run generate() while recording the JSON request body the service builds.
+     *
+     * @param array<string, mixed> $responseData
+     *
+     * @return array{payload: array<string, mixed>, result: ImageGenerationResult}
+     */
+    private function captureGeneratePayload(array $responseData, ImageGenerationOptions $options): array
+    {
+        $captured = null;
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+        $this->requestFactoryStub->method('createRequest')->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub->method('createStream')->willReturnCallback(
+            function (string $json) use (&$captured, $streamStub): StreamInterface {
+                $captured = $json;
+                return $streamStub;
+            },
+        );
+
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn((string)json_encode($responseData));
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
+        $this->httpClientStub->method('sendRequest')->willReturn($responseStub);
+
+        $result = $this->createSubject()->generate('A test prompt', $options);
+
+        self::assertIsString($captured);
+        $payload = json_decode($captured, true);
+        self::assertIsArray($payload);
+
+        /** @var array<string, mixed> $payload */
+        return ['payload' => $payload, 'result' => $result];
     }
 
     #[Test]

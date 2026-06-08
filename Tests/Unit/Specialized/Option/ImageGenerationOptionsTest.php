@@ -226,6 +226,96 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    #[DataProvider('gptImageModelProvider')]
+    public function constructorAcceptsGptImageModelsByPrefix(string $model): void
+    {
+        // gpt-image-* models are accepted by prefix so future point releases need no code change.
+        $options = new ImageGenerationOptions(model: $model, size: '1024x1024');
+
+        self::assertEquals($model, $options->model);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function gptImageModelProvider(): array
+    {
+        return [
+            'gpt-image-1' => ['gpt-image-1'],
+            'gpt-image-1-mini' => ['gpt-image-1-mini'],
+            'gpt-image-2' => ['gpt-image-2'],
+            'dated point release' => ['gpt-image-2-2026-04-21'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('gptImageLookalikeProvider')]
+    public function constructorRejectsGptImageLookalikesWithoutTrailingDash(string $model): void
+    {
+        // The prefix is strict ("gpt-image-"), so near-misses without the dash are not the family.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('model must be one of');
+
+        $options = new ImageGenerationOptions(model: $model);
+        self::fail('Expected the constructor to reject model: ' . $options->model);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function gptImageLookalikeProvider(): array
+    {
+        return [
+            'gpt-imagery' => ['gpt-imagery'],
+            'gpt-imageX' => ['gpt-imageX'],
+            'gpt-image' => ['gpt-image'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('validGptImageSizeProvider')]
+    public function constructorAcceptsValidGptImageSizes(string $size): void
+    {
+        $options = new ImageGenerationOptions(model: 'gpt-image-1', size: $size);
+
+        self::assertEquals($size, $options->size);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function validGptImageSizeProvider(): array
+    {
+        return [
+            '1024x1024' => ['1024x1024'],
+            '1536x1024' => ['1536x1024'],
+            '1024x1536' => ['1024x1536'],
+            'auto' => ['auto'],
+        ];
+    }
+
+    #[Test]
+    public function constructorThrowsForDalleSizeOnGptImageModel(): void
+    {
+        // DALL·E-3's 1792x1024 is not a valid gpt-image size.
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid size');
+
+        $options = new ImageGenerationOptions(model: 'gpt-image-1', size: '1792x1024');
+        self::fail('Expected the constructor to reject size, got: ' . $options->size);
+    }
+
+    #[Test]
+    public function getValidSizesReturnsGptImageSizes(): void
+    {
+        $sizes = ImageGenerationOptions::getValidSizes('gpt-image-1');
+
+        self::assertContains('1536x1024', $sizes);
+        self::assertContains('1024x1536', $sizes);
+        self::assertNotContains('1792x1024', $sizes);
+    }
+
+    #[Test]
     public function toArrayIncludesAllOptions(): void
     {
         $options = new ImageGenerationOptions(
