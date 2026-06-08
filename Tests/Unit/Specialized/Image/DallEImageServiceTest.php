@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -232,6 +233,33 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         self::assertContains('256x256', $sizes);
         self::assertContains('512x512', $sizes);
         self::assertContains('1024x1024', $sizes);
+    }
+
+    #[Test]
+    #[DataProvider('gptImageVariantProvider')]
+    public function getSupportedSizesResolvesGptImageFamilyToSharedCapabilities(string $model): void
+    {
+        $subject = $this->createSubject();
+
+        // Every gpt-image-* variant shares the gpt-image-1 capability profile rather than
+        // silently falling back to the DALL·E default size set.
+        $sizes = $subject->getSupportedSizes($model);
+
+        self::assertContains('1536x1024', $sizes);
+        self::assertContains('1024x1536', $sizes);
+        self::assertNotContains('1792x1024', $sizes);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function gptImageVariantProvider(): array
+    {
+        return [
+            'gpt-image-1' => ['gpt-image-1'],
+            'gpt-image-1-mini' => ['gpt-image-1-mini'],
+            'gpt-image-2' => ['gpt-image-2'],
+        ];
     }
 
     #[Test]

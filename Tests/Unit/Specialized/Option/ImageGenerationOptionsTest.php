@@ -249,6 +249,29 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    #[DataProvider('gptImageLookalikeProvider')]
+    public function constructorRejectsGptImageLookalikesWithoutTrailingDash(string $model): void
+    {
+        // The prefix is strict ("gpt-image-"), so near-misses without the dash are not the family.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('model must be one of');
+
+        new ImageGenerationOptions(model: $model);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function gptImageLookalikeProvider(): array
+    {
+        return [
+            'gpt-imagery' => ['gpt-imagery'],
+            'gpt-imageX' => ['gpt-imageX'],
+            'gpt-image' => ['gpt-image'],
+        ];
+    }
+
+    #[Test]
     #[DataProvider('validGptImageSizeProvider')]
     public function constructorAcceptsValidGptImageSizes(string $size): void
     {

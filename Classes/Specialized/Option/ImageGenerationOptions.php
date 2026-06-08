@@ -27,7 +27,7 @@ final class ImageGenerationOptions extends AbstractOptions
     // a different square/landscape/portrait size set and always returns b64_json; `response_format`
     // and `style` are not accepted (the service omits them for non-DALL·E models).
     private const VALID_SIZES_GPT_IMAGE = ['1024x1024', '1536x1024', '1024x1536', 'auto'];
-    private const GPT_IMAGE_PREFIX = 'gpt-image';
+    private const GPT_IMAGE_PREFIX = 'gpt-image-';
 
     public function __construct(
         public readonly ?string $model = 'dall-e-3',

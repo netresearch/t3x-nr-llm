@@ -316,7 +316,7 @@ final class DallEImageService extends AbstractSpecializedService
      */
     public function getSupportedSizes(string $model = 'dall-e-3'): array
     {
-        return self::MODEL_CAPABILITIES[$model]['sizes'] ?? ['1024x1024'];
+        return self::MODEL_CAPABILITIES[$this->capabilityKey($model)]['sizes'] ?? ['1024x1024'];
     }
 
     protected function getServiceDomain(): string
@@ -408,6 +408,17 @@ final class DallEImageService extends AbstractSpecializedService
     }
 
     /**
+     * Resolve a model id to its MODEL_CAPABILITIES key. The whole gpt-image-* family
+     * (gpt-image-1, -mini, -1.5, -2, …) shares one capability profile keyed under
+     * 'gpt-image-1'; without this, prefix-matched variants would miss the table and fall
+     * back to DALL·E defaults (4000 chars, 1024x1024 only).
+     */
+    private function capabilityKey(string $model): string
+    {
+        return str_starts_with($model, 'gpt-image-') ? 'gpt-image-1' : $model;
+    }
+
+    /**
      * Validate prompt for model.
      *
      * @throws ServiceUnavailableException
@@ -422,7 +433,7 @@ final class DallEImageService extends AbstractSpecializedService
             );
         }
 
-        $maxLength = self::MODEL_CAPABILITIES[$model]['max_prompt_length'] ?? 4000;
+        $maxLength = self::MODEL_CAPABILITIES[$this->capabilityKey($model)]['max_prompt_length'] ?? 4000;
 
         if (mb_strlen($prompt) > $maxLength) {
             throw new ServiceUnavailableException(
