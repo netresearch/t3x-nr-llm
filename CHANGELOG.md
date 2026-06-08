@@ -6,6 +6,33 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-08
+
+### Added
+
+- **gpt-image-\* model family support for image generation.** OpenAI retired
+  DALL·E-3; accounts now expose the `gpt-image-*` family (`gpt-image-1`,
+  `gpt-image-1-mini`, `gpt-image-1.5`, `gpt-image-2`, …). `ImageGenerationOptions`
+  accepts these models by prefix and validates their size set
+  (`1024x1024` / `1536x1024` / `1024x1536` / `auto`); `DallEImageService` maps the
+  whole family to a shared capability profile and sends a minimal
+  `model`/`prompt`/`n`/`size` payload (no `response_format`/`style`/`quality`,
+  which gpt-image rejects), reading the returned `b64_json`.
+
+### Fixed
+
+- **Chat JSON mode was never requested.** `CompletionService::completeJson()` asks
+  for `response_format=json` and then strictly decodes the reply, but
+  `OpenAiProvider` dropped the option, so the model could return prose/Markdown-
+  fenced JSON and the decode failed. The provider now maps `response_format=json`
+  to OpenAI's `{"type":"json_object"}` in `chatCompletion()` /
+  `chatCompletionWithTools()`.
+- **Empty `baseUrl` broke the specialized services.** An empty ext_conf
+  `image.dalle.baseUrl` / `image.fal.baseUrl` / `speech.tts.baseUrl` (the documented
+  "use the provider default" value) was used verbatim as the request URL, producing
+  a scheme-less URL and a Guzzle failure on a stock install. Empty now falls back to
+  the provider default via a shared `nonEmptyStringOrDefault()` helper.
+
 ## [0.8.0] - 2026-06-02
 
 ### Added
@@ -691,6 +718,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/netresearch/t3x-nr-llm/releases/tag/v0.7.0

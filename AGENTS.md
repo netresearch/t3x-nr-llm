@@ -81,7 +81,7 @@ ALWAYS use the Docker test runner; never invoke `phpunit` / `phpstan` / `rector`
 
 | File | Purpose |
 |------|---------|
-| `ext_emconf.php` | Extension metadata, version 0.8.0 |
+| `ext_emconf.php` | Extension metadata, version 0.9.0 |
 | `ext_localconf.php` | Extension bootstrap |
 | `composer.json` | Dependencies (composer.lock NOT committed) |
 | `Build/phpunit.xml` | PHPUnit configuration |
