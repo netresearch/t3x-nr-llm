@@ -359,8 +359,16 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $options ??= new ChatOptions();
         $optionsArray = $options->toArray();
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
-        $provider = $this->getProvider($providerKey);
         unset($optionsArray['provider']);
+
+        // Single source of truth: prefer the default DB configuration (see chat()),
+        // so streaming and non-streaming calls resolve the same provider/model.
+        $defaultConfiguration = $this->resolveDefaultConfiguration($providerKey);
+        if ($defaultConfiguration !== null) {
+            return $this->streamChatWithConfiguration($messages, $defaultConfiguration, $optionsArray);
+        }
+
+        $provider = $this->getProvider($providerKey);
 
         if (!$provider instanceof StreamingCapableInterface) {
             throw new UnsupportedFeatureException(
@@ -690,13 +698,14 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      * normalised via `ChatMessage::fromArray()` before dispatch.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $optionOverrides per-call options that take precedence over the configuration's stored defaults
      *
      * @return Generator<int, string, mixed, void>
      */
-    public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration): Generator
+    public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration, array $optionOverrides = []): Generator
     {
         $adapter = $this->getAdapterFromConfiguration($configuration);
-        $options = $configuration->toOptionsArray();
+        $options = array_merge($configuration->toOptionsArray(), $optionOverrides);
 
         // Remove provider key as we already have the adapter
         unset($options['provider']);

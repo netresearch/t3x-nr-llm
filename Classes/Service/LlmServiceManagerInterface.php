@@ -87,10 +87,11 @@ interface LlmServiceManagerInterface
      * and normalised via `ChatMessage::fromArray()` before dispatch.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $optionOverrides per-call options that take precedence over the configuration's stored defaults
      *
      * @return Generator<int, string, mixed, void>
      */
-    public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration): Generator;
+    public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration, array $optionOverrides = []): Generator;
 
     /**
      * @param string|array<int, string> $input

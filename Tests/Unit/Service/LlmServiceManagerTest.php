@@ -803,6 +803,101 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function completeRoutesThroughDefaultConfigurationWhenNoProviderPinned(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('nr_repurpose');
+        $config->method('toOptionsArray')->willReturn([
+            'temperature' => 0.7,
+            'model' => 'gpt-4o',
+            'provider' => 'openai',
+        ]);
+
+        $expectedResponse = new CompletionResponse(
+            content: 'text',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(1, 1, 2),
+            finishReason: 'stop',
+            provider: 'openai',
+        );
+
+        $captured = [];
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->method('complete')->willReturnCallback(
+            function (string $prompt, array $options) use (&$captured, $expectedResponse): CompletionResponse {
+                $captured = $options;
+                return $expectedResponse;
+            },
+        );
+
+        $registryStub = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryStub->method('createAdapterFromModel')->willReturn($adapter);
+
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn($config);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+
+        $result = $manager->complete('Prompt', new ChatOptions(temperature: 0.2));
+
+        self::assertSame($expectedResponse, $result);
+        self::assertSame(0.2, $captured['temperature']);
+        self::assertSame('gpt-4o', $captured['model']);
+        self::assertArrayNotHasKey('provider', $captured);
+    }
+
+    #[Test]
+    public function completeBypassesDefaultConfigurationWhenProviderPinned(): void
+    {
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->expects(self::never())->method('findDefault');
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($this->provider);
+
+        $result = $manager->complete('Prompt', new ChatOptions(provider: 'openai'));
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function completeFallsBackToDefaultProviderWhenNoDefaultConfigurationExists(): void
+    {
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn(null);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($this->provider);
+
+        $result = $manager->complete('Prompt');
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
     public function streamChatWithConfigurationUsesAdapter(): void
     {
         $model = self::createStub(Model::class);
