@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Option\DeepLOptions;
+use Netresearch\NrVault\Http\SecretPlacement;
 use Throwable;
 
 /**
@@ -69,6 +70,12 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
     private const FORMALITY_SUPPORTED_LANGUAGES = [
         'de', 'fr', 'it', 'es', 'nl', 'pl', 'pt', 'pt-br', 'pt-pt', 'ru', 'ja',
     ];
+
+    /** Explicit baseUrl override from ext_conf, or null to auto-detect Free/Pro from the key. */
+    private ?string $configuredBaseUrl = null;
+
+    /** Guards the one-time secret retrieval in resolveBaseUrl(). */
+    private bool $baseUrlResolved = false;
 
     public function getIdentifier(): string
     {
@@ -305,31 +312,77 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         // is_string() / is_numeric() guards: extension config is YAML
         // and the documented shape is not a runtime guarantee. Direct
-        // assignment would TypeError on a non-string apiKey and defeat
+        // assignment would TypeError on a non-string identifier and defeat
         // the base's fail-soft contract.
-        $apiKey = $deeplConfig['apiKey'] ?? null;
-        $this->apiKey = is_string($apiKey) ? $apiKey : '';
+        $apiKeyIdentifier = $deeplConfig['apiKeyIdentifier'] ?? null;
+        $this->apiKeyIdentifier = is_string($apiKeyIdentifier) ? $apiKeyIdentifier : '';
 
         $timeout = $deeplConfig['timeout'] ?? null;
         $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
 
-        // DeepL Free vs Pro routing: free keys end with `:fx`. The Pro
-        // URL is the documented default; explicit `baseUrl` override
-        // wins over both.
-        if ($this->apiKey !== '' && str_ends_with($this->apiKey, ':fx')) {
-            $this->baseUrl = self::FREE_API_URL;
-        } else {
-            $baseUrl = $deeplConfig['baseUrl'] ?? null;
-            $this->baseUrl = is_string($baseUrl) ? $baseUrl : self::PRO_API_URL;
-        }
+        // Free vs Pro routing depends on the secret value (free keys end with
+        // ':fx'), which we no longer hold as plaintext, so the base URL is
+        // resolved lazily on first request (see resolveBaseUrl()). An explicit
+        // baseUrl override still wins and is captured here.
+        $baseUrl = $deeplConfig['baseUrl'] ?? null;
+        $this->configuredBaseUrl = is_string($baseUrl) && $baseUrl !== '' ? $baseUrl : null;
     }
 
-    protected function buildAuthHeaders(): array
+    /**
+     * DeepL authenticates with `Authorization: DeepL-Auth-Key <secret>` — not
+     * Bearer — so it uses Header placement with a `DeepL-Auth-Key ` prefix.
+     */
+    protected function getSecretPlacement(): SecretPlacement
     {
-        return [
-            'Authorization' => 'DeepL-Auth-Key ' . $this->apiKey,
-            'User-Agent'    => 'TYPO3-NrLlm/1.0',
-        ];
+        return SecretPlacement::Header;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function getSecretPlacementOptions(): array
+    {
+        return ['headerName' => 'Authorization', 'prefix' => 'DeepL-Auth-Key '];
+    }
+
+    /**
+     * DeepL expects a `User-Agent` alongside auth.
+     *
+     * @return array<string, string>
+     */
+    protected function getAdditionalHeaders(): array
+    {
+        return ['User-Agent' => 'TYPO3-NrLlm/1.0'];
+    }
+
+    /**
+     * Resolve the Free vs Pro base URL on first use. An explicit ext_conf
+     * `baseUrl` wins; otherwise the secret is retrieved exactly once to test
+     * for the `:fx` Free-key suffix and scrubbed immediately — the request
+     * itself still authenticates through the audited secure client, never
+     * this transient plaintext copy.
+     */
+    private function resolveBaseUrl(): void
+    {
+        if ($this->baseUrlResolved) {
+            return;
+        }
+        $this->baseUrlResolved = true;
+
+        if ($this->configuredBaseUrl !== null) {
+            $this->baseUrl = $this->configuredBaseUrl;
+            return;
+        }
+
+        $key = $this->apiKeyIdentifier !== ''
+            ? ($this->vault->retrieve($this->apiKeyIdentifier) ?? '')
+            : '';
+        $this->baseUrl = ($key !== '' && str_ends_with($key, ':fx'))
+            ? self::FREE_API_URL
+            : self::PRO_API_URL;
+        if ($key !== '') {
+            sodium_memzero($key);
+        }
     }
 
     protected function getProviderLabel(): string
@@ -534,6 +587,8 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
      */
     private function sendDeeplRequest(string $endpoint, array $payload, string $method = 'POST'): array
     {
+        $this->resolveBaseUrl();
+
         $url = sprintf(
             '%s/%s/%s',
             rtrim($this->baseUrl, '/'),
@@ -543,7 +598,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $request = $this->requestFactory->createRequest($method, $url)
             ->withHeader('Content-Type', 'application/json');
-        foreach ($this->buildAuthHeaders() as $name => $value) {
+        foreach ($this->getAdditionalHeaders() as $name => $value) {
             $request = $request->withHeader($name, $value);
         }
 

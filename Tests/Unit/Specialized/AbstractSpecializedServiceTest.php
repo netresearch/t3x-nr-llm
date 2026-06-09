@@ -15,6 +15,9 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\MultipartBodyBuilderTrait;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Http\SecretPlacement;
+use Netresearch\NrVault\Http\VaultHttpClientInterface;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Client\ClientInterface;
@@ -33,7 +36,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     #[Test]
     public function isAvailableReturnsFalseWhenApiKeyIsEmpty(): void
     {
-        $subject = $this->createSubject(apiKey: '');
+        $subject = $this->createSubject(apiKeyIdentifier: '');
 
         self::assertFalse($subject->isAvailable());
     }
@@ -41,7 +44,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     #[Test]
     public function isAvailableReturnsTrueWhenApiKeyIsConfigured(): void
     {
-        $subject = $this->createSubject(apiKey: 'test-key');
+        $subject = $this->createSubject(apiKeyIdentifier: 'test-key');
 
         self::assertTrue($subject->isAvailable());
     }
@@ -49,7 +52,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     #[Test]
     public function ensureAvailableThrowsWhenNotConfigured(): void
     {
-        $subject = $this->createSubject(apiKey: '');
+        $subject = $this->createSubject(apiKeyIdentifier: '');
 
         $this->expectException(ServiceUnavailableException::class);
 
@@ -59,7 +62,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     #[Test]
     public function ensureAvailableIsNoOpWhenConfigured(): void
     {
-        $subject = $this->createSubject(apiKey: 'test-key');
+        $subject = $this->createSubject(apiKeyIdentifier: 'test-key');
 
         $subject->callEnsureAvailable();
 
@@ -101,7 +104,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock(['result' => 'ok'], 200));
 
-        $subject = $this->createSubject(apiKey: 'k', baseUrl: 'https://api.test/v1', httpClient: $httpClient);
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test/v1', httpClient: $httpClient);
 
         $result = $subject->callSendJsonRequest('endpoint', ['foo' => 'bar']);
 
@@ -109,8 +112,12 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function sendJsonRequestAddsAuthHeaderFromBuildAuthHeaders(): void
+    public function sendJsonRequestSetsContentTypeAndReachesInjectedClient(): void
     {
+        // Auth is no longer added to the request here — the secure vault client
+        // injects it, and `setHttpClient()` bypasses that client entirely. So
+        // the request that reaches the injected mock carries Content-Type (and
+        // any `getAdditionalHeaders()`) but no Authorization header.
         $captured = null;
         $httpClient = $this->createMock(ClientInterface::class);
         $httpClient->expects(self::once())
@@ -120,13 +127,73 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
                 return $this->createJsonResponseMock([], 200);
             });
 
-        $subject = $this->createSubject(apiKey: 'sekret', baseUrl: 'https://api.test/v1', httpClient: $httpClient);
+        $subject = $this->createSubject(apiKeyIdentifier: 'vault-id', baseUrl: 'https://api.test/v1', httpClient: $httpClient);
 
         $subject->callSendJsonRequest('endpoint', []);
 
         self::assertNotNull($captured);
-        self::assertSame('TestableScheme sekret', $captured->getHeaderLine('Authorization'));
         self::assertSame('application/json', $captured->getHeaderLine('Content-Type'));
+        self::assertSame('', $captured->getHeaderLine('Authorization'));
+    }
+
+    #[Test]
+    public function getSecureClientAuthenticatesThroughVaultWithConfiguredIdentifierAndBearerPlacement(): void
+    {
+        // With no `setHttpClient()` override, `getSecureClient()` must build the
+        // audited vault client via `vault->http()->withAuthentication($id, Bearer, [])`
+        // for the configured identifier and stamp the audit reason. The base
+        // class defaults to Bearer placement with no options.
+        $capturedIdentifier = null;
+        $capturedPlacement = null;
+        $capturedOptions = null;
+        $capturedReason = null;
+
+        $vaultHttpClient = self::createStub(VaultHttpClientInterface::class);
+        $vaultHttpClient->method('withAuthentication')->willReturnCallback(
+            function (string $id, SecretPlacement $placement, array $options) use (
+                &$capturedIdentifier,
+                &$capturedPlacement,
+                &$capturedOptions,
+                $vaultHttpClient,
+            ): VaultHttpClientInterface {
+                $capturedIdentifier = $id;
+                $capturedPlacement = $placement;
+                $capturedOptions = $options;
+                return $vaultHttpClient;
+            },
+        );
+        $vaultHttpClient->method('withReason')->willReturnCallback(
+            function (string $reason) use (&$capturedReason, $vaultHttpClient): VaultHttpClientInterface {
+                $capturedReason = $reason;
+                return $vaultHttpClient;
+            },
+        );
+        $vaultHttpClient->method('sendRequest')->willReturnCallback(fn() => $this->createJsonResponseMock([], 200));
+
+        $vault = self::createStub(VaultServiceInterface::class);
+        $vault->method('exists')->willReturn(true);
+        $vault->method('retrieve')->willReturn('test-secret');
+        $vault->method('http')->willReturn($vaultHttpClient);
+
+        $extConf = self::createStub(ExtensionConfiguration::class);
+        $extConf->method('get')->willReturn(['apiKeyIdentifier' => 'vault-id', 'baseUrl' => 'https://api.test/v1']);
+
+        $subject = new TestableSpecializedService(
+            vault: $vault,
+            requestFactory: $this->passthroughRequestFactory(),
+            streamFactory: $this->passthroughStreamFactory(),
+            extensionConfiguration: $extConf,
+            usageTracker: self::createStub(UsageTrackerServiceInterface::class),
+            logger: self::createStub(LoggerInterface::class),
+        );
+
+        $subject->callSendJsonRequest('endpoint', []);
+
+        self::assertSame('vault-id', $capturedIdentifier);
+        self::assertSame(SecretPlacement::Bearer, $capturedPlacement);
+        self::assertSame([], $capturedOptions);
+        self::assertNotNull($capturedReason);
+        self::assertNotSame('', $capturedReason);
     }
 
     #[Test]
@@ -137,7 +204,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock(['error' => ['message' => 'invalid key']], 401));
 
-        $subject = $this->createSubject(apiKey: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
 
         $this->expectException(ServiceConfigurationException::class);
 
@@ -152,7 +219,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock(['error' => ['message' => 'forbidden']], 403));
 
-        $subject = $this->createSubject(apiKey: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
 
         $this->expectException(ServiceConfigurationException::class);
 
@@ -167,7 +234,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock(['error' => ['message' => 'too many requests']], 429));
 
-        $subject = $this->createSubject(apiKey: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
 
         try {
             $subject->callSendJsonRequest('endpoint', []);
@@ -188,7 +255,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock(['error' => ['message' => 'bad request — prompt empty']], 400));
 
-        $subject = $this->createSubject(apiKey: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
 
         try {
             $subject->callSendJsonRequest('endpoint', []);
@@ -206,7 +273,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willThrowException(new RuntimeException('connection reset'));
 
-        $subject = $this->createSubject(apiKey: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
 
         try {
             $subject->callSendJsonRequest('endpoint', []);
@@ -227,7 +294,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createHttpResponseMock(204, ''));
 
-        $subject = $this->createSubject(apiKey: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
 
         $result = $subject->callSendJsonRequest('endpoint', []);
 
@@ -245,7 +312,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $extConf->method('get')->willThrowException(new RuntimeException('boom'));
 
         $subject = new TestableSpecializedService(
-            httpClient: self::createStub(ClientInterface::class),
+            vault: $this->createVaultServiceMock(),
             requestFactory: $this->passthroughRequestFactory(),
             streamFactory: $this->passthroughStreamFactory(),
             extensionConfiguration: $extConf,
@@ -259,7 +326,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     #[Test]
     public function multipartTraitBuildsExpectedBoundaryAndBody(): void
     {
-        $subject = $this->createSubject(apiKey: 'k', baseUrl: 'https://api.test');
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test');
 
         $body = $subject->callEncodeMultipartBody([
             ['name' => 'file', 'filename' => 'a.bin', 'content' => 'BIN', 'contentType' => 'application/octet-stream'],
@@ -291,7 +358,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
                 return $this->createJsonResponseMock([], 200);
             });
 
-        $subject = $this->createSubject(apiKey: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
 
         $subject->callSendJsonRequest('endpoint', ['ignored' => 'on-get'], 'GET');
 
@@ -311,10 +378,10 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // would have raised a bootstrap fatal. Now it degrades to
         // `isAvailable() === false`.
         $extConf = self::createStub(ExtensionConfiguration::class);
-        $extConf->method('get')->willReturn(['apiKey' => 12345, 'baseUrl' => 'https://api.test']);
+        $extConf->method('get')->willReturn(['apiKeyIdentifier' => 12345, 'baseUrl' => 'https://api.test']);
 
         $subject = new TestableTypeErrorSpecializedService(
-            httpClient: self::createStub(ClientInterface::class),
+            vault: $this->createVaultServiceMock(),
             requestFactory: $this->passthroughRequestFactory(),
             streamFactory: $this->passthroughStreamFactory(),
             extensionConfiguration: $extConf,
@@ -336,7 +403,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // body framing. The literal text "X-Injected: yes" may still
         // appear AS DATA inside the value (CR/LF removed → no header
         // boundary), but it must NOT appear on its own line.
-        $subject = $this->createSubject(apiKey: 'k', baseUrl: 'https://api.test');
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test');
 
         $body = $subject->callEncodeMultipartBody([
             [
@@ -369,7 +436,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // shouldn't poison the entire body. The part is silently
         // skipped (rather than throwing) so the surrounding parts
         // still produce a valid body.
-        $subject = $this->createSubject(apiKey: 'k', baseUrl: 'https://api.test');
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test');
 
         $body = $subject->callEncodeMultipartBody([
             ['name' => 'good', 'value' => 'x'],
@@ -383,21 +450,28 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     }
 
     private function createSubject(
-        string $apiKey = 'test-key',
+        string $apiKeyIdentifier = 'test-key',
         string $baseUrl = 'https://api.example.test',
         ?ClientInterface $httpClient = null,
     ): TestableSpecializedService {
         $extConf = self::createStub(ExtensionConfiguration::class);
-        $extConf->method('get')->willReturn(['apiKey' => $apiKey, 'baseUrl' => $baseUrl]);
+        $extConf->method('get')->willReturn(['apiKeyIdentifier' => $apiKeyIdentifier, 'baseUrl' => $baseUrl]);
 
-        return new TestableSpecializedService(
-            httpClient: $httpClient ?? self::createStub(ClientInterface::class),
+        $subject = new TestableSpecializedService(
+            vault: $this->createVaultServiceMock(),
             requestFactory: $this->passthroughRequestFactory(),
             streamFactory: $this->passthroughStreamFactory(),
             extensionConfiguration: $extConf,
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
         );
+
+        // Inject the plain test client through the test seam; this bypasses the
+        // vault secure client so request/response assertions can read the
+        // request the service built (mirrors the provider tests).
+        $subject->setHttpClient($httpClient ?? self::createStub(ClientInterface::class));
+
+        return $subject;
     }
 
     private function passthroughRequestFactory(): RequestFactoryInterface
@@ -482,13 +556,8 @@ final class TestableSpecializedService extends AbstractSpecializedService
 
     protected function loadServiceConfiguration(array $config): void
     {
-        $this->apiKey  = is_string($config['apiKey']  ?? null) ? $config['apiKey'] : '';
-        $this->baseUrl = is_string($config['baseUrl'] ?? null) ? $config['baseUrl'] : $this->getDefaultBaseUrl();
-    }
-
-    protected function buildAuthHeaders(): array
-    {
-        return ['Authorization' => 'TestableScheme ' . $this->apiKey];
+        $this->apiKeyIdentifier = is_string($config['apiKeyIdentifier'] ?? null) ? $config['apiKeyIdentifier'] : '';
+        $this->baseUrl          = is_string($config['baseUrl'] ?? null) ? $config['baseUrl'] : $this->getDefaultBaseUrl();
     }
 }
 
@@ -645,11 +714,6 @@ final class TestableTypeErrorSpecializedService extends AbstractSpecializedServi
         // caught on PR #186 (DallE / DeepL `loadServiceConfiguration`
         // before the fix).
         /** @phpstan-ignore assign.propertyType */
-        $this->apiKey = $config['apiKey']; // @phpstan-ignore-line
-    }
-
-    protected function buildAuthHeaders(): array
-    {
-        return ['Authorization' => 'Bearer ' . $this->apiKey];
+        $this->apiKeyIdentifier = $config['apiKeyIdentifier']; // @phpstan-ignore-line
     }
 }

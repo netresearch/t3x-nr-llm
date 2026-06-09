@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Specialized;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
+use Netresearch\NrVault\Http\SecretPlacement;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
@@ -37,21 +39,33 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  *
  * Constructor signature is identical across every consumer. Property
  * visibility intentionally `protected` (not `private`) so subclasses
- * can read `apiKey` / `baseUrl` when building service-specific
+ * can read `apiKeyIdentifier` / `baseUrl` when building service-specific
  * payloads — the alternative (passing them through accessor methods)
  * adds no encapsulation since the subclass is the only thing that
  * touches them anyway.
+ *
+ * Secrets are never held as plaintext: each service stores the nr-vault
+ * identifier and authenticates through the audited secure HTTP client
+ * (`$vault->http()->withAuthentication(...)`), which injects and scrubs
+ * the secret inside the vault. This mirrors `AbstractProvider`.
  *
  * @phpstan-consistent-constructor
  */
 abstract class AbstractSpecializedService
 {
-    protected string $apiKey = '';
+    protected string $apiKeyIdentifier = '';
     protected string $baseUrl = '';
     protected int $timeout;
 
+    /**
+     * Test seam: when set, `getSecureClient()` returns this instead of the
+     * vault secure client. Production never sets it — auth always flows
+     * through the audited vault client. Mirrors `AbstractProvider`.
+     */
+    private ?ClientInterface $configuredHttpClient = null;
+
     public function __construct(
-        protected readonly ClientInterface $httpClient,
+        protected readonly VaultServiceInterface $vault,
         protected readonly RequestFactoryInterface $requestFactory,
         protected readonly StreamFactoryInterface $streamFactory,
         protected readonly ExtensionConfiguration $extensionConfiguration,
@@ -63,14 +77,14 @@ abstract class AbstractSpecializedService
     }
 
     /**
-     * Returns true once the service has a usable API key from
-     * extension configuration. Stable across the lifetime of the
-     * instance — if the config changes at runtime, callers must
+     * Returns true once the service has a configured vault identifier
+     * that resolves to an existing secret. Stable across the lifetime
+     * of the instance — if the config changes at runtime, callers must
      * rebuild the service via DI rather than poll.
      */
     public function isAvailable(): bool
     {
-        return $this->apiKey !== '';
+        return $this->apiKeyIdentifier !== '' && $this->vault->exists($this->apiKeyIdentifier);
     }
 
     /**
@@ -116,33 +130,100 @@ abstract class AbstractSpecializedService
      * Service-specific config picking. Called from `loadConfiguration()`
      * with the already-fetched `nr_llm` config tree (or `[]` if loading
      * failed). Subclasses navigate to their own config branch — e.g.
-     * `$config['providers']['openai']['apiKey']` for DALL-E or
-     * `$config['translation']['deepl']['apiKey']` for DeepL — and set
-     * `$this->apiKey`, `$this->baseUrl`, `$this->timeout` from it.
+     * `$config['providers']['openai']['apiKeyIdentifier']` for DALL-E or
+     * `$config['translators']['deepl']['apiKeyIdentifier']` for DeepL — and
+     * set `$this->apiKeyIdentifier`, `$this->baseUrl`, `$this->timeout`.
      *
-     * Subclasses MUST set `$this->apiKey` and `$this->baseUrl`. The
+     * Subclasses MUST set `$this->apiKeyIdentifier` and `$this->baseUrl`. The
      * base class pre-populates `$this->timeout` with
      * `getDefaultTimeout()` so subclasses only need to override it
      * when the config provides a timeout override.
+     *
+     * The stored identifier is the nr-vault UUID, never a plaintext key;
+     * the secret is resolved inside the audited secure client at request
+     * time (see `getSecureClient()`).
      *
      * @param array<string, mixed> $config the full `nr_llm` config tree
      */
     abstract protected function loadServiceConfiguration(array $config): void;
 
     /**
-     * Build the auth headers the upstream API expects. Three schemes
-     * are in active use across the specialised services today:
-     *  - `['Authorization' => 'Bearer ' . $this->apiKey]` (OpenAI)
-     *  - `['Authorization' => 'Key '    . $this->apiKey]` (FAL)
-     *  - `['Authorization' => 'DeepL-Auth-Key ' . $this->apiKey]`.
-     *
-     * Returning a multi-key array is supported for any future
-     * provider that needs an extra header alongside auth (e.g.
-     * `'X-Api-Version'`); the request builder applies all of them.
+     * How the upstream API expects the secret to be placed. Defaults to
+     * Bearer (the OpenAI family — DALL-E, Whisper, TTS). Services with a
+     * different scheme override this together with
+     * `getSecretPlacementOptions()`:
+     *  - FAL:   `SecretPlacement::Header` + `['headerName' => 'Authorization', 'prefix' => 'Key ']`
+     *  - DeepL: `SecretPlacement::Header` + `['headerName' => 'Authorization', 'prefix' => 'DeepL-Auth-Key ']`.
+     */
+    protected function getSecretPlacement(): SecretPlacement
+    {
+        return SecretPlacement::Bearer;
+    }
+
+    /**
+     * Options forwarded to `VaultHttpClientInterface::withAuthentication()`
+     * for the configured placement (e.g. `headerName`, `prefix`). Empty by
+     * default (Bearer needs none).
      *
      * @return array<string, string>
      */
-    abstract protected function buildAuthHeaders(): array;
+    protected function getSecretPlacementOptions(): array
+    {
+        return [];
+    }
+
+    /**
+     * Non-auth headers applied to every request alongside `Content-Type`.
+     * Auth headers are NOT built here — the secure client injects them. Used
+     * for extras like DeepL's `User-Agent`. Empty by default.
+     *
+     * @return array<string, string>
+     */
+    protected function getAdditionalHeaders(): array
+    {
+        return [];
+    }
+
+    /**
+     * Audit-log reason recorded by the secure client for this service's
+     * requests. Subclasses may override for a more specific phrase.
+     */
+    protected function getAuditReason(): string
+    {
+        return sprintf('%s API call', $this->getProviderLabel());
+    }
+
+    /**
+     * The nr-vault secure HTTP client configured for this service's secret
+     * and placement. It resolves the secret inside the vault, injects it,
+     * audits the access, and scrubs the plaintext — the secret never
+     * surfaces in this extension's code. Mirrors `AbstractProvider`.
+     */
+    protected function getSecureClient(): ClientInterface
+    {
+        if ($this->configuredHttpClient !== null) {
+            return $this->configuredHttpClient;
+        }
+
+        return $this->vault->http()
+            ->withAuthentication(
+                $this->apiKeyIdentifier,
+                $this->getSecretPlacement(),
+                $this->getSecretPlacementOptions(),
+            )
+            ->withReason($this->getAuditReason());
+    }
+
+    /**
+     * Inject a custom HTTP client, bypassing the vault secure client.
+     *
+     * @internal Test seam only — production always authenticates through the
+     *           audited vault client (see `getSecureClient()`).
+     */
+    public function setHttpClient(ClientInterface $client): void
+    {
+        $this->configuredHttpClient = $client;
+    }
 
     /**
      * Throw a typed `ServiceUnavailableException` when the service
@@ -164,8 +245,9 @@ abstract class AbstractSpecializedService
     /**
      * Send a JSON request to the upstream API and return the decoded
      * response body. The endpoint is appended to `$this->baseUrl`
-     * (with single-slash normalisation), auth headers from
-     * `buildAuthHeaders()` are applied, and the payload is
+     * (with single-slash normalisation), the secret is injected by the
+     * secure client (see `executeRequest()`), any non-auth
+     * `getAdditionalHeaders()` are applied, and the payload is
      * `json_encode`d with `JSON_THROW_ON_ERROR`.
      *
      * Body-less methods (`GET`, `HEAD`, `DELETE`) skip the JSON body
@@ -188,7 +270,7 @@ abstract class AbstractSpecializedService
         $request = $this->requestFactory->createRequest($method, $url)
             ->withHeader('Content-Type', 'application/json');
 
-        foreach ($this->buildAuthHeaders() as $name => $value) {
+        foreach ($this->getAdditionalHeaders() as $name => $value) {
             $request = $request->withHeader($name, $value);
         }
 
@@ -245,7 +327,7 @@ abstract class AbstractSpecializedService
     protected function executeRequest(RequestInterface $request): array
     {
         try {
-            $response = $this->httpClient->sendRequest($request);
+            $response = $this->getSecureClient()->sendRequest($request);
             $statusCode = $response->getStatusCode();
             $responseBody = (string)$response->getBody();
 

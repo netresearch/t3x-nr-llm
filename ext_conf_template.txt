@@ -5,9 +5,16 @@
 # backend module using database-backed Provider, Model, and Configuration entities.
 # The settings below are only for specialized services that are not yet migrated
 # to the database-backed architecture.
+#
+# All API keys are stored as nr-vault secret identifiers (UUIDs), never as
+# plaintext. The secret is injected by the audited secure HTTP client at request
+# time. Create the secret in the Vault backend module and paste its identifier here.
 
-# cat=deepl; type=string; label=DeepL API Key: Your DeepL API key (Free or Pro). Free keys end with ':fx'
-translators.deepl.apiKey =
+# cat=openai; type=string; label=OpenAI Vault Identifier: nr-vault secret identifier for the OpenAI API key used by the DALL-E, Whisper, and TTS specialized services
+providers.openai.apiKeyIdentifier =
+
+# cat=deepl; type=string; label=DeepL Vault Identifier: nr-vault secret identifier for the DeepL API key (Free or Pro; Free keys end with ':fx', auto-detected on first request)
+translators.deepl.apiKeyIdentifier =
 
 # cat=deepl; type=string; label=DeepL Base URL: Custom base URL (leave empty for auto-detection based on key type)
 translators.deepl.baseUrl =
@@ -45,8 +52,8 @@ image.dalle.defaultModel = dall-e-3
 # cat=image; type=options[1024x1024,1792x1024,1024x1792]; label=DALL-E Default Size: Default image size
 image.dalle.defaultSize = 1024x1024
 
-# cat=fal; type=string; label=FAL API Key: Your FAL.ai API key for alternative image generation
-image.fal.apiKey =
+# cat=fal; type=string; label=FAL Vault Identifier: nr-vault secret identifier for the FAL.ai API key used for alternative image generation
+image.fal.apiKeyIdentifier =
 
 # cat=fal; type=string; label=FAL Base URL: Custom base URL for FAL API (leave empty for default)
 image.fal.baseUrl =

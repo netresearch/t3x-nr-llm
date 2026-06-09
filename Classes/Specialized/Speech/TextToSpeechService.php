@@ -248,8 +248,8 @@ final class TextToSpeechService extends AbstractSpecializedService
         if (is_array($providers)) {
             $openai = $providers['openai'] ?? null;
             if (is_array($openai)) {
-                $apiKey = $openai['apiKey'] ?? '';
-                $this->apiKey = is_string($apiKey) ? $apiKey : '';
+                $apiKeyIdentifier = $openai['apiKeyIdentifier'] ?? '';
+                $this->apiKeyIdentifier = is_string($apiKeyIdentifier) ? $apiKeyIdentifier : '';
             }
         }
 
@@ -265,11 +265,6 @@ final class TextToSpeechService extends AbstractSpecializedService
                 $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
             }
         }
-    }
-
-    protected function buildAuthHeaders(): array
-    {
-        return ['Authorization' => 'Bearer ' . $this->apiKey];
     }
 
     protected function getProviderLabel(): string
@@ -402,7 +397,7 @@ final class TextToSpeechService extends AbstractSpecializedService
     {
         $request = $this->requestFactory->createRequest('POST', $this->buildEndpointUrl(''))
             ->withHeader('Content-Type', 'application/json');
-        foreach ($this->buildAuthHeaders() as $name => $value) {
+        foreach ($this->getAdditionalHeaders() as $name => $value) {
             $request = $request->withHeader($name, $value);
         }
         $request = $request->withBody(
@@ -410,7 +405,7 @@ final class TextToSpeechService extends AbstractSpecializedService
         );
 
         try {
-            $response = $this->httpClient->sendRequest($request);
+            $response = $this->getSecureClient()->sendRequest($request);
             $statusCode = $response->getStatusCode();
 
             if ($statusCode >= 200 && $statusCode < 300) {

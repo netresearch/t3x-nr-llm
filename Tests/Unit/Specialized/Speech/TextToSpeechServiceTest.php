@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
 use Netresearch\NrLlm\Specialized\Speech\SpeechSynthesisResult;
 use Netresearch\NrLlm\Specialized\Speech\TextToSpeechService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -41,6 +42,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     private ExtensionConfiguration&MockObject $extensionConfigMock;
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LoggerInterface&Stub $loggerStub;
+    private VaultServiceInterface $vaultStub;
 
     protected function setUp(): void
     {
@@ -52,6 +54,33 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
         $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
         $this->loggerStub = self::createStub(LoggerInterface::class);
+        $this->vaultStub = $this->createVaultServiceMock();
+    }
+
+    /**
+     * Build a TextToSpeechService wired to the vault mock, then inject the given
+     * plain HTTP client through the test seam (bypasses the vault secure client
+     * so request/response assertions can read the request the service built).
+     */
+    private function buildService(
+        ClientInterface $httpClient,
+        RequestFactoryInterface $requestFactory,
+        StreamFactoryInterface $streamFactory,
+        ExtensionConfiguration $extensionConfiguration,
+        UsageTrackerServiceInterface $usageTracker,
+        LoggerInterface $logger,
+    ): TextToSpeechService {
+        $service = new TextToSpeechService(
+            $this->vaultStub,
+            $requestFactory,
+            $streamFactory,
+            $extensionConfiguration,
+            $usageTracker,
+            $logger,
+        );
+        $service->setHttpClient($httpClient);
+
+        return $service;
     }
 
     /**
@@ -62,7 +91,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $defaultConfig = [
             'providers' => [
                 'openai' => [
-                    'apiKey' => 'test-api-key',
+                    'apiKeyIdentifier' => 'test-api-key',
                 ],
             ],
         ];
@@ -72,7 +101,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->with('nr_llm')
             ->willReturn(array_merge($defaultConfig, $config));
 
-        return new TextToSpeechService(
+        return $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -91,7 +120,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
                 'providers' => [],
             ]);
 
-        return new TextToSpeechService(
+        return $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -285,7 +314,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->willReturn([
                 'providers' => [
                     'openai' => [
-                        'apiKey' => 'test-api-key',
+                        'apiKeyIdentifier' => 'test-api-key',
                     ],
                 ],
             ]);
@@ -300,7 +329,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
                 self::callback(fn($data) => is_array($data) && isset($data['characters'])),
             );
 
-        $subject = new TextToSpeechService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -438,12 +467,12 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->willReturn([
                 'providers' => [
                     'openai' => [
-                        'apiKey' => 'test-api-key',
+                        'apiKeyIdentifier' => 'test-api-key',
                     ],
                 ],
             ]);
 
-        $subject = new TextToSpeechService(
+        $subject = $this->buildService(
             $httpClientStub,
             $requestFactoryStub,
             $streamFactoryStub,
@@ -513,7 +542,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
-        $subject = new TextToSpeechService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -531,7 +560,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $config = [
             'providers' => [
                 'openai' => [
-                    'apiKey' => 'test-api-key',
+                    'apiKeyIdentifier' => 'test-api-key',
                 ],
             ],
             'speech' => [
@@ -561,7 +590,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('warning');
 
-        $subject = new TextToSpeechService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -732,7 +761,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
-        $subject = new TextToSpeechService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -754,7 +783,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
                 'providers' => 'not-an-array',
             ]);
 
-        $subject = new TextToSpeechService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,

@@ -15,12 +15,14 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Http\SecretPlacement;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
+use ReflectionClass;
 
 #[CoversClass(DeepLTranslator::class)]
 class DeepLTranslatorTest extends AbstractUnitTestCase
@@ -28,19 +30,23 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     private DeepLTranslator $subject;
     private UsageTrackerServiceInterface $usageTrackerStub;
 
-    /** @var array{translators: array{deepl: array{apiKey: string, timeout: int}}} */
+    /** @var array{translators: array{deepl: array{apiKeyIdentifier: string, timeout: int}}} */
     private array $defaultConfig;
+
+    /** The vault identifier the default config points at (resolved Pro endpoint). */
+    private string $apiKeyIdentifier;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
+        $this->apiKeyIdentifier = $this->randomApiKey();
 
         $this->defaultConfig = [
             'translators' => [
                 'deepl' => [
-                    'apiKey' => $this->randomApiKey(),
+                    'apiKeyIdentifier' => $this->apiKeyIdentifier,
                     'timeout' => 30,
                 ],
             ],
@@ -53,6 +59,8 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
     /**
      * Create a DeepLTranslator with a pre-configured HTTP client response.
+     * The translator is wired to a vault mock and the response client is
+     * injected through the test seam (bypassing the vault secure client).
      */
     private function createSubjectWithResponse(ResponseInterface $response): DeepLTranslator
     {
@@ -60,14 +68,38 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $httpClientStub = self::createStub(ClientInterface::class);
         $httpClientStub->method('sendRequest')->willReturn($response);
 
-        return new DeepLTranslator(
-            $httpClientStub,
+        $translator = new DeepLTranslator(
+            $this->createVaultServiceMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createExtensionConfigurationMock($this->defaultConfig),
             $this->usageTrackerStub,
             $this->createLoggerMock(),
         );
+        $translator->setHttpClient($httpClientStub);
+
+        return $translator;
+    }
+
+    /**
+     * Build a DeepLTranslator wired to a vault mock (with the given config) and
+     * inject the supplied plain HTTP client through the test seam.
+     *
+     * @param array<string, mixed> $config
+     */
+    private function buildTranslator(ClientInterface $httpClient, array $config): DeepLTranslator
+    {
+        $translator = new DeepLTranslator(
+            $this->createVaultServiceMock(),
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createExtensionConfigurationMock($config),
+            $this->usageTrackerStub,
+            $this->createLoggerMock(),
+        );
+        $translator->setHttpClient($httpClient);
+
+        return $translator;
     }
 
     #[Test]
@@ -82,6 +114,33 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         self::assertEquals('DeepL Translation', $this->subject->getName());
     }
 
+    /**
+     * Assert DeepL exposes the Header placement, `DeepL-Auth-Key ` prefix, and
+     * User-Agent the secure client uses to authenticate
+     * (DeepL: `Authorization: DeepL-Auth-Key <secret>`). This is the exact
+     * non-Bearer scheme the nr-vault prefix option was added for.
+     */
+    #[Test]
+    public function getSecretPlacementUsesHeaderWithDeepLAuthKeyPrefix(): void
+    {
+        $reflection = new ReflectionClass($this->subject);
+
+        $placementMethod = $reflection->getMethod('getSecretPlacement');
+        self::assertSame(SecretPlacement::Header, $placementMethod->invoke($this->subject));
+
+        $optionsMethod = $reflection->getMethod('getSecretPlacementOptions');
+        self::assertSame(
+            ['headerName' => 'Authorization', 'prefix' => 'DeepL-Auth-Key '],
+            $optionsMethod->invoke($this->subject),
+        );
+
+        $headersMethod = $reflection->getMethod('getAdditionalHeaders');
+        self::assertSame(
+            ['User-Agent' => 'TYPO3-NrLlm/1.0'],
+            $headersMethod->invoke($this->subject),
+        );
+    }
+
     #[Test]
     public function isAvailableReturnsTrueWhenApiKeyConfigured(): void
     {
@@ -94,19 +153,12 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $config = [
             'translators' => [
                 'deepl' => [
-                    'apiKey' => '',
+                    'apiKeyIdentifier' => '',
                 ],
             ],
         ];
 
-        $translator = new DeepLTranslator(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createExtensionConfigurationMock($config),
-            $this->usageTrackerStub,
-            $this->createLoggerMock(),
-        );
+        $translator = $this->buildTranslator($this->createHttpClientMock(), $config);
 
         self::assertFalse($translator->isAvailable());
     }
@@ -129,14 +181,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
-        $subject = new DeepLTranslator(
-            $httpClientMock,
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createExtensionConfigurationMock($this->defaultConfig),
-            $this->usageTrackerStub,
-            $this->createLoggerMock(),
-        );
+        $subject = $this->buildTranslator($httpClientMock, $this->defaultConfig);
 
         $result = $subject->translate('Hello World', 'de');
 
@@ -165,14 +210,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
-        $subject = new DeepLTranslator(
-            $httpClientMock,
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createExtensionConfigurationMock($this->defaultConfig),
-            $this->usageTrackerStub,
-            $this->createLoggerMock(),
-        );
+        $subject = $this->buildTranslator($httpClientMock, $this->defaultConfig);
 
         $result = $subject->translate('Hello World', 'fr', 'en');
 
@@ -207,13 +245,14 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             );
 
         $subject = new DeepLTranslator(
-            $httpClientStub,
+            $this->createVaultServiceMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createExtensionConfigurationMock($this->defaultConfig),
             $usageTrackerMock,
             $this->createLoggerMock(),
         );
+        $subject->setHttpClient($httpClientStub);
 
         $subject->translate($text, 'de');
     }
@@ -221,16 +260,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     #[Test]
     public function translateThrowsWhenNotAvailable(): void
     {
-        $config = ['translators' => ['deepl' => ['apiKey' => '']]];
+        $config = ['translators' => ['deepl' => ['apiKeyIdentifier' => '']]];
 
-        $translator = new DeepLTranslator(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createExtensionConfigurationMock($config),
-            $this->usageTrackerStub,
-            $this->createLoggerMock(),
-        );
+        $translator = $this->buildTranslator($this->createHttpClientMock(), $config);
 
         $this->expectException(ServiceUnavailableException::class);
 
@@ -253,14 +285,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($this->createJsonResponseMock($apiResponse));
 
-        $subject = new DeepLTranslator(
-            $httpClientMock,
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createExtensionConfigurationMock($this->defaultConfig),
-            $this->usageTrackerStub,
-            $this->createLoggerMock(),
-        );
+        $subject = $this->buildTranslator($httpClientMock, $this->defaultConfig);
 
         $results = $subject->translateBatch(['Hello', 'World'], 'de');
 

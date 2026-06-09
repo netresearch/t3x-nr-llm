@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Option\DeepLOptions;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -28,25 +29,35 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     /**
      * @param array<string, mixed> $config
      */
-    private function createTranslator(array $config = []): DeepLTranslator
+    private function createTranslator(array $config = [], ?VaultServiceInterface $vault = null): DeepLTranslator
     {
         $defaultConfig = [
             'translators' => [
                 'deepl' => [
-                    'apiKey' => $this->randomApiKey(),
+                    'apiKeyIdentifier' => $this->randomApiKey(),
                     'timeout' => 30,
                 ],
             ],
         ];
 
-        return new DeepLTranslator(
-            $this->createHttpClientMock(),
+        $translator = new DeepLTranslator(
+            $vault ?? $this->createVaultServiceMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createExtensionConfigurationMock(array_merge($defaultConfig, $config)),
             self::createStub(UsageTrackerServiceInterface::class),
             $this->createLoggerMock(),
         );
+
+        // Inject a client that returns a successful empty-detect response so the
+        // request resolveBaseUrl() rides on doesn't raise an API error.
+        $httpClient = self::createStub(ClientInterface::class);
+        $httpClient->method('sendRequest')->willReturn(
+            $this->createJsonResponseMock(['translations' => [['text' => '', 'detected_source_language' => 'EN']]]),
+        );
+        $translator->setHttpClient($httpClient);
+
+        return $translator;
     }
 
     private function createTranslatorWithMockClient(ClientInterface $httpClient): DeepLTranslator
@@ -54,20 +65,40 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $config = [
             'translators' => [
                 'deepl' => [
-                    'apiKey' => $this->randomApiKey(),
+                    'apiKeyIdentifier' => $this->randomApiKey(),
                     'timeout' => 30,
                 ],
             ],
         ];
 
-        return new DeepLTranslator(
-            $httpClient,
+        $translator = new DeepLTranslator(
+            $this->createVaultServiceMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createExtensionConfigurationMock($config),
             self::createStub(UsageTrackerServiceInterface::class),
             $this->createLoggerMock(),
         );
+        $translator->setHttpClient($httpClient);
+
+        return $translator;
+    }
+
+    /**
+     * Trigger a request so the lazily-resolved Free/Pro base URL is populated,
+     * then read it back via reflection. resolveBaseUrl() calls vault->retrieve()
+     * to test the :fx suffix; the injected plain client makes the request itself
+     * a harmless `{}` round-trip.
+     */
+    private function resolveBaseUrl(DeepLTranslator $translator): string
+    {
+        $translator->detectLanguage('text');
+
+        $reflection = new ReflectionClass($translator);
+        $baseUrl = $reflection->getProperty('baseUrl')->getValue($translator);
+        self::assertIsString($baseUrl);
+
+        return $baseUrl;
     }
 
     #[Test]
@@ -396,31 +427,23 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
     #[Test]
     public function freeApiKeyUsesFreeApiUrl(): void
     {
+        // Free vs Pro is decided by the resolved secret value (free keys end
+        // with :fx), retrieved lazily through the vault on the first request.
         $config = [
             'translators' => [
                 'deepl' => [
-                    'apiKey' => 'test-key:fx', // Free API key ends with :fx
+                    'apiKeyIdentifier' => 'deepl-free-id',
                     'timeout' => 30,
                 ],
             ],
         ];
 
-        $translator = new DeepLTranslator(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createExtensionConfigurationMock($config),
-            self::createStub(UsageTrackerServiceInterface::class),
-            $this->createLoggerMock(),
+        $translator = $this->createTranslator(
+            $config,
+            $this->createVaultServiceMock(['deepl-free-id' => 'secret-value:fx']),
         );
 
-        // Access baseUrl via reflection
-        $reflection = new ReflectionClass($translator);
-        $baseUrl = $reflection->getProperty('baseUrl');
-        $baseUrlValue = $baseUrl->getValue($translator);
-        self::assertIsString($baseUrlValue);
-
-        self::assertStringContainsString('api-free.deepl.com', $baseUrlValue);
+        self::assertStringContainsString('api-free.deepl.com', $this->resolveBaseUrl($translator));
     }
 
     #[Test]
@@ -429,26 +452,18 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $config = [
             'translators' => [
                 'deepl' => [
-                    'apiKey' => 'pro-api-key', // Pro API key doesn't end with :fx
+                    'apiKeyIdentifier' => 'deepl-pro-id',
                     'timeout' => 30,
                 ],
             ],
         ];
 
-        $translator = new DeepLTranslator(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createExtensionConfigurationMock($config),
-            self::createStub(UsageTrackerServiceInterface::class),
-            $this->createLoggerMock(),
+        $translator = $this->createTranslator(
+            $config,
+            $this->createVaultServiceMock(['deepl-pro-id' => 'secret-value-pro']),
         );
 
-        // Access baseUrl via reflection
-        $reflection = new ReflectionClass($translator);
-        $baseUrl = $reflection->getProperty('baseUrl');
-        $baseUrlValue = $baseUrl->getValue($translator);
-        self::assertIsString($baseUrlValue);
+        $baseUrlValue = $this->resolveBaseUrl($translator);
 
         self::assertStringContainsString('api.deepl.com', $baseUrlValue);
         self::assertStringNotContainsString('api-free', $baseUrlValue);
@@ -461,26 +476,16 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $config = [
             'translators' => [
                 'deepl' => [
-                    'apiKey' => 'pro-api-key',
+                    'apiKeyIdentifier' => 'deepl-pro-id',
                     'baseUrl' => $customUrl,
                     'timeout' => 30,
                 ],
             ],
         ];
 
-        $translator = new DeepLTranslator(
-            $this->createHttpClientMock(),
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createExtensionConfigurationMock($config),
-            self::createStub(UsageTrackerServiceInterface::class),
-            $this->createLoggerMock(),
-        );
+        $translator = $this->createTranslator($config);
 
-        $reflection = new ReflectionClass($translator);
-        $baseUrl = $reflection->getProperty('baseUrl');
-
-        self::assertEquals($customUrl, $baseUrl->getValue($translator));
+        self::assertEquals($customUrl, $this->resolveBaseUrl($translator));
     }
 
     #[Test]
@@ -511,15 +516,16 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             ]));
 
         $translator = new DeepLTranslator(
-            $httpClientMock,
+            $this->createVaultServiceMock(),
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->createExtensionConfigurationMock([
-                'translators' => ['deepl' => ['apiKey' => $this->randomApiKey()]],
+                'translators' => ['deepl' => ['apiKeyIdentifier' => $this->randomApiKey()]],
             ]),
             $usageTrackerMock,
             $this->createLoggerMock(),
         );
+        $translator->setHttpClient($httpClientMock);
 
         $translator->translateBatch($texts, 'de');
     }

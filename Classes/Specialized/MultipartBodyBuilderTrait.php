@@ -24,8 +24,9 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
  * those three services do not pay the trait's footprint.
  *
  * Consumers must `use` `AbstractSpecializedService` (this trait
- * relies on its `requestFactory`, `streamFactory`, `buildAuthHeaders()`,
- * `buildEndpointUrl()`, and `executeRequest()` members).
+ * relies on its `requestFactory`, `streamFactory`, `getAdditionalHeaders()`,
+ * `buildEndpointUrl()`, and `executeRequest()` members). Auth is injected
+ * by the secure client inside `executeRequest()`, not added here.
  *
  * Part shapes:
  * - File part:    `['name' => string, 'filename' => string, 'content' => string, 'contentType' => string]`
@@ -56,7 +57,7 @@ trait MultipartBodyBuilderTrait
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'multipart/form-data; boundary=' . $boundary);
 
-        foreach ($this->buildAuthHeaders() as $name => $value) {
+        foreach ($this->getAdditionalHeaders() as $name => $value) {
             $request = $request->withHeader($name, $value);
         }
 

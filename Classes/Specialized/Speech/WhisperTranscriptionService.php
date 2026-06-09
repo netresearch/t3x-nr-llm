@@ -200,15 +200,10 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
      */
     protected function loadServiceConfiguration(array $config): void
     {
-        /** @var array{providers?: array{openai?: array{apiKey?: string}}, speech?: array{whisper?: array{baseUrl?: string, timeout?: int}}} $config */
-        $this->apiKey  = (string)($config['providers']['openai']['apiKey'] ?? '');
+        /** @var array{providers?: array{openai?: array{apiKeyIdentifier?: string}}, speech?: array{whisper?: array{baseUrl?: string, timeout?: int}}} $config */
+        $this->apiKeyIdentifier = (string)($config['providers']['openai']['apiKeyIdentifier'] ?? '');
         $this->baseUrl = (string)($config['speech']['whisper']['baseUrl'] ?? self::API_URL);
         $this->timeout = (int)($config['speech']['whisper']['timeout'] ?? $this->getDefaultTimeout());
-    }
-
-    protected function buildAuthHeaders(): array
-    {
-        return ['Authorization' => 'Bearer ' . $this->apiKey];
     }
 
     protected function getProviderLabel(): string
@@ -351,7 +346,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
      * format-dependent so the base's strict-array `executeRequest()`
      * does not fit; this method owns the request lifecycle while
      * still using the trait's `encodeMultipartBody()` for the wire
-     * payload and the base's `buildAuthHeaders()` for auth.
+     * payload and the base's secure client for audited auth injection.
      *
      * @param list<array<string, mixed>> $parts
      *
@@ -368,13 +363,13 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
 
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'multipart/form-data; boundary=' . $boundary);
-        foreach ($this->buildAuthHeaders() as $name => $value) {
+        foreach ($this->getAdditionalHeaders() as $name => $value) {
             $request = $request->withHeader($name, $value);
         }
         $request = $request->withBody($this->streamFactory->createStream($body));
 
         try {
-            $response = $this->httpClient->sendRequest($request);
+            $response = $this->getSecureClient()->sendRequest($request);
             $statusCode = $response->getStatusCode();
             $responseBody = (string)$response->getBody();
 

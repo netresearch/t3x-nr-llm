@@ -262,3 +262,4 @@ Modern architecture (v0.4+)
    Adr027SplitTaskController
    Adr028PublicServicesPolicy
    Adr029UsageAnalyticsDashboard
+   Adr030SpecializedServicesVaultMigration
