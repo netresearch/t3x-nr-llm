@@ -829,6 +829,34 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function chatFallsBackToDefaultProviderWhenDefaultConfigurationIsAccessRestricted(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('hasAccessRestrictions')->willReturn(true);
+
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn($config);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($this->provider);
+
+        // A group-restricted default must not be auto-applied without a BE-user
+        // context to enforce membership — the extension-config provider handles it.
+        $result = $manager->chat([['role' => 'user', 'content' => 'Hello']]);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
     public function completeRoutesThroughDefaultConfigurationWhenNoProviderPinned(): void
     {
         $model = self::createStub(Model::class);

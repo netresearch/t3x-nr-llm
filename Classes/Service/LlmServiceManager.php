@@ -80,10 +80,15 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
         $configuration = $this->configurationRepository?->findDefault();
 
-        // A default configuration without a model cannot build an adapter
-        // (getAdapterFromConfiguration() would throw). Treat that as "no default"
-        // so the extension-config fallback path is preserved as documented.
-        if ($configuration === null || $configuration->getLlmModel() === null) {
+        // Treat as "no default" — preserving the extension-config fallback — when the default
+        // configuration is missing, has no model (getAdapterFromConfiguration() would throw), or
+        // is access-restricted to specific BE groups. The generic chat()/complete()/streamChat()
+        // path has no backend-user context to enforce group membership against (notably the CLI
+        // worker), so an access-restricted default must not be auto-applied to arbitrary callers.
+        if ($configuration === null
+            || $configuration->getLlmModel() === null
+            || $configuration->hasAccessRestrictions()
+        ) {
             return null;
         }
 
