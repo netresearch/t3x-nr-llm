@@ -64,8 +64,9 @@ interface LlmServiceManagerInterface
      * Complete a prompt using a specific LLM configuration.
      *
      * @param array<string, mixed> $metadata
+     * @param array<string, mixed> $optionOverrides per-call options that take precedence over the configuration's stored defaults
      */
-    public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration, array $metadata = []): CompletionResponse;
+    public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []): CompletionResponse;
 
     /**
      * Chat using a specific LLM configuration (database-backed provider resolution).
@@ -75,8 +76,9 @@ interface LlmServiceManagerInterface
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $metadata
+     * @param array<string, mixed>                   $optionOverrides per-call options that take precedence over the configuration's stored defaults
      */
-    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = []): CompletionResponse;
+    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []): CompletionResponse;
 
     /**
      * Stream chat completion using a specific LLM configuration.

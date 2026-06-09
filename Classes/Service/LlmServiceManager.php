@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
@@ -55,8 +56,29 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         private readonly ProviderAdapterRegistryInterface $adapterRegistry,
         private readonly MiddlewarePipeline $pipeline,
         private readonly CacheManagerInterface $cacheManager,
+        private readonly ?LlmConfigurationRepository $configurationRepository = null,
     ) {
         $this->loadConfiguration();
+    }
+
+    /**
+     * Resolve the backend-module-managed default configuration for a generic
+     * (provider-agnostic) completion/chat call. Returns null when the caller
+     * pinned an explicit provider, when no repository is wired (unit tests), or
+     * when no active default configuration exists — in which case the caller
+     * falls back to the extension-config default provider.
+     *
+     * Uses the repository directly rather than LlmConfigurationService, whose
+     * getDefaultConfiguration() enforces a backend-user access check that the
+     * CLI worker (Symfony Messenger consumer) has no user for.
+     */
+    private function resolveDefaultConfiguration(?string $providerKey): ?LlmConfiguration
+    {
+        if ($providerKey !== null) {
+            return null;
+        }
+
+        return $this->configurationRepository?->findDefault();
     }
 
     private function loadConfiguration(): void
@@ -163,6 +185,20 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
         unset($optionsArray['provider']);
 
+        // Single source of truth: with no explicit provider pinned, prefer the
+        // backend-module-managed default DB configuration so it drives generation.
+        // The per-call options override the configuration's stored defaults; falls
+        // back to the extension-config default provider when no default exists.
+        $defaultConfiguration = $this->resolveDefaultConfiguration($providerKey);
+        if ($defaultConfiguration !== null) {
+            return $this->chatWithConfiguration(
+                $messages,
+                $defaultConfiguration,
+                $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
+                $optionsArray,
+            );
+        }
+
         $normalisedMessages = $this->normaliseMessages($messages);
 
         return $this->runThroughPipeline(
@@ -182,6 +218,17 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $optionsArray = $options->toArray();
         $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
         unset($optionsArray['provider']);
+
+        // Single source of truth: prefer the default DB configuration (see chat()).
+        $defaultConfiguration = $this->resolveDefaultConfiguration($providerKey);
+        if ($defaultConfiguration !== null) {
+            return $this->completeWithConfiguration(
+                $prompt,
+                $defaultConfiguration,
+                $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
+                $optionsArray,
+            );
+        }
 
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Completion, $providerKey),
@@ -448,17 +495,18 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $metadata
+     * @param array<string, mixed>                   $optionOverrides per-call options that take precedence over the configuration's stored defaults
      */
-    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = []): CompletionResponse
+    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []): CompletionResponse
     {
         $normalisedMessages = $this->normaliseMessages($messages);
 
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Chat,
-            function (LlmConfiguration $config) use ($normalisedMessages): CompletionResponse {
+            function (LlmConfiguration $config) use ($normalisedMessages, $optionOverrides): CompletionResponse {
                 $adapter = $this->getAdapterFromConfiguration($config);
-                $options = $config->toOptionsArray();
+                $options = array_merge($config->toOptionsArray(), $optionOverrides);
                 unset($options['provider']);
                 return $adapter->chatCompletion($normalisedMessages, $options);
             },
@@ -472,15 +520,16 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      * Fallback chain is applied when configured; see chatWithConfiguration().
      *
      * @param array<string, mixed> $metadata
+     * @param array<string, mixed> $optionOverrides per-call options that take precedence over the configuration's stored defaults
      */
-    public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration, array $metadata = []): CompletionResponse
+    public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []): CompletionResponse
     {
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Completion,
-            function (LlmConfiguration $config) use ($prompt): CompletionResponse {
+            function (LlmConfiguration $config) use ($prompt, $optionOverrides): CompletionResponse {
                 $adapter = $this->getAdapterFromConfiguration($config);
-                $options = $config->toOptionsArray();
+                $options = array_merge($config->toOptionsArray(), $optionOverrides);
                 unset($options['provider']);
                 return $adapter->complete($prompt, $options);
             },

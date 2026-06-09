@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -691,6 +692,114 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $result = $manager->completeWithConfiguration('Test prompt', $config);
 
         self::assertSame($expectedResponse, $result);
+    }
+
+    #[Test]
+    public function chatRoutesThroughDefaultConfigurationWhenNoProviderPinned(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('nr_repurpose');
+        $config->method('toOptionsArray')->willReturn([
+            'temperature' => 0.7,
+            'max_tokens' => 4096,
+            'model' => 'gpt-4o',
+            'provider' => 'openai',
+        ]);
+
+        $expectedResponse = new CompletionResponse(
+            content: '{"ok":true}',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(1, 1, 2),
+            finishReason: 'stop',
+            provider: 'openai',
+        );
+
+        $captured = [];
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->method('chatCompletion')->willReturnCallback(
+            function (array $messages, array $options) use (&$captured, $expectedResponse): CompletionResponse {
+                $captured = $options;
+                return $expectedResponse;
+            },
+        );
+
+        $registryStub = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryStub->method('createAdapterFromModel')->willReturn($adapter);
+
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn($config);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+
+        $result = $manager->chat(
+            [['role' => 'user', 'content' => 'Hello']],
+            (new ChatOptions(temperature: 0.3))->withResponseFormat('json'),
+        );
+
+        self::assertSame($expectedResponse, $result);
+        // Per-call options override the configuration's stored defaults.
+        self::assertSame(0.3, $captured['temperature']);
+        self::assertSame('json', $captured['response_format']);
+        // Configuration-only defaults survive the merge.
+        self::assertSame(4096, $captured['max_tokens']);
+        self::assertSame('gpt-4o', $captured['model']);
+        // The provider key is never forwarded to the adapter.
+        self::assertArrayNotHasKey('provider', $captured);
+    }
+
+    #[Test]
+    public function chatBypassesDefaultConfigurationWhenProviderPinned(): void
+    {
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        // A pinned provider must short-circuit before the default-config lookup.
+        $configRepo->expects(self::never())->method('findDefault');
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($this->provider);
+
+        $result = $manager->chat(
+            [['role' => 'user', 'content' => 'Hello']],
+            new ChatOptions(provider: 'openai'),
+        );
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function chatFallsBackToDefaultProviderWhenNoDefaultConfigurationExists(): void
+    {
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn(null);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($this->provider);
+
+        $result = $manager->chat([['role' => 'user', 'content' => 'Hello']]);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
     }
 
     #[Test]
