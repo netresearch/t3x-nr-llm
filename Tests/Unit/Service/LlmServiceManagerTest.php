@@ -46,7 +46,6 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 #[CoversClass(LlmServiceManager::class)]
