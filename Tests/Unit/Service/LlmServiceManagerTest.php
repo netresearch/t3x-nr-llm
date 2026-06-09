@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -45,7 +46,6 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 #[CoversClass(LlmServiceManager::class)]
@@ -694,6 +694,263 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function chatRoutesThroughDefaultConfigurationWhenNoProviderPinned(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('nr_repurpose');
+        $config->method('toOptionsArray')->willReturn([
+            'temperature' => 0.7,
+            'max_tokens' => 4096,
+            'model' => 'gpt-4o',
+            'provider' => 'openai',
+        ]);
+
+        $expectedResponse = new CompletionResponse(
+            content: '{"ok":true}',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(1, 1, 2),
+            finishReason: 'stop',
+            provider: 'openai',
+        );
+
+        $captured = [];
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->method('chatCompletion')->willReturnCallback(
+            function (array $messages, array $options) use (&$captured, $expectedResponse): CompletionResponse {
+                $captured = $options;
+                return $expectedResponse;
+            },
+        );
+
+        $registryStub = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryStub->method('createAdapterFromModel')->willReturn($adapter);
+
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn($config);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+
+        $result = $manager->chat(
+            [['role' => 'user', 'content' => 'Hello']],
+            (new ChatOptions(temperature: 0.3))->withResponseFormat('json'),
+        );
+
+        self::assertSame($expectedResponse, $result);
+        // Per-call options override the configuration's stored defaults.
+        self::assertSame(0.3, $captured['temperature']);
+        self::assertSame('json', $captured['response_format']);
+        // Configuration-only defaults survive the merge.
+        self::assertSame(4096, $captured['max_tokens']);
+        self::assertSame('gpt-4o', $captured['model']);
+        // The provider key is never forwarded to the adapter.
+        self::assertArrayNotHasKey('provider', $captured);
+    }
+
+    #[Test]
+    public function chatBypassesDefaultConfigurationWhenProviderPinned(): void
+    {
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        // A pinned provider must short-circuit before the default-config lookup.
+        $configRepo->expects(self::never())->method('findDefault');
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($this->provider);
+
+        $result = $manager->chat(
+            [['role' => 'user', 'content' => 'Hello']],
+            new ChatOptions(provider: 'openai'),
+        );
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function chatFallsBackToDefaultProviderWhenNoDefaultConfigurationExists(): void
+    {
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn(null);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($this->provider);
+
+        $result = $manager->chat([['role' => 'user', 'content' => 'Hello']]);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function chatFallsBackToDefaultProviderWhenDefaultConfigurationHasNoModel(): void
+    {
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn(null);
+
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn($config);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($this->provider);
+
+        // A model-less default config must not route into *WithConfiguration()
+        // (which would throw) — the extension-config provider handles it instead.
+        $result = $manager->chat([['role' => 'user', 'content' => 'Hello']]);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function chatFallsBackToDefaultProviderWhenDefaultConfigurationIsAccessRestricted(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('hasAccessRestrictions')->willReturn(true);
+
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn($config);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($this->provider);
+
+        // A group-restricted default must not be auto-applied without a BE-user
+        // context to enforce membership — the extension-config provider handles it.
+        $result = $manager->chat([['role' => 'user', 'content' => 'Hello']]);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function completeRoutesThroughDefaultConfigurationWhenNoProviderPinned(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('nr_repurpose');
+        $config->method('toOptionsArray')->willReturn([
+            'temperature' => 0.7,
+            'model' => 'gpt-4o',
+            'provider' => 'openai',
+        ]);
+
+        $expectedResponse = new CompletionResponse(
+            content: 'text',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(1, 1, 2),
+            finishReason: 'stop',
+            provider: 'openai',
+        );
+
+        $captured = [];
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->method('complete')->willReturnCallback(
+            function (string $prompt, array $options) use (&$captured, $expectedResponse): CompletionResponse {
+                $captured = $options;
+                return $expectedResponse;
+            },
+        );
+
+        $registryStub = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryStub->method('createAdapterFromModel')->willReturn($adapter);
+
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn($config);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+
+        $result = $manager->complete('Prompt', new ChatOptions(temperature: 0.2));
+
+        self::assertSame($expectedResponse, $result);
+        self::assertSame(0.2, $captured['temperature']);
+        self::assertSame('gpt-4o', $captured['model']);
+        self::assertArrayNotHasKey('provider', $captured);
+    }
+
+    #[Test]
+    public function completeBypassesDefaultConfigurationWhenProviderPinned(): void
+    {
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->expects(self::never())->method('findDefault');
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($this->provider);
+
+        $result = $manager->complete('Prompt', new ChatOptions(provider: 'openai'));
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function completeFallsBackToDefaultProviderWhenNoDefaultConfigurationExists(): void
+    {
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn(null);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($this->provider);
+
+        $result = $manager->complete('Prompt');
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
     public function streamChatWithConfigurationUsesAdapter(): void
     {
         $model = self::createStub(Model::class);
@@ -702,61 +959,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $config->method('getIdentifier')->willReturn('test-config');
         $config->method('toOptionsArray')->willReturn(['temperature' => 0.5]);
 
-        // Create a streaming-capable mock adapter
-        $mockAdapter = new class implements ProviderInterface, StreamingCapableInterface {
-            public function getIdentifier(): string
-            {
-                return 'mock';
-            }
-            public function getName(): string
-            {
-                return 'Mock';
-            }
-            public function isAvailable(): bool
-            {
-                return true;
-            }
-            public function supportsFeature(string|ModelCapability $feature): bool
-            {
-                return true;
-            }
-            public function configure(array $config): void {}
-            public function chatCompletion(array $messages, array $options = []): CompletionResponse
-            {
-                throw new RuntimeException('Not implemented', 3106251534);
-            }
-            public function complete(string $prompt, array $options = []): CompletionResponse
-            {
-                throw new RuntimeException('Not implemented', 7104913232);
-            }
-            public function embeddings(string|array $input, array $options = []): EmbeddingResponse
-            {
-                throw new RuntimeException('Not implemented', 5854205295);
-            }
-            public function getAvailableModels(): array
-            {
-                return [];
-            }
-            public function getDefaultModel(): string
-            {
-                return 'test';
-            }
-            public function testConnection(): array
-            {
-                return ['success' => true, 'message' => 'OK'];
-            }
-
-            public function streamChatCompletion(array $messages, array $options = []): Generator
-            {
-                yield 'Streaming';
-                yield ' response';
-            }
-
-            public function supportsStreaming(): bool
-            {
-                return true;
-            }
-        };
+        $mockAdapter = new StubStreamingProvider();
 
         $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
         $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
@@ -769,6 +972,50 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         }
 
         self::assertEquals(['Streaming', ' response'], $chunks);
+    }
+
+    #[Test]
+    public function streamChatRoutesThroughDefaultConfigurationWithOptionOverrides(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('hasAccessRestrictions')->willReturn(false);
+        $config->method('toOptionsArray')->willReturn([
+            'temperature' => 0.7,
+            'max_tokens' => 4096,
+            'model' => 'gpt-4o',
+            'provider' => 'openai',
+        ]);
+
+        $adapter = new StubStreamingProvider();
+        $registryStub = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryStub->method('createAdapterFromModel')->willReturn($adapter);
+
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn($config);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+
+        $chunks = [];
+        foreach ($manager->streamChat([['role' => 'user', 'content' => 'Hello']], (new ChatOptions(temperature: 0.3))->withResponseFormat('json')) as $chunk) {
+            $chunks[] = $chunk;
+        }
+
+        self::assertEquals(['Streaming', ' response'], $chunks);
+        // Per-call options override config defaults; config-only defaults survive; provider stripped.
+        self::assertSame(0.3, $adapter->capturedOptions['temperature']);
+        self::assertSame('json', $adapter->capturedOptions['response_format']);
+        self::assertSame(4096, $adapter->capturedOptions['max_tokens']);
+        self::assertSame('gpt-4o', $adapter->capturedOptions['model']);
+        self::assertArrayNotHasKey('provider', $adapter->capturedOptions);
     }
 
     #[Test]
@@ -1321,6 +1568,33 @@ class TestableStreamingProvider extends TestableProvider implements StreamingCap
     {
         yield 'Hello';
         yield ' World';
+    }
+
+    public function supportsStreaming(): bool
+    {
+        return true;
+    }
+}
+
+/**
+ * Streaming-capable provider stub that records the options it received — shared by the
+ * streaming tests so the throw-stubs live in one place (avoids duplicated fixtures).
+ */
+class StubStreamingProvider extends TestableProvider implements StreamingCapableInterface
+{
+    /** @var array<string, mixed> */
+    public array $capturedOptions = [];
+
+    public function __construct()
+    {
+        parent::__construct('mock', 'Mock', true);
+    }
+
+    public function streamChatCompletion(array $messages, array $options = []): Generator
+    {
+        $this->capturedOptions = $options;
+        yield 'Streaming';
+        yield ' response';
     }
 
     public function supportsStreaming(): bool
