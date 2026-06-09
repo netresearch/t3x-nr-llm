@@ -803,6 +803,32 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function chatFallsBackToDefaultProviderWhenDefaultConfigurationHasNoModel(): void
+    {
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn(null);
+
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn($config);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($this->provider);
+
+        // A model-less default config must not route into *WithConfiguration()
+        // (which would throw) — the extension-config provider handles it instead.
+        $result = $manager->chat([['role' => 'user', 'content' => 'Hello']]);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
     public function completeRoutesThroughDefaultConfigurationWhenNoProviderPinned(): void
     {
         $model = self::createStub(Model::class);

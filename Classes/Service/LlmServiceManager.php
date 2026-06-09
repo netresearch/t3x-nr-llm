@@ -78,7 +78,16 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             return null;
         }
 
-        return $this->configurationRepository?->findDefault();
+        $configuration = $this->configurationRepository?->findDefault();
+
+        // A default configuration without a model cannot build an adapter
+        // (getAdapterFromConfiguration() would throw). Treat that as "no default"
+        // so the extension-config fallback path is preserved as documented.
+        if ($configuration === null || $configuration->getLlmModel() === null) {
+            return null;
+        }
+
+        return $configuration;
     }
 
     private function loadConfiguration(): void
