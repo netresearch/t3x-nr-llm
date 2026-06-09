@@ -361,16 +361,20 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
      * for the `:fx` Free-key suffix and scrubbed immediately — the request
      * itself still authenticates through the audited secure client, never
      * this transient plaintext copy.
+     *
+     * `baseUrlResolved` is only set AFTER `baseUrl` is successfully assigned: if
+     * `vault->retrieve()` throws, the flag stays false so the next request
+     * retries resolution instead of being stuck with an empty base URL.
      */
     private function resolveBaseUrl(): void
     {
         if ($this->baseUrlResolved) {
             return;
         }
-        $this->baseUrlResolved = true;
 
         if ($this->configuredBaseUrl !== null) {
             $this->baseUrl = $this->configuredBaseUrl;
+            $this->baseUrlResolved = true;
             return;
         }
 
@@ -383,6 +387,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         if ($key !== '') {
             sodium_memzero($key);
         }
+        $this->baseUrlResolved = true;
     }
 
     protected function getProviderLabel(): string

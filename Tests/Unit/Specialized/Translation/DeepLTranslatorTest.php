@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Http\SecretPlacement;
+use Netresearch\NrVault\Http\VaultHttpClientInterface;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -23,6 +25,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
+use RuntimeException;
 
 #[CoversClass(DeepLTranslator::class)]
 class DeepLTranslatorTest extends AbstractUnitTestCase
@@ -139,6 +142,56 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ['User-Agent' => 'TYPO3-NrLlm/1.0'],
             $headersMethod->invoke($this->subject),
         );
+    }
+
+    /**
+     * Regression: resolveBaseUrl() must not mark itself resolved until baseUrl is
+     * actually set. If vault->retrieve() throws, the flag stays false so the next
+     * request retries resolution instead of being stuck with an empty base URL.
+     */
+    #[Test]
+    public function resolveBaseUrlRetriesAfterVaultRetrieveFailure(): void
+    {
+        $vault = $this->createMock(VaultServiceInterface::class);
+        $vault->method('exists')->willReturn(true);
+        $vault->method('http')->willReturn(self::createStub(VaultHttpClientInterface::class));
+        $calls = 0;
+        $vault->method('retrieve')->willReturnCallback(static function () use (&$calls): string {
+            $calls++;
+            if ($calls === 1) {
+                throw new RuntimeException('vault unavailable', 5331512677);
+            }
+
+            return 'free-key:fx';
+        });
+
+        $config = ['translators' => ['deepl' => ['apiKeyIdentifier' => 'deepl-id']]];
+        $translator = new DeepLTranslator(
+            $vault,
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createExtensionConfigurationMock($config),
+            $this->usageTrackerStub,
+            $this->createLoggerMock(),
+        );
+
+        $reflection = new ReflectionClass($translator);
+        $resolve = $reflection->getMethod('resolveBaseUrl');
+
+        // First attempt: retrieve() throws → exception propagates and the base
+        // URL must NOT be marked resolved.
+        try {
+            $resolve->invoke($translator);
+            self::fail('Expected the vault failure to propagate');
+        } catch (RuntimeException $e) {
+            self::assertSame('vault unavailable', $e->getMessage());
+        }
+        self::assertFalse($reflection->getProperty('baseUrlResolved')->getValue($translator));
+
+        // Second attempt retries retrieve() and succeeds (Free key → free host).
+        $resolve->invoke($translator);
+        self::assertTrue($reflection->getProperty('baseUrlResolved')->getValue($translator));
+        self::assertSame('https://api-free.deepl.com', $reflection->getProperty('baseUrl')->getValue($translator));
     }
 
     #[Test]
