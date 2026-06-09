@@ -6,6 +6,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-09
+
+### Changed
+
+- **Specialized services authenticate through nr-vault.** The DALL-E, FAL,
+  Whisper, TTS, and DeepL specialized services no longer read a plaintext API
+  key. Each stores an nr-vault secret *identifier* and authenticates through
+  the audited secure HTTP client (`$vault->http()->withAuthentication(...)`),
+  mirroring the database-backed providers (ADR-012). The secret is resolved,
+  injected, audited, and memory-scrubbed inside the vault and never surfaces in
+  this extension. FAL (`Authorization: Key …`) and DeepL
+  (`Authorization: DeepL-Auth-Key …`) use the nr-vault 0.8.0 `prefix` option;
+  DeepL's Free/Pro routing stays automatic by retrieving the key once, lazily,
+  only to test the `:fx` suffix, then scrubbing it. See ADR-030.
+
+### Removed
+
+- **Plaintext API keys for the specialized services.** The extension-configuration
+  keys are now nr-vault identifiers: `providers.openai.apiKeyIdentifier`
+  (DALL-E/Whisper/TTS), `image.fal.apiKeyIdentifier`, and
+  `translators.deepl.apiKeyIdentifier`. Host applications that wrote plaintext
+  keys into these settings must store a vault secret and write its identifier
+  instead. Requires `netresearch/nr-vault ^0.8.0` (composer floor raised from
+  `^0.6.0 || ^0.7.0`).
+
 ## [0.9.0] - 2026-06-08
 
 ### Added
@@ -718,7 +743,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/netresearch/t3x-nr-llm/releases/tag/v0.7.0
