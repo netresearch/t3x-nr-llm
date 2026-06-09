@@ -960,61 +960,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $config->method('getIdentifier')->willReturn('test-config');
         $config->method('toOptionsArray')->willReturn(['temperature' => 0.5]);
 
-        // Create a streaming-capable mock adapter
-        $mockAdapter = new class implements ProviderInterface, StreamingCapableInterface {
-            public function getIdentifier(): string
-            {
-                return 'mock';
-            }
-            public function getName(): string
-            {
-                return 'Mock';
-            }
-            public function isAvailable(): bool
-            {
-                return true;
-            }
-            public function supportsFeature(string|ModelCapability $feature): bool
-            {
-                return true;
-            }
-            public function configure(array $config): void {}
-            public function chatCompletion(array $messages, array $options = []): CompletionResponse
-            {
-                throw new RuntimeException('Not implemented', 3106251534);
-            }
-            public function complete(string $prompt, array $options = []): CompletionResponse
-            {
-                throw new RuntimeException('Not implemented', 7104913232);
-            }
-            public function embeddings(string|array $input, array $options = []): EmbeddingResponse
-            {
-                throw new RuntimeException('Not implemented', 5854205295);
-            }
-            public function getAvailableModels(): array
-            {
-                return [];
-            }
-            public function getDefaultModel(): string
-            {
-                return 'test';
-            }
-            public function testConnection(): array
-            {
-                return ['success' => true, 'message' => 'OK'];
-            }
-
-            public function streamChatCompletion(array $messages, array $options = []): Generator
-            {
-                yield 'Streaming';
-                yield ' response';
-            }
-
-            public function supportsStreaming(): bool
-            {
-                return true;
-            }
-        };
+        $mockAdapter = new StubStreamingProvider();
 
         $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
         $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
@@ -1027,6 +973,50 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         }
 
         self::assertEquals(['Streaming', ' response'], $chunks);
+    }
+
+    #[Test]
+    public function streamChatRoutesThroughDefaultConfigurationWithOptionOverrides(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('hasAccessRestrictions')->willReturn(false);
+        $config->method('toOptionsArray')->willReturn([
+            'temperature' => 0.7,
+            'max_tokens' => 4096,
+            'model' => 'gpt-4o',
+            'provider' => 'openai',
+        ]);
+
+        $adapter = new StubStreamingProvider();
+        $registryStub = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryStub->method('createAdapterFromModel')->willReturn($adapter);
+
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn($config);
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+
+        $chunks = [];
+        foreach ($manager->streamChat([['role' => 'user', 'content' => 'Hello']], (new ChatOptions(temperature: 0.3))->withResponseFormat('json')) as $chunk) {
+            $chunks[] = $chunk;
+        }
+
+        self::assertEquals(['Streaming', ' response'], $chunks);
+        // Per-call options override config defaults; config-only defaults survive; provider stripped.
+        self::assertSame(0.3, $adapter->capturedOptions['temperature']);
+        self::assertSame('json', $adapter->capturedOptions['response_format']);
+        self::assertSame(4096, $adapter->capturedOptions['max_tokens']);
+        self::assertSame('gpt-4o', $adapter->capturedOptions['model']);
+        self::assertArrayNotHasKey('provider', $adapter->capturedOptions);
     }
 
     #[Test]
@@ -1579,6 +1569,33 @@ class TestableStreamingProvider extends TestableProvider implements StreamingCap
     {
         yield 'Hello';
         yield ' World';
+    }
+
+    public function supportsStreaming(): bool
+    {
+        return true;
+    }
+}
+
+/**
+ * Streaming-capable provider stub that records the options it received — shared by the
+ * streaming tests so the throw-stubs live in one place (avoids duplicated fixtures).
+ */
+class StubStreamingProvider extends TestableProvider implements StreamingCapableInterface
+{
+    /** @var array<string, mixed> */
+    public array $capturedOptions = [];
+
+    public function __construct()
+    {
+        parent::__construct('mock', 'Mock', true);
+    }
+
+    public function streamChatCompletion(array $messages, array $options = []): Generator
+    {
+        $this->capturedOptions = $options;
+        yield 'Streaming';
+        yield ' response';
     }
 
     public function supportsStreaming(): bool
