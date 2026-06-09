@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Image\FalImageService;
 use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Http\SecretPlacement;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -27,6 +29,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Log\LoggerInterface;
+use ReflectionClass;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -40,6 +43,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
     private ExtensionConfiguration&MockObject $extensionConfigMock;
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LoggerInterface&Stub $loggerStub;
+    private VaultServiceInterface $vaultStub;
 
     protected function setUp(): void
     {
@@ -51,6 +55,54 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
         $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
         $this->loggerStub = self::createStub(LoggerInterface::class);
+        $this->vaultStub = $this->createVaultServiceMock();
+    }
+
+    /**
+     * Build a FalImageService wired to the vault mock, then inject the given
+     * plain HTTP client through the test seam (bypasses the vault secure client
+     * so request/response assertions can read the request the service built).
+     */
+    private function buildService(
+        ClientInterface $httpClient,
+        RequestFactoryInterface $requestFactory,
+        StreamFactoryInterface $streamFactory,
+        ExtensionConfiguration $extensionConfiguration,
+        UsageTrackerServiceInterface $usageTracker,
+        LoggerInterface $logger,
+    ): FalImageService {
+        $service = new FalImageService(
+            $this->vaultStub,
+            $requestFactory,
+            $streamFactory,
+            $extensionConfiguration,
+            $usageTracker,
+            $logger,
+        );
+        $service->setHttpClient($httpClient);
+
+        return $service;
+    }
+
+    /**
+     * Assert FAL exposes the Header placement and `Key ` prefix the secure
+     * client uses to authenticate (FAL: `Authorization: Key <secret>`).
+     */
+    #[Test]
+    public function getSecretPlacementUsesHeaderWithKeyPrefix(): void
+    {
+        $subject = $this->createSubject();
+
+        $reflection = new ReflectionClass($subject);
+
+        $placementMethod = $reflection->getMethod('getSecretPlacement');
+        self::assertSame(SecretPlacement::Header, $placementMethod->invoke($subject));
+
+        $optionsMethod = $reflection->getMethod('getSecretPlacementOptions');
+        self::assertSame(
+            ['headerName' => 'Authorization', 'prefix' => 'Key '],
+            $optionsMethod->invoke($subject),
+        );
     }
 
     /**
@@ -61,7 +113,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $defaultConfig = [
             'image' => [
                 'fal' => [
-                    'apiKey' => 'test-api-key',
+                    'apiKeyIdentifier' => 'test-api-key',
                 ],
             ],
         ];
@@ -71,7 +123,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->with('nr_llm')
             ->willReturn(array_replace_recursive($defaultConfig, $config));
 
-        return new FalImageService(
+        return $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -92,7 +144,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
                 ],
             ]);
 
-        return new FalImageService(
+        return $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -302,7 +354,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willReturn([
                 'image' => [
                     'fal' => [
-                        'apiKey' => 'test-api-key',
+                        'apiKeyIdentifier' => 'test-api-key',
                     ],
                 ],
             ]);
@@ -313,7 +365,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->method('trackUsage')
             ->with('image', 'fal:flux-schnell', self::anything());
 
-        $subject = new FalImageService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -465,7 +517,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willReturn([
                 'image' => [
                     'fal' => [
-                        'apiKey' => 'test-api-key',
+                        'apiKeyIdentifier' => 'test-api-key',
                     ],
                 ],
             ]);
@@ -476,7 +528,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->method('trackUsage')
             ->with('image', 'fal:flux-schnell', self::callback(fn($data) => is_array($data) && isset($data['count'])));
 
-        $subject = new FalImageService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -609,7 +661,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
-        $subject = new FalImageService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -629,7 +681,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->with('nr_llm')
             ->willReturn([]);
 
-        $subject = new FalImageService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -649,7 +701,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->with('nr_llm')
             ->willReturn(['image' => []]);
 
-        $subject = new FalImageService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -667,7 +719,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $config = [
             'image' => [
                 'fal' => [
-                    'apiKey' => 'test-api-key',
+                    'apiKeyIdentifier' => 'test-api-key',
                     'baseUrl' => 'https://custom-api.example.com',
                     'timeout' => 180,
                     'pollInterval' => 2000,
@@ -693,7 +745,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('warning');
 
-        $subject = new FalImageService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -714,14 +766,14 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willReturn([
                 'image' => [
                     'fal' => [
-                        'apiKey' => 'test-key',
+                        'apiKeyIdentifier' => 'test-key',
                         'timeout' => '180', // String instead of int
                         'pollInterval' => '2000', // String instead of int
                     ],
                 ],
             ]);
 
-        $subject = new FalImageService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -850,12 +902,12 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willReturn([
                 'image' => [
                     'fal' => [
-                        'apiKey' => 'test-api-key',
+                        'apiKeyIdentifier' => 'test-api-key',
                     ],
                 ],
             ]);
 
-        $subject = new FalImageService(
+        $subject = $this->buildService(
             $httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,

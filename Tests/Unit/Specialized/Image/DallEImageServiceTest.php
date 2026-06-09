@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Specialized\Image\DallEImageService;
 use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
 use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -42,6 +43,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     private ExtensionConfiguration&MockObject $extensionConfigMock;
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LoggerInterface&Stub $loggerStub;
+    private VaultServiceInterface $vaultStub;
     private ?string $tempFile = null;
 
     protected function setUp(): void
@@ -54,6 +56,33 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
         $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
         $this->loggerStub = self::createStub(LoggerInterface::class);
+        $this->vaultStub = $this->createVaultServiceMock();
+    }
+
+    /**
+     * Build a DallEImageService wired to the vault mock, then inject the given
+     * plain HTTP client through the test seam (bypasses the vault secure client
+     * so request/response assertions can read the request the service built).
+     */
+    private function buildService(
+        ClientInterface $httpClient,
+        RequestFactoryInterface $requestFactory,
+        StreamFactoryInterface $streamFactory,
+        ExtensionConfiguration $extensionConfiguration,
+        UsageTrackerServiceInterface $usageTracker,
+        LoggerInterface $logger,
+    ): DallEImageService {
+        $service = new DallEImageService(
+            $this->vaultStub,
+            $requestFactory,
+            $streamFactory,
+            $extensionConfiguration,
+            $usageTracker,
+            $logger,
+        );
+        $service->setHttpClient($httpClient);
+
+        return $service;
     }
 
     protected function tearDown(): void
@@ -72,7 +101,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $defaultConfig = [
             'providers' => [
                 'openai' => [
-                    'apiKey' => 'test-api-key',
+                    'apiKeyIdentifier' => 'test-api-key',
                 ],
             ],
         ];
@@ -82,7 +111,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->with('nr_llm')
             ->willReturn(array_merge($defaultConfig, $config));
 
-        return new DallEImageService(
+        return $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -101,7 +130,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 'providers' => [],
             ]);
 
-        return new DallEImageService(
+        return $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -341,7 +370,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->willReturn([
                 'providers' => [
                     'openai' => [
-                        'apiKey' => 'test-api-key',
+                        'apiKeyIdentifier' => 'test-api-key',
                     ],
                 ],
             ]);
@@ -352,7 +381,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->method('trackUsage')
             ->with('image', 'dall-e:dall-e-3', self::anything());
 
-        $subject = new DallEImageService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -674,7 +703,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->willReturn([
                 'providers' => [
                     'openai' => [
-                        'apiKey' => 'test-api-key',
+                        'apiKeyIdentifier' => 'test-api-key',
                     ],
                 ],
             ]);
@@ -685,7 +714,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->method('trackUsage')
             ->with('image', 'dall-e:variations', self::anything());
 
-        $subject = new DallEImageService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -754,7 +783,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->willReturn([
                 'providers' => [
                     'openai' => [
-                        'apiKey' => 'test-api-key',
+                        'apiKeyIdentifier' => 'test-api-key',
                     ],
                 ],
             ]);
@@ -765,7 +794,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->method('trackUsage')
             ->with('image', 'dall-e:edit', self::anything());
 
-        $subject = new DallEImageService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -844,7 +873,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
-        $subject = new DallEImageService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -862,7 +891,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $config = [
             'providers' => [
                 'openai' => [
-                    'apiKey' => 'test-api-key',
+                    'apiKeyIdentifier' => 'test-api-key',
                 ],
             ],
             'image' => [
@@ -891,7 +920,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('warning');
 
-        $subject = new DallEImageService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -956,10 +985,10 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
-                'providers' => ['openai' => ['apiKey' => 'test-api-key']],
+                'providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']],
             ]);
 
-        $subject = new DallEImageService(
+        $subject = $this->buildService(
             $httpClientMock,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -1033,10 +1062,10 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
-                'providers' => ['openai' => ['apiKey' => 'test-api-key']],
+                'providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']],
             ]);
 
-        $subject = new DallEImageService(
+        $subject = $this->buildService(
             $httpClientMock,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -1067,7 +1096,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->method('get')
             ->with('nr_llm')
             ->willReturn([
-                'providers' => ['openai' => ['apiKey' => 'test-api-key']],
+                'providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']],
             ]);
 
         $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
@@ -1080,7 +1109,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 self::callback(fn(array $ctx): bool => isset($ctx['count']) && $ctx['count'] === 2),
             );
 
-        $subject = new DallEImageService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,

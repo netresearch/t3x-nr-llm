@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Specialized\Option\TranscriptionOptions;
 use Netresearch\NrLlm\Specialized\Speech\TranscriptionResult;
 use Netresearch\NrLlm\Specialized\Speech\WhisperTranscriptionService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -42,6 +43,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     private ExtensionConfiguration&MockObject $extensionConfigMock;
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LoggerInterface&Stub $loggerStub;
+    private VaultServiceInterface $vaultStub;
     private ?string $tempFile = null;
 
     protected function setUp(): void
@@ -54,6 +56,34 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $this->extensionConfigMock = $this->createMock(ExtensionConfiguration::class);
         $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
         $this->loggerStub = self::createStub(LoggerInterface::class);
+        $this->vaultStub = $this->createVaultServiceMock();
+    }
+
+    /**
+     * Build a WhisperTranscriptionService wired to the vault mock, then inject
+     * the given plain HTTP client through the test seam (bypasses the vault
+     * secure client so request/response assertions can read the request the
+     * service built).
+     */
+    private function buildService(
+        ClientInterface $httpClient,
+        RequestFactoryInterface $requestFactory,
+        StreamFactoryInterface $streamFactory,
+        ExtensionConfiguration $extensionConfiguration,
+        UsageTrackerServiceInterface $usageTracker,
+        LoggerInterface $logger,
+    ): WhisperTranscriptionService {
+        $service = new WhisperTranscriptionService(
+            $this->vaultStub,
+            $requestFactory,
+            $streamFactory,
+            $extensionConfiguration,
+            $usageTracker,
+            $logger,
+        );
+        $service->setHttpClient($httpClient);
+
+        return $service;
     }
 
     protected function tearDown(): void
@@ -72,7 +102,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $defaultConfig = [
             'providers' => [
                 'openai' => [
-                    'apiKey' => 'test-api-key',
+                    'apiKeyIdentifier' => 'test-api-key',
                 ],
             ],
         ];
@@ -82,7 +112,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->with('nr_llm')
             ->willReturn(array_merge($defaultConfig, $config));
 
-        return new WhisperTranscriptionService(
+        return $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -101,7 +131,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
                 'providers' => [],
             ]);
 
-        return new WhisperTranscriptionService(
+        return $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -290,7 +320,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->willReturn([
                 'providers' => [
                     'openai' => [
-                        'apiKey' => 'test-api-key',
+                        'apiKeyIdentifier' => 'test-api-key',
                     ],
                 ],
             ]);
@@ -301,7 +331,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->method('trackUsage')
             ->with('speech', 'whisper:transcription', []);
 
-        $subject = new WhisperTranscriptionService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -457,7 +487,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->willReturn([
                 'providers' => [
                     'openai' => [
-                        'apiKey' => 'test-api-key',
+                        'apiKeyIdentifier' => 'test-api-key',
                     ],
                 ],
             ]);
@@ -467,7 +497,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->expects(self::atLeastOnce())
             ->method('trackUsage');
 
-        $subject = new WhisperTranscriptionService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -539,7 +569,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
-        $subject = new WhisperTranscriptionService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -564,7 +594,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('warning');
 
-        $subject = new WhisperTranscriptionService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
@@ -675,7 +705,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->willReturn([
                 'providers' => [
                     'openai' => [
-                        'apiKey' => 'test-api-key',
+                        'apiKeyIdentifier' => 'test-api-key',
                     ],
                 ],
             ]);
@@ -685,7 +715,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->expects(self::once())
             ->method('error');
 
-        $subject = new WhisperTranscriptionService(
+        $subject = $this->buildService(
             $this->httpClientStub,
             $this->requestFactoryStub,
             $this->streamFactoryStub,

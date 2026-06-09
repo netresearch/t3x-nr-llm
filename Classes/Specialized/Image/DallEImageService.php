@@ -347,13 +347,13 @@ final class DallEImageService extends AbstractSpecializedService
         // is_string() guards: the extension config tree is user-editable
         // YAML and the @var hint above describes the documented shape,
         // not a runtime guarantee. Direct assignment without guards
-        // would TypeError on `non-string apiKey` and defeat the
+        // would TypeError on a non-string identifier and defeat the
         // base's fail-soft contract.
-        $apiKey  = $this->resolveScalarConfig($config, ['providers', 'openai', 'apiKey']);
+        $apiKeyIdentifier = $this->resolveScalarConfig($config, ['providers', 'openai', 'apiKeyIdentifier']);
         $baseUrl = $this->resolveScalarConfig($config, ['image', 'dalle', 'baseUrl']);
         $timeout = $this->resolveScalarConfig($config, ['image', 'dalle', 'timeout']);
 
-        $this->apiKey  = is_string($apiKey) ? $apiKey : '';
+        $this->apiKeyIdentifier = is_string($apiKeyIdentifier) ? $apiKeyIdentifier : '';
         // An empty ext_conf baseUrl means "use the OpenAI default" (per the field label), NOT
         // "send requests to an empty URL" — see nonEmptyStringOrDefault().
         $this->baseUrl = $this->nonEmptyStringOrDefault($baseUrl, self::API_URL);
@@ -377,11 +377,6 @@ final class DallEImageService extends AbstractSpecializedService
             $current = $current[$key];
         }
         return $current;
-    }
-
-    protected function buildAuthHeaders(): array
-    {
-        return ['Authorization' => 'Bearer ' . $this->apiKey];
     }
 
     /**

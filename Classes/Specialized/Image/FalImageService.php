@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Specialized\Image;
 
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
+use Netresearch\NrVault\Http\SecretPlacement;
 use Throwable;
 
 /**
@@ -254,8 +255,8 @@ final class FalImageService extends AbstractSpecializedService
             return;
         }
 
-        $apiKey = $falConfig['apiKey'] ?? '';
-        $this->apiKey = is_string($apiKey) ? $apiKey : '';
+        $apiKeyIdentifier = $falConfig['apiKeyIdentifier'] ?? '';
+        $this->apiKeyIdentifier = is_string($apiKeyIdentifier) ? $apiKeyIdentifier : '';
 
         // Empty ext_conf baseUrl means "use the default" (per the field label), not an empty
         // request URL — see nonEmptyStringOrDefault().
@@ -268,9 +269,21 @@ final class FalImageService extends AbstractSpecializedService
         $this->pollInterval = is_int($pollInterval) ? $pollInterval : (is_numeric($pollInterval) ? (int)$pollInterval : 1000);
     }
 
-    protected function buildAuthHeaders(): array
+    /**
+     * FAL authenticates with `Authorization: Key <secret>` — not Bearer — so
+     * it uses Header placement with a `Key ` prefix on the secure client.
+     */
+    protected function getSecretPlacement(): SecretPlacement
     {
-        return ['Authorization' => 'Key ' . $this->apiKey];
+        return SecretPlacement::Header;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function getSecretPlacementOptions(): array
+    {
+        return ['headerName' => 'Authorization', 'prefix' => 'Key '];
     }
 
     protected function getProviderLabel(): string
@@ -450,7 +463,7 @@ final class FalImageService extends AbstractSpecializedService
 
         $request = $this->requestFactory->createRequest('POST', $queueUrl)
             ->withHeader('Content-Type', 'application/json');
-        foreach ($this->buildAuthHeaders() as $name => $value) {
+        foreach ($this->getAdditionalHeaders() as $name => $value) {
             $request = $request->withHeader($name, $value);
         }
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR));
@@ -484,7 +497,7 @@ final class FalImageService extends AbstractSpecializedService
 
         for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
             $request = $this->requestFactory->createRequest('GET', $statusUrl);
-            foreach ($this->buildAuthHeaders() as $name => $value) {
+            foreach ($this->getAdditionalHeaders() as $name => $value) {
                 $request = $request->withHeader($name, $value);
             }
 
@@ -494,7 +507,7 @@ final class FalImageService extends AbstractSpecializedService
             if ($status === 'COMPLETED') {
                 $resultUrl = rtrim(self::QUEUE_API_URL, '/') . '/' . ltrim($endpoint, '/') . '/requests/' . $requestId;
                 $resultRequest = $this->requestFactory->createRequest('GET', $resultUrl);
-                foreach ($this->buildAuthHeaders() as $name => $value) {
+                foreach ($this->getAdditionalHeaders() as $name => $value) {
                     $resultRequest = $resultRequest->withHeader($name, $value);
                 }
 
