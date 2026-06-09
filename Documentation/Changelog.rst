@@ -11,6 +11,38 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-10-0:
+
+Version 0.10.0 (2026-06-09)
+===========================
+
+The specialized AI services (DALL-E, FAL, Whisper, TTS, DeepL) now authenticate
+through nr-vault's audited secure HTTP client instead of plaintext API keys,
+bringing them in line with the database-backed providers (ADR-012, ADR-030).
+
+For the complete, itemised list see the canonical
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-llm/blob/main/CHANGELOG.md>`__.
+
+Changed
+-------
+
+-   **Specialized services authenticate through nr-vault.** Each service stores
+    an nr-vault secret *identifier* and authenticates via
+    ``$vault->http()->withAuthentication(...)``; the secret is resolved,
+    injected, audited, and memory-scrubbed inside the vault and never surfaces
+    in this extension. FAL (``Authorization: Key …``) and DeepL
+    (``Authorization: DeepL-Auth-Key …``) use the nr-vault 0.8.0 ``prefix``
+    option. DeepL's Free/Pro routing stays automatic via a one-time, scrubbed
+    ``:fx`` suffix check.
+
+Removed
+-------
+
+-   **Plaintext API keys for the specialized services.** Configuration keys are
+    now nr-vault identifiers (``providers.openai.apiKeyIdentifier``,
+    ``image.fal.apiKeyIdentifier``, ``translators.deepl.apiKeyIdentifier``).
+    Requires ``netresearch/nr-vault ^0.8.0``.
+
 .. _version-0-9-0:
 
 Version 0.9.0 (2026-06-08)
