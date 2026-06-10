@@ -1,0 +1,90 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div>
+        <h1>
+            <core:icon identifier="module-nrllm-snippet" size="medium" />
+            Prompt Snippets ({totalCount})
+        </h1>
+
+        <f:be.infobox state="-2">
+            <p>Prompt snippets are small reusable prompt <strong>fragments</strong> — personas, tones of voice, target audiences, image styles, layouts — managed centrally in one place. Consuming extensions query them by tag and compose them into their prompts.</p>
+            <p class="mb-0">Tag snippets with comma-separated free-form tags. Established tags: <code>audience</code>, <code>tone_of_voice</code>, <code>persona</code>, <code>layout</code>, <code>style</code>. Snippets are not prompt templates: templates are complete prompts with model parameters, snippets are building blocks.</p>
+        </f:be.infobox>
+
+        <f:if condition="{totalCount} == 0">
+            <f:then>
+                <f:be.infobox
+                    title="No Prompt Snippets Configured"
+                    state="-1"
+                >
+                    <p>No prompt snippets have been created yet.</p>
+                    <p><a href="{newUrl}" class="btn btn-primary btn-sm"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.snippet.new" default="New Snippet" /></a></p>
+                </f:be.infobox>
+            </f:then>
+            <f:else>
+                <div class="card mb-4">
+                    <div class="card-body p-0">
+                        <table class="table table-striped table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;"></th>
+                                    <th>Name</th>
+                                    <th>Identifier</th>
+                                    <th>Tags</th>
+                                    <th style="width: 120px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <f:for each="{snippets}" as="snippet">
+                                    <tr class="{f:if(condition: '!{snippet.isActive}', then: 'table-secondary')}">
+                                        <td>
+                                            <f:if condition="{snippet.isActive}">
+                                                <f:then>
+                                                    <span class="badge text-bg-success" title="Active">
+                                                        <core:icon identifier="actions-check" size="small" />
+                                                    </span>
+                                                </f:then>
+                                                <f:else>
+                                                    <span class="badge text-bg-secondary" title="Inactive">
+                                                        <core:icon identifier="actions-close" size="small" />
+                                                    </span>
+                                                </f:else>
+                                            </f:if>
+                                        </td>
+                                        <td>
+                                            <strong>{snippet.name}</strong>
+                                            <f:if condition="{snippet.description}">
+                                                <br><small class="text-muted">{snippet.description}</small>
+                                            </f:if>
+                                        </td>
+                                        <td><code>{snippet.identifier}</code></td>
+                                        <td>
+                                            <f:for each="{snippet.tagList}" as="tag">
+                                                <span class="badge text-bg-info me-1">{tag}</span>
+                                            </f:for>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{editUrls.{snippet.uid}}" class="btn btn-secondary" title="Edit">
+                                                    <core:icon identifier="actions-open" size="small" />
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </f:for>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </f:else>
+        </f:if>
+    </div>
+</f:section>
+
+</html>

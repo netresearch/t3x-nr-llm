@@ -313,6 +313,45 @@ CREATE TABLE tx_nrllm_prompttemplate (
 );
 
 #
+# Table structure for table 'tx_nrllm_promptsnippet'
+# Tagged prompt fragments (personas, tones of voice, audiences, styles, layouts)
+#
+CREATE TABLE tx_nrllm_promptsnippet (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    -- Identity
+    identifier varchar(100) DEFAULT '' NOT NULL,
+    name varchar(255) DEFAULT '' NOT NULL,
+    description text,
+
+    -- Tagging (comma-separated free-form tags)
+    tags varchar(255) DEFAULT '' NOT NULL,
+
+    -- Fragment content
+    snippet text,
+
+    -- Additional metadata (JSON object, e.g. {"voice":"nova"})
+    metadata text,
+
+    -- Status
+    is_active tinyint(1) DEFAULT '1' NOT NULL,
+    sorting int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Standard TYPO3 fields
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
+    hidden tinyint(4) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY identifier (identifier),
+    KEY active_sorted (is_active, sorting, name)
+);
+
+#
 # Table for tracking specialized service usage (translation, speech, image)
 #
 CREATE TABLE tx_nrllm_service_usage (

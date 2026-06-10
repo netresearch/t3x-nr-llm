@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Model\UserBudget;
@@ -95,6 +96,14 @@ return [
             ],
             'isSystem' => [
                 'fieldName' => 'is_system',
+            ],
+        ],
+    ],
+    PromptSnippet::class => [
+        'tableName' => 'tx_nrllm_promptsnippet',
+        'properties' => [
+            'isActive' => [
+                'fieldName' => 'is_active',
             ],
         ],
     ],

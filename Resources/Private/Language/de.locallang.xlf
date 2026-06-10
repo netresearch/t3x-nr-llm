@@ -276,6 +276,10 @@
                 <source>New Configuration</source>
                 <target>Neue Konfiguration</target>
             </trans-unit>
+            <trans-unit id="btn.snippet.new">
+                <source>New Snippet</source>
+                <target>Neues Snippet</target>
+            </trans-unit>
             <trans-unit id="btn.refresh">
                 <source>Refresh</source>
                 <target>Aktualisieren</target>

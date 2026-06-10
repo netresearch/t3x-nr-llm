@@ -120,6 +120,9 @@ services:
     alias: Netresearch\NrLlm\Service\PromptTemplateService
     public: true
 
+  Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer:
+    public: true
+
   Netresearch\NrLlm\Service\CacheManager:
     public: true
 
@@ -167,6 +170,9 @@ services:
     public: true
 
   Netresearch\NrLlm\Domain\Repository\TaskRepository:
+    public: true
+
+  Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository:
     public: true
 
   Netresearch\NrLlm\Domain\Repository\UserBudgetRepository:

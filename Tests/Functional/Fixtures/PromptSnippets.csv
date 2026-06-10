@@ -1,0 +1,11 @@
+"tx_nrllm_promptsnippet"
+,"uid","pid","identifier","name","description","tags","snippet","metadata","is_active","sorting","tstamp","crdate","deleted","hidden"
+,1,0,"tone-casual","Casual tone","A relaxed tone of voice","tone_of_voice","Write in a relaxed, casual tone.","",1,20,1703347200,1703347200,0,0
+,2,0,"tone-formal","Formal tone","A formal tone of voice","tone_of_voice","Use a formal, professional tone of voice.","",1,10,1703347200,1703347200,0,0
+,3,0,"audience-developers","Developers","Software developer audience","audience","Write for software developers.","",1,30,1703347200,1703347200,0,0
+,4,0,"audience-marketers","Marketers","Marketing professional audience","audience","Write for marketing professionals.","",1,30,1703347200,1703347200,0,0
+,5,0,"style-minimalist","Minimalist style","A minimalist image style"," Style , image","Use a minimalist visual style.","",1,40,1703347200,1703347200,0,0
+,6,0,"layout-lifestyle","Lifestyle magazine layout","A lifestyle magazine layout","lifestyle,layout","Arrange like a lifestyle magazine spread.","",1,50,1703347200,1703347200,0,0
+,7,0,"tone-inactive","Inactive tone","An inactive snippet","tone_of_voice","This snippet is inactive.","",0,60,1703347200,1703347200,0,0
+,8,0,"tone-deleted","Deleted tone","A deleted snippet","tone_of_voice","This snippet is deleted.","",1,70,1703347200,1703347200,1,0
+,9,0,"persona-nova","Nova persona","A persona carrying voice metadata","persona","You are Nova, a friendly expert.","{""voice"":""nova""}",1,80,1703347200,1703347200,0,0

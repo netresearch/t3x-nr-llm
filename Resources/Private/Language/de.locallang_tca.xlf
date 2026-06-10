@@ -929,6 +929,64 @@
                 <source>DeepL</source>
                 <target>DeepL</target>
             </trans-unit>
+
+            <!-- Prompt snippet table -->
+            <trans-unit id="tx_nrllm_promptsnippet">
+                <source>LLM Prompt Snippet</source>
+                <target>LLM-Prompt-Snippet</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.identifier">
+                <source>Identifier</source>
+                <target>Bezeichner</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.identifier.description">
+                <source>Unique technical identifier (lowercase, e.g. persona-friendly-expert)</source>
+                <target>Eindeutiger technischer Bezeichner (Kleinschreibung, z. B. persona-friendly-expert)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.name">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.name.description">
+                <source>Display name shown to editors</source>
+                <target>Anzeigename für Redakteure</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.description">
+                <source>Description</source>
+                <target>Beschreibung</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.tags">
+                <source>Tags</source>
+                <target>Tags</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.tags.description">
+                <source>Comma-separated free-form tags used by consuming extensions to find snippets. Established tags: audience, tone_of_voice, persona, layout, style. Matching is case-insensitive and exact per tag.</source>
+                <target>Kommagetrennte, frei wählbare Tags, über die konsumierende Extensions Snippets finden. Etablierte Tags: audience, tone_of_voice, persona, layout, style. Der Abgleich erfolgt pro Tag exakt und ohne Beachtung der Groß-/Kleinschreibung.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.snippet">
+                <source>Snippet text</source>
+                <target>Snippet-Text</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.snippet.description">
+                <source>The prompt fragment that is composed into the consuming extension's prompt</source>
+                <target>Das Prompt-Fragment, das in den Prompt der konsumierenden Extension eingesetzt wird</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.metadata">
+                <source>Metadata (JSON)</source>
+                <target>Metadaten (JSON)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.metadata.description">
+                <source>Optional JSON object with extra settings for consuming extensions, e.g. {"voice": "nova"} on persona snippets</source>
+                <target>Optionales JSON-Objekt mit Zusatzeinstellungen für konsumierende Extensions, z. B. {"voice": "nova"} bei Persona-Snippets</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.is_active">
+                <source>Active</source>
+                <target>Aktiv</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.is_active.description">
+                <source>Only active snippets are returned to consuming extensions</source>
+                <target>Nur aktive Snippets werden an konsumierende Extensions ausgeliefert</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

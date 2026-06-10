@@ -36,11 +36,15 @@ final class PublicServicesPolicyTest extends TestCase
      * Audited count of `public: true` overrides as of slice 25
      * (REC #9c, ADR-028). Categories per ADR-028:
      *
-     * - Category 1 (Public LLM API surface): 12 concrete services
-     *   + 9 interface aliases = 21
+     * - Category 1 (Public LLM API surface): 13 concrete services
+     *   + 9 interface aliases = 22. Includes the concrete-only
+     *   PromptSnippetComposer (ADR-031), the snippet composition
+     *   surface for consuming extensions.
      * - Category 2 (Specialized services): 4
      * - Category 3 (Repositories — required public for
-     *   FunctionalTestCase::get()): 5
+     *   FunctionalTestCase::get(); PromptSnippetRepository is also
+     *   the documented query surface for consuming extensions,
+     *   ADR-031): 6
      * - Category 4 (SetupWizard collaborators): 3 concrete +
      *   1 interface alias = 4
      * - Doctrine + provider wiring tail (services exposed for
@@ -49,14 +53,14 @@ final class PublicServicesPolicyTest extends TestCase
      *   UsageAnalyticsService, public solely so the Analytics
      *   functional test resolves it via FunctionalTestCase::get().
      *
-     * Total: 21 + 4 + 5 + 4 + 4 = **38**.
+     * Total: 22 + 4 + 6 + 4 + 4 = **40**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
      * `Documentation/Adr/Adr028PublicServicesPolicy.rst` in the
      * same PR — the diff is the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 38;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 40;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 

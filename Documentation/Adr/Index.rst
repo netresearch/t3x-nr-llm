@@ -263,3 +263,4 @@ Modern architecture (v0.4+)
    Adr028PublicServicesPolicy
    Adr029UsageAnalyticsDashboard
    Adr030SpecializedServicesVaultMigration
+   Adr031PromptSnippetLibrary
