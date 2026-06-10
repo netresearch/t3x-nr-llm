@@ -358,6 +358,12 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         $body     = $this->encodeMultipartBody($parts, $boundary);
         $url      = $this->buildEndpointUrl($endpoint);
 
+        $this->setAuditContext(sprintf(
+            '%s, %s',
+            $options->model ?? self::DEFAULT_MODEL,
+            $endpoint === 'translations' ? 'translate' : 'transcribe',
+        ));
+
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'multipart/form-data; boundary=' . $boundary);
         foreach ($this->getAdditionalHeaders() as $name => $value) {

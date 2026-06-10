@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
+use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -216,6 +217,13 @@ abstract class AbstractProvider implements ProviderInterface
         }
 
         $httpClient = $this->getHttpClient();
+        // Stamp a per-request audit reason (purpose + model) on the vault
+        // client so the audit log records what each secret access served.
+        // Test doubles injected via setHttpClient() are plain PSR-18
+        // clients and skip this — the instanceof guard keeps them working.
+        if ($httpClient instanceof VaultHttpClientInterface) {
+            $httpClient = $httpClient->withReason($this->buildAuditReason($endpoint, $payload));
+        }
         $attempt = 0;
         $lastException = null;
 
@@ -269,6 +277,38 @@ abstract class AbstractProvider implements ProviderInterface
     protected function addProviderSpecificHeaders(RequestInterface $request): RequestInterface
     {
         return $request;
+    }
+
+    /**
+     * Build the per-request audit reason recorded by the vault secure
+     * client, e.g. `'LLM chat call to OpenAI (gpt-4o)'`. The purpose is
+     * derived from the endpoint shape (covers the chat/embedding endpoint
+     * names of every bundled provider); the model comes from the request
+     * payload when present (Gemini encodes it in the URL instead, so its
+     * reason carries purpose + provider only). MUST never include prompt
+     * text or other payload content.
+     *
+     * @param array<string, mixed> $payload
+     */
+    protected function buildAuditReason(string $endpoint, array $payload): string
+    {
+        $purpose = match (true) {
+            str_contains($endpoint, 'embed') => 'embedding',
+            str_contains($endpoint, 'chat'),
+            str_contains($endpoint, 'messages'),
+            str_contains($endpoint, 'generateContent'),
+            str_contains($endpoint, 'api/generate') => 'chat',
+            default => 'API',
+        };
+
+        $model = isset($payload['model']) && is_string($payload['model']) ? $payload['model'] : '';
+
+        $reason = sprintf('LLM %s call to %s', $purpose, $this->getName());
+        if ($model !== '') {
+            $reason .= sprintf(' (%s)', $model);
+        }
+
+        return $reason;
     }
 
     /**

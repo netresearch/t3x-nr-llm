@@ -16,13 +16,16 @@ use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Throwable;
 
 /**
- * DALL-E image generation service.
+ * OpenAI Images generation service.
  *
- * Provides AI image generation via OpenAI's DALL-E API.
+ * Provides AI image generation via OpenAI's Images API. The class name
+ * predates the gpt-image-* family and is kept for API stability; the
+ * service covers both the legacy DALL-E models and their gpt-image-*
+ * successors (gpt-image-2 is current).
  *
  * Features:
- * - DALL-E 2 and DALL-E 3 models
- * - Multiple sizes (256x256 to 1792x1024)
+ * - DALL-E 2/3 and gpt-image-* models
+ * - Multiple sizes (256x256 to 1792x1024; arbitrary WxH for gpt-image-*)
  * - HD quality option (DALL-E 3)
  * - Vivid and natural styles
  * - Image editing and variations (DALL-E 2)
@@ -96,6 +99,7 @@ final class DallEImageService extends AbstractSpecializedService
         $this->validatePrompt($prompt, $model);
 
         $payload = $this->buildGeneratePayload($prompt, $optionsArray);
+        $this->setAuditContext(sprintf('%s, generate', $model));
         $response = $this->sendJsonRequest('generations', $payload);
 
         /** @var array<int, array{url?: string, b64_json?: string, revised_prompt?: string}> $responseData */
@@ -167,6 +171,7 @@ final class DallEImageService extends AbstractSpecializedService
         $payload = $this->buildGeneratePayload($prompt, $optionsArray);
         $payload['n'] = $count;
 
+        $this->setAuditContext(sprintf('%s, generate', $model));
         $response = $this->sendJsonRequest('generations', $payload);
 
         $results = [];
@@ -218,6 +223,7 @@ final class DallEImageService extends AbstractSpecializedService
 
         $count = min(max($count, 1), 10);
 
+        $this->setAuditContext('dall-e-2, variations');
         $response = $this->sendImageMultipart('variations', $imagePath, null, [
             'n' => (string)$count,
             'size' => $size,
@@ -273,6 +279,7 @@ final class DallEImageService extends AbstractSpecializedService
             $this->validateImageFile($maskPath);
         }
 
+        $this->setAuditContext('dall-e-2, edit');
         $response = $this->sendImageMultipart('edits', $imagePath, $maskPath, [
             'prompt' => $prompt,
             'size' => $size,
@@ -366,7 +373,7 @@ final class DallEImageService extends AbstractSpecializedService
 
     protected function getProviderLabel(): string
     {
-        return 'DALL-E';
+        return 'OpenAI Images';
     }
 
     /**

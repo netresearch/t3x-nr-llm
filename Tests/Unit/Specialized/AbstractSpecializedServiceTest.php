@@ -197,6 +197,37 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function auditReasonDefaultsToProviderLabelApiCall(): void
+    {
+        $subject = $this->createSubject();
+
+        self::assertSame('TESTABLE API call', $subject->callGetAuditReason());
+    }
+
+    #[Test]
+    public function auditReasonCarriesModelAndPurposeContextWhenSet(): void
+    {
+        $subject = $this->createSubject();
+
+        $subject->callSetAuditContext('gpt-image-2, generate');
+
+        self::assertSame('TESTABLE API call (gpt-image-2, generate)', $subject->callGetAuditReason());
+    }
+
+    #[Test]
+    public function auditContextOfLatestRequestWins(): void
+    {
+        // The context is per-request state: a later setAuditContext()
+        // replaces the earlier one entirely.
+        $subject = $this->createSubject();
+
+        $subject->callSetAuditContext('tts-1, voice nova');
+        $subject->callSetAuditContext('tts-1-hd, voice alloy');
+
+        self::assertSame('TESTABLE API call (tts-1-hd, voice alloy)', $subject->callGetAuditReason());
+    }
+
+    #[Test]
     public function executeRequestThrowsConfigurationExceptionOn401(): void
     {
         $httpClient = $this->createMock(ClientInterface::class);
@@ -514,6 +545,16 @@ final class TestableSpecializedService extends AbstractSpecializedService
     public function callBuildEndpointUrl(string $endpoint): string
     {
         return $this->buildEndpointUrl($endpoint);
+    }
+
+    public function callSetAuditContext(string $context): void
+    {
+        $this->setAuditContext($context);
+    }
+
+    public function callGetAuditReason(): string
+    {
+        return $this->getAuditReason();
     }
 
     /**

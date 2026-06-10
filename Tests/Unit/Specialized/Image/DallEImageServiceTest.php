@@ -1083,7 +1083,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         );
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessageMatches('/Failed to connect to DALL-E API/');
+        $this->expectExceptionMessageMatches('/Failed to connect to OpenAI Images API/');
 
         $subject->generate('A cat');
     }

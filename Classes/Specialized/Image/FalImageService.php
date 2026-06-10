@@ -85,6 +85,7 @@ final class FalImageService extends AbstractSpecializedService
 
         $payload = $this->buildGeneratePayload($prompt, $options);
 
+        $this->setAuditContext(sprintf('%s, generate', $model));
         $usesQueue = $this->modelUsesQueue($model);
         $response = $usesQueue
             ? $this->sendQueueRequest($modelEndpoint, $payload)
@@ -140,6 +141,7 @@ final class FalImageService extends AbstractSpecializedService
         $modelEndpoint = $this->resolveModelEndpoint($model);
         $payload = $this->buildGeneratePayload($prompt, $options);
 
+        $this->setAuditContext(sprintf('%s, generate', $model));
         $usesQueue = $this->modelUsesQueue($model);
         $response = $usesQueue
             ? $this->sendQueueRequest($modelEndpoint, $payload)

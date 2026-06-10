@@ -18,6 +18,8 @@ use Netresearch\NrLlm\Provider\GroqProvider;
 use Netresearch\NrLlm\Provider\MistralProvider;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Http\VaultHttpClientInterface;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -454,5 +456,50 @@ class AbstractProviderTest extends AbstractUnitTestCase
             self::assertSame(503, $e->getCode());
             self::assertStringContainsString('503', $e->getMessage());
         }
+    }
+
+    #[Test]
+    public function sendRequestStampsPerRequestAuditReasonWithPurposeAndModel(): void
+    {
+        // A chat call through the vault secure client must record an audit
+        // reason carrying the purpose and the model actually requested —
+        // "LLM chat call to OpenAI (gpt-4o)" — not the static client-level
+        // default. The reason must never contain prompt text.
+        $capturedReasons = [];
+
+        $vaultHttpClient = self::createStub(VaultHttpClientInterface::class);
+        $vaultHttpClient->method('withAuthentication')->willReturn($vaultHttpClient);
+        $vaultHttpClient->method('withReason')->willReturnCallback(
+            function (string $reason) use (&$capturedReasons, $vaultHttpClient): VaultHttpClientInterface {
+                $capturedReasons[] = $reason;
+                return $vaultHttpClient;
+            },
+        );
+        $vaultHttpClient->method('sendRequest')->willReturn($this->createJsonResponseMock([
+            'id' => 'test',
+            'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
+            'model' => 'gpt-4o',
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+        ]));
+
+        $vault = self::createStub(VaultServiceInterface::class);
+        $vault->method('exists')->willReturn(true);
+        $vault->method('http')->willReturn($vaultHttpClient);
+
+        $provider = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $vault,
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => 'vault-id',
+            'defaultModel' => 'gpt-4o',
+        ]);
+
+        $provider->complete('hello, do not leak me');
+
+        self::assertSame(['LLM chat call to OpenAI (gpt-4o)'], $capturedReasons);
     }
 }

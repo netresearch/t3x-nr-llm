@@ -60,6 +60,15 @@ abstract class AbstractSpecializedService
     protected int $timeout;
 
     /**
+     * Per-request audit context appended to the audit reason, e.g.
+     * `'gpt-image-2, generate'` or `'tts-1, voice nova'`. Set by subclasses
+     * via `setAuditContext()` right before dispatching a request so the
+     * vault audit log records which model and purpose a secret access
+     * served. MUST never contain prompt text or other payload content.
+     */
+    private string $auditContext = '';
+
+    /**
      * Test seam: when set, `getSecureClient()` returns this instead of the
      * vault secure client. Production never sets it — auth always flows
      * through the audited vault client. Mirrors `AbstractProvider`.
@@ -187,12 +196,31 @@ abstract class AbstractSpecializedService
     }
 
     /**
+     * Set the per-request audit context (model, purpose, …) recorded with
+     * the next secret access, e.g. `'gpt-image-2, generate'`. The secure
+     * client is built per request (`getSecureClient()` inside the send
+     * path), so a context set immediately before dispatch is what lands
+     * in the vault audit log. Pass only request *metadata* — never prompt
+     * text, file contents, or anything secret-bearing.
+     */
+    protected function setAuditContext(string $context): void
+    {
+        $this->auditContext = $context;
+    }
+
+    /**
      * Audit-log reason recorded by the secure client for this service's
-     * requests. Subclasses may override for a more specific phrase.
+     * requests, e.g. `'OpenAI Images API call (gpt-image-2, generate)'`.
+     * Subclasses may override for a more specific phrase; most should
+     * just call `setAuditContext()` before dispatching.
      */
     protected function getAuditReason(): string
     {
-        return sprintf('%s API call', $this->getProviderLabel());
+        $reason = sprintf('%s API call', $this->getProviderLabel());
+        if ($this->auditContext !== '') {
+            $reason .= sprintf(' (%s)', $this->auditContext);
+        }
+        return $reason;
     }
 
     /**

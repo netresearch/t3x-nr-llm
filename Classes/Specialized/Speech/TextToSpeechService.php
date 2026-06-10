@@ -100,6 +100,7 @@ final class TextToSpeechService extends AbstractSpecializedService
             'speed' => $speed,
         ];
 
+        $this->setAuditContext(sprintf('%s, voice %s', $model, $voice));
         $audioContent = $this->sendBinaryRequest($payload);
 
         $this->usageTracker->trackUsage('speech', 'tts:' . $model, [
@@ -249,7 +250,7 @@ final class TextToSpeechService extends AbstractSpecializedService
 
     protected function getProviderLabel(): string
     {
-        return 'TTS';
+        return 'OpenAI TTS';
     }
 
     /**
