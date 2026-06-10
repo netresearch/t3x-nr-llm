@@ -125,8 +125,11 @@ final class PromptSnippetRepositoryTest extends AbstractFunctionalTestCase
         // tone-formal (sorting 10) before tone-casual (sorting 20),
         // although 'Casual tone' sorts before 'Formal tone' by name
         self::assertSame(
-            ['tone-formal', 'tone-casual'],
-            $this->identifiersOf($snippets),
+            [10, 20],
+            array_map(
+                static fn(PromptSnippet $snippet): int => $snippet->getSorting(),
+                $snippets,
+            ),
         );
     }
 

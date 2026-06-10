@@ -14,7 +14,6 @@ use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
-use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Imaging\IconSize;
@@ -36,11 +35,13 @@ final class PromptSnippetController extends ActionController
 {
     private const TABLE_NAME = 'tx_nrllm_promptsnippet';
 
+    private const MODULE_ROUTE = 'nrllm_snippets';
+
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly IconFactory $iconFactory,
         private readonly PromptSnippetRepository $promptSnippetRepository,
-        private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly FormEngineUrlBuilder $formEngineUrlBuilder,
     ) {}
 
     /**
@@ -64,14 +65,17 @@ final class PromptSnippetController extends ActionController
             if ($uid === null) {
                 continue;
             }
-            $editUrls[$uid] = $this->buildEditUrl($uid);
+            $editUrls[$uid] = $this->formEngineUrlBuilder
+                ->buildEditUrl(self::TABLE_NAME, $uid, self::MODULE_ROUTE);
         }
+
+        $newUrl = $this->formEngineUrlBuilder->buildNewUrl(self::TABLE_NAME, self::MODULE_ROUTE);
 
         $moduleTemplate->assignMultiple([
             'snippets' => $snippets,
             'totalCount' => $snippets->count(),
             'editUrls' => $editUrls,
-            'newUrl' => $this->buildNewUrl(),
+            'newUrl' => $newUrl,
         ]);
 
         $buttonBar = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
@@ -79,39 +83,9 @@ final class PromptSnippetController extends ActionController
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.snippet.new', 'NrLlm') ?? 'New Snippet')
             ->setShowLabelText(true)
-            ->setHref($this->buildNewUrl());
+            ->setHref($newUrl);
         $buttonBar->addButton($createButton);
 
         return $moduleTemplate->renderResponse('Backend/PromptSnippet/List');
-    }
-
-    /**
-     * Build FormEngine edit URL for a snippet.
-     */
-    private function buildEditUrl(int $uid): string
-    {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
-            'edit' => [self::TABLE_NAME => [$uid => 'edit']],
-            'returnUrl' => $this->buildReturnUrl(),
-        ]);
-    }
-
-    /**
-     * Build FormEngine new record URL.
-     */
-    private function buildNewUrl(): string
-    {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', [
-            'edit' => [self::TABLE_NAME => [0 => 'new']],
-            'returnUrl' => $this->buildReturnUrl(),
-        ]);
-    }
-
-    /**
-     * Build return URL for FormEngine (back to list).
-     */
-    private function buildReturnUrl(): string
-    {
-        return (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_snippets');
     }
 }

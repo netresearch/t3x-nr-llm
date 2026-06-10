@@ -347,7 +347,8 @@ CREATE TABLE tx_nrllm_promptsnippet (
 
     PRIMARY KEY (uid),
     KEY parent (pid),
-    KEY identifier (identifier)
+    KEY identifier (identifier),
+    KEY active_sorted (is_active, sorting, name)
 );
 
 #
