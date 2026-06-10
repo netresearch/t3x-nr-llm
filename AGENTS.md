@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last Updated: 2026-04-24. Last verified: 2026-04-24 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last Updated: 2026-06-10. Last verified: 2026-06-10 -->
 
 # AGENTS.md — nr_llm
 
@@ -37,7 +37,7 @@ ddev start && ddev composer install
 <!-- AGENTS-GENERATED:END setup -->
 
 <!-- AGENTS-GENERATED:START commands -->
-## Commands (verified 2026-04-24)
+## Commands (verified 2026-06-10)
 
 ALWAYS use the Docker test runner; never invoke `phpunit` / `phpstan` / `rector` directly. See `Build/Scripts/runTests.sh` for the full list and `make help` for shortcuts.
 

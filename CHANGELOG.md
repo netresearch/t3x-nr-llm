@@ -10,9 +10,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Allow `netresearch/nr-vault ^0.9.0` (constraint widened from `^0.8.0`,
-  which excludes 0.9.0 under 0.x caret semantics). nr-vault 0.9.0 is
-  backwards compatible for this extension's usage.
+- The `netresearch/nr-vault` constraint is now `^0.8.0 || ^0.9.0`
+  (widened from `^0.8.0`, which excludes 0.9.0 under 0.x caret
+  semantics). nr-vault 0.9.0 is backwards compatible for this
+  extension's usage.
 
 ## [0.11.1] - 2026-06-10
 
