@@ -328,8 +328,8 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public function constructorRejectsInvalidArbitraryGptImageSizes(string $size, int $expectedCode): void
     {
         try {
-            new ImageGenerationOptions(model: 'gpt-image-2', size: $size);
-            self::fail(sprintf('Expected the constructor to reject size "%s"', $size));
+            $options = new ImageGenerationOptions(model: 'gpt-image-2', size: $size);
+            self::fail(sprintf('Expected the constructor to reject size "%s", got %s', $size, $options::class));
         } catch (InvalidArgumentException $e) {
             self::assertSame($expectedCode, $e->getCode());
         }
@@ -365,10 +365,12 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         // The WxH freedom is a gpt-image-* contract only; DALL·E models keep
         // their fixed size lists.
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid size');
-
-        new ImageGenerationOptions(model: 'dall-e-3', size: '2048x1152');
+        try {
+            $options = new ImageGenerationOptions(model: 'dall-e-3', size: '2048x1152');
+            self::fail(sprintf('Expected the constructor to reject the size, got %s', $options::class));
+        } catch (\InvalidArgumentException $e) {
+            self::assertStringContainsString('Invalid size', $e->getMessage());
+        }
     }
 
     #[Test]

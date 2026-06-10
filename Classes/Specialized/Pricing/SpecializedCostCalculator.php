@@ -40,24 +40,16 @@ final readonly class SpecializedCostCalculator implements SpecializedCostCalcula
         int $outputTokens = 0,
         int $imageInputTokens = 0,
     ): float {
+        $tokenBased = null;
         if ($inputTokens > 0 || $outputTokens > 0) {
-            $dbCost = $this->estimateFromModelRow($model, $inputTokens, $outputTokens);
-            if ($dbCost !== null) {
-                return $dbCost;
-            }
-
-            $catalogCost = OpenAiPriceCatalog::imageTokenCost($model, $inputTokens, $outputTokens, $imageInputTokens);
-            if ($catalogCost !== null) {
-                return $catalogCost;
-            }
+            $tokenBased = $this->estimateFromModelRow($model, $inputTokens, $outputTokens)
+                ?? OpenAiPriceCatalog::imageTokenCost($model, $inputTokens, $outputTokens, $imageInputTokens);
         }
 
         $perImage = OpenAiPriceCatalog::imagePrice($model, $quality, $size);
-        if ($perImage !== null && $imageCount > 0) {
-            return $perImage * $imageCount;
-        }
+        $perImageBased = ($perImage !== null && $imageCount > 0) ? $perImage * $imageCount : null;
 
-        return 0.0;
+        return $tokenBased ?? $perImageBased ?? 0.0;
     }
 
     public function estimateSpeechSynthesisCost(string $model, int $characters): float
