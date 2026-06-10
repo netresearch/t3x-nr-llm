@@ -443,6 +443,7 @@ final class GeminiProvider extends AbstractProvider implements
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient()->sendRequest($request);
+        $this->assertStreamingResponseOk($response, sprintf('models/%s:streamGenerateContent', $model));
         $stream = $response->getBody();
 
         $buffer = '';

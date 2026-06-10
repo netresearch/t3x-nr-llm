@@ -623,6 +623,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $stream->method('read')->willReturn($streamData);
 
         $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
         $response->method('getBody')->willReturn($stream);
 
         $this->httpClientStub
@@ -656,6 +657,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $stream->method('read')->willReturn($streamData);
 
         $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
         $response->method('getBody')->willReturn($stream);
 
         $this->httpClientStub
@@ -682,6 +684,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $stream->method('read')->willReturn($streamData);
 
         $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
         $response->method('getBody')->willReturn($stream);
 
         $this->httpClientStub

@@ -23,6 +23,7 @@ use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -263,6 +264,44 @@ abstract class AbstractProvider implements ProviderInterface
     protected function addProviderSpecificHeaders(RequestInterface $request): RequestInterface
     {
         return $request;
+    }
+
+    /**
+     * Map a non-2xx streaming response to the same typed exceptions that
+     * `sendRequest()` raises, so a failed stream surfaces the error instead
+     * of silently yielding an empty generator.
+     *
+     * Streaming bypasses `sendRequest()` (the SSE body must be read lazily),
+     * and the fallback middleware excludes streaming from its retry/fallback
+     * handling — so surfacing the typed error here is the correct contract.
+     *
+     * @throws ProviderResponseException   on a 4xx response
+     * @throws ProviderConnectionException on any other non-2xx response
+     */
+    protected function assertStreamingResponseOk(ResponseInterface $response, string $endpoint): void
+    {
+        $statusCode = $response->getStatusCode();
+        if ($statusCode >= 200 && $statusCode < 300) {
+            return;
+        }
+
+        $body = (string)$response->getBody();
+
+        if ($statusCode >= 400 && $statusCode < 500) {
+            $decoded = json_decode($body, true);
+            $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => 'Unknown error']];
+            throw new ProviderResponseException(
+                message: $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
+                httpStatus: $statusCode,
+                responseBody: $body,
+                endpoint: $endpoint,
+            );
+        }
+
+        throw new ProviderConnectionException(
+            sprintf('Server returned status %d', $statusCode),
+            $statusCode,
+        );
     }
 
     /**

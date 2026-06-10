@@ -586,6 +586,7 @@ class MistralProviderTest extends AbstractUnitTestCase
         $streamStub->method('read')->willReturn($streamContent);
 
         $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
@@ -630,6 +631,7 @@ class MistralProviderTest extends AbstractUnitTestCase
         $streamStub->method('read')->willReturn($streamContent);
 
         $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
@@ -674,6 +676,7 @@ class MistralProviderTest extends AbstractUnitTestCase
         $streamStub->method('read')->willReturn($streamContent);
 
         $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
@@ -717,6 +720,7 @@ class MistralProviderTest extends AbstractUnitTestCase
         $streamStub->method('read')->willReturn($streamContent);
 
         $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();

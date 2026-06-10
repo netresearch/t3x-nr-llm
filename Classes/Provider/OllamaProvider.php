@@ -277,6 +277,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient()->sendRequest($request);
+        $this->assertStreamingResponseOk($response, 'api/chat');
         $stream = $response->getBody();
 
         $buffer = '';

@@ -953,6 +953,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         });
 
         $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock
@@ -986,6 +987,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         });
 
         $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock
@@ -1025,6 +1027,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         });
 
         $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock
@@ -1059,6 +1062,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         });
 
         $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock

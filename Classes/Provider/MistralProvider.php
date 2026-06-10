@@ -281,6 +281,7 @@ final class MistralProvider extends AbstractProvider implements
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient()->sendRequest($request);
+        $this->assertStreamingResponseOk($response, 'chat/completions');
         $stream = $response->getBody();
 
         $buffer = '';
