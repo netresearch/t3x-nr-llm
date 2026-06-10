@@ -10,22 +10,23 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Utility;
 
 /**
- * Trait for stripping secrets from error messages before they are logged
- * or surfaced.
+ * Trait for redacting known credential query parameters from error
+ * messages before they are logged or surfaced.
  *
- * HTTP client exceptions may include full URLs with query parameters
- * containing API keys (e.g., Gemini's `?key=...` pattern). This strips
- * sensitive query parameters so providers and the setup wizard never leak
- * a secret into logs or client-facing messages.
+ * HTTP client exceptions may include the full request URL (e.g., Gemini's
+ * `?key=...` pattern). This redacts the values of the well-known credential
+ * query parameters (`key`, `api_key`, `apikey`, `token`, `secret`,
+ * `access_token`) in any URL embedded in the message. It deliberately does
+ * NOT scrub other secret material such as header values — callers must not
+ * write raw header dumps into error messages in the first place.
  */
 trait ErrorMessageSanitizerTrait
 {
     /**
-     * Sanitize error messages to prevent leaking secrets (API keys in URLs, headers, etc.).
+     * Redact well-known credential query parameters from URLs in the message.
      */
     protected function sanitizeErrorMessage(string $message): string
     {
-        // Strip query parameters that may contain API keys from URLs in the message
         return (string)preg_replace(
             '/([?&])(key|api_key|apikey|token|secret|access_token)=[^&\s]+/i',
             '$1$2=***',
