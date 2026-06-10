@@ -44,6 +44,7 @@ final class TcaFieldCompletionTest extends TestCase
             'model' => ['tx_nrllm_model'],
             'configuration' => ['tx_nrllm_configuration'],
             'task' => ['tx_nrllm_task'],
+            'promptsnippet' => ['tx_nrllm_promptsnippet'],
         ];
     }
 

@@ -726,6 +726,50 @@
             <trans-unit id="tx_nrllm_configuration.translator.deepl">
                 <source>DeepL</source>
             </trans-unit>
+
+            <!-- Prompt snippet table -->
+            <trans-unit id="tx_nrllm_promptsnippet">
+                <source>LLM Prompt Snippet</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.identifier">
+                <source>Identifier</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.identifier.description">
+                <source>Unique technical identifier (lowercase, e.g. persona-friendly-expert)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.name">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.name.description">
+                <source>Display name shown to editors</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.description">
+                <source>Description</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.tags">
+                <source>Tags</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.tags.description">
+                <source>Comma-separated free-form tags used by consuming extensions to find snippets. Established tags: audience, tone_of_voice, persona, layout, style. Matching is case-insensitive and exact per tag.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.snippet">
+                <source>Snippet text</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.snippet.description">
+                <source>The prompt fragment that is composed into the consuming extension's prompt</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.metadata">
+                <source>Metadata (JSON)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.metadata.description">
+                <source>Optional JSON object with extra settings for consuming extensions, e.g. {"voice": "nova"} on persona snippets</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.is_active">
+                <source>Active</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.is_active.description">
+                <source>Only active snippets are returned to consuming extensions</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>
