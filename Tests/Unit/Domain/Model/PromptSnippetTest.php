@@ -82,9 +82,11 @@ final class PromptSnippetTest extends AbstractUnitTestCase
     {
         $this->subject->setIsActive(false);
         self::assertFalse($this->subject->isActive());
+        self::assertFalse($this->subject->getIsActive());
 
         $this->subject->setIsActive(true);
         self::assertTrue($this->subject->isActive());
+        self::assertTrue($this->subject->getIsActive());
     }
 
     #[Test]

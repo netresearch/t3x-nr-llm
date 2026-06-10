@@ -76,6 +76,16 @@ class PromptSnippet extends AbstractEntity
         return $this->metadata;
     }
 
+    /**
+     * Getter pair as in the other models (Provider, Model, Task, ...): Fluid resolves
+     * the template path {snippet.isActive} via getIsActive() — isActive() alone makes
+     * ObjectAccess fall back to the protected property and crash the module.
+     */
+    public function getIsActive(): bool
+    {
+        return $this->isActive;
+    }
+
     public function isActive(): bool
     {
         return $this->isActive;
