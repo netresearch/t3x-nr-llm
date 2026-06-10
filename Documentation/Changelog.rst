@@ -11,6 +11,20 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-11-1:
+
+Version 0.11.1 (2026-06-10)
+===========================
+
+Security and robustness fixes from the extension-wide code review: the setup
+wizard dispatches through nr-vault's SSRF-guarded secure HTTP client, the
+provider adapters surface streaming errors as typed, credential-sanitized
+exceptions, TTS text splitting is multibyte-safe, and FAL/Whisper
+configuration parsing is hardened.
+
+For the complete, itemised list see the canonical
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-llm/blob/main/CHANGELOG.md>`__.
+
 .. _version-0-11-0:
 
 Version 0.11.0 (2026-06-10)
