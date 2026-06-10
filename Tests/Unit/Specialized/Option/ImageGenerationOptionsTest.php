@@ -295,14 +295,80 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function constructorThrowsForDalleSizeOnGptImageModel(): void
+    #[DataProvider('validArbitraryGptImageSizeProvider')]
+    public function constructorAcceptsArbitraryGptImageSizes(string $size): void
     {
-        // DALL·E-3's 1792x1024 is not a valid gpt-image size.
+        // gpt-image-* accepts any WIDTHxHEIGHT with both dimensions divisible
+        // by 16, aspect ratio between 1:3 and 3:1 (inclusive), max 3840x2160
+        // (per OpenAI docs, June 2026). Other extensions rely on this contract.
+        $options = new ImageGenerationOptions(model: 'gpt-image-2', size: $size);
+
+        self::assertEquals($size, $options->size);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function validArbitraryGptImageSizeProvider(): array
+    {
+        return [
+            'former DALL-E-3 wide size'   => ['1792x1024'],
+            '16:9 HD'                     => ['2048x1152'],
+            'maximum 3840x2160'           => ['3840x2160'],
+            'exact 1:3 portrait'          => ['720x2160'],
+            'exact 3:1 landscape'         => ['2160x720'],
+            'widest at max width'         => ['3840x1280'],
+            'minimum 16x16'               => ['16x16'],
+            '2:1 landscape'               => ['1024x512'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('invalidArbitraryGptImageSizeProvider')]
+    public function constructorRejectsInvalidArbitraryGptImageSizes(string $size, int $expectedCode): void
+    {
+        try {
+            new ImageGenerationOptions(model: 'gpt-image-2', size: $size);
+            self::fail(sprintf('Expected the constructor to reject size "%s"', $size));
+        } catch (InvalidArgumentException $e) {
+            self::assertSame($expectedCode, $e->getCode());
+        }
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: int}>
+     */
+    public static function invalidArbitraryGptImageSizeProvider(): array
+    {
+        return [
+            // Both dimensions must be divisible by 16.
+            'width not divisible by 16'  => ['1000x1024', 4810231766],
+            'height not divisible by 16' => ['1024x1000', 4810231766],
+            'zero dimensions'            => ['0x0', 4810231766],
+            // Maximum size is 3840x2160.
+            'width above 3840'           => ['3856x2160', 7269345118],
+            'height above 2160'          => ['3840x2176', 7269345118],
+            // Aspect ratio must stay between 1:3 and 3:1.
+            'taller than 1:3'            => ['512x1552', 6203914577],
+            'wider than 3:1'             => ['1552x512', 6203914577],
+            // Malformed strings are rejected outright.
+            'missing height'             => ['1024x', 9662872869],
+            'missing width'              => ['x1024', 9662872869],
+            'non-numeric'                => ['widexhigh', 9662872869],
+            'negative width'             => ['-1024x1024', 9662872869],
+            'whitespace'                 => [' 1024x1024', 9662872869],
+        ];
+    }
+
+    #[Test]
+    public function constructorStillRejectsArbitrarySizesForDalleModels(): void
+    {
+        // The WxH freedom is a gpt-image-* contract only; DALL·E models keep
+        // their fixed size lists.
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid size');
 
-        $options = new ImageGenerationOptions(model: 'gpt-image-1', size: '1792x1024');
-        self::fail('Expected the constructor to reject size, got: ' . $options->size);
+        new ImageGenerationOptions(model: 'dall-e-3', size: '2048x1152');
     }
 
     #[Test]
