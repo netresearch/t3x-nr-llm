@@ -58,6 +58,8 @@ final class OpenRouterProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
+    private const ENDPOINT_CHAT_COMPLETIONS = 'chat/completions';
+
     private const DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4-5';
     private const DEFAULT_EMBEDDING_MODEL = 'openai/text-embedding-3-small';
 
@@ -295,7 +297,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             $payload['transforms'] = $transforms;
         }
 
-        $response = $this->sendOpenRouterRequest('chat/completions', $payload);
+        $response = $this->sendOpenRouterRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload);
 
         $choices = $this->getList($response, 'choices');
         $choice = $this->asArray($choices[0] ?? []);
@@ -360,7 +362,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             }
         }
 
-        $response = $this->sendOpenRouterRequest('chat/completions', $payload);
+        $response = $this->sendOpenRouterRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload);
 
         $choices = $this->getList($response, 'choices');
         $choice = $this->asArray($choices[0] ?? []);
@@ -479,7 +481,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             $payload['route'] = 'fallback';
         }
 
-        $response = $this->sendOpenRouterRequest('chat/completions', $payload);
+        $response = $this->sendOpenRouterRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload);
 
         $choices = $this->getList($response, 'choices');
         $choice = $this->asArray($choices[0] ?? []);
@@ -551,7 +553,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             }
         }
 
-        $url = rtrim($this->baseUrl, '/') . '/chat/completions';
+        $url = rtrim($this->baseUrl, '/') . '/' . self::ENDPOINT_CHAT_COMPLETIONS;
 
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json')
@@ -569,7 +571,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient()->sendRequest($request);
-        $this->assertStreamingResponseOk($response, 'chat/completions');
+        $this->assertStreamingResponseOk($response, self::ENDPOINT_CHAT_COMPLETIONS);
         $stream = $response->getBody();
 
         $buffer = '';

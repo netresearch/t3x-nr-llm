@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -30,7 +31,11 @@ use Throwable;
 
 abstract class AbstractProvider implements ProviderInterface
 {
+    use ErrorMessageSanitizerTrait;
     use ResponseParserTrait;
+
+    /** Placeholder for provider error payloads that carry no message. */
+    private const UNKNOWN_ERROR = 'Unknown error';
 
     /**
      * Feature constants for provider capabilities.
@@ -228,7 +233,7 @@ abstract class AbstractProvider implements ProviderInterface
                 if ($statusCode >= 400 && $statusCode < 500) {
                     $body = (string)$response->getBody();
                     $decoded = json_decode($body, true);
-                    $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => 'Unknown error']];
+                    $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => self::UNKNOWN_ERROR]];
                     throw new ProviderResponseException(
                         message: $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
                         httpStatus: $statusCode,
@@ -255,7 +260,7 @@ abstract class AbstractProvider implements ProviderInterface
 
         throw new ProviderConnectionException(
             'Failed to connect to provider after ' . $this->maxRetries . ' attempts: '
-            . $this->sanitizeErrorMessage($lastException?->getMessage() ?? 'Unknown error'),
+            . $this->sanitizeErrorMessage($lastException?->getMessage() ?? self::UNKNOWN_ERROR),
             0,
             $lastException,
         );
@@ -289,7 +294,7 @@ abstract class AbstractProvider implements ProviderInterface
 
         if ($statusCode >= 400 && $statusCode < 500) {
             $decoded = json_decode($body, true);
-            $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => 'Unknown error']];
+            $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => self::UNKNOWN_ERROR]];
             throw new ProviderResponseException(
                 message: $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
                 httpStatus: $statusCode,
@@ -301,22 +306,6 @@ abstract class AbstractProvider implements ProviderInterface
         throw new ProviderConnectionException(
             sprintf('Server returned status %d', $statusCode),
             $statusCode,
-        );
-    }
-
-    /**
-     * Sanitize error messages to prevent leaking secrets (API keys in URLs, headers, etc.).
-     *
-     * HTTP client exceptions may include full URLs with query parameters containing API keys
-     * (e.g., Gemini's ?key=... pattern). This strips sensitive query parameters.
-     */
-    protected function sanitizeErrorMessage(string $message): string
-    {
-        // Strip query parameters that may contain API keys from URLs in the message
-        return (string)preg_replace(
-            '/([?&])(key|api_key|apikey|token|secret|access_token)=[^&\s]+/i',
-            '$1$2=***',
-            $message,
         );
     }
 

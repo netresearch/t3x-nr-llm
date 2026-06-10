@@ -50,7 +50,7 @@ Full test matrix in root `AGENTS.md` Setup section.
 | `Service/Option/` | ChatOptions, EmbeddingOptions, ToolOptions, TranslationOptions, VisionOptions |
 | `Service/SetupWizard/` | ProviderDetector, ModelDiscovery, ConfigurationGenerator + DTOs |
 | `Specialized/` | Image (DALL-E, FAL), Speech (Whisper, TTS), Translation (DeepL, LLM) |
-| `Utility/` | SafeCastTrait |
+| `Utility/` | SafeCastTrait, ErrorMessageSanitizerTrait |
 | `Widgets/DataProvider/` | Backend dashboard widgets (MonthlyCost, RequestsByProvider) |
 <!-- AGENTS-GENERATED:END filemap -->
 
