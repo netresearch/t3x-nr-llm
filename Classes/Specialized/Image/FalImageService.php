@@ -269,7 +269,7 @@ final class FalImageService extends AbstractSpecializedService
         // Clamp to >= 1ms: a configured 0 (or negative) would make the poll-attempt
         // count a division by zero and turn usleep() into a busy-loop. max(1, …)
         // keeps the service fail-soft on a misconfigured interval.
-        $resolvedInterval = is_int($pollInterval) ? $pollInterval : (is_numeric($pollInterval) ? (int)$pollInterval : 1000);
+        $resolvedInterval = is_numeric($pollInterval) ? (int)$pollInterval : 1000;
         $this->pollInterval = max(1, $resolvedInterval);
     }
 
