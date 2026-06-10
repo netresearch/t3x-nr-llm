@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-06-10
+
+### Changed
+
+- Allow `netresearch/nr-vault ^0.9.0` (constraint widened from `^0.8.0`,
+  which excludes 0.9.0 under 0.x caret semantics). nr-vault 0.9.0 is
+  backwards compatible for this extension's usage.
+
 ## [0.11.1] - 2026-06-10
 
 ### Security
@@ -796,7 +804,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.11.2...HEAD
+[0.11.2]: https://github.com/netresearch/t3x-nr-llm/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.9.0...v0.10.0

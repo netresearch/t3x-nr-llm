@@ -11,6 +11,14 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-11-2:
+
+Version 0.11.2 (2026-06-10)
+===========================
+
+Dependency maintenance: the ``netresearch/nr-vault`` constraint is widened to
+``^0.8.0 || ^0.9.0`` so installations can resolve nr-vault 0.9.0.
+
 .. _version-0-11-1:
 
 Version 0.11.1 (2026-06-10)
