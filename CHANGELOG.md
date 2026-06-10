@@ -6,6 +6,32 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-06-10
+
+### Added
+
+- **The backend module's default Configuration now drives generic completion.**
+  When a caller invokes `chat()`, `complete()`, or `streamChat()` without
+  pinning a provider, the manager first resolves the active *default*
+  database-backed `LlmConfiguration` (Provider → Model → Configuration, as
+  managed in the backend module) and routes the call through it — provider
+  adapter, model, and vault-backed credentials all come from the module's
+  records. Per-call `ChatOptions` (temperature, response format, system
+  prompt, …) override the configuration's stored defaults, so JSON mode and
+  per-call prompts keep working unchanged.
+- `chatWithConfiguration()`, `completeWithConfiguration()` and
+  `streamChatWithConfiguration()` accept an `$optionOverrides` array whose
+  entries take precedence over the configuration's stored options.
+
+### Changed
+
+- The extension-configuration `defaultProvider` is now a *fallback*: it is
+  used only when no usable default configuration exists in the database. A
+  default configuration is skipped (falling back) when it has no model
+  assigned or when it is access-restricted to specific backend groups —
+  group-restricted configurations are never auto-applied to callers without
+  a backend-user context (e.g. the CLI messenger worker).
+
 ## [0.10.0] - 2026-06-09
 
 ### Changed
@@ -743,7 +769,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.7.0...v0.8.0
