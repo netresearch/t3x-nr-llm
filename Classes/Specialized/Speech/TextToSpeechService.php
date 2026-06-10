@@ -369,8 +369,19 @@ final class TextToSpeechService extends AbstractSpecializedService
                 } else {
                     if ($currentChunk !== '') {
                         $chunks[] = rtrim($currentChunk, ', ');
+                        $currentChunk = '';
                     }
-                    $currentChunk = $part . $separator;
+                    // A single comma-delimited part can itself exceed the limit
+                    // (e.g. a clause with no internal commas). Emitting it whole
+                    // would produce an over-limit chunk that synthesize() rejects,
+                    // so hard-split it at the byte boundary first.
+                    if (mb_strlen($part . $separator) > self::MAX_INPUT_LENGTH) {
+                        foreach (str_split($part, self::MAX_INPUT_LENGTH) ?: [$part] as $hardChunk) {
+                            $chunks[] = $hardChunk;
+                        }
+                    } else {
+                        $currentChunk = $part . $separator;
+                    }
                 }
             }
 

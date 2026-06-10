@@ -30,6 +30,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Log\LoggerInterface;
+use ReflectionClass;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -220,6 +221,20 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubjectWithoutApiKey();
 
         self::assertFalse($subject->isAvailable());
+    }
+
+    #[Test]
+    public function emptyStringBaseUrlFallsBackToApiUrl(): void
+    {
+        // An empty ext_conf baseUrl is the documented "use the default" value;
+        // it must not be sent verbatim (a scheme-less URL breaks the HTTP
+        // client) — it falls back to the OpenAI default like the siblings do.
+        $subject = $this->createSubject(['speech' => ['whisper' => ['baseUrl' => '']]]);
+
+        $reflection = new ReflectionClass($subject);
+        $baseUrl = $reflection->getProperty('baseUrl')->getValue($subject);
+
+        self::assertSame('https://api.openai.com/v1/audio', $baseUrl);
     }
 
     // ==================== getters tests ====================
