@@ -118,29 +118,34 @@ The unit test
 ``Configuration/Services.yaml`` and asserts:
 
 * The total count of ``public: true`` keys matches the expected
-  total (currently **38**).
+  total (currently **40**).
 * The ADR file exists and references both ``REC #9c`` and the
   ``public: true`` policy text.
 
-Breakdown of the 38:
+Breakdown of the 40:
 
-* **21** Category 1 — Public LLM API surface
-  (12 concrete services + 9 interface aliases).
-  Note the 12 / 9 asymmetry: ``CompletionService``,
+* **22** Category 1 — Public LLM API surface
+  (13 concrete services + 9 interface aliases).
+  Note the 13 / 9 asymmetry: ``CompletionService``,
   ``EmbeddingService``, ``TranslationService``, ``VisionService``
   contribute 4 concrete entries but their interface aliases are
-  registered separately (4 aliases). The remaining 8 concrete
-  services pair with 5 interface aliases; three core services
+  registered separately (4 aliases). Of the remaining 9 concrete
+  services, three core services
   (``LlmServiceManager``, ``ProviderAdapterRegistry``,
   ``TranslatorRegistry``) keep the interface-alias entry while
   ``BudgetService``, ``CacheManager``, ``UsageTrackerService``,
   ``LlmConfigurationService``, ``PromptTemplateService`` each have
-  both a concrete + interface entry. The maths: 12 concrete + 9
-  aliases = 21.
+  both a concrete + interface entry, and
+  ``Service\Prompt\PromptSnippetComposer`` (ADR-031) is
+  concrete-only — consuming extensions resolve it by class name,
+  it has no interface alias. The maths: 13 concrete + 9
+  aliases = 22.
 * **4** Category 2 — Specialized services
   (Whisper, TextToSpeech, DallE, Fal).
-* **5** Category 3 — Repositories
-  (LlmConfiguration, Provider, Model, Task, UserBudget).
+* **6** Category 3 — Repositories
+  (LlmConfiguration, Provider, Model, Task, PromptSnippet,
+  UserBudget). ``PromptSnippetRepository`` is additionally the
+  documented query surface for consuming extensions (ADR-031).
 * **4** Category 4 — SetupWizard
   (3 concrete: ProviderDetector, ModelDiscovery,
   ConfigurationGenerator + 1 alias: ModelDiscoveryInterface).
