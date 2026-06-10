@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\MultipartBodyBuilderTrait;
+use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
@@ -185,6 +186,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             extensionConfiguration: $extConf,
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
+            costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
         );
 
         $subject->callSendJsonRequest('endpoint', []);
@@ -194,6 +196,37 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         self::assertSame([], $capturedOptions);
         self::assertNotNull($capturedReason);
         self::assertNotSame('', $capturedReason);
+    }
+
+    #[Test]
+    public function auditReasonDefaultsToProviderLabelApiCall(): void
+    {
+        $subject = $this->createSubject();
+
+        self::assertSame('TESTABLE API call', $subject->callGetAuditReason());
+    }
+
+    #[Test]
+    public function auditReasonCarriesModelAndPurposeContextWhenSet(): void
+    {
+        $subject = $this->createSubject();
+
+        $subject->callSetAuditContext('gpt-image-2, generate');
+
+        self::assertSame('TESTABLE API call (gpt-image-2, generate)', $subject->callGetAuditReason());
+    }
+
+    #[Test]
+    public function auditContextOfLatestRequestWins(): void
+    {
+        // The context is per-request state: a later setAuditContext()
+        // replaces the earlier one entirely.
+        $subject = $this->createSubject();
+
+        $subject->callSetAuditContext('tts-1, voice nova');
+        $subject->callSetAuditContext('tts-1-hd, voice alloy');
+
+        self::assertSame('TESTABLE API call (tts-1-hd, voice alloy)', $subject->callGetAuditReason());
     }
 
     #[Test]
@@ -318,6 +351,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             extensionConfiguration: $extConf,
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
+            costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
         );
 
         self::assertFalse($subject->isAvailable());
@@ -387,6 +421,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             extensionConfiguration: $extConf,
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
+            costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
         );
 
         self::assertFalse($subject->isAvailable());
@@ -464,6 +499,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             extensionConfiguration: $extConf,
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
+            costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
         );
 
         // Inject the plain test client through the test seam; this bypasses the
@@ -514,6 +550,16 @@ final class TestableSpecializedService extends AbstractSpecializedService
     public function callBuildEndpointUrl(string $endpoint): string
     {
         return $this->buildEndpointUrl($endpoint);
+    }
+
+    public function callSetAuditContext(string $context): void
+    {
+        $this->setAuditContext($context);
+    }
+
+    public function callGetAuditReason(): string
+    {
+        return $this->getAuditReason();
     }
 
     /**

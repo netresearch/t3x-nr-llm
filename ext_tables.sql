@@ -394,7 +394,7 @@ CREATE TABLE tx_nrllm_service_usage (
 
     PRIMARY KEY (uid),
     KEY parent (pid),
-    KEY lookup (service_type, service_provider, request_date, model_uid),
+    KEY lookup (service_type, service_provider, request_date, model_uid, model_id),
     KEY user_lookup (be_user, service_type, request_date),
     KEY config_lookup (configuration_uid, request_date),
     KEY model_lookup (model_uid, request_date),

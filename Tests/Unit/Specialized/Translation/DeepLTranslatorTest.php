@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
+use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -78,6 +79,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->createExtensionConfigurationMock($this->defaultConfig),
             $this->usageTrackerStub,
             $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
         );
         $translator->setHttpClient($httpClientStub);
 
@@ -99,6 +101,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->createExtensionConfigurationMock($config),
             $this->usageTrackerStub,
             $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
         );
         $translator->setHttpClient($httpClient);
 
@@ -173,6 +176,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->createExtensionConfigurationMock($config),
             $this->usageTrackerStub,
             $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
         );
 
         $reflection = new ReflectionClass($translator);
@@ -304,6 +308,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->createExtensionConfigurationMock($this->defaultConfig),
             $usageTrackerMock,
             $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
         );
         $subject->setHttpClient($httpClientStub);
 

@@ -9,10 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Speech;
 
+use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
+use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator;
+use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Speech\SpeechSynthesisResult;
 use Netresearch\NrLlm\Specialized\Speech\TextToSpeechService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -44,6 +47,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LoggerInterface&Stub $loggerStub;
     private VaultServiceInterface $vaultStub;
+    private SpecializedCostCalculatorInterface $costCalculator;
 
     protected function setUp(): void
     {
@@ -56,6 +60,12 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
         $this->loggerStub = self::createStub(LoggerInterface::class);
         $this->vaultStub = $this->createVaultServiceMock();
+
+        // Real calculator over a model-less repository: catalog prices apply,
+        // so cost assertions exercise the real pricing math.
+        $modelRepositoryStub = self::createStub(ModelRepository::class);
+        $modelRepositoryStub->method('findOneByIdentifier')->willReturn(null);
+        $this->costCalculator = new SpecializedCostCalculator($modelRepositoryStub);
     }
 
     /**
@@ -78,6 +88,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $extensionConfiguration,
             $usageTracker,
             $logger,
+            $this->costCalculator,
         );
         $service->setHttpClient($httpClient);
 
@@ -326,8 +337,16 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->method('trackUsage')
             ->with(
                 'speech',
-                self::stringStartsWith('tts:'),
-                self::callback(fn($data) => is_array($data) && isset($data['characters'])),
+                'tts',
+                self::callback(
+                    // 'Test text' = 9 characters at the tts-1 list price of
+                    // $15 per 1M characters.
+                    fn(array $metrics): bool => $metrics['characters'] === 9
+                        && is_float($metrics['cost']) && abs($metrics['cost'] - 9 * 15.00 / 1_000_000) < 1e-12,
+                ),
+                null,
+                0,
+                'tts-1',
             );
 
         $subject = $this->buildService(

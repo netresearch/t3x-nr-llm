@@ -9,12 +9,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Image;
 
+use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Image\DallEImageService;
 use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
 use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
+use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator;
+use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -44,6 +47,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LoggerInterface&Stub $loggerStub;
     private VaultServiceInterface $vaultStub;
+    private SpecializedCostCalculatorInterface $costCalculator;
     private ?string $tempFile = null;
 
     protected function setUp(): void
@@ -57,6 +61,12 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
         $this->loggerStub = self::createStub(LoggerInterface::class);
         $this->vaultStub = $this->createVaultServiceMock();
+
+        // Real calculator over a model-less repository: catalog prices apply,
+        // so the cost assertions below exercise the real pricing math.
+        $modelRepositoryStub = self::createStub(ModelRepository::class);
+        $modelRepositoryStub->method('findOneByIdentifier')->willReturn(null);
+        $this->costCalculator = new SpecializedCostCalculator($modelRepositoryStub);
     }
 
     /**
@@ -79,6 +89,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $extensionConfiguration,
             $usageTracker,
             $logger,
+            $this->costCalculator,
         );
         $service->setHttpClient($httpClient);
 
@@ -379,7 +390,21 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $usageTrackerMock
             ->expects(self::once())
             ->method('trackUsage')
-            ->with('image', 'dall-e:dall-e-3', self::anything());
+            ->with(
+                'image',
+                'dall-e',
+                self::callback(
+                    // dall-e-3 responses carry no usage object: token metrics
+                    // are omitted, the cost falls back to the per-image list
+                    // price (standard 1024x1024 = $0.040).
+                    fn(array $metrics): bool => $metrics['images'] === 1
+                        && !isset($metrics['tokens'])
+                        && is_float($metrics['cost']) && abs($metrics['cost'] - 0.040) < 1e-9,
+                ),
+                null,
+                0,
+                'dall-e-3',
+            );
 
         $subject = $this->buildService(
             $this->httpClientStub,
@@ -712,7 +737,19 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $usageTrackerMock
             ->expects(self::once())
             ->method('trackUsage')
-            ->with('image', 'dall-e:variations', self::anything());
+            ->with(
+                'image',
+                'dall-e',
+                self::callback(
+                    // One variation at the default 1024x1024 — dall-e-2 list
+                    // price $0.020 per image.
+                    fn(array $metrics): bool => $metrics['images'] === 1
+                        && is_float($metrics['cost']) && abs($metrics['cost'] - 0.020) < 1e-9,
+                ),
+                null,
+                0,
+                'dall-e-2',
+            );
 
         $subject = $this->buildService(
             $this->httpClientStub,
@@ -792,7 +829,17 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $usageTrackerMock
             ->expects(self::once())
             ->method('trackUsage')
-            ->with('image', 'dall-e:edit', self::anything());
+            ->with(
+                'image',
+                'dall-e',
+                self::callback(
+                    fn(array $metrics): bool => $metrics['images'] === 1
+                        && is_float($metrics['cost']) && abs($metrics['cost'] - 0.020) < 1e-9,
+                ),
+                null,
+                0,
+                'dall-e-2',
+            );
 
         $subject = $this->buildService(
             $this->httpClientStub,
@@ -1083,7 +1130,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         );
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessageMatches('/Failed to connect to DALL-E API/');
+        $this->expectExceptionMessageMatches('/Failed to connect to OpenAI Images API/');
 
         $subject->generate('A cat');
     }
@@ -1093,7 +1140,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function generateMultipleWithDallE2TracksUsageWithCount(): void
     {
-        // DALL-E 2 batch path tracks usage with a 'count' key after the loop.
+        // DALL-E 2 batch path tracks the produced image count after the loop.
         $imageData = [
             ['url' => 'https://example.com/image1.png'],
             ['url' => 'https://example.com/image2.png'],
@@ -1113,8 +1160,15 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->method('trackUsage')
             ->with(
                 'image',
-                'dall-e:dall-e-2',
-                self::callback(fn(array $ctx): bool => isset($ctx['count']) && $ctx['count'] === 2),
+                'dall-e',
+                self::callback(
+                    // Two 512x512 dall-e-2 images at $0.018 list price each.
+                    fn(array $metrics): bool => $metrics['images'] === 2
+                        && is_float($metrics['cost']) && abs($metrics['cost'] - 0.036) < 1e-9,
+                ),
+                null,
+                0,
+                'dall-e-2',
             );
 
         $subject = $this->buildService(
@@ -1130,6 +1184,108 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $results = $subject->generateMultiple('Two cats', 2, $options);
 
         self::assertCount(2, $results);
+    }
+
+    // ==================== gpt-image usage object parsing ====================
+
+    #[Test]
+    public function generateWithGptImageModelTracksUsageTokensAndTokenCost(): void
+    {
+        // gpt-image-* responses include a usage object; its tokens must land
+        // in the usage row and price the call token-based:
+        // 40 text-in × $5/1M + 10 image-in × $8/1M + 1000 out × $30/1M.
+        $this->setupSuccessfulRequest([
+            'data' => [['b64_json' => base64_encode('png-bytes')]],
+            'usage' => [
+                'input_tokens' => 50,
+                'output_tokens' => 1000,
+                'total_tokens' => 1050,
+                'input_tokens_details' => ['text_tokens' => 40, 'image_tokens' => 10],
+            ],
+        ]);
+
+        $this->extensionConfigMock
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']],
+            ]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'image',
+                'dall-e',
+                self::callback(
+                    fn(array $metrics): bool => $metrics['images'] === 1
+                        && $metrics['tokens'] === 1050
+                        && $metrics['promptTokens'] === 50
+                        && $metrics['completionTokens'] === 1000
+                        && is_float($metrics['cost']) && abs($metrics['cost'] - 0.03028) < 1e-9,
+                ),
+                null,
+                0,
+                'gpt-image-2',
+            );
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
+
+        $subject->generate('A cat', ['model' => 'gpt-image-2']);
+    }
+
+    #[Test]
+    public function generateWithGptImageModelWithoutUsageObjectRecordsZeroCost(): void
+    {
+        // Defensive path: should a gpt-image response ever lack the usage
+        // object, token metrics are omitted and no cost is guessed — the
+        // per-image fallback has no entry for the DALL-E quality vocabulary.
+        $this->setupSuccessfulRequest([
+            'data' => [['b64_json' => base64_encode('png-bytes')]],
+        ]);
+
+        $this->extensionConfigMock
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']],
+            ]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'image',
+                'dall-e',
+                self::callback(
+                    fn(array $metrics): bool => $metrics['images'] === 1
+                        && !isset($metrics['tokens'])
+                        && $metrics['cost'] === 0.0,
+                ),
+                null,
+                0,
+                'gpt-image-2',
+            );
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
+
+        $subject->generate('A cat', ['model' => 'gpt-image-2']);
     }
 
     // ==================== buildGeneratePayload DALL-E 3 quality/style options ====================

@@ -156,6 +156,9 @@ services:
   Netresearch\NrLlm\Service\WizardGeneratorServiceInterface:
     alias: Netresearch\NrLlm\Service\WizardGeneratorService
 
+  Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface:
+    alias: Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator
+
   # ========================================
   # Repositories (PUBLIC)
   # ========================================

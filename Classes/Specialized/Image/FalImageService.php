@@ -85,6 +85,7 @@ final class FalImageService extends AbstractSpecializedService
 
         $payload = $this->buildGeneratePayload($prompt, $options);
 
+        $this->setAuditContext(sprintf('%s, generate', $model));
         $usesQueue = $this->modelUsesQueue($model);
         $response = $usesQueue
             ? $this->sendQueueRequest($modelEndpoint, $payload)
@@ -94,9 +95,12 @@ final class FalImageService extends AbstractSpecializedService
         /** @var array<string, mixed> $image */
         $image = is_array($images) && isset($images[0]) && is_array($images[0]) ? $images[0] : [];
 
-        $this->usageTracker->trackUsage('image', 'fal:' . $model, [
-            'size' => $options['image_size'] ?? 'square_hd',
-        ]);
+        // FAL publishes no static price list (billing varies per hosted
+        // model), so no cost is recorded — never guess (see
+        // SpecializedCostCalculatorInterface).
+        $this->usageTracker->trackUsage('image', $this->getServiceProvider(), [
+            'images' => 1,
+        ], modelId: $model);
 
         $imageUrl = isset($image['url']) && is_string($image['url']) ? $image['url'] : '';
 
@@ -140,6 +144,7 @@ final class FalImageService extends AbstractSpecializedService
         $modelEndpoint = $this->resolveModelEndpoint($model);
         $payload = $this->buildGeneratePayload($prompt, $options);
 
+        $this->setAuditContext(sprintf('%s, generate', $model));
         $usesQueue = $this->modelUsesQueue($model);
         $response = $usesQueue
             ? $this->sendQueueRequest($modelEndpoint, $payload)
@@ -169,9 +174,9 @@ final class FalImageService extends AbstractSpecializedService
             }
         }
 
-        $this->usageTracker->trackUsage('image', 'fal:' . $model, [
-            'count' => count($results),
-        ]);
+        $this->usageTracker->trackUsage('image', $this->getServiceProvider(), [
+            'images' => count($results),
+        ], modelId: $model);
 
         return $results;
     }

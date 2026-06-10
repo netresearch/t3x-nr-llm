@@ -149,7 +149,17 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             ->with(
                 'translation',
                 self::stringStartsWith('llm:'),
-                self::callback(fn($data) => is_array($data) && isset($data['tokens'], $data['characters'])),
+                self::callback(
+                    // Characters only: tokens and cost are recorded by the
+                    // middleware pipeline on the underlying chat row —
+                    // repeating them here would double-count them.
+                    fn(array $metrics): bool => isset($metrics['characters'])
+                        && !isset($metrics['tokens'])
+                        && !isset($metrics['cost']),
+                ),
+                null,
+                0,
+                'gpt-5.2',
             );
 
         $subject = new LlmTranslator(

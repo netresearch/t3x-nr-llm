@@ -16,13 +16,16 @@ use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Throwable;
 
 /**
- * DALL-E image generation service.
+ * OpenAI Images generation service.
  *
- * Provides AI image generation via OpenAI's DALL-E API.
+ * Provides AI image generation via OpenAI's Images API. The class name
+ * predates the gpt-image-* family and is kept for API stability; the
+ * service covers both the legacy DALL-E models and their gpt-image-*
+ * successors (gpt-image-2 is current).
  *
  * Features:
- * - DALL-E 2 and DALL-E 3 models
- * - Multiple sizes (256x256 to 1792x1024)
+ * - DALL-E 2/3 and gpt-image-* models
+ * - Multiple sizes (256x256 to 1792x1024; arbitrary WxH for gpt-image-*)
  * - HD quality option (DALL-E 3)
  * - Vivid and natural styles
  * - Image editing and variations (DALL-E 2)
@@ -96,16 +99,14 @@ final class DallEImageService extends AbstractSpecializedService
         $this->validatePrompt($prompt, $model);
 
         $payload = $this->buildGeneratePayload($prompt, $optionsArray);
+        $this->setAuditContext(sprintf('%s, generate', $model));
         $response = $this->sendJsonRequest('generations', $payload);
 
         /** @var array<int, array{url?: string, b64_json?: string, revised_prompt?: string}> $responseData */
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
         $data = $responseData[0] ?? [];
 
-        $this->usageTracker->trackUsage('image', 'dall-e:' . $model, [
-            'size' => $size,
-            'quality' => $quality,
-        ]);
+        $this->trackImageUsage($model, $size, $quality, 1, $response);
 
         return new ImageGenerationResult(
             url: $data['url'] ?? '',
@@ -167,6 +168,7 @@ final class DallEImageService extends AbstractSpecializedService
         $payload = $this->buildGeneratePayload($prompt, $optionsArray);
         $payload['n'] = $count;
 
+        $this->setAuditContext(sprintf('%s, generate', $model));
         $response = $this->sendJsonRequest('generations', $payload);
 
         $results = [];
@@ -188,10 +190,7 @@ final class DallEImageService extends AbstractSpecializedService
             );
         }
 
-        $this->usageTracker->trackUsage('image', 'dall-e:' . $model, [
-            'size' => $size,
-            'count' => count($results),
-        ]);
+        $this->trackImageUsage($model, $size, $quality, count($results), $response);
 
         return $results;
     }
@@ -218,6 +217,7 @@ final class DallEImageService extends AbstractSpecializedService
 
         $count = min(max($count, 1), 10);
 
+        $this->setAuditContext('dall-e-2, variations');
         $response = $this->sendImageMultipart('variations', $imagePath, null, [
             'n' => (string)$count,
             'size' => $size,
@@ -240,10 +240,7 @@ final class DallEImageService extends AbstractSpecializedService
             );
         }
 
-        $this->usageTracker->trackUsage('image', 'dall-e:variations', [
-            'size' => $size,
-            'count' => count($results),
-        ]);
+        $this->trackImageUsage('dall-e-2', $size, 'standard', count($results), $response);
 
         return $results;
     }
@@ -273,6 +270,7 @@ final class DallEImageService extends AbstractSpecializedService
             $this->validateImageFile($maskPath);
         }
 
+        $this->setAuditContext('dall-e-2, edit');
         $response = $this->sendImageMultipart('edits', $imagePath, $maskPath, [
             'prompt' => $prompt,
             'size' => $size,
@@ -283,9 +281,7 @@ final class DallEImageService extends AbstractSpecializedService
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
         $data = $responseData[0] ?? [];
 
-        $this->usageTracker->trackUsage('image', 'dall-e:edit', [
-            'size' => $size,
-        ]);
+        $this->trackImageUsage('dall-e-2', $size, 'standard', 1, $response);
 
         return new ImageGenerationResult(
             url: $data['url'] ?? '',
@@ -366,7 +362,7 @@ final class DallEImageService extends AbstractSpecializedService
 
     protected function getProviderLabel(): string
     {
-        return 'DALL-E';
+        return 'OpenAI Images';
     }
 
     /**
@@ -378,6 +374,83 @@ final class DallEImageService extends AbstractSpecializedService
     private function capabilityKey(string $model): string
     {
         return str_starts_with($model, 'gpt-image-') ? 'gpt-image-1' : $model;
+    }
+
+    /**
+     * Record an image generation in the usage table with real units:
+     * image count, the token usage gpt-image-* responses report, an
+     * estimated cost, and the model identifier (so the Analytics module
+     * can aggregate image spend alongside chat spend).
+     *
+     * dall-e-2/3 responses carry no `usage` object — token metrics are
+     * omitted then and the cost falls back to the per-image catalog.
+     *
+     * @param array<string, mixed> $response decoded API response
+     */
+    private function trackImageUsage(
+        string $model,
+        string $size,
+        string $quality,
+        int $imageCount,
+        array $response,
+    ): void {
+        $usage = $this->extractUsageTokens($response);
+
+        $metrics = ['images' => $imageCount];
+        if ($usage !== null) {
+            $metrics['tokens'] = $usage['total'];
+            $metrics['promptTokens'] = $usage['input'];
+            $metrics['completionTokens'] = $usage['output'];
+        }
+
+        $metrics['cost'] = $this->costCalculator->estimateImageCost(
+            $model,
+            $quality,
+            $size,
+            $imageCount,
+            $usage['input'] ?? 0,
+            $usage['output'] ?? 0,
+            $usage['imageInput'] ?? 0,
+        );
+
+        $this->usageTracker->trackUsage(
+            'image',
+            $this->getServiceProvider(),
+            $metrics,
+            modelId: $model,
+        );
+    }
+
+    /**
+     * Extract the token usage gpt-image-* responses include. Returns null
+     * when the response has no usable `usage` object (dall-e-2/3 never
+     * send one) so callers can omit token metrics gracefully.
+     *
+     * @param array<string, mixed> $response
+     *
+     * @return array{input: int, output: int, total: int, imageInput: int}|null
+     */
+    private function extractUsageTokens(array $response): ?array
+    {
+        $usage = $response['usage'] ?? null;
+        if (!is_array($usage)) {
+            return null;
+        }
+
+        $input = is_numeric($usage['input_tokens'] ?? null) ? (int)$usage['input_tokens'] : 0;
+        $output = is_numeric($usage['output_tokens'] ?? null) ? (int)$usage['output_tokens'] : 0;
+        $total = is_numeric($usage['total_tokens'] ?? null) ? (int)$usage['total_tokens'] : $input + $output;
+
+        if ($input === 0 && $output === 0 && $total === 0) {
+            return null;
+        }
+
+        $details = $usage['input_tokens_details'] ?? null;
+        $imageInput = is_array($details) && is_numeric($details['image_tokens'] ?? null)
+            ? (int)$details['image_tokens']
+            : 0;
+
+        return ['input' => $input, 'output' => $output, 'total' => $total, 'imageInput' => $imageInput];
     }
 
     /**

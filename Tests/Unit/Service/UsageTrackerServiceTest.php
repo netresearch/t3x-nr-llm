@@ -265,6 +265,57 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function trackUsageStoresModelIdAndUnitsForSpecializedRows(): void
+    {
+        // Specialized services (image / TTS / Whisper) pass the model as a
+        // string identifier with no tx_nrllm_model row — model_id must land
+        // in the row alongside the real units so the Analytics module can
+        // aggregate their spend.
+        $this->setupBackendUser(7);
+
+        $resultStub = self::createStub(Result::class);
+        $resultStub->method('fetchOne')->willReturn(false);
+
+        $queryBuilderStub = self::createStub(QueryBuilder::class);
+        $queryBuilderStub->method('select')->willReturnSelf();
+        $queryBuilderStub->method('from')->willReturnSelf();
+        $queryBuilderStub->method('where')->willReturnSelf();
+        $queryBuilderStub->method('expr')->willReturn($this->exprStub);
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
+
+        $connectionMock = $this->createMock(Connection::class);
+        $connectionMock->method('createQueryBuilder')->willReturn($queryBuilderStub);
+        $connectionMock
+            ->expects(self::once())
+            ->method('insert')
+            ->with(
+                'tx_nrllm_service_usage',
+                self::callback(fn(array $data) => $data['service_type'] === 'image'
+                        && $data['service_provider'] === 'dall-e'
+                        && $data['model_id'] === 'gpt-image-2'
+                        && $data['model_uid'] === 0
+                        && $data['images_generated'] === 1
+                        && $data['tokens_used'] === 1050
+                        && $data['estimated_cost'] === 0.03028
+                        && $data['be_user'] === 7),
+            );
+
+        $connectionPoolStub = self::createStub(ConnectionPool::class);
+        $connectionPoolStub
+            ->method('getConnectionForTable')
+            ->willReturn($connectionMock);
+
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextMock);
+        $subject->trackUsage(
+            'image',
+            'dall-e',
+            ['images' => 1, 'tokens' => 1050, 'cost' => 0.03028],
+            modelId: 'gpt-image-2',
+        );
+    }
+
+    #[Test]
     public function trackUsageWithNoBackendUserUsesZero(): void
     {
         $this->setupNoBackendUser();

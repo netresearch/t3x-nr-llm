@@ -29,6 +29,16 @@ final class ImageGenerationOptions extends AbstractOptions
     private const VALID_SIZES_GPT_IMAGE = ['1024x1024', '1536x1024', '1024x1536', 'auto'];
     private const GPT_IMAGE_PREFIX = 'gpt-image-';
 
+    // Arbitrary WxH sizes for gpt-image-* (per OpenAI docs, June 2026): gpt-image-2
+    // accepts any WIDTHxHEIGHT where both dimensions are divisible by 16, the aspect
+    // ratio lies between 1:3 and 3:1 (inclusive), and the size does not exceed
+    // 3840x2160. The standard sizes above remain valid (they satisfy these rules);
+    // 'auto' lets the model pick. Other extensions rely on this contract.
+    private const GPT_IMAGE_DIMENSION_STEP = 16;
+    private const GPT_IMAGE_MAX_WIDTH = 3840;
+    private const GPT_IMAGE_MAX_HEIGHT = 2160;
+    private const GPT_IMAGE_MAX_ASPECT = 3;
+
     public function __construct(
         public readonly ?string $model = 'dall-e-3',
         public readonly ?string $size = '1024x1024',
@@ -78,12 +88,11 @@ final class ImageGenerationOptions extends AbstractOptions
         }
 
         if ($this->model !== null && str_starts_with($this->model, self::GPT_IMAGE_PREFIX)) {
-            $validSizes = self::VALID_SIZES_GPT_IMAGE;
-        } elseif ($this->model === 'dall-e-2') {
-            $validSizes = self::VALID_SIZES_DALLE2;
-        } else {
-            $validSizes = self::VALID_SIZES_DALLE3;
+            $this->validateGptImageSize($this->size);
+            return;
         }
+
+        $validSizes = $this->model === 'dall-e-2' ? self::VALID_SIZES_DALLE2 : self::VALID_SIZES_DALLE3;
 
         if (!in_array($this->size, $validSizes, true)) {
             throw new InvalidArgumentException(
@@ -94,6 +103,79 @@ final class ImageGenerationOptions extends AbstractOptions
                     implode(', ', $validSizes),
                 ),
                 9662872869,
+            );
+        }
+    }
+
+    /**
+     * Validate a gpt-image-* size: the documented standard sizes, 'auto',
+     * or any arbitrary WIDTHxHEIGHT where both dimensions are divisible
+     * by 16, the aspect ratio is between 1:3 and 3:1 (inclusive), and
+     * the size does not exceed 3840x2160 (per OpenAI docs, June 2026).
+     *
+     * @throws InvalidArgumentException
+     */
+    private function validateGptImageSize(string $size): void
+    {
+        if (in_array($size, self::VALID_SIZES_GPT_IMAGE, true)) {
+            return;
+        }
+
+        if (preg_match('/^(\d{1,5})x(\d{1,5})$/', $size, $matches) !== 1) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Invalid size "%s" for model %s. Expected WIDTHxHEIGHT (e.g. "1024x1024"), "auto", or one of: %s',
+                    $size,
+                    $this->model,
+                    implode(', ', self::VALID_SIZES_GPT_IMAGE),
+                ),
+                9662872869,
+            );
+        }
+
+        $width = (int)$matches[1];
+        $height = (int)$matches[2];
+
+        if (
+            $width < self::GPT_IMAGE_DIMENSION_STEP
+            || $height < self::GPT_IMAGE_DIMENSION_STEP
+            || $width % self::GPT_IMAGE_DIMENSION_STEP !== 0
+            || $height % self::GPT_IMAGE_DIMENSION_STEP !== 0
+        ) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Invalid size "%s" for model %s: width and height must both be divisible by %d',
+                    $size,
+                    $this->model,
+                    self::GPT_IMAGE_DIMENSION_STEP,
+                ),
+                4810231766,
+            );
+        }
+
+        if ($width > self::GPT_IMAGE_MAX_WIDTH || $height > self::GPT_IMAGE_MAX_HEIGHT) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Invalid size "%s" for model %s: maximum supported size is %dx%d',
+                    $size,
+                    $this->model,
+                    self::GPT_IMAGE_MAX_WIDTH,
+                    self::GPT_IMAGE_MAX_HEIGHT,
+                ),
+                7269345118,
+            );
+        }
+
+        // Aspect ratio between 1:3 and 3:1 inclusive — integer math avoids
+        // float comparison artefacts: W/H <= 3 ⇔ W <= 3H, W/H >= 1/3 ⇔ 3W >= H.
+        if ($width > self::GPT_IMAGE_MAX_ASPECT * $height || $height > self::GPT_IMAGE_MAX_ASPECT * $width) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Invalid size "%s" for model %s: aspect ratio must be between 1:3 and 3:1',
+                    $size,
+                    $this->model,
+                ),
+                6203914577,
             );
         }
     }
@@ -162,7 +244,10 @@ final class ImageGenerationOptions extends AbstractOptions
     }
 
     /**
-     * Get valid sizes for a model.
+     * Get the standard (enumerable) sizes for a model. gpt-image-* models
+     * additionally accept arbitrary WIDTHxHEIGHT strings — both dimensions
+     * divisible by 16, aspect ratio between 1:3 and 3:1, max 3840x2160 —
+     * which cannot be enumerated here; see `validateGptImageSize()`.
      *
      * @return array<int, string>
      */
