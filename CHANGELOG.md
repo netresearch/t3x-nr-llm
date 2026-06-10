@@ -6,6 +6,33 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-06-10
+
+### Security
+
+- **Setup-wizard requests go through the nr-vault secure HTTP client.**
+  `ModelDiscovery` and `ConfigurationGenerator` now dispatch via the
+  SSRF-guarded vault client with an `isHostAllowed()` pre-gate, so a
+  malicious endpoint URL can no longer point the wizard at private
+  networks or cloud metadata.
+- **Streaming errors are no longer swallowed.** All seven provider
+  adapters validate the streaming response status: 4xx raises a typed,
+  credential-sanitized provider exception, other non-2xx a connection
+  exception (previously failures could surface as empty streams).
+- Provider error messages consistently redact credential query
+  parameters (`?key=…` → `key=***`) on error and retry-exhaustion paths;
+  `testConnection()` returns a generic client-facing message and logs
+  the sanitized detail server-side.
+
+### Fixed
+
+- TTS hard-splitting of over-limit text is multibyte-safe
+  (`mb_str_split`), so UTF-8 sequences are no longer cut mid-character.
+- FAL polling clamps `pollInterval` to ≥1ms (a `0` setting busy-looped /
+  divided by zero) and reports validation errors with explicit context.
+- Whisper configuration values are type-guarded; an empty base URL falls
+  back to the OpenAI default instead of producing invalid requests.
+
 ## [0.11.0] - 2026-06-10
 
 ### Added
@@ -769,7 +796,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.8.0...v0.9.0
