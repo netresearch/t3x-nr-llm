@@ -152,7 +152,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'http://169.254.169.254/v1',
+            endpoint: 'https://169.254.169.254/v1',
             suggestedName: 'Metadata SSRF',
         );
 

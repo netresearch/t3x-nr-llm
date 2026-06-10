@@ -258,7 +258,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'http://169.254.169.254/latest/meta-data',
+            endpoint: 'https://169.254.169.254/latest/meta-data',
             suggestedName: 'Metadata SSRF',
         );
 

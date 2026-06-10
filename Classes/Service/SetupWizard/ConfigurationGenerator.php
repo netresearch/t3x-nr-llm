@@ -12,12 +12,10 @@ namespace Netresearch\NrLlm\Service\SetupWizard;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\SuggestedConfiguration;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
-use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -35,6 +33,15 @@ use Throwable;
  */
 final class ConfigurationGenerator
 {
+    use ErrorMessageSanitizerTrait;
+    use SecureHttpDispatchTrait;
+
+    /**
+     * Audit-log reason recorded by the vault secure client for every
+     * outbound request (see `SecureHttpDispatchTrait::dispatch()`).
+     */
+    private const VAULT_DISPATCH_REASON = 'LLM setup-wizard configuration generation';
+
     private const SYSTEM_PROMPT = <<<'PROMPT'
         You are an expert at configuring LLM integrations. Generate practical configuration presets for common business use cases.
 
@@ -62,12 +69,6 @@ final class ConfigurationGenerator
         Focus on: content creation, translation, summarization, customer support, and code/technical assistance.
         PROMPT;
 
-    /**
-     * Test seam: when set, requests go through this client instead of the
-     * vault secure client. Production never sets it.
-     */
-    private ?ClientInterface $configuredHttpClient = null;
-
     public function __construct(
         private readonly VaultServiceInterface $vault,
         private readonly SecureHttpClientFactory $httpClientFactory,
@@ -75,66 +76,6 @@ final class ConfigurationGenerator
         private readonly StreamFactoryInterface $streamFactory,
         private readonly LoggerInterface $logger,
     ) {}
-
-    /**
-     * Inject a custom HTTP client, bypassing the vault secure client.
-     *
-     * @internal Test seam only — production always dispatches through the
-     *           audited vault client (see `dispatch()`).
-     */
-    public function setHttpClient(ClientInterface $client): void
-    {
-        $this->configuredHttpClient = $client;
-    }
-
-    /**
-     * Send a request through the SSRF-guarded vault secure client.
-     *
-     * The host is gated up front via `isHostAllowed()` so a disallowed /
-     * private-range target is rejected before any secret-bearing header is
-     * sent; the vault client re-checks the host and validates the scheme as
-     * defence in depth.
-     *
-     * @throws Throwable when the host is disallowed or the request fails
-     */
-    private function dispatch(RequestInterface $request): ResponseInterface
-    {
-        // Test seam: an injected client bypasses the vault path entirely so
-        // unit tests can assert on the request the wizard built without hitting
-        // DNS or the host allowlist.
-        if ($this->configuredHttpClient !== null) {
-            return $this->configuredHttpClient->sendRequest($request);
-        }
-
-        // Reject a disallowed / private-range target up front, before any
-        // secret-bearing header reaches the wire. The vault client re-checks
-        // the host and validates the scheme inside sendRequest() as defence in
-        // depth, but failing here yields a clear, typed rejection.
-        $host = $request->getUri()->getHost();
-        if (!$this->httpClientFactory->isHostAllowed($host)) {
-            throw new RuntimeException(
-                sprintf('Host "%s" is not in the allowed hosts list', $host),
-                7438190002,
-            );
-        }
-
-        return $this->vault->http()
-            ->withReason('LLM setup-wizard configuration generation')
-            ->sendRequest($request);
-    }
-
-    /**
-     * Strip secret-bearing query parameters from a message before it is
-     * logged. Mirrors `AbstractProvider`.
-     */
-    private function sanitizeErrorMessage(string $message): string
-    {
-        return (string)preg_replace(
-            '/([?&])(key|api_key|apikey|token|secret|access_token)=[^&\s]+/i',
-            '$1$2=***',
-            $message,
-        );
-    }
 
     /**
      * Generate configuration suggestions using the LLM.
