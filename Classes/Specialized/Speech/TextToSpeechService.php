@@ -244,27 +244,7 @@ final class TextToSpeechService extends AbstractSpecializedService
      */
     protected function loadServiceConfiguration(array $config): void
     {
-        $providers = $config['providers'] ?? null;
-        if (is_array($providers)) {
-            $openai = $providers['openai'] ?? null;
-            if (is_array($openai)) {
-                $apiKeyIdentifier = $openai['apiKeyIdentifier'] ?? '';
-                $this->apiKeyIdentifier = is_string($apiKeyIdentifier) ? $apiKeyIdentifier : '';
-            }
-        }
-
-        $this->baseUrl = self::API_URL;
-        $speech = $config['speech'] ?? null;
-        if (is_array($speech)) {
-            $tts = $speech['tts'] ?? null;
-            if (is_array($tts)) {
-                // Empty ext_conf baseUrl means "use the OpenAI default" (per the field label),
-                // not an empty request URL — see nonEmptyStringOrDefault().
-                $this->baseUrl = $this->nonEmptyStringOrDefault($tts['baseUrl'] ?? null, self::API_URL);
-                $timeout = $tts['timeout'] ?? null;
-                $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
-            }
-        }
+        $this->loadOpenAiServiceConfiguration($config, ['speech', 'tts']);
     }
 
     protected function getProviderLabel(): string

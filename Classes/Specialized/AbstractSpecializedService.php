@@ -53,6 +53,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  */
 abstract class AbstractSpecializedService
 {
+    use ServiceConfigurationTrait;
+
     protected string $apiKeyIdentifier = '';
     protected string $baseUrl = '';
     protected int $timeout;

@@ -200,31 +200,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
      */
     protected function loadServiceConfiguration(array $config): void
     {
-        // is_array()/is_string()/is_numeric() guards at each level: the
-        // extension config tree is user-editable, so the documented shape is
-        // not a runtime guarantee — mirror the sibling services (TTS, FAL).
-        $providers = $config['providers'] ?? null;
-        if (is_array($providers)) {
-            $openai = $providers['openai'] ?? null;
-            if (is_array($openai)) {
-                $apiKeyIdentifier = $openai['apiKeyIdentifier'] ?? '';
-                $this->apiKeyIdentifier = is_string($apiKeyIdentifier) ? $apiKeyIdentifier : '';
-            }
-        }
-
-        $this->baseUrl = self::API_URL;
-        $this->timeout = $this->getDefaultTimeout();
-        $speech = $config['speech'] ?? null;
-        if (is_array($speech)) {
-            $whisper = $speech['whisper'] ?? null;
-            if (is_array($whisper)) {
-                // An empty ext_conf baseUrl means "use the OpenAI default" (per the field label),
-                // not an empty request URL — see nonEmptyStringOrDefault().
-                $this->baseUrl = $this->nonEmptyStringOrDefault($whisper['baseUrl'] ?? null, self::API_URL);
-                $timeout = $whisper['timeout'] ?? null;
-                $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
-            }
-        }
+        $this->loadOpenAiServiceConfiguration($config, ['speech', 'whisper']);
     }
 
     protected function getProviderLabel(): string
