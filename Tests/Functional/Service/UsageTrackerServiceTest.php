@@ -104,6 +104,33 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function trackUsageKeepsSeparateRecordsForDifferentModelIds(): void
+    {
+        // Specialized calls carry model_uid=0 and only a model_id string — two
+        // different models on the same day must yield two rows, not collide.
+        $this->service->trackUsage('image', 'dall-e', ['images' => 1, 'cost' => 0.05], modelId: 'gpt-image-2');
+        $this->service->trackUsage('image', 'dall-e', ['images' => 2, 'cost' => 0.08], modelId: 'dall-e-3');
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $count = $connection->count('*', self::TABLE, ['service_type' => 'image', 'service_provider' => 'dall-e']);
+        self::assertSame(2, $count);
+
+        $row = $connection->select(
+            ['request_count', 'images_generated'],
+            self::TABLE,
+            ['service_type' => 'image', 'model_id' => 'gpt-image-2'],
+        )->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertSame(1, (int)$row['request_count']);
+        self::assertSame(1, (int)$row['images_generated']);
+
+        // Same model again aggregates into ITS row only.
+        $this->service->trackUsage('image', 'dall-e', ['images' => 1, 'cost' => 0.05], modelId: 'gpt-image-2');
+        $count = $connection->count('*', self::TABLE, ['service_type' => 'image', 'service_provider' => 'dall-e']);
+        self::assertSame(2, $count);
+    }
+
+    #[Test]
     public function trackUsageKeepsSeparateRecordsForDifferentProviders(): void
     {
         $this->service->trackUsage('translation', 'deepl', ['characters' => 100]);

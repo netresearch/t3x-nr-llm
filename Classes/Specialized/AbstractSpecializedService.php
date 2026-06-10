@@ -215,12 +215,18 @@ abstract class AbstractSpecializedService
      * requests, e.g. `'OpenAI Images API call (gpt-image-2, generate)'`.
      * Subclasses may override for a more specific phrase; most should
      * just call `setAuditContext()` before dispatching.
+     *
+     * The per-request context is CONSUMED here: it is cleared once it has
+     * been folded into a reason, so a later request that does not set its
+     * own context falls back to the plain default instead of silently
+     * reusing the previous request's context in the vault audit log.
      */
     protected function getAuditReason(): string
     {
         $reason = sprintf('%s API call', $this->getProviderLabel());
         if ($this->auditContext !== '') {
             $reason .= sprintf(' (%s)', $this->auditContext);
+            $this->auditContext = '';
         }
         return $reason;
     }

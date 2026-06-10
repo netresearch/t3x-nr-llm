@@ -65,7 +65,10 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 
-        // Check if record exists for today (model_uid is part of the aggregation key)
+        // Check if record exists for today. model_uid AND model_id are both part of
+        // the aggregation key: specialized calls carry model_uid=0 with only the
+        // model_id string, so without it different models (gpt-image-2 vs dall-e-3)
+        // would collide into one daily row and break the per-model breakdowns.
         $existingUid = $queryBuilder
             ->select('uid')
             ->from(self::TABLE)
@@ -74,6 +77,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 $queryBuilder->expr()->eq('service_provider', $queryBuilder->createNamedParameter($provider)),
                 $queryBuilder->expr()->eq('be_user', $beUser),
                 $queryBuilder->expr()->eq('model_uid', $modelUid),
+                $queryBuilder->expr()->eq('model_id', $queryBuilder->createNamedParameter($modelId)),
                 $queryBuilder->expr()->eq('task_uid', $taskUid),
                 $queryBuilder->expr()->eq('request_date', $today),
             )

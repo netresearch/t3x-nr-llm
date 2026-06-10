@@ -431,7 +431,9 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
     {
         $metrics = [];
         if ($duration !== null && $duration > 0.0) {
-            $metrics['audioSeconds'] = (int)round($duration);
+            // Floor of 1: a sub-half-second clip must not round to 0 seconds while
+            // carrying a positive cost — units and cost stay consistent in analytics.
+            $metrics['audioSeconds'] = max(1, (int)round($duration));
             $metrics['cost'] = $this->costCalculator->estimateTranscriptionCost($model, $duration);
         }
 
