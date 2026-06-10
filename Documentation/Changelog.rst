@@ -11,6 +11,38 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-11-0:
+
+Version 0.11.0 (2026-06-10)
+===========================
+
+The backend module's default Configuration is now the single source of truth
+for generic completion: ``chat()``, ``complete()`` and ``streamChat()`` resolve
+the active default database-backed configuration (provider adapter, model and
+vault-backed credentials) when no provider is pinned, with per-call options
+overriding the stored defaults. The extension-configuration ``defaultProvider``
+becomes a fallback for installations without a usable default configuration.
+
+For the complete, itemised list see the canonical
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-llm/blob/main/CHANGELOG.md>`__.
+
+Added
+-----
+
+-   **Default-configuration routing for generic completion.** Calls without a
+    pinned provider route through the module-managed default
+    ``LlmConfiguration``; per-call ``ChatOptions`` override its stored
+    defaults. ``chatWithConfiguration()`` / ``completeWithConfiguration()`` /
+    ``streamChatWithConfiguration()`` accept an ``$optionOverrides`` array.
+
+Changed
+-------
+
+-   The extension-configuration ``defaultProvider`` is consulted only when no
+    usable default configuration exists. Defaults without a model, or with
+    backend-group access restrictions, are skipped — group-restricted
+    configurations are never auto-applied without a backend-user context.
+
 .. _version-0-10-0:
 
 Version 0.10.0 (2026-06-09)
