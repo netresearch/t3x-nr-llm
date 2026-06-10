@@ -145,13 +145,9 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
 
         $response = $this->sendTranslationRequest($audioPath, $options);
 
-        $result = $this->parseTranscriptionResponse($response, $options);
-
-        $this->usageTracker->trackUsage('speech', 'whisper:translation', [
-            'file_size' => filesize($audioPath),
-        ]);
-
-        return $result;
+        // Usage is recorded once inside dispatchMultipart() — no extra
+        // tracking here, a second call would double-count the request.
+        return $this->parseTranscriptionResponse($response, $options);
     }
 
     /**
@@ -377,15 +373,28 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
             $responseBody = (string)$response->getBody();
 
             if ($statusCode >= 200 && $statusCode < 300) {
-                $this->usageTracker->trackUsage('speech', 'whisper:transcription', []);
+                $model = $options->model ?? self::DEFAULT_MODEL;
 
                 $format = $options->format ?? 'json';
                 if (in_array($format, ['text', 'srt', 'vtt'], true)) {
+                    // Raw-string formats expose no duration — record the
+                    // request without audio seconds (cost stays 0 rather
+                    // than guessed).
+                    $this->trackTranscriptionUsage($model, null);
                     return $responseBody;
                 }
 
-                /** @var array<string, mixed> */
-                return json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
+                /** @var array<string, mixed> $decoded */
+                $decoded = json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
+
+                // `verbose_json` reports the audio duration in seconds;
+                // plain `json` does not — track what the response exposes.
+                $duration = isset($decoded['duration']) && is_numeric($decoded['duration'])
+                    ? (float)$decoded['duration']
+                    : null;
+                $this->trackTranscriptionUsage($model, $duration);
+
+                return $decoded;
             }
 
             $errorMessage = $this->decodeErrorMessage($responseBody);
@@ -411,6 +420,27 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
                 $e,
             );
         }
+    }
+
+    /**
+     * Record a transcription/translation request with real units: the
+     * audio duration (when the response format exposes it), an estimated
+     * cost, and the model identifier.
+     */
+    private function trackTranscriptionUsage(string $model, ?float $duration): void
+    {
+        $metrics = [];
+        if ($duration !== null && $duration > 0.0) {
+            $metrics['audioSeconds'] = (int)round($duration);
+            $metrics['cost'] = $this->costCalculator->estimateTranscriptionCost($model, $duration);
+        }
+
+        $this->usageTracker->trackUsage(
+            'speech',
+            $this->getServiceProvider(),
+            $metrics,
+            modelId: $model,
+        );
     }
 
     /**

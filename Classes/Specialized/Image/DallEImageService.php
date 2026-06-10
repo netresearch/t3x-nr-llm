@@ -106,10 +106,7 @@ final class DallEImageService extends AbstractSpecializedService
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
         $data = $responseData[0] ?? [];
 
-        $this->usageTracker->trackUsage('image', 'dall-e:' . $model, [
-            'size' => $size,
-            'quality' => $quality,
-        ]);
+        $this->trackImageUsage($model, $size, $quality, 1, $response);
 
         return new ImageGenerationResult(
             url: $data['url'] ?? '',
@@ -193,10 +190,7 @@ final class DallEImageService extends AbstractSpecializedService
             );
         }
 
-        $this->usageTracker->trackUsage('image', 'dall-e:' . $model, [
-            'size' => $size,
-            'count' => count($results),
-        ]);
+        $this->trackImageUsage($model, $size, $quality, count($results), $response);
 
         return $results;
     }
@@ -246,10 +240,7 @@ final class DallEImageService extends AbstractSpecializedService
             );
         }
 
-        $this->usageTracker->trackUsage('image', 'dall-e:variations', [
-            'size' => $size,
-            'count' => count($results),
-        ]);
+        $this->trackImageUsage('dall-e-2', $size, 'standard', count($results), $response);
 
         return $results;
     }
@@ -290,9 +281,7 @@ final class DallEImageService extends AbstractSpecializedService
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
         $data = $responseData[0] ?? [];
 
-        $this->usageTracker->trackUsage('image', 'dall-e:edit', [
-            'size' => $size,
-        ]);
+        $this->trackImageUsage('dall-e-2', $size, 'standard', 1, $response);
 
         return new ImageGenerationResult(
             url: $data['url'] ?? '',
@@ -385,6 +374,83 @@ final class DallEImageService extends AbstractSpecializedService
     private function capabilityKey(string $model): string
     {
         return str_starts_with($model, 'gpt-image-') ? 'gpt-image-1' : $model;
+    }
+
+    /**
+     * Record an image generation in the usage table with real units:
+     * image count, the token usage gpt-image-* responses report, an
+     * estimated cost, and the model identifier (so the Analytics module
+     * can aggregate image spend alongside chat spend).
+     *
+     * dall-e-2/3 responses carry no `usage` object — token metrics are
+     * omitted then and the cost falls back to the per-image catalog.
+     *
+     * @param array<string, mixed> $response decoded API response
+     */
+    private function trackImageUsage(
+        string $model,
+        string $size,
+        string $quality,
+        int $imageCount,
+        array $response,
+    ): void {
+        $usage = $this->extractUsageTokens($response);
+
+        $metrics = ['images' => $imageCount];
+        if ($usage !== null) {
+            $metrics['tokens'] = $usage['total'];
+            $metrics['promptTokens'] = $usage['input'];
+            $metrics['completionTokens'] = $usage['output'];
+        }
+
+        $metrics['cost'] = $this->costCalculator->estimateImageCost(
+            $model,
+            $quality,
+            $size,
+            $imageCount,
+            $usage['input'] ?? 0,
+            $usage['output'] ?? 0,
+            $usage['imageInput'] ?? 0,
+        );
+
+        $this->usageTracker->trackUsage(
+            'image',
+            $this->getServiceProvider(),
+            $metrics,
+            modelId: $model,
+        );
+    }
+
+    /**
+     * Extract the token usage gpt-image-* responses include. Returns null
+     * when the response has no usable `usage` object (dall-e-2/3 never
+     * send one) so callers can omit token metrics gracefully.
+     *
+     * @param array<string, mixed> $response
+     *
+     * @return array{input: int, output: int, total: int, imageInput: int}|null
+     */
+    private function extractUsageTokens(array $response): ?array
+    {
+        $usage = $response['usage'] ?? null;
+        if (!is_array($usage)) {
+            return null;
+        }
+
+        $input = is_numeric($usage['input_tokens'] ?? null) ? (int)$usage['input_tokens'] : 0;
+        $output = is_numeric($usage['output_tokens'] ?? null) ? (int)$usage['output_tokens'] : 0;
+        $total = is_numeric($usage['total_tokens'] ?? null) ? (int)$usage['total_tokens'] : $input + $output;
+
+        if ($input === 0 && $output === 0 && $total === 0) {
+            return null;
+        }
+
+        $details = $usage['input_tokens_details'] ?? null;
+        $imageInput = is_array($details) && is_numeric($details['image_tokens'] ?? null)
+            ? (int)$details['image_tokens']
+            : 0;
+
+        return ['input' => $input, 'output' => $output, 'total' => $total, 'imageInput' => $imageInput];
     }
 
     /**

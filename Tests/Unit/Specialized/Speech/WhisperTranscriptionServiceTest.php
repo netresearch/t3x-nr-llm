@@ -9,11 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Speech;
 
+use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Exception\UnsupportedFormatException;
 use Netresearch\NrLlm\Specialized\Option\TranscriptionOptions;
+use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator;
+use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Speech\TranscriptionResult;
 use Netresearch\NrLlm\Specialized\Speech\WhisperTranscriptionService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -45,6 +48,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LoggerInterface&Stub $loggerStub;
     private VaultServiceInterface $vaultStub;
+    private SpecializedCostCalculatorInterface $costCalculator;
     private ?string $tempFile = null;
 
     /**
@@ -67,6 +71,12 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
         $this->loggerStub = self::createStub(LoggerInterface::class);
         $this->vaultStub = $this->createVaultServiceMock();
+
+        // Real calculator over a model-less repository: catalog prices apply,
+        // so cost assertions exercise the real pricing math.
+        $modelRepositoryStub = self::createStub(ModelRepository::class);
+        $modelRepositoryStub->method('findOneByIdentifier')->willReturn(null);
+        $this->costCalculator = new SpecializedCostCalculator($modelRepositoryStub);
     }
 
     /**
@@ -90,6 +100,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $extensionConfiguration,
             $usageTracker,
             $logger,
+            $this->costCalculator,
         );
         $service->setHttpClient($httpClient);
 
@@ -363,7 +374,16 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $usageTrackerMock
             ->expects(self::once())
             ->method('trackUsage')
-            ->with('speech', 'whisper:transcription', []);
+            ->with(
+                'speech',
+                'whisper',
+                // Plain `json` responses expose no duration — the request is
+                // recorded without audio seconds and without a guessed cost.
+                [],
+                null,
+                0,
+                'whisper-1',
+            );
 
         $subject = $this->buildService(
             $this->httpClientStub,
@@ -528,8 +548,19 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
 
         $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
         $usageTrackerMock
-            ->expects(self::atLeastOnce())
-            ->method('trackUsage');
+            ->expects(self::once())
+            // Exactly once: the request is recorded inside the dispatch path;
+            // translateToEnglish() used to add a second row, double-counting
+            // every translation request.
+            ->method('trackUsage')
+            ->with(
+                'speech',
+                'whisper',
+                [],
+                null,
+                0,
+                'whisper-1',
+            );
 
         $subject = $this->buildService(
             $this->httpClientStub,
@@ -541,6 +572,57 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         );
 
         $subject->translateToEnglish($audioFile);
+    }
+
+    #[Test]
+    public function transcribeWithVerboseJsonTracksAudioSecondsAndCost(): void
+    {
+        // verbose_json reports the audio duration; 90 seconds of whisper-1
+        // at $0.006/minute = $0.009.
+        $audioFile = $this->createTestAudioFile();
+        $this->setupSuccessfulRequest((string)json_encode([
+            'text' => 'Hello',
+            'language' => 'en',
+            'duration' => 90.0,
+        ]));
+
+        $this->extensionConfigMock
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'providers' => [
+                    'openai' => [
+                        'apiKeyIdentifier' => 'test-api-key',
+                    ],
+                ],
+            ]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'speech',
+                'whisper',
+                self::callback(
+                    fn(array $metrics): bool => $metrics['audioSeconds'] === 90
+                        && is_float($metrics['cost']) && abs($metrics['cost'] - 0.009) < 1e-12,
+                ),
+                null,
+                0,
+                'whisper-1',
+            );
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
+
+        $subject->transcribe($audioFile, new TranscriptionOptions(format: 'verbose_json'));
     }
 
     // ==================== API error handling tests ====================

@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Option\DeepLOptions;
+use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -64,6 +65,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $this->createExtensionConfigurationMock($config ?? $this->defaultConfig),
             $this->usageTrackerStub,
             $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
         );
 
         // Inject a client that returns a successful empty-detect response so the
@@ -89,6 +91,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $this->createExtensionConfigurationMock($config ?? $this->defaultConfig),
             $this->usageTrackerStub,
             $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
         );
         $translator->setHttpClient($httpClient);
 
@@ -474,6 +477,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $this->createExtensionConfigurationMock($this->defaultConfig),
             $usageTrackerMock,
             $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
         );
         $translator->setHttpClient($httpClientMock);
 
@@ -723,6 +727,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $extensionConfigStub,
             $this->usageTrackerStub,
             $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
         );
         $translator->setHttpClient($this->createHttpClientMock());
 

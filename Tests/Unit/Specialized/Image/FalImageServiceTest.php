@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Image\FalImageService;
 use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
+use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -78,6 +79,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             $extensionConfiguration,
             $usageTracker,
             $logger,
+            self::createStub(SpecializedCostCalculatorInterface::class),
         );
         $service->setHttpClient($httpClient);
 
@@ -419,7 +421,14 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $usageTrackerMock
             ->expects(self::once())
             ->method('trackUsage')
-            ->with('image', 'fal:flux-schnell', self::anything());
+            ->with(
+                'image',
+                'fal',
+                ['images' => 1],
+                null,
+                0,
+                'flux-schnell',
+            );
 
         $subject = $this->buildService(
             $this->httpClientStub,
@@ -582,7 +591,14 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $usageTrackerMock
             ->expects(self::once())
             ->method('trackUsage')
-            ->with('image', 'fal:flux-schnell', self::callback(fn($data) => is_array($data) && isset($data['count'])));
+            ->with(
+                'image',
+                'fal',
+                self::callback(fn(array $metrics): bool => isset($metrics['images'])),
+                null,
+                0,
+                'flux-schnell',
+            );
 
         $subject = $this->buildService(
             $this->httpClientStub,

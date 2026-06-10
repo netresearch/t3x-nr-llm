@@ -108,12 +108,15 @@ final readonly class LlmTranslator implements TranslatorInterface
 
         $response = $this->llmManager->chat($prompt['messages'], $chatOptions);
 
-        // Track usage
+        // Track the translation-level view (request + characters). Tokens
+        // and cost are deliberately NOT recorded here: the middleware
+        // pipeline (UsageMiddleware) already records them on the underlying
+        // chat row — repeating them here double-counted every translated
+        // token in the analytics aggregates.
         $providerUsed = $provider ?? 'default';
         $this->usageTracker->trackUsage('translation', 'llm:' . $providerUsed, [
-            'tokens' => $response->usage->totalTokens,
             'characters' => mb_strlen($text),
-        ]);
+        ], modelId: $response->model);
 
         // Calculate confidence from finish reason
         $confidence = match ($response->finishReason) {

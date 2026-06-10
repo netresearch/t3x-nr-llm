@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Specialized;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
+use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
@@ -82,6 +83,7 @@ abstract class AbstractSpecializedService
         protected readonly ExtensionConfiguration $extensionConfiguration,
         protected readonly UsageTrackerServiceInterface $usageTracker,
         protected readonly LoggerInterface $logger,
+        protected readonly SpecializedCostCalculatorInterface $costCalculator,
     ) {
         $this->timeout = $this->getDefaultTimeout();
         $this->loadConfiguration();

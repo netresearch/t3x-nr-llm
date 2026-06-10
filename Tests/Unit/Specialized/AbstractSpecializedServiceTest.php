@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\MultipartBodyBuilderTrait;
+use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
@@ -185,6 +186,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             extensionConfiguration: $extConf,
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
+            costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
         );
 
         $subject->callSendJsonRequest('endpoint', []);
@@ -349,6 +351,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             extensionConfiguration: $extConf,
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
+            costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
         );
 
         self::assertFalse($subject->isAvailable());
@@ -418,6 +421,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             extensionConfiguration: $extConf,
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
+            costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
         );
 
         self::assertFalse($subject->isAvailable());
@@ -495,6 +499,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             extensionConfiguration: $extConf,
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
+            costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
         );
 
         // Inject the plain test client through the test seam; this bypasses the
