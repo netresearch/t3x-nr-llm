@@ -88,7 +88,7 @@ class PromptSnippet extends AbstractEntity
 
     public function isActive(): bool
     {
-        return $this->isActive;
+        return $this->getIsActive();
     }
 
     public function getSorting(): int
