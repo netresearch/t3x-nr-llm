@@ -66,7 +66,7 @@ return [
                 'size' => 30,
                 'max' => 100,
                 'trim' => true,
-                'eval' => 'alphanum_x,lower',
+                'eval' => 'alphanum_x,lower,unique',
                 'required' => true,
                 'placeholder' => 'persona-friendly-expert',
             ],
