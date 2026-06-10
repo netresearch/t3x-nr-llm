@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\SetupWizard;
 
 use Netresearch\NrLlm\Service\SetupWizard\Exception\HostNotAllowedException;
+use Netresearch\NrVault\Http\SecureHttpClientFactory;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -18,13 +20,17 @@ use Throwable;
 /**
  * Shared SSRF-guarded HTTP dispatch for the setup-wizard services.
  *
- * Consumers must provide the nr-vault collaborators as promoted constructor
- * properties (`$vault`, `$httpClientFactory`) and declare a
- * `VAULT_DISPATCH_REASON` class constant — the human-readable reason the
- * vault secure client records in its audit log for every outbound request.
+ * The nr-vault collaborators consumed by `dispatch()` are declared here;
+ * the composing class initialises them in its constructor (trait members
+ * are flattened into the composing class, which therefore counts as the
+ * declaring scope of the readonly properties).
  */
 trait SecureHttpDispatchTrait
 {
+    private readonly VaultServiceInterface $vault;
+
+    private readonly SecureHttpClientFactory $httpClientFactory;
+
     /**
      * Test seam: when set, requests go through this client instead of the
      * vault secure client. Production never sets it.
@@ -50,10 +56,13 @@ trait SecureHttpDispatchTrait
      * sent; the vault client re-checks the host and validates the scheme as
      * defence in depth.
      *
+     * @param string $reason Human-readable reason the vault secure client
+     *                       records in its audit log for this request
+     *
      * @throws HostNotAllowedException when the host is disallowed
      * @throws Throwable               when the request fails
      */
-    private function dispatch(RequestInterface $request): ResponseInterface
+    private function dispatch(RequestInterface $request, string $reason): ResponseInterface
     {
         // Test seam: an injected client bypasses the vault path entirely so
         // unit tests can assert on the request the wizard built without hitting
@@ -72,7 +81,7 @@ trait SecureHttpDispatchTrait
         }
 
         return $this->vault->http()
-            ->withReason(self::VAULT_DISPATCH_REASON)
+            ->withReason($reason)
             ->sendRequest($request);
     }
 }

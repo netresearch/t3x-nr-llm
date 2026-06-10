@@ -37,8 +37,8 @@ final class ConfigurationGenerator
     use SecureHttpDispatchTrait;
 
     /**
-     * Audit-log reason recorded by the vault secure client for every
-     * outbound request (see `SecureHttpDispatchTrait::dispatch()`).
+     * Audit-log reason the vault secure client records for every outbound
+     * request, passed to `SecureHttpDispatchTrait::dispatch()`.
      */
     private const VAULT_DISPATCH_REASON = 'LLM setup-wizard configuration generation';
 
@@ -70,12 +70,17 @@ final class ConfigurationGenerator
         PROMPT;
 
     public function __construct(
-        private readonly VaultServiceInterface $vault,
-        private readonly SecureHttpClientFactory $httpClientFactory,
+        VaultServiceInterface $vault,
+        SecureHttpClientFactory $httpClientFactory,
         private readonly RequestFactoryInterface $requestFactory,
         private readonly StreamFactoryInterface $streamFactory,
         private readonly LoggerInterface $logger,
-    ) {}
+    ) {
+        // Initialise the readonly collaborators declared in
+        // SecureHttpDispatchTrait (no promotion — the trait owns them).
+        $this->vault = $vault;
+        $this->httpClientFactory = $httpClientFactory;
+    }
 
     /**
      * Generate configuration suggestions using the LLM.
@@ -204,7 +209,7 @@ final class ConfigurationGenerator
             default => $request->withHeader('Authorization', 'Bearer ' . $apiKey),
         };
 
-        $response = $this->dispatch($request);
+        $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
         if ($response->getStatusCode() !== 200) {
             throw new RuntimeException('LLM API error: ' . $response->getStatusCode(), 6587111580);

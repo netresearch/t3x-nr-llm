@@ -48,9 +48,12 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     private ?string $tempFile = null;
 
     /**
-     * URL of the last request built through `setupSuccessfulRequest()` —
-     * lets tests assert the endpoint without reflecting into the service.
+     * Method and URL of the last request built through
+     * `setupSuccessfulRequest()` — lets tests assert the endpoint without
+     * reflecting into the service.
      */
+    private string $lastRequestMethod = '';
+
     private string $lastRequestUrl = '';
 
     protected function setUp(): void
@@ -165,6 +168,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->method('createRequest')
             ->willReturnCallback(
                 function (string $method, UriInterface|string $uri) use ($requestStub): RequestInterface {
+                    $this->lastRequestMethod = $method;
                     $this->lastRequestUrl = (string)$uri;
 
                     return $requestStub;
@@ -248,6 +252,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
 
         $subject->transcribe($audioFile);
 
+        self::assertSame('POST', $this->lastRequestMethod);
         self::assertStringStartsWith('https://api.openai.com/v1/audio', $this->lastRequestUrl);
     }
 

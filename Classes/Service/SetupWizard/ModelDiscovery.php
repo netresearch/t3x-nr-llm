@@ -38,18 +38,23 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     use SecureHttpDispatchTrait;
 
     /**
-     * Audit-log reason recorded by the vault secure client for every
-     * outbound request (see `SecureHttpDispatchTrait::dispatch()`).
+     * Audit-log reason the vault secure client records for every outbound
+     * request, passed to `SecureHttpDispatchTrait::dispatch()`.
      */
     private const VAULT_DISPATCH_REASON = 'LLM setup-wizard model discovery';
 
     public function __construct(
-        private readonly VaultServiceInterface $vault,
-        private readonly SecureHttpClientFactory $httpClientFactory,
+        VaultServiceInterface $vault,
+        SecureHttpClientFactory $httpClientFactory,
         private readonly RequestFactoryInterface $requestFactory,
         private readonly StreamFactoryInterface $streamFactory,
         private readonly LoggerInterface $logger,
-    ) {}
+    ) {
+        // Initialise the readonly collaborators declared in
+        // SecureHttpDispatchTrait (no promotion — the trait owns them).
+        $this->vault = $vault;
+        $this->httpClientFactory = $httpClientFactory;
+    }
 
     /**
      * Test connection to provider.
@@ -77,7 +82,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 default => $request->withHeader('Authorization', 'Bearer ' . $apiKey),
             };
 
-            $response = $this->dispatch($request);
+            $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
             $statusCode = $response->getStatusCode();
 
             if ($statusCode >= 200 && $statusCode < 300) {
@@ -153,7 +158,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 ->withHeader('Authorization', 'Bearer ' . $apiKey)
                 ->withHeader('Content-Type', 'application/json');
 
-            $response = $this->dispatch($request);
+            $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
                 return $this->getOpenAIFallbackModels();
@@ -427,7 +432,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 ->withHeader('x-api-key', $apiKey)
                 ->withHeader('anthropic-version', '2023-06-01');
 
-            $response = $this->dispatch($request);
+            $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
                 return $this->getAnthropicFallbackModels();
@@ -615,7 +620,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
         try {
             $url = $endpoint . '/models?key=' . $apiKey;
             $request = $this->requestFactory->createRequest('GET', $url);
-            $response = $this->dispatch($request);
+            $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
                 return $this->getGeminiFallbackModels();
@@ -804,7 +809,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     {
         try {
             $request = $this->requestFactory->createRequest('GET', $endpoint . '/tags');
-            $response = $this->dispatch($request);
+            $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
                 return [];
@@ -871,7 +876,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 ->withHeader('Content-Type', 'application/json')
                 ->withBody($stream);
 
-            $response = $this->dispatch($request);
+            $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
                 return $defaults;
@@ -989,7 +994,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
                 ->withHeader('Authorization', 'Bearer ' . $apiKey);
 
-            $response = $this->dispatch($request);
+            $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
                 return [];
@@ -1056,7 +1061,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
                 ->withHeader('Authorization', 'Bearer ' . $apiKey);
 
-            $response = $this->dispatch($request);
+            $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
                 return $this->getMistralFallbackModels();
@@ -1141,7 +1146,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
                 ->withHeader('Authorization', 'Bearer ' . $apiKey);
 
-            $response = $this->dispatch($request);
+            $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
                 return [];
