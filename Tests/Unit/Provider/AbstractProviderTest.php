@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Provider\AbstractProvider;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Provider\GroqProvider;
 use Netresearch\NrLlm\Provider\MistralProvider;
@@ -19,6 +21,7 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 
 /**
  * Tests common provider behavior across all implementations.
@@ -312,5 +315,144 @@ class AbstractProviderTest extends AbstractUnitTestCase
         $provider->setHttpClient($freshClient);
 
         $provider->complete('test');
+    }
+
+    #[Test]
+    public function sanitizeErrorMessageRedactsApiKeyOnFourxxResponse(): void
+    {
+        // A 4xx error body whose message embeds a URL with `?key=<secret>` must
+        // come back redacted to `key=***` — the secret must never surface in
+        // the thrown exception's message.
+        $provider = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-5.2',
+            'maxRetries' => 1,
+        ]);
+
+        $errorBody = [
+            'error' => [
+                'message' => 'Request to https://api.openai.com/v1/chat/completions?key=sk-secret123 was rejected',
+            ],
+        ];
+        $client = $this->createHttpClientMock();
+        $client->method('sendRequest')->willReturn($this->createJsonResponseMock($errorBody, 400));
+        $provider->setHttpClient($client);
+
+        try {
+            $provider->complete('hello');
+            self::fail('Expected ProviderResponseException was not thrown');
+        } catch (ProviderResponseException $e) {
+            self::assertStringContainsString('key=***', $e->getMessage());
+            self::assertStringNotContainsString('sk-secret123', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function sanitizeErrorMessageRedactsApiKeyOnConnectionExhaustion(): void
+    {
+        // When all retries fail, the surfaced "Failed to connect …" message must
+        // also be scrubbed of a `?key=<secret>` carried by the underlying
+        // exception message.
+        $provider = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-5.2',
+            'maxRetries' => 1,
+        ]);
+
+        $client = $this->createHttpClientMock();
+        $client->method('sendRequest')->willThrowException(
+            new RuntimeException('cURL error connecting to https://api.openai.com/v1/chat/completions?key=sk-secret123'),
+        );
+        $provider->setHttpClient($client);
+
+        try {
+            $provider->complete('hello');
+            self::fail('Expected ProviderConnectionException was not thrown');
+        } catch (ProviderConnectionException $e) {
+            self::assertStringContainsString('key=***', $e->getMessage());
+            self::assertStringNotContainsString('sk-secret123', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function streamingFourxxResponseThrowsTypedResponseException(): void
+    {
+        // A 4xx streaming response must surface as the same typed exception
+        // sendRequest() raises — with any `?key=<secret>` redacted — instead
+        // of silently yielding an empty generator.
+        $provider = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-5.2',
+        ]);
+
+        $errorBody = [
+            'error' => [
+                'message' => 'Invalid key for https://api.openai.com/v1/chat/completions?key=sk-secret123',
+            ],
+        ];
+        $client = $this->createHttpClientMock();
+        $client->method('sendRequest')->willReturn($this->createJsonResponseMock($errorBody, 401));
+        $provider->setHttpClient($client);
+
+        try {
+            // Generators execute lazily — the guard fires on first iteration.
+            $provider->streamChatCompletion([['role' => 'user', 'content' => 'hello']])->current();
+            self::fail('Expected ProviderResponseException was not thrown');
+        } catch (ProviderResponseException $e) {
+            self::assertSame(401, $e->getCode());
+            self::assertStringContainsString('key=***', $e->getMessage());
+            self::assertStringNotContainsString('sk-secret123', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function streamingServerErrorThrowsConnectionException(): void
+    {
+        // A 5xx streaming response maps to ProviderConnectionException, the
+        // same contract as the non-streaming path.
+        $provider = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-5.2',
+        ]);
+
+        $client = $this->createHttpClientMock();
+        $client->method('sendRequest')->willReturn($this->createJsonResponseMock([], 503));
+        $provider->setHttpClient($client);
+
+        try {
+            $provider->streamChatCompletion([['role' => 'user', 'content' => 'hello']])->current();
+            self::fail('Expected ProviderConnectionException was not thrown');
+        } catch (ProviderConnectionException $e) {
+            self::assertSame(503, $e->getCode());
+            self::assertStringContainsString('503', $e->getMessage());
+        }
     }
 }

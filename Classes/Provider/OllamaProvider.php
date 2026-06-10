@@ -37,6 +37,8 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         self::FEATURE_STREAMING,
     ];
 
+    private const ENDPOINT_CHAT = 'api/chat';
+
     private const DEFAULT_MODEL = 'llama3.2';
 
     public function getName(): string
@@ -186,7 +188,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             $payload['options'] = $payloadOptions;
         }
 
-        $response = $this->sendRequest('api/chat', $payload);
+        $response = $this->sendRequest(self::ENDPOINT_CHAT, $payload);
 
         $message = $this->getArray($response, 'message');
 
@@ -268,7 +270,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             $payload['options'] = $payloadOptions;
         }
 
-        $url = rtrim($this->baseUrl, '/') . '/api/chat';
+        $url = rtrim($this->baseUrl, '/') . '/' . self::ENDPOINT_CHAT;
 
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json');
@@ -277,6 +279,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient()->sendRequest($request);
+        $this->assertStreamingResponseOk($response, self::ENDPOINT_CHAT);
         $stream = $response->getBody();
 
         $buffer = '';

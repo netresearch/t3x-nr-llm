@@ -13,6 +13,8 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscovery;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Http\SecureHttpClientFactory;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -22,6 +24,7 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 
 #[CoversClass(ModelDiscovery::class)]
@@ -33,6 +36,9 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     private ClientInterface&Stub $httpClientStub;
     private RequestFactoryInterface&Stub $requestFactoryStub;
     private StreamFactoryInterface&Stub $streamFactoryStub;
+    private VaultServiceInterface $vaultStub;
+    private SecureHttpClientFactory $httpClientFactory;
+    private LoggerInterface&Stub $loggerStub;
     private ModelDiscovery $subject;
 
     protected function setUp(): void
@@ -42,12 +48,22 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $this->httpClientStub = self::createStub(ClientInterface::class);
         $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
         $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
+        $this->vaultStub = $this->createVaultServiceMock();
+        $this->httpClientFactory = $this->createSecureHttpClientFactoryMock();
+        $this->loggerStub = self::createStub(LoggerInterface::class);
 
         $this->subject = new ModelDiscovery(
-            $this->httpClientStub,
+            $this->vaultStub,
+            $this->httpClientFactory,
             $this->requestFactoryStub,
             $this->streamFactoryStub,
+            $this->loggerStub,
         );
+        // Inject the plain HTTP stub through the test seam so requests bypass
+        // the vault secure client (which would otherwise resolve DNS / enforce
+        // the host allowlist). The dedicated SSRF tests use a fresh subject
+        // WITHOUT the seam to exercise the host gate.
+        $this->subject->setHttpClient($this->httpClientStub);
     }
 
     private function createJsonResponseStubForDiscovery(int $statusCode, string $body): ResponseInterface&Stub
@@ -219,7 +235,63 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $result = $this->subject->testConnection($provider, 'test-key');
 
         self::assertFalse($result['success']);
-        self::assertStringContainsString('Network error', $result['message']);
+        // The raw exception detail must NOT leak back to the client — only a
+        // generic message is returned; the detail is logged server-side.
+        self::assertStringNotContainsString('Network error', $result['message']);
+        self::assertStringContainsString('Connection error', $result['message']);
+    }
+
+    // ==================== SSRF host-guard tests ====================
+
+    #[Test]
+    public function testConnectionRejectsDisallowedHost(): void
+    {
+        // No setHttpClient() seam → dispatch() runs the real isHostAllowed()
+        // gate. The cloud metadata IP (169.254.169.254) is always blocked.
+        $subject = new ModelDiscovery(
+            $this->vaultStub,
+            $this->createSecureHttpClientFactoryMock(),
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+        );
+
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://169.254.169.254/latest/meta-data',
+            suggestedName: 'Metadata SSRF',
+        );
+
+        $result = $subject->testConnection($provider, 'test-key');
+
+        self::assertFalse($result['success']);
+        self::assertStringContainsString('Connection error', $result['message']);
+    }
+
+    #[Test]
+    public function discoverRejectsDisallowedHostAndReturnsFallback(): void
+    {
+        $subject = new ModelDiscovery(
+            $this->vaultStub,
+            $this->createSecureHttpClientFactoryMock(),
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+        );
+
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'http://127.0.0.1:8080/v1',
+            suggestedName: 'Loopback SSRF',
+        );
+
+        // The host gate rejects the loopback target before any request is sent;
+        // discover() fails soft to the static fallback list rather than leaking.
+        $models = $subject->discover($provider, 'test-key');
+
+        self::assertNotEmpty($models);
+        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        self::assertContains('gpt-5.3', $modelIds);
     }
 
     // ==================== discover tests ====================
@@ -1734,7 +1806,14 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             suggestedName: 'Ollama',
         );
 
-        $subject = new ModelDiscovery($httpClient, $requestFactory, $streamFactory);
+        $subject = new ModelDiscovery(
+            $this->vaultStub,
+            $this->createSecureHttpClientFactoryMock(),
+            $requestFactory,
+            $streamFactory,
+            $this->loggerStub,
+        );
+        $subject->setHttpClient($httpClient);
         $models = $subject->discover($provider, '');
 
         // Model is still added with fallback details (contextLength = 0)

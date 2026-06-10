@@ -47,6 +47,8 @@ final class GroqProvider extends AbstractProvider implements
         self::FEATURE_TOOLS,
     ];
 
+    private const ENDPOINT_CHAT_COMPLETIONS = 'chat/completions';
+
     private const DEFAULT_CHAT_MODEL = 'llama-3.3-70b-versatile';
 
     /** @var array<string, string> */
@@ -140,7 +142,7 @@ final class GroqProvider extends AbstractProvider implements
             $payload['seed'] = $this->getInt($options, 'seed');
         }
 
-        $response = $this->sendRequest('chat/completions', $payload);
+        $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload);
 
         $choices = $this->getList($response, 'choices');
         $choice = $this->asArray($choices[0] ?? []);
@@ -190,7 +192,7 @@ final class GroqProvider extends AbstractProvider implements
             $payload['parallel_tool_calls'] = $this->getBool($options, 'parallel_tool_calls');
         }
 
-        $response = $this->sendRequest('chat/completions', $payload);
+        $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload);
 
         $choices = $this->getList($response, 'choices');
         $choice = $this->asArray($choices[0] ?? []);
@@ -246,7 +248,7 @@ final class GroqProvider extends AbstractProvider implements
             'stream' => true,
         ];
 
-        $url = rtrim($this->baseUrl, '/') . '/chat/completions';
+        $url = rtrim($this->baseUrl, '/') . '/' . self::ENDPOINT_CHAT_COMPLETIONS;
 
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json')
@@ -256,6 +258,7 @@ final class GroqProvider extends AbstractProvider implements
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient()->sendRequest($request);
+        $this->assertStreamingResponseOk($response, self::ENDPOINT_CHAT_COMPLETIONS);
         $stream = $response->getBody();
 
         $buffer = '';

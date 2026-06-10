@@ -266,7 +266,11 @@ final class FalImageService extends AbstractSpecializedService
         $this->timeout = is_int($timeout) ? $timeout : (is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout());
 
         $pollInterval = $falConfig['pollInterval'] ?? 1000;
-        $this->pollInterval = is_int($pollInterval) ? $pollInterval : (is_numeric($pollInterval) ? (int)$pollInterval : 1000);
+        // Clamp to >= 1ms: a configured 0 (or negative) would make the poll-attempt
+        // count a division by zero and turn usleep() into a busy-loop. max(1, …)
+        // keeps the service fail-soft on a misconfigured interval.
+        $resolvedInterval = is_numeric($pollInterval) ? (int)$pollInterval : 1000;
+        $this->pollInterval = max(1, $resolvedInterval);
     }
 
     /**

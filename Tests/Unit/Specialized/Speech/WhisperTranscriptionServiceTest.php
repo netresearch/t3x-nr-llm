@@ -29,6 +29,7 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
+use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
@@ -45,6 +46,15 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     private LoggerInterface&Stub $loggerStub;
     private VaultServiceInterface $vaultStub;
     private ?string $tempFile = null;
+
+    /**
+     * Method and URL of the last request built through
+     * `setupSuccessfulRequest()` — lets tests assert the endpoint without
+     * reflecting into the service.
+     */
+    private string $lastRequestMethod = '';
+
+    private string $lastRequestUrl = '';
 
     protected function setUp(): void
     {
@@ -156,7 +166,14 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
 
         $this->requestFactoryStub
             ->method('createRequest')
-            ->willReturn($requestStub);
+            ->willReturnCallback(
+                function (string $method, UriInterface|string $uri) use ($requestStub): RequestInterface {
+                    $this->lastRequestMethod = $method;
+                    $this->lastRequestUrl = (string)$uri;
+
+                    return $requestStub;
+                },
+            );
 
         $streamStub = self::createStub(StreamInterface::class);
         $this->streamFactoryStub
@@ -220,6 +237,23 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubjectWithoutApiKey();
 
         self::assertFalse($subject->isAvailable());
+    }
+
+    #[Test]
+    public function emptyStringBaseUrlFallsBackToApiUrl(): void
+    {
+        // An empty ext_conf baseUrl is the documented "use the default" value;
+        // it must not be sent verbatim (a scheme-less URL breaks the HTTP
+        // client) — it falls back to the OpenAI default like the siblings do.
+        // Observed through the request the service builds (no reflection).
+        $subject = $this->createSubject(['speech' => ['whisper' => ['baseUrl' => '']]]);
+        $audioFile = $this->createTestAudioFile();
+        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello world']));
+
+        $subject->transcribe($audioFile);
+
+        self::assertSame('POST', $this->lastRequestMethod);
+        self::assertStringStartsWith('https://api.openai.com/v1/audio', $this->lastRequestUrl);
     }
 
     // ==================== getters tests ====================

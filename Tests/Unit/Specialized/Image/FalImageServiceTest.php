@@ -230,8 +230,64 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willReturnOnConsecutiveCalls($queueSubmitResponse, $statusResponse, $resultResponse);
     }
 
+    /**
+     * Drive the queue flow with an explicit status sequence: one submit
+     * response (carrying request_id), then one status response per entry in
+     * $statuses, then (when $finalResponseData is given) the result fetch.
+     *
+     * @param list<string>              $statuses
+     * @param array<string, mixed>|null $finalResponseData
+     */
+    private function setupQueueResponses(array $statuses, ?array $finalResponseData): void
+    {
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $responses = [];
+
+        $submitBody = self::createStub(StreamInterface::class);
+        $submitBody->method('__toString')->willReturn((string)json_encode(['request_id' => 'test-request-123']));
+        $submitResponse = self::createStub(ResponseInterface::class);
+        $submitResponse->method('getStatusCode')->willReturn(200);
+        $submitResponse->method('getBody')->willReturn($submitBody);
+        $responses[] = $submitResponse;
+
+        foreach ($statuses as $status) {
+            $statusBody = self::createStub(StreamInterface::class);
+            $statusBody->method('__toString')->willReturn((string)json_encode(['status' => $status]));
+            $statusResponse = self::createStub(ResponseInterface::class);
+            $statusResponse->method('getStatusCode')->willReturn(200);
+            $statusResponse->method('getBody')->willReturn($statusBody);
+            $responses[] = $statusResponse;
+        }
+
+        if ($finalResponseData !== null) {
+            $resultBody = self::createStub(StreamInterface::class);
+            $resultBody->method('__toString')->willReturn((string)json_encode($finalResponseData));
+            $resultResponse = self::createStub(ResponseInterface::class);
+            $resultResponse->method('getStatusCode')->willReturn(200);
+            $resultResponse->method('getBody')->willReturn($resultBody);
+            $responses[] = $resultResponse;
+        }
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturnOnConsecutiveCalls(...$responses);
+    }
+
     private function setupFailedRequest(int $statusCode, string $errorMessage = 'API Error'): void
     {
+
         $requestStub = self::createStub(RequestInterface::class);
         $requestStub->method('withHeader')->willReturnSelf();
         $requestStub->method('withBody')->willReturnSelf();
@@ -636,6 +692,8 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $this->setupFailedRequest(422, 'Invalid prompt');
 
         $this->expectException(ServiceUnavailableException::class);
+        // FAL surfaces 422 with its own validation wording (see mapErrorStatus()).
+        $this->expectExceptionMessage('FAL API validation error');
 
         $subject->generate('A sunset');
     }
@@ -783,6 +841,84 @@ class FalImageServiceTest extends AbstractUnitTestCase
         );
 
         self::assertTrue($subject->isAvailable());
+    }
+
+    // ==================== Polling tests ====================
+
+    #[Test]
+    public function generateWithQueueDoesNotCrashWhenPollIntervalIsZero(): void
+    {
+        // A configured pollInterval of 0 must be clamped (max(1, …)) so the
+        // maxAttempts division and the usleep() loop don't blow up.
+        $config = [
+            'image' => [
+                'fal' => [
+                    'apiKeyIdentifier' => 'test-api-key',
+                    'pollInterval' => 0,
+                ],
+            ],
+        ];
+        $subject = $this->createSubject($config);
+
+        // Queue path: submit → status COMPLETED → result.
+        $this->setupQueueResponses(
+            ['COMPLETED'],
+            ['images' => [['url' => 'https://example.com/image.png']]],
+        );
+
+        $result = $subject->generate('A sunset', 'sdxl');
+
+        self::assertSame('sdxl', $result->model);
+    }
+
+    #[Test]
+    public function pollForResultThrowsTimeoutWhenStatusNeverCompletes(): void
+    {
+        // timeout 1s / pollInterval 1000ms → exactly one non-terminal poll,
+        // then the loop is exhausted and a timeout is raised.
+        $config = [
+            'image' => [
+                'fal' => [
+                    'apiKeyIdentifier' => 'test-api-key',
+                    'timeout' => 1,
+                    'pollInterval' => 1000,
+                ],
+            ],
+        ];
+        $subject = $this->createSubject($config);
+
+        $this->setupQueueResponses(['IN_PROGRESS'], null);
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('FAL generation timed out');
+
+        $subject->generate('A sunset', 'sdxl');
+    }
+
+    #[Test]
+    public function pollForResultSucceedsAfterAPendingPoll(): void
+    {
+        // timeout 1s / pollInterval 200ms → up to 5 polls. The first status is
+        // non-terminal, the second COMPLETED — covers a multi-iteration poll.
+        $config = [
+            'image' => [
+                'fal' => [
+                    'apiKeyIdentifier' => 'test-api-key',
+                    'timeout' => 1,
+                    'pollInterval' => 200,
+                ],
+            ],
+        ];
+        $subject = $this->createSubject($config);
+
+        $this->setupQueueResponses(
+            ['IN_PROGRESS', 'COMPLETED'],
+            ['images' => [['url' => 'https://example.com/image.png']]],
+        );
+
+        $result = $subject->generate('A sunset', 'sdxl');
+
+        self::assertSame('sdxl', $result->model);
     }
 
     // ==================== Queue error handling tests ====================

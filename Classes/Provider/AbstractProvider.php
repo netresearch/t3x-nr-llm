@@ -17,19 +17,25 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
 abstract class AbstractProvider implements ProviderInterface
 {
+    use ErrorMessageSanitizerTrait;
     use ResponseParserTrait;
+
+    /** Placeholder for provider error payloads that carry no message. */
+    private const UNKNOWN_ERROR = 'Unknown error';
 
     /**
      * Feature constants for provider capabilities.
@@ -227,7 +233,7 @@ abstract class AbstractProvider implements ProviderInterface
                 if ($statusCode >= 400 && $statusCode < 500) {
                     $body = (string)$response->getBody();
                     $decoded = json_decode($body, true);
-                    $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => 'Unknown error']];
+                    $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => self::UNKNOWN_ERROR]];
                     throw new ProviderResponseException(
                         message: $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
                         httpStatus: $statusCode,
@@ -254,7 +260,7 @@ abstract class AbstractProvider implements ProviderInterface
 
         throw new ProviderConnectionException(
             'Failed to connect to provider after ' . $this->maxRetries . ' attempts: '
-            . $this->sanitizeErrorMessage($lastException?->getMessage() ?? 'Unknown error'),
+            . $this->sanitizeErrorMessage($lastException?->getMessage() ?? self::UNKNOWN_ERROR),
             0,
             $lastException,
         );
@@ -266,18 +272,40 @@ abstract class AbstractProvider implements ProviderInterface
     }
 
     /**
-     * Sanitize error messages to prevent leaking secrets (API keys in URLs, headers, etc.).
+     * Map a non-2xx streaming response to the same typed exceptions that
+     * `sendRequest()` raises, so a failed stream surfaces the error instead
+     * of silently yielding an empty generator.
      *
-     * HTTP client exceptions may include full URLs with query parameters containing API keys
-     * (e.g., Gemini's ?key=... pattern). This strips sensitive query parameters.
+     * Streaming bypasses `sendRequest()` (the SSE body must be read lazily),
+     * and the fallback middleware excludes streaming from its retry/fallback
+     * handling — so surfacing the typed error here is the correct contract.
+     *
+     * @throws ProviderResponseException   on a 4xx response
+     * @throws ProviderConnectionException on any other non-2xx response
      */
-    protected function sanitizeErrorMessage(string $message): string
+    protected function assertStreamingResponseOk(ResponseInterface $response, string $endpoint): void
     {
-        // Strip query parameters that may contain API keys from URLs in the message
-        return (string)preg_replace(
-            '/([?&])(key|api_key|apikey|token|secret|access_token)=[^&\s]+/i',
-            '$1$2=***',
-            $message,
+        $statusCode = $response->getStatusCode();
+        if ($statusCode >= 200 && $statusCode < 300) {
+            return;
+        }
+
+        $body = (string)$response->getBody();
+
+        if ($statusCode >= 400 && $statusCode < 500) {
+            $decoded = json_decode($body, true);
+            $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => self::UNKNOWN_ERROR]];
+            throw new ProviderResponseException(
+                message: $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
+                httpStatus: $statusCode,
+                responseBody: $body,
+                endpoint: $endpoint,
+            );
+        }
+
+        throw new ProviderConnectionException(
+            sprintf('Server returned status %d', $statusCode),
+            $statusCode,
         );
     }
 

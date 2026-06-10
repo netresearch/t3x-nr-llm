@@ -445,6 +445,7 @@ final class ClaudeProvider extends AbstractProvider implements
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient()->sendRequest($request);
+        $this->assertStreamingResponseOk($response, 'messages');
         $stream = $response->getBody();
 
         $buffer = '';

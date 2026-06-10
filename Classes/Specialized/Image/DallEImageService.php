@@ -344,39 +344,7 @@ final class DallEImageService extends AbstractSpecializedService
      */
     protected function loadServiceConfiguration(array $config): void
     {
-        // is_string() guards: the extension config tree is user-editable
-        // YAML and the @var hint above describes the documented shape,
-        // not a runtime guarantee. Direct assignment without guards
-        // would TypeError on a non-string identifier and defeat the
-        // base's fail-soft contract.
-        $apiKeyIdentifier = $this->resolveScalarConfig($config, ['providers', 'openai', 'apiKeyIdentifier']);
-        $baseUrl = $this->resolveScalarConfig($config, ['image', 'dalle', 'baseUrl']);
-        $timeout = $this->resolveScalarConfig($config, ['image', 'dalle', 'timeout']);
-
-        $this->apiKeyIdentifier = is_string($apiKeyIdentifier) ? $apiKeyIdentifier : '';
-        // An empty ext_conf baseUrl means "use the OpenAI default" (per the field label), NOT
-        // "send requests to an empty URL" — see nonEmptyStringOrDefault().
-        $this->baseUrl = $this->nonEmptyStringOrDefault($baseUrl, self::API_URL);
-        $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
-    }
-
-    /**
-     * Walk a nested array path safely. Returns the leaf value or null
-     * if any intermediate hop is missing / not an array.
-     *
-     * @param array<string, mixed> $config
-     * @param list<string>         $path
-     */
-    private function resolveScalarConfig(array $config, array $path): mixed
-    {
-        $current = $config;
-        foreach ($path as $key) {
-            if (!is_array($current) || !array_key_exists($key, $current)) {
-                return null;
-            }
-            $current = $current[$key];
-        }
-        return $current;
+        $this->loadOpenAiServiceConfiguration($config, ['image', 'dalle']);
     }
 
     /**

@@ -847,9 +847,17 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject();
         $this->setupFailedRequest(400, 'Invalid request');
 
-        $this->expectException(ServiceUnavailableException::class);
-
-        $subject->generate('A cat');
+        try {
+            $subject->generate('A cat');
+            self::fail('Expected ServiceUnavailableException was not thrown');
+        } catch (ServiceUnavailableException $e) {
+            // DALL-E maps 400 to a distinct validation branch (see mapErrorStatus()):
+            // the message carries the upstream detail and the context flags 'validation'
+            // so downstream catches that branched on it keep working.
+            self::assertStringContainsString('DALL-E API error: Invalid request', $e->getMessage());
+            self::assertIsArray($e->context);
+            self::assertSame('validation', $e->context['type'] ?? null);
+        }
     }
 
     #[Test]

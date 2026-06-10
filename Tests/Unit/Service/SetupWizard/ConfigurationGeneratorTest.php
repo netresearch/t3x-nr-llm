@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\SuggestedConfiguration;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -22,6 +23,7 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 
 #[CoversClass(ConfigurationGenerator::class)]
@@ -31,6 +33,8 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     private ClientInterface&Stub $httpClientStub;
     private RequestFactoryInterface&Stub $requestFactoryStub;
     private StreamFactoryInterface&Stub $streamFactoryStub;
+    private VaultServiceInterface $vaultStub;
+    private LoggerInterface&Stub $loggerStub;
     private ConfigurationGenerator $subject;
 
     protected function setUp(): void
@@ -40,12 +44,20 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $this->httpClientStub = self::createStub(ClientInterface::class);
         $this->requestFactoryStub = self::createStub(RequestFactoryInterface::class);
         $this->streamFactoryStub = self::createStub(StreamFactoryInterface::class);
+        $this->vaultStub = $this->createVaultServiceMock();
+        $this->loggerStub = self::createStub(LoggerInterface::class);
 
         $this->subject = new ConfigurationGenerator(
-            $this->httpClientStub,
+            $this->vaultStub,
+            $this->createSecureHttpClientFactoryMock(),
             $this->requestFactoryStub,
             $this->streamFactoryStub,
+            $this->loggerStub,
         );
+        // Test seam: requests bypass the vault secure client so the stubbed
+        // HTTP responses drive the test. The SSRF test uses a fresh subject
+        // WITHOUT the seam to exercise the host gate.
+        $this->subject->setHttpClient($this->httpClientStub);
     }
 
     private function createJsonResponseStubForGenerator(int $statusCode, string $body): ResponseInterface&Stub
@@ -122,6 +134,32 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', []);
 
         self::assertNotEmpty($result);
+    }
+
+    #[Test]
+    public function generateRejectsDisallowedHostAndReturnsFallback(): void
+    {
+        // No setHttpClient() seam → dispatch() runs the real isHostAllowed()
+        // gate. The cloud metadata IP (169.254.169.254) is always blocked, so
+        // the request never reaches the wire and generate() fails soft.
+        $subject = new ConfigurationGenerator(
+            $this->vaultStub,
+            $this->createSecureHttpClientFactoryMock(),
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+        );
+
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://169.254.169.254/v1',
+            suggestedName: 'Metadata SSRF',
+        );
+
+        $result = $subject->generate($provider, 'test-key', $this->createTestModels());
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]

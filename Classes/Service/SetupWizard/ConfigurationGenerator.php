@@ -12,9 +12,12 @@ namespace Netresearch\NrLlm\Service\SetupWizard;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\SuggestedConfiguration;
-use Psr\Http\Client\ClientInterface;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
+use Netresearch\NrVault\Http\SecureHttpClientFactory;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Throwable;
 
@@ -22,10 +25,23 @@ use Throwable;
  * Generates configuration suggestions using the connected LLM.
  *
  * Uses the newly connected LLM to generate optimal configuration presets
- * for common use cases.
+ * for common use cases. The single outbound call is dispatched through the
+ * nr-vault secure HTTP client (`$vault->http()`) and the target host is
+ * gated via `SecureHttpClientFactory::isHostAllowed()` first, so the wizard
+ * cannot be coerced into an SSRF request — the same hardened path the
+ * providers and specialised services use.
  */
-final readonly class ConfigurationGenerator
+final class ConfigurationGenerator
 {
+    use ErrorMessageSanitizerTrait;
+    use SecureHttpDispatchTrait;
+
+    /**
+     * Audit-log reason the vault secure client records for every outbound
+     * request, passed to `SecureHttpDispatchTrait::dispatch()`.
+     */
+    private const VAULT_DISPATCH_REASON = 'LLM setup-wizard configuration generation';
+
     private const SYSTEM_PROMPT = <<<'PROMPT'
         You are an expert at configuring LLM integrations. Generate practical configuration presets for common business use cases.
 
@@ -54,10 +70,17 @@ final readonly class ConfigurationGenerator
         PROMPT;
 
     public function __construct(
-        private ClientInterface $httpClient,
-        private RequestFactoryInterface $requestFactory,
-        private StreamFactoryInterface $streamFactory,
-    ) {}
+        VaultServiceInterface $vault,
+        SecureHttpClientFactory $httpClientFactory,
+        private readonly RequestFactoryInterface $requestFactory,
+        private readonly StreamFactoryInterface $streamFactory,
+        private readonly LoggerInterface $logger,
+    ) {
+        // Initialise the readonly collaborators declared in
+        // SecureHttpDispatchTrait (no promotion — the trait owns them).
+        $this->vault = $vault;
+        $this->httpClientFactory = $httpClientFactory;
+    }
 
     /**
      * Generate configuration suggestions using the LLM.
@@ -89,7 +112,18 @@ final readonly class ConfigurationGenerator
             $configurations = $this->parseResponse($response, $generationModel->modelId);
 
             return $configurations !== [] ? $configurations : $this->getFallbackConfigurations($models);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            // Fail soft to the static fallback presets, but log the sanitised
+            // reason server-side (the raw message can carry the endpoint URL
+            // or an SSRF-rejection detail) so operators can diagnose.
+            $this->logger->warning(
+                'LLM setup-wizard configuration generation failed; using fallback presets',
+                [
+                    'provider'  => $provider->adapterType,
+                    'exception' => $this->sanitizeErrorMessage($e->getMessage()),
+                ],
+            );
+
             return $this->getFallbackConfigurations($models);
         }
     }
@@ -175,7 +209,7 @@ final readonly class ConfigurationGenerator
             default => $request->withHeader('Authorization', 'Bearer ' . $apiKey),
         };
 
-        $response = $this->httpClient->sendRequest($request);
+        $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
         if ($response->getStatusCode() !== 200) {
             throw new RuntimeException('LLM API error: ' . $response->getStatusCode(), 6587111580);

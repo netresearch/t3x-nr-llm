@@ -200,10 +200,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
      */
     protected function loadServiceConfiguration(array $config): void
     {
-        /** @var array{providers?: array{openai?: array{apiKeyIdentifier?: string}}, speech?: array{whisper?: array{baseUrl?: string, timeout?: int}}} $config */
-        $this->apiKeyIdentifier = (string)($config['providers']['openai']['apiKeyIdentifier'] ?? '');
-        $this->baseUrl = (string)($config['speech']['whisper']['baseUrl'] ?? self::API_URL);
-        $this->timeout = (int)($config['speech']['whisper']['timeout'] ?? $this->getDefaultTimeout());
+        $this->loadOpenAiServiceConfiguration($config, ['speech', 'whisper']);
     }
 
     protected function getProviderLabel(): string

@@ -244,27 +244,7 @@ final class TextToSpeechService extends AbstractSpecializedService
      */
     protected function loadServiceConfiguration(array $config): void
     {
-        $providers = $config['providers'] ?? null;
-        if (is_array($providers)) {
-            $openai = $providers['openai'] ?? null;
-            if (is_array($openai)) {
-                $apiKeyIdentifier = $openai['apiKeyIdentifier'] ?? '';
-                $this->apiKeyIdentifier = is_string($apiKeyIdentifier) ? $apiKeyIdentifier : '';
-            }
-        }
-
-        $this->baseUrl = self::API_URL;
-        $speech = $config['speech'] ?? null;
-        if (is_array($speech)) {
-            $tts = $speech['tts'] ?? null;
-            if (is_array($tts)) {
-                // Empty ext_conf baseUrl means "use the OpenAI default" (per the field label),
-                // not an empty request URL — see nonEmptyStringOrDefault().
-                $this->baseUrl = $this->nonEmptyStringOrDefault($tts['baseUrl'] ?? null, self::API_URL);
-                $timeout = $tts['timeout'] ?? null;
-                $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
-            }
-        }
+        $this->loadOpenAiServiceConfiguration($config, ['speech', 'tts']);
     }
 
     protected function getProviderLabel(): string
@@ -312,7 +292,7 @@ final class TextToSpeechService extends AbstractSpecializedService
         $sentences = preg_split('/(?<=[.!?])\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
 
         if ($sentences === false) {
-            return str_split($text, self::MAX_INPUT_LENGTH) ?: [$text];
+            return mb_str_split($text, self::MAX_INPUT_LENGTH) ?: [$text];
         }
 
         foreach ($sentences as $sentence) {
@@ -369,8 +349,21 @@ final class TextToSpeechService extends AbstractSpecializedService
                 } else {
                     if ($currentChunk !== '') {
                         $chunks[] = rtrim($currentChunk, ', ');
+                        $currentChunk = '';
                     }
-                    $currentChunk = $part . $separator;
+                    // A single comma-delimited part can itself exceed the limit
+                    // (e.g. a clause with no internal commas). Emitting it whole
+                    // would produce an over-limit chunk that synthesize() rejects,
+                    // so hard-split it at the character boundary first —
+                    // mb_str_split() keeps multibyte UTF-8 sequences intact
+                    // where a byte-wise str_split() would corrupt them.
+                    if (mb_strlen($part . $separator) > self::MAX_INPUT_LENGTH) {
+                        foreach (mb_str_split($part, self::MAX_INPUT_LENGTH) ?: [$part] as $hardChunk) {
+                            $chunks[] = $hardChunk;
+                        }
+                    } else {
+                        $currentChunk = $part . $separator;
+                    }
                 }
             }
 
@@ -381,7 +374,7 @@ final class TextToSpeechService extends AbstractSpecializedService
             return $chunks;
         }
 
-        return str_split($sentence, self::MAX_INPUT_LENGTH) ?: [$sentence];
+        return mb_str_split($sentence, self::MAX_INPUT_LENGTH) ?: [$sentence];
     }
 
     /**

@@ -29,6 +29,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Log\LoggerInterface;
+use ReflectionClass;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -484,6 +485,51 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $result = $subject->synthesizeLong($longText);
 
         self::assertGreaterThan(1, count($result));
+    }
+
+    #[Test]
+    public function splitTextIntoChunksHardSplitsAnOverLimitClause(): void
+    {
+        // A comma-delimited sentence whose first clause already exceeds the
+        // input limit must be hard-split: emitting the clause whole would
+        // produce an over-limit chunk that synthesize() rejects.
+        $subject = $this->createSubject();
+
+        $firstClause = str_repeat('a', 5000); // > MAX_INPUT_LENGTH (4096)
+        $sentence = $firstClause . ', tail clause.';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $sentence);
+
+        self::assertIsArray($chunks);
+        self::assertNotEmpty($chunks);
+        foreach ($chunks as $chunk) {
+            self::assertIsString($chunk);
+            self::assertLessThanOrEqual(4096, mb_strlen($chunk));
+        }
+    }
+
+    #[Test]
+    public function splitTextIntoChunksHardSplitKeepsMultibyteCharactersIntact(): void
+    {
+        // The hard-split must cut at character boundaries: a byte-wise split
+        // would slice multibyte UTF-8 sequences in half and feed invalid
+        // UTF-8 to the synthesis API. 5000 two-byte characters exceed the
+        // 4096-character limit, so the clause is hard-split.
+        $subject = $this->createSubject();
+
+        $sentence = str_repeat('ü', 5000) . ', tail clause.';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $sentence);
+
+        self::assertIsArray($chunks);
+        self::assertNotEmpty($chunks);
+        foreach ($chunks as $chunk) {
+            self::assertIsString($chunk);
+            self::assertTrue(mb_check_encoding($chunk, 'UTF-8'), 'Chunk must remain valid UTF-8');
+            self::assertLessThanOrEqual(4096, mb_strlen($chunk));
+        }
     }
 
     // ==================== API error handling tests ====================

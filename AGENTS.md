@@ -110,7 +110,7 @@ nr_llm/
 │   ├── Provider/               # 7 LLM adapters + Contract interfaces + exceptions
 │   ├── Service/                # Feature services, wizard, options, fallback chain
 │   ├── Specialized/            # DeepL, speech (Whisper/TTS), image (DALL-E/FAL)
-│   ├── Utility/                # SafeCastTrait
+│   ├── Utility/                # SafeCastTrait, ErrorMessageSanitizerTrait
 │   └── Widgets/DataProvider/   # Backend dashboard widgets (cost, requests)
 ├── Configuration/              # TYPO3 config (TCA, services, caching, icons, routes)
 ├── Documentation/              # 69 RST files + guides.xml + brand assets
@@ -156,6 +156,7 @@ nr_llm/
 ## Shared Utilities — Don't Reinvent
 
 - **Type coercion**: `Classes/Utility/SafeCastTrait` exposes private helpers (`toStr`, `toInt`, `toFloat`) for internal coercion when raw values come from untrusted sources. Use them inside the trait consumer; do not invent `safeIntCast`-style public methods.
+- **Error-message sanitizing**: `Classes/Utility/ErrorMessageSanitizerTrait::sanitizeErrorMessage()` strips secret-bearing query parameters (`?key=`, `?token=`, …) before a message is logged or surfaced. Use the trait; do not copy the regex.
 - **Provider invocation**: `Classes/Domain/DTO/FallbackChain.php` defines fallback chains; `Classes/Provider/Middleware/FallbackMiddleware.php` enforces them at runtime. Always go through the middleware pipeline rather than calling provider classes directly — it handles retries, fallback ordering, and error mapping.
 - **Cost tracking**: `Classes/Provider/Middleware/UsageMiddleware.php` records usage after each successful provider call via `UsageTrackerServiceInterface::trackUsage()`. Don't write to the usage table directly.
 - **Cache config**: `Configuration/Caching.php` declares the `nrllm_responses` cache. Add new caches there (no hardcoded backend — let the host instance configure Redis/Valkey/Memcached).

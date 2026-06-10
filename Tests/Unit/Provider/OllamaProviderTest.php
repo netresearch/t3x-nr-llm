@@ -578,6 +578,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
         );
 
         $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
@@ -618,6 +619,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
         $streamStub->method('read')->willReturn("{\"message\":{\"content\":\"Test\"},\"done\":true}\n");
 
         $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
@@ -658,6 +660,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
         $streamStub->method('read')->willReturn("\n\n{\"message\":{\"content\":\"Test\"},\"done\":true}\n");
 
         $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
@@ -698,6 +701,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
         $streamStub->method('read')->willReturn("invalid-json\n{\"message\":{\"content\":\"Valid\"},\"done\":true}\n");
 
         $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
@@ -738,6 +742,7 @@ class OllamaProviderTest extends AbstractUnitTestCase
         $streamStub->method('read')->willReturn("{\"message\":{\"content\":\"\"},\"done\":false}\n{\"message\":{\"content\":\"Test\"},\"done\":true}\n");
 
         $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
         $responseStub->method('getBody')->willReturn($streamStub);
 
         $httpClientMock = $this->createHttpClientWithExpectations();
