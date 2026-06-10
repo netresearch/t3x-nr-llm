@@ -12,9 +12,14 @@ namespace Netresearch\NrLlm\Service\SetupWizard;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\SuggestedConfiguration;
+use Netresearch\NrVault\Http\SecureHttpClientFactory;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Throwable;
 
@@ -22,9 +27,13 @@ use Throwable;
  * Generates configuration suggestions using the connected LLM.
  *
  * Uses the newly connected LLM to generate optimal configuration presets
- * for common use cases.
+ * for common use cases. The single outbound call is dispatched through the
+ * nr-vault secure HTTP client (`$vault->http()`) and the target host is
+ * gated via `SecureHttpClientFactory::isHostAllowed()` first, so the wizard
+ * cannot be coerced into an SSRF request — the same hardened path the
+ * providers and specialised services use.
  */
-final readonly class ConfigurationGenerator
+final class ConfigurationGenerator
 {
     private const SYSTEM_PROMPT = <<<'PROMPT'
         You are an expert at configuring LLM integrations. Generate practical configuration presets for common business use cases.
@@ -53,11 +62,79 @@ final readonly class ConfigurationGenerator
         Focus on: content creation, translation, summarization, customer support, and code/technical assistance.
         PROMPT;
 
+    /**
+     * Test seam: when set, requests go through this client instead of the
+     * vault secure client. Production never sets it.
+     */
+    private ?ClientInterface $configuredHttpClient = null;
+
     public function __construct(
-        private ClientInterface $httpClient,
-        private RequestFactoryInterface $requestFactory,
-        private StreamFactoryInterface $streamFactory,
+        private readonly VaultServiceInterface $vault,
+        private readonly SecureHttpClientFactory $httpClientFactory,
+        private readonly RequestFactoryInterface $requestFactory,
+        private readonly StreamFactoryInterface $streamFactory,
+        private readonly LoggerInterface $logger,
     ) {}
+
+    /**
+     * Inject a custom HTTP client, bypassing the vault secure client.
+     *
+     * @internal Test seam only — production always dispatches through the
+     *           audited vault client (see `dispatch()`).
+     */
+    public function setHttpClient(ClientInterface $client): void
+    {
+        $this->configuredHttpClient = $client;
+    }
+
+    /**
+     * Send a request through the SSRF-guarded vault secure client.
+     *
+     * The host is gated up front via `isHostAllowed()` so a disallowed /
+     * private-range target is rejected before any secret-bearing header is
+     * sent; the vault client re-checks the host and validates the scheme as
+     * defence in depth.
+     *
+     * @throws Throwable when the host is disallowed or the request fails
+     */
+    private function dispatch(RequestInterface $request): ResponseInterface
+    {
+        // Test seam: an injected client bypasses the vault path entirely so
+        // unit tests can assert on the request the wizard built without hitting
+        // DNS or the host allowlist.
+        if ($this->configuredHttpClient !== null) {
+            return $this->configuredHttpClient->sendRequest($request);
+        }
+
+        // Reject a disallowed / private-range target up front, before any
+        // secret-bearing header reaches the wire. The vault client re-checks
+        // the host and validates the scheme inside sendRequest() as defence in
+        // depth, but failing here yields a clear, typed rejection.
+        $host = $request->getUri()->getHost();
+        if (!$this->httpClientFactory->isHostAllowed($host)) {
+            throw new RuntimeException(
+                sprintf('Host "%s" is not in the allowed hosts list', $host),
+                7438190002,
+            );
+        }
+
+        return $this->vault->http()
+            ->withReason('LLM setup-wizard configuration generation')
+            ->sendRequest($request);
+    }
+
+    /**
+     * Strip secret-bearing query parameters from a message before it is
+     * logged. Mirrors `AbstractProvider`.
+     */
+    private function sanitizeErrorMessage(string $message): string
+    {
+        return (string)preg_replace(
+            '/([?&])(key|api_key|apikey|token|secret|access_token)=[^&\s]+/i',
+            '$1$2=***',
+            $message,
+        );
+    }
 
     /**
      * Generate configuration suggestions using the LLM.
@@ -89,7 +166,18 @@ final readonly class ConfigurationGenerator
             $configurations = $this->parseResponse($response, $generationModel->modelId);
 
             return $configurations !== [] ? $configurations : $this->getFallbackConfigurations($models);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            // Fail soft to the static fallback presets, but log the sanitised
+            // reason server-side (the raw message can carry the endpoint URL
+            // or an SSRF-rejection detail) so operators can diagnose.
+            $this->logger->warning(
+                'LLM setup-wizard configuration generation failed; using fallback presets',
+                [
+                    'provider'  => $provider->adapterType,
+                    'exception' => $this->sanitizeErrorMessage($e->getMessage()),
+                ],
+            );
+
             return $this->getFallbackConfigurations($models);
         }
     }
@@ -175,7 +263,7 @@ final readonly class ConfigurationGenerator
             default => $request->withHeader('Authorization', 'Bearer ' . $apiKey),
         };
 
-        $response = $this->httpClient->sendRequest($request);
+        $response = $this->dispatch($request);
 
         if ($response->getStatusCode() !== 200) {
             throw new RuntimeException('LLM API error: ' . $response->getStatusCode(), 6587111580);
