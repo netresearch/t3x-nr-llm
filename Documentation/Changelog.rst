@@ -19,6 +19,9 @@ Version 0.11.2 (2026-06-10)
 Dependency maintenance: the ``netresearch/nr-vault`` constraint is widened to
 ``^0.8.0 || ^0.9.0`` so installations can resolve nr-vault 0.9.0.
 
+For the complete, itemised list see the canonical
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-llm/blob/main/CHANGELOG.md>`__.
+
 .. _version-0-11-1:
 
 Version 0.11.1 (2026-06-10)
