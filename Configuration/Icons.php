@@ -31,6 +31,10 @@ return [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/Task.svg',
     ],
+    'module-nrllm-snippet' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/Snippet.svg',
+    ],
     'module-nrllm-analytics' => [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/Analytics.svg',

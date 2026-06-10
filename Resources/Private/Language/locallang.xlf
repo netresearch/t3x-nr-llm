@@ -210,6 +210,9 @@
             <trans-unit id="btn.configuration.new">
                 <source>New Configuration</source>
             </trans-unit>
+            <trans-unit id="btn.snippet.new">
+                <source>New Snippet</source>
+            </trans-unit>
             <trans-unit id="btn.refresh">
                 <source>Refresh</source>
             </trans-unit>

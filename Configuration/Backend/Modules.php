@@ -11,6 +11,7 @@ use Netresearch\NrLlm\Controller\Backend\AnalyticsController;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
+use Netresearch\NrLlm\Controller\Backend\PromptSnippetController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
@@ -149,6 +150,21 @@ return [
                 'wizardGenerate',
                 'wizardGenerateChain',
                 'wizardCreate',
+            ],
+        ],
+    ],
+    // Prompt snippet library - child of main module
+    // Note: new/edit/save/delete use FormEngine (record_edit route)
+    'nrllm_snippets' => [
+        'parent' => 'nrllm',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-snippet',
+        'path' => '/module/nrllm/snippets',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_snippet.xlf',
+        'extensionName' => 'NrLlm',
+        'controllerActions' => [
+            PromptSnippetController::class => [
+                'list',
             ],
         ],
     ],
