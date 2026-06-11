@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Domain\Model;
 use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\DTO\ProviderOptions;
 use Netresearch\NrVault\Service\VaultServiceInterface;
+use Netresearch\NrVault\Utility\IdentifierValidator;
 use Throwable;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
@@ -25,6 +26,17 @@ use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
  */
 class Provider extends AbstractEntity
 {
+    /**
+     * Known API-key prefixes identifying a value as a plaintext secret.
+     *
+     * Some plaintext keys (e.g. Google "AIza…" keys) would otherwise satisfy
+     * nr-vault's name-style identifier pattern, so known prefixes are
+     * rejected before delegating to the vault's identifier rules.
+     * 'sk-' also covers 'sk-proj-' (OpenAI), 'sk-ant-' (Anthropic),
+     * and 'sk-or-' (OpenRouter) keys.
+     */
+    private const PLAINTEXT_API_KEY_PREFIXES = ['sk-', 'xai-', 'AIza', 'gsk_'];
+
     protected string $identifier = '';
     protected string $name = '';
     protected string $description = '';
@@ -313,17 +325,18 @@ class Provider extends AbstractEntity
      *
      * The actual secret storage is handled by nr-vault's TCA form element
      * or by the SetupWizardController via VaultServiceInterface::store().
-     * This method only accepts vault identifiers (UUIDs), not raw secrets.
+     * This method only accepts vault identifiers (UUID v7 or name-style
+     * identifiers such as "nr_repurpose_openai"), not raw secrets.
      *
-     * @throws InvalidArgumentException If the value looks like a raw API key instead of a vault UUID
+     * @throws InvalidArgumentException If the value looks like a raw API key instead of a vault identifier
      */
     public function setApiKey(string $apiKey): void
     {
         // Allow empty string (no key / clearing)
-        // Reject values that look like raw API keys (not vault UUIDs)
+        // Reject values that look like raw API keys (not vault identifiers)
         if ($apiKey !== '' && !self::isVaultIdentifier($apiKey)) {
             throw new InvalidArgumentException(
-                'API key must be a vault identifier (UUID), not a raw secret. '
+                'API key must be a vault identifier (UUID v7 or name-style identifier), not a raw secret. '
                 . 'Use VaultServiceInterface::store() first.',
                 1741268400,
             );
@@ -333,15 +346,23 @@ class Provider extends AbstractEntity
     }
 
     /**
-     * Check whether a value looks like a vault identifier (UUID v7).
+     * Check whether a value is a valid nr-vault identifier.
+     *
+     * Delegates to nr-vault's `IdentifierValidator`, which accepts both
+     * UUID v7 (TCA/FlexForm vault fields) and name-style identifiers
+     * (e.g. "nr_repurpose_openai"). Values starting with a known API-key
+     * prefix are conservatively treated as legacy plaintext secrets, since
+     * some raw keys would otherwise match the name-style pattern.
      */
     private static function isVaultIdentifier(string $value): bool
     {
-        // UUID v7 format: 8-4-4-4-12 hex digits with version 7
-        return (bool)preg_match(
-            '/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i',
-            $value,
-        );
+        foreach (self::PLAINTEXT_API_KEY_PREFIXES as $prefix) {
+            if (str_starts_with($value, $prefix)) {
+                return false;
+            }
+        }
+
+        return IdentifierValidator::isValid($value);
     }
 
     public function setOrganizationId(string $organizationId): void

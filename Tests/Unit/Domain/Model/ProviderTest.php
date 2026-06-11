@@ -13,9 +13,11 @@ use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Model\AdapterType;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Unit tests for Provider domain entity.
@@ -259,6 +261,101 @@ final class ProviderTest extends AbstractUnitTestCase
 
         // UUID v4 (version digit is 4, not 7)
         $this->subject->setApiKey('550e8400-e29b-41d4-a716-446655440000');
+    }
+
+    #[Test]
+    public function setApiKeyAcceptsNameStyleVaultIdentifier(): void
+    {
+        // nr-vault also accepts user-friendly name identifiers
+        // (see Netresearch\NrVault\Utility\IdentifierValidator)
+        $this->subject->setApiKey('nr_repurpose_openai');
+        self::assertSame('nr_repurpose_openai', $this->subject->getApiKey());
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function plaintextApiKeyProvider(): array
+    {
+        return [
+            'OpenAI project key' => ['sk-proj-abc123xyz'],
+            'Anthropic key' => ['sk-ant-api03-abc123'],
+            'xAI key' => ['xai-abc123xyz'],
+            'Google key (name-style shaped)' => ['AIzaSyDabc123xyz'],
+            'Groq key' => ['gsk_abc123xyz'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('plaintextApiKeyProvider')]
+    public function setApiKeyThrowsForKnownPlaintextKeyPrefixes(string $plaintextKey): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('API key must be a vault identifier');
+
+        $this->subject->setApiKey($plaintextKey);
+    }
+
+    // ========================================
+    // getDecryptedApiKey
+    // ========================================
+
+    #[Test]
+    public function getDecryptedApiKeyReturnsEmptyStringForEmptyKey(): void
+    {
+        $this->subject->setApiKey('');
+        self::assertSame('', $this->subject->getDecryptedApiKey());
+    }
+
+    #[Test]
+    public function getDecryptedApiKeyRetrievesSecretForNameStyleIdentifier(): void
+    {
+        $vault = $this->createVaultServiceMock(['nr_repurpose_openai' => 'sk-decrypted-secret']);
+        GeneralUtility::addInstance(VaultServiceInterface::class, $vault);
+
+        $this->subject->setApiKey('nr_repurpose_openai');
+
+        self::assertSame('sk-decrypted-secret', $this->subject->getDecryptedApiKey());
+    }
+
+    #[Test]
+    public function getDecryptedApiKeyRetrievesSecretForUuidV7Identifier(): void
+    {
+        $vaultId = '01938f2a-1b2c-7abc-89de-1234567890ab';
+        $vault = $this->createVaultServiceMock([$vaultId => 'sk-decrypted-secret']);
+        GeneralUtility::addInstance(VaultServiceInterface::class, $vault);
+
+        $this->subject->setApiKey($vaultId);
+
+        self::assertSame('sk-decrypted-secret', $this->subject->getDecryptedApiKey());
+    }
+
+    #[Test]
+    public function getDecryptedApiKeyReturnsEmptyAndWarnsForLegacyPlaintextKey(): void
+    {
+        // Legacy plaintext rows are hydrated by Extbase directly into the
+        // property, bypassing setApiKey() validation.
+        $this->subject->_setProperty('apiKey', 'sk-proj-legacy-plaintext');
+
+        $warnings = [];
+        set_error_handler(
+            static function (int $errno, string $errstr) use (&$warnings): bool {
+                $warnings[] = $errstr;
+
+                return true;
+            },
+            E_USER_WARNING,
+        );
+
+        try {
+            $result = $this->subject->getDecryptedApiKey();
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame('', $result);
+        self::assertCount(1, $warnings);
+        self::assertStringContainsString('plaintext API key', $warnings[0]);
     }
 
     // ========================================

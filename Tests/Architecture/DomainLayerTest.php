@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Architecture;
 
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrVault\Utility\IdentifierValidator;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
@@ -123,6 +124,9 @@ final class DomainLayerTest
                 Selector::inNamespace('Netresearch\NrLlm\Domain\DTO'),
                 // Vault service (required for API key handling via nr-vault)
                 Selector::inNamespace('Netresearch\NrVault\Service'),
+                // Vault identifier rules (single source of truth for what
+                // counts as a vault identifier — UUID v7 or name-style)
+                Selector::classname(IdentifierValidator::class),
                 // Extbase infrastructure
                 Selector::inNamespace('TYPO3\CMS\Extbase\DomainObject'),
                 Selector::inNamespace('TYPO3\CMS\Extbase\Persistence'),
