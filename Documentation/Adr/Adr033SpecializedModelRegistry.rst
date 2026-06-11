@@ -53,11 +53,46 @@ Decision
    speech spend to the curated records; ``0`` remains the value for
    models without a registry record.
 
-4. **Configurations stay chat-scoped by design.** The third tier of
-   :ref:`adr-013` (Configuration bundles: system prompt, temperature,
-   token limits, budgets) only makes sense for conversational models.
-   Image/TTS/transcription use Model records plus capability-based
-   default resolution — no Configuration records are created for them.
+4. **Configuration-based resolution for specialized services.**
+   ``tx_nrllm_configuration`` records are the stable indirection layer
+   for image/TTS/transcription exactly as for chat: a consumer
+   references a configuration by identifier, the administrator swaps
+   the assigned model (or adjusts the system prompt) on the record, and
+   every consumer picks it up without re-configuring anything. The
+   three services expose the consumer-facing API
+
+   - :php:`resolveModelForConfiguration(string $configurationIdentifier, string $fallback): string`
+     — resolution order: the ACTIVE configuration's ACTIVE model
+     record's ``model_id`` (records with an empty ``model_id`` are
+     skipped) → the capability-based registry default (decision 2) →
+     the given fallback. Fail-soft, never throws.
+   - :php:`getConfigurationSystemPrompt(string $configurationIdentifier): string`
+     — the configuration's system prompt; the empty string when the
+     configuration is unknown, inactive, or unreadable. The prompt is
+     *returned to the consumer*, never injected implicitly, so the
+     consumer always records the exact prompt it sent (transparency
+     requirement).
+
+   For image generation the model MUST be resolved *before* the
+   options object is constructed: :php:`ImageGenerationOptions`
+   validates ``size`` against the concrete model value at construction
+   time.
+
+5. **Usage attribution per configuration.** The specialized options
+   DTOs (:php:`ImageGenerationOptions`, :php:`SpeechSynthesisOptions`,
+   :php:`TranscriptionOptions`) carry an optional ``configuration``
+   identifier — pure metadata that never reaches the upstream API and
+   never alters validation. When set, the services resolve the
+   configuration uid fail-soft and pass it as ``configurationUid`` to
+   ``trackUsage()``, so the Analytics module aggregates specialized
+   spend per configuration just like chat spend.
+
+6. **Snippet-enforcement hook (Phase 2).** The planned prompt-snippet
+   feature (pinning/enforcing prompt snippets) attaches at the
+   Configuration level. ``getConfigurationSystemPrompt()`` is the
+   single seam where enforced snippets will be folded into the
+   returned prompt — consumers keep calling the same method and stay
+   unchanged when Phase 2 lands.
 
 .. _adr-033-consequences:
 
@@ -70,9 +105,14 @@ Consequences
 - ● Consuming extensions resolve the instance-preferred specialized
   model via ``resolveDefaultModel()`` instead of hardcoding one, with
   a guaranteed-safe fallback.
+- ● Configurations are the stable consumer contract for specialized
+  calls too: model swaps and system-prompt changes are central,
+  one-record edits — no consumer redeployment.
 - ● Analytics model breakdowns link specialized spend to registry
-  records via ``model_uid``.
+  records via ``model_uid`` and to configurations via
+  ``configuration_uid``.
 - ◐ Hardcoded service defaults remain as fallbacks — instances without
   curated records keep working unchanged.
-- ◑ One additional fail-soft repository lookup per tracked specialized
-  call (indexed single-row query; negligible next to the API call).
+- ◑ Up to two additional fail-soft repository lookups per tracked
+  specialized call (indexed single-row queries; negligible next to the
+  API call).

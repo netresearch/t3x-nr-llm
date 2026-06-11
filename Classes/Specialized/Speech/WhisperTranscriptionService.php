@@ -172,18 +172,17 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
     }
 
     /**
-     * Resolve the default transcription model from the model registry.
-     *
-     * Queries ACTIVE tx_nrllm_model records carrying the
-     * `transcription` capability (provider-agnostic), prefers the
-     * record flagged as default, then the lowest sorting, and returns
-     * that record's model id. Fail-soft: any error, no repository in
-     * context, or no matching record returns the given fallback
-     * unchanged — this method never throws.
+     * OpenAI transcription vocabulary: whisper-* plus *-transcribe members
+     * of newer families (gpt-4o-transcribe, ...).
      */
-    public function resolveDefaultModel(string $fallback): string
+    protected function acceptsModelId(string $modelId): bool
     {
-        return $this->resolveDefaultModelFor(ModelCapability::TRANSCRIPTION, $fallback);
+        return str_starts_with($modelId, 'whisper-') || str_ends_with($modelId, '-transcribe');
+    }
+
+    protected function getModelCapability(): ModelCapability
+    {
+        return ModelCapability::TRANSCRIPTION;
     }
 
     protected function getServiceDomain(): string
@@ -396,7 +395,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
                     // Raw-string formats expose no duration — record the
                     // request without audio seconds (cost stays 0 rather
                     // than guessed).
-                    $this->trackTranscriptionUsage($model, null);
+                    $this->trackTranscriptionUsage($model, null, $options->configuration);
                     return $responseBody;
                 }
 
@@ -408,7 +407,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
                 $duration = isset($decoded['duration']) && is_numeric($decoded['duration'])
                     ? (float)$decoded['duration']
                     : null;
-                $this->trackTranscriptionUsage($model, $duration);
+                $this->trackTranscriptionUsage($model, $duration, $options->configuration);
 
                 return $decoded;
             }
@@ -441,9 +440,12 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
     /**
      * Record a transcription/translation request with real units: the
      * audio duration (when the response format exposes it), an estimated
-     * cost, and the model identifier.
+     * cost, and the model identifier. When the options carried an
+     * LlmConfiguration identifier, the usage row additionally links to
+     * that configuration record (resolved fail-soft) so Analytics can
+     * aggregate spend per configuration.
      */
-    private function trackTranscriptionUsage(string $model, ?float $duration): void
+    private function trackTranscriptionUsage(string $model, ?float $duration, ?string $configuration): void
     {
         $metrics = [];
         if ($duration !== null && $duration > 0.0) {
@@ -457,6 +459,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
             'speech',
             $this->getServiceProvider(),
             $metrics,
+            configurationUid: $this->resolveConfigurationUid($configuration),
             modelUid: $this->resolveModelUid($model),
             modelId: $model,
         );

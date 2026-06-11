@@ -18,12 +18,23 @@ final class TranscriptionOptions extends AbstractOptions
 {
     private const VALID_FORMATS = ['json', 'text', 'srt', 'vtt', 'verbose_json'];
 
+    /**
+     * @param string|null $configuration Optional LlmConfiguration identifier
+     *                                   (tx_nrllm_configuration) this call is
+     *                                   attributed to — pure usage metadata for
+     *                                   the per-configuration Analytics
+     *                                   breakdowns. It does NOT change the
+     *                                   model: the consumer resolves the model
+     *                                   via `WhisperTranscriptionService::resolveModelForConfiguration()`
+     *                                   BEFORE constructing the options.
+     */
     public function __construct(
         public readonly ?string $model = 'whisper-1',
         public readonly ?string $language = null,
         public readonly ?string $format = 'json',
         public readonly ?string $prompt = null,
         public readonly ?float $temperature = null,
+        public readonly ?string $configuration = null,
     ) {
         if ($this->format !== null) {
             self::validateEnum($this->format, self::VALID_FORMATS, 'format');
@@ -35,6 +46,8 @@ final class TranscriptionOptions extends AbstractOptions
 
     public function toArray(): array
     {
+        // `configuration` is deliberately absent: it is consumer metadata
+        // for usage attribution, not a transcription API parameter.
         return $this->filterNull([
             'model' => $this->model,
             'language' => $this->language,
@@ -54,6 +67,7 @@ final class TranscriptionOptions extends AbstractOptions
         $format = $options['format'] ?? $options['response_format'] ?? null;
         $prompt = $options['prompt'] ?? null;
         $temperature = $options['temperature'] ?? null;
+        $configuration = $options['configuration'] ?? null;
 
         return new self(
             model: is_string($model) ? $model : null,
@@ -61,6 +75,7 @@ final class TranscriptionOptions extends AbstractOptions
             format: is_string($format) ? $format : null,
             prompt: is_string($prompt) ? $prompt : null,
             temperature: is_float($temperature) || is_int($temperature) ? (float)$temperature : null,
+            configuration: is_string($configuration) ? $configuration : null,
         );
     }
 

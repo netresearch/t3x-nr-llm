@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Speech;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -86,6 +88,8 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
      * the given plain HTTP client through the test seam (bypasses the vault
      * secure client so request/response assertions can read the request the
      * service built).
+     *
+     * @param array{model?: ModelRepository|null, configuration?: LlmConfigurationRepository|null} $repositories
      */
     private function buildService(
         ClientInterface $httpClient,
@@ -94,7 +98,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         ExtensionConfiguration $extensionConfiguration,
         UsageTrackerServiceInterface $usageTracker,
         LoggerInterface $logger,
-        ?ModelRepository $modelRepository = null,
+        array $repositories = [],
     ): WhisperTranscriptionService {
         $service = new WhisperTranscriptionService(
             $this->vaultStub,
@@ -104,7 +108,8 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $usageTracker,
             $logger,
             $this->costCalculator,
-            $modelRepository,
+            $repositories['model'] ?? null,
+            $repositories['configuration'] ?? null,
         );
         $service->setHttpClient($httpClient);
 
@@ -122,8 +127,11 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     /**
      * @param array<string, mixed> $config
      */
-    private function createSubject(array $config = [], ?ModelRepository $modelRepository = null): WhisperTranscriptionService
-    {
+    private function createSubject(
+        array $config = [],
+        ?ModelRepository $modelRepository = null,
+        ?LlmConfigurationRepository $configurationRepository = null,
+    ): WhisperTranscriptionService {
         $defaultConfig = [
             'providers' => [
                 'openai' => [
@@ -144,7 +152,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
-            $modelRepository,
+            ['model' => $modelRepository, 'configuration' => $configurationRepository],
         );
     }
 
@@ -346,6 +354,127 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject(modelRepository: $modelRepository);
 
         self::assertSame('whisper-1', $subject->resolveDefaultModel('whisper-1'));
+    }
+
+    #[Test]
+    public function resolveModelForConfigurationUsesConfiguredModel(): void
+    {
+        $model = new Model();
+        $model->setModelId('gpt-4o-transcribe');
+
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('meeting-minutes');
+        $configuration->setLlmModel($model);
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->expects(self::once())
+            ->method('findOneByIdentifier')
+            ->with('meeting-minutes')
+            ->willReturn($configuration);
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame('gpt-4o-transcribe', $subject->resolveModelForConfiguration('meeting-minutes', 'whisper-1'));
+    }
+
+    #[Test]
+    public function resolveModelForConfigurationFallsBackToTranscriptionCapabilityDefault(): void
+    {
+        // Unknown configuration identifier: the capability-based registry
+        // default applies — for this service the `transcription` capability.
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')->willReturn(null);
+
+        $registryDefault = new Model();
+        $registryDefault->setModelId('gpt-4o-transcribe');
+
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->expects(self::once())
+            ->method('findByCapability')
+            ->with('transcription')
+            ->willReturn(new InMemoryQueryResult([$registryDefault]));
+
+        $subject = $this->createSubject(
+            modelRepository: $modelRepository,
+            configurationRepository: $configurationRepository,
+        );
+
+        self::assertSame('gpt-4o-transcribe', $subject->resolveModelForConfiguration('unknown', 'whisper-1'));
+    }
+
+    #[Test]
+    public function resolveModelForConfigurationReturnsFallbackWithoutRepositories(): void
+    {
+        $subject = $this->createSubject();
+
+        self::assertSame('whisper-1', $subject->resolveModelForConfiguration('meeting-minutes', 'whisper-1'));
+    }
+
+    #[Test]
+    public function getConfigurationSystemPromptReturnsPromptOfActiveConfiguration(): void
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('meeting-minutes');
+        $configuration->setSystemPrompt('Use formal meeting-minutes vocabulary.');
+
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')->willReturn($configuration);
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame(
+            'Use formal meeting-minutes vocabulary.',
+            $subject->getConfigurationSystemPrompt('meeting-minutes'),
+        );
+    }
+
+    #[Test]
+    public function transcribeLinksUsageRowToConfigurationUid(): void
+    {
+        // When the options carry an LlmConfiguration identifier, the usage
+        // row links to that configuration record so the Analytics module
+        // can aggregate transcription spend per configuration.
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('meeting-minutes');
+        $configuration->_setProperty('uid', 31);
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')
+            ->with('meeting-minutes')
+            ->willReturn($configuration);
+
+        $audioFile = $this->createTestAudioFile();
+        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+
+        $this->extensionConfigMock
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'speech',
+                'whisper',
+                [],
+                31,
+                0,
+                'whisper-1',
+            );
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+            ['configuration' => $configurationRepository],
+        );
+
+        $subject->transcribe($audioFile, ['configuration' => 'meeting-minutes']);
     }
 
     // ==================== transcribe tests ====================

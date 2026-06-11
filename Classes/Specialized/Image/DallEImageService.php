@@ -107,7 +107,7 @@ final class DallEImageService extends AbstractSpecializedService
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
         $data = $responseData[0] ?? [];
 
-        $this->trackImageUsage($model, $size, $quality, 1, $response);
+        $this->trackImageUsage($model, $size, $quality, 1, $response, $options->configuration);
 
         return new ImageGenerationResult(
             url: $data['url'] ?? '',
@@ -191,7 +191,7 @@ final class DallEImageService extends AbstractSpecializedService
             );
         }
 
-        $this->trackImageUsage($model, $size, $quality, count($results), $response);
+        $this->trackImageUsage($model, $size, $quality, count($results), $response, $options->configuration);
 
         return $results;
     }
@@ -317,18 +317,18 @@ final class DallEImageService extends AbstractSpecializedService
     }
 
     /**
-     * Resolve the default image-generation model from the model registry.
-     *
-     * Queries ACTIVE tx_nrllm_model records carrying the `image`
-     * capability (provider-agnostic), prefers the record flagged as
-     * default, then the lowest sorting, and returns that record's
-     * model id. Fail-soft: any error, no repository in context, or no
-     * matching record returns the given fallback unchanged — this
-     * method never throws.
+     * OpenAI image vocabulary: the DALL·E models plus the gpt-image-* family
+     * (mirrors ImageGenerationOptions::validateModel()).
      */
-    public function resolveDefaultModel(string $fallback): string
+    protected function acceptsModelId(string $modelId): bool
     {
-        return $this->resolveDefaultModelFor(ModelCapability::IMAGE, $fallback);
+        return \in_array($modelId, ['dall-e-2', 'dall-e-3'], true)
+            || str_starts_with($modelId, 'gpt-image-');
+    }
+
+    protected function getModelCapability(): ModelCapability
+    {
+        return ModelCapability::IMAGE;
     }
 
     protected function getServiceDomain(): string
@@ -401,6 +401,10 @@ final class DallEImageService extends AbstractSpecializedService
      * dall-e-2/3 responses carry no `usage` object — token metrics are
      * omitted then and the cost falls back to the per-image catalog.
      *
+     * When the options carried an LlmConfiguration identifier, the usage
+     * row additionally links to that configuration record (resolved
+     * fail-soft) so Analytics can aggregate spend per configuration.
+     *
      * @param array<string, mixed> $response decoded API response
      */
     private function trackImageUsage(
@@ -409,6 +413,7 @@ final class DallEImageService extends AbstractSpecializedService
         string $quality,
         int $imageCount,
         array $response,
+        ?string $configuration = null,
     ): void {
         // gpt-image-* responses include a `usage` token object;
         // dall-e-2/3 never send one — token metrics are omitted then
@@ -447,6 +452,7 @@ final class DallEImageService extends AbstractSpecializedService
             'image',
             $this->getServiceProvider(),
             $metrics,
+            configurationUid: $this->resolveConfigurationUid($configuration),
             modelUid: $this->resolveModelUid($model),
             modelId: $model,
         );

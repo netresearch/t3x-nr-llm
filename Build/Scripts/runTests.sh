@@ -155,7 +155,7 @@ Options:
         Database version (mariadb: 11.4, mysql: 8.4, postgres: 16)
 
     -p <8.2|8.3|8.4|8.5>
-        PHP version (default: 8.2)
+        PHP version (default: 8.5)
 
     -t <13|13.4|14|^13.4|...>
         TYPO3 core version to require before running the suite.
@@ -206,7 +206,7 @@ TEST_SUITE="unit"
 DATABASE_DRIVER=""
 DBMS="sqlite"
 DBMS_VERSION=""
-PHP_VERSION="8.2"
+PHP_VERSION="8.5"
 # TYPO3 core version constraint. Empty = use what's already installed
 # (whatever composer.json / composer.lock resolves to). Set via -t to
 # require a specific major, e.g. `-t 13.4` runs the suite against

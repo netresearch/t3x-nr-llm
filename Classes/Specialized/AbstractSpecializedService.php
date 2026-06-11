@@ -10,7 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -88,6 +90,7 @@ abstract class AbstractSpecializedService
         protected readonly LoggerInterface $logger,
         protected readonly SpecializedCostCalculatorInterface $costCalculator,
         protected readonly ?ModelRepository $modelRepository = null,
+        protected readonly ?LlmConfigurationRepository $configurationRepository = null,
     ) {
         $this->timeout = $this->getDefaultTimeout();
         $this->loadConfiguration();
@@ -313,6 +316,12 @@ abstract class AbstractSpecializedService
                 if (!$candidate instanceof Model || $candidate->getModelId() === '') {
                     continue;
                 }
+                // The capability query is provider-agnostic, but model-id vocabularies
+                // are not (gpt-image-* vs flux-*): skip records this service cannot
+                // speak, so e.g. an OpenAI default never reaches the FAL endpoint.
+                if (!$this->acceptsModelId($candidate->getModelId())) {
+                    continue;
+                }
                 if ($candidate->isDefault()) {
                     $chosen = $candidate;
                     break;
@@ -349,6 +358,158 @@ abstract class AbstractSpecializedService
         } catch (Throwable) {
             return 0;
         }
+    }
+
+    /**
+     * Resolve the model id to use for a named LlmConfiguration record
+     * (tx_nrllm_configuration). The configuration is the stable
+     * indirection layer consumers reference by identifier: an
+     * administrator swaps the model on the record and every consumer
+     * picks it up without re-configuring anything on their side.
+     *
+     * Resolution order:
+     *  1. the ACTIVE configuration's ACTIVE model record's model id —
+     *     records with an empty model id are skipped (they cannot be
+     *     sent to an upstream API),
+     *  2. the capability-based registry default
+     *     (`resolveDefaultModelFor()` semantics),
+     *  3. the given hardcoded fallback.
+     *
+     * Fail-soft like every resolver here: no repository in context, a
+     * persistence failure, or an unknown/inactive identifier moves
+     * resolution down the chain — this method never throws.
+     */
+    protected function resolveConfiguredModelFor(
+        ?ModelCapability $capability,
+        string $configurationIdentifier,
+        string $fallback,
+    ): string {
+        try {
+            $model = $this->findActiveConfiguration($configurationIdentifier)?->getLlmModel();
+            if ($model !== null && $model->isActive() && $model->getModelId() !== ''
+                && $this->acceptsModelId($model->getModelId())
+            ) {
+                return $model->getModelId();
+            }
+        } catch (Throwable) {
+            // Extbase persistence may be unavailable in edge contexts
+            // (early CLI bootstrap); fall through to the capability-based
+            // default so the service call never breaks on resolution.
+        }
+
+        return $capability === null ? $fallback : $this->resolveDefaultModelFor($capability, $fallback);
+    }
+
+    /**
+     * The model-registry capability this service's models carry, or null for
+     * services without registry-managed models (DeepL): the public resolvers
+     * below then skip the capability-based registry default.
+     */
+    protected function getModelCapability(): ?ModelCapability
+    {
+        return null;
+    }
+
+    /**
+     * Whether this service can speak the given model id. The capability-based
+     * registry resolution is provider-agnostic while model-id vocabularies are
+     * not — services sharing a capability (OpenAI images vs FAL) override this
+     * to skip registry records they cannot send to their upstream API.
+     */
+    protected function acceptsModelId(string $modelId): bool
+    {
+        return true;
+    }
+
+    /**
+     * Resolve the admin-preferred default model from the model registry: the
+     * ACTIVE tx_nrllm_model record carrying this service's capability,
+     * preferring the record flagged as default, then the lowest sorting.
+     * Fail-soft: any error, no repository in context, or no usable record
+     * returns the given fallback unchanged — this method never throws.
+     */
+    public function resolveDefaultModel(string $fallback): string
+    {
+        $capability = $this->getModelCapability();
+
+        return $capability === null ? $fallback : $this->resolveDefaultModelFor($capability, $fallback);
+    }
+
+    /**
+     * Resolve the model for a named LlmConfiguration record — the stable
+     * indirection layer consumers reference by identifier: an administrator
+     * swaps the assigned model on the record and every consumer picks it up
+     * without re-configuring anything. Resolution order: the ACTIVE
+     * configuration's ACTIVE model record's model id → the capability-based
+     * registry default → the given fallback. Fail-soft — never throws.
+     *
+     * Resolve the model BEFORE constructing the call options: image options
+     * validate the size against the concrete model value, so the model must
+     * be known at construction time.
+     */
+    public function resolveModelForConfiguration(string $configurationIdentifier, string $fallback): string
+    {
+        return $this->resolveConfiguredModelFor($this->getModelCapability(), $configurationIdentifier, $fallback);
+    }
+
+    /**
+     * System prompt of an ACTIVE LlmConfiguration record; the empty
+     * string when the identifier is unknown or inactive, the prompt is
+     * unset, no repository is in context, or the lookup fails — never
+     * throws. Consumers weave the prompt into their own requests; the
+     * extension never injects it implicitly, so the consumer always
+     * records the exact prompt it sent (transparency requirement).
+     */
+    public function getConfigurationSystemPrompt(string $configurationIdentifier): string
+    {
+        try {
+            return $this->findActiveConfiguration($configurationIdentifier)?->getSystemPrompt() ?? '';
+        } catch (Throwable) {
+            return '';
+        }
+    }
+
+    /**
+     * Resolve the tx_nrllm_configuration uid for an identifier so usage
+     * rows link to the configuration record and the Analytics module can
+     * aggregate spend per configuration. Fail-soft: null (no linked
+     * record) when no identifier was given, no repository is in context,
+     * the identifier is unknown/inactive, or the lookup fails — usage
+     * tracking must never break the service call.
+     */
+    protected function resolveConfigurationUid(?string $configurationIdentifier): ?int
+    {
+        if ($configurationIdentifier === null) {
+            return null;
+        }
+
+        try {
+            return $this->findActiveConfiguration($configurationIdentifier)?->getUid();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Fetch an ACTIVE configuration record by identifier. Returns null
+     * when no repository is in context, the identifier is empty or
+     * unknown, or the record is inactive — an inactive configuration is
+     * treated as nonexistent across the whole resolution layer.
+     * Persistence failures bubble up; callers wrap this in their own
+     * fail-soft handling.
+     */
+    private function findActiveConfiguration(string $identifier): ?LlmConfiguration
+    {
+        if ($this->configurationRepository === null || $identifier === '') {
+            return null;
+        }
+
+        $configuration = $this->configurationRepository->findOneByIdentifier($identifier);
+        if ($configuration === null || !$configuration->isActive()) {
+            return null;
+        }
+
+        return $configuration;
     }
 
     /**

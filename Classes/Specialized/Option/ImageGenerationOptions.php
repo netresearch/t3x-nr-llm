@@ -39,12 +39,27 @@ final class ImageGenerationOptions extends AbstractOptions
     private const GPT_IMAGE_MAX_HEIGHT = 2160;
     private const GPT_IMAGE_MAX_ASPECT = 3;
 
+    /**
+     * @param string|null $configuration Optional LlmConfiguration identifier
+     *                                   (tx_nrllm_configuration) this call is
+     *                                   attributed to — pure usage metadata for
+     *                                   the per-configuration Analytics
+     *                                   breakdowns. It does NOT influence model
+     *                                   or size validation: the consumer
+     *                                   resolves the model via
+     *                                   `DallEImageService::resolveModelForConfiguration()`
+     *                                   BEFORE constructing the options,
+     *                                   because `size` is validated against
+     *                                   the concrete model value right here at
+     *                                   construction time.
+     */
     public function __construct(
         public readonly ?string $model = 'dall-e-3',
         public readonly ?string $size = '1024x1024',
         public readonly ?string $quality = 'standard',
         public readonly ?string $style = 'vivid',
         public readonly ?string $format = 'url',
+        public readonly ?string $configuration = null,
     ) {
         if ($this->model !== null) {
             $this->validateModel($this->model);
@@ -182,6 +197,8 @@ final class ImageGenerationOptions extends AbstractOptions
 
     public function toArray(): array
     {
+        // `configuration` is deliberately absent: it is consumer metadata
+        // for usage attribution, not an Images API parameter.
         return $this->filterNull([
             'model' => $this->model,
             'size' => $this->size,
@@ -201,6 +218,7 @@ final class ImageGenerationOptions extends AbstractOptions
         $quality = $options['quality'] ?? null;
         $style = $options['style'] ?? null;
         $format = $options['format'] ?? $options['response_format'] ?? null;
+        $configuration = $options['configuration'] ?? null;
 
         return new self(
             model: is_string($model) ? $model : null,
@@ -208,6 +226,7 @@ final class ImageGenerationOptions extends AbstractOptions
             quality: is_string($quality) ? $quality : null,
             style: is_string($style) ? $style : null,
             format: is_string($format) ? $format : null,
+            configuration: is_string($configuration) ? $configuration : null,
         );
     }
 
