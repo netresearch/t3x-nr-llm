@@ -444,49 +444,11 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 'costOutput' => 160,
                 'recommended' => false,
             ],
-            // Specialized models: context length / max output tokens and
-            // token-based costs do not apply (priced per image / character /
-            // minute), hence 0. Capability values match the ModelCapability enum.
-            'gpt-image-2' => [
-                'name' => 'GPT Image 2',
-                'description' => 'Image generation model',
-                'capabilities' => ['image'],
-                'contextLength' => 0,
-                'maxOutputTokens' => 0,
-                'costInput' => 0,
-                'costOutput' => 0,
-                'recommended' => false,
-            ],
-            'tts-1' => [
-                'name' => 'TTS-1',
-                'description' => 'Text-to-speech model optimized for speed',
-                'capabilities' => ['text_to_speech'],
-                'contextLength' => 0,
-                'maxOutputTokens' => 0,
-                'costInput' => 0,
-                'costOutput' => 0,
-                'recommended' => false,
-            ],
-            'tts-1-hd' => [
-                'name' => 'TTS-1 HD',
-                'description' => 'Text-to-speech model optimized for quality',
-                'capabilities' => ['text_to_speech'],
-                'contextLength' => 0,
-                'maxOutputTokens' => 0,
-                'costInput' => 0,
-                'costOutput' => 0,
-                'recommended' => false,
-            ],
-            'whisper-1' => [
-                'name' => 'Whisper',
-                'description' => 'Speech-to-text transcription model',
-                'capabilities' => ['transcription'],
-                'contextLength' => 0,
-                'maxOutputTokens' => 0,
-                'costInput' => 0,
-                'costOutput' => 0,
-                'recommended' => false,
-            ],
+            // Specialized models — see specializedSpec() for the shared shape.
+            'gpt-image-2' => self::specializedSpec('GPT Image 2', 'Image generation model', 'image'),
+            'tts-1' => self::specializedSpec('TTS-1', 'Text-to-speech model optimized for speed', 'text_to_speech'),
+            'tts-1-hd' => self::specializedSpec('TTS-1 HD', 'Text-to-speech model optimized for quality', 'text_to_speech'),
+            'whisper-1' => self::specializedSpec('Whisper', 'Speech-to-text transcription model', 'transcription'),
         ];
 
         $spec = $specs[$modelId] ?? [
@@ -531,6 +493,29 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             str_ends_with($modelId, '-transcribe') => ['transcription'],
             default => ['chat'],
         };
+    }
+
+    /**
+     * Build a spec entry for a specialized (non-chat) model.
+     *
+     * Context length, max output tokens, and token-based costs do not apply
+     * to these models (priced per image / character / minute), hence 0.
+     * The capability value matches the ModelCapability enum.
+     *
+     * @return array{name: string, description: string, capabilities: array<string>, contextLength: int, maxOutputTokens: int, costInput: int, costOutput: int, recommended: bool}
+     */
+    private static function specializedSpec(string $name, string $description, string $capability): array
+    {
+        return [
+            'name' => $name,
+            'description' => $description,
+            'capabilities' => [$capability],
+            'contextLength' => 0,
+            'maxOutputTokens' => 0,
+            'costInput' => 0,
+            'costOutput' => 0,
+            'recommended' => false,
+        ];
     }
 
     /**
@@ -1134,6 +1119,39 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     }
 
     /**
+     * Fetch a Bearer-authenticated `/models` listing and return the decoded
+     * `data` list.
+     *
+     * Returns null when the endpoint answered with a non-200 status (already
+     * logged); network-level failures bubble up as exceptions so callers
+     * keep their provider-specific fallback handling.
+     *
+     *
+     * @throws Throwable when the request fails
+     *
+     * @return array<int|string, mixed>|null
+     */
+    private function fetchBearerModelList(string $adapterType, string $endpoint, string $apiKey): ?array
+    {
+        $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
+            ->withHeader('Authorization', 'Bearer ' . $apiKey);
+
+        $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
+
+        if ($response->getStatusCode() !== 200) {
+            $this->logDiscoveryHttpError($adapterType, $response->getStatusCode());
+
+            return null;
+        }
+
+        $data = json_decode($response->getBody()->getContents(), true);
+
+        return is_array($data) && isset($data['data']) && is_array($data['data'])
+            ? $data['data']
+            : [];
+    }
+
+    /**
      * Discover OpenRouter models.
      *
      * @return array<DiscoveredModel>
@@ -1141,24 +1159,12 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     private function discoverOpenRouter(string $endpoint, string $apiKey): array
     {
         try {
-            $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
-                ->withHeader('Authorization', 'Bearer ' . $apiKey);
-
-            $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
-
-            if ($response->getStatusCode() !== 200) {
-                $this->logDiscoveryHttpError('openrouter', $response->getStatusCode());
-
+            $modelList = $this->fetchBearerModelList('openrouter', $endpoint, $apiKey);
+            if ($modelList === null) {
                 return [];
             }
 
-            $data = json_decode($response->getBody()->getContents(), true);
             $models = [];
-
-            $modelList = is_array($data) && isset($data['data']) && is_array($data['data'])
-                ? $data['data']
-                : [];
-
             foreach ($modelList as $model) {
                 if (!is_array($model)) {
                     continue;
@@ -1212,24 +1218,12 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     private function discoverMistral(string $endpoint, string $apiKey): array
     {
         try {
-            $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
-                ->withHeader('Authorization', 'Bearer ' . $apiKey);
-
-            $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
-
-            if ($response->getStatusCode() !== 200) {
-                $this->logDiscoveryHttpError('mistral', $response->getStatusCode());
-
+            $modelList = $this->fetchBearerModelList('mistral', $endpoint, $apiKey);
+            if ($modelList === null) {
                 return $this->asFallback($this->getMistralFallbackModels());
             }
 
-            $data = json_decode($response->getBody()->getContents(), true);
             $models = [];
-
-            $modelList = is_array($data) && isset($data['data']) && is_array($data['data'])
-                ? $data['data']
-                : [];
-
             foreach ($modelList as $model) {
                 if (!is_array($model)) {
                     continue;
@@ -1301,24 +1295,12 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     private function discoverGroq(string $endpoint, string $apiKey): array
     {
         try {
-            $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
-                ->withHeader('Authorization', 'Bearer ' . $apiKey);
-
-            $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
-
-            if ($response->getStatusCode() !== 200) {
-                $this->logDiscoveryHttpError('groq', $response->getStatusCode());
-
+            $modelList = $this->fetchBearerModelList('groq', $endpoint, $apiKey);
+            if ($modelList === null) {
                 return [];
             }
 
-            $data = json_decode($response->getBody()->getContents(), true);
             $models = [];
-
-            $modelList = is_array($data) && isset($data['data']) && is_array($data['data'])
-                ? $data['data']
-                : [];
-
             foreach ($modelList as $model) {
                 if (!is_array($model)) {
                     continue;
