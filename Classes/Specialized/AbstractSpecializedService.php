@@ -306,18 +306,21 @@ abstract class AbstractSpecializedService
         try {
             // Results arrive ordered by the repository default (sorting, name),
             // so the first usable record already is the lowest-sorting one.
-            $first = null;
+            // A default-flagged record overrides it and ends the scan.
+            $chosen = null;
             foreach ($this->modelRepository->findByCapability($capability->value) as $candidate) {
-                if ($candidate->getModelId() === '') {
+                // @phpstan-ignore instanceof.alwaysTrue (defensive check for QueryResult)
+                if (!$candidate instanceof Model || $candidate->getModelId() === '') {
                     continue;
                 }
                 if ($candidate->isDefault()) {
-                    return $candidate->getModelId();
+                    $chosen = $candidate;
+                    break;
                 }
-                $first ??= $candidate;
+                $chosen ??= $candidate;
             }
-            if ($first instanceof Model) {
-                return $first->getModelId();
+            if ($chosen instanceof Model) {
+                return $chosen->getModelId();
             }
         } catch (Throwable) {
             // Extbase persistence may be unavailable in edge contexts

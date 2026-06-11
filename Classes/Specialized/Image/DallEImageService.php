@@ -410,13 +410,27 @@ final class DallEImageService extends AbstractSpecializedService
         int $imageCount,
         array $response,
     ): void {
-        $usage = $this->extractUsageTokens($response);
+        // gpt-image-* responses include a `usage` token object;
+        // dall-e-2/3 never send one — token metrics are omitted then
+        // (all-zero counts) so the cost falls back to the per-image
+        // catalog instead of a fabricated token price.
+        $usage = $response['usage'] ?? null;
+        $input = $output = $total = $imageInput = 0;
+        if (is_array($usage)) {
+            $input = is_numeric($usage['input_tokens'] ?? null) ? (int)$usage['input_tokens'] : 0;
+            $output = is_numeric($usage['output_tokens'] ?? null) ? (int)$usage['output_tokens'] : 0;
+            $total = is_numeric($usage['total_tokens'] ?? null) ? (int)$usage['total_tokens'] : $input + $output;
+            $details = $usage['input_tokens_details'] ?? null;
+            $imageInput = is_array($details) && is_numeric($details['image_tokens'] ?? null)
+                ? (int)$details['image_tokens']
+                : 0;
+        }
 
         $metrics = ['images' => $imageCount];
-        if ($usage !== null) {
-            $metrics['tokens'] = $usage['total'];
-            $metrics['promptTokens'] = $usage['input'];
-            $metrics['completionTokens'] = $usage['output'];
+        if ($input > 0 || $output > 0 || $total > 0) {
+            $metrics['tokens'] = $total;
+            $metrics['promptTokens'] = $input;
+            $metrics['completionTokens'] = $output;
         }
 
         $metrics['cost'] = $this->costCalculator->estimateImageCost(
@@ -424,9 +438,9 @@ final class DallEImageService extends AbstractSpecializedService
             $quality,
             $size,
             $imageCount,
-            $usage['input'] ?? 0,
-            $usage['output'] ?? 0,
-            $usage['imageInput'] ?? 0,
+            $input,
+            $output,
+            $imageInput,
         );
 
         $this->usageTracker->trackUsage(
@@ -436,38 +450,6 @@ final class DallEImageService extends AbstractSpecializedService
             modelUid: $this->resolveModelUid($model),
             modelId: $model,
         );
-    }
-
-    /**
-     * Extract the token usage gpt-image-* responses include. Returns null
-     * when the response has no usable `usage` object (dall-e-2/3 never
-     * send one) so callers can omit token metrics gracefully.
-     *
-     * @param array<string, mixed> $response
-     *
-     * @return array{input: int, output: int, total: int, imageInput: int}|null
-     */
-    private function extractUsageTokens(array $response): ?array
-    {
-        $usage = $response['usage'] ?? null;
-        if (!is_array($usage)) {
-            return null;
-        }
-
-        $input = is_numeric($usage['input_tokens'] ?? null) ? (int)$usage['input_tokens'] : 0;
-        $output = is_numeric($usage['output_tokens'] ?? null) ? (int)$usage['output_tokens'] : 0;
-        $total = is_numeric($usage['total_tokens'] ?? null) ? (int)$usage['total_tokens'] : $input + $output;
-
-        if ($input === 0 && $output === 0 && $total === 0) {
-            return null;
-        }
-
-        $details = $usage['input_tokens_details'] ?? null;
-        $imageInput = is_array($details) && is_numeric($details['image_tokens'] ?? null)
-            ? (int)$details['image_tokens']
-            : 0;
-
-        return ['input' => $input, 'output' => $output, 'total' => $total, 'imageInput' => $imageInput];
     }
 
     /**

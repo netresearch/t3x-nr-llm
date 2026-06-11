@@ -66,9 +66,9 @@ class ModelRepository extends Repository
         $query->matching(
             $query->equals('modelId', $modelId),
         );
-        /** @var Model|null $result */
         $result = $query->execute()->getFirst();
-        return $result;
+
+        return $result instanceof Model ? $result : null;
     }
 
     /**

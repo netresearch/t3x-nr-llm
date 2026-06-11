@@ -31,20 +31,26 @@ final class ModelCapabilityRegistrationTest extends TestCase
     #[Test]
     public function tcaCapabilityItemsMatchEnumCases(): void
     {
-        $tca = require __DIR__ . '/../../../Configuration/TCA/tx_nrllm_model.php';
+        // require_once is safe here: no other unit-suite test includes this
+        // TCA file, so the return value is always the configuration array.
+        $tca = require_once __DIR__ . '/../../../Configuration/TCA/tx_nrllm_model.php';
 
         self::assertIsArray($tca);
-        assert(isset($tca['columns']) && is_array($tca['columns']));
-        assert(isset($tca['columns']['capabilities']) && is_array($tca['columns']['capabilities']));
-        assert(isset($tca['columns']['capabilities']['config']) && is_array($tca['columns']['capabilities']['config']));
-        $items = $tca['columns']['capabilities']['config']['items'] ?? null;
+        $columns = $tca['columns'] ?? null;
+        self::assertIsArray($columns);
+        $capabilitiesColumn = $columns['capabilities'] ?? null;
+        self::assertIsArray($capabilitiesColumn);
+        $config = $capabilitiesColumn['config'] ?? null;
+        self::assertIsArray($config);
+        $items = $config['items'] ?? null;
         self::assertIsArray($items);
 
         $itemValues = [];
         foreach ($items as $item) {
             self::assertIsArray($item);
-            assert(isset($item['value']) && is_string($item['value']));
-            $itemValues[] = $item['value'];
+            $value = $item['value'] ?? null;
+            self::assertIsString($value);
+            $itemValues[] = $value;
         }
 
         $enumValues = ModelCapability::values();
