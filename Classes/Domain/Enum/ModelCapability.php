@@ -24,6 +24,9 @@ enum ModelCapability: string
     case TOOLS = 'tools';
     case JSON_MODE = 'json_mode';
     case AUDIO = 'audio';
+    case IMAGE = 'image';
+    case TEXT_TO_SPEECH = 'text_to_speech';
+    case TRANSCRIPTION = 'transcription';
 
     /**
      * Get all capability values as an array.

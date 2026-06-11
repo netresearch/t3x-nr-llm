@@ -67,6 +67,9 @@ defined('TYPO3') or die();
         ModelCapability::TOOLS->value => 'actions-wrench',
         ModelCapability::JSON_MODE->value => 'mimetypes-text-js',
         ModelCapability::AUDIO->value => 'mimetypes-media-audio',
+        ModelCapability::IMAGE->value => 'mimetypes-media-image',
+        ModelCapability::TEXT_TO_SPEECH->value => 'mimetypes-media-audio',
+        ModelCapability::TRANSCRIPTION->value => 'mimetypes-text-text',
     ];
     $capabilityItems = [];
     foreach (ModelCapability::cases() as $capability) {

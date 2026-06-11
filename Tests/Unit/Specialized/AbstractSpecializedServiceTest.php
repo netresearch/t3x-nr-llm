@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized;
 
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -16,6 +19,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\MultipartBodyBuilderTrait;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -484,10 +488,166 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         self::assertStringNotContainsString('orphan', $body);
     }
 
+    #[Test]
+    public function resolveDefaultModelForReturnsFallbackWithoutRepository(): void
+    {
+        // "No repository in context" is a legal state (e.g. a manually
+        // constructed service): the fallback must come back unchanged.
+        $subject = $this->createSubject();
+
+        self::assertSame('fallback-model', $subject->callResolveDefaultModelFor(ModelCapability::IMAGE, 'fallback-model'));
+    }
+
+    #[Test]
+    public function resolveDefaultModelForPrefersDefaultFlaggedRecord(): void
+    {
+        // The default-flagged record wins even when a lower-sorting
+        // record precedes it in the result.
+        $lowerSorting = new Model();
+        $lowerSorting->setModelId('gpt-image-1');
+        $default = new Model();
+        $default->setModelId('gpt-image-2');
+        $default->setIsDefault(true);
+
+        $repository = $this->createMock(ModelRepository::class);
+        $repository->expects(self::once())
+            ->method('findByCapability')
+            ->with(ModelCapability::IMAGE->value)
+            ->willReturn(new InMemoryQueryResult([$lowerSorting, $default]));
+
+        $subject = $this->createSubject(modelRepository: $repository);
+
+        self::assertSame('gpt-image-2', $subject->callResolveDefaultModelFor(ModelCapability::IMAGE, 'dall-e-3'));
+    }
+
+    #[Test]
+    public function resolveDefaultModelForFallsBackToLowestSortingRecordWithoutDefaultFlag(): void
+    {
+        // findByCapability() returns records ordered by sorting — the
+        // first usable one wins when no record is flagged as default.
+        $first = new Model();
+        $first->setModelId('tts-1-hd');
+        $second = new Model();
+        $second->setModelId('tts-1');
+
+        $repository = self::createStub(ModelRepository::class);
+        $repository->method('findByCapability')
+            ->willReturn(new InMemoryQueryResult([$first, $second]));
+
+        $subject = $this->createSubject(modelRepository: $repository);
+
+        self::assertSame('tts-1-hd', $subject->callResolveDefaultModelFor(ModelCapability::TEXT_TO_SPEECH, 'tts-1'));
+    }
+
+    #[Test]
+    public function resolveDefaultModelForSkipsRecordsWithoutModelId(): void
+    {
+        // A registry record without a model id cannot be sent to an
+        // upstream API — it must never be returned as the default.
+        $unusable = new Model();
+        $usable = new Model();
+        $usable->setModelId('whisper-1');
+
+        $repository = self::createStub(ModelRepository::class);
+        $repository->method('findByCapability')
+            ->willReturn(new InMemoryQueryResult([$unusable, $usable]));
+
+        $subject = $this->createSubject(modelRepository: $repository);
+
+        self::assertSame('whisper-1', $subject->callResolveDefaultModelFor(ModelCapability::TRANSCRIPTION, 'fallback'));
+    }
+
+    #[Test]
+    public function resolveDefaultModelForReturnsFallbackWhenNoRecordMatches(): void
+    {
+        $repository = self::createStub(ModelRepository::class);
+        $repository->method('findByCapability')
+            ->willReturn(new InMemoryQueryResult([]));
+
+        $subject = $this->createSubject(modelRepository: $repository);
+
+        self::assertSame('dall-e-3', $subject->callResolveDefaultModelFor(ModelCapability::IMAGE, 'dall-e-3'));
+    }
+
+    #[Test]
+    public function resolveDefaultModelForReturnsFallbackWhenRepositoryThrows(): void
+    {
+        // Extbase persistence may be unavailable (early CLI bootstrap):
+        // resolution is fail-soft and must never throw.
+        $repository = self::createStub(ModelRepository::class);
+        $repository->method('findByCapability')
+            ->willThrowException(new RuntimeException('persistence unavailable'));
+
+        $subject = $this->createSubject(modelRepository: $repository);
+
+        self::assertSame('dall-e-3', $subject->callResolveDefaultModelFor(ModelCapability::IMAGE, 'dall-e-3'));
+    }
+
+    #[Test]
+    public function resolveModelUidReturnsUidOfMatchingRecord(): void
+    {
+        $record = new Model();
+        $record->setModelId('gpt-image-2');
+        $record->_setProperty('uid', 42);
+
+        $repository = $this->createMock(ModelRepository::class);
+        $repository->expects(self::once())
+            ->method('findOneByModelId')
+            ->with('gpt-image-2')
+            ->willReturn($record);
+
+        $subject = $this->createSubject(modelRepository: $repository);
+
+        self::assertSame(42, $subject->callResolveModelUid('gpt-image-2'));
+    }
+
+    #[Test]
+    public function resolveModelUidReturnsZeroWithoutRepository(): void
+    {
+        $subject = $this->createSubject();
+
+        self::assertSame(0, $subject->callResolveModelUid('gpt-image-2'));
+    }
+
+    #[Test]
+    public function resolveModelUidReturnsZeroForEmptyModelIdWithoutQuerying(): void
+    {
+        $repository = $this->createMock(ModelRepository::class);
+        $repository->expects(self::never())->method('findOneByModelId');
+
+        $subject = $this->createSubject(modelRepository: $repository);
+
+        self::assertSame(0, $subject->callResolveModelUid(''));
+    }
+
+    #[Test]
+    public function resolveModelUidReturnsZeroWhenNoRecordMatches(): void
+    {
+        $repository = self::createStub(ModelRepository::class);
+        $repository->method('findOneByModelId')->willReturn(null);
+
+        $subject = $this->createSubject(modelRepository: $repository);
+
+        self::assertSame(0, $subject->callResolveModelUid('unknown-model'));
+    }
+
+    #[Test]
+    public function resolveModelUidReturnsZeroWhenRepositoryThrows(): void
+    {
+        $repository = self::createStub(ModelRepository::class);
+        $repository->method('findOneByModelId')
+            ->willThrowException(new RuntimeException('persistence unavailable'));
+
+        $subject = $this->createSubject(modelRepository: $repository);
+
+        self::assertSame(0, $subject->callResolveModelUid('gpt-image-2'));
+    }
+
     private function createSubject(
         string $apiKeyIdentifier = 'test-key',
         string $baseUrl = 'https://api.example.test',
         ?ClientInterface $httpClient = null,
+        ?ModelRepository $modelRepository = null,
     ): TestableSpecializedService {
         $extConf = self::createStub(ExtensionConfiguration::class);
         $extConf->method('get')->willReturn(['apiKeyIdentifier' => $apiKeyIdentifier, 'baseUrl' => $baseUrl]);
@@ -500,6 +660,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
+            modelRepository: $modelRepository,
         );
 
         // Inject the plain test client through the test seam; this bypasses the
@@ -578,6 +739,16 @@ final class TestableSpecializedService extends AbstractSpecializedService
     public function callEncodeMultipartBody(array $parts, string $boundary): string
     {
         return $this->encodeMultipartBody($parts, $boundary);
+    }
+
+    public function callResolveDefaultModelFor(ModelCapability $capability, string $fallback): string
+    {
+        return $this->resolveDefaultModelFor($capability, $fallback);
+    }
+
+    public function callResolveModelUid(string $modelId): int
+    {
+        return $this->resolveModelUid($modelId);
     }
 
     protected function getServiceDomain(): string

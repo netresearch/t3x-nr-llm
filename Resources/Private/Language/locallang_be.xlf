@@ -30,6 +30,15 @@
             <trans-unit id="permissions.capability.audio">
                 <source>Audio (speech transcription / synthesis)</source>
             </trans-unit>
+            <trans-unit id="permissions.capability.image">
+                <source>Image generation</source>
+            </trans-unit>
+            <trans-unit id="permissions.capability.text_to_speech">
+                <source>Text to speech (audio synthesis)</source>
+            </trans-unit>
+            <trans-unit id="permissions.capability.transcription">
+                <source>Transcription (speech-to-text)</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

@@ -630,6 +630,33 @@
                 <target>Audioeingabe verarbeiten (Sprache-zu-Text) oder Audioausgabe erzeugen (Text-zu-Sprache).</target>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_model.capabilities.image">
+                <source>Image Generation</source>
+                <target>Bilderzeugung</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.image.description">
+                <source>Generate images from text prompts. The DALL-E / gpt-image service resolves its default model from active records carrying this capability.</source>
+                <target>Bilder aus Textbeschreibungen erzeugen. Der DALL-E-/gpt-image-Dienst ermittelt sein Standardmodell aus aktiven Datensätzen mit dieser Fähigkeit.</target>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.capabilities.text_to_speech">
+                <source>Text to Speech</source>
+                <target>Text-zu-Sprache</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.text_to_speech.description">
+                <source>Synthesize spoken audio from text. Used by the specialized TTS service to resolve its default model.</source>
+                <target>Gesprochenes Audio aus Text erzeugen. Der spezialisierte TTS-Dienst ermittelt darüber sein Standardmodell.</target>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.capabilities.transcription">
+                <source>Transcription</source>
+                <target>Transkription</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.transcription.description">
+                <source>Transcribe audio to text (speech-to-text). Used by the specialized Whisper service to resolve its default model.</source>
+                <target>Audio zu Text transkribieren (Sprache-zu-Text). Der spezialisierte Whisper-Dienst ermittelt darüber sein Standardmodell.</target>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_model.default_timeout">
                 <source>Default Timeout</source>
                 <target>Standard-Timeout</target>

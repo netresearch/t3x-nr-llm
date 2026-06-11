@@ -214,6 +214,21 @@ return [
                         'value' => 'audio',
                         'icon' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.audio.description',
                     ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.image',
+                        'value' => 'image',
+                        'icon' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.image.description',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.text_to_speech',
+                        'value' => 'text_to_speech',
+                        'icon' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.text_to_speech.description',
+                    ],
+                    [
+                        'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.transcription',
+                        'value' => 'transcription',
+                        'icon' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities.transcription.description',
+                    ],
                 ],
                 'default' => 'chat',
             ],

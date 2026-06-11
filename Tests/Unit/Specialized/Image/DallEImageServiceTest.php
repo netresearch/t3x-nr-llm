@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Image;
 
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -19,6 +20,7 @@ use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -81,6 +83,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         ExtensionConfiguration $extensionConfiguration,
         UsageTrackerServiceInterface $usageTracker,
         LoggerInterface $logger,
+        ?ModelRepository $modelRepository = null,
     ): DallEImageService {
         $service = new DallEImageService(
             $this->vaultStub,
@@ -90,6 +93,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $usageTracker,
             $logger,
             $this->costCalculator,
+            $modelRepository,
         );
         $service->setHttpClient($httpClient);
 
@@ -107,7 +111,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     /**
      * @param array<string, mixed> $config
      */
-    private function createSubject(array $config = []): DallEImageService
+    private function createSubject(array $config = [], ?ModelRepository $modelRepository = null): DallEImageService
     {
         $defaultConfig = [
             'providers' => [
@@ -129,6 +133,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
+            $modelRepository,
         );
     }
 
@@ -416,6 +421,96 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         );
 
         $subject->generate('A cat');
+    }
+
+    #[Test]
+    public function generateLinksUsageRowToRegistryRecordUid(): void
+    {
+        // When the used model id matches a tx_nrllm_model record, the
+        // usage row carries that record's uid so the Analytics model
+        // breakdowns link back to the registry.
+        $record = new Model();
+        $record->setModelId('dall-e-3');
+        $record->_setProperty('uid', 42);
+
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->method('findOneByModelId')->with('dall-e-3')->willReturn($record);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'image',
+                'dall-e',
+                self::callback(static fn(array $metrics): bool => $metrics['images'] === 1),
+                null,
+                42,
+                'dall-e-3',
+            );
+
+        $this->extensionConfigMock
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+        $this->setupSuccessfulRequest([
+            'data' => [['url' => 'https://example.com/image.png']],
+        ]);
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+            $modelRepository,
+        );
+
+        $subject->generate('A cat');
+    }
+
+    #[Test]
+    public function resolveDefaultModelPrefersDefaultFlaggedImageRecord(): void
+    {
+        $regular = new Model();
+        $regular->setModelId('gpt-image-1');
+        $default = new Model();
+        $default->setModelId('gpt-image-2');
+        $default->setIsDefault(true);
+
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->expects(self::once())
+            ->method('findByCapability')
+            ->with('image')
+            ->willReturn(new InMemoryQueryResult([$regular, $default]));
+
+        $subject = $this->createSubject(modelRepository: $modelRepository);
+
+        self::assertSame('gpt-image-2', $subject->resolveDefaultModel('dall-e-3'));
+    }
+
+    #[Test]
+    public function resolveDefaultModelReturnsFallbackWhenNoImageRecordExists(): void
+    {
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->method('findByCapability')->willReturn(new InMemoryQueryResult([]));
+
+        $subject = $this->createSubject(modelRepository: $modelRepository);
+
+        self::assertSame('dall-e-3', $subject->resolveDefaultModel('dall-e-3'));
+    }
+
+    #[Test]
+    public function resolveDefaultModelReturnsFallbackWhenRepositoryThrows(): void
+    {
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->method('findByCapability')
+            ->willThrowException(new RuntimeException('persistence unavailable'));
+
+        $subject = $this->createSubject(modelRepository: $modelRepository);
+
+        self::assertSame('dall-e-3', $subject->resolveDefaultModel('dall-e-3'));
     }
 
     #[Test]

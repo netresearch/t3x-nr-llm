@@ -48,7 +48,8 @@
         var labels = {
             chat: 'Chat', completion: 'Completion', embeddings: 'Embed',
             vision: 'Vision', streaming: 'Stream', tools: 'Tools',
-            json_mode: 'JSON', audio: 'Audio', reasoning: 'Reasoning'
+            json_mode: 'JSON', audio: 'Audio', reasoning: 'Reasoning',
+            image: 'Image', text_to_speech: 'TTS', transcription: 'Transcribe'
         };
         return capabilities.map(function (cap) {
             return labels[cap] || cap;

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Speech;
 
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -20,6 +21,7 @@ use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Speech\TranscriptionResult;
 use Netresearch\NrLlm\Specialized\Speech\WhisperTranscriptionService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -92,6 +94,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         ExtensionConfiguration $extensionConfiguration,
         UsageTrackerServiceInterface $usageTracker,
         LoggerInterface $logger,
+        ?ModelRepository $modelRepository = null,
     ): WhisperTranscriptionService {
         $service = new WhisperTranscriptionService(
             $this->vaultStub,
@@ -101,6 +104,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $usageTracker,
             $logger,
             $this->costCalculator,
+            $modelRepository,
         );
         $service->setHttpClient($httpClient);
 
@@ -118,7 +122,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     /**
      * @param array<string, mixed> $config
      */
-    private function createSubject(array $config = []): WhisperTranscriptionService
+    private function createSubject(array $config = [], ?ModelRepository $modelRepository = null): WhisperTranscriptionService
     {
         $defaultConfig = [
             'providers' => [
@@ -140,6 +144,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
+            $modelRepository,
         );
     }
 
@@ -296,6 +301,51 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         self::assertContains('srt', $formats);
         self::assertContains('vtt', $formats);
         self::assertContains('verbose_json', $formats);
+    }
+
+    // ==================== resolveDefaultModel tests ====================
+
+    #[Test]
+    public function resolveDefaultModelPrefersDefaultFlaggedTranscriptionRecord(): void
+    {
+        $regular = new Model();
+        $regular->setModelId('whisper-1');
+        $default = new Model();
+        $default->setModelId('gpt-4o-transcribe');
+        $default->setIsDefault(true);
+
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->expects(self::once())
+            ->method('findByCapability')
+            ->with('transcription')
+            ->willReturn(new InMemoryQueryResult([$regular, $default]));
+
+        $subject = $this->createSubject(modelRepository: $modelRepository);
+
+        self::assertSame('gpt-4o-transcribe', $subject->resolveDefaultModel('whisper-1'));
+    }
+
+    #[Test]
+    public function resolveDefaultModelReturnsFallbackWhenNoTranscriptionRecordExists(): void
+    {
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->method('findByCapability')->willReturn(new InMemoryQueryResult([]));
+
+        $subject = $this->createSubject(modelRepository: $modelRepository);
+
+        self::assertSame('whisper-1', $subject->resolveDefaultModel('whisper-1'));
+    }
+
+    #[Test]
+    public function resolveDefaultModelReturnsFallbackWhenRepositoryThrows(): void
+    {
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->method('findByCapability')
+            ->willThrowException(new RuntimeException('persistence unavailable'));
+
+        $subject = $this->createSubject(modelRepository: $modelRepository);
+
+        self::assertSame('whisper-1', $subject->resolveDefaultModel('whisper-1'));
     }
 
     // ==================== transcribe tests ====================
