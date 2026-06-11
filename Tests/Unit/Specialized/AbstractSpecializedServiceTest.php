@@ -205,6 +205,84 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function getSecureClientAppliesDefaultTimeoutWhenVaultClientSupportsIt(): void
+    {
+        // Without an ext-conf override, the wire timeout must be the
+        // service's getDefaultTimeout() (42 for the testable fixture) —
+        // previously $this->timeout never reached the secure client and
+        // the host's global HTTP.timeout silently applied instead.
+        $capturedSeconds = null;
+        $client = $this->createTimeoutCapableVaultClientStub($capturedSeconds);
+
+        $subject = $this->createSubjectWithVaultClient(
+            $client,
+            ['apiKeyIdentifier' => 'vault-id', 'baseUrl' => 'https://api.test/v1'],
+        );
+
+        $subject->callSendJsonRequest('endpoint', []);
+
+        self::assertSame(42, $capturedSeconds);
+    }
+
+    #[Test]
+    public function getSecureClientPrefersExtensionConfiguredTimeoutOverDefault(): void
+    {
+        // The ext-conf per-service timeout override must win over
+        // getDefaultTimeout() AND reach the wire via withTimeout().
+        $capturedSeconds = null;
+        $client = $this->createTimeoutCapableVaultClientStub($capturedSeconds);
+
+        $subject = $this->createSubjectWithVaultClient(
+            $client,
+            ['apiKeyIdentifier' => 'vault-id', 'baseUrl' => 'https://api.test/v1', 'timeout' => 300],
+        );
+
+        $subject->callSendJsonRequest('endpoint', []);
+
+        self::assertSame(300, $capturedSeconds);
+    }
+
+    #[Test]
+    public function getSecureClientSkipsTimeoutWitherForNonPositiveTimeout(): void
+    {
+        // Non-positive = "no override" per the wither's contract: the
+        // wither must not be called at all, even on a capable client.
+        $client = $this->createMock(TimeoutCapableVaultHttpClientInterface::class);
+        $client->expects(self::never())->method('withTimeout');
+        $client->method('withAuthentication')->willReturn($client);
+        $client->method('withReason')->willReturn($client);
+        $client->method('sendRequest')->willReturnCallback(fn() => $this->createJsonResponseMock([], 200));
+
+        $subject = $this->createSubjectWithVaultClient(
+            $client,
+            ['apiKeyIdentifier' => 'vault-id', 'baseUrl' => 'https://api.test/v1', 'timeout' => 0],
+        );
+
+        $subject->callSendJsonRequest('endpoint', []);
+    }
+
+    #[Test]
+    public function getSecureClientToleratesVaultClientWithoutTimeoutSupport(): void
+    {
+        // Installability guard: against an nr-vault whose client does not
+        // expose withTimeout() yet, the request must still go through —
+        // just without the per-request timeout override.
+        $vaultHttpClient = self::createStub(VaultHttpClientInterface::class);
+        $vaultHttpClient->method('withAuthentication')->willReturn($vaultHttpClient);
+        $vaultHttpClient->method('withReason')->willReturn($vaultHttpClient);
+        $vaultHttpClient->method('sendRequest')->willReturnCallback(
+            fn() => $this->createJsonResponseMock(['result' => 'ok'], 200),
+        );
+
+        $subject = $this->createSubjectWithVaultClient(
+            $vaultHttpClient,
+            ['apiKeyIdentifier' => 'vault-id', 'baseUrl' => 'https://api.test/v1'],
+        );
+
+        self::assertSame(['result' => 'ok'], $subject->callSendJsonRequest('endpoint', []));
+    }
+
+    #[Test]
     public function auditReasonDefaultsToProviderLabelApiCall(): void
     {
         $subject = $this->createSubject();
@@ -965,6 +1043,56 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         return $subject;
     }
 
+    /**
+     * Timeout-capable vault client stub whose `withTimeout()` argument is
+     * captured into `$capturedSeconds` (stays null when never called).
+     */
+    private function createTimeoutCapableVaultClientStub(?int &$capturedSeconds): TimeoutCapableVaultHttpClientInterface
+    {
+        $client = self::createStub(TimeoutCapableVaultHttpClientInterface::class);
+        $client->method('withAuthentication')->willReturn($client);
+        $client->method('withReason')->willReturn($client);
+        $client->method('withTimeout')->willReturnCallback(
+            static function (int $seconds) use (&$capturedSeconds, $client): TimeoutCapableVaultHttpClientInterface {
+                $capturedSeconds = $seconds;
+                return $client;
+            },
+        );
+        $client->method('sendRequest')->willReturnCallback(fn() => $this->createJsonResponseMock([], 200));
+
+        return $client;
+    }
+
+    /**
+     * Build a subject whose vault `http()` returns the given client and that
+     * deliberately does NOT use `setHttpClient()` — the test seam bypasses
+     * `getSecureClient()` entirely, so timeout behaviour must be asserted on
+     * the vault path.
+     *
+     * @param array<string, mixed> $config
+     */
+    private function createSubjectWithVaultClient(
+        VaultHttpClientInterface $vaultHttpClient,
+        array $config,
+    ): TestableSpecializedService {
+        $vault = self::createStub(VaultServiceInterface::class);
+        $vault->method('exists')->willReturn(true);
+        $vault->method('http')->willReturn($vaultHttpClient);
+
+        $extConf = self::createStub(ExtensionConfiguration::class);
+        $extConf->method('get')->willReturn($config);
+
+        return new TestableSpecializedService(
+            vault: $vault,
+            requestFactory: $this->passthroughRequestFactory(),
+            streamFactory: $this->passthroughStreamFactory(),
+            extensionConfiguration: $extConf,
+            usageTracker: self::createStub(UsageTrackerServiceInterface::class),
+            logger: self::createStub(LoggerInterface::class),
+            costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
+        );
+    }
+
     private function passthroughRequestFactory(): RequestFactoryInterface
     {
         $stub = self::createStub(RequestFactoryInterface::class);
@@ -1082,7 +1210,24 @@ final class TestableSpecializedService extends AbstractSpecializedService
     {
         $this->apiKeyIdentifier = is_string($config['apiKeyIdentifier'] ?? null) ? $config['apiKeyIdentifier'] : '';
         $this->baseUrl          = is_string($config['baseUrl'] ?? null) ? $config['baseUrl'] : $this->getDefaultBaseUrl();
+        // Timeout override semantics mirror the real services
+        // (ServiceConfigurationTrait::loadOpenAiServiceConfiguration()).
+        $timeout       = $config['timeout'] ?? null;
+        $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
     }
+}
+
+/**
+ * Test-local extension of the vault client contract declaring the frozen
+ * `withTimeout()` wither nr-vault is gaining, so the suite can stub a
+ * timeout-capable client while the installed nr-vault does not declare it
+ * on `VaultHttpClientInterface` yet. The signature mirrors the frozen
+ * nr-vault contract (non-positive = no override); delete this interface
+ * once nr-vault's per-request timeout is merged and required.
+ */
+interface TimeoutCapableVaultHttpClientInterface extends VaultHttpClientInterface
+{
+    public function withTimeout(int $seconds): static;
 }
 
 /**
