@@ -294,7 +294,7 @@ import Notification from '@typo3/backend/notification.js';
         renderItems(models);
 
         // Filter handler with debounce
-        const filterTimer;
+        let filterTimer;
         filterInput.addEventListener('input', function () {
             clearTimeout(filterTimer);
             filterTimer = setTimeout(function () {
