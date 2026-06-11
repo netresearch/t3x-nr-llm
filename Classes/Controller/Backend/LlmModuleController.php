@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
@@ -38,7 +39,9 @@ final class LlmModuleController extends ActionController
         private readonly ModelRepository $modelRepository,
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly TaskRepository $taskRepository,
+        private readonly PromptSnippetRepository $promptSnippetRepository,
         private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly FormEngineUrlBuilder $formEngineUrlBuilder,
         private readonly TestPromptResolverInterface $testPromptResolver,
         private readonly LoggerInterface $logger,
     ) {}
@@ -83,6 +86,7 @@ final class LlmModuleController extends ActionController
         $dbModelCount = $this->modelRepository->countActive();
         $dbConfigurationCount = $this->configurationRepository->countActive();
         $dbTaskCount = $this->taskRepository->countActive();
+        $dbSnippetCount = $this->promptSnippetRepository->countActive();
 
         $moduleTemplate->assignMultiple([
             'providers' => $providerDetails,
@@ -91,10 +95,17 @@ final class LlmModuleController extends ActionController
             'dbModelCount' => $dbModelCount,
             'dbConfigurationCount' => $dbConfigurationCount,
             'dbTaskCount' => $dbTaskCount,
+            'dbSnippetCount' => $dbSnippetCount,
             'taskWizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
                 'controller' => 'Backend\\TaskWizard',
                 'action'     => 'wizardForm',
             ]),
+            // FormEngine new-record URLs for the "+ New …" card actions
+            'newProviderUrl' => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_provider', 'nrllm_overview'),
+            'newModelUrl' => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_model', 'nrllm_overview'),
+            'newConfigurationUrl' => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_configuration', 'nrllm_overview'),
+            'newTaskUrl' => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_task', 'nrllm_overview'),
+            'newSnippetUrl' => $this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_promptsnippet', 'nrllm_overview'),
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Index');

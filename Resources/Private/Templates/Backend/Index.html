@@ -78,6 +78,10 @@
                     <a href="{be:moduleLink(route: 'nrllm_providers')}" class="btn btn-secondary">
                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.card.button" default="Manage Providers" />
                     </a>
+                    <a href="{newProviderUrl}" class="btn btn-default btn-sm ms-1">
+                        <core:icon identifier="actions-plus" size="small" />
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.provider.new" default="New Provider" />
+                    </a>
                 </div>
             </div>
 
@@ -111,6 +115,10 @@
                 <div class="card-footer">
                     <a href="{be:moduleLink(route: 'nrllm_models')}" class="btn btn-secondary">
                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.card.button" default="Manage Models" />
+                    </a>
+                    <a href="{newModelUrl}" class="btn btn-default btn-sm ms-1">
+                        <core:icon identifier="actions-plus" size="small" />
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.model.new" default="New Model" />
                     </a>
                 </div>
             </div>
@@ -146,6 +154,10 @@
                     <a href="{be:moduleLink(route: 'nrllm_configurations')}" class="btn btn-secondary">
                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.card.button" default="Manage Configurations" />
                     </a>
+                    <a href="{newConfigurationUrl}" class="btn btn-default btn-sm ms-1">
+                        <core:icon identifier="actions-plus" size="small" />
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.configuration.new" default="New Configuration" />
+                    </a>
                 </div>
             </div>
 
@@ -180,12 +192,74 @@
                     <a href="{be:moduleLink(route: 'nrllm_tasks')}" class="btn btn-secondary">
                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.card.button" default="Manage Tasks" />
                     </a>
+                    <a href="{newTaskUrl}" class="btn btn-default btn-sm ms-1">
+                        <core:icon identifier="actions-plus" size="small" />
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.task.new" default="New Task" />
+                    </a>
                     <f:if condition="{dbProviderCount} > 0">
                         <a href="{taskWizardUrl}" class="btn btn-primary btn-sm ms-1">
                             <core:icon identifier="actions-bolt" size="small" />
                             Create with AI
                         </a>
                     </f:if>
+                </div>
+            </div>
+
+            <div class="card card-size-small">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <core:icon identifier="module-nrllm-snippet" size="medium" />
+                    </div>
+                    <div class="card-header-body">
+                        <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.card.title" default="Prompt Snippets" /></h2>
+                        <span class="card-subtitle"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.card.subtitle" default="Reusable prompt fragments" /></span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.card.description" default="Tagged prompt fragments (personas, tones of voice, audiences, styles) for tasks and consuming extensions." /></p>
+                    <f:if condition="{dbSnippetCount} > 0">
+                        <f:then>
+                            <p class="text-success fw-bold mb-0">
+                                <core:icon identifier="actions-check" size="small" />
+                                {dbSnippetCount} <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.snippets" default="snippet(s) configured" />
+                            </p>
+                        </f:then>
+                        <f:else>
+                            <p class="text-muted fw-bold mb-0">
+                                <core:icon identifier="actions-info" size="small" />
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.none.snippets" default="No snippets configured" />
+                            </p>
+                        </f:else>
+                    </f:if>
+                </div>
+                <div class="card-footer">
+                    <a href="{be:moduleLink(route: 'nrllm_snippets')}" class="btn btn-secondary">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.card.button" default="Manage Snippets" />
+                    </a>
+                    <a href="{newSnippetUrl}" class="btn btn-default btn-sm ms-1">
+                        <core:icon identifier="actions-plus" size="small" />
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.snippet.new" default="New Snippet" />
+                    </a>
+                </div>
+            </div>
+
+            <div class="card card-size-small">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <core:icon identifier="module-nrllm-analytics" size="medium" />
+                    </div>
+                    <div class="card-header-body">
+                        <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.card.title" default="Usage Analytics" /></h2>
+                        <span class="card-subtitle"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.card.subtitle" default="Usage and cost dashboard" /></span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.card.description" default="Review LLM usage, cost trends, and per-model / per-user breakdowns." /></p>
+                </div>
+                <div class="card-footer">
+                    <a href="{be:moduleLink(route: 'nrllm_analytics')}" class="btn btn-secondary">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.card.button" default="Open Analytics" />
+                    </a>
                 </div>
             </div>
         </div>

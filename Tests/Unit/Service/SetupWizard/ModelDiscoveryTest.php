@@ -682,7 +682,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             'data' => [
                 ['id' => 'gpt-5.2'],
                 ['id' => 'text-davinci-003'], // Should be filtered out
-                ['id' => 'whisper-1'], // Should be filtered out
+                ['id' => 'text-embedding-3-large'], // Should be filtered out
+                ['id' => 'gpt-3.5-turbo-instruct'], // Should be filtered out
                 ['id' => 'gpt-image-1'], // Should be included
             ],
         ]);
@@ -697,7 +698,128 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         self::assertContains('gpt-5.2', $modelIds);
         self::assertContains('gpt-image-1', $modelIds);
         self::assertNotContains('text-davinci-003', $modelIds);
-        self::assertNotContains('whisper-1', $modelIds);
+        self::assertNotContains('text-embedding-3-large', $modelIds);
+        self::assertNotContains('gpt-3.5-turbo-instruct', $modelIds);
+    }
+
+    #[Test]
+    public function discoverOpenAiIncludesSpecializedModelsWithMatchingCapabilities(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $apiResponse = (string)json_encode([
+            'data' => [
+                ['id' => 'gpt-5.5'],
+                ['id' => 'dall-e-3'],
+                ['id' => 'gpt-image-2'],
+                ['id' => 'tts-1'],
+                ['id' => 'tts-1-hd'],
+                ['id' => 'whisper-1'],
+            ],
+        ]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, $apiResponse));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        $byId = [];
+        foreach ($models as $model) {
+            $byId[$model->modelId] = $model;
+        }
+
+        // Capability values must match the ModelCapability enum
+        assert(isset($byId['dall-e-3'], $byId['gpt-image-2'], $byId['tts-1'], $byId['tts-1-hd'], $byId['whisper-1']));
+        self::assertSame(['image'], $byId['dall-e-3']->capabilities);
+        self::assertSame(['image'], $byId['gpt-image-2']->capabilities);
+        self::assertSame(['text_to_speech'], $byId['tts-1']->capabilities);
+        self::assertSame(['text_to_speech'], $byId['tts-1-hd']->capabilities);
+        self::assertSame(['transcription'], $byId['whisper-1']->capabilities);
+
+        // Specialized models carry no token-based specs
+        self::assertSame(0, $byId['tts-1']->contextLength);
+        self::assertSame(0, $byId['tts-1']->maxOutputTokens);
+
+        // A live result is not flagged as fallback
+        self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
+    }
+
+    #[Test]
+    public function getOpenAiFallbackModelsIncludeGpt55AndSpecializedModels(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        // 401 (e.g. invalid API key) → static fallback catalog
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(401, ''));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        $byId = [];
+        foreach ($models as $model) {
+            $byId[$model->modelId] = $model;
+        }
+
+        assert(isset($byId['gpt-5.5'], $byId['gpt-image-2'], $byId['tts-1'], $byId['tts-1-hd'], $byId['whisper-1']));
+        // $5 / $30 per 1M tokens, stored as cents per 1M
+        self::assertSame(500, $byId['gpt-5.5']->costInput);
+        self::assertSame(3000, $byId['gpt-5.5']->costOutput);
+        self::assertTrue($byId['gpt-5.5']->recommended);
+        self::assertSame(['image'], $byId['gpt-image-2']->capabilities);
+        self::assertSame(['text_to_speech'], $byId['tts-1']->capabilities);
+        self::assertSame(['text_to_speech'], $byId['tts-1-hd']->capabilities);
+        self::assertSame(['transcription'], $byId['whisper-1']->capabilities);
+
+        self::assertTrue($this->subject->wasLastDiscoveryFromFallback());
+    }
+
+    #[Test]
+    public function wasLastDiscoveryFromFallbackResetsBetweenCalls(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $liveResponse = $this->createJsonResponseStubForDiscovery(
+            200,
+            (string)json_encode(['data' => [['id' => 'gpt-5.5']]]),
+        );
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturnOnConsecutiveCalls(
+                $this->createJsonResponseStubForDiscovery(401, ''),
+                $liveResponse,
+            );
+
+        $this->subject->discover($provider, 'test-key');
+        self::assertTrue($this->subject->wasLastDiscoveryFromFallback());
+
+        $this->subject->discover($provider, 'test-key');
+        self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
     }
 
     #[Test]

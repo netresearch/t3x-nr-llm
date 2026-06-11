@@ -30,4 +30,14 @@ interface ModelDiscoveryInterface
      * @return array<DiscoveredModel>
      */
     public function discover(DetectedProvider $provider, string $apiKey): array;
+
+    /**
+     * Whether the most recent discover() call substituted a static fallback
+     * catalog for live API data (failed request, unexpected HTTP status, or
+     * malformed/empty response).
+     *
+     * Returns false when no live discovery was attempted at all (e.g. for
+     * adapter types without API-based discovery).
+     */
+    public function wasLastDiscoveryFromFallback(): bool;
 }

@@ -280,9 +280,55 @@
                 <source>New Snippet</source>
                 <target>Neues Snippet</target>
             </trans-unit>
+            <trans-unit id="btn.task.new">
+                <source>New Task</source>
+                <target>Neue Aufgabe</target>
+            </trans-unit>
             <trans-unit id="btn.refresh">
                 <source>Refresh</source>
                 <target>Aktualisieren</target>
+            </trans-unit>
+
+            <!-- Dashboard overview cards -->
+            <trans-unit id="snippet.card.title">
+                <source>Prompt Snippets</source>
+                <target>Prompt-Snippets</target>
+            </trans-unit>
+            <trans-unit id="snippet.card.subtitle">
+                <source>Reusable prompt fragments</source>
+                <target>Wiederverwendbare Prompt-Fragmente</target>
+            </trans-unit>
+            <trans-unit id="snippet.card.description">
+                <source>Tagged prompt fragments (personas, tones of voice, audiences, styles) for tasks and consuming extensions.</source>
+                <target>Getaggte Prompt-Fragmente (Personas, Tonalitäten, Zielgruppen, Stile) für Aufgaben und nutzende Erweiterungen.</target>
+            </trans-unit>
+            <trans-unit id="snippet.card.button">
+                <source>Manage Snippets</source>
+                <target>Snippets verwalten</target>
+            </trans-unit>
+            <trans-unit id="card.count.snippets">
+                <source>snippet(s) configured</source>
+                <target>Snippet(s) konfiguriert</target>
+            </trans-unit>
+            <trans-unit id="card.count.none.snippets">
+                <source>No snippets configured</source>
+                <target>Keine Snippets konfiguriert</target>
+            </trans-unit>
+            <trans-unit id="analytics.card.title">
+                <source>Usage Analytics</source>
+                <target>Nutzungsstatistik</target>
+            </trans-unit>
+            <trans-unit id="analytics.card.subtitle">
+                <source>Usage and cost dashboard</source>
+                <target>Nutzungs- und Kosten-Dashboard</target>
+            </trans-unit>
+            <trans-unit id="analytics.card.description">
+                <source>Review LLM usage, cost trends, and per-model / per-user breakdowns.</source>
+                <target>LLM-Nutzung, Kostentrends und Auswertungen pro Modell / Benutzer einsehen.</target>
+            </trans-unit>
+            <trans-unit id="analytics.card.button">
+                <source>Open Analytics</source>
+                <target>Statistik öffnen</target>
             </trans-unit>
 
             <!-- Task controller messages -->
