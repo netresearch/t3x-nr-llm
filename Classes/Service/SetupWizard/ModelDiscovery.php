@@ -30,7 +30,7 @@ use Throwable;
  * builds its own auth headers but still routes through the secure client and
  * pre-gates the target host via `SecureHttpClientFactory::isHostAllowed()`.
  *
- * Model information updated: March 2026
+ * Model information updated: June 2026
  */
 final class ModelDiscovery implements ModelDiscoveryInterface
 {
@@ -42,6 +42,13 @@ final class ModelDiscovery implements ModelDiscoveryInterface
      * request, passed to `SecureHttpDispatchTrait::dispatch()`.
      */
     private const VAULT_DISPATCH_REASON = 'LLM setup-wizard model discovery';
+
+    /**
+     * Whether the most recent discover() call substituted a static fallback
+     * catalog for live API data (failed request, unexpected status, or
+     * malformed/empty response).
+     */
+    private bool $lastDiscoveryUsedFallback = false;
 
     public function __construct(
         VaultServiceInterface $vault,
@@ -132,6 +139,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
      */
     public function discover(DetectedProvider $provider, string $apiKey): array
     {
+        $this->lastDiscoveryUsedFallback = false;
         $endpoint = rtrim($provider->endpoint, '/');
 
         return match ($provider->adapterType) {
@@ -144,6 +152,52 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             'groq' => $this->discoverGroq($endpoint, $apiKey),
             default => $this->getDefaultModels($provider->adapterType),
         };
+    }
+
+    public function wasLastDiscoveryFromFallback(): bool
+    {
+        return $this->lastDiscoveryUsedFallback;
+    }
+
+    /**
+     * Mark the current discovery as served from a static fallback catalog.
+     *
+     * @param array<DiscoveredModel> $models
+     *
+     * @return array<DiscoveredModel>
+     */
+    private function asFallback(array $models): array
+    {
+        $this->lastDiscoveryUsedFallback = true;
+
+        return $models;
+    }
+
+    /**
+     * Log a failed discovery request.
+     *
+     * Never includes the API key: only the exception class and its
+     * sanitised message are recorded.
+     */
+    private function logDiscoveryFailure(string $adapterType, Throwable $e): void
+    {
+        $this->logger->warning('LLM model discovery request failed', [
+            'provider' => $adapterType,
+            'exception' => $e::class,
+            'message' => $this->sanitizeErrorMessage($e->getMessage()),
+        ]);
+    }
+
+    /**
+     * Log a discovery response with an unexpected HTTP status
+     * (e.g. 401 for an invalid or missing API key).
+     */
+    private function logDiscoveryHttpError(string $adapterType, int $statusCode): void
+    {
+        $this->logger->warning('LLM model discovery returned an unexpected HTTP status', [
+            'provider' => $adapterType,
+            'status' => $statusCode,
+        ]);
     }
 
     /**
@@ -161,19 +215,21 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
-                return $this->getOpenAIFallbackModels();
+                $this->logDiscoveryHttpError('openai', $response->getStatusCode());
+
+                return $this->asFallback($this->getOpenAIFallbackModels());
             }
 
             $data = json_decode($response->getBody()->getContents(), true);
             $models = [];
 
             if (!is_array($data)) {
-                return $this->getOpenAIFallbackModels();
+                return $this->asFallback($this->getOpenAIFallbackModels());
             }
 
             $dataList = $data['data'] ?? [];
             if (!is_array($dataList)) {
-                return $this->getOpenAIFallbackModels();
+                return $this->asFallback($this->getOpenAIFallbackModels());
             }
 
             foreach ($dataList as $model) {
@@ -191,9 +247,11 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             // Sort by recommendation
             usort($models, fn(DiscoveredModel $a, DiscoveredModel $b) => $b->recommended <=> $a->recommended);
 
-            return $models !== [] ? $models : $this->getOpenAIFallbackModels();
-        } catch (Throwable) {
-            return $this->getOpenAIFallbackModels();
+            return $models !== [] ? $models : $this->asFallback($this->getOpenAIFallbackModels());
+        } catch (Throwable $e) {
+            $this->logDiscoveryFailure('openai', $e);
+
+            return $this->asFallback($this->getOpenAIFallbackModels());
         }
     }
 
@@ -211,6 +269,11 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             '/^o[1234]-/',      // o1, o3, o4 series
             '/^gpt-image/',
             '/^chatgpt-/',      // chatgpt-4o-latest etc.
+            '/^tts-/',          // tts-1, tts-1-hd (text-to-speech)
+            '/-tts$/',          // gpt-4o-mini-tts etc.
+            '/^whisper-/',      // whisper-1 (transcription)
+            '/-transcribe$/',   // gpt-4o-transcribe etc.
+            '/^dall-e-/',       // dall-e-3 (image generation)
         ];
 
         foreach ($patterns as $pattern) {
@@ -219,11 +282,8 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             }
         }
 
-        // Exclude known non-chat models
-        if (str_starts_with($modelId, 'dall-e')
-            || str_starts_with($modelId, 'whisper')
-            || str_starts_with($modelId, 'tts')
-            || str_starts_with($modelId, 'text-embedding')
+        // Exclude known irrelevant models
+        if (str_starts_with($modelId, 'text-embedding')
             || str_starts_with($modelId, 'babbage')
             || str_starts_with($modelId, 'davinci')
             || str_contains($modelId, 'instruct')
@@ -242,11 +302,21 @@ final class ModelDiscovery implements ModelDiscoveryInterface
      */
     private function enrichOpenAIModel(string $modelId): DiscoveredModel
     {
-        // March 2026 OpenAI model specifications
+        // June 2026 OpenAI model specifications
         $specs = [
+            'gpt-5.5' => [
+                'name' => 'GPT-5.5',
+                'description' => 'Latest flagship model with enhanced reasoning',
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming', 'reasoning'],
+                'contextLength' => 400000,
+                'maxOutputTokens' => 128000,
+                'costInput' => 500,
+                'costOutput' => 3000,
+                'recommended' => true,
+            ],
             'gpt-5.3' => [
                 'name' => 'GPT-5.3',
-                'description' => 'Latest flagship model with enhanced reasoning',
+                'description' => 'Flagship model with enhanced reasoning',
                 'capabilities' => ['chat', 'vision', 'tools', 'streaming', 'reasoning'],
                 'contextLength' => 400000,
                 'maxOutputTokens' => 128000,
@@ -374,12 +444,55 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 'costOutput' => 160,
                 'recommended' => false,
             ],
+            // Specialized models: context length / max output tokens and
+            // token-based costs do not apply (priced per image / character /
+            // minute), hence 0. Capability values match the ModelCapability enum.
+            'gpt-image-2' => [
+                'name' => 'GPT Image 2',
+                'description' => 'Image generation model',
+                'capabilities' => ['image'],
+                'contextLength' => 0,
+                'maxOutputTokens' => 0,
+                'costInput' => 0,
+                'costOutput' => 0,
+                'recommended' => false,
+            ],
+            'tts-1' => [
+                'name' => 'TTS-1',
+                'description' => 'Text-to-speech model optimized for speed',
+                'capabilities' => ['text_to_speech'],
+                'contextLength' => 0,
+                'maxOutputTokens' => 0,
+                'costInput' => 0,
+                'costOutput' => 0,
+                'recommended' => false,
+            ],
+            'tts-1-hd' => [
+                'name' => 'TTS-1 HD',
+                'description' => 'Text-to-speech model optimized for quality',
+                'capabilities' => ['text_to_speech'],
+                'contextLength' => 0,
+                'maxOutputTokens' => 0,
+                'costInput' => 0,
+                'costOutput' => 0,
+                'recommended' => false,
+            ],
+            'whisper-1' => [
+                'name' => 'Whisper',
+                'description' => 'Speech-to-text transcription model',
+                'capabilities' => ['transcription'],
+                'contextLength' => 0,
+                'maxOutputTokens' => 0,
+                'costInput' => 0,
+                'costOutput' => 0,
+                'recommended' => false,
+            ],
         ];
 
         $spec = $specs[$modelId] ?? [
             'name' => $modelId,
             'description' => 'OpenAI model',
-            'capabilities' => ['chat'],
+            'capabilities' => $this->defaultOpenAICapabilities($modelId),
             'contextLength' => 0,
             'maxOutputTokens' => 0,
             'costInput' => 0,
@@ -401,6 +514,30 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     }
 
     /**
+     * Derive default capabilities from the model id shape for OpenAI models
+     * without an explicit spec entry. The returned values match the
+     * ModelCapability enum (image / text_to_speech / transcription / chat).
+     *
+     * @return array<string>
+     */
+    private function defaultOpenAICapabilities(string $modelId): array
+    {
+        if (str_starts_with($modelId, 'dall-e-') || str_starts_with($modelId, 'gpt-image')) {
+            return ['image'];
+        }
+
+        if (str_starts_with($modelId, 'tts-') || str_ends_with($modelId, '-tts')) {
+            return ['text_to_speech'];
+        }
+
+        if (str_starts_with($modelId, 'whisper-') || str_ends_with($modelId, '-transcribe')) {
+            return ['transcription'];
+        }
+
+        return ['chat'];
+    }
+
+    /**
      * Get OpenAI fallback models (when API discovery fails).
      *
      * @return array<DiscoveredModel>
@@ -408,6 +545,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     private function getOpenAIFallbackModels(): array
     {
         return [
+            $this->enrichOpenAIModel('gpt-5.5'),
             $this->enrichOpenAIModel('gpt-5.3'),
             $this->enrichOpenAIModel('gpt-5.3-chat-latest'),
             $this->enrichOpenAIModel('gpt-5.3-mini'),
@@ -417,6 +555,10 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             $this->enrichOpenAIModel('gpt-4o'),
             $this->enrichOpenAIModel('o4-mini'),
             $this->enrichOpenAIModel('o3'),
+            $this->enrichOpenAIModel('gpt-image-2'),
+            $this->enrichOpenAIModel('tts-1'),
+            $this->enrichOpenAIModel('tts-1-hd'),
+            $this->enrichOpenAIModel('whisper-1'),
         ];
     }
 
@@ -435,17 +577,19 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
-                return $this->getAnthropicFallbackModels();
+                $this->logDiscoveryHttpError('anthropic', $response->getStatusCode());
+
+                return $this->asFallback($this->getAnthropicFallbackModels());
             }
 
             $data = json_decode($response->getBody()->getContents(), true);
             if (!is_array($data)) {
-                return $this->getAnthropicFallbackModels();
+                return $this->asFallback($this->getAnthropicFallbackModels());
             }
 
             $modelList = $data['data'] ?? [];
             if (!is_array($modelList) || $modelList === []) {
-                return $this->getAnthropicFallbackModels();
+                return $this->asFallback($this->getAnthropicFallbackModels());
             }
 
             $models = [];
@@ -465,9 +609,11 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             // Sort: recommended first, then by name
             usort($models, fn(DiscoveredModel $a, DiscoveredModel $b) => $b->recommended <=> $a->recommended);
 
-            return $models !== [] ? $models : $this->getAnthropicFallbackModels();
-        } catch (Throwable) {
-            return $this->getAnthropicFallbackModels();
+            return $models !== [] ? $models : $this->asFallback($this->getAnthropicFallbackModels());
+        } catch (Throwable $e) {
+            $this->logDiscoveryFailure('anthropic', $e);
+
+            return $this->asFallback($this->getAnthropicFallbackModels());
         }
     }
 
@@ -623,19 +769,21 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
-                return $this->getGeminiFallbackModels();
+                $this->logDiscoveryHttpError('gemini', $response->getStatusCode());
+
+                return $this->asFallback($this->getGeminiFallbackModels());
             }
 
             $data = json_decode($response->getBody()->getContents(), true);
             $models = [];
 
             if (!is_array($data)) {
-                return $this->getGeminiFallbackModels();
+                return $this->asFallback($this->getGeminiFallbackModels());
             }
 
             $modelList = $data['models'] ?? [];
             if (!is_array($modelList)) {
-                return $this->getGeminiFallbackModels();
+                return $this->asFallback($this->getGeminiFallbackModels());
             }
 
             foreach ($modelList as $model) {
@@ -655,9 +803,11 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 $models[] = $this->enrichGeminiModel($modelId, $model);
             }
 
-            return $models !== [] ? $models : $this->getGeminiFallbackModels();
-        } catch (Throwable) {
-            return $this->getGeminiFallbackModels();
+            return $models !== [] ? $models : $this->asFallback($this->getGeminiFallbackModels());
+        } catch (Throwable $e) {
+            $this->logDiscoveryFailure('gemini', $e);
+
+            return $this->asFallback($this->getGeminiFallbackModels());
         }
     }
 
@@ -812,6 +962,8 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
+                $this->logDiscoveryHttpError('ollama', $response->getStatusCode());
+
                 return [];
             }
 
@@ -848,7 +1000,9 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             }
 
             return $models;
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            $this->logDiscoveryFailure('ollama', $e);
+
             return [];
         }
     }
@@ -997,6 +1151,8 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
+                $this->logDiscoveryHttpError('openrouter', $response->getStatusCode());
+
                 return [];
             }
 
@@ -1045,7 +1201,9 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             }
 
             return $models;
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            $this->logDiscoveryFailure('openrouter', $e);
+
             return [];
         }
     }
@@ -1064,7 +1222,9 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
-                return $this->getMistralFallbackModels();
+                $this->logDiscoveryHttpError('mistral', $response->getStatusCode());
+
+                return $this->asFallback($this->getMistralFallbackModels());
             }
 
             $data = json_decode($response->getBody()->getContents(), true);
@@ -1096,9 +1256,11 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 );
             }
 
-            return $models !== [] ? $models : $this->getMistralFallbackModels();
-        } catch (Throwable) {
-            return $this->getMistralFallbackModels();
+            return $models !== [] ? $models : $this->asFallback($this->getMistralFallbackModels());
+        } catch (Throwable $e) {
+            $this->logDiscoveryFailure('mistral', $e);
+
+            return $this->asFallback($this->getMistralFallbackModels());
         }
     }
 
@@ -1149,6 +1311,8 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
+                $this->logDiscoveryHttpError('groq', $response->getStatusCode());
+
                 return [];
             }
 
@@ -1186,7 +1350,9 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             }
 
             return $models;
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            $this->logDiscoveryFailure('groq', $e);
+
             return [];
         }
     }

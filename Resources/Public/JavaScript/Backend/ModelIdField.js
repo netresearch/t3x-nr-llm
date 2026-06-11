@@ -5,6 +5,8 @@
  * models from the provider's API, renders a rich dropdown showing model details
  * (context length, capabilities, cost), and auto-fills related fields on selection.
  */
+import Notification from '@typo3/backend/notification.js';
+
 (function () {
     'use strict';
 
@@ -375,6 +377,14 @@
                 if (!data.success) {
                     showStatus(button, 'Error: ' + (data.error || 'Unknown error'), 'error');
                     return;
+                }
+
+                if (data.source === 'fallback') {
+                    Notification.warning(
+                        'Model discovery',
+                        'Live model discovery failed — showing the built-in catalog. See system log.',
+                        10
+                    );
                 }
 
                 var models = data.models || [];

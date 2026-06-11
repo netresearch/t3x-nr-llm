@@ -737,6 +737,9 @@ final class ModelControllerTest extends TestCase
             ->expects(self::once())
             ->method('discover')
             ->willReturn($discoveredModels);
+        $this->modelDiscovery
+            ->method('wasLastDiscoveryFromFallback')
+            ->willReturn(false);
 
         $request = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->fetchAvailableModelsAction($request);
@@ -745,6 +748,7 @@ final class ModelControllerTest extends TestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['success']);
+        self::assertSame('live', $data['source']);
         self::assertIsArray($data['models']);
         self::assertCount(2, $data['models']);
         self::assertIsArray($data['models'][0]);
@@ -753,6 +757,37 @@ final class ModelControllerTest extends TestCase
         self::assertSame(128000, $data['models'][0]['contextLength']);
         self::assertIsArray($data['models'][0]['capabilities']);
         self::assertContains('vision', $data['models'][0]['capabilities']);
+    }
+
+    #[Test]
+    public function fetchAvailableModelsActionMarksFallbackSource(): void
+    {
+        $provider = $this->createProvider(1);
+
+        $this->providerRepository
+            ->expects(self::once())
+            ->method('findByUid')
+            ->with(1)
+            ->willReturn($provider);
+
+        $this->modelDiscovery
+            ->expects(self::once())
+            ->method('discover')
+            ->willReturn([
+                new DiscoveredModel(modelId: 'gpt-5.5', name: 'GPT-5.5'),
+            ]);
+        $this->modelDiscovery
+            ->method('wasLastDiscoveryFromFallback')
+            ->willReturn(true);
+
+        $request = $this->createRequest(['providerUid' => 1]);
+        $response = $this->subject->fetchAvailableModelsAction($request);
+
+        $data = $this->decodeJsonResponse($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['success']);
+        self::assertSame('fallback', $data['source']);
     }
 
     #[Test]

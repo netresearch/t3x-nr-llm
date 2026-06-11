@@ -405,6 +405,7 @@ final class ModelController extends ActionController
                 'success' => true,
                 'models' => $models,
                 'providerName' => $provider->getName(),
+                'source' => $this->modelDiscovery->wasLastDiscoveryFromFallback() ? 'fallback' : 'live',
             ]);
         } catch (ProviderException $e) {
             $this->logger->warning('Model fetchAvailableModels: provider error', ['exception' => $e]);
