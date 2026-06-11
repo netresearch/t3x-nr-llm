@@ -38,7 +38,9 @@ class PromptSnippetRepository extends Repository
     }
 
     /**
-     * Count all non-deleted, non-hidden snippets (what the Snippets module lists).
+     * Count all non-deleted snippets — including hidden ones, matching what
+     * the Snippets backend module lists (the repository default query
+     * settings from initializeObject() ignore enable-fields).
      */
     public function countActive(): int
     {
