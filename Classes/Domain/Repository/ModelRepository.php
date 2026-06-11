@@ -55,6 +55,23 @@ class ModelRepository extends Repository
     }
 
     /**
+     * Find a model by its provider model id (the API model string,
+     * e.g. "gpt-image-2"). Multiple records may share a model id when
+     * the same model is offered through several providers; the default
+     * ordering (sorting, name) decides which one wins.
+     */
+    public function findOneByModelId(string $modelId): ?Model
+    {
+        $query = $this->createQuery();
+        $query->matching(
+            $query->equals('modelId', $modelId),
+        );
+        /** @var Model|null $result */
+        $result = $query->execute()->getFirst();
+        return $result;
+    }
+
+    /**
      * Find all active models.
      *
      * @return QueryResultInterface<int, Model>

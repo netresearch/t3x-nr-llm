@@ -100,7 +100,7 @@ final class FalImageService extends AbstractSpecializedService
         // SpecializedCostCalculatorInterface).
         $this->usageTracker->trackUsage('image', $this->getServiceProvider(), [
             'images' => 1,
-        ], modelId: $model);
+        ], modelUid: $this->resolveModelUid($model), modelId: $model);
 
         $imageUrl = isset($image['url']) && is_string($image['url']) ? $image['url'] : '';
 
@@ -176,7 +176,7 @@ final class FalImageService extends AbstractSpecializedService
 
         $this->usageTracker->trackUsage('image', $this->getServiceProvider(), [
             'images' => count($results),
-        ], modelId: $model);
+        ], modelUid: $this->resolveModelUid($model), modelId: $model);
 
         return $results;
     }

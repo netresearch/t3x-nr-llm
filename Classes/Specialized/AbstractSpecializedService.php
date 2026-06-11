@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized;
 
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -84,6 +87,7 @@ abstract class AbstractSpecializedService
         protected readonly UsageTrackerServiceInterface $usageTracker,
         protected readonly LoggerInterface $logger,
         protected readonly SpecializedCostCalculatorInterface $costCalculator,
+        protected readonly ?ModelRepository $modelRepository = null,
     ) {
         $this->timeout = $this->getDefaultTimeout();
         $this->loadConfiguration();
@@ -277,6 +281,70 @@ abstract class AbstractSpecializedService
                 $this->getServiceDomain(),
                 $this->getServiceProvider(),
             );
+        }
+    }
+
+    /**
+     * Resolve the admin-preferred default model for a capability from
+     * the model registry (tx_nrllm_model). Considers ACTIVE records
+     * carrying the capability — provider-agnostic — preferring the
+     * record flagged as default, then the lowest sorting, and returns
+     * that record's model id (the API model string). Records without a
+     * model id are skipped: they cannot be sent to an upstream API.
+     *
+     * Fail-soft, mirroring `SpecializedCostCalculator::estimateFromModelRow()`:
+     * no repository in context, a persistence failure, or no usable
+     * record returns the given fallback unchanged — resolving a default
+     * must never break the service call. Never throws.
+     */
+    protected function resolveDefaultModelFor(ModelCapability $capability, string $fallback): string
+    {
+        if ($this->modelRepository === null) {
+            return $fallback;
+        }
+
+        try {
+            // Results arrive ordered by the repository default (sorting, name),
+            // so the first usable record already is the lowest-sorting one.
+            $first = null;
+            foreach ($this->modelRepository->findByCapability($capability->value) as $candidate) {
+                if ($candidate->getModelId() === '') {
+                    continue;
+                }
+                if ($candidate->isDefault()) {
+                    return $candidate->getModelId();
+                }
+                $first ??= $candidate;
+            }
+            if ($first instanceof Model) {
+                return $first->getModelId();
+            }
+        } catch (Throwable) {
+            // Extbase persistence may be unavailable in edge contexts
+            // (early CLI bootstrap); the hardcoded fallback keeps the
+            // service usable.
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * Resolve the tx_nrllm_model uid for a model id so usage rows link
+     * to the registry record and the Analytics model breakdowns can
+     * aggregate by record. Fail-soft: returns 0 (no linked record) when
+     * no repository is in context, no record matches, or the lookup
+     * fails — usage tracking must never break the service call.
+     */
+    protected function resolveModelUid(string $modelId): int
+    {
+        if ($this->modelRepository === null || $modelId === '') {
+            return 0;
+        }
+
+        try {
+            return $this->modelRepository->findOneByModelId($modelId)?->getUid() ?? 0;
+        } catch (Throwable) {
+            return 0;
         }
     }
 

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Speech;
 
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -168,6 +169,21 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
     public function getSupportedResponseFormats(): array
     {
         return self::RESPONSE_FORMATS;
+    }
+
+    /**
+     * Resolve the default transcription model from the model registry.
+     *
+     * Queries ACTIVE tx_nrllm_model records carrying the
+     * `transcription` capability (provider-agnostic), prefers the
+     * record flagged as default, then the lowest sorting, and returns
+     * that record's model id. Fail-soft: any error, no repository in
+     * context, or no matching record returns the given fallback
+     * unchanged — this method never throws.
+     */
+    public function resolveDefaultModel(string $fallback): string
+    {
+        return $this->resolveDefaultModelFor(ModelCapability::TRANSCRIPTION, $fallback);
     }
 
     protected function getServiceDomain(): string
@@ -441,6 +457,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
             'speech',
             $this->getServiceProvider(),
             $metrics,
+            modelUid: $this->resolveModelUid($model),
             modelId: $model,
         );
     }
