@@ -35,6 +35,16 @@ final class ProviderTest extends AbstractUnitTestCase
         $this->subject = new Provider();
     }
 
+    protected function tearDown(): void
+    {
+        // The vault-mock tests queue an instance via GeneralUtility::addInstance();
+        // this base class is a plain PHPUnit TestCase (no testing-framework
+        // integrity check), so purge defensively — a failing assertion before the
+        // instance is consumed must not leak it into later tests.
+        GeneralUtility::purgeInstances();
+        parent::tearDown();
+    }
+
     // ========================================
     // Basic getter / setter tests
     // ========================================
