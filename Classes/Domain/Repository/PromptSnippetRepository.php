@@ -38,6 +38,20 @@ class PromptSnippetRepository extends Repository
     }
 
     /**
+     * Count all non-deleted, non-hidden snippets.
+     */
+    public function countActive(): int
+    {
+        $query = $this->createQuery();
+        $querySettings = $query->getQuerySettings();
+        $querySettings->setRespectStoragePage(false);
+        $querySettings->setIgnoreEnableFields(false);
+        $querySettings->setEnableFieldsToBeIgnored(['hidden']);
+
+        return $query->count();
+    }
+
+    /**
      * Find active snippets carrying the given tag.
      *
      * The tag is matched as an exact, case-insensitive token against the
