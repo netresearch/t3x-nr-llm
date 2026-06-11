@@ -245,11 +245,11 @@ abstract class AbstractSpecializedService
      * surfaces in this extension's code. Mirrors `AbstractProvider`.
      *
      * Also pushes the service's configured request timeout down to the wire
-     * via the per-request `withTimeout()` wither when the installed nr-vault
-     * exposes it. Without it, plain PSR-18 `sendRequest()` runs under the
-     * host's global `HTTP.timeout` (TYPO3 default) and long-running calls —
-     * large image generations in particular — get cut off there no matter
-     * what `$this->timeout` says.
+     * via the per-request `withTimeout()` wither (nr-vault ^0.10.0). Without
+     * it, plain PSR-18 `sendRequest()` runs under the host's global
+     * `HTTP.timeout` (TYPO3 default) and long-running calls — large image
+     * generations in particular — get cut off there no matter what
+     * `$this->timeout` says.
      */
     protected function getSecureClient(): ClientInterface
     {
@@ -265,15 +265,9 @@ abstract class AbstractSpecializedService
             )
             ->withReason($this->getAuditReason());
 
-        // Non-positive timeout = no override, per the wither's contract. The
-        // method_exists() guard keeps the extension installable against an
-        // nr-vault without the wither yet — drop the guard once nr-vault's
-        // per-request timeout is merged and required.
-        if ($this->timeout > 0 && method_exists($client, 'withTimeout')) {
-            $timeoutClient = $client->withTimeout($this->timeout);
-            if ($timeoutClient instanceof ClientInterface) {
-                return $timeoutClient;
-            }
+        // Non-positive timeout = no override, per the wither's contract.
+        if ($this->timeout > 0) {
+            return $client->withTimeout($this->timeout);
         }
 
         return $client;
