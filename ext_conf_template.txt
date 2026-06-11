@@ -43,8 +43,8 @@ speech.tts.defaultModel = tts-1
 # cat=image; type=string; label=DALL-E Base URL: Custom base URL for DALL-E API (leave empty for OpenAI default)
 image.dalle.baseUrl =
 
-# cat=image; type=int+; label=DALL-E Timeout: Request timeout in seconds (image generation can take time)
-image.dalle.timeout = 120
+# cat=image; type=int+; label=DALL-E Timeout: Request timeout in seconds (large gpt-image-2 sizes routinely take 2-3+ minutes)
+image.dalle.timeout = 300
 
 # cat=image; type=options[dall-e-2,dall-e-3]; label=DALL-E Default Model: Default model for image generation
 image.dalle.defaultModel = dall-e-3
