@@ -20,11 +20,11 @@ use PHPUnit\Framework\TestCase;
 final class ModelCapabilityTest extends TestCase
 {
     #[Test]
-    public function allEightCasesExist(): void
+    public function allElevenCasesExist(): void
     {
         $cases = ModelCapability::cases();
 
-        self::assertCount(8, $cases);
+        self::assertCount(11, $cases);
     }
 
     #[Test]
@@ -38,6 +38,9 @@ final class ModelCapabilityTest extends TestCase
         self::assertSame('tools', ModelCapability::TOOLS->value);
         self::assertSame('json_mode', ModelCapability::JSON_MODE->value);
         self::assertSame('audio', ModelCapability::AUDIO->value);
+        self::assertSame('image', ModelCapability::IMAGE->value);
+        self::assertSame('text_to_speech', ModelCapability::TEXT_TO_SPEECH->value);
+        self::assertSame('transcription', ModelCapability::TRANSCRIPTION->value);
     }
 
     #[Test]
@@ -45,7 +48,7 @@ final class ModelCapabilityTest extends TestCase
     {
         $values = ModelCapability::values();
 
-        self::assertCount(8, $values);
+        self::assertCount(11, $values);
         self::assertContains('chat', $values);
         self::assertContains('completion', $values);
         self::assertContains('embeddings', $values);
@@ -54,6 +57,9 @@ final class ModelCapabilityTest extends TestCase
         self::assertContains('tools', $values);
         self::assertContains('json_mode', $values);
         self::assertContains('audio', $values);
+        self::assertContains('image', $values);
+        self::assertContains('text_to_speech', $values);
+        self::assertContains('transcription', $values);
     }
 
     /**
@@ -70,6 +76,9 @@ final class ModelCapabilityTest extends TestCase
             'tools' => ['tools'],
             'json_mode' => ['json_mode'],
             'audio' => ['audio'],
+            'image' => ['image'],
+            'text_to_speech' => ['text_to_speech'],
+            'transcription' => ['transcription'],
         ];
     }
 
@@ -115,6 +124,9 @@ final class ModelCapabilityTest extends TestCase
             'tools' => ['tools', ModelCapability::TOOLS],
             'json_mode' => ['json_mode', ModelCapability::JSON_MODE],
             'audio' => ['audio', ModelCapability::AUDIO],
+            'image' => ['image', ModelCapability::IMAGE],
+            'text_to_speech' => ['text_to_speech', ModelCapability::TEXT_TO_SPEECH],
+            'transcription' => ['transcription', ModelCapability::TRANSCRIPTION],
         ];
     }
 

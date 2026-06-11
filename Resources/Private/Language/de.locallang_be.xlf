@@ -39,6 +39,18 @@
                 <source>Audio (speech transcription / synthesis)</source>
                 <target>Audio (Sprachtranskription/-synthese)</target>
             </trans-unit>
+            <trans-unit id="permissions.capability.image">
+                <source>Image generation</source>
+                <target>Bilderzeugung</target>
+            </trans-unit>
+            <trans-unit id="permissions.capability.text_to_speech">
+                <source>Text to speech (audio synthesis)</source>
+                <target>Text-zu-Sprache (Audiosynthese)</target>
+            </trans-unit>
+            <trans-unit id="permissions.capability.transcription">
+                <source>Transcription (speech-to-text)</source>
+                <target>Transkription (Sprache-zu-Text)</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

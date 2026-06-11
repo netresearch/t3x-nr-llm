@@ -492,6 +492,27 @@
                 <source>Process audio input (speech-to-text) or generate audio output (text-to-speech).</source>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_model.capabilities.image">
+                <source>Image Generation</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.image.description">
+                <source>Generate images from text prompts. Used by the specialized image services (DALL-E / gpt-image, FAL) to resolve their default model.</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.capabilities.text_to_speech">
+                <source>Text to Speech</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.text_to_speech.description">
+                <source>Synthesize spoken audio from text. Used by the specialized TTS service to resolve its default model.</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_model.capabilities.transcription">
+                <source>Transcription</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities.transcription.description">
+                <source>Transcribe audio to text (speech-to-text). Used by the specialized Whisper service to resolve its default model.</source>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_model.default_timeout">
                 <source>Default Timeout</source>
             </trans-unit>

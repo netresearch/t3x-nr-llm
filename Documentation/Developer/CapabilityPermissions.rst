@@ -9,7 +9,8 @@ BE group permission checks
 Every :php:`ModelCapability` enum value is registered as a native
 TYPO3 ``customPermOptions`` entry under the ``nrllm`` namespace.
 Administrators see a checkbox per capability (chat, completion,
-embeddings, vision, streaming, tools, json_mode, audio) on the
+embeddings, vision, streaming, tools, json_mode, audio, image,
+text_to_speech, transcription) on the
 :guilabel:`Backend Users > Access Options` tab when editing a BE
 group. Consumer code asks the
 :php:`\Netresearch\NrLlm\Service\CapabilityPermissionService`
