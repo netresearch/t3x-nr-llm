@@ -76,6 +76,8 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
      * Build a TextToSpeechService wired to the vault mock, then inject the given
      * plain HTTP client through the test seam (bypasses the vault secure client
      * so request/response assertions can read the request the service built).
+     *
+     * @param array{model?: ModelRepository|null, configuration?: LlmConfigurationRepository|null} $repositories
      */
     private function buildService(
         ClientInterface $httpClient,
@@ -84,8 +86,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         ExtensionConfiguration $extensionConfiguration,
         UsageTrackerServiceInterface $usageTracker,
         LoggerInterface $logger,
-        ?ModelRepository $modelRepository = null,
-        ?LlmConfigurationRepository $configurationRepository = null,
+        array $repositories = [],
     ): TextToSpeechService {
         $service = new TextToSpeechService(
             $this->vaultStub,
@@ -95,8 +96,8 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $usageTracker,
             $logger,
             $this->costCalculator,
-            $modelRepository,
-            $configurationRepository,
+            $repositories['model'] ?? null,
+            $repositories['configuration'] ?? null,
         );
         $service->setHttpClient($httpClient);
 
@@ -131,8 +132,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
-            $modelRepository,
-            $configurationRepository,
+            ['model' => $modelRepository, 'configuration' => $configurationRepository],
         );
     }
 
@@ -413,7 +413,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $this->extensionConfigMock,
             $usageTrackerMock,
             $this->loggerStub,
-            $modelRepository,
+            ['model' => $modelRepository],
         );
 
         $subject->synthesize('Test text');
@@ -572,8 +572,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $this->extensionConfigMock,
             $usageTrackerMock,
             $this->loggerStub,
-            null,
-            $configurationRepository,
+            ['configuration' => $configurationRepository],
         );
 
         $subject->synthesize('Test text', ['configuration' => 'podcast-narration']);

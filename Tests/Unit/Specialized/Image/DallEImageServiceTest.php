@@ -77,6 +77,8 @@ class DallEImageServiceTest extends AbstractUnitTestCase
      * Build a DallEImageService wired to the vault mock, then inject the given
      * plain HTTP client through the test seam (bypasses the vault secure client
      * so request/response assertions can read the request the service built).
+     *
+     * @param array{model?: ModelRepository|null, configuration?: LlmConfigurationRepository|null} $repositories
      */
     private function buildService(
         ClientInterface $httpClient,
@@ -85,8 +87,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         ExtensionConfiguration $extensionConfiguration,
         UsageTrackerServiceInterface $usageTracker,
         LoggerInterface $logger,
-        ?ModelRepository $modelRepository = null,
-        ?LlmConfigurationRepository $configurationRepository = null,
+        array $repositories = [],
     ): DallEImageService {
         $service = new DallEImageService(
             $this->vaultStub,
@@ -96,8 +97,8 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $usageTracker,
             $logger,
             $this->costCalculator,
-            $modelRepository,
-            $configurationRepository,
+            $repositories['model'] ?? null,
+            $repositories['configuration'] ?? null,
         );
         $service->setHttpClient($httpClient);
 
@@ -140,8 +141,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
-            $modelRepository,
-            $configurationRepository,
+            ['model' => $modelRepository, 'configuration' => $configurationRepository],
         );
     }
 
@@ -472,7 +472,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->extensionConfigMock,
             $usageTrackerMock,
             $this->loggerStub,
-            $modelRepository,
+            ['model' => $modelRepository],
         );
 
         $subject->generate('A cat');
@@ -636,8 +636,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->extensionConfigMock,
             $usageTrackerMock,
             $this->loggerStub,
-            null,
-            $configurationRepository,
+            ['configuration' => $configurationRepository],
         );
 
         $subject->generate('A cat', ['configuration' => 'alt-text-images']);

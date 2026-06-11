@@ -88,6 +88,8 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
      * the given plain HTTP client through the test seam (bypasses the vault
      * secure client so request/response assertions can read the request the
      * service built).
+     *
+     * @param array{model?: ModelRepository|null, configuration?: LlmConfigurationRepository|null} $repositories
      */
     private function buildService(
         ClientInterface $httpClient,
@@ -96,8 +98,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         ExtensionConfiguration $extensionConfiguration,
         UsageTrackerServiceInterface $usageTracker,
         LoggerInterface $logger,
-        ?ModelRepository $modelRepository = null,
-        ?LlmConfigurationRepository $configurationRepository = null,
+        array $repositories = [],
     ): WhisperTranscriptionService {
         $service = new WhisperTranscriptionService(
             $this->vaultStub,
@@ -107,8 +108,8 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $usageTracker,
             $logger,
             $this->costCalculator,
-            $modelRepository,
-            $configurationRepository,
+            $repositories['model'] ?? null,
+            $repositories['configuration'] ?? null,
         );
         $service->setHttpClient($httpClient);
 
@@ -151,8 +152,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
-            $modelRepository,
-            $configurationRepository,
+            ['model' => $modelRepository, 'configuration' => $configurationRepository],
         );
     }
 
@@ -471,8 +471,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $this->extensionConfigMock,
             $usageTrackerMock,
             $this->loggerStub,
-            null,
-            $configurationRepository,
+            ['configuration' => $configurationRepository],
         );
 
         $subject->transcribe($audioFile, ['configuration' => 'meeting-minutes']);

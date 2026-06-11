@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Image;
 
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrVault\Http\SecretPlacement;
@@ -223,6 +224,16 @@ final class FalImageService extends AbstractSpecializedService
     public function getAspectRatios(): array
     {
         return self::ASPECT_RATIOS;
+    }
+
+    /**
+     * FAL generates images, so the registry's image models steer it too —
+     * the inherited resolveDefaultModel()/resolveModelForConfiguration()
+     * resolve exactly like the OpenAI image service's.
+     */
+    protected function getModelCapability(): ModelCapability
+    {
+        return ModelCapability::IMAGE;
     }
 
     protected function getServiceDomain(): string

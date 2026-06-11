@@ -476,10 +476,12 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         // against the concrete model value — the consumer must resolve
         // the model via resolveModelForConfiguration() BEFORE building
         // the options.
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid size');
-
-        new ImageGenerationOptions(model: 'dall-e-3', size: '256x256', configuration: 'alt-text-images');
+        try {
+            $options = new ImageGenerationOptions(model: 'dall-e-3', size: '256x256', configuration: 'alt-text-images');
+            self::fail(sprintf('Expected the constructor to reject the size, got %s', $options::class));
+        } catch (InvalidArgumentException $e) {
+            self::assertStringContainsString('Invalid size', $e->getMessage());
+        }
     }
 
     #[Test]

@@ -316,40 +316,9 @@ final class DallEImageService extends AbstractSpecializedService
         return self::MODEL_CAPABILITIES[$this->capabilityKey($model)]['sizes'] ?? ['1024x1024'];
     }
 
-    /**
-     * Resolve the default image-generation model from the model registry.
-     *
-     * Queries ACTIVE tx_nrllm_model records carrying the `image`
-     * capability (provider-agnostic), prefers the record flagged as
-     * default, then the lowest sorting, and returns that record's
-     * model id. Fail-soft: any error, no repository in context, or no
-     * matching record returns the given fallback unchanged — this
-     * method never throws.
-     */
-    public function resolveDefaultModel(string $fallback): string
+    protected function getModelCapability(): ModelCapability
     {
-        return $this->resolveDefaultModelFor(ModelCapability::IMAGE, $fallback);
-    }
-
-    /**
-     * Resolve the image model for a named LlmConfiguration record.
-     *
-     * The configuration (tx_nrllm_configuration) is the stable
-     * indirection layer consumers reference by identifier: an
-     * administrator swaps the assigned model on the record and every
-     * consumer picks it up without re-configuring anything. Resolution
-     * order: the ACTIVE configuration's ACTIVE model record's model id
-     * (records with an empty model id are skipped) → the
-     * capability-based registry default (`resolveDefaultModel()`
-     * semantics) → the given fallback. Fail-soft — never throws.
-     *
-     * Resolve the model BEFORE constructing `ImageGenerationOptions`:
-     * the options validate `size` against the concrete model value, so
-     * the model must be known at construction time.
-     */
-    public function resolveModelForConfiguration(string $configurationIdentifier, string $fallback): string
-    {
-        return $this->resolveConfiguredModelFor(ModelCapability::IMAGE, $configurationIdentifier, $fallback);
+        return ModelCapability::IMAGE;
     }
 
     protected function getServiceDomain(): string

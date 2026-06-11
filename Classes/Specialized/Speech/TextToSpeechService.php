@@ -222,37 +222,9 @@ final class TextToSpeechService extends AbstractSpecializedService
         return self::MAX_INPUT_LENGTH;
     }
 
-    /**
-     * Resolve the default speech-synthesis model from the model registry.
-     *
-     * Queries ACTIVE tx_nrllm_model records carrying the
-     * `text_to_speech` capability (provider-agnostic), prefers the
-     * record flagged as default, then the lowest sorting, and returns
-     * that record's model id. Fail-soft: any error, no repository in
-     * context, or no matching record returns the given fallback
-     * unchanged — this method never throws.
-     */
-    public function resolveDefaultModel(string $fallback): string
+    protected function getModelCapability(): ModelCapability
     {
-        return $this->resolveDefaultModelFor(ModelCapability::TEXT_TO_SPEECH, $fallback);
-    }
-
-    /**
-     * Resolve the speech-synthesis model for a named LlmConfiguration
-     * record.
-     *
-     * The configuration (tx_nrllm_configuration) is the stable
-     * indirection layer consumers reference by identifier: an
-     * administrator swaps the assigned model on the record and every
-     * consumer picks it up without re-configuring anything. Resolution
-     * order: the ACTIVE configuration's ACTIVE model record's model id
-     * (records with an empty model id are skipped) → the
-     * capability-based registry default (`resolveDefaultModel()`
-     * semantics) → the given fallback. Fail-soft — never throws.
-     */
-    public function resolveModelForConfiguration(string $configurationIdentifier, string $fallback): string
-    {
-        return $this->resolveConfiguredModelFor(ModelCapability::TEXT_TO_SPEECH, $configurationIdentifier, $fallback);
+        return ModelCapability::TEXT_TO_SPEECH;
     }
 
     protected function getServiceDomain(): string

@@ -374,7 +374,7 @@ abstract class AbstractSpecializedService
      * resolution down the chain — this method never throws.
      */
     protected function resolveConfiguredModelFor(
-        ModelCapability $capability,
+        ?ModelCapability $capability,
         string $configurationIdentifier,
         string $fallback,
     ): string {
@@ -389,7 +389,48 @@ abstract class AbstractSpecializedService
             // default so the service call never breaks on resolution.
         }
 
-        return $this->resolveDefaultModelFor($capability, $fallback);
+        return $capability === null ? $fallback : $this->resolveDefaultModelFor($capability, $fallback);
+    }
+
+    /**
+     * The model-registry capability this service's models carry, or null for
+     * services without registry-managed models (DeepL): the public resolvers
+     * below then skip the capability-based registry default.
+     */
+    protected function getModelCapability(): ?ModelCapability
+    {
+        return null;
+    }
+
+    /**
+     * Resolve the admin-preferred default model from the model registry: the
+     * ACTIVE tx_nrllm_model record carrying this service's capability,
+     * preferring the record flagged as default, then the lowest sorting.
+     * Fail-soft: any error, no repository in context, or no usable record
+     * returns the given fallback unchanged — this method never throws.
+     */
+    public function resolveDefaultModel(string $fallback): string
+    {
+        $capability = $this->getModelCapability();
+
+        return $capability === null ? $fallback : $this->resolveDefaultModelFor($capability, $fallback);
+    }
+
+    /**
+     * Resolve the model for a named LlmConfiguration record — the stable
+     * indirection layer consumers reference by identifier: an administrator
+     * swaps the assigned model on the record and every consumer picks it up
+     * without re-configuring anything. Resolution order: the ACTIVE
+     * configuration's ACTIVE model record's model id → the capability-based
+     * registry default → the given fallback. Fail-soft — never throws.
+     *
+     * Resolve the model BEFORE constructing the call options: image options
+     * validate the size against the concrete model value, so the model must
+     * be known at construction time.
+     */
+    public function resolveModelForConfiguration(string $configurationIdentifier, string $fallback): string
+    {
+        return $this->resolveConfiguredModelFor($this->getModelCapability(), $configurationIdentifier, $fallback);
     }
 
     /**

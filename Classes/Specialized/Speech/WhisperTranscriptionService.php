@@ -171,37 +171,9 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         return self::RESPONSE_FORMATS;
     }
 
-    /**
-     * Resolve the default transcription model from the model registry.
-     *
-     * Queries ACTIVE tx_nrllm_model records carrying the
-     * `transcription` capability (provider-agnostic), prefers the
-     * record flagged as default, then the lowest sorting, and returns
-     * that record's model id. Fail-soft: any error, no repository in
-     * context, or no matching record returns the given fallback
-     * unchanged — this method never throws.
-     */
-    public function resolveDefaultModel(string $fallback): string
+    protected function getModelCapability(): ModelCapability
     {
-        return $this->resolveDefaultModelFor(ModelCapability::TRANSCRIPTION, $fallback);
-    }
-
-    /**
-     * Resolve the transcription model for a named LlmConfiguration
-     * record.
-     *
-     * The configuration (tx_nrllm_configuration) is the stable
-     * indirection layer consumers reference by identifier: an
-     * administrator swaps the assigned model on the record and every
-     * consumer picks it up without re-configuring anything. Resolution
-     * order: the ACTIVE configuration's ACTIVE model record's model id
-     * (records with an empty model id are skipped) → the
-     * capability-based registry default (`resolveDefaultModel()`
-     * semantics) → the given fallback. Fail-soft — never throws.
-     */
-    public function resolveModelForConfiguration(string $configurationIdentifier, string $fallback): string
-    {
-        return $this->resolveConfiguredModelFor(ModelCapability::TRANSCRIPTION, $configurationIdentifier, $fallback);
+        return ModelCapability::TRANSCRIPTION;
     }
 
     protected function getServiceDomain(): string
