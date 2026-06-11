@@ -15,11 +15,11 @@ import Notification from '@typo3/backend/notification.js';
      * TYPO3 FormEngine names follow the pattern: data[table][uid][column]
      */
     function findFormEngineInput(tableName, inputName, column) {
-        var match = inputName.match(/^data\[([^\]]+)\]\[([^\]]+)\]/);
+        const match = inputName.match(/^data\[([^\]]+)\]\[([^\]]+)\]/);
         if (!match) {
             return null;
         }
-        var fieldName = 'data[' + match[1] + '][' + match[2] + '][' + column + ']';
+        const fieldName = 'data[' + match[1] + '][' + match[2] + '][' + column + ']';
         return document.querySelector('[data-formengine-input-name="' + fieldName + '"]')
             || document.querySelector('[name="' + fieldName + '"]');
     }
@@ -46,8 +46,8 @@ import Notification from '@typo3/backend/notification.js';
      * Render capability badges as text.
      */
     function renderCapabilities(capabilities) {
-        if (!capabilities || !capabilities.length) return '';
-        var labels = {
+        if (!capabilities?.length) return '';
+        const labels = {
             chat: 'Chat', completion: 'Completion', embeddings: 'Embed',
             vision: 'Vision', streaming: 'Stream', tools: 'Tools',
             json_mode: 'JSON', audio: 'Audio', reasoning: 'Reasoning',

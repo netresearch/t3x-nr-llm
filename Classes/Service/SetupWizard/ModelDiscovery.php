@@ -522,19 +522,15 @@ final class ModelDiscovery implements ModelDiscoveryInterface
      */
     private function defaultOpenAICapabilities(string $modelId): array
     {
-        if (str_starts_with($modelId, 'dall-e-') || str_starts_with($modelId, 'gpt-image')) {
-            return ['image'];
-        }
-
-        if (str_starts_with($modelId, 'tts-') || str_ends_with($modelId, '-tts')) {
-            return ['text_to_speech'];
-        }
-
-        if (str_starts_with($modelId, 'whisper-') || str_ends_with($modelId, '-transcribe')) {
-            return ['transcription'];
-        }
-
-        return ['chat'];
+        return match (true) {
+            str_starts_with($modelId, 'dall-e-'),
+            str_starts_with($modelId, 'gpt-image') => ['image'],
+            str_starts_with($modelId, 'tts-'),
+            str_ends_with($modelId, '-tts') => ['text_to_speech'],
+            str_starts_with($modelId, 'whisper-'),
+            str_ends_with($modelId, '-transcribe') => ['transcription'],
+            default => ['chat'],
+        };
     }
 
     /**

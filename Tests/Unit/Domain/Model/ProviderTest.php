@@ -342,7 +342,8 @@ final class ProviderTest extends AbstractUnitTestCase
             static function (int $errno, string $errstr) use (&$warnings): bool {
                 $warnings[] = $errstr;
 
-                return true;
+                // Swallow only the user warning under test; let anything else bubble.
+                return $errno === E_USER_WARNING;
             },
             E_USER_WARNING,
         );

@@ -38,15 +38,12 @@ class PromptSnippetRepository extends Repository
     }
 
     /**
-     * Count all non-deleted, non-hidden snippets.
+     * Count all non-deleted, non-hidden snippets (what the Snippets module lists).
      */
     public function countActive(): int
     {
         $query = $this->createQuery();
-        $querySettings = $query->getQuerySettings();
-        $querySettings->setRespectStoragePage(false);
-        $querySettings->setIgnoreEnableFields(false);
-        $querySettings->setEnableFieldsToBeIgnored(['hidden']);
+        $query->getQuerySettings()->setRespectStoragePage(false);
 
         return $query->count();
     }
