@@ -10,7 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Specialized;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
@@ -643,11 +645,302 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         self::assertSame(0, $subject->callResolveModelUid('gpt-image-2'));
     }
 
+    #[Test]
+    public function resolveConfiguredModelForReturnsConfiguredModelId(): void
+    {
+        // An active configuration with an active, usable model wins
+        // outright — the capability-based registry default is not
+        // consulted at all.
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->expects(self::once())
+            ->method('findOneByIdentifier')
+            ->with('alt-text-images')
+            ->willReturn($this->createConfiguration(modelId: 'gpt-image-2'));
+
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->expects(self::never())->method('findByCapability');
+
+        $subject = $this->createSubject(
+            modelRepository: $modelRepository,
+            configurationRepository: $configurationRepository,
+        );
+
+        self::assertSame(
+            'gpt-image-2',
+            $subject->callResolveConfiguredModelFor(ModelCapability::IMAGE, 'alt-text-images', 'dall-e-3'),
+        );
+    }
+
+    #[Test]
+    public function resolveConfiguredModelForFallsBackToCapabilityDefaultForInactiveConfiguration(): void
+    {
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')
+            ->willReturn($this->createConfiguration(modelId: 'gpt-image-2', active: false));
+
+        $registryDefault = new Model();
+        $registryDefault->setModelId('gpt-image-1');
+        $modelRepository = self::createStub(ModelRepository::class);
+        $modelRepository->method('findByCapability')
+            ->willReturn(new InMemoryQueryResult([$registryDefault]));
+
+        $subject = $this->createSubject(
+            modelRepository: $modelRepository,
+            configurationRepository: $configurationRepository,
+        );
+
+        self::assertSame(
+            'gpt-image-1',
+            $subject->callResolveConfiguredModelFor(ModelCapability::IMAGE, 'alt-text-images', 'dall-e-3'),
+        );
+    }
+
+    #[Test]
+    public function resolveConfiguredModelForFallsBackToCapabilityDefaultForUnknownIdentifier(): void
+    {
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')->willReturn(null);
+
+        $registryDefault = new Model();
+        $registryDefault->setModelId('gpt-image-1');
+        $modelRepository = self::createStub(ModelRepository::class);
+        $modelRepository->method('findByCapability')
+            ->willReturn(new InMemoryQueryResult([$registryDefault]));
+
+        $subject = $this->createSubject(
+            modelRepository: $modelRepository,
+            configurationRepository: $configurationRepository,
+        );
+
+        self::assertSame(
+            'gpt-image-1',
+            $subject->callResolveConfiguredModelFor(ModelCapability::IMAGE, 'unknown', 'dall-e-3'),
+        );
+    }
+
+    #[Test]
+    public function resolveConfiguredModelForSkipsConfiguredModelWithoutModelId(): void
+    {
+        // A model record without a model id cannot be sent to an
+        // upstream API — resolution continues down the chain.
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')
+            ->willReturn($this->createConfiguration(modelId: ''));
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame(
+            'dall-e-3',
+            $subject->callResolveConfiguredModelFor(ModelCapability::IMAGE, 'alt-text-images', 'dall-e-3'),
+        );
+    }
+
+    #[Test]
+    public function resolveConfiguredModelForSkipsInactiveConfiguredModel(): void
+    {
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')
+            ->willReturn($this->createConfiguration(modelId: 'gpt-image-2', modelActive: false));
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame(
+            'dall-e-3',
+            $subject->callResolveConfiguredModelFor(ModelCapability::IMAGE, 'alt-text-images', 'dall-e-3'),
+        );
+    }
+
+    #[Test]
+    public function resolveConfiguredModelForReturnsFallbackWithoutRepositories(): void
+    {
+        $subject = $this->createSubject();
+
+        self::assertSame(
+            'dall-e-3',
+            $subject->callResolveConfiguredModelFor(ModelCapability::IMAGE, 'alt-text-images', 'dall-e-3'),
+        );
+    }
+
+    #[Test]
+    public function resolveConfiguredModelForReturnsFallbackWhenRepositoryThrows(): void
+    {
+        // Extbase persistence may be unavailable (early CLI bootstrap):
+        // resolution is fail-soft and must never throw.
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')
+            ->willThrowException(new RuntimeException('persistence unavailable'));
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame(
+            'dall-e-3',
+            $subject->callResolveConfiguredModelFor(ModelCapability::IMAGE, 'alt-text-images', 'dall-e-3'),
+        );
+    }
+
+    #[Test]
+    public function getConfigurationSystemPromptReturnsPromptOfActiveConfiguration(): void
+    {
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->expects(self::once())
+            ->method('findOneByIdentifier')
+            ->with('alt-text-images')
+            ->willReturn($this->createConfiguration(systemPrompt: 'Describe the image for screen readers.'));
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame(
+            'Describe the image for screen readers.',
+            $subject->getConfigurationSystemPrompt('alt-text-images'),
+        );
+    }
+
+    #[Test]
+    public function getConfigurationSystemPromptReturnsEmptyStringForInactiveConfiguration(): void
+    {
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')
+            ->willReturn($this->createConfiguration(systemPrompt: 'Hidden prompt.', active: false));
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame('', $subject->getConfigurationSystemPrompt('alt-text-images'));
+    }
+
+    #[Test]
+    public function getConfigurationSystemPromptReturnsEmptyStringForUnknownIdentifier(): void
+    {
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')->willReturn(null);
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame('', $subject->getConfigurationSystemPrompt('unknown'));
+    }
+
+    #[Test]
+    public function getConfigurationSystemPromptReturnsEmptyStringWithoutRepository(): void
+    {
+        $subject = $this->createSubject();
+
+        self::assertSame('', $subject->getConfigurationSystemPrompt('alt-text-images'));
+    }
+
+    #[Test]
+    public function getConfigurationSystemPromptReturnsEmptyStringWhenRepositoryThrows(): void
+    {
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')
+            ->willThrowException(new RuntimeException('persistence unavailable'));
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame('', $subject->getConfigurationSystemPrompt('alt-text-images'));
+    }
+
+    #[Test]
+    public function resolveConfigurationUidReturnsUidOfActiveConfiguration(): void
+    {
+        $configuration = $this->createConfiguration();
+        $configuration->_setProperty('uid', 12);
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->expects(self::once())
+            ->method('findOneByIdentifier')
+            ->with('alt-text-images')
+            ->willReturn($configuration);
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame(12, $subject->callResolveConfigurationUid('alt-text-images'));
+    }
+
+    #[Test]
+    public function resolveConfigurationUidReturnsNullForNullIdentifierWithoutQuerying(): void
+    {
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->expects(self::never())->method('findOneByIdentifier');
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertNull($subject->callResolveConfigurationUid(null));
+    }
+
+    #[Test]
+    public function resolveConfigurationUidReturnsNullForEmptyIdentifierWithoutQuerying(): void
+    {
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->expects(self::never())->method('findOneByIdentifier');
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertNull($subject->callResolveConfigurationUid(''));
+    }
+
+    #[Test]
+    public function resolveConfigurationUidReturnsNullWithoutRepository(): void
+    {
+        $subject = $this->createSubject();
+
+        self::assertNull($subject->callResolveConfigurationUid('alt-text-images'));
+    }
+
+    #[Test]
+    public function resolveConfigurationUidReturnsNullForInactiveConfiguration(): void
+    {
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')
+            ->willReturn($this->createConfiguration(active: false));
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertNull($subject->callResolveConfigurationUid('alt-text-images'));
+    }
+
+    #[Test]
+    public function resolveConfigurationUidReturnsNullWhenRepositoryThrows(): void
+    {
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')
+            ->willThrowException(new RuntimeException('persistence unavailable'));
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertNull($subject->callResolveConfigurationUid('alt-text-images'));
+    }
+
+    /**
+     * Build an LlmConfiguration fixture. `$modelId === null` leaves the
+     * configuration without a model relation; otherwise a Model record
+     * with the given id and active flag is attached.
+     */
+    private function createConfiguration(
+        ?string $modelId = null,
+        bool $active = true,
+        bool $modelActive = true,
+        string $systemPrompt = '',
+    ): LlmConfiguration {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('alt-text-images');
+        $configuration->setIsActive($active);
+        $configuration->setSystemPrompt($systemPrompt);
+
+        if ($modelId !== null) {
+            $model = new Model();
+            $model->setModelId($modelId);
+            $model->setIsActive($modelActive);
+            $configuration->setLlmModel($model);
+        }
+
+        return $configuration;
+    }
+
     private function createSubject(
         string $apiKeyIdentifier = 'test-key',
         string $baseUrl = 'https://api.example.test',
         ?ClientInterface $httpClient = null,
         ?ModelRepository $modelRepository = null,
+        ?LlmConfigurationRepository $configurationRepository = null,
     ): TestableSpecializedService {
         $extConf = self::createStub(ExtensionConfiguration::class);
         $extConf->method('get')->willReturn(['apiKeyIdentifier' => $apiKeyIdentifier, 'baseUrl' => $baseUrl]);
@@ -661,6 +954,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             logger: self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             modelRepository: $modelRepository,
+            configurationRepository: $configurationRepository,
         );
 
         // Inject the plain test client through the test seam; this bypasses the
@@ -749,6 +1043,19 @@ final class TestableSpecializedService extends AbstractSpecializedService
     public function callResolveModelUid(string $modelId): int
     {
         return $this->resolveModelUid($modelId);
+    }
+
+    public function callResolveConfiguredModelFor(
+        ModelCapability $capability,
+        string $configurationIdentifier,
+        string $fallback,
+    ): string {
+        return $this->resolveConfiguredModelFor($capability, $configurationIdentifier, $fallback);
+    }
+
+    public function callResolveConfigurationUid(?string $configurationIdentifier): ?int
+    {
+        return $this->resolveConfigurationUid($configurationIdentifier);
     }
 
     protected function getServiceDomain(): string

@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Speech;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -83,6 +85,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         UsageTrackerServiceInterface $usageTracker,
         LoggerInterface $logger,
         ?ModelRepository $modelRepository = null,
+        ?LlmConfigurationRepository $configurationRepository = null,
     ): TextToSpeechService {
         $service = new TextToSpeechService(
             $this->vaultStub,
@@ -93,6 +96,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $logger,
             $this->costCalculator,
             $modelRepository,
+            $configurationRepository,
         );
         $service->setHttpClient($httpClient);
 
@@ -102,8 +106,11 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     /**
      * @param array<string, mixed> $config
      */
-    private function createSubject(array $config = [], ?ModelRepository $modelRepository = null): TextToSpeechService
-    {
+    private function createSubject(
+        array $config = [],
+        ?ModelRepository $modelRepository = null,
+        ?LlmConfigurationRepository $configurationRepository = null,
+    ): TextToSpeechService {
         $defaultConfig = [
             'providers' => [
                 'openai' => [
@@ -125,6 +132,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $this->usageTrackerStub,
             $this->loggerStub,
             $modelRepository,
+            $configurationRepository,
         );
     }
 
@@ -452,6 +460,123 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject(modelRepository: $modelRepository);
 
         self::assertSame('tts-1', $subject->resolveDefaultModel('tts-1'));
+    }
+
+    #[Test]
+    public function resolveModelForConfigurationUsesConfiguredModel(): void
+    {
+        $model = new Model();
+        $model->setModelId('tts-1-hd');
+
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('podcast-narration');
+        $configuration->setLlmModel($model);
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->expects(self::once())
+            ->method('findOneByIdentifier')
+            ->with('podcast-narration')
+            ->willReturn($configuration);
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame('tts-1-hd', $subject->resolveModelForConfiguration('podcast-narration', 'tts-1'));
+    }
+
+    #[Test]
+    public function resolveModelForConfigurationFallsBackToTextToSpeechCapabilityDefault(): void
+    {
+        // Unknown configuration identifier: the capability-based registry
+        // default applies — for this service the `text_to_speech` capability.
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')->willReturn(null);
+
+        $registryDefault = new Model();
+        $registryDefault->setModelId('tts-1-hd');
+
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->expects(self::once())
+            ->method('findByCapability')
+            ->with('text_to_speech')
+            ->willReturn(new InMemoryQueryResult([$registryDefault]));
+
+        $subject = $this->createSubject(
+            modelRepository: $modelRepository,
+            configurationRepository: $configurationRepository,
+        );
+
+        self::assertSame('tts-1-hd', $subject->resolveModelForConfiguration('unknown', 'tts-1'));
+    }
+
+    #[Test]
+    public function resolveModelForConfigurationReturnsFallbackWithoutRepositories(): void
+    {
+        $subject = $this->createSubject();
+
+        self::assertSame('tts-1', $subject->resolveModelForConfiguration('podcast-narration', 'tts-1'));
+    }
+
+    #[Test]
+    public function getConfigurationSystemPromptReturnsPromptOfActiveConfiguration(): void
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('podcast-narration');
+        $configuration->setSystemPrompt('Speak slowly and clearly.');
+
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')->willReturn($configuration);
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame('Speak slowly and clearly.', $subject->getConfigurationSystemPrompt('podcast-narration'));
+    }
+
+    #[Test]
+    public function synthesizeLinksUsageRowToConfigurationUid(): void
+    {
+        // When the options carry an LlmConfiguration identifier, the usage
+        // row links to that configuration record so the Analytics module
+        // can aggregate speech spend per configuration.
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('podcast-narration');
+        $configuration->_setProperty('uid', 11);
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')
+            ->with('podcast-narration')
+            ->willReturn($configuration);
+
+        $this->setupSuccessfulRequest();
+        $this->extensionConfigMock
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'speech',
+                'tts',
+                self::callback(static fn(array $metrics): bool => $metrics['characters'] === 9),
+                11,
+                0,
+                'tts-1',
+            );
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+            null,
+            $configurationRepository,
+        );
+
+        $subject->synthesize('Test text', ['configuration' => 'podcast-narration']);
     }
 
     #[Test]

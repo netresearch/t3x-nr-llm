@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Image;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -84,6 +86,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         UsageTrackerServiceInterface $usageTracker,
         LoggerInterface $logger,
         ?ModelRepository $modelRepository = null,
+        ?LlmConfigurationRepository $configurationRepository = null,
     ): DallEImageService {
         $service = new DallEImageService(
             $this->vaultStub,
@@ -94,6 +97,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $logger,
             $this->costCalculator,
             $modelRepository,
+            $configurationRepository,
         );
         $service->setHttpClient($httpClient);
 
@@ -111,8 +115,11 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     /**
      * @param array<string, mixed> $config
      */
-    private function createSubject(array $config = [], ?ModelRepository $modelRepository = null): DallEImageService
-    {
+    private function createSubject(
+        array $config = [],
+        ?ModelRepository $modelRepository = null,
+        ?LlmConfigurationRepository $configurationRepository = null,
+    ): DallEImageService {
         $defaultConfig = [
             'providers' => [
                 'openai' => [
@@ -134,6 +141,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->usageTrackerStub,
             $this->loggerStub,
             $modelRepository,
+            $configurationRepository,
         );
     }
 
@@ -511,6 +519,128 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject(modelRepository: $modelRepository);
 
         self::assertSame('dall-e-3', $subject->resolveDefaultModel('dall-e-3'));
+    }
+
+    #[Test]
+    public function resolveModelForConfigurationUsesConfiguredModel(): void
+    {
+        $model = new Model();
+        $model->setModelId('gpt-image-2');
+
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('alt-text-images');
+        $configuration->setLlmModel($model);
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->expects(self::once())
+            ->method('findOneByIdentifier')
+            ->with('alt-text-images')
+            ->willReturn($configuration);
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame('gpt-image-2', $subject->resolveModelForConfiguration('alt-text-images', 'dall-e-3'));
+    }
+
+    #[Test]
+    public function resolveModelForConfigurationFallsBackToImageCapabilityDefault(): void
+    {
+        // Unknown configuration identifier: the capability-based registry
+        // default applies — for this service the `image` capability.
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')->willReturn(null);
+
+        $registryDefault = new Model();
+        $registryDefault->setModelId('gpt-image-2');
+
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->expects(self::once())
+            ->method('findByCapability')
+            ->with('image')
+            ->willReturn(new InMemoryQueryResult([$registryDefault]));
+
+        $subject = $this->createSubject(
+            modelRepository: $modelRepository,
+            configurationRepository: $configurationRepository,
+        );
+
+        self::assertSame('gpt-image-2', $subject->resolveModelForConfiguration('unknown', 'dall-e-3'));
+    }
+
+    #[Test]
+    public function resolveModelForConfigurationReturnsFallbackWithoutRepositories(): void
+    {
+        $subject = $this->createSubject();
+
+        self::assertSame('dall-e-3', $subject->resolveModelForConfiguration('alt-text-images', 'dall-e-3'));
+    }
+
+    #[Test]
+    public function getConfigurationSystemPromptReturnsPromptOfActiveConfiguration(): void
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('alt-text-images');
+        $configuration->setSystemPrompt('Generate decorative, brand-neutral imagery.');
+
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')->willReturn($configuration);
+
+        $subject = $this->createSubject(configurationRepository: $configurationRepository);
+
+        self::assertSame(
+            'Generate decorative, brand-neutral imagery.',
+            $subject->getConfigurationSystemPrompt('alt-text-images'),
+        );
+    }
+
+    #[Test]
+    public function generateLinksUsageRowToConfigurationUid(): void
+    {
+        // When the options carry an LlmConfiguration identifier, the usage
+        // row links to that configuration record so the Analytics module
+        // can aggregate image spend per configuration.
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('alt-text-images');
+        $configuration->_setProperty('uid', 23);
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->method('findOneByIdentifier')
+            ->with('alt-text-images')
+            ->willReturn($configuration);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'image',
+                'dall-e',
+                self::callback(static fn(array $metrics): bool => $metrics['images'] === 1),
+                23,
+                0,
+                'dall-e-3',
+            );
+
+        $this->extensionConfigMock
+            ->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+        $this->setupSuccessfulRequest([
+            'data' => [['url' => 'https://example.com/image.png']],
+        ]);
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+            null,
+            $configurationRepository,
+        );
+
+        $subject->generate('A cat', ['configuration' => 'alt-text-images']);
     }
 
     #[Test]

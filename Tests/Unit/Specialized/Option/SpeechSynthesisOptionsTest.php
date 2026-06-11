@@ -243,6 +243,40 @@ class SpeechSynthesisOptionsTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function configurationDefaultsToNull(): void
+    {
+        $options = new SpeechSynthesisOptions();
+
+        self::assertNull($options->configuration);
+    }
+
+    #[Test]
+    public function constructorAcceptsConfigurationIdentifier(): void
+    {
+        $options = new SpeechSynthesisOptions(configuration: 'podcast-narration');
+
+        self::assertSame('podcast-narration', $options->configuration);
+    }
+
+    #[Test]
+    public function fromArrayReadsConfigurationIdentifier(): void
+    {
+        $options = SpeechSynthesisOptions::fromArray(['configuration' => 'podcast-narration']);
+
+        self::assertSame('podcast-narration', $options->configuration);
+    }
+
+    #[Test]
+    public function toArrayOmitsConfiguration(): void
+    {
+        // `configuration` is consumer metadata for usage attribution,
+        // not a TTS API parameter — it must never reach the payload.
+        $options = new SpeechSynthesisOptions(configuration: 'podcast-narration');
+
+        self::assertArrayNotHasKey('configuration', $options->toArray());
+    }
+
+    #[Test]
     public function fromArrayHandlesMissingValues(): void
     {
         $options = SpeechSynthesisOptions::fromArray([]);

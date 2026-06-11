@@ -436,6 +436,65 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function configurationDefaultsToNull(): void
+    {
+        $options = new ImageGenerationOptions();
+
+        self::assertNull($options->configuration);
+    }
+
+    #[Test]
+    public function constructorAcceptsConfigurationIdentifier(): void
+    {
+        $options = new ImageGenerationOptions(configuration: 'alt-text-images');
+
+        self::assertSame('alt-text-images', $options->configuration);
+    }
+
+    #[Test]
+    public function fromArrayReadsConfigurationIdentifier(): void
+    {
+        $options = ImageGenerationOptions::fromArray(['configuration' => 'alt-text-images']);
+
+        self::assertSame('alt-text-images', $options->configuration);
+    }
+
+    #[Test]
+    public function toArrayOmitsConfiguration(): void
+    {
+        // `configuration` is consumer metadata for usage attribution,
+        // not an Images API parameter — it must never reach the payload.
+        $options = new ImageGenerationOptions(configuration: 'alt-text-images');
+
+        self::assertArrayNotHasKey('configuration', $options->toArray());
+    }
+
+    #[Test]
+    public function configurationDoesNotRelaxSizeValidation(): void
+    {
+        // The configuration is pure metadata: size is still validated
+        // against the concrete model value — the consumer must resolve
+        // the model via resolveModelForConfiguration() BEFORE building
+        // the options.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid size');
+
+        new ImageGenerationOptions(model: 'dall-e-3', size: '256x256', configuration: 'alt-text-images');
+    }
+
+    #[Test]
+    public function configurationDoesNotAffectGptImageSizeValidation(): void
+    {
+        $options = new ImageGenerationOptions(
+            model: 'gpt-image-2',
+            size: '2048x1152',
+            configuration: 'alt-text-images',
+        );
+
+        self::assertSame('2048x1152', $options->size);
+    }
+
+    #[Test]
     public function landscapePresetReturns1792x1024(): void
     {
         $options = ImageGenerationOptions::landscape();

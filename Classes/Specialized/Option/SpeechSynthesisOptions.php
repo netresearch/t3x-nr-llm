@@ -20,11 +20,22 @@ final class SpeechSynthesisOptions extends AbstractOptions
     private const VALID_MODELS = ['tts-1', 'tts-1-hd'];
     private const VALID_FORMATS = ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'];
 
+    /**
+     * @param string|null $configuration Optional LlmConfiguration identifier
+     *                                   (tx_nrllm_configuration) this call is
+     *                                   attributed to — pure usage metadata for
+     *                                   the per-configuration Analytics
+     *                                   breakdowns. It does NOT change the
+     *                                   model: the consumer resolves the model
+     *                                   via `TextToSpeechService::resolveModelForConfiguration()`
+     *                                   BEFORE constructing the options.
+     */
     public function __construct(
         public readonly ?string $model = 'tts-1',
         public readonly ?string $voice = 'alloy',
         public readonly ?string $format = 'mp3',
         public readonly ?float $speed = 1.0,
+        public readonly ?string $configuration = null,
     ) {
         if ($this->model !== null) {
             self::validateEnum($this->model, self::VALID_MODELS, 'model');
@@ -42,6 +53,8 @@ final class SpeechSynthesisOptions extends AbstractOptions
 
     public function toArray(): array
     {
+        // `configuration` is deliberately absent: it is consumer metadata
+        // for usage attribution, not a TTS API parameter.
         return $this->filterNull([
             'model' => $this->model,
             'voice' => $this->voice,
@@ -59,12 +72,14 @@ final class SpeechSynthesisOptions extends AbstractOptions
         $voice = $options['voice'] ?? null;
         $format = $options['format'] ?? $options['response_format'] ?? null;
         $speed = $options['speed'] ?? null;
+        $configuration = $options['configuration'] ?? null;
 
         return new self(
             model: is_string($model) ? $model : null,
             voice: is_string($voice) ? $voice : null,
             format: is_string($format) ? $format : null,
             speed: is_float($speed) || is_int($speed) ? (float)$speed : null,
+            configuration: is_string($configuration) ? $configuration : null,
         );
     }
 

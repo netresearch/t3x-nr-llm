@@ -108,7 +108,7 @@ final class TextToSpeechService extends AbstractSpecializedService
         $this->usageTracker->trackUsage('speech', $this->getServiceProvider(), [
             'characters' => $characterCount,
             'cost' => $this->costCalculator->estimateSpeechSynthesisCost($model, $characterCount),
-        ], modelUid: $this->resolveModelUid($model), modelId: $model);
+        ], configurationUid: $this->resolveConfigurationUid($options->configuration), modelUid: $this->resolveModelUid($model), modelId: $model);
 
         return new SpeechSynthesisResult(
             audioContent: $audioContent,
@@ -235,6 +235,24 @@ final class TextToSpeechService extends AbstractSpecializedService
     public function resolveDefaultModel(string $fallback): string
     {
         return $this->resolveDefaultModelFor(ModelCapability::TEXT_TO_SPEECH, $fallback);
+    }
+
+    /**
+     * Resolve the speech-synthesis model for a named LlmConfiguration
+     * record.
+     *
+     * The configuration (tx_nrllm_configuration) is the stable
+     * indirection layer consumers reference by identifier: an
+     * administrator swaps the assigned model on the record and every
+     * consumer picks it up without re-configuring anything. Resolution
+     * order: the ACTIVE configuration's ACTIVE model record's model id
+     * (records with an empty model id are skipped) → the
+     * capability-based registry default (`resolveDefaultModel()`
+     * semantics) → the given fallback. Fail-soft — never throws.
+     */
+    public function resolveModelForConfiguration(string $configurationIdentifier, string $fallback): string
+    {
+        return $this->resolveConfiguredModelFor(ModelCapability::TEXT_TO_SPEECH, $configurationIdentifier, $fallback);
     }
 
     protected function getServiceDomain(): string

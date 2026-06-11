@@ -107,7 +107,7 @@ final class DallEImageService extends AbstractSpecializedService
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
         $data = $responseData[0] ?? [];
 
-        $this->trackImageUsage($model, $size, $quality, 1, $response);
+        $this->trackImageUsage($model, $size, $quality, 1, $response, $options->configuration);
 
         return new ImageGenerationResult(
             url: $data['url'] ?? '',
@@ -191,7 +191,7 @@ final class DallEImageService extends AbstractSpecializedService
             );
         }
 
-        $this->trackImageUsage($model, $size, $quality, count($results), $response);
+        $this->trackImageUsage($model, $size, $quality, count($results), $response, $options->configuration);
 
         return $results;
     }
@@ -331,6 +331,27 @@ final class DallEImageService extends AbstractSpecializedService
         return $this->resolveDefaultModelFor(ModelCapability::IMAGE, $fallback);
     }
 
+    /**
+     * Resolve the image model for a named LlmConfiguration record.
+     *
+     * The configuration (tx_nrllm_configuration) is the stable
+     * indirection layer consumers reference by identifier: an
+     * administrator swaps the assigned model on the record and every
+     * consumer picks it up without re-configuring anything. Resolution
+     * order: the ACTIVE configuration's ACTIVE model record's model id
+     * (records with an empty model id are skipped) → the
+     * capability-based registry default (`resolveDefaultModel()`
+     * semantics) → the given fallback. Fail-soft — never throws.
+     *
+     * Resolve the model BEFORE constructing `ImageGenerationOptions`:
+     * the options validate `size` against the concrete model value, so
+     * the model must be known at construction time.
+     */
+    public function resolveModelForConfiguration(string $configurationIdentifier, string $fallback): string
+    {
+        return $this->resolveConfiguredModelFor(ModelCapability::IMAGE, $configurationIdentifier, $fallback);
+    }
+
     protected function getServiceDomain(): string
     {
         return 'image';
@@ -401,6 +422,10 @@ final class DallEImageService extends AbstractSpecializedService
      * dall-e-2/3 responses carry no `usage` object — token metrics are
      * omitted then and the cost falls back to the per-image catalog.
      *
+     * When the options carried an LlmConfiguration identifier, the usage
+     * row additionally links to that configuration record (resolved
+     * fail-soft) so Analytics can aggregate spend per configuration.
+     *
      * @param array<string, mixed> $response decoded API response
      */
     private function trackImageUsage(
@@ -409,6 +434,7 @@ final class DallEImageService extends AbstractSpecializedService
         string $quality,
         int $imageCount,
         array $response,
+        ?string $configuration = null,
     ): void {
         // gpt-image-* responses include a `usage` token object;
         // dall-e-2/3 never send one — token metrics are omitted then
@@ -447,6 +473,7 @@ final class DallEImageService extends AbstractSpecializedService
             'image',
             $this->getServiceProvider(),
             $metrics,
+            configurationUid: $this->resolveConfigurationUid($configuration),
             modelUid: $this->resolveModelUid($model),
             modelId: $model,
         );

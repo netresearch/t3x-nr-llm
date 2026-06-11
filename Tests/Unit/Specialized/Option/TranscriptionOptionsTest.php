@@ -193,6 +193,41 @@ class TranscriptionOptionsTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function configurationDefaultsToNull(): void
+    {
+        $options = new TranscriptionOptions();
+
+        self::assertNull($options->configuration);
+    }
+
+    #[Test]
+    public function constructorAcceptsConfigurationIdentifier(): void
+    {
+        $options = new TranscriptionOptions(configuration: 'meeting-minutes');
+
+        self::assertSame('meeting-minutes', $options->configuration);
+    }
+
+    #[Test]
+    public function fromArrayReadsConfigurationIdentifier(): void
+    {
+        $options = TranscriptionOptions::fromArray(['configuration' => 'meeting-minutes']);
+
+        self::assertSame('meeting-minutes', $options->configuration);
+    }
+
+    #[Test]
+    public function toArrayOmitsConfiguration(): void
+    {
+        // `configuration` is consumer metadata for usage attribution,
+        // not a transcription API parameter — it must never reach the
+        // multipart payload.
+        $options = new TranscriptionOptions(configuration: 'meeting-minutes');
+
+        self::assertArrayNotHasKey('configuration', $options->toArray());
+    }
+
+    #[Test]
     public function fromArrayHandlesMissingValues(): void
     {
         $options = TranscriptionOptions::fromArray([]);
