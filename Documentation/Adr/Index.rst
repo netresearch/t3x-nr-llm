@@ -265,3 +265,4 @@ Modern architecture (v0.4+)
    Adr030SpecializedServicesVaultMigration
    Adr031PromptSnippetLibrary
    Adr032SpecializedUsageAndPricingCatalog
+   Adr033SpecializedModelRegistry
