@@ -60,6 +60,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **nr-vault requirement raised to `^0.10.0`.** The secure-client integration
+  now relies on the current nr-vault API surface (per-request `withTimeout()`,
+  header-placement options); older constraint branches were untested claims.
 - Overview module cards gained "+ New record" quick actions plus Snippets and
   Analytics cards.
 - `runTests.sh` defaults to PHP 8.5, the upper supported bound.
