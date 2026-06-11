@@ -346,9 +346,18 @@ final class DallEImageService extends AbstractSpecializedService
         return self::API_URL;
     }
 
+    /**
+     * Image generation is the slowest specialised call by far: gpt-image-2
+     * at its larger sizes (e.g. 768x2160) routinely takes 2-3+ minutes per
+     * image, so the previous 120s default — and the 180s global
+     * `HTTP.timeout` it silently fell back to — produced live timeouts on
+     * perfectly healthy generations. 300s gives those renders headroom;
+     * deployments can still tune it via the `image.dalle.timeout`
+     * extension-configuration override.
+     */
     protected function getDefaultTimeout(): int
     {
-        return 120;
+        return 300;
     }
 
     /**

@@ -37,6 +37,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Log\LoggerInterface;
+use ReflectionClass;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -1204,6 +1205,42 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject($config);
 
         self::assertTrue($subject->isAvailable());
+    }
+
+    #[Test]
+    public function defaultTimeoutIsFiveMinutesForLargeImageGeneration(): void
+    {
+        // gpt-image-2 at its larger sizes routinely takes 2-3+ minutes per
+        // image; the previous 120s default produced live timeouts on healthy
+        // generations. Without an ext-conf override the service must come up
+        // with the 300s default.
+        $subject = $this->createSubject();
+
+        self::assertSame(300, $this->readTimeout($subject));
+    }
+
+    #[Test]
+    public function extensionConfiguredTimeoutOverridesImageDefault(): void
+    {
+        // The image.dalle.timeout ext-conf override must keep winning over
+        // getDefaultTimeout().
+        $subject = $this->createSubject([
+            'image' => [
+                'dalle' => [
+                    'timeout' => 600,
+                ],
+            ],
+        ]);
+
+        self::assertSame(600, $this->readTimeout($subject));
+    }
+
+    private function readTimeout(DallEImageService $subject): int
+    {
+        $timeout = (new ReflectionClass($subject))->getProperty('timeout')->getValue($subject);
+        self::assertIsInt($timeout);
+
+        return $timeout;
     }
 
     #[Test]
