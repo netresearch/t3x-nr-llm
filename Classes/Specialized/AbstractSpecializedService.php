@@ -316,6 +316,12 @@ abstract class AbstractSpecializedService
                 if (!$candidate instanceof Model || $candidate->getModelId() === '') {
                     continue;
                 }
+                // The capability query is provider-agnostic, but model-id vocabularies
+                // are not (gpt-image-* vs flux-*): skip records this service cannot
+                // speak, so e.g. an OpenAI default never reaches the FAL endpoint.
+                if (!$this->acceptsModelId($candidate->getModelId())) {
+                    continue;
+                }
                 if ($candidate->isDefault()) {
                     $chosen = $candidate;
                     break;
@@ -380,7 +386,9 @@ abstract class AbstractSpecializedService
     ): string {
         try {
             $model = $this->findActiveConfiguration($configurationIdentifier)?->getLlmModel();
-            if ($model !== null && $model->isActive() && $model->getModelId() !== '') {
+            if ($model !== null && $model->isActive() && $model->getModelId() !== ''
+                && $this->acceptsModelId($model->getModelId())
+            ) {
                 return $model->getModelId();
             }
         } catch (Throwable) {
@@ -400,6 +408,17 @@ abstract class AbstractSpecializedService
     protected function getModelCapability(): ?ModelCapability
     {
         return null;
+    }
+
+    /**
+     * Whether this service can speak the given model id. The capability-based
+     * registry resolution is provider-agnostic while model-id vocabularies are
+     * not — services sharing a capability (OpenAI images vs FAL) override this
+     * to skip registry records they cannot send to their upstream API.
+     */
+    protected function acceptsModelId(string $modelId): bool
+    {
+        return true;
     }
 
     /**

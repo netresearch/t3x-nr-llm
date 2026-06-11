@@ -231,6 +231,16 @@ final class FalImageService extends AbstractSpecializedService
      * the inherited resolveDefaultModel()/resolveModelForConfiguration()
      * resolve exactly like the OpenAI image service's.
      */
+    /**
+     * FAL vocabulary: only the model keys this service can map to fal-ai
+     * endpoints (see self::MODELS) — an OpenAI image id from the shared
+     * IMAGE-capability registry default must never reach the FAL endpoint.
+     */
+    protected function acceptsModelId(string $modelId): bool
+    {
+        return \array_key_exists($modelId, self::MODELS);
+    }
+
     protected function getModelCapability(): ModelCapability
     {
         return ModelCapability::IMAGE;

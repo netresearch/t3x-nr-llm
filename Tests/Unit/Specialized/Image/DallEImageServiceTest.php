@@ -499,6 +499,26 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function resolveDefaultModelSkipsForeignProviderModelIds(): void
+    {
+        // The IMAGE capability is shared across providers: a FAL record — even
+        // default-flagged — must never be sent to the OpenAI images endpoint.
+        $foreignDefault = new Model();
+        $foreignDefault->setModelId('flux-schnell');
+        $foreignDefault->setIsDefault(true);
+        $acceptable = new Model();
+        $acceptable->setModelId('gpt-image-2');
+
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->method('findByCapability')
+            ->willReturn(new InMemoryQueryResult([$foreignDefault, $acceptable]));
+
+        $subject = $this->createSubject(modelRepository: $modelRepository);
+
+        self::assertSame('gpt-image-2', $subject->resolveDefaultModel('dall-e-3'));
+    }
+
+    #[Test]
     public function resolveDefaultModelReturnsFallbackWhenNoImageRecordExists(): void
     {
         $modelRepository = $this->createMock(ModelRepository::class);

@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Image;
 
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -16,6 +18,7 @@ use Netresearch\NrLlm\Specialized\Image\FalImageService;
 use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -84,6 +87,36 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $service->setHttpClient($httpClient);
 
         return $service;
+    }
+
+    /**
+     * The IMAGE capability is shared across providers: an OpenAI record — even
+     * default-flagged — must never reach the FAL endpoint. With no FAL-speakable
+     * record in the registry, resolution returns the caller's fallback.
+     */
+    #[Test]
+    public function resolveDefaultModelSkipsForeignProviderModelIds(): void
+    {
+        $foreignDefault = new Model();
+        $foreignDefault->setModelId('gpt-image-2');
+        $foreignDefault->setIsDefault(true);
+
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->method('findByCapability')
+            ->willReturn(new InMemoryQueryResult([$foreignDefault]));
+
+        $service = new FalImageService(
+            $this->vaultStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $this->usageTrackerStub,
+            $this->loggerStub,
+            self::createStub(SpecializedCostCalculatorInterface::class),
+            $modelRepository,
+        );
+
+        self::assertSame('flux-schnell', $service->resolveDefaultModel('flux-schnell'));
     }
 
     /**

@@ -316,6 +316,16 @@ final class DallEImageService extends AbstractSpecializedService
         return self::MODEL_CAPABILITIES[$this->capabilityKey($model)]['sizes'] ?? ['1024x1024'];
     }
 
+    /**
+     * OpenAI image vocabulary: the DALL·E models plus the gpt-image-* family
+     * (mirrors ImageGenerationOptions::validateModel()).
+     */
+    protected function acceptsModelId(string $modelId): bool
+    {
+        return \in_array($modelId, ['dall-e-2', 'dall-e-3'], true)
+            || str_starts_with($modelId, 'gpt-image-');
+    }
+
     protected function getModelCapability(): ModelCapability
     {
         return ModelCapability::IMAGE;

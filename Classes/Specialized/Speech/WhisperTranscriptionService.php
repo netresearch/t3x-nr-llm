@@ -171,6 +171,15 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         return self::RESPONSE_FORMATS;
     }
 
+    /**
+     * OpenAI transcription vocabulary: whisper-* plus *-transcribe members
+     * of newer families (gpt-4o-transcribe, ...).
+     */
+    protected function acceptsModelId(string $modelId): bool
+    {
+        return str_starts_with($modelId, 'whisper-') || str_ends_with($modelId, '-transcribe');
+    }
+
     protected function getModelCapability(): ModelCapability
     {
         return ModelCapability::TRANSCRIPTION;

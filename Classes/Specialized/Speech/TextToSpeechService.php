@@ -229,6 +229,15 @@ final class TextToSpeechService extends AbstractSpecializedService
         return self::MAX_INPUT_LENGTH;
     }
 
+    /**
+     * OpenAI TTS vocabulary: the tts-* models plus *-tts members of newer
+     * families (gpt-4o-mini-tts, ...).
+     */
+    protected function acceptsModelId(string $modelId): bool
+    {
+        return str_starts_with($modelId, 'tts-') || str_ends_with($modelId, '-tts');
+    }
+
     protected function getModelCapability(): ModelCapability
     {
         return ModelCapability::TEXT_TO_SPEECH;
