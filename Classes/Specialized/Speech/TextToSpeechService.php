@@ -105,10 +105,17 @@ final class TextToSpeechService extends AbstractSpecializedService
         $audioContent = $this->sendBinaryRequest($payload);
 
         $characterCount = mb_strlen($text);
-        $this->usageTracker->trackUsage('speech', $this->getServiceProvider(), [
-            'characters' => $characterCount,
-            'cost' => $this->costCalculator->estimateSpeechSynthesisCost($model, $characterCount),
-        ], configurationUid: $this->resolveConfigurationUid($options->configuration), modelUid: $this->resolveModelUid($model), modelId: $model);
+        $this->usageTracker->trackUsage(
+            'speech',
+            $this->getServiceProvider(),
+            [
+                'characters' => $characterCount,
+                'cost' => $this->costCalculator->estimateSpeechSynthesisCost($model, $characterCount),
+            ],
+            configurationUid: $this->resolveConfigurationUid($options->configuration),
+            modelUid: $this->resolveModelUid($model),
+            modelId: $model,
+        );
 
         return new SpeechSynthesisResult(
             audioContent: $audioContent,
