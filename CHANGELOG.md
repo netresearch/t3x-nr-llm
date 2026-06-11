@@ -6,6 +6,67 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-06-11
+
+### Added
+
+- **Prompt-snippet library.** New `tx_nrllm_promptsnippet` entity with a
+  backend module tab: editors manage small named prompt fragments (personas,
+  tones of voice, audiences, image styles, layouts) with free-form tags and
+  optional metadata JSON; consuming extensions query them by tag and compose
+  them into their prompts (`findActiveByTag()`, `findByUids()`,
+  `PromptSnippetComposer`). See ADR-031.
+- **Specialized usage and cost tracking.** Image, TTS and transcription calls
+  now record real units (images, characters, audio seconds), token usage from
+  gpt-image responses, the model id, and an estimated cost via a documented
+  OpenAI price catalog with a model-row-first cascade — the Analytics module,
+  cost widgets and budget windows finally see the full spend. Usage rows link
+  `model_uid` and `configuration_uid` for per-model / per-configuration
+  breakdowns. See ADR-032.
+- **Specialized models join the model registry.** New model capabilities
+  `image`, `text_to_speech` and `transcription`; the specialized services
+  resolve their default model from active registry records
+  (`resolveDefaultModel()`), guarded by a per-service vocabulary check so an
+  OpenAI default never reaches the FAL endpoint and vice versa. See ADR-033.
+- **Configuration-based resolution for specialized services.**
+  `resolveModelForConfiguration()` and `getConfigurationSystemPrompt()` make
+  `tx_nrllm_configuration` records the stable indirection layer for image and
+  speech calls too: administrators swap models and maintain prompt preambles
+  centrally; the `configuration` option attributes usage per configuration.
+- **Per-request timeouts on the secure-client path.** The services' timeout
+  now reaches the wire via nr-vault's new `withTimeout()`; the image default
+  rose to 300s — large gpt-image-2 generations no longer die at the global
+  HTTP timeout.
+- **Arbitrary gpt-image sizes.** `ImageGenerationOptions` accepts any
+  `WIDTHxHEIGHT` for gpt-image-* models (divisible by 16, aspect 1:3-3:1,
+  max 3840x2160) alongside the documented standard sizes.
+
+### Fixed
+
+- **Name-style nr-vault identifiers work as API keys.** `Provider` accepted
+  only UUID-v7 vault identifiers; name-style identifiers were misread as
+  legacy plaintext, breaking key decryption (silent model-discovery fallback
+  to a stale catalog) and even re-saving the provider record.
+- **Model discovery is honest about fallbacks.** tts/whisper/dall-e models are
+  no longer filtered out, the static fallback catalog is current (gpt-5.5,
+  specialized entries), discovery failures are logged, and the model-fetch
+  response flags `source: fallback` with a visible notice in the form.
+- **Vault audit log readability.** Audit reasons carry the actual model and
+  purpose (e.g. "OpenAI Images API call (gpt-image-2, generate)"), and the
+  per-request audit context is consumed so later requests cannot inherit it.
+- The Snippets module no longer crashes on inactive snippets (Fluid getter
+  pair for the is-active flag), and the snippet count honours the hidden
+  enable-field contract.
+
+### Changed
+
+- **nr-vault requirement raised to `^0.10.0`.** The secure-client integration
+  now relies on the current nr-vault API surface (per-request `withTimeout()`,
+  header-placement options); older constraint branches were untested claims.
+- Overview module cards gained "+ New record" quick actions plus Snippets and
+  Analytics cards.
+- `runTests.sh` defaults to PHP 8.5, the upper supported bound.
+
 ## [0.11.1] - 2026-06-10
 
 ### Security

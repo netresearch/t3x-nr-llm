@@ -156,6 +156,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $capturedReason = null;
 
         $vaultHttpClient = self::createStub(VaultHttpClientInterface::class);
+        $vaultHttpClient->method('withTimeout')->willReturnSelf();
         $vaultHttpClient->method('withAuthentication')->willReturnCallback(
             function (string $id, SecretPlacement $placement, array $options) use (
                 &$capturedIdentifier,
@@ -247,7 +248,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     {
         // Non-positive = "no override" per the wither's contract: the
         // wither must not be called at all, even on a capable client.
-        $client = $this->createMock(TimeoutCapableVaultHttpClientInterface::class);
+        $client = $this->createMock(VaultHttpClientInterface::class);
         $client->expects(self::never())->method('withTimeout');
         $client->method('withAuthentication')->willReturn($client);
         $client->method('withReason')->willReturn($client);
@@ -259,27 +260,6 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         );
 
         $subject->callSendJsonRequest('endpoint', []);
-    }
-
-    #[Test]
-    public function getSecureClientToleratesVaultClientWithoutTimeoutSupport(): void
-    {
-        // Installability guard: against an nr-vault whose client does not
-        // expose withTimeout() yet, the request must still go through —
-        // just without the per-request timeout override.
-        $vaultHttpClient = self::createStub(VaultHttpClientInterface::class);
-        $vaultHttpClient->method('withAuthentication')->willReturn($vaultHttpClient);
-        $vaultHttpClient->method('withReason')->willReturn($vaultHttpClient);
-        $vaultHttpClient->method('sendRequest')->willReturnCallback(
-            fn() => $this->createJsonResponseMock(['result' => 'ok'], 200),
-        );
-
-        $subject = $this->createSubjectWithVaultClient(
-            $vaultHttpClient,
-            ['apiKeyIdentifier' => 'vault-id', 'baseUrl' => 'https://api.test/v1'],
-        );
-
-        self::assertSame(['result' => 'ok'], $subject->callSendJsonRequest('endpoint', []));
     }
 
     #[Test]
@@ -1047,13 +1027,13 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
      * Timeout-capable vault client stub whose `withTimeout()` argument is
      * captured into `$capturedSeconds` (stays null when never called).
      */
-    private function createTimeoutCapableVaultClientStub(?int &$capturedSeconds): TimeoutCapableVaultHttpClientInterface
+    private function createTimeoutCapableVaultClientStub(?int &$capturedSeconds): VaultHttpClientInterface
     {
-        $client = self::createStub(TimeoutCapableVaultHttpClientInterface::class);
+        $client = self::createStub(VaultHttpClientInterface::class);
         $client->method('withAuthentication')->willReturn($client);
         $client->method('withReason')->willReturn($client);
         $client->method('withTimeout')->willReturnCallback(
-            static function (int $seconds) use (&$capturedSeconds, $client): TimeoutCapableVaultHttpClientInterface {
+            static function (int $seconds) use (&$capturedSeconds, $client): VaultHttpClientInterface {
                 $capturedSeconds = $seconds;
                 return $client;
             },
@@ -1215,19 +1195,6 @@ final class TestableSpecializedService extends AbstractSpecializedService
         $timeout       = $config['timeout'] ?? null;
         $this->timeout = is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout();
     }
-}
-
-/**
- * Test-local extension of the vault client contract declaring the frozen
- * `withTimeout()` wither nr-vault is gaining, so the suite can stub a
- * timeout-capable client while the installed nr-vault does not declare it
- * on `VaultHttpClientInterface` yet. The signature mirrors the frozen
- * nr-vault contract (non-positive = no override); delete this interface
- * once nr-vault's per-request timeout is merged and required.
- */
-interface TimeoutCapableVaultHttpClientInterface extends VaultHttpClientInterface
-{
-    public function withTimeout(int $seconds): static;
 }
 
 /**
