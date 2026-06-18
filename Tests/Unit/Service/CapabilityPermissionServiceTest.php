@@ -134,7 +134,7 @@ class CapabilityPermissionServiceTest extends AbstractUnitTestCase
     public function fallsBackToGlobalsBeUserWhenNoArgumentPassed(): void
     {
         $user = $this->makeBackendUser(isAdmin: false);
-        $user->method('check')
+        $user->expects(self::any())->method('check')
             ->with('custom_options', 'nrllm:capability_embeddings')
             ->willReturn(true);
         $GLOBALS['BE_USER'] = $user;

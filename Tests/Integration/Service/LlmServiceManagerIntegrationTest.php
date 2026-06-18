@@ -45,7 +45,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         parent::setUp();
 
         $this->extensionConfigStub = $this->createMock(ExtensionConfiguration::class);
-        $this->extensionConfigStub->method('get')
+        $this->extensionConfigStub->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'defaultProvider' => 'openai',

@@ -398,7 +398,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
             ));
 
         $this->translatorRegistryMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('llm')
             ->willReturn($translatorStub);
 
@@ -488,7 +488,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     public function hasTranslatorDelegatesToRegistry(): void
     {
         $this->translatorRegistryMock
-            ->method('has')
+            ->expects(self::any())->method('has')
             ->with('deepl')
             ->willReturn(true);
 
@@ -501,7 +501,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         $translatorStub = self::createStub(TranslatorInterface::class);
 
         $this->translatorRegistryMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('deepl')
             ->willReturn($translatorStub);
 
@@ -516,7 +516,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         $translatorStub = self::createStub(TranslatorInterface::class);
 
         $this->translatorRegistryMock
-            ->method('findBestTranslator')
+            ->expects(self::any())->method('findBestTranslator')
             ->with('en', 'de')
             ->willReturn($translatorStub);
 
@@ -860,7 +860,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         $configurationStub->method('getTranslator')->willReturn('deepl');
 
         $configServiceMock
-            ->method('getConfiguration')
+            ->expects(self::any())->method('getConfiguration')
             ->with('my-preset')
             ->willReturn($configurationStub);
 

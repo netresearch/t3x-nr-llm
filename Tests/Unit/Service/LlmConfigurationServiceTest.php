@@ -114,7 +114,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     private function setupNoBackendUser(): void
     {
         $this->contextMock
-            ->method('getAspect')
+            ->expects(self::any())->method('getAspect')
             ->with('backend.user')
             ->willThrowException(new AspectNotFoundException());
     }
@@ -144,7 +144,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         };
 
         $this->contextMock
-            ->method('getAspect')
+            ->expects(self::any())->method('getAspect')
             ->with('backend.user')
             ->willReturn($aspectStub);
     }
@@ -158,7 +158,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $config = $this->createConfigurationStub();
 
         $this->repositoryMock
-            ->method('findOneByIdentifier')
+            ->expects(self::any())->method('findOneByIdentifier')
             ->with('test-config')
             ->willReturn($config);
 
@@ -281,7 +281,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $queryResult->method('toArray')->willReturn([$config1]);
 
         $this->repositoryMock
-            ->method('findAccessibleForGroups')
+            ->expects(self::any())->method('findAccessibleForGroups')
             ->with([1, 2, 3])
             ->willReturn($queryResult);
 
@@ -494,7 +494,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     public function isIdentifierAvailableChecksRepository(): void
     {
         $this->repositoryMock
-            ->method('isIdentifierUnique')
+            ->expects(self::any())->method('isIdentifierUnique')
             ->with('new-identifier', 5)
             ->willReturn(true);
 
@@ -508,7 +508,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     public function isIdentifierAvailableReturnsFalseWhenTaken(): void
     {
         $this->repositoryMock
-            ->method('isIdentifierUnique')
+            ->expects(self::any())->method('isIdentifierUnique')
             ->with('existing-identifier', null)
             ->willReturn(false);
 
@@ -545,7 +545,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
         $queryResult->method('toArray')->willReturn([]);
 
         $this->repositoryMock
-            ->method('findAccessibleForGroups')
+            ->expects(self::any())->method('findAccessibleForGroups')
             ->with([])
             ->willReturn($queryResult);
 

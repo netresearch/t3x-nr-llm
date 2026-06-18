@@ -39,7 +39,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->method('has')
+            ->expects(self::any())->method('has')
             ->with('test_key')
             ->willReturn(false);
 
@@ -57,11 +57,11 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
 
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->method('has')
+            ->expects(self::any())->method('has')
             ->with('test_key')
             ->willReturn(true);
         $cacheFrontend
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('test_key')
             ->willReturn($expectedData);
 
