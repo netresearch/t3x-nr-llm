@@ -4,7 +4,7 @@
 
 <!-- AGENTS-GENERATED:START overview -->
 ## Overview
-Comprehensive test suite: PHPUnit 11/12 (cross-compatible), TYPO3 Testing Framework, PHPat architecture tests, Eris property tests, Infection mutation tests, Playwright E2E. All run via Docker-based `runTests.sh`.
+Comprehensive test suite: PHPUnit 11/12/13 (cross-compatible), TYPO3 Testing Framework, PHPat architecture tests, Eris property tests, Infection mutation tests, Playwright E2E. All run via Docker-based `runTests.sh`.
 <!-- AGENTS-GENERATED:END overview -->
 
 <!-- AGENTS-GENERATED:START setup -->
@@ -29,7 +29,7 @@ Comprehensive test suite: PHPUnit 11/12 (cross-compatible), TYPO3 Testing Framew
 
 | Directory | Framework | Purpose |
 |-----------|-----------|---------|
-| `Unit/` | PHPUnit 11/12 | Fast isolated unit tests |
+| `Unit/` | PHPUnit 11/12/13 | Fast isolated unit tests |
 | `Integration/` | PHPUnit + PSR-18 mocking | API client tests |
 | `Functional/` | TYPO3 Testing Framework | Database, repositories, controllers |
 | `Architecture/` | PHPat | Layer boundary enforcement (3 test files) |
@@ -42,7 +42,7 @@ Comprehensive test suite: PHPUnit 11/12 (cross-compatible), TYPO3 Testing Framew
 <!-- AGENTS-GENERATED:START code-style -->
 ## Code style
 - PHPUnit attributes: `#[Test]`, `#[CoversClass(...)]`, `#[DataProvider(...)]`
-- PHPUnit 11/12 cross-compatibility: use `#[CoversNothing]` for enums/exceptions
+- PHPUnit 11/12/13 cross-compatibility: use `#[CoversNothing]` for enums/exceptions
 - `failOnWarning=true` in phpunit.xml
 - One resource per test: never share fixtures between tests
 - CI is authoritative: local DDEV for debugging only
@@ -86,6 +86,6 @@ Comprehensive test suite: PHPUnit 11/12 (cross-compatible), TYPO3 Testing Framew
 <!-- AGENTS-GENERATED:START help -->
 ## When Stuck
 - Test docs: `Documentation/Testing/` (4 pages: Unit, Functional, E2E, CI)
-- PHPUnit 11/12 compat: see `MEMORY.md` PHPUnit section
+- PHPUnit 11/12/13 compat: see `MEMORY.md` PHPUnit section
 - Run with `-v` for verbose: `./Build/Scripts/runTests.sh -s unit -v`
 <!-- AGENTS-GENERATED:END help -->
