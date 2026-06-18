@@ -29,7 +29,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
     public function processReturnsEarlyWhenManagerNotRegistered(): void
     {
         $containerMock = $this->createMock(ContainerBuilder::class);
-        $containerMock->method('has')
+        $containerMock->expects(self::any())->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(false);
 
@@ -46,15 +46,15 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
         $containerMock = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
-        $containerMock->method('has')
+        $containerMock->expects(self::any())->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $containerMock->method('findDefinition')
+        $containerMock->expects(self::any())->method('findDefinition')
             ->with(LlmServiceManager::class)
             ->willReturn($definitionMock);
 
-        $containerMock->method('findTaggedServiceIds')
+        $containerMock->expects(self::any())->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.openai' => [['priority' => 10]],
@@ -79,15 +79,15 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
         $containerMock = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
-        $containerMock->method('has')
+        $containerMock->expects(self::any())->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $containerMock->method('findDefinition')
+        $containerMock->expects(self::any())->method('findDefinition')
             ->with(LlmServiceManager::class)
             ->willReturn($definitionMock);
 
-        $containerMock->method('findTaggedServiceIds')
+        $containerMock->expects(self::any())->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.low' => [['priority' => 5]],
@@ -118,15 +118,15 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
         $containerMock = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
-        $containerMock->method('has')
+        $containerMock->expects(self::any())->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $containerMock->method('findDefinition')
+        $containerMock->expects(self::any())->method('findDefinition')
             ->with(LlmServiceManager::class)
             ->willReturn($definitionMock);
 
-        $containerMock->method('findTaggedServiceIds')
+        $containerMock->expects(self::any())->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([]);
 
@@ -143,16 +143,16 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
         $containerMock = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
-        $containerMock->method('has')
+        $containerMock->expects(self::any())->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $containerMock->method('findDefinition')
+        $containerMock->expects(self::any())->method('findDefinition')
             ->with(LlmServiceManager::class)
             ->willReturn($definitionMock);
 
         // Empty tag array means no priority specified
-        $containerMock->method('findTaggedServiceIds')
+        $containerMock->expects(self::any())->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.a' => [],
@@ -176,16 +176,16 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
         $containerMock = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
-        $containerMock->method('has')
+        $containerMock->expects(self::any())->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $containerMock->method('findDefinition')
+        $containerMock->expects(self::any())->method('findDefinition')
             ->with(LlmServiceManager::class)
             ->willReturn($definitionMock);
 
         // Tags with non-array first element
-        $containerMock->method('findTaggedServiceIds')
+        $containerMock->expects(self::any())->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.a' => ['not_an_array'],
@@ -208,16 +208,16 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
         $containerMock = $this->createMock(ContainerBuilder::class);
         $definitionMock = $this->createMock(Definition::class);
 
-        $containerMock->method('has')
+        $containerMock->expects(self::any())->method('has')
             ->with(LlmServiceManager::class)
             ->willReturn(true);
 
-        $containerMock->method('findDefinition')
+        $containerMock->expects(self::any())->method('findDefinition')
             ->with(LlmServiceManager::class)
             ->willReturn($definitionMock);
 
         // Priority as string, should be treated as 0
-        $containerMock->method('findTaggedServiceIds')
+        $containerMock->expects(self::any())->method('findTaggedServiceIds')
             ->with('nr_llm.provider')
             ->willReturn([
                 'provider.a' => [['priority' => 'high']],

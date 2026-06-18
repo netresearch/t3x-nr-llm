@@ -131,7 +131,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         ];
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn(array_merge($defaultConfig, $config));
 
@@ -149,7 +149,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     private function createSubjectWithoutApiKey(): DallEImageService
     {
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => [],
@@ -390,7 +390,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         ]);
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => [
@@ -443,7 +443,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $record->_setProperty('uid', 42);
 
         $modelRepository = $this->createMock(ModelRepository::class);
-        $modelRepository->method('findOneByModelId')->with('dall-e-3')->willReturn($record);
+        $modelRepository->expects(self::any())->method('findOneByModelId')->with('dall-e-3')->willReturn($record);
 
         $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
         $usageTrackerMock
@@ -459,7 +459,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             );
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
         $this->setupSuccessfulRequest([
@@ -625,7 +625,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $configuration->_setProperty('uid', 23);
 
         $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
-        $configurationRepository->method('findOneByIdentifier')
+        $configurationRepository->expects(self::any())->method('findOneByIdentifier')
             ->with('alt-text-images')
             ->willReturn($configuration);
 
@@ -643,7 +643,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             );
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
         $this->setupSuccessfulRequest([
@@ -968,7 +968,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         ]);
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => [
@@ -1060,7 +1060,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         ]);
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => [
@@ -1169,7 +1169,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     public function loadConfigurationHandlesInvalidConfig(): void
     {
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
@@ -1318,7 +1318,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->willReturn($responseStub);
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']],
@@ -1395,7 +1395,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             ->willThrowException(new RuntimeException('Connection refused'));
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']],
@@ -1429,7 +1429,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $this->setupSuccessfulRequest(['data' => $imageData]);
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']],
@@ -1486,7 +1486,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         ]);
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']],
@@ -1534,7 +1534,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         ]);
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']],

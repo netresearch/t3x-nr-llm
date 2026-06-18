@@ -141,7 +141,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         ];
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn(array_merge($defaultConfig, $config));
 
@@ -159,7 +159,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     private function createSubjectWithoutApiKey(): WhisperTranscriptionService
     {
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => [],
@@ -439,7 +439,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $configuration->_setProperty('uid', 31);
 
         $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
-        $configurationRepository->method('findOneByIdentifier')
+        $configurationRepository->expects(self::any())->method('findOneByIdentifier')
             ->with('meeting-minutes')
             ->willReturn($configuration);
 
@@ -447,7 +447,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
 
@@ -539,7 +539,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => [
@@ -715,7 +715,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => [
@@ -766,7 +766,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         ]));
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => [
@@ -860,7 +860,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     public function loadConfigurationHandlesInvalidConfig(): void
     {
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
@@ -995,7 +995,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->willThrowException(new RuntimeException('Connection refused'));
 
         $this->extensionConfigMock
-            ->method('get')
+            ->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => [

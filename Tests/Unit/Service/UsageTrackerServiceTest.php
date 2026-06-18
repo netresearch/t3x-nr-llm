@@ -92,7 +92,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
         };
 
         $this->contextMock
-            ->method('getAspect')
+            ->expects(self::any())->method('getAspect')
             ->with('backend.user')
             ->willReturn($aspectStub);
     }
@@ -100,7 +100,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
     private function setupNoBackendUser(): void
     {
         $this->contextMock
-            ->method('getAspect')
+            ->expects(self::any())->method('getAspect')
             ->with('backend.user')
             ->willThrowException(new AspectNotFoundException());
     }
