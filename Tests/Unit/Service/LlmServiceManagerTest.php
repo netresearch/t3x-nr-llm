@@ -65,7 +65,6 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $this->extensionConfigStub
             ->method('get')
             ->willReturn([
-                'defaultProvider' => 'openai',
                 'providers' => [],
             ]);
 
@@ -98,14 +97,6 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     public function getProviderReturnsRegisteredProvider(): void
     {
         $provider = $this->subject->getProvider('openai');
-
-        self::assertSame($this->provider, $provider);
-    }
-
-    #[Test]
-    public function getProviderUsesDefaultWhenNoneSpecified(): void
-    {
-        $provider = $this->subject->getProvider();
 
         self::assertSame($this->provider, $provider);
     }
@@ -148,7 +139,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             provider: 'openai',
         ));
 
-        $result = $this->subject->chat($messages);
+        $result = $this->subject->chat($messages, new ChatOptions(provider: 'openai'));
 
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertEquals('Hi there', $result->content);
@@ -166,7 +157,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             provider: 'openai',
         ));
 
-        $result = $this->subject->complete($prompt);
+        $result = $this->subject->complete($prompt, new ChatOptions(provider: 'openai'));
 
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertEquals('I am fine, thank you!', $result->content);
@@ -185,7 +176,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             provider: 'openai',
         ));
 
-        $result = $this->subject->embed($text);
+        $result = $this->subject->embed($text, new EmbeddingOptions(provider: 'openai'));
 
         self::assertInstanceOf(EmbeddingResponse::class, $result);
         self::assertCount(1536, $result->embeddings[0]);
@@ -218,25 +209,6 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function setDefaultProviderChangesDefault(): void
-    {
-        $claudeProvider = new TestableProvider('claude', 'Claude', true);
-        $this->subject->registerProvider($claudeProvider);
-        $this->subject->setDefaultProvider('claude');
-
-        self::assertEquals('claude', $this->subject->getDefaultProvider());
-    }
-
-    #[Test]
-    public function setDefaultProviderThrowsForNonexistent(): void
-    {
-        $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('Cannot set default: Provider "nonexistent" not found');
-
-        $this->subject->setDefaultProvider('nonexistent');
-    }
-
-    #[Test]
     public function supportsFeatureReturnsTrueWhenSupported(): void
     {
         self::assertTrue($this->subject->supportsFeature('chat', 'openai'));
@@ -261,6 +233,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $options = new ChatOptions(
             temperature: 0.7,
             maxTokens: 1000,
+            provider: 'openai',
             model: 'gpt-4-turbo',
         );
 
@@ -287,7 +260,6 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $extensionConfigStub
             ->method('get')
             ->willReturn([
-                'defaultProvider' => 'openai',
                 'providers' => [
                     'openai' => [
                         'apiKeyIdentifier' => 'sk-test',
@@ -366,14 +338,13 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             provider: 'openai',
         ));
         $this->subject->registerProvider($visionProvider);
-        $this->subject->setDefaultProvider('openai-vision');
 
         $content = [
             ['type' => 'text', 'text' => 'Describe this image'],
             ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/image.jpg']],
         ];
 
-        $result = $this->subject->vision($content);
+        $result = $this->subject->vision($content, new VisionOptions(provider: 'openai-vision'));
 
         self::assertInstanceOf(VisionResponse::class, $result);
         self::assertEquals('Image shows a cat', $result->description);
@@ -382,11 +353,11 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     #[Test]
     public function visionThrowsWhenProviderDoesNotSupportVision(): void
     {
-        // Use the default provider which doesn't implement VisionCapableInterface
+        // Pin the registered provider (openai), which doesn't implement VisionCapableInterface
         $this->expectException(UnsupportedFeatureException::class);
         $this->expectExceptionMessage('does not support vision');
 
-        $this->subject->vision([['type' => 'text', 'text' => 'test']]);
+        $this->subject->vision([['type' => 'text', 'text' => 'test']], new VisionOptions(provider: 'openai'));
     }
 
     #[Test]
@@ -395,11 +366,10 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         // Create streaming-capable provider
         $streamProvider = new TestableStreamingProvider();
         $this->subject->registerProvider($streamProvider);
-        $this->subject->setDefaultProvider('openai-stream');
 
         $messages = [['role' => 'user', 'content' => 'Hello']];
         $chunks = [];
-        foreach ($this->subject->streamChat($messages) as $chunk) {
+        foreach ($this->subject->streamChat($messages, new ChatOptions(provider: 'openai-stream')) as $chunk) {
             $chunks[] = $chunk;
         }
 
@@ -412,7 +382,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $this->expectException(UnsupportedFeatureException::class);
         $this->expectExceptionMessage('does not support streaming');
 
-        foreach ($this->subject->streamChat([['role' => 'user', 'content' => 'test']]) as $chunk) {
+        foreach ($this->subject->streamChat([['role' => 'user', 'content' => 'test']], new ChatOptions(provider: 'openai')) as $chunk) {
             // Should not reach here
         }
     }
@@ -433,14 +403,13 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             ],
         ));
         $this->subject->registerProvider($toolProvider);
-        $this->subject->setDefaultProvider('openai-tools');
 
         $messages = [['role' => 'user', 'content' => 'What is the weather?']];
         $tools = [
             ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'get_weather', 'description' => 'Get weather', 'parameters' => []]]),
         ];
 
-        $result = $this->subject->chatWithTools($messages, $tools);
+        $result = $this->subject->chatWithTools($messages, $tools, new ToolOptions(provider: 'openai-tools'));
 
         self::assertNotNull($result->toolCalls);
         self::assertCount(1, $result->toolCalls);
@@ -462,14 +431,13 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             toolCalls: [ToolCall::function('call_1', 'echo', [])],
         ));
         $this->subject->registerProvider($toolProvider);
-        $this->subject->setDefaultProvider('openai-tools');
 
         $messages    = [['role' => 'user', 'content' => 'echo back']];
         $legacyTools = [
             ['type' => 'function', 'function' => ['name' => 'echo', 'description' => 'echoes input', 'parameters' => []]],
         ];
 
-        $result = $this->subject->chatWithTools($messages, $legacyTools);
+        $result = $this->subject->chatWithTools($messages, $legacyTools, new ToolOptions(provider: 'openai-tools'));
 
         self::assertNotNull($result->toolCalls);
         self::assertCount(1, $result->toolCalls);
@@ -493,7 +461,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $messages = [['role' => 'user', 'content' => 'test']];
         $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'test', 'parameters' => []]])];
 
-        $this->subject->chatWithTools($messages, $tools);
+        $this->subject->chatWithTools($messages, $tools, new ToolOptions(provider: 'openai'));
     }
 
     #[Test]
@@ -515,28 +483,21 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         // Should not throw, but log warning
         $manager = new LlmServiceManager($extensionConfigStub, $this->loggerStub, $this->adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
 
-        // Manager should work without configuration
-        self::assertNull($manager->getDefaultProvider());
+        // Manager should construct and operate without configuration: no
+        // providers registered yet, so the provider list is empty.
+        self::assertSame([], $manager->getProviderList());
     }
 
     #[Test]
     public function embedThrowsWhenProviderDoesNotSupportEmbeddings(): void
     {
-        // Create provider that doesn't support embeddings
-        $noEmbeddingsProvider = new TestableProvider('no-embed', 'No Embed', true);
-        $this->subject->registerProvider($noEmbeddingsProvider);
-        $this->subject->setDefaultProvider('no-embed');
-
-        // Override supportsFeature to return false for embeddings
-        // Actually the TestableProvider already supports embeddings, so let's use a different approach
         $this->expectException(UnsupportedFeatureException::class);
         $this->expectExceptionMessage('does not support embeddings');
 
         $limitedProvider = new TestableNoEmbeddingsProvider();
         $this->subject->registerProvider($limitedProvider);
-        $this->subject->setDefaultProvider('limited');
 
-        $this->subject->embed('test');
+        $this->subject->embed('test', new EmbeddingOptions(provider: 'limited'));
     }
 
     #[Test]
@@ -546,7 +507,6 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $extensionConfigStub
             ->method('get')
             ->willReturn([
-                'defaultProvider' => 'test',
                 'providers' => [
                     'configurable' => [
                         'apiKey' => 'test-key',
@@ -781,7 +741,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function chatFallsBackToDefaultProviderWhenNoDefaultConfigurationExists(): void
+    public function chatThrowsWhenNoDefaultConfigurationAndNoProviderPinned(): void
     {
         $configRepo = $this->createMock(LlmConfigurationRepository::class);
         $configRepo->method('findDefault')->willReturn(null);
@@ -796,13 +756,17 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
         $manager->registerProvider($this->provider);
 
-        $result = $manager->chat([['role' => 'user', 'content' => 'Hello']]);
+        // No active default configuration and no per-call provider: with the
+        // extension-config default-provider fallback removed, the generic path
+        // must throw rather than silently pick a provider.
+        $this->expectException(ProviderException::class);
+        $this->expectExceptionMessage('No provider specified and no default provider configured');
 
-        self::assertInstanceOf(CompletionResponse::class, $result);
+        $manager->chat([['role' => 'user', 'content' => 'Hello']]);
     }
 
     #[Test]
-    public function chatFallsBackToDefaultProviderWhenDefaultConfigurationHasNoModel(): void
+    public function chatThrowsWhenDefaultConfigurationHasNoModelAndNoProviderPinned(): void
     {
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn(null);
@@ -821,14 +785,17 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager->registerProvider($this->provider);
 
         // A model-less default config must not route into *WithConfiguration()
-        // (which would throw) — the extension-config provider handles it instead.
-        $result = $manager->chat([['role' => 'user', 'content' => 'Hello']]);
+        // (which would throw a different "no model" error): resolveDefaultConfiguration()
+        // returns null, so with no pinned provider the generic path throws the
+        // no-provider error — asserting that distinguishes the gate from a misroute.
+        $this->expectException(ProviderException::class);
+        $this->expectExceptionMessage('No provider specified and no default provider configured');
 
-        self::assertInstanceOf(CompletionResponse::class, $result);
+        $manager->chat([['role' => 'user', 'content' => 'Hello']]);
     }
 
     #[Test]
-    public function chatFallsBackToDefaultProviderWhenDefaultConfigurationIsAccessRestricted(): void
+    public function chatThrowsWhenDefaultConfigurationIsAccessRestrictedAndNoProviderPinned(): void
     {
         $model = self::createStub(Model::class);
         $config = self::createStub(LlmConfiguration::class);
@@ -849,10 +816,12 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager->registerProvider($this->provider);
 
         // A group-restricted default must not be auto-applied without a BE-user
-        // context to enforce membership — the extension-config provider handles it.
-        $result = $manager->chat([['role' => 'user', 'content' => 'Hello']]);
+        // context to enforce membership: resolveDefaultConfiguration() returns
+        // null, so with no pinned provider the generic path throws.
+        $this->expectException(ProviderException::class);
+        $this->expectExceptionMessage('No provider specified and no default provider configured');
 
-        self::assertInstanceOf(CompletionResponse::class, $result);
+        $manager->chat([['role' => 'user', 'content' => 'Hello']]);
     }
 
     #[Test]
@@ -930,7 +899,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function completeFallsBackToDefaultProviderWhenNoDefaultConfigurationExists(): void
+    public function completeThrowsWhenNoDefaultConfigurationAndNoProviderPinned(): void
     {
         $configRepo = $this->createMock(LlmConfigurationRepository::class);
         $configRepo->method('findDefault')->willReturn(null);
@@ -945,9 +914,11 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
         $manager->registerProvider($this->provider);
 
-        $result = $manager->complete('Prompt');
+        // Mirror of the chat() no-fallback contract for the complete() entry point.
+        $this->expectException(ProviderException::class);
+        $this->expectExceptionMessage('No provider specified and no default provider configured');
 
-        self::assertInstanceOf(CompletionResponse::class, $result);
+        $manager->complete('Prompt');
     }
 
     #[Test]
@@ -1054,7 +1025,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $spy     = new RecordingMiddleware();
         $manager = $this->buildManagerWithMiddleware([$spy]);
 
-        $manager->chat([['role' => 'user', 'content' => 'Hello']]);
+        $manager->chat([['role' => 'user', 'content' => 'Hello']], new ChatOptions(provider: 'openai'));
 
         self::assertCount(1, $spy->calls);
         self::assertSame(ProviderOperation::Chat, $spy->calls[0]['operation']);
@@ -1069,7 +1040,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $spy     = new RecordingMiddleware();
         $manager = $this->buildManagerWithMiddleware([$spy]);
 
-        $manager->complete('prompt');
+        $manager->complete('prompt', new ChatOptions(provider: 'openai'));
 
         self::assertCount(1, $spy->calls);
         self::assertSame(ProviderOperation::Completion, $spy->calls[0]['operation']);
@@ -1081,7 +1052,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $spy     = new RecordingMiddleware();
         $manager = $this->buildManagerWithMiddleware([$spy]);
 
-        $manager->embed('text');
+        $manager->embed('text', new EmbeddingOptions(provider: 'openai'));
 
         self::assertCount(1, $spy->calls);
         self::assertSame(ProviderOperation::Embedding, $spy->calls[0]['operation']);
@@ -1096,7 +1067,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $manager->vision([
             ['type' => 'image_url', 'image_url' => ['url' => 'https://example.test/i.png']],
-        ]);
+        ], new VisionOptions(provider: 'openai-vision'));
 
         self::assertCount(1, $spy->calls);
         self::assertSame(ProviderOperation::Vision, $spy->calls[0]['operation']);
@@ -1112,6 +1083,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager->chatWithTools(
             [['role' => 'user', 'content' => 'hi']],
             [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'noop', 'description' => '', 'parameters' => []]])],
+            new ToolOptions(provider: 'openai-tools'),
         );
 
         self::assertCount(1, $spy->calls);
@@ -1126,7 +1098,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         // EmbeddingOptions defaults to cacheTtl = 86400, so cache metadata
         // should be set on the ProviderCallContext the middleware sees.
-        $manager->embed('text');
+        $manager->embed('text', new EmbeddingOptions(provider: 'openai'));
 
         self::assertCount(1, $spy->calls);
         $metadata = $spy->calls[0]['metadata'];
@@ -1141,7 +1113,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $spy     = new RecordingMiddleware();
         $manager = $this->buildManagerWithMiddleware([$spy]);
 
-        $manager->embed('text', EmbeddingOptions::noCache());
+        $manager->embed('text', EmbeddingOptions::noCache()->withProvider('openai'));
 
         self::assertCount(1, $spy->calls);
         $metadata = $spy->calls[0]['metadata'];
@@ -1158,6 +1130,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager = $this->buildManagerWithMiddleware([$spy]);
 
         $options = (new ChatOptions())
+            ->withProvider('openai')
             ->withBeUserUid(7)
             ->withPlannedCost(0.42);
 
@@ -1178,7 +1151,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $spy     = new RecordingMiddleware();
         $manager = $this->buildManagerWithMiddleware([$spy]);
 
-        $manager->chat([['role' => 'user', 'content' => 'hi']]);
+        $manager->chat([['role' => 'user', 'content' => 'hi']], new ChatOptions(provider: 'openai'));
 
         self::assertCount(1, $spy->calls);
         $metadata = $spy->calls[0]['metadata'];
@@ -1197,6 +1170,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager = $this->buildManagerWithMiddleware([$spy]);
 
         $options = (new ChatOptions())
+            ->withProvider('openai')
             ->withBeUserUid(13)
             ->withPlannedCost(0.17);
 
@@ -1219,6 +1193,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager  = $this->buildManagerWithMiddleware([$spy], $provider);
 
         $options = new ToolOptions(
+            provider: 'openai-tools',
             beUserUid: 21,
             plannedCost: 0.05,
         );
@@ -1246,6 +1221,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager = $this->buildManagerWithMiddleware([$spy]);
 
         $options = (new EmbeddingOptions(cacheTtl: 0))
+            ->withProvider('openai')
             ->withBeUserUid(7)
             ->withPlannedCost(0.42);
 
@@ -1267,6 +1243,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager = $this->buildManagerWithMiddleware([$spy]);
 
         $options = (new EmbeddingOptions())
+            ->withProvider('openai')
             ->withBeUserUid(11)
             ->withPlannedCost(0.05);
 
@@ -1288,6 +1265,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager  = $this->buildManagerWithMiddleware([$spy], $provider);
 
         $options = (new VisionOptions())
+            ->withProvider('openai-vision')
             ->withBeUserUid(21)
             ->withPlannedCost(0.10);
 
@@ -1312,7 +1290,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $spy     = new RecordingMiddleware();
         $manager = $this->buildManagerWithMiddleware([$spy]);
 
-        $options = (new ChatOptions())->withBeUserUid(11);
+        $options = (new ChatOptions())->withProvider('openai')->withBeUserUid(11);
 
         $manager->chat([['role' => 'user', 'content' => 'hi']], $options);
 
@@ -1363,7 +1341,6 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             ));
         }
         $manager->registerProvider($testProvider);
-        $manager->setDefaultProvider($testProvider->getIdentifier());
 
         return $manager;
     }

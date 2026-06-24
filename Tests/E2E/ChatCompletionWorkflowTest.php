@@ -56,7 +56,6 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
-            'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
@@ -65,12 +64,11 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
-        $serviceManager->setDefaultProvider('openai');
 
         $completionService = new CompletionService($serviceManager);
 
-        // Act: Execute complete workflow
-        $result = $completionService->complete('Hello!');
+        // Act: Execute complete workflow (provider pinned per-call)
+        $result = $completionService->complete('Hello!', new ChatOptions(provider: 'openai'));
 
         // Assert: Verify complete response
         self::assertInstanceOf(CompletionResponse::class, $result);
@@ -104,7 +102,6 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
-            'defaultProvider' => 'claude',
             'providers' => ['claude' => ['apiKeyIdentifier' => '019650a0-1234-7abc-8def-0123456789ab']],
         ]);
 
@@ -113,12 +110,11 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
-        $serviceManager->setDefaultProvider('claude');
 
         $completionService = new CompletionService($serviceManager);
 
-        // Act
-        $result = $completionService->complete('Hello Claude!');
+        // Act (provider pinned per-call)
+        $result = $completionService->complete('Hello Claude!', new ChatOptions(provider: 'claude'));
 
         // Assert
         self::assertInstanceOf(CompletionResponse::class, $result);
@@ -150,7 +146,6 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
-            'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
@@ -159,9 +154,8 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($clientSetup['client']);
-        $serviceManager->setDefaultProvider('openai');
 
-        // Act: Multi-turn conversation via service manager directly
+        // Act: Multi-turn conversation via service manager directly (provider pinned per-call)
         $messages = [
             ['role' => 'system', 'content' => 'You are a helpful geography assistant.'],
             ['role' => 'user', 'content' => 'What is the capital of France?'],
@@ -169,7 +163,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
             ['role' => 'user', 'content' => 'Can you confirm that?'],
         ];
 
-        $result = $serviceManager->chat($messages);
+        $result = $serviceManager->chat($messages, new ChatOptions(provider: 'openai'));
 
         // Assert
         self::assertInstanceOf(CompletionResponse::class, $result);
@@ -207,7 +201,6 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
-            'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
@@ -216,14 +209,13 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($clientSetup['client']);
-        $serviceManager->setDefaultProvider('openai');
 
         $completionService = new CompletionService($serviceManager);
 
-        // Act: Request with specific options (use gpt-4o which supports sampling params)
+        // Act: Request with specific options (provider pinned per-call; gpt-4o supports sampling params)
         $result = $completionService->complete(
             'Generate JSON',
-            new ChatOptions(model: 'gpt-4o', temperature: 0.1, maxTokens: 500),
+            new ChatOptions(provider: 'openai', model: 'gpt-4o', temperature: 0.1, maxTokens: 500),
         );
 
         // Assert
@@ -261,7 +253,6 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
-            'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
@@ -270,12 +261,11 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
-        $serviceManager->setDefaultProvider('openai');
 
         $completionService = new CompletionService($serviceManager);
 
-        // Act
-        $result = $completionService->complete('Write a very long essay');
+        // Act (provider pinned per-call)
+        $result = $completionService->complete('Write a very long essay', new ChatOptions(provider: 'openai'));
 
         // Assert
         self::assertTrue($result->wasTruncated());
@@ -307,7 +297,6 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
-            'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
@@ -316,12 +305,11 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
-        $serviceManager->setDefaultProvider('openai');
 
         $completionService = new CompletionService($serviceManager);
 
-        // Act
-        $result = $completionService->complete('Track my usage');
+        // Act (provider pinned per-call)
+        $result = $completionService->complete('Track my usage', new ChatOptions(provider: 'openai'));
 
         // Assert usage is correctly tracked
         self::assertEquals(25, $result->usage->promptTokens);
@@ -367,7 +355,6 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
-            'defaultProvider' => 'openai',
             'providers' => [
                 'openai' => ['apiKeyIdentifier' => 'sk-openai-test'],
                 'claude' => ['apiKeyIdentifier' => '019650a0-1234-7abc-8def-0123456789ab'],
@@ -381,7 +368,6 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $openAiProvider->setHttpClient($openAiClient);
         $claudeProvider->setHttpClient($claudeClient);
-        $serviceManager->setDefaultProvider('openai');
 
         $completionService = new CompletionService($serviceManager);
 

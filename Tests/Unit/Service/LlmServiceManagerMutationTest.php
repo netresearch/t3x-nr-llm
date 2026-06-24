@@ -75,24 +75,12 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getProviderThrowsWhenProviderNotFound(): void
     {
-        $manager = $this->createManager(['defaultProvider' => 'nonexistent']);
+        $manager = $this->createManager();
 
         $this->expectException(ProviderException::class);
         $this->expectExceptionMessage('Provider "nonexistent" not found');
 
-        $manager->getProvider();
-    }
-
-    #[Test]
-    public function getProviderUsesDefaultWhenNullPassed(): void
-    {
-        $manager = $this->createManager(['defaultProvider' => 'test']);
-        $provider = $this->createProviderStub('test');
-        $manager->registerProvider($provider);
-
-        $result = $manager->getProvider(null);
-
-        self::assertSame($provider, $result);
+        $manager->getProvider('nonexistent');
     }
 
     #[Test]
@@ -151,45 +139,6 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
             'openai' => 'OpenAI',
             'claude' => 'Anthropic Claude',
         ], $result);
-    }
-
-    #[Test]
-    public function setDefaultProviderThrowsWhenProviderNotFound(): void
-    {
-        $manager = $this->createManager();
-
-        $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('Cannot set default: Provider "nonexistent" not found');
-
-        $manager->setDefaultProvider('nonexistent');
-    }
-
-    #[Test]
-    public function setDefaultProviderUpdatesDefault(): void
-    {
-        $manager = $this->createManager();
-        $provider = $this->createProviderStub('test');
-        $manager->registerProvider($provider);
-
-        $manager->setDefaultProvider('test');
-
-        self::assertEquals('test', $manager->getDefaultProvider());
-    }
-
-    #[Test]
-    public function getDefaultProviderReturnsNullWhenNotSet(): void
-    {
-        $manager = $this->createManager();
-
-        self::assertNull($manager->getDefaultProvider());
-    }
-
-    #[Test]
-    public function getDefaultProviderReturnsConfiguredDefault(): void
-    {
-        $manager = $this->createManager(['defaultProvider' => 'configured']);
-
-        self::assertEquals('configured', $manager->getDefaultProvider());
     }
 
     #[Test]
@@ -291,7 +240,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
     #[Test]
     public function supportsFeatureReturnsTrueWhenProviderSupports(): void
     {
-        $manager = $this->createManager(['defaultProvider' => 'test']);
+        $manager = $this->createManager();
 
         $provider = $this->createMock(ProviderInterface::class);
         $provider->method('getIdentifier')->willReturn('test');
@@ -301,7 +250,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $manager->registerProvider($provider);
 
-        $result = $manager->supportsFeature('chat');
+        $result = $manager->supportsFeature('chat', 'test');
 
         self::assertTrue($result);
     }

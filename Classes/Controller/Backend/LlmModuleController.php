@@ -63,7 +63,6 @@ final class LlmModuleController extends ActionController
 
         $providers = $this->llmServiceManager->getProviderList();
         $availableProviders = $this->llmServiceManager->getAvailableProviders();
-        $defaultProvider = $this->llmServiceManager->getDefaultProvider();
 
         $providerDetails = [];
         foreach ($providers as $identifier => $name) {
@@ -74,7 +73,6 @@ final class LlmModuleController extends ActionController
                 'name' => $name,
                 'identifier' => $identifier,
                 'available' => $isAvailable,
-                'isDefault' => $identifier === $defaultProvider,
                 'models' => $provider?->getAvailableModels() ?? [],
                 'defaultModel' => $provider?->getDefaultModel() ?? '',
                 'features' => $this->getProviderFeatures($provider),
@@ -90,7 +88,6 @@ final class LlmModuleController extends ActionController
 
         $moduleTemplate->assignMultiple([
             'providers' => $providerDetails,
-            'defaultProvider' => $defaultProvider,
             'dbProviderCount' => $dbProviderCount,
             'dbModelCount' => $dbModelCount,
             'dbConfigurationCount' => $dbConfigurationCount,

@@ -11,7 +11,10 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
@@ -44,12 +47,35 @@ class LlmTranslatorTest extends AbstractUnitTestCase
         $extensionConfigStub
             ->method('get')
             ->willReturn([
-                'defaultProvider' => 'openai',
                 'providers' => [],
             ]);
 
         $loggerStub = self::createStub(LoggerInterface::class);
+
+        $this->provider = new TranslatorTestProvider();
+
+        // Default DB configuration (flow 2): a provider-agnostic chat() — used
+        // by detectLanguage() and the auto-detect path of translate() — has no
+        // pinned provider, so the manager resolves the backend-module default
+        // configuration. A bare config with a Model assigned and no access
+        // restrictions satisfies resolveDefaultConfiguration()'s gate
+        // (getLlmModel() !== null && !hasAccessRestrictions()).
+        $defaultModel = new Model();
+        $defaultModel->setModelId('gpt-5.2');
+
+        $defaultConfiguration = new LlmConfiguration();
+        $defaultConfiguration->setIdentifier('test-default');
+        $defaultConfiguration->setLlmModel($defaultModel);
+
+        $configurationRepositoryStub = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepositoryStub->method('findDefault')->willReturn($defaultConfiguration);
+
+        // The default configuration resolves its adapter through the registry;
+        // route it back to the same in-memory test provider the pinned
+        // (per-call ['provider' => 'openai']) flow uses, so both paths share
+        // one response source.
         $adapterRegistryStub = self::createStub(ProviderAdapterRegistryInterface::class);
+        $adapterRegistryStub->method('createAdapterFromModel')->willReturn($this->provider);
 
         $this->llmManager = new LlmServiceManager(
             $extensionConfigStub,
@@ -57,9 +83,9 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             $adapterRegistryStub,
             $this->emptyMiddlewarePipeline(),
             self::createStub(CacheManagerInterface::class),
+            $configurationRepositoryStub,
         );
 
-        $this->provider = new TranslatorTestProvider();
         $this->llmManager->registerProvider($this->provider);
 
         $this->usageTrackerStub = self::createStub(UsageTrackerServiceInterface::class);
@@ -128,7 +154,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
     {
         $this->setResponse('Hallo Welt');
 
-        $result = $this->subject->translate('Hello World', 'de', 'en');
+        $result = $this->subject->translate('Hello World', 'de', 'en', ['provider' => 'openai']);
 
         self::assertInstanceOf(TranslatorResult::class, $result);
         self::assertEquals('Hallo Welt', $result->translatedText);
@@ -167,7 +193,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             $usageTrackerMock,
         );
 
-        $subject->translate('Test text', 'de', 'en');
+        $subject->translate('Test text', 'de', 'en', ['provider' => 'openai']);
     }
 
     #[Test]
@@ -175,7 +201,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
     {
         $this->setResponse('Result', 'stop');
 
-        $result = $this->subject->translate('Test', 'de', 'en');
+        $result = $this->subject->translate('Test', 'de', 'en', ['provider' => 'openai']);
 
         self::assertEquals(0.9, $result->confidence);
     }
@@ -185,7 +211,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
     {
         $this->setResponse('Result', 'length');
 
-        $result = $this->subject->translate('Test', 'de', 'en');
+        $result = $this->subject->translate('Test', 'de', 'en', ['provider' => 'openai']);
 
         self::assertEquals(0.6, $result->confidence);
     }
@@ -195,7 +221,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
     {
         $this->setResponse('Result', 'unknown');
 
-        $result = $this->subject->translate('Test', 'de', 'en');
+        $result = $this->subject->translate('Test', 'de', 'en', ['provider' => 'openai']);
 
         self::assertEquals(0.5, $result->confidence);
     }
@@ -205,7 +231,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
     {
         $this->setResponse('Translated');
 
-        $result = $this->subject->translate('Test', 'de', 'en');
+        $result = $this->subject->translate('Test', 'de', 'en', ['provider' => 'openai']);
 
         self::assertNotNull($result->metadata);
         self::assertArrayHasKey('model', $result->metadata);
@@ -227,7 +253,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             new CompletionResponse('Translated', 'gpt-5.2', new UsageStatistics(100, 50, 150), 'stop', 'openai'),
         ];
 
-        $result = $this->subject->translate('Das ist ein Test', 'en');
+        $result = $this->subject->translate('Das ist ein Test', 'en', null, ['provider' => 'openai']);
 
         self::assertEquals('de', $result->sourceLanguage);
         self::assertEquals('Translated', $result->translatedText);
@@ -252,7 +278,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             new CompletionResponse('Third', 'gpt-5.2', new UsageStatistics(10, 5, 15), 'stop', 'openai'),
         ];
 
-        $result = $this->subject->translateBatch(['Text 1', 'Text 2', 'Text 3'], 'de', 'en');
+        $result = $this->subject->translateBatch(['Text 1', 'Text 2', 'Text 3'], 'de', 'en', ['provider' => 'openai']);
 
         self::assertCount(3, $result);
     }
@@ -510,7 +536,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             'Dear Sir or Madam',
             'de',
             'en',
-            ['formality' => 'formal'],
+            ['formality' => 'formal', 'provider' => 'openai'],
         );
 
         self::assertInstanceOf(TranslatorResult::class, $result);
@@ -526,7 +552,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             'Test medical text',
             'de',
             'en',
-            ['domain' => 'medical'],
+            ['domain' => 'medical', 'provider' => 'openai'],
         );
 
         self::assertInstanceOf(TranslatorResult::class, $result);
@@ -541,7 +567,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             'Original text',
             'de',
             'en',
-            ['glossary' => ['term1' => 'Begriff1', 'term2' => 'Begriff2']],
+            ['glossary' => ['term1' => 'Begriff1', 'term2' => 'Begriff2'], 'provider' => 'openai'],
         );
 
         self::assertInstanceOf(TranslatorResult::class, $result);
@@ -556,7 +582,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             'Text to translate',
             'de',
             'en',
-            ['context' => 'This is an informal chat message'],
+            ['context' => 'This is an informal chat message', 'provider' => 'openai'],
         );
 
         self::assertInstanceOf(TranslatorResult::class, $result);
@@ -571,7 +597,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             '<p>Text with HTML</p>',
             'de',
             'en',
-            ['preserve_formatting' => false],
+            ['preserve_formatting' => false, 'provider' => 'openai'],
         );
 
         self::assertInstanceOf(TranslatorResult::class, $result);
@@ -615,6 +641,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             [
                 'temperature' => 'invalid',
                 'max_tokens' => 'invalid',
+                'provider' => 'openai',
             ],
         );
 
@@ -630,6 +657,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             'Hello',
             'xyz', // Unknown language code
             'abc', // Unknown language code
+            ['provider' => 'openai'],
         );
 
         self::assertEquals('abc', $result->sourceLanguage);

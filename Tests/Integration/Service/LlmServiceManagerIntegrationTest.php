@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Integration\Service;
 
-use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
@@ -48,7 +47,6 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         $this->extensionConfigStub->expects(self::any())->method('get')
             ->with('nr_llm')
             ->willReturn([
-                'defaultProvider' => 'openai',
                 'providers' => [
                     'openai' => [
                         'apiKeyIdentifier' => 'sk-test-openai',
@@ -147,29 +145,6 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     }
 
     #[Test]
-    public function defaultProviderIsUsedWhenNoProviderSpecified(): void
-    {
-        /** @var array<string, mixed> $responseData */
-        $responseData = $this->getOpenAiChatResponse(content: 'OpenAI response');
-
-        ['provider' => $openAiProvider, 'httpClient' => $httpClient] = $this->createConfiguredOpenAiProvider([
-            $this->createSuccessResponse($responseData),
-        ]);
-
-        $this->subject->registerProvider($openAiProvider);
-        // setHttpClient must be called AFTER registerProvider() since it calls configure()
-        $openAiProvider->setHttpClient($httpClient);
-        $this->subject->setDefaultProvider('openai');
-
-        $result = $this->subject->chat([
-            ['role' => 'user', 'content' => 'Hello'],
-        ]);
-
-        self::assertInstanceOf(CompletionResponse::class, $result);
-        self::assertEquals('OpenAI response', $result->content);
-    }
-
-    #[Test]
     public function specificProviderCanBeRequestedInOptions(): void
     {
         /** @var array<string, mixed> $openAiResponse */
@@ -189,7 +164,6 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $openAiProvider->setHttpClient($openAiClient);
         $claudeProvider->setHttpClient($claudeClient);
-        $this->subject->setDefaultProvider('openai');
 
         // Request Claude specifically
         $result = $this->subject->chat(
@@ -293,11 +267,10 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         $this->subject->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($clientSetup['client']);
-        $this->subject->setDefaultProvider('openai');
 
         $this->subject->chat(
             [['role' => 'user', 'content' => 'Hello']],
-            new ChatOptions(temperature: 0.5, maxTokens: 100),
+            new ChatOptions(provider: 'openai', temperature: 0.5, maxTokens: 100),
         );
 
         self::assertCount(1, $clientSetup['requests']);
@@ -338,9 +311,8 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         $this->subject->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
-        $this->subject->setDefaultProvider('openai');
 
-        $result = $this->subject->complete('Tell me a joke');
+        $result = $this->subject->complete('Tell me a joke', new ChatOptions(provider: 'openai'));
 
         self::assertEquals('Completed prompt', $result->content);
     }

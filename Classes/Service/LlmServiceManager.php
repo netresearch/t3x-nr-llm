@@ -45,8 +45,6 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     /** @var array<string, ProviderInterface> */
     private array $providers = [];
 
-    private ?string $defaultProvider = null;
-
     /** @var array<string, mixed> */
     private array $configuration = [];
 
@@ -65,8 +63,9 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      * Resolve the backend-module-managed default configuration for a generic
      * (provider-agnostic) completion/chat call. Returns null when the caller
      * pinned an explicit provider, when no repository is wired (unit tests), or
-     * when no active default configuration exists — in which case the caller
-     * falls back to the extension-config default provider.
+     * when no active default configuration exists — in which case the generic
+     * path requires a per-call pinned provider and otherwise throws (there is
+     * no extension-config default-provider fallback; see ADR-034).
      *
      * Uses the repository directly rather than LlmConfigurationService, whose
      * getDefaultConfiguration() enforces a backend-user access check that the
@@ -80,9 +79,10 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
         $configuration = $this->configurationRepository?->findDefault();
 
-        // Treat as "no default" — preserving the extension-config fallback — when the default
-        // configuration is missing, has no model (getAdapterFromConfiguration() would throw), or
-        // is access-restricted to specific BE groups. The generic chat()/complete()/streamChat()
+        // Treat as "no default" when the default configuration is missing, has no model
+        // (getAdapterFromConfiguration() would throw), or is access-restricted to specific BE
+        // groups. Returning null here means the generic call needs a per-call pinned provider —
+        // otherwise getProvider(null) throws. The generic chat()/complete()/streamChat()
         // path has no backend-user context to enforce group membership against (notably the CLI
         // worker), so an access-restricted default must not be auto-applied to arbitrary callers.
         if ($configuration === null
@@ -101,8 +101,6 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             /** @var array<string, mixed> $config */
             $config = $this->extensionConfiguration->get('nr_llm');
             $this->configuration = $config;
-            $defaultProvider = $config['defaultProvider'] ?? null;
-            $this->defaultProvider = is_string($defaultProvider) ? $defaultProvider : null;
         } catch (Exception $e) {
             $this->logger->warning('Failed to load extension configuration', ['exception' => $e]);
             $this->configuration = [];
@@ -127,8 +125,6 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
     public function getProvider(?string $identifier = null): ProviderInterface
     {
-        $identifier ??= $this->defaultProvider;
-
         if ($identifier === null) {
             throw new ProviderException(
                 'No provider specified and no default provider configured. '
@@ -177,19 +173,6 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         return $list;
     }
 
-    public function setDefaultProvider(string $identifier): void
-    {
-        if (!isset($this->providers[$identifier])) {
-            throw new ProviderException(sprintf('Cannot set default: Provider "%s" not found', $identifier), 7808641575);
-        }
-        $this->defaultProvider = $identifier;
-    }
-
-    public function getDefaultProvider(): ?string
-    {
-        return $this->defaultProvider;
-    }
-
     /**
      * Send a chat completion request.
      *
@@ -207,8 +190,9 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
         // Single source of truth: with no explicit provider pinned, prefer the
         // backend-module-managed default DB configuration so it drives generation.
-        // The per-call options override the configuration's stored defaults; falls
-        // back to the extension-config default provider when no default exists.
+        // The per-call options override the configuration's stored defaults. When
+        // no default configuration resolves and no provider is pinned, the call
+        // throws (no extension-config fallback; see ADR-034).
         $defaultConfiguration = $this->resolveDefaultConfiguration($providerKey);
         if ($defaultConfiguration !== null) {
             return $this->chatWithConfiguration(
@@ -278,7 +262,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $cacheTtl = is_int($optionsArray['cache_ttl'] ?? null) ? $optionsArray['cache_ttl'] : 0;
         $metadata = $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost());
         if ($cacheTtl > 0) {
-            $resolvedProvider = $providerKey ?? $this->defaultProvider ?? 'default';
+            $resolvedProvider = $providerKey ?? 'default';
             $metadata += [
                 CacheMiddleware::METADATA_CACHE_KEY => $this->cacheManager->generateCacheKey(
                     $resolvedProvider,
@@ -698,7 +682,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $identifier = sprintf(
             'ad-hoc:%s:%s',
             $operation->value,
-            $providerKey ?? ($this->defaultProvider ?? 'default'),
+            $providerKey ?? 'default',
         );
 
         $configuration = new LlmConfiguration();
