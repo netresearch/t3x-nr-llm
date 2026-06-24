@@ -130,7 +130,13 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $identifier ??= $this->defaultProvider;
 
         if ($identifier === null) {
-            throw new ProviderException('No provider specified and no default provider configured', 4867297358);
+            throw new ProviderException(
+                'No provider specified and no default provider configured. '
+                . 'Set up a default in the LLM backend module: create a Provider, a Model and a '
+                . 'Configuration, then mark that Configuration active and default. '
+                . '(The plugin.tx_nrllm TypoScript settings are not evaluated — provider configuration is database-backed.)',
+                4867297358,
+            );
         }
 
         if (!isset($this->providers[$identifier])) {

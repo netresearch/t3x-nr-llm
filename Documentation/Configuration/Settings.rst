@@ -7,46 +7,30 @@ Settings
 ========
 
 .. _configuration-typoscript:
+.. _configuration-providers:
 
-TypoScript settings
-===================
+Provider configuration
+=======================
 
-Runtime settings via TypoScript constants:
+Providers, models and configurations are **database-backed** and managed
+in the LLM backend module — not via TypoScript. nr-llm does **not** read
+``plugin.tx_nrllm`` TypoScript settings; any such constants/setup have no
+effect (this is true for both classic TypoScript templates and site sets).
 
-.. code-block:: typoscript
-   :caption: Configuration/TypoScript/constants.typoscript
+To make the generic ``chat()`` / ``complete()`` entry points work without
+pinning a provider per call, set up a default configuration:
 
-   plugin.tx_nrllm {
-       settings {
-           # Default provider (openai, claude, gemini)
-           defaultProvider = openai
-           # Enable response caching
-           enableCaching = 1
-           # Cache lifetime in seconds
-           cacheLifetime = 3600
+#. Open the **LLM** backend module.
+#. Create a **Provider** (e.g. OpenAI) and store its API key as an
+   nr-vault identifier — see :ref:`configuration-security-api-keys`.
+#. Create a **Model** for that provider.
+#. Create a **Configuration** bundling the model, then mark it
+   **active** and **default**.
 
-           providers {
-               openai {
-                   enabled = 1
-                   defaultModel = gpt-4o
-                   temperature = 0.7
-                   maxTokens = 4096
-               }
-               claude {
-                   enabled = 1
-                   defaultModel = claude-sonnet-4-20250514
-                   temperature = 0.7
-                   maxTokens = 4096
-               }
-               gemini {
-                   enabled = 1
-                   defaultModel = gemini-2.0-flash
-                   temperature = 0.7
-                   maxTokens = 4096
-               }
-           }
-       }
-   }
+The :guilabel:`Setup Wizard` in the module walks through these steps.
+
+Without an active default configuration, generic calls throw
+*"No provider specified and no default provider configured"*.
 
 .. _configuration-environment:
 

@@ -12,7 +12,6 @@ use Netresearch\NrLlm\Form\Element\ModelIdElement;
 use Netresearch\NrLlm\Form\FieldWizard\ModelConstraintsWizard;
 use Netresearch\NrLlm\Service\CapabilityPermissionService;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
-use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 
 defined('TYPO3') or die();
 
@@ -44,15 +43,6 @@ defined('TYPO3') or die();
         'priority' => 40,
         'class' => ModelConstraintsWizard::class,
     ];
-
-    // Register TypoScript
-    ExtensionManagementUtility::addTypoScriptSetup(
-        '@import "EXT:nr_llm/Configuration/TypoScript/setup.typoscript"',
-    );
-
-    ExtensionManagementUtility::addTypoScriptConstants(
-        '@import "EXT:nr_llm/Configuration/TypoScript/constants.typoscript"',
-    );
 
     // Register per-capability BE group permissions. Editors see a checkbox per
     // capability on the backend group edit view; admins bypass all checks.
