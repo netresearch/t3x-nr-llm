@@ -29,9 +29,6 @@ Configuration/
 │   ├── tx_nrllm_provider.php
 │   ├── tx_nrllm_task.php
 │   └── tx_nrllm_user_budget.php
-├── TypoScript/
-│   ├── constants.typoscript
-│   └── setup.typoscript
 ├── Caching.php              # Cache configuration
 ├── Icons.php                # Icon registration
 ├── JavaScriptModules.php    # JS module registration
