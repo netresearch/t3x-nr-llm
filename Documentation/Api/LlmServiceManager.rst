@@ -82,10 +82,14 @@ The central service for all LLM operations.
 
    .. php:method:: getProvider(?string $identifier = null): ProviderInterface
 
-      Get a specific provider by identifier.
+      Get a specific provider by identifier. An explicit identifier is
+      required; passing ``null`` throws ``ProviderException`` (code
+      4867297358). To select a provider without naming one, pin it per
+      call via the options object's ``provider`` field, or configure an
+      active default Configuration in the backend module (see ADR-034).
 
       :param string|null $identifier: Provider identifier
-         (openai, claude, gemini); null for default
+         (openai, claude, gemini); ``null`` is rejected
       :returns: ProviderInterface
       :throws: ProviderException
 

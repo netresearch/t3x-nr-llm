@@ -81,7 +81,7 @@ E2E test example
                ExtensionConfiguration::class
            );
            $extConfig->method('get')->willReturn([
-               'defaultProvider' => 'openai',
+               'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
            ]);
 
            $registry = self::createStub(

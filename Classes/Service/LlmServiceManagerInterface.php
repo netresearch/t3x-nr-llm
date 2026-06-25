@@ -46,10 +46,6 @@ interface LlmServiceManagerInterface
      */
     public function getProviderList(): array;
 
-    public function setDefaultProvider(string $identifier): void;
-
-    public function getDefaultProvider(): ?string;
-
     /**
      * Legacy array-shaped message fixtures are accepted for back-compat
      * and normalised via `ChatMessage::fromArray()` before dispatch.

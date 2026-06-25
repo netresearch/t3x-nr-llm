@@ -266,3 +266,4 @@ Modern architecture (v0.4+)
    Adr031PromptSnippetLibrary
    Adr032SpecializedUsageAndPricingCatalog
    Adr033SpecializedModelRegistry
+   Adr034RemoveExtensionConfigDefaultProvider

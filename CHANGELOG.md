@@ -6,6 +6,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed
+
+- **BREAKING:** `setDefaultProvider()` and `getDefaultProvider()` removed from
+  `LlmServiceManagerInterface` (and its implementation), and the
+  `ExtensionConfiguration['nr_llm']['defaultProvider']` setting is no longer
+  read. These were a vestige of the pre-database provider-centric design and
+  had no effect in production (the key was never exposed in
+  `ext_conf_template.txt`). See ADR-034.
+
+### Changed
+
+- **BREAKING:** `LlmServiceManager::getProvider(null)` now throws
+  `ProviderException` (4867297358) instead of falling back to an
+  extension-config default provider.
+
+  **Migration:** select a provider in one of the two supported ways —
+  pin it per call via the options object's `provider` field
+  (`new ChatOptions(provider: 'openai')`, likewise `EmbeddingOptions`/
+  `VisionOptions`/`ToolOptions`), or mark a Configuration *active* and
+  *default* in the LLM backend module so the generic `chat()`/`complete()`/
+  `embed()` entry points resolve it automatically. To read the configured
+  default programmatically, use
+  `LlmConfigurationService::getDefaultConfiguration()` (access-checked) or
+  `LlmConfigurationRepository::findDefault()` (raw).
+
 ## [0.12.0] - 2026-06-11
 
 ### Added

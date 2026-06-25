@@ -10,12 +10,15 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\E2E;
 
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Feature\EmbeddingService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
@@ -50,7 +53,6 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
-            'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
@@ -59,8 +61,6 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
-        $serviceManager->setDefaultProvider('openai');
-
         // Mock cache manager
         $cacheManager = self::createStub(CacheManagerInterface::class);
         $cacheManager->method('getCachedEmbeddings')->willReturn(null);
@@ -69,7 +69,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $embeddingService = new EmbeddingService($serviceManager);
 
         // Act
-        $result = $embeddingService->embedFull('Test text for embedding');
+        $result = $embeddingService->embedFull('Test text for embedding', new EmbeddingOptions(provider: 'openai'));
 
         // Assert
         self::assertInstanceOf(EmbeddingResponse::class, $result);
@@ -81,35 +81,43 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
     #[Test]
     public function embeddingWithCacheHitWorkflow(): void
     {
-        // Arrange - No HTTP client needed when cache hits
+        // Arrange: a cache hit short-circuits the middleware pipeline in
+        // CacheMiddleware BEFORE the terminal provider call, so no provider
+        // needs to be registered. The cached value is stored in
+        // EmbeddingResponse::toArray() shape (what the terminal returns and
+        // CacheMiddleware persists) and is reconstructed via fromArray().
+        $cachedResponse = (new EmbeddingResponse(
+            embeddings: [
+                array_map(fn() => $this->faker->randomFloat(8, -1, 1), range(1, 1536)),
+            ],
+            model: 'text-embedding-3-small',
+            usage: new UsageStatistics(10, 0, 10),
+            provider: 'openai',
+        ))->toArray();
+
+        // The SAME cache manager backs both embed()'s key generation and
+        // CacheMiddleware's lookup; get() returning a non-null value is the hit.
+        $cacheManager = self::createStub(CacheManagerInterface::class);
+        $cacheManager->method('generateCacheKey')->willReturn('emb-cache-key');
+        $cacheManager->method('get')->willReturn($cachedResponse);
+
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
-            'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
-
-        // Mock cache manager returning cached embeddings with full structure
-        $cachedData = [
-            'embeddings' => [
-                array_map(fn() => $this->faker->randomFloat(8, -1, 1), range(1, 1536)),
-            ],
-            'model' => 'text-embedding-3-small',
-            'usage' => [
-                'promptTokens' => 10,
-                'totalTokens' => 10,
-            ],
-        ];
-
-        $cacheManager = self::createStub(CacheManagerInterface::class);
-        $cacheManager->method('getCachedEmbeddings')
-            ->willReturn($cachedData);
+        $serviceManager = new LlmServiceManager(
+            $extensionConfig,
+            new NullLogger(),
+            $adapterRegistry,
+            new MiddlewarePipeline([new CacheMiddleware($cacheManager)]),
+            $cacheManager,
+        );
 
         $embeddingService = new EmbeddingService($serviceManager);
 
-        // Act - Should hit cache, not make HTTP request
+        // Act - cache hit returns without any HTTP request or registered provider
         $result = $embeddingService->embedFull('Cached text');
 
         // Assert
@@ -168,7 +176,6 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
-            'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
@@ -177,8 +184,6 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
-        $serviceManager->setDefaultProvider('openai');
-
         $cacheManager = self::createStub(CacheManagerInterface::class);
         $cacheManager->method('getCachedEmbeddings')->willReturn(null);
         $cacheManager->method('cacheEmbeddings')->willReturn('cache-key');
@@ -190,7 +195,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
             'First text',
             'Second text',
             'Third text',
-        ]);
+        ], new EmbeddingOptions(provider: 'openai'));
 
         // Assert: embedBatch returns array of vectors directly
         self::assertCount(3, $result);
@@ -235,7 +240,6 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
-            'defaultProvider' => 'openai',
             'providers' => ['openai' => ['apiKeyIdentifier' => 'sk-test']],
         ]);
 
@@ -244,8 +248,6 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
-        $serviceManager->setDefaultProvider('openai');
-
         $cacheManager = self::createStub(CacheManagerInterface::class);
         $cacheManager->method('getCachedEmbeddings')->willReturn(null);
         $cacheManager->method('cacheEmbeddings')->willReturn('cache-key');
@@ -253,8 +255,8 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         $embeddingService = new EmbeddingService($serviceManager);
 
         // Act: Get embedding vectors (not full responses)
-        $vector1 = $embeddingService->embed('Hello world');
-        $vector2 = $embeddingService->embed('Hello world!');
+        $vector1 = $embeddingService->embed('Hello world', new EmbeddingOptions(provider: 'openai'));
+        $vector2 = $embeddingService->embed('Hello world!', new EmbeddingOptions(provider: 'openai'));
 
         // Assert: Both should return valid embedding vectors
         self::assertCount(1536, $vector1);

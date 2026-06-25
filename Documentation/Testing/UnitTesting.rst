@@ -141,8 +141,7 @@ Unit test example
            $mockProvider->method('isConfigured')->willReturn(true);
 
            $this->subject = new LlmServiceManager(
-               providers: [$mockProvider],
-               defaultProvider: 'test'
+               providers: [$mockProvider]
            );
        }
 
