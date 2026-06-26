@@ -17,7 +17,7 @@ class Analytics {
 
     init() {
         const el = document.getElementById('nrllm-analytics-data');
-        if (!el || typeof window.Chart === 'undefined') {
+        if (!el || globalThis.Chart === undefined) {
             console.warn('[nrllm-analytics] data element or Chart.js not available');
             return;
         }
@@ -41,7 +41,7 @@ class Analytics {
         if (!canvas) {
             return;
         }
-        new window.Chart(canvas, {
+        new globalThis.Chart(canvas, {
             type: 'line',
             data: {
                 labels: trend.map((r) => r.date),
@@ -81,7 +81,7 @@ class Analytics {
         if (!canvas) {
             return;
         }
-        new window.Chart(canvas, {
+        new globalThis.Chart(canvas, {
             type: 'bar',
             data: {
                 labels: rows.map((r) => r.label),

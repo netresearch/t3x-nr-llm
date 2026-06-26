@@ -37,7 +37,6 @@ class ProviderList {
                 e.preventDefault();
                 e.stopPropagation();
                 this.handleTestConnection(testBtn);
-                return;
             }
         });
 
@@ -113,7 +112,7 @@ class ProviderList {
             </div>
         `;
 
-        const modal = Modal.advanced({
+        Modal.advanced({
             title: `Test Connection: ${name} (UID: ${uid})`,
             content: container,
             severity: Severity.info,
@@ -153,12 +152,10 @@ class ProviderList {
                     const msgEl = container.querySelector('#provider-test-success-message');
                     if (msgEl) msgEl.textContent = data.message || 'Connection successful';
                 }
-            } else {
-                if (errorDiv) {
-                    errorDiv.style.display = 'block';
-                    const msgEl = container.querySelector('#provider-test-error-message');
-                    if (msgEl) msgEl.textContent = data.error || data.message || 'Unknown error';
-                }
+            } else if (errorDiv) {
+                errorDiv.style.display = 'block';
+                const msgEl = container.querySelector('#provider-test-error-message');
+                if (msgEl) msgEl.textContent = data.error || data.message || 'Unknown error';
             }
         })
         .catch(err => {

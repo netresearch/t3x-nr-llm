@@ -396,7 +396,7 @@ class TaskExecute {
     renderMarkdownOutput(escaped) {
         const rendered = escaped
             // Headers
-            .replace(/^(#{1,6})\s+(.+)$/gm, (_, hashes, text) => {
+            .replace(/^(#{1,6})\s+(\S.*)$/gm, (_, hashes, text) => {
                 const level = hashes.length;
                 return '<h' + level + ' style="margin:0.8em 0 0.4em;font-size:' + (1.4 - level * 0.1) + 'em">' + text + '</h' + level + '>';
             })
@@ -409,13 +409,13 @@ class TaskExecute {
             // Italic
             .replace(/\*([^*]+)\*/g, '<em>$1</em>')
             // Unordered lists
-            .replace(/^[-*]\s+(.+)$/gm, '<li>$1</li>')
+            .replace(/^[-*]\s+(\S.*)$/gm, '<li>$1</li>')
             // Ordered lists
-            .replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>')
+            .replace(/^\d+\.\s+(\S.*)$/gm, '<li>$1</li>')
             // Horizontal rule
             .replace(/^---+$/gm, '<hr style="margin:1em 0">')
             // Line breaks
-            .replace(/\n/g, '<br>');
+            .replaceAll(/\n/g, '<br>');
         const wrapper = document.createElement('div');
         wrapper.className = 'markdown-content';
         wrapper.innerHTML = rendered; // eslint-disable-line no-unsanitized/property -- content is pre-escaped via escapeHtml()
@@ -477,11 +477,14 @@ class TaskExecute {
 
 // Initialize when DOM is ready
 // Note: For ES6 modules loaded via importmap, DOMContentLoaded may have already fired
+let taskExecute;
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        new TaskExecute();
+        taskExecute = new TaskExecute();
     });
 } else {
     // DOM already loaded, initialize immediately
-    new TaskExecute();
+    taskExecute = new TaskExecute();
 }
+
+export default taskExecute;
