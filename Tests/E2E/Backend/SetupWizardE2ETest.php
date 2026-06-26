@@ -111,7 +111,6 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     {
         // Record initial state
         $initialProviderCount = $this->providerRepository->countActive();
-        $initialModelCount = $this->modelRepository->countActive();
 
         // Step 1: Enter API endpoint URL and detect provider
         $detectRequest = $this->createFormRequest(self::AJAX_WIZARD_DETECT, [
@@ -362,7 +361,7 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         ]);
         $saveResponse = $this->controller->saveAction($saveRequest);
 
-        $saveBody = $this->assertSuccessResponse($saveResponse);
+        $this->assertSuccessResponse($saveResponse);
 
         // Verify new provider exists alongside existing ones
         $this->persistenceManager->clearState();
@@ -795,8 +794,6 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function saveAction_onlySelectedModelsAreSaved(): void
     {
-        $initialModelCount = $this->modelRepository->countActive();
-
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Selective Provider',
@@ -830,8 +827,6 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function saveAction_onlySelectedConfigurationsAreSaved(): void
     {
-        $initialConfigCount = $this->configurationRepository->countActive();
-
         $saveRequest = $this->createJsonRequest(self::AJAX_WIZARD_SAVE, [
             'provider' => [
                 'suggestedName' => 'Config Test Provider',

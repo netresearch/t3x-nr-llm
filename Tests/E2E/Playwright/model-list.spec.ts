@@ -66,7 +66,7 @@ test.describe('Model List Module', () => {
         // No models - should show empty state or "no records" message
         const emptyState = moduleFrame.locator('.callout, .alert, :has-text("No records")');
         // Either we have models or an empty state indicator
-        expect(count >= 0).toBe(true);
+        expect(count).toBeGreaterThanOrEqual(0);
       }
     });
   });

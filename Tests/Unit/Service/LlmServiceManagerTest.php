@@ -382,9 +382,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $this->expectException(UnsupportedFeatureException::class);
         $this->expectExceptionMessage('does not support streaming');
 
-        foreach ($this->subject->streamChat([['role' => 'user', 'content' => 'test']], new ChatOptions(provider: 'openai')) as $chunk) {
-            // Should not reach here
-        }
+        iterator_to_array($this->subject->streamChat([['role' => 'user', 'content' => 'test']], new ChatOptions(provider: 'openai')));
     }
 
     #[Test]
@@ -1010,9 +1008,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $this->expectException(UnsupportedFeatureException::class);
         $this->expectExceptionMessage('does not support streaming');
 
-        foreach ($manager->streamChatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config) as $chunk) {
-            // Should throw before yielding
-        }
+        iterator_to_array($manager->streamChatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config));
     }
 
     // ====================================================================

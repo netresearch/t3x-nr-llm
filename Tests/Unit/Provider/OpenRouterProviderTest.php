@@ -270,8 +270,6 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     #[Test]
     public function chatCompletionWithFallbackHandlesFailure(): void
     {
-        $messages = [['role' => 'user', 'content' => 'test']];
-
         // Simulate model overload, then success with fallback
         $errorResponse = [
             'error' => [

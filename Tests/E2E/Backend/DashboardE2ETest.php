@@ -141,8 +141,6 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         foreach ($providers as $provider) {
             $models = $this->modelRepository->findByProvider($provider);
 
-            // Collect capabilities across all models for this provider
-            $capabilities = [];
             foreach ($models as $model) {
                 // Each model has capability flags
                 self::assertGreaterThanOrEqual(0, $model->getContextLength());
@@ -179,8 +177,6 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($task, 'Should have task for quick execute action');
 
         // Quick action: Use default config
-        $config = $this->configurationRepository->findDefault();
-        // Default config may or may not exist, that's OK
     }
 
     // =========================================================================
@@ -799,7 +795,6 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     public function dashboardDataConsistencyAcrossRepositories(): void
     {
         // Verify relationships are consistent across repositories
-        $providers = $this->providerRepository->findActive()->toArray();
         $models = $this->modelRepository->findActive()->toArray();
         $configs = $this->configurationRepository->findActive()->toArray();
 
@@ -868,7 +863,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         }
 
         // All providers should return valid responses
-        foreach ($results as $identifier => $result) {
+        foreach ($results as $result) {
             self::assertContains($result['status'], [200, 500]);
         }
     }

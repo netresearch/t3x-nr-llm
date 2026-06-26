@@ -564,11 +564,6 @@ class OllamaProviderTest extends AbstractUnitTestCase
             'timeout' => 30,
         ]);
 
-        // Create streaming response with JSON lines
-        $streamContent = "{\"message\":{\"content\":\"Hello\"},\"done\":false}\n"
-                         . "{\"message\":{\"content\":\" world\"},\"done\":false}\n"
-                         . "{\"message\":{\"content\":\"!\"},\"done\":true}\n";
-
         $streamStub = self::createStub(StreamInterface::class);
         $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, false, false, true);
         $streamStub->method('read')->willReturnOnConsecutiveCalls(

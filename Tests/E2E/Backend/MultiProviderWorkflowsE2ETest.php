@@ -624,7 +624,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         }
 
         // Each provider should have retrievable capabilities
-        foreach ($capabilities as $identifier => $cap) {
+        foreach ($capabilities as $cap) {
             self::assertNotEmpty($cap['provider']);
             self::assertNotEmpty($cap['adapterType']);
             self::assertGreaterThanOrEqual(0, $cap['modelCount']);
@@ -663,7 +663,6 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     public function pathway8_4_taskCanSelectAnyActiveConfiguration(): void
     {
         $tasks = $this->getActiveTasks();
-        $configurations = $this->getActiveConfigurations();
 
         foreach ($tasks as $task) {
             $taskConfig = $task->getConfiguration();

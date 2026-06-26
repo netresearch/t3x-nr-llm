@@ -1079,7 +1079,13 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $stub = self::createStub(RequestFactoryInterface::class);
         $stub->method('createRequest')
             ->willReturnCallback(static function (string $method, mixed $uri): RequestInterface {
-                $uriString = is_string($uri) ? $uri : (is_object($uri) && method_exists($uri, '__toString') ? $uri->__toString() : '');
+                if (is_string($uri)) {
+                    $uriString = $uri;
+                } elseif (is_object($uri) && method_exists($uri, '__toString')) {
+                    $uriString = $uri->__toString();
+                } else {
+                    $uriString = '';
+                }
                 return new TestableRequest($method, $uriString);
             });
         return $stub;

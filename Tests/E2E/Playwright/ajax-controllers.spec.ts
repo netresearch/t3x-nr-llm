@@ -527,6 +527,6 @@ test.describe('AJAX Error Handling', () => {
 
     // Button should either be disabled or show some loading indicator
     // If neither, the AJAX may have completed too fast - that's OK too
-    expect(true).toBe(true); // Always pass if we get here without errors
+    expect(typeof isDisabled).toBe('boolean');
   });
 });
