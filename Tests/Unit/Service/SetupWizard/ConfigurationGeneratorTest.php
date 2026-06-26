@@ -30,8 +30,6 @@ use RuntimeException;
 #[CoversClass(SuggestedConfiguration::class)]
 class ConfigurationGeneratorTest extends AbstractUnitTestCase
 {
-    private const CLOUD_METADATA_IP = '169.254.169.254';
-
     private ClientInterface&Stub $httpClientStub;
     private RequestFactoryInterface&Stub $requestFactoryStub;
     private StreamFactoryInterface&Stub $streamFactoryStub;
@@ -154,7 +152,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://' . self::CLOUD_METADATA_IP . '/v1',
+            endpoint: 'https://169.254.169.254/v1',
             suggestedName: 'Metadata SSRF',
         );
 

@@ -415,7 +415,7 @@ class TaskExecute {
             // Horizontal rule
             .replace(/^---+$/gm, '<hr style="margin:1em 0">')
             // Line breaks
-            .replaceAll(/\n/g, '<br>');
+            .replaceAll('\n', '<br>');
         const wrapper = document.createElement('div');
         wrapper.className = 'markdown-content';
         wrapper.innerHTML = rendered; // eslint-disable-line no-unsanitized/property -- content is pre-escaped via escapeHtml()
@@ -477,14 +477,11 @@ class TaskExecute {
 
 // Initialize when DOM is ready
 // Note: For ES6 modules loaded via importmap, DOMContentLoaded may have already fired
-let taskExecute;
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        taskExecute = new TaskExecute();
+        new TaskExecute();
     });
 } else {
     // DOM already loaded, initialize immediately
-    taskExecute = new TaskExecute();
+    new TaskExecute();
 }
-
-export default taskExecute;
