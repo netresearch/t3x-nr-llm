@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
+use LogicException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -27,7 +28,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 #[CoversClass(LlmTranslator::class)]
@@ -716,7 +716,7 @@ class TranslatorTestProvider extends AbstractProvider
 
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
-        throw new RuntimeException('Not implemented', 1441271664);
+        throw new LogicException('Not implemented', 1441271664);
     }
 
     protected function getDefaultBaseUrl(): string

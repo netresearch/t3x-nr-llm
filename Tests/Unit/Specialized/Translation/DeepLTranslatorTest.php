@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
+use LogicException;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -26,7 +27,6 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
-use RuntimeException;
 
 #[CoversClass(DeepLTranslator::class)]
 class DeepLTranslatorTest extends AbstractUnitTestCase
@@ -162,7 +162,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $vault->method('retrieve')->willReturnCallback(static function () use (&$calls): string {
             $calls++;
             if ($calls === 1) {
-                throw new RuntimeException('vault unavailable', 5331512677);
+                throw new LogicException('vault unavailable', 5331512677);
             }
 
             return 'free-key:fx';
@@ -187,7 +187,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         try {
             $resolve->invoke($translator);
             self::fail('Expected the vault failure to propagate');
-        } catch (RuntimeException $e) {
+        } catch (LogicException $e) {
             self::assertSame('vault unavailable', $e->getMessage());
         }
         self::assertFalse($reflection->getProperty('baseUrlResolved')->getValue($translator));

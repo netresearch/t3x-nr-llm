@@ -1440,7 +1440,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configs */
         $configs = $queryResult->toArray();
-        if (count($configs) < 1) {
+        if ($configs === []) {
             self::markTestSkipped('Need at least 1 configuration');
         }
 

@@ -24,6 +24,8 @@ use RuntimeException;
 #[CoversClass(OllamaProvider::class)]
 class OllamaProviderMutationTest extends AbstractUnitTestCase
 {
+    private const LOCAL_NETWORK_IP = '192.168.1.100';
+
     private function createProvider(): OllamaProvider
     {
         $provider = new OllamaProvider(
@@ -266,13 +268,13 @@ class OllamaProviderMutationTest extends AbstractUnitTestCase
         $provider = $this->createProvider();
         $provider->configure([
             'apiKeyIdentifier' => '',
-            'baseUrl' => 'http://192.168.1.100:11434',
+            'baseUrl' => 'http://' . self::LOCAL_NETWORK_IP . ':11434',
         ]);
 
         $reflection = new ReflectionClass($provider);
         $baseUrl = $reflection->getProperty('baseUrl');
 
-        self::assertEquals('http://192.168.1.100:11434', $baseUrl->getValue($provider));
+        self::assertEquals('http://' . self::LOCAL_NETWORK_IP . ':11434', $baseUrl->getValue($provider));
     }
 
     #[Test]

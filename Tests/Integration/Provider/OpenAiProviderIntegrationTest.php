@@ -27,11 +27,6 @@ use Psr\Http\Message\ResponseInterface;
 #[CoversClass(OpenAiProvider::class)]
 class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-    }
-
     /**
      * @param list<ResponseInterface> $responses
      */

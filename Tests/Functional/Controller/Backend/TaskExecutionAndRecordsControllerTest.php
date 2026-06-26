@@ -236,7 +236,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         self::assertIsArray($tables);
 
         // Verify table structure
-        if (count($tables) > 0) {
+        if ($tables !== []) {
             $firstTable = $tables[0];
             self::assertIsArray($firstTable);
             self::assertArrayHasKey('name', $firstTable);
@@ -331,7 +331,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         // Verify record structure
         $records = $body['records'];
         self::assertIsArray($records);
-        if (count($records) > 0) {
+        if ($records !== []) {
             $firstRecord = $records[0];
             self::assertIsArray($firstRecord);
             self::assertArrayHasKey('uid', $firstRecord);

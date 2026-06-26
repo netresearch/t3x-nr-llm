@@ -686,7 +686,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $tasks = $this->getActiveTasks();
         $configurations = $this->getActiveConfigurations();
 
-        if (count($tasks) === 0 || count($configurations) < 2) {
+        if ($tasks === [] || count($configurations) < 2) {
             self::markTestSkipped('Need at least 1 task and 2 configurations');
         }
 

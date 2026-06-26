@@ -17,6 +17,8 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversClass(ProviderDetector::class)]
 class ProviderDetectorTest extends AbstractUnitTestCase
 {
+    private const LOCAL_NETWORK_IP = '192.168.1.100';
+
     private ProviderDetector $subject;
 
     protected function setUp(): void
@@ -177,7 +179,7 @@ class ProviderDetectorTest extends AbstractUnitTestCase
     #[Test]
     public function detectRecognizesOllamaOnAnyHostWithDefaultPort(): void
     {
-        $result = $this->subject->detect('http://192.168.1.100:11434');
+        $result = $this->subject->detect('http://' . self::LOCAL_NETWORK_IP . ':11434');
 
         self::assertEquals('ollama', $result->adapterType);
     }

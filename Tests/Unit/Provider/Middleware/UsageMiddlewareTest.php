@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 
+use LogicException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -25,7 +26,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use ReflectionProperty;
-use RuntimeException;
 
 #[CoversClass(UsageMiddleware::class)]
 final class UsageMiddlewareTest extends AbstractUnitTestCase
@@ -176,14 +176,14 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
     {
         $this->tracker->expects(self::never())->method('trackUsage');
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(LogicException::class);
         $this->expectExceptionMessage('boom');
 
         $this->pipeline()->run(
             context: ProviderCallContext::for(ProviderOperation::Chat),
             configuration: $this->configuration(),
-            terminal: static function (LlmConfiguration $c): never {
-                throw new RuntimeException('boom', 1504818594);
+            terminal: static function (): never {
+                throw new LogicException('boom', 1504818594);
             },
         );
     }

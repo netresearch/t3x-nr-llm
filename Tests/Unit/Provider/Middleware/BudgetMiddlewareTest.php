@@ -46,7 +46,7 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
         $result = $this->pipeline()->run(
             context: $this->contextFor(beUserUid: 42, plannedCost: 0.5),
             configuration: $this->configuration(),
-            terminal: static function (LlmConfiguration $c) use (&$called): string {
+            terminal: static function () use (&$called): string {
                 $called = true;
 
                 return 'ok';

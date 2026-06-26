@@ -234,7 +234,6 @@ class BudgetServiceTest extends AbstractUnitTestCase
                 int $beUserUid,
                 ?int $dailyFromTimestamp,
                 ?int $monthlyFromTimestamp,
-                int $toTimestamp,
             ) use (&$capturedDailyFrom, &$capturedMonthlyFrom): array {
                 $capturedDailyFrom = $dailyFromTimestamp;
                 $capturedMonthlyFrom = $monthlyFromTimestamp;

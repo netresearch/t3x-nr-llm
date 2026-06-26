@@ -32,6 +32,8 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 #[CoversClass(ProviderController::class)]
 final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 {
+    private const LOCAL_NETWORK_IP = '192.168.1.100';
+
     private const LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F = '0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f';
     private const NO_PROVIDER_UID_SPECIFIED = 'No provider UID specified';
     private const HTTPS_API_OPENAI_COM_V1 = 'https://api.openai.com/v1';
@@ -740,7 +742,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 
         // First element should have highest priority
         $highest = $this->providerRepository->findHighestPriority();
-        if ($highest !== null && count($providers) > 0) {
+        if ($highest !== null && $providers !== []) {
             self::assertSame($providers[0]->getUid(), $highest->getUid());
         }
     }
@@ -1412,7 +1414,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('ip-endpoint-provider-' . time());
         $provider->setName('IP Address Endpoint Provider');
         $provider->setAdapterType('ollama');
-        $provider->setEndpointUrl('http://192.168.1.100:11434');
+        $provider->setEndpointUrl('http://' . self::LOCAL_NETWORK_IP . ':11434');
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1421,7 +1423,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 
         $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
         self::assertNotNull($added);
-        self::assertSame('http://192.168.1.100:11434', $added->getEndpointUrl());
+        self::assertSame('http://' . self::LOCAL_NETWORK_IP . ':11434', $added->getEndpointUrl());
     }
 
     #[Test]

@@ -94,7 +94,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
         $result         = $this->pipeline()->run(
             context: $this->context(key: 'embed:abc'),
             configuration: $this->configuration(),
-            terminal: static function (LlmConfiguration $c) use (&$terminalCalled): array {
+            terminal: static function () use (&$terminalCalled): array {
                 $terminalCalled = true;
 
                 return ['vector' => [0.9]];

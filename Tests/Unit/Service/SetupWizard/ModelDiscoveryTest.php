@@ -33,6 +33,8 @@ use RuntimeException;
 #[AllowMockObjectsWithoutExpectations]
 class ModelDiscoveryTest extends AbstractUnitTestCase
 {
+    private const CLOUD_METADATA_IP = '169.254.169.254';
+
     private ClientInterface&Stub $httpClientStub;
     private RequestFactoryInterface&Stub $requestFactoryStub;
     private StreamFactoryInterface&Stub $streamFactoryStub;
@@ -258,7 +260,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://169.254.169.254/latest/meta-data',
+            endpoint: 'https://' . self::CLOUD_METADATA_IP . '/latest/meta-data',
             suggestedName: 'Metadata SSRF',
         );
 

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized;
 
+use LogicException;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -1275,7 +1276,7 @@ final class TestableRequest implements RequestInterface
     public function getBody(): StreamInterface
     {
         if ($this->body === null) {
-            throw new RuntimeException('No body set', 3134810639);
+            throw new LogicException('No body set', 3134810639);
         }
         return $this->body;
     }
@@ -1308,7 +1309,7 @@ final class TestableRequest implements RequestInterface
     }
     public function getUri(): UriInterface
     {
-        throw new RuntimeException('Not implemented', 4146456712);
+        throw new LogicException('Not implemented', 4146456712);
     }
     public function withUri(UriInterface $uri, bool $preserveHost = false): static
     {
