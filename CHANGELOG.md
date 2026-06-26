@@ -6,14 +6,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Removed
-
-- **BREAKING:** `setDefaultProvider()` and `getDefaultProvider()` removed from
-  `LlmServiceManagerInterface` (and its implementation), and the
-  `ExtensionConfiguration['nr_llm']['defaultProvider']` setting is no longer
-  read. These were a vestige of the pre-database provider-centric design and
-  had no effect in production (the key was never exposed in
-  `ext_conf_template.txt`). See ADR-034.
+## [0.13.0] - 2026-06-26
 
 ### Changed
 
@@ -30,6 +23,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   default programmatically, use
   `LlmConfigurationService::getDefaultConfiguration()` (access-checked) or
   `LlmConfigurationRepository::findDefault()` (raw).
+
+### Removed
+
+- **BREAKING:** `setDefaultProvider()` and `getDefaultProvider()` removed from
+  `LlmServiceManagerInterface` (and its implementation), and the
+  `ExtensionConfiguration['nr_llm']['defaultProvider']` setting is no longer
+  read. These were a vestige of the pre-database provider-centric design and
+  had no effect in production (the key was never exposed in
+  `ext_conf_template.txt`). See ADR-034.
+
+### Fixed
+
+- Removed the orphaned `plugin.tx_nrllm` TypoScript constants/setup that were
+  registered but never read by any code, and which misleadingly implied that
+  provider selection was TypoScript-driven. The "No provider specified and no
+  default provider configured" exception now carries actionable guidance
+  pointing to the backend module, and the configuration docs describe the
+  database-backed setup. (#254, #255)
 
 ## [0.12.0] - 2026-06-11
 
