@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TestConnectionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
@@ -53,6 +54,12 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 final class ModelController extends ActionController
 {
     private const TABLE_NAME = 'tx_nrllm_model';
+
+    private const ERROR_NO_MODEL_UID = 'No model UID specified';
+
+    private const ERROR_MODEL_NOT_FOUND = 'Model not found';
+
+    private const ERROR_NO_PROVIDER_UID = 'No provider UID specified';
 
     private ModuleTemplate $moduleTemplate;
 
@@ -156,13 +163,9 @@ final class ModelController extends ActionController
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
-        if ($uid === 0) {
-            return new JsonResponse((new ErrorResponse('No model UID specified'))->jsonSerialize(), 400);
-        }
-
-        $model = $this->modelRepository->findByUid($uid);
-        if ($model === null) {
-            return new JsonResponse((new ErrorResponse('Model not found'))->jsonSerialize(), 404);
+        $model = $this->resolveModelOrError($uid);
+        if (!$model instanceof Model) {
+            return $model;
         }
 
         try {
@@ -175,17 +178,13 @@ final class ModelController extends ActionController
             ))->jsonSerialize());
         } catch (DbalException $e) {
             $this->logger->error('Model toggleActive: persistence failed', ['exception' => $e, 'model_uid' => $uid]);
-            return new JsonResponse(
-                (new ErrorResponse('Database error while toggling model status.'))->jsonSerialize(),
-                500,
-            );
+            $message = 'Database error while toggling model status.';
         } catch (Throwable $e) {
             $this->logger->error('Model toggleActive: unexpected error', ['exception' => $e, 'model_uid' => $uid]);
-            return new JsonResponse(
-                (new ErrorResponse('Failed to toggle model status. See system log for details.'))->jsonSerialize(),
-                500,
-            );
+            $message = 'Failed to toggle model status. See system log for details.';
         }
+
+        return new JsonResponse((new ErrorResponse($message))->jsonSerialize(), 500);
     }
 
     /**
@@ -196,13 +195,9 @@ final class ModelController extends ActionController
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
-        if ($uid === 0) {
-            return new JsonResponse((new ErrorResponse('No model UID specified'))->jsonSerialize(), 400);
-        }
-
-        $model = $this->modelRepository->findByUid($uid);
-        if ($model === null) {
-            return new JsonResponse((new ErrorResponse('Model not found'))->jsonSerialize(), 404);
+        $model = $this->resolveModelOrError($uid);
+        if (!$model instanceof Model) {
+            return $model;
         }
 
         try {
@@ -211,17 +206,13 @@ final class ModelController extends ActionController
             return new JsonResponse((new SuccessResponse())->jsonSerialize());
         } catch (DbalException $e) {
             $this->logger->error('Model setDefault: persistence failed', ['exception' => $e, 'model_uid' => $uid]);
-            return new JsonResponse(
-                (new ErrorResponse('Database error while setting default model.'))->jsonSerialize(),
-                500,
-            );
+            $message = 'Database error while setting default model.';
         } catch (Throwable $e) {
             $this->logger->error('Model setDefault: unexpected error', ['exception' => $e, 'model_uid' => $uid]);
-            return new JsonResponse(
-                (new ErrorResponse('Failed to set default model. See system log for details.'))->jsonSerialize(),
-                500,
-            );
+            $message = 'Failed to set default model. See system log for details.';
         }
+
+        return new JsonResponse((new ErrorResponse($message))->jsonSerialize(), 500);
     }
 
     /**
@@ -233,7 +224,7 @@ final class ModelController extends ActionController
         $providerUid = $this->extractIntFromBody($body, 'providerUid');
 
         if ($providerUid === 0) {
-            return new JsonResponse((new ErrorResponse('No provider UID specified'))->jsonSerialize(), 400);
+            return new JsonResponse((new ErrorResponse(self::ERROR_NO_PROVIDER_UID))->jsonSerialize(), 400);
         }
 
         try {
@@ -241,17 +232,13 @@ final class ModelController extends ActionController
             return new JsonResponse(ModelListResponse::fromModels($models)->jsonSerialize());
         } catch (DbalException $e) {
             $this->logger->error('Model getByProvider: query failed', ['exception' => $e, 'provider_uid' => $providerUid]);
-            return new JsonResponse(
-                (new ErrorResponse('Database error while loading models.'))->jsonSerialize(),
-                500,
-            );
+            $message = 'Database error while loading models.';
         } catch (Throwable $e) {
             $this->logger->error('Model getByProvider: unexpected error', ['exception' => $e, 'provider_uid' => $providerUid]);
-            return new JsonResponse(
-                (new ErrorResponse('Failed to load models. See system log for details.'))->jsonSerialize(),
-                500,
-            );
+            $message = 'Failed to load models. See system log for details.';
         }
+
+        return new JsonResponse((new ErrorResponse($message))->jsonSerialize(), 500);
     }
 
     /**
@@ -262,15 +249,19 @@ final class ModelController extends ActionController
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
-        if ($uid === 0) {
-            return new JsonResponse((new ErrorResponse('No model UID specified'))->jsonSerialize(), 400);
+        $model = $this->resolveModelOrError($uid);
+        if (!$model instanceof Model) {
+            return $model;
         }
 
-        $model = $this->modelRepository->findByUid($uid);
-        if ($model === null) {
-            return new JsonResponse((new ErrorResponse('Model not found'))->jsonSerialize(), 404);
-        }
+        return $this->performModelTest($model, $uid);
+    }
 
+    /**
+     * Perform the actual provider test call for a resolved model.
+     */
+    private function performModelTest(Model $model, int $uid): ResponseInterface
+    {
         // Provider is lazy-loaded by Extbase
         if ($model->getProvider() === null) {
             return new JsonResponse((new ErrorResponse('Model has no provider configured'))->jsonSerialize(), 400);
@@ -329,20 +320,19 @@ final class ModelController extends ActionController
                 'exception' => $e,
                 'model_uid' => $uid,
             ]);
-            return new JsonResponse((new TestConnectionResponse(
-                success: false,
-                message: 'LLM provider rejected the test request. See system log for details.',
-            ))->jsonSerialize());
+            $message = 'LLM provider rejected the test request. See system log for details.';
         } catch (Throwable $e) {
             $this->logger->error('Model test: unexpected error', [
                 'exception' => $e,
                 'model_uid' => $uid,
             ]);
-            return new JsonResponse((new TestConnectionResponse(
-                success: false,
-                message: 'Test failed. See system log for details.',
-            ))->jsonSerialize());
+            $message = 'Test failed. See system log for details.';
         }
+
+        return new JsonResponse((new TestConnectionResponse(
+            success: false,
+            message: $message,
+        ))->jsonSerialize());
     }
 
     /**
@@ -359,7 +349,7 @@ final class ModelController extends ActionController
         if ($providerUid === 0) {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'No provider UID specified',
+                'error' => self::ERROR_NO_PROVIDER_UID,
             ], 400);
         }
 
@@ -371,6 +361,14 @@ final class ModelController extends ActionController
             ], 404);
         }
 
+        return $this->discoverAvailableModels($provider);
+    }
+
+    /**
+     * Query the provider's API for the list of available models.
+     */
+    private function discoverAvailableModels(Provider $provider): ResponseInterface
+    {
         try {
             // Create a DetectedProvider to use with ModelDiscoveryService
             $detected = new DetectedProvider(
@@ -409,17 +407,18 @@ final class ModelController extends ActionController
             ]);
         } catch (ProviderException $e) {
             $this->logger->warning('Model fetchAvailableModels: provider error', ['exception' => $e]);
-            return new JsonResponse([
-                'success' => false,
-                'error' => 'LLM provider error while fetching model IDs. See system log for details.',
-            ], 502);
+            $error = 'LLM provider error while fetching model IDs. See system log for details.';
+            $status = 502;
         } catch (Throwable $e) {
             $this->logger->error('Model fetchAvailableModels: unexpected error', ['exception' => $e]);
-            return new JsonResponse([
-                'success' => false,
-                'error' => 'Failed to fetch model IDs. See system log for details.',
-            ], 500);
+            $error = 'Failed to fetch model IDs. See system log for details.';
+            $status = 500;
         }
+
+        return new JsonResponse([
+            'success' => false,
+            'error' => $error,
+        ], $status);
     }
 
     /**
@@ -434,18 +433,9 @@ final class ModelController extends ActionController
         $providerUid = $this->extractIntFromBody($body, 'providerUid');
         $modelId = $this->extractStringFromBody($body, 'modelId');
 
-        if ($providerUid === 0) {
-            return new JsonResponse([
-                'success' => false,
-                'error' => 'No provider UID specified',
-            ], 400);
-        }
-
-        if ($modelId === '') {
-            return new JsonResponse([
-                'success' => false,
-                'error' => 'No model ID specified',
-            ], 400);
+        $validationError = $this->validateDetectLimitsInput($providerUid, $modelId);
+        if ($validationError !== null) {
+            return $validationError;
         }
 
         $provider = $this->providerRepository->findByUid($providerUid);
@@ -456,6 +446,38 @@ final class ModelController extends ActionController
             ], 404);
         }
 
+        return $this->discoverModelLimits($provider, $modelId);
+    }
+
+    /**
+     * Validate the detect-limits request input.
+     *
+     * Returns a JSON error response when invalid, or null when the input is valid.
+     */
+    private function validateDetectLimitsInput(int $providerUid, string $modelId): ?ResponseInterface
+    {
+        if ($providerUid === 0) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => self::ERROR_NO_PROVIDER_UID,
+            ], 400);
+        }
+
+        if ($modelId === '') {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'No model ID specified',
+            ], 400);
+        }
+
+        return null;
+    }
+
+    /**
+     * Query the provider's API and return the limits for a specific model.
+     */
+    private function discoverModelLimits(Provider $provider, string $modelId): ResponseInterface
+    {
         try {
             // Create a DetectedProvider to use with ModelDiscovery
             $detected = new DetectedProvider(
@@ -499,17 +521,18 @@ final class ModelController extends ActionController
             ]);
         } catch (ProviderException $e) {
             $this->logger->warning('Model detectLimits: provider error', ['exception' => $e]);
-            return new JsonResponse([
-                'success' => false,
-                'error' => 'LLM provider error while detecting model limits. See system log for details.',
-            ], 502);
+            $error = 'LLM provider error while detecting model limits. See system log for details.';
+            $status = 502;
         } catch (Throwable $e) {
             $this->logger->error('Model detectLimits: unexpected error', ['exception' => $e]);
-            return new JsonResponse([
-                'success' => false,
-                'error' => 'Failed to detect model limits. See system log for details.',
-            ], 500);
+            $error = 'Failed to detect model limits. See system log for details.';
+            $status = 500;
         }
+
+        return new JsonResponse([
+            'success' => false,
+            'error' => $error,
+        ], $status);
     }
 
     /**
@@ -540,6 +563,23 @@ final class ModelController extends ActionController
     private function buildReturnUrl(): string
     {
         return (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_models');
+    }
+
+    /**
+     * Resolve a model by UID, or return a JSON error response.
+     */
+    private function resolveModelOrError(int $uid): Model|ResponseInterface
+    {
+        if ($uid === 0) {
+            return new JsonResponse((new ErrorResponse(self::ERROR_NO_MODEL_UID))->jsonSerialize(), 400);
+        }
+
+        $model = $this->modelRepository->findByUid($uid);
+        if ($model === null) {
+            return new JsonResponse((new ErrorResponse(self::ERROR_MODEL_NOT_FOUND))->jsonSerialize(), 404);
+        }
+
+        return $model;
     }
 
     /**

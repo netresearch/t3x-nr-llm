@@ -124,15 +124,16 @@ final class TaskWizardController extends ActionController
                 'configurationUid' => $configurationUid,
             ]);
             return $moduleTemplate->renderResponse('Backend/Task/WizardPreview');
-        } catch (ProviderException $e) {
-            // REC #8b: provider error text often references endpoints / payloads /
-            // model names that aren't safe to render verbatim into the backend UI.
-            $this->logger->error('Task wizard: single-task generation failed (provider)', ['exception' => $e]);
-            $this->enqueueFlashMessage('Generation failed (LLM provider error). See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
-            return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         } catch (Throwable $e) {
-            $this->logger->error('Task wizard: single-task generation failed unexpectedly', ['exception' => $e]);
-            $this->enqueueFlashMessage('Generation failed. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+            if ($e instanceof ProviderException) {
+                // REC #8b: provider error text often references endpoints / payloads /
+                // model names that aren't safe to render verbatim into the backend UI.
+                $this->logger->error('Task wizard: single-task generation failed (provider)', ['exception' => $e]);
+                $this->enqueueFlashMessage('Generation failed (LLM provider error). See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+            } else {
+                $this->logger->error('Task wizard: single-task generation failed unexpectedly', ['exception' => $e]);
+                $this->enqueueFlashMessage('Generation failed. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+            }
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
     }
@@ -171,13 +172,14 @@ final class TaskWizardController extends ActionController
                 'configurationUid' => $configurationUid,
             ]);
             return $moduleTemplate->renderResponse('Backend/Task/WizardChainPreview');
-        } catch (ProviderException $e) {
-            $this->logger->error('Task wizard: chain generation failed (provider)', ['exception' => $e]);
-            $this->enqueueFlashMessage('Generation failed (LLM provider error). See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
-            return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         } catch (Throwable $e) {
-            $this->logger->error('Task wizard: chain generation failed unexpectedly', ['exception' => $e]);
-            $this->enqueueFlashMessage('Generation failed. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+            if ($e instanceof ProviderException) {
+                $this->logger->error('Task wizard: chain generation failed (provider)', ['exception' => $e]);
+                $this->enqueueFlashMessage('Generation failed (LLM provider error). See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+            } else {
+                $this->logger->error('Task wizard: chain generation failed unexpectedly', ['exception' => $e]);
+                $this->enqueueFlashMessage('Generation failed. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+            }
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
     }
@@ -199,19 +201,7 @@ final class TaskWizardController extends ActionController
 
         try {
             // Step 1: Resolve or create Model
-            $model = null;
-            if ($modelChoice === 'existing' && $existingModelUid > 0) {
-                $model = $this->modelRepository->findByUid($existingModelUid);
-            }
-            if (!$model instanceof Model) {
-                $model = $this->modelRepository->findDefault();
-            }
-            if (!$model instanceof Model) {
-                $first = $this->modelRepository->findActive()->getFirst();
-                if ($first instanceof Model) {
-                    $model = $first;
-                }
-            }
+            $model = $this->resolveModel($modelChoice, $existingModelUid);
 
             // Step 2: Resolve or create Configuration
             $configuration = null;
@@ -265,18 +255,18 @@ final class TaskWizardController extends ActionController
 
             // Redirect to the task's execute form (now on TaskExecutionController).
             $taskUid = $task->getUid();
-            if ($taskUid !== null) {
-                return new RedirectResponse($this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
+            $redirectUri = $taskUid !== null
+                ? $this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
                     'controller' => 'Backend\\TaskExecution',
                     'action'     => 'executeForm',
                     'uid'        => $taskUid,
-                ]));
-            }
+                ])
+                : $this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
+                    'controller' => 'Backend\\TaskList',
+                    'action'     => 'list',
+                ]);
 
-            return new RedirectResponse($this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
-                'controller' => 'Backend\\TaskList',
-                'action'     => 'list',
-            ]));
+            return new RedirectResponse($redirectUri);
         } catch (Throwable $e) {
             // wizardCreateAction persists Extbase entities through the
             // PersistenceManager. Failure modes are mostly Doctrine /
@@ -287,6 +277,29 @@ final class TaskWizardController extends ActionController
             $this->enqueueFlashMessage('Failed to create task. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
+    }
+
+    /**
+     * Resolve the model for a wizard-created task: prefer the explicitly chosen
+     * existing model, then the configured default, then the first active model.
+     */
+    private function resolveModel(string $modelChoice, int $existingModelUid): ?Model
+    {
+        $model = null;
+        if ($modelChoice === 'existing' && $existingModelUid > 0) {
+            $model = $this->modelRepository->findByUid($existingModelUid);
+        }
+        if (!$model instanceof Model) {
+            $model = $this->modelRepository->findDefault();
+        }
+        if (!$model instanceof Model) {
+            $first = $this->modelRepository->findActive()->getFirst();
+            if ($first instanceof Model) {
+                $model = $first;
+            }
+        }
+
+        return $model;
     }
 
     private function buildReturnUrl(): string

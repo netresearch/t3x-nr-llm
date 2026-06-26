@@ -17,16 +17,17 @@ use Netresearch\NrLlm\Service\Option\AbstractOptions;
  */
 final class ImageGenerationOptions extends AbstractOptions
 {
+    private const SIZE_SQUARE = '1024x1024';
     private const VALID_MODELS = ['dall-e-2', 'dall-e-3'];
     private const VALID_QUALITIES = ['standard', 'hd'];
     private const VALID_STYLES = ['vivid', 'natural'];
     private const VALID_FORMATS = ['url', 'b64_json'];
-    private const VALID_SIZES_DALLE3 = ['1024x1024', '1792x1024', '1024x1792'];
-    private const VALID_SIZES_DALLE2 = ['256x256', '512x512', '1024x1024'];
+    private const VALID_SIZES_DALLE3 = [self::SIZE_SQUARE, '1792x1024', '1024x1792'];
+    private const VALID_SIZES_DALLE2 = ['256x256', '512x512', self::SIZE_SQUARE];
     // OpenAI's gpt-image-* family (gpt-image-1, -mini, -1.5, -2, …) replaced DALL·E. It exposes
     // a different square/landscape/portrait size set and always returns b64_json; `response_format`
     // and `style` are not accepted (the service omits them for non-DALL·E models).
-    private const VALID_SIZES_GPT_IMAGE = ['1024x1024', '1536x1024', '1024x1536', 'auto'];
+    private const VALID_SIZES_GPT_IMAGE = [self::SIZE_SQUARE, '1536x1024', '1024x1536', 'auto'];
     private const GPT_IMAGE_PREFIX = 'gpt-image-';
 
     // Arbitrary WxH sizes for gpt-image-* (per OpenAI docs, June 2026): gpt-image-2
@@ -55,7 +56,7 @@ final class ImageGenerationOptions extends AbstractOptions
      */
     public function __construct(
         public readonly ?string $model = 'dall-e-3',
-        public readonly ?string $size = '1024x1024',
+        public readonly ?string $size = self::SIZE_SQUARE,
         public readonly ?string $quality = 'standard',
         public readonly ?string $style = 'vivid',
         public readonly ?string $format = 'url',
@@ -233,7 +234,7 @@ final class ImageGenerationOptions extends AbstractOptions
     /**
      * Create options for high-definition output.
      */
-    public static function hd(string $size = '1024x1024'): self
+    public static function hd(string $size = self::SIZE_SQUARE): self
     {
         return new self(quality: 'hd', size: $size);
     }

@@ -92,15 +92,11 @@ final readonly class TestPromptResolverService implements TestPromptResolverInte
         try {
             $isLoggedIn = (bool)$this->context->getAspect('backend.user')->get('isLoggedIn');
         } catch (AspectNotFoundException) {
-            return 'default';
-        }
-
-        if (!$isLoggedIn) {
-            return 'default';
+            $isLoggedIn = false;
         }
 
         $backendUser = $GLOBALS['BE_USER'] ?? null;
-        if (!$backendUser instanceof BackendUserAuthentication) {
+        if (!$isLoggedIn || !$backendUser instanceof BackendUserAuthentication) {
             return 'default';
         }
 

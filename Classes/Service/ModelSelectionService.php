@@ -99,6 +99,19 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
      */
     public function modelMatchesCriteria(Model $model, array $criteria): bool
     {
+        return $this->matchesCapabilities($model, $criteria)
+            && $this->matchesAdapterTypes($model, $criteria)
+            && $this->matchesMinContextLength($model, $criteria)
+            && $this->matchesMaxCostInput($model, $criteria);
+    }
+
+    /**
+     * Check whether the model satisfies all required capabilities.
+     *
+     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     */
+    private function matchesCapabilities(Model $model, array $criteria): bool
+    {
         // Check required capabilities. The criteria's `capabilities` array
         // is a `string[]` from external input (configuration / wizard form),
         // so we route through the typed `CapabilitySet`. Behaviour is
@@ -111,45 +124,71 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
         // removed-but-still-stored capabilities) are dropped at parse
         // time rather than matched against an equally-unknown criteria
         // string (REC #6 slice 16b).
-        if (!empty($criteria['capabilities'])) {
-            $capabilities = $model->getCapabilitySet();
-            foreach ($criteria['capabilities'] as $capability) {
-                if (!$capabilities->has($capability)) {
-                    return false;
-                }
-            }
+        if (empty($criteria['capabilities'])) {
+            return true;
         }
 
-        // Check adapter types
-        if (!empty($criteria['adapterTypes'])) {
-            $provider = $model->getProvider();
-            if ($provider === null) {
-                return false;
-            }
-            if (!in_array($provider->getAdapterType(), $criteria['adapterTypes'], true)) {
-                return false;
-            }
-        }
-
-        // Check minimum context length
-        if (isset($criteria['minContextLength']) && $criteria['minContextLength'] > 0) {
-            $contextLength = $model->getContextLength();
-            // Skip models with unknown context length (0) when minimum is required
-            if ($contextLength === 0 || $contextLength < $criteria['minContextLength']) {
-                return false;
-            }
-        }
-
-        // Check maximum input cost
-        if (isset($criteria['maxCostInput']) && $criteria['maxCostInput'] > 0) {
-            $costInput = $model->getCostInput();
-            // Allow models with unknown cost (0)
-            if ($costInput > 0 && $costInput > $criteria['maxCostInput']) {
+        $capabilities = $model->getCapabilitySet();
+        foreach ($criteria['capabilities'] as $capability) {
+            if (!$capabilities->has($capability)) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /**
+     * Check whether the model's provider adapter type is among the allowed types.
+     *
+     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     */
+    private function matchesAdapterTypes(Model $model, array $criteria): bool
+    {
+        if (empty($criteria['adapterTypes'])) {
+            return true;
+        }
+
+        $provider = $model->getProvider();
+        if ($provider === null) {
+            return false;
+        }
+
+        return in_array($provider->getAdapterType(), $criteria['adapterTypes'], true);
+    }
+
+    /**
+     * Check whether the model meets the minimum context length requirement.
+     *
+     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     */
+    private function matchesMinContextLength(Model $model, array $criteria): bool
+    {
+        if (!isset($criteria['minContextLength']) || $criteria['minContextLength'] <= 0) {
+            return true;
+        }
+
+        $contextLength = $model->getContextLength();
+
+        // Skip models with unknown context length (0) when minimum is required
+        return $contextLength !== 0 && $contextLength >= $criteria['minContextLength'];
+    }
+
+    /**
+     * Check whether the model's input cost is within the allowed maximum.
+     *
+     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     */
+    private function matchesMaxCostInput(Model $model, array $criteria): bool
+    {
+        if (!isset($criteria['maxCostInput']) || $criteria['maxCostInput'] <= 0) {
+            return true;
+        }
+
+        $costInput = $model->getCostInput();
+
+        // Allow models with unknown cost (0)
+        return $costInput <= 0 || $costInput <= $criteria['maxCostInput'];
     }
 
     /**
@@ -161,43 +200,71 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
      */
     private function sortCandidates(array $candidates, bool $preferLowestCost): array
     {
-        usort($candidates, function (Model $a, Model $b) use ($preferLowestCost): int {
-            // First priority: provider priority (higher is better)
-            $providerA = $a->getProvider();
-            $providerB = $b->getProvider();
-            $priorityA = $providerA?->getPriority() ?? 0;
-            $priorityB = $providerB?->getPriority() ?? 0;
-
-            if ($priorityA !== $priorityB) {
-                return $priorityB <=> $priorityA; // Higher priority first
-            }
-
-            // Second priority: cost preference
-            if ($preferLowestCost) {
-                $costA = $a->getCostInput() + $a->getCostOutput();
-                $costB = $b->getCostInput() + $b->getCostOutput();
-                // Treat 0 (unknown) as highest cost to deprioritize
-                if ($costA === 0) {
-                    $costA = PHP_INT_MAX;
-                }
-                if ($costB === 0) {
-                    $costB = PHP_INT_MAX;
-                }
-                if ($costA !== $costB) {
-                    return $costA <=> $costB; // Lower cost first
-                }
-            }
-
-            // Third priority: default model
-            if ($a->isDefault() !== $b->isDefault()) {
-                return $a->isDefault() ? -1 : 1; // Default first
-            }
-
-            // Fourth priority: sorting order
-            return $a->getSorting() <=> $b->getSorting();
-        });
+        usort(
+            $candidates,
+            fn(Model $a, Model $b): int => $this->compareCandidates($a, $b, $preferLowestCost),
+        );
 
         return $candidates;
+    }
+
+    /**
+     * Compare two candidate models according to the selection preferences.
+     */
+    private function compareCandidates(Model $a, Model $b, bool $preferLowestCost): int
+    {
+        // First priority: provider priority (higher is better)
+        $priorityA = $a->getProvider()?->getPriority() ?? 0;
+        $priorityB = $b->getProvider()?->getPriority() ?? 0;
+        $byPriority = $priorityB <=> $priorityA; // Higher priority first
+        if ($byPriority !== 0) {
+            return $byPriority;
+        }
+
+        // Second priority: cost preference
+        if ($preferLowestCost) {
+            $byCost = $this->compareByCost($a, $b);
+            if ($byCost !== 0) {
+                return $byCost;
+            }
+        }
+
+        // Third priority: default model, then sorting order
+        return $this->compareByDefaultThenSorting($a, $b);
+    }
+
+    /**
+     * Compare two models by combined input/output cost (lower cost first).
+     *
+     * Unknown cost (0) is treated as the highest cost to deprioritize it.
+     */
+    private function compareByCost(Model $a, Model $b): int
+    {
+        $costA = $a->getCostInput() + $a->getCostOutput();
+        $costB = $b->getCostInput() + $b->getCostOutput();
+        // Treat 0 (unknown) as highest cost to deprioritize
+        if ($costA === 0) {
+            $costA = PHP_INT_MAX;
+        }
+        if ($costB === 0) {
+            $costB = PHP_INT_MAX;
+        }
+
+        return $costA <=> $costB; // Lower cost first
+    }
+
+    /**
+     * Compare two models by default flag (default first), then by sorting order.
+     */
+    private function compareByDefaultThenSorting(Model $a, Model $b): int
+    {
+        // Third priority: default model
+        if ($a->isDefault() !== $b->isDefault()) {
+            return $a->isDefault() ? -1 : 1; // Default first
+        }
+
+        // Fourth priority: sorting order
+        return $a->getSorting() <=> $b->getSorting();
     }
 
     /**

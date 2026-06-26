@@ -156,7 +156,7 @@ final class ProviderController extends ActionController
             $provider->setIsActive(!$provider->isActive());
             $this->providerRepository->update($provider);
             $this->persistenceManager->persistAll();
-            return new JsonResponse((new ToggleActiveResponse(
+            $response = new JsonResponse((new ToggleActiveResponse(
                 success: true,
                 isActive: $provider->isActive(),
             ))->jsonSerialize());
@@ -166,7 +166,7 @@ final class ProviderController extends ActionController
                 'exception'    => $e,
                 'provider_uid' => $uid,
             ]);
-            return new JsonResponse(
+            $response = new JsonResponse(
                 (new ErrorResponse('Database error while toggling provider status.'))->jsonSerialize(),
                 500,
             );
@@ -175,11 +175,13 @@ final class ProviderController extends ActionController
                 'exception'    => $e,
                 'provider_uid' => $uid,
             ]);
-            return new JsonResponse(
+            $response = new JsonResponse(
                 (new ErrorResponse('Failed to toggle provider status. See system log for details.'))->jsonSerialize(),
                 500,
             );
         }
+
+        return $response;
     }
 
     /**
@@ -202,7 +204,7 @@ final class ProviderController extends ActionController
         try {
             $result = $this->providerAdapterRegistry->testProviderConnection($provider);
 
-            return new JsonResponse(TestConnectionResponse::fromResult($result)->jsonSerialize());
+            $response = new JsonResponse(TestConnectionResponse::fromResult($result)->jsonSerialize());
         } catch (ProviderResponseException $e) {
             // REC #8b: provider response bodies often reference upstream
             // endpoints / model names — log full detail, surface generic.
@@ -212,7 +214,7 @@ final class ProviderController extends ActionController
                 'endpoint'     => $e->endpoint,
                 'provider_uid' => $uid,
             ]);
-            return new JsonResponse(
+            $response = new JsonResponse(
                 (new ErrorResponse('Upstream LLM provider returned an error during connection test.'))->jsonSerialize(),
                 502,
             );
@@ -221,7 +223,7 @@ final class ProviderController extends ActionController
                 'exception'    => $e,
                 'provider_uid' => $uid,
             ]);
-            return new JsonResponse(
+            $response = new JsonResponse(
                 (new ErrorResponse('LLM provider error during connection test. See system log for details.'))->jsonSerialize(),
                 502,
             );
@@ -230,11 +232,13 @@ final class ProviderController extends ActionController
                 'exception'    => $e,
                 'provider_uid' => $uid,
             ]);
-            return new JsonResponse(
+            $response = new JsonResponse(
                 (new ErrorResponse('Connection test failed. See system log for details.'))->jsonSerialize(),
                 500,
             );
         }
+
+        return $response;
     }
 
     /**

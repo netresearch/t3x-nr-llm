@@ -44,7 +44,7 @@ final class DallEImageService extends AbstractSpecializedService
     /** Model capabilities. */
     private const MODEL_CAPABILITIES = [
         'dall-e-2' => [
-            'sizes' => ['256x256', '512x512', '1024x1024'],
+            'sizes' => ['256x256', '512x512', self::DEFAULT_SIZE],
             'max_prompt_length' => 1000,
             'supports_quality' => false,
             'supports_style' => false,
@@ -52,7 +52,7 @@ final class DallEImageService extends AbstractSpecializedService
             'supports_variations' => true,
         ],
         'dall-e-3' => [
-            'sizes' => ['1024x1024', '1792x1024', '1024x1792'],
+            'sizes' => [self::DEFAULT_SIZE, '1792x1024', '1024x1792'],
             'max_prompt_length' => 4000,
             'supports_quality' => true,
             'supports_style' => true,
@@ -62,7 +62,7 @@ final class DallEImageService extends AbstractSpecializedService
         // OpenAI's gpt-image-* family replaced DALL·E. It accepts neither `response_format`
         // nor `style`/`quality:standard|hd`, always returns b64_json, and uses its own size set.
         'gpt-image-1' => [
-            'sizes' => ['1024x1024', '1536x1024', '1024x1536', 'auto'],
+            'sizes' => [self::DEFAULT_SIZE, '1536x1024', '1024x1536', 'auto'],
             'max_prompt_length' => 32000,
             'supports_quality' => false,
             'supports_style' => false,
@@ -210,7 +210,7 @@ final class DallEImageService extends AbstractSpecializedService
     public function createVariations(
         string $imagePath,
         int $count = 1,
-        string $size = '1024x1024',
+        string $size = self::DEFAULT_SIZE,
     ): array {
         $this->ensureAvailable();
 
@@ -262,7 +262,7 @@ final class DallEImageService extends AbstractSpecializedService
         string $imagePath,
         string $prompt,
         ?string $maskPath = null,
-        string $size = '1024x1024',
+        string $size = self::DEFAULT_SIZE,
     ): ImageGenerationResult {
         $this->ensureAvailable();
 
@@ -313,7 +313,7 @@ final class DallEImageService extends AbstractSpecializedService
      */
     public function getSupportedSizes(string $model = 'dall-e-3'): array
     {
-        return self::MODEL_CAPABILITIES[$this->capabilityKey($model)]['sizes'] ?? ['1024x1024'];
+        return self::MODEL_CAPABILITIES[$this->capabilityKey($model)]['sizes'] ?? [self::DEFAULT_SIZE];
     }
 
     /**

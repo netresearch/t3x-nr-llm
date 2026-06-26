@@ -49,16 +49,12 @@ final readonly class FetchRecordsRequest
         }
 
         // Whitelist: table names must be alphanumeric with underscores only
-        if (preg_match('/[^a-zA-Z0-9_]/', $this->table) === 1) {
+        if (preg_match('/\W/', $this->table) === 1) {
             return false;
         }
 
         // Whitelist: label field must be alphanumeric with underscores only (if set)
-        if ($this->labelField !== '' && preg_match('/[^a-zA-Z0-9_]/', $this->labelField) === 1) {
-            return false;
-        }
-
-        return true;
+        return $this->labelField === '' || preg_match('/\W/', $this->labelField) !== 1;
     }
 
     /**

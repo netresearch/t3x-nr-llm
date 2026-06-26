@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Controller\Backend\DTO\RefreshInputRequest;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TaskExecutionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TaskInputResponse;
+use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 // Aliased to make the catch arm explicit about which
@@ -192,11 +193,28 @@ final class TaskExecutionController extends ActionController
             return new JsonResponse((new ErrorResponse('Task is not active'))->jsonSerialize(), 400);
         }
 
+        return new JsonResponse($this->runExecution($task, $dto->input));
+    }
+
+    /**
+     * Run the task through the execution service and build the JSON
+     * payload, mapping each failure mode to a safe, generic message.
+     *
+     * Extracted from `executeAction()` to keep the action's return
+     * count low; all error arms stay on the HTTP 200 frontend
+     * AjaxRequest contract (the caller wraps the payload in a 200
+     * `JsonResponse`), exactly as before.
+     *
+     * @return array<string, mixed>
+     */
+    private function runExecution(Task $task, string $input): array
+    {
         try {
-            $result = $this->taskExecutionService->execute($task, $dto->input);
+            $result  = $this->taskExecutionService->execute($task, $input);
+            $payload = TaskExecutionResponse::fromResult($result)->jsonSerialize();
         } catch (DomainInvalidArgumentException $e) {
             // Domain validation: message is vetted internal text safe to surface.
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize());
+            $payload = (new ErrorResponse($e->getMessage()))->jsonSerialize();
         } catch (ProviderResponseException $e) {
             // REC #8b: never leak raw provider error bodies to the frontend.
             // Log full detail (httpStatus / endpoint) for ops, surface generic.
@@ -206,7 +224,7 @@ final class TaskExecutionController extends ActionController
                 'endpoint'    => $e->endpoint,
                 'task_uid'    => $task->getUid(),
             ]);
-            return new JsonResponse((new ErrorResponse('Upstream LLM provider returned an error.'))->jsonSerialize());
+            $payload = (new ErrorResponse('Upstream LLM provider returned an error.'))->jsonSerialize();
         } catch (ProviderException $e) {
             // Other provider failures (connection / configuration / fallback exhausted /
             // unsupported feature). Log and surface a generic message — the underlying
@@ -215,7 +233,7 @@ final class TaskExecutionController extends ActionController
                 'exception' => $e,
                 'task_uid'  => $task->getUid(),
             ]);
-            return new JsonResponse((new ErrorResponse('LLM provider error. See system log for details.'))->jsonSerialize());
+            $payload = (new ErrorResponse('LLM provider error. See system log for details.'))->jsonSerialize();
         } catch (Throwable $e) {
             // Stay on HTTP 200 (frontend AjaxRequest contract) but log the full
             // exception and surface a generic message — `$e->getMessage()` may
@@ -224,10 +242,10 @@ final class TaskExecutionController extends ActionController
                 'exception' => $e,
                 'task_uid'  => $task->getUid(),
             ]);
-            return new JsonResponse((new ErrorResponse('Task execution failed. See system log for details.'))->jsonSerialize());
+            $payload = (new ErrorResponse('Task execution failed. See system log for details.'))->jsonSerialize();
         }
 
-        return new JsonResponse(TaskExecutionResponse::fromResult($result)->jsonSerialize());
+        return $payload;
     }
 
     /**

@@ -34,9 +34,7 @@ class PromptTemplateRepository extends Repository
         $query->matching(
             $query->equals('identifier', $identifier),
         );
-        /** @var PromptTemplate|null $result */
-        $result = $query->execute()->getFirst();
-        return $result;
+        return $query->execute()->getFirst();
     }
 
     /**
@@ -97,9 +95,7 @@ class PromptTemplateRepository extends Repository
                 $query->equals('identifier', $variantName),
             ),
         );
-        /** @var PromptTemplate|null $result */
-        $result = $query->execute()->getFirst();
-        return $result;
+        return $query->execute()->getFirst();
     }
 
     /**

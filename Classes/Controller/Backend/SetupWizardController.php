@@ -53,6 +53,8 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class SetupWizardController extends ActionController
 {
+    private const ERROR_ENDPOINT_REQUIRED = 'Endpoint URL is required';
+
     private ModuleTemplate $moduleTemplate;
 
     public function __construct(
@@ -135,7 +137,7 @@ final class SetupWizardController extends ActionController
 
         if ($endpoint === '') {
             return new JsonResponse(
-                (new ErrorResponse('Endpoint URL is required'))->jsonSerialize(),
+                (new ErrorResponse(self::ERROR_ENDPOINT_REQUIRED))->jsonSerialize(),
                 400,
             );
         }
@@ -159,7 +161,7 @@ final class SetupWizardController extends ActionController
 
         if ($endpoint === '') {
             return new JsonResponse(
-                (new ErrorResponse('Endpoint URL is required'))->jsonSerialize(),
+                (new ErrorResponse(self::ERROR_ENDPOINT_REQUIRED))->jsonSerialize(),
                 400,
             );
         }
@@ -189,7 +191,7 @@ final class SetupWizardController extends ActionController
 
         if ($endpoint === '') {
             return new JsonResponse(
-                (new ErrorResponse('Endpoint URL is required'))->jsonSerialize(),
+                (new ErrorResponse(self::ERROR_ENDPOINT_REQUIRED))->jsonSerialize(),
                 400,
             );
         }
@@ -234,21 +236,7 @@ final class SetupWizardController extends ActionController
         );
 
         // Convert model data to DTOs
-        $models = [];
-        foreach ($modelsData as $modelData) {
-            if (!is_array($modelData)) {
-                continue;
-            }
-            $models[] = new DiscoveredModel(
-                modelId: is_string($modelData['modelId'] ?? null) ? $modelData['modelId'] : '',
-                name: is_string($modelData['name'] ?? null) ? $modelData['name'] : '',
-                description: is_string($modelData['description'] ?? null) ? $modelData['description'] : '',
-                capabilities: is_array($modelData['capabilities'] ?? null) ? array_values(array_filter($modelData['capabilities'], is_string(...))) : ['chat'],
-                contextLength: is_numeric($modelData['contextLength'] ?? null) ? (int)$modelData['contextLength'] : 0,
-                maxOutputTokens: is_numeric($modelData['maxOutputTokens'] ?? null) ? (int)$modelData['maxOutputTokens'] : 0,
-                recommended: (bool)($modelData['recommended'] ?? false),
-            );
-        }
+        $models = $this->buildDiscoveredModels($modelsData);
 
         // `fromSuggestedConfigurations()` reindexes via
         // `array_values(array_map(...))` internally — the redundant
@@ -280,162 +268,242 @@ final class SetupWizardController extends ActionController
         }
 
         try {
-            // Create provider
-            $providerName = is_string($providerData['suggestedName'] ?? null) ? $providerData['suggestedName'] : 'provider';
-            $providerAdapter = is_string($providerData['adapterType'] ?? null) ? $providerData['adapterType'] : 'openai';
-            $providerEndpoint = is_string($providerData['endpoint'] ?? null) ? $providerData['endpoint'] : '';
-            $providerApiKey = is_string($providerData['apiKey'] ?? null) ? $providerData['apiKey'] : '';
-
-            // Store the API key in the vault and use the vault identifier
-            $vaultIdentifier = '';
-            if ($providerApiKey !== '') {
-                try {
-                    $vaultIdentifier = $this->generateVaultIdentifier();
-                    $this->vaultService->store($vaultIdentifier, $providerApiKey, [
-                        'table' => 'tx_nrllm_provider',
-                        'field' => 'api_key',
-                        'source' => 'setup_wizard',
-                    ]);
-                } catch (Throwable $e) {
-                    return new JsonResponse(
-                        (new ErrorResponse('Failed to store API key securely: ' . $e->getMessage()))->jsonSerialize(),
-                        500,
-                    );
-                }
-            }
-
-            $provider = new Provider();
-            $provider->setIdentifier($this->generateIdentifier($providerName));
-            $provider->setName($providerName !== '' ? $providerName : 'New Provider');
-            $provider->setAdapterType($providerAdapter);
-            $provider->setEndpointUrl($providerEndpoint);
-            $provider->setApiKey($vaultIdentifier);
-            $provider->setIsActive(true);
-            if ($pid >= 0) {
-                $provider->setPid($pid);
-            }
-
-            $this->providerRepository->add($provider);
-            $this->persistenceManager->persistAll();
-
-            /** @var array<string, Model> $savedModels */
-            $savedModels = [];
-
-            // Check if any model will be set as default
-            $hasNewDefault = false;
-            foreach ($modelsData as $modelData) {
-                if (is_array($modelData) && ($modelData['selected'] ?? false) && ($modelData['recommended'] ?? false)) {
-                    $hasNewDefault = true;
-                    break;
-                }
-            }
-
-            // Clear existing defaults before setting new ones
-            if ($hasNewDefault) {
-                $this->modelRepository->unsetAllDefaults();
-                $this->persistenceManager->persistAll();
-            }
-
-            // Create models
-            foreach ($modelsData as $modelData) {
-                if (!is_array($modelData)) {
-                    continue;
-                }
-                if (!($modelData['selected'] ?? false)) {
-                    continue;
-                }
-
-                $modelName = is_string($modelData['name'] ?? null) ? $modelData['name'] : 'model';
-                $modelId = is_string($modelData['modelId'] ?? null) ? $modelData['modelId'] : '';
-                $modelDescription = is_string($modelData['description'] ?? null) ? $modelData['description'] : '';
-                $modelCapabilities = is_array($modelData['capabilities'] ?? null) ? $modelData['capabilities'] : ['chat'];
-                $contextLength = is_numeric($modelData['contextLength'] ?? null) ? (int)$modelData['contextLength'] : 0;
-                $maxOutputTokens = is_numeric($modelData['maxOutputTokens'] ?? null) ? (int)$modelData['maxOutputTokens'] : 0;
-
-                $model = new Model();
-                $model->setIdentifier($this->generateIdentifier($modelName));
-                $model->setName($modelName);
-                $model->setDescription($modelDescription);
-                $model->setModelId($modelId);
-                $model->setProvider($provider);
-                $model->setContextLength($contextLength);
-                $model->setMaxOutputTokens($maxOutputTokens);
-                $model->setCapabilities(implode(',', array_filter($modelCapabilities, is_string(...))));
-                $model->setIsActive(true);
-                $model->setIsDefault((bool)($modelData['recommended'] ?? false));
-                if ($pid >= 0) {
-                    $model->setPid($pid);
-                }
-
-                $this->modelRepository->add($model);
-                if ($modelId !== '') {
-                    $savedModels[$modelId] = $model;
-                }
-            }
-
-            $this->persistenceManager->persistAll();
-
-            // Create configurations
-            foreach ($configurationsData as $configData) {
-                if (!is_array($configData)) {
-                    continue;
-                }
-                if (!($configData['selected'] ?? false)) {
-                    continue;
-                }
-
-                $recommendedModelId = is_string($configData['recommendedModelId'] ?? null) ? $configData['recommendedModelId'] : '';
-                $model = $savedModels[$recommendedModelId] ?? reset($savedModels) ?: null;
-
-                if ($model === null) {
-                    continue;
-                }
-
-                $configName = is_string($configData['name'] ?? null) ? $configData['name'] : 'config';
-                $configIdentifier = is_string($configData['identifier'] ?? null) ? $configData['identifier'] : '';
-                $configDescription = is_string($configData['description'] ?? null) ? $configData['description'] : '';
-                $systemPrompt = is_string($configData['systemPrompt'] ?? null) ? $configData['systemPrompt'] : '';
-                $temperature = is_numeric($configData['temperature'] ?? null) ? (float)$configData['temperature'] : 0.7;
-                $maxTokens = is_numeric($configData['maxTokens'] ?? null) ? (int)$configData['maxTokens'] : 4096;
-
-                $config = new LlmConfiguration();
-                $config->setIdentifier($configIdentifier !== '' ? $configIdentifier : $this->generateIdentifier($configName));
-                $config->setName($configName);
-                $config->setDescription($configDescription);
-                $config->setSystemPrompt($systemPrompt);
-                $config->setLlmModel($model);
-                $config->setTemperature($temperature);
-                $config->setMaxTokens($maxTokens);
-                $config->setIsActive(true);
-                if ($pid >= 0) {
-                    $config->setPid($pid);
-                }
-
-                $this->llmConfigurationRepository->add($config);
-            }
-
-            $this->persistenceManager->persistAll();
-
-            $configCount = 0;
-            foreach ($configurationsData as $c) {
-                if (is_array($c) && ($c['selected'] ?? false)) {
-                    $configCount++;
-                }
-            }
-
-            return new JsonResponse(
-                WizardSaveResponse::fromProvider(
-                    provider: $provider,
-                    modelsCount: count($savedModels),
-                    configurationsCount: $configCount,
-                )->jsonSerialize(),
-            );
+            return $this->persistWizardResult($providerData, $modelsData, $configurationsData, $pid);
         } catch (Throwable $e) {
             return new JsonResponse(
                 (new ErrorResponse('Failed to save: ' . $e->getMessage()))->jsonSerialize(),
                 500,
             );
         }
+    }
+
+    /**
+     * Persist the provider, models and configurations gathered by the wizard.
+     *
+     * @param array<mixed> $providerData
+     * @param array<mixed> $modelsData
+     * @param array<mixed> $configurationsData
+     */
+    private function persistWizardResult(array $providerData, array $modelsData, array $configurationsData, int $pid): ResponseInterface
+    {
+        // Create provider
+        $providerName = is_string($providerData['suggestedName'] ?? null) ? $providerData['suggestedName'] : 'provider';
+        $providerAdapter = is_string($providerData['adapterType'] ?? null) ? $providerData['adapterType'] : 'openai';
+        $providerEndpoint = is_string($providerData['endpoint'] ?? null) ? $providerData['endpoint'] : '';
+        $providerApiKey = is_string($providerData['apiKey'] ?? null) ? $providerData['apiKey'] : '';
+
+        // Store the API key in the vault and use the vault identifier
+        $vaultIdentifier = '';
+        if ($providerApiKey !== '') {
+            try {
+                $vaultIdentifier = $this->generateVaultIdentifier();
+                $this->vaultService->store($vaultIdentifier, $providerApiKey, [
+                    'table' => 'tx_nrllm_provider',
+                    'field' => 'api_key',
+                    'source' => 'setup_wizard',
+                ]);
+            } catch (Throwable $e) {
+                return new JsonResponse(
+                    (new ErrorResponse('Failed to store API key securely: ' . $e->getMessage()))->jsonSerialize(),
+                    500,
+                );
+            }
+        }
+
+        $provider = new Provider();
+        $provider->setIdentifier($this->generateIdentifier($providerName));
+        $provider->setName($providerName !== '' ? $providerName : 'New Provider');
+        $provider->setAdapterType($providerAdapter);
+        $provider->setEndpointUrl($providerEndpoint);
+        $provider->setApiKey($vaultIdentifier);
+        $provider->setIsActive(true);
+        if ($pid >= 0) {
+            $provider->setPid($pid);
+        }
+
+        $this->providerRepository->add($provider);
+        $this->persistenceManager->persistAll();
+
+        $savedModels = $this->createModels($modelsData, $provider, $pid);
+        $this->persistenceManager->persistAll();
+
+        $this->createConfigurations($configurationsData, $savedModels, $pid);
+        $this->persistenceManager->persistAll();
+
+        return new JsonResponse(
+            WizardSaveResponse::fromProvider(
+                provider: $provider,
+                modelsCount: count($savedModels),
+                configurationsCount: $this->countSelected($configurationsData),
+            )->jsonSerialize(),
+        );
+    }
+
+    /**
+     * Create and register the selected models for the given provider.
+     *
+     * @param array<mixed> $modelsData
+     *
+     * @return array<string, Model>
+     */
+    private function createModels(array $modelsData, Provider $provider, int $pid): array
+    {
+        /** @var array<string, Model> $savedModels */
+        $savedModels = [];
+
+        // Clear existing defaults before setting new ones
+        if ($this->hasNewDefaultModel($modelsData)) {
+            $this->modelRepository->unsetAllDefaults();
+            $this->persistenceManager->persistAll();
+        }
+
+        // Create models
+        foreach ($modelsData as $modelData) {
+            if (!is_array($modelData)) {
+                continue;
+            }
+            if (!($modelData['selected'] ?? false)) {
+                continue;
+            }
+
+            $modelName = is_string($modelData['name'] ?? null) ? $modelData['name'] : 'model';
+            $modelId = is_string($modelData['modelId'] ?? null) ? $modelData['modelId'] : '';
+            $modelDescription = is_string($modelData['description'] ?? null) ? $modelData['description'] : '';
+            $modelCapabilities = is_array($modelData['capabilities'] ?? null) ? $modelData['capabilities'] : ['chat'];
+            $contextLength = is_numeric($modelData['contextLength'] ?? null) ? (int)$modelData['contextLength'] : 0;
+            $maxOutputTokens = is_numeric($modelData['maxOutputTokens'] ?? null) ? (int)$modelData['maxOutputTokens'] : 0;
+
+            $model = new Model();
+            $model->setIdentifier($this->generateIdentifier($modelName));
+            $model->setName($modelName);
+            $model->setDescription($modelDescription);
+            $model->setModelId($modelId);
+            $model->setProvider($provider);
+            $model->setContextLength($contextLength);
+            $model->setMaxOutputTokens($maxOutputTokens);
+            $model->setCapabilities(implode(',', array_filter($modelCapabilities, is_string(...))));
+            $model->setIsActive(true);
+            $model->setIsDefault((bool)($modelData['recommended'] ?? false));
+            if ($pid >= 0) {
+                $model->setPid($pid);
+            }
+
+            $this->modelRepository->add($model);
+            if ($modelId !== '') {
+                $savedModels[$modelId] = $model;
+            }
+        }
+
+        return $savedModels;
+    }
+
+    /**
+     * Check if any selected model is flagged as the recommended default.
+     *
+     * @param array<mixed> $modelsData
+     */
+    private function hasNewDefaultModel(array $modelsData): bool
+    {
+        foreach ($modelsData as $modelData) {
+            if (is_array($modelData) && ($modelData['selected'] ?? false) && ($modelData['recommended'] ?? false)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Create and register the selected configurations.
+     *
+     * @param array<mixed>         $configurationsData
+     * @param array<string, Model> $savedModels
+     */
+    private function createConfigurations(array $configurationsData, array $savedModels, int $pid): void
+    {
+        // Create configurations
+        foreach ($configurationsData as $configData) {
+            if (!is_array($configData)) {
+                continue;
+            }
+            if (!($configData['selected'] ?? false)) {
+                continue;
+            }
+
+            $recommendedModelId = is_string($configData['recommendedModelId'] ?? null) ? $configData['recommendedModelId'] : '';
+            $model = $savedModels[$recommendedModelId] ?? reset($savedModels) ?: null;
+
+            if ($model === null) {
+                continue;
+            }
+
+            $configName = is_string($configData['name'] ?? null) ? $configData['name'] : 'config';
+            $configIdentifier = is_string($configData['identifier'] ?? null) ? $configData['identifier'] : '';
+            $configDescription = is_string($configData['description'] ?? null) ? $configData['description'] : '';
+            $systemPrompt = is_string($configData['systemPrompt'] ?? null) ? $configData['systemPrompt'] : '';
+            $temperature = is_numeric($configData['temperature'] ?? null) ? (float)$configData['temperature'] : 0.7;
+            $maxTokens = is_numeric($configData['maxTokens'] ?? null) ? (int)$configData['maxTokens'] : 4096;
+
+            $config = new LlmConfiguration();
+            $config->setIdentifier($configIdentifier !== '' ? $configIdentifier : $this->generateIdentifier($configName));
+            $config->setName($configName);
+            $config->setDescription($configDescription);
+            $config->setSystemPrompt($systemPrompt);
+            $config->setLlmModel($model);
+            $config->setTemperature($temperature);
+            $config->setMaxTokens($maxTokens);
+            $config->setIsActive(true);
+            if ($pid >= 0) {
+                $config->setPid($pid);
+            }
+
+            $this->llmConfigurationRepository->add($config);
+        }
+    }
+
+    /**
+     * Count how many entries are flagged as selected.
+     *
+     * @param array<mixed> $items
+     */
+    private function countSelected(array $items): int
+    {
+        $count = 0;
+        foreach ($items as $item) {
+            if (is_array($item) && ($item['selected'] ?? false)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Convert raw model data into DiscoveredModel DTOs.
+     *
+     * @param array<mixed> $modelsData
+     *
+     * @return list<DiscoveredModel>
+     */
+    private function buildDiscoveredModels(array $modelsData): array
+    {
+        $models = [];
+        foreach ($modelsData as $modelData) {
+            if (!is_array($modelData)) {
+                continue;
+            }
+            $models[] = new DiscoveredModel(
+                modelId: is_string($modelData['modelId'] ?? null) ? $modelData['modelId'] : '',
+                name: is_string($modelData['name'] ?? null) ? $modelData['name'] : '',
+                description: is_string($modelData['description'] ?? null) ? $modelData['description'] : '',
+                capabilities: is_array($modelData['capabilities'] ?? null) ? array_values(array_filter($modelData['capabilities'], is_string(...))) : ['chat'],
+                contextLength: is_numeric($modelData['contextLength'] ?? null) ? (int)$modelData['contextLength'] : 0,
+                maxOutputTokens: is_numeric($modelData['maxOutputTokens'] ?? null) ? (int)$modelData['maxOutputTokens'] : 0,
+                recommended: (bool)($modelData['recommended'] ?? false),
+            );
+        }
+
+        return $models;
     }
 
     /**
@@ -465,12 +533,8 @@ final class SetupWizardController extends ActionController
             }
         }
 
-        if (is_array($body)) {
-            /** @var array<string, mixed> $body */
-            return $body;
-        }
-
-        return null;
+        /** @var array<string, mixed>|null $body */
+        return is_array($body) ? $body : null;
     }
 
     /**

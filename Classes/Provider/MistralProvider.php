@@ -295,31 +295,49 @@ final class MistralProvider extends AbstractProvider implements
                 $line = substr($buffer, 0, $pos);
                 $buffer = substr($buffer, $pos + 1);
 
-                if (str_starts_with($line, 'data: ')) {
-                    $data = substr($line, 6);
+                if (!str_starts_with($line, 'data: ')) {
+                    continue;
+                }
 
-                    if ($data === '[DONE]') {
-                        return;
-                    }
+                $data = substr($line, 6);
 
-                    try {
-                        $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
-                        if (is_array($decoded)) {
-                            $json = $this->asArray($decoded);
-                            $choices = $this->getList($json, 'choices');
-                            $firstChoice = $this->asArray($choices[0] ?? []);
-                            $delta = $this->getArray($firstChoice, 'delta');
-                            $content = $this->getString($delta, 'content');
-                            if ($content !== '') {
-                                yield $content;
-                            }
-                        }
-                    } catch (JsonException) {
-                        // Skip malformed JSON
-                    }
+                if ($data === '[DONE]') {
+                    return;
+                }
+
+                $content = $this->extractStreamDelta($data);
+                if ($content !== null) {
+                    yield $content;
                 }
             }
         }
+    }
+
+    /**
+     * Extract the delta content from a single streaming SSE data payload.
+     *
+     * Returns null for malformed JSON or empty content so the caller can skip it.
+     */
+    private function extractStreamDelta(string $data): ?string
+    {
+        try {
+            $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            // Skip malformed JSON
+            return null;
+        }
+
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $json = $this->asArray($decoded);
+        $choices = $this->getList($json, 'choices');
+        $firstChoice = $this->asArray($choices[0] ?? []);
+        $delta = $this->getArray($firstChoice, 'delta');
+        $content = $this->getString($delta, 'content');
+
+        return $content !== '' ? $content : null;
     }
 
     public function supportsStreaming(): bool

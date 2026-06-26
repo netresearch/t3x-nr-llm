@@ -22,6 +22,8 @@ use Netresearch\NrLlm\Controller\Backend\TaskRecordsController;
  * when registering them, so 'nrllm_provider_toggle_active' becomes
  * accessible as 'ajax_nrllm_provider_toggle_active'.
  */
+$toggleActiveAction = '::toggleActiveAction';
+
 return [
     // Main module
     'nrllm_test' => [
@@ -32,7 +34,7 @@ return [
     // Provider routes
     'nrllm_provider_toggle_active' => [
         'path' => '/nrllm/provider/toggle-active',
-        'target' => ProviderController::class . '::toggleActiveAction',
+        'target' => ProviderController::class . $toggleActiveAction,
     ],
     'nrllm_provider_test_connection' => [
         'path' => '/nrllm/provider/test-connection',
@@ -42,7 +44,7 @@ return [
     // Model routes
     'nrllm_model_toggle_active' => [
         'path' => '/nrllm/model/toggle-active',
-        'target' => ModelController::class . '::toggleActiveAction',
+        'target' => ModelController::class . $toggleActiveAction,
     ],
     'nrllm_model_set_default' => [
         'path' => '/nrllm/model/set-default',
@@ -68,7 +70,7 @@ return [
     // Configuration routes
     'nrllm_config_toggle_active' => [
         'path' => '/nrllm/config/toggle-active',
-        'target' => ConfigurationController::class . '::toggleActiveAction',
+        'target' => ConfigurationController::class . $toggleActiveAction,
     ],
     'nrllm_config_set_default' => [
         'path' => '/nrllm/config/set-default',

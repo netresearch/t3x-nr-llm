@@ -202,7 +202,7 @@ class Model extends AbstractEntity
 
     public function isActive(): bool
     {
-        return $this->isActive;
+        return $this->getIsActive();
     }
 
     public function getIsDefault(): bool
@@ -212,7 +212,7 @@ class Model extends AbstractEntity
 
     public function isDefault(): bool
     {
-        return $this->isDefault;
+        return $this->getIsDefault();
     }
 
     public function getSorting(): int
@@ -479,16 +479,12 @@ class Model extends AbstractEntity
      */
     public function getFormattedContextLength(): string
     {
-        if ($this->contextLength === 0) {
-            return 'Unknown';
-        }
-        if ($this->contextLength >= 1000000) {
-            return sprintf('%.1fM', $this->contextLength / 1000000);
-        }
-        if ($this->contextLength >= 1000) {
-            return sprintf('%dK', (int)($this->contextLength / 1000));
-        }
-        return (string)$this->contextLength;
+        return match (true) {
+            $this->contextLength === 0 => 'Unknown',
+            $this->contextLength >= 1000000 => sprintf('%.1fM', $this->contextLength / 1000000),
+            $this->contextLength >= 1000 => sprintf('%dK', (int)($this->contextLength / 1000)),
+            default => (string)$this->contextLength,
+        };
     }
 
     /**

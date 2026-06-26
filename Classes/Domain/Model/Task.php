@@ -183,7 +183,7 @@ class Task extends AbstractEntity
 
     public function isActive(): bool
     {
-        return $this->isActive;
+        return $this->getIsActive();
     }
 
     public function getIsSystem(): bool
@@ -193,7 +193,7 @@ class Task extends AbstractEntity
 
     public function isSystem(): bool
     {
-        return $this->isSystem;
+        return $this->getIsSystem();
     }
 
     public function getSorting(): int

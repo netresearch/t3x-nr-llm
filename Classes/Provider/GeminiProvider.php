@@ -455,29 +455,44 @@ final class GeminiProvider extends AbstractProvider implements
                 $line = substr($buffer, 0, $pos);
                 $buffer = substr($buffer, $pos + 1);
 
-                if (str_starts_with($line, 'data: ')) {
-                    $data = substr($line, 6);
+                if (!str_starts_with($line, 'data: ')) {
+                    continue;
+                }
 
-                    try {
-                        $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
-                        if (is_array($decoded)) {
-                            $json = $this->asArray($decoded);
-                            $candidates = $this->getList($json, 'candidates');
-                            $candidate = $this->asArray($candidates[0] ?? []);
-                            $contentObj = $this->getArray($candidate, 'content');
-                            $parts = $this->getList($contentObj, 'parts');
-                            $firstPart = $this->asArray($parts[0] ?? []);
-                            $text = $this->getString($firstPart, 'text');
-                            if ($text !== '') {
-                                yield $text;
-                            }
-                        }
-                    } catch (JsonException) {
-                        // Skip malformed JSON
-                    }
+                $text = $this->extractStreamText(substr($line, 6));
+                if ($text !== null) {
+                    yield $text;
                 }
             }
         }
+    }
+
+    /**
+     * Decode a single SSE `data:` payload and extract the streamed text chunk.
+     * Returns null for malformed JSON, non-array payloads, or empty text.
+     */
+    private function extractStreamText(string $data): ?string
+    {
+        try {
+            $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            // Skip malformed JSON
+            return null;
+        }
+
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $json = $this->asArray($decoded);
+        $candidates = $this->getList($json, 'candidates');
+        $candidate = $this->asArray($candidates[0] ?? []);
+        $contentObj = $this->getArray($candidate, 'content');
+        $parts = $this->getList($contentObj, 'parts');
+        $firstPart = $this->asArray($parts[0] ?? []);
+        $text = $this->getString($firstPart, 'text');
+
+        return $text !== '' ? $text : null;
     }
 
     public function supportsStreaming(): bool
@@ -501,7 +516,41 @@ final class GeminiProvider extends AbstractProvider implements
         $contents = [];
         $systemInstruction = null;
 
-        // Pre-scan: build tool_call_id → function_name mapping from assistant tool_calls
+        $toolCallIdToName = $this->buildToolCallIdToName($messages);
+
+        foreach ($messages as $message) {
+            $msgArray = $this->asArray($message);
+            $role = $this->getString($msgArray, 'role');
+
+            if ($role === 'system') {
+                $content = $msgArray['content'] ?? '';
+                $systemInstruction = [
+                    'parts' => [['text' => is_string($content) ? $content : '']],
+                ];
+
+                continue;
+            }
+
+            $contents[] = $this->convertMessage($role, $msgArray, $toolCallIdToName);
+        }
+
+        $result = ['contents' => $contents];
+        if ($systemInstruction !== null) {
+            $result['systemInstruction'] = $systemInstruction;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Pre-scan: build a tool_call_id → function_name mapping from assistant tool_calls.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     *
+     * @return array<string, string>
+     */
+    private function buildToolCallIdToName(array $messages): array
+    {
         $toolCallIdToName = [];
         foreach ($messages as $msg) {
             $m = $this->asArray($msg);
@@ -517,102 +566,117 @@ final class GeminiProvider extends AbstractProvider implements
             }
         }
 
-        foreach ($messages as $message) {
-            $msgArray = $this->asArray($message);
-            $role = $this->getString($msgArray, 'role');
-            $content = $msgArray['content'] ?? '';
+        return $toolCallIdToName;
+    }
 
-            if ($role === 'system') {
-                $systemInstruction = [
-                    'parts' => [['text' => is_string($content) ? $content : '']],
-                ];
+    /**
+     * Convert a single non-system message to its Gemini `contents` entry.
+     *
+     * @param array<string, mixed>  $msgArray
+     * @param array<string, string> $toolCallIdToName
+     *
+     * @return array<string, mixed>
+     */
+    private function convertMessage(string $role, array $msgArray, array $toolCallIdToName): array
+    {
+        // Tool result messages: convert to Gemini functionResponse format
+        if ($role === 'tool') {
+            return $this->convertToolMessage($msgArray, $toolCallIdToName);
+        }
 
-                continue;
-            }
+        // Assistant with tool_calls: convert to Gemini functionCall format
+        if ($role === 'assistant' && isset($msgArray['tool_calls']) && is_array($msgArray['tool_calls'])) {
+            return $this->convertAssistantToolCalls($msgArray);
+        }
 
-            // Tool result messages: convert to Gemini functionResponse format
-            if ($role === 'tool') {
-                $toolCallId = $this->getString($msgArray, 'tool_call_id');
-                // Resolve function name from pre-scanned mapping
-                $name = $toolCallIdToName[$toolCallId] ?? $this->getString($msgArray, 'name', 'unknown');
-                $contentStr = $this->getString($msgArray, 'content');
-                $responseData = json_decode($contentStr, true);
-                if (!is_array($responseData)) {
-                    $responseData = ['result' => $contentStr];
-                }
+        $content = $msgArray['content'] ?? '';
+        $geminiRole = $role === 'assistant' ? 'model' : 'user';
 
-                $contents[] = [
-                    'role' => 'user',
-                    'parts' => [
-                        [
-                            'functionResponse' => [
-                                'name' => $name,
-                                'response' => $responseData,
-                            ],
-                        ],
+        if (is_array($content)) {
+            return [
+                'role' => $geminiRole,
+                'parts' => $this->convertMultimodalToParts($content),
+            ];
+        }
+
+        return [
+            'role' => $geminiRole,
+            'parts' => [['text' => is_string($content) ? $content : $this->getString($msgArray, 'content')]],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed>  $msgArray
+     * @param array<string, string> $toolCallIdToName
+     *
+     * @return array<string, mixed>
+     */
+    private function convertToolMessage(array $msgArray, array $toolCallIdToName): array
+    {
+        $toolCallId = $this->getString($msgArray, 'tool_call_id');
+        // Resolve function name from pre-scanned mapping
+        $name = $toolCallIdToName[$toolCallId] ?? $this->getString($msgArray, 'name', 'unknown');
+        $contentStr = $this->getString($msgArray, 'content');
+        $responseData = json_decode($contentStr, true);
+        if (!is_array($responseData)) {
+            $responseData = ['result' => $contentStr];
+        }
+
+        return [
+            'role' => 'user',
+            'parts' => [
+                [
+                    'functionResponse' => [
+                        'name' => $name,
+                        'response' => $responseData,
                     ],
-                ];
+                ],
+            ],
+        ];
+    }
 
-                continue;
-            }
-
-            // Assistant with tool_calls: convert to Gemini functionCall format
-            if ($role === 'assistant' && isset($msgArray['tool_calls']) && is_array($msgArray['tool_calls'])) {
-                $parts = [];
-                $textContent = is_string($content) ? $content : '';
-                if ($textContent !== '') {
-                    $parts[] = ['text' => $textContent];
-                }
-
-                foreach ($msgArray['tool_calls'] as $call) {
-                    $callArray = $this->asArray($call);
-                    $function = $this->getArray($callArray, 'function');
-                    $arguments = $function['arguments'] ?? [];
-                    if (is_string($arguments)) {
-                        $arguments = json_decode($arguments, true) ?? [];
-                    }
-                    if (!is_array($arguments)) {
-                        $arguments = [];
-                    }
-
-                    $parts[] = [
-                        'functionCall' => [
-                            'name' => $this->getString($function, 'name'),
-                            'args' => $arguments,
-                        ],
-                    ];
-                }
-
-                $contents[] = [
-                    'role' => 'model',
-                    'parts' => $parts,
-                ];
-
-                continue;
-            }
-
-            $geminiRole = $role === 'assistant' ? 'model' : 'user';
-
-            if (is_array($content)) {
-                $parts = $this->convertMultimodalToParts($content);
-                $contents[] = [
-                    'role' => $geminiRole,
-                    'parts' => $parts,
-                ];
-            } else {
-                $contents[] = [
-                    'role' => $geminiRole,
-                    'parts' => [['text' => is_string($content) ? $content : $this->getString($msgArray, 'content')]],
-                ];
-            }
+    /**
+     * @param array<string, mixed> $msgArray
+     *
+     * @return array<string, mixed>
+     */
+    private function convertAssistantToolCalls(array $msgArray): array
+    {
+        $content = $msgArray['content'] ?? '';
+        $parts = [];
+        $textContent = is_string($content) ? $content : '';
+        if ($textContent !== '') {
+            $parts[] = ['text' => $textContent];
         }
 
-        $result = ['contents' => $contents];
-        if ($systemInstruction !== null) {
-            $result['systemInstruction'] = $systemInstruction;
+        $toolCalls = $msgArray['tool_calls'] ?? [];
+        if (!is_array($toolCalls)) {
+            $toolCalls = [];
         }
 
-        return $result;
+        foreach ($toolCalls as $call) {
+            $callArray = $this->asArray($call);
+            $function = $this->getArray($callArray, 'function');
+            $arguments = $function['arguments'] ?? [];
+            if (is_string($arguments)) {
+                $arguments = json_decode($arguments, true) ?? [];
+            }
+            if (!is_array($arguments)) {
+                $arguments = [];
+            }
+
+            $parts[] = [
+                'functionCall' => [
+                    'name' => $this->getString($function, 'name'),
+                    'args' => $arguments,
+                ],
+            ];
+        }
+
+        return [
+            'role' => 'model',
+            'parts' => $parts,
+        ];
     }
 
     /**

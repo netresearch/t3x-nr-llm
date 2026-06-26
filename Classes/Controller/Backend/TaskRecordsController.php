@@ -88,46 +88,53 @@ final class TaskRecordsController extends ActionController
             // Tables without a uid column (e.g. tx_scheduler_task) cannot
             // back the picker. Short-circuit with an empty payload.
             if (!$this->recordTableReader->tableHasUidColumn($dto->table)) {
-                return new JsonResponse((new RecordListResponse(
+                $payload = (new RecordListResponse(
                     records: [],
                     labelField: '',
                     total: 0,
-                ))->jsonSerialize());
+                ))->jsonSerialize();
+            } else {
+                $labelField = $dto->labelField !== ''
+                    ? $dto->labelField
+                    : $this->recordTableReader->detectLabelField($dto->table);
+
+                $records = $this->recordTableReader->fetchSampleRecords(
+                    $dto->table,
+                    $labelField,
+                    $dto->limit,
+                );
+
+                $payload = (new RecordListResponse(
+                    records: $records,
+                    labelField: $labelField,
+                    total: count($records),
+                ))->jsonSerialize();
             }
 
-            $labelField = $dto->labelField !== ''
-                ? $dto->labelField
-                : $this->recordTableReader->detectLabelField($dto->table);
-
-            $records = $this->recordTableReader->fetchSampleRecords(
-                $dto->table,
-                $labelField,
-                $dto->limit,
-            );
-
-            return new JsonResponse((new RecordListResponse(
-                records: $records,
-                labelField: $labelField,
-                total: count($records),
-            ))->jsonSerialize());
+            return new JsonResponse($payload);
         } catch (PhpInvalidArgumentException $e) {
             // RecordTableReader::ensureNotExcluded() rejects forbidden tables.
             // Message is vetted ("Table 'xyz' is excluded ...") and safe to surface.
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 400);
+            $errorPayload = (new ErrorResponse($e->getMessage()))->jsonSerialize();
+            $status       = 400;
         } catch (DbalException $e) {
             // REC #8b: never surface raw SQL error text — log + generic.
             $this->logger->error('Task records: fetchSampleRecords failed', [
                 'exception' => $e,
                 'table'     => $dto->table,
             ]);
-            return new JsonResponse((new ErrorResponse('Database error while fetching records.'))->jsonSerialize(), 500);
+            $errorPayload = (new ErrorResponse('Database error while fetching records.'))->jsonSerialize();
+            $status       = 500;
         } catch (Throwable $e) {
             $this->logger->error('Task records: fetchSampleRecords failed unexpectedly', [
                 'exception' => $e,
                 'table'     => $dto->table,
             ]);
-            return new JsonResponse((new ErrorResponse('Failed to fetch records. See system log for details.'))->jsonSerialize(), 500);
+            $errorPayload = (new ErrorResponse('Failed to fetch records. See system log for details.'))->jsonSerialize();
+            $status       = 500;
         }
+
+        return new JsonResponse($errorPayload, $status);
     }
 
     /**
@@ -148,31 +155,37 @@ final class TaskRecordsController extends ActionController
             $rows = $this->recordTableReader->loadRecordsByUids($dto->table, $dto->uidList);
             $encoded = json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             if ($encoded === false) {
-                return new JsonResponse(
-                    (new ErrorResponse('Failed to encode record payload: ' . json_last_error_msg()))->jsonSerialize(),
-                    500,
-                );
+                $payload = (new ErrorResponse('Failed to encode record payload: ' . json_last_error_msg()))->jsonSerialize();
+                $status  = 500;
+            } else {
+                $payload = (new RecordDataResponse(
+                    data: $encoded,
+                    recordCount: count($rows),
+                ))->jsonSerialize();
+                $status = 200;
             }
 
-            return new JsonResponse((new RecordDataResponse(
-                data: $encoded,
-                recordCount: count($rows),
-            ))->jsonSerialize());
+            return new JsonResponse($payload, $status);
         } catch (PhpInvalidArgumentException $e) {
-            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 400);
+            $errorPayload = (new ErrorResponse($e->getMessage()))->jsonSerialize();
+            $errorStatus  = 400;
         } catch (DbalException $e) {
             // REC #8b: SQL error text → log + generic.
             $this->logger->error('Task records: loadRecordsByUids failed', [
                 'exception' => $e,
                 'table'     => $dto->table,
             ]);
-            return new JsonResponse((new ErrorResponse('Database error while loading records.'))->jsonSerialize(), 500);
+            $errorPayload = (new ErrorResponse('Database error while loading records.'))->jsonSerialize();
+            $errorStatus  = 500;
         } catch (Throwable $e) {
             $this->logger->error('Task records: loadRecordsByUids failed unexpectedly', [
                 'exception' => $e,
                 'table'     => $dto->table,
             ]);
-            return new JsonResponse((new ErrorResponse('Failed to load records. See system log for details.'))->jsonSerialize(), 500);
+            $errorPayload = (new ErrorResponse('Failed to load records. See system log for details.'))->jsonSerialize();
+            $errorStatus  = 500;
         }
+
+        return new JsonResponse($errorPayload, $errorStatus);
     }
 }

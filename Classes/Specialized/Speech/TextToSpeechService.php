@@ -310,38 +310,17 @@ final class TextToSpeechService extends AbstractSpecializedService
      */
     private function splitTextIntoChunks(string $text): array
     {
-        $chunks = [];
-        $currentChunk = '';
-
         $sentences = preg_split('/(?<=[.!?])\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
 
         if ($sentences === false) {
             return mb_str_split($text, self::MAX_INPUT_LENGTH) ?: [$text];
         }
 
+        $chunks = [];
+        $currentChunk = '';
+
         foreach ($sentences as $sentence) {
-            if (mb_strlen($sentence) > self::MAX_INPUT_LENGTH) {
-                if ($currentChunk !== '') {
-                    $chunks[] = $currentChunk;
-                    $currentChunk = '';
-                }
-                $subChunks = $this->splitLongSentence($sentence);
-                foreach ($subChunks as $subChunk) {
-                    $chunks[] = $subChunk;
-                }
-                continue;
-            }
-
-            $testChunk = $currentChunk === '' ? $sentence : $currentChunk . ' ' . $sentence;
-
-            if (mb_strlen($testChunk) <= self::MAX_INPUT_LENGTH) {
-                $currentChunk = $testChunk;
-            } else {
-                if ($currentChunk !== '') {
-                    $chunks[] = $currentChunk;
-                }
-                $currentChunk = $sentence;
-            }
+            $this->appendSentence($sentence, $chunks, $currentChunk);
         }
 
         if ($currentChunk !== '') {
@@ -349,6 +328,40 @@ final class TextToSpeechService extends AbstractSpecializedService
         }
 
         return $chunks;
+    }
+
+    /**
+     * Append a single sentence to the running chunk set, flushing to a new
+     * chunk when the limit would be exceeded.
+     *
+     * @param array<int, string> $chunks
+     */
+    private function appendSentence(string $sentence, array &$chunks, string &$currentChunk): void
+    {
+        if (mb_strlen($sentence) > self::MAX_INPUT_LENGTH) {
+            if ($currentChunk !== '') {
+                $chunks[] = $currentChunk;
+                $currentChunk = '';
+            }
+            foreach ($this->splitLongSentence($sentence) as $subChunk) {
+                $chunks[] = $subChunk;
+            }
+
+            return;
+        }
+
+        $testChunk = $currentChunk === '' ? $sentence : $currentChunk . ' ' . $sentence;
+
+        if (mb_strlen($testChunk) <= self::MAX_INPUT_LENGTH) {
+            $currentChunk = $testChunk;
+
+            return;
+        }
+
+        if ($currentChunk !== '') {
+            $chunks[] = $currentChunk;
+        }
+        $currentChunk = $sentence;
     }
 
     /**
@@ -360,45 +373,61 @@ final class TextToSpeechService extends AbstractSpecializedService
     {
         $parts = explode(', ', $sentence);
 
-        if (count($parts) > 1) {
-            $chunks = [];
-            $currentChunk = '';
-
-            foreach ($parts as $i => $part) {
-                $separator = $i < count($parts) - 1 ? ', ' : '';
-                $testChunk = $currentChunk === '' ? $part . $separator : $currentChunk . $part . $separator;
-
-                if (mb_strlen($testChunk) <= self::MAX_INPUT_LENGTH) {
-                    $currentChunk = $testChunk;
-                } else {
-                    if ($currentChunk !== '') {
-                        $chunks[] = rtrim($currentChunk, ', ');
-                        $currentChunk = '';
-                    }
-                    // A single comma-delimited part can itself exceed the limit
-                    // (e.g. a clause with no internal commas). Emitting it whole
-                    // would produce an over-limit chunk that synthesize() rejects,
-                    // so hard-split it at the character boundary first —
-                    // mb_str_split() keeps multibyte UTF-8 sequences intact
-                    // where a byte-wise str_split() would corrupt them.
-                    if (mb_strlen($part . $separator) > self::MAX_INPUT_LENGTH) {
-                        foreach (mb_str_split($part, self::MAX_INPUT_LENGTH) ?: [$part] as $hardChunk) {
-                            $chunks[] = $hardChunk;
-                        }
-                    } else {
-                        $currentChunk = $part . $separator;
-                    }
-                }
-            }
-
-            if ($currentChunk !== '') {
-                $chunks[] = rtrim($currentChunk, ', ');
-            }
-
-            return $chunks;
+        if (count($parts) <= 1) {
+            return mb_str_split($sentence, self::MAX_INPUT_LENGTH) ?: [$sentence];
         }
 
-        return mb_str_split($sentence, self::MAX_INPUT_LENGTH) ?: [$sentence];
+        $chunks = [];
+        $currentChunk = '';
+        $lastIndex = count($parts) - 1;
+
+        foreach ($parts as $i => $part) {
+            $separator = $i < $lastIndex ? ', ' : '';
+            $this->appendCommaPart($part, $separator, $chunks, $currentChunk);
+        }
+
+        if ($currentChunk !== '') {
+            $chunks[] = rtrim($currentChunk, ', ');
+        }
+
+        return $chunks;
+    }
+
+    /**
+     * Append one comma-delimited part to the running chunk set, hard-splitting
+     * the part itself when it alone exceeds the limit.
+     *
+     * @param array<int, string> $chunks
+     */
+    private function appendCommaPart(string $part, string $separator, array &$chunks, string &$currentChunk): void
+    {
+        $testChunk = $currentChunk === '' ? $part . $separator : $currentChunk . $part . $separator;
+
+        if (mb_strlen($testChunk) <= self::MAX_INPUT_LENGTH) {
+            $currentChunk = $testChunk;
+
+            return;
+        }
+
+        if ($currentChunk !== '') {
+            $chunks[] = rtrim($currentChunk, ', ');
+            $currentChunk = '';
+        }
+        // A single comma-delimited part can itself exceed the limit
+        // (e.g. a clause with no internal commas). Emitting it whole
+        // would produce an over-limit chunk that synthesize() rejects,
+        // so hard-split it at the character boundary first —
+        // mb_str_split() keeps multibyte UTF-8 sequences intact
+        // where a byte-wise str_split() would corrupt them.
+        if (mb_strlen($part . $separator) > self::MAX_INPUT_LENGTH) {
+            foreach (mb_str_split($part, self::MAX_INPUT_LENGTH) ?: [$part] as $hardChunk) {
+                $chunks[] = $hardChunk;
+            }
+
+            return;
+        }
+
+        $currentChunk = $part . $separator;
     }
 
     /**

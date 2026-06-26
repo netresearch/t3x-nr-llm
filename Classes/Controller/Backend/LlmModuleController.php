@@ -149,7 +149,7 @@ final class LlmModuleController extends ActionController
             $chatOptions = new ChatOptions(provider: $provider);
             $response = $this->llmServiceManager->complete($prompt, $chatOptions);
 
-            return new JsonResponse([
+            $result = new JsonResponse([
                 'success' => true,
                 'content' => $response->content,
                 'model' => $response->model,
@@ -161,17 +161,19 @@ final class LlmModuleController extends ActionController
             ]);
         } catch (ProviderException $e) {
             $this->logger->warning('LlmModule test: provider error', ['exception' => $e]);
-            return new JsonResponse([
+            $result = new JsonResponse([
                 'success' => false,
                 'error'   => 'LLM provider error during test. See system log for details.',
             ], 502);
         } catch (Throwable $e) {
             $this->logger->error('LlmModule test: unexpected error', ['exception' => $e]);
-            return new JsonResponse([
+            $result = new JsonResponse([
                 'success' => false,
                 'error'   => 'Test failed. See system log for details.',
             ], 500);
         }
+
+        return $result;
     }
 
     public function helpAction(): ResponseInterface

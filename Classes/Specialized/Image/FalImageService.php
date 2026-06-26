@@ -289,7 +289,13 @@ final class FalImageService extends AbstractSpecializedService
         $this->baseUrl = $this->nonEmptyStringOrDefault($falConfig['baseUrl'] ?? null, self::API_URL);
 
         $timeout = $falConfig['timeout'] ?? $this->getDefaultTimeout();
-        $this->timeout = is_int($timeout) ? $timeout : (is_numeric($timeout) ? (int)$timeout : $this->getDefaultTimeout());
+        if (is_int($timeout)) {
+            $this->timeout = $timeout;
+        } elseif (is_numeric($timeout)) {
+            $this->timeout = (int)$timeout;
+        } else {
+            $this->timeout = $this->getDefaultTimeout();
+        }
 
         $pollInterval = $falConfig['pollInterval'] ?? 1000;
         // Clamp to >= 1ms: a configured 0 (or negative) would make the poll-attempt
@@ -327,22 +333,18 @@ final class FalImageService extends AbstractSpecializedService
      */
     protected function decodeErrorMessage(string $responseBody): string
     {
-        if ($responseBody === '') {
-            return $this->unknownErrorLabel();
+        $result = $this->unknownErrorLabel();
+        $error  = $responseBody === '' ? null : json_decode($responseBody, true);
+        if (is_array($error)) {
+            $detail  = $error['detail']  ?? null;
+            $message = $error['message'] ?? null;
+            if (is_string($detail) && $detail !== '') {
+                $result = $detail;
+            } elseif (is_string($message) && $message !== '') {
+                $result = $message;
+            }
         }
-        $error = json_decode($responseBody, true);
-        if (!is_array($error)) {
-            return $this->unknownErrorLabel();
-        }
-        $detail  = $error['detail']  ?? null;
-        $message = $error['message'] ?? null;
-        if (is_string($detail) && $detail !== '') {
-            return $detail;
-        }
-        if (is_string($message) && $message !== '') {
-            return $message;
-        }
-        return $this->unknownErrorLabel();
+        return $result;
     }
 
     /**
@@ -399,21 +401,57 @@ final class FalImageService extends AbstractSpecializedService
     {
         $payload = [
             'prompt' => $prompt,
+            'image_size' => $this->resolveImageSize($options),
         ];
 
+        $payload = $this->applyNumericOptions($payload, $options);
+
+        if (isset($options['negative_prompt'])) {
+            $payload['negative_prompt'] = $options['negative_prompt'];
+        }
+
+        if (isset($options['enable_safety_checker'])) {
+            $payload['enable_safety_checker'] = (bool)$options['enable_safety_checker'];
+        }
+
+        return $this->applyImageToImageOptions($payload, $options);
+    }
+
+    /**
+     * Resolve the requested image size: an explicit `image_size`, a derived
+     * width/height pair, or the default.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function resolveImageSize(array $options): mixed
+    {
         if (isset($options['image_size'])) {
-            $payload['image_size'] = $options['image_size'];
-        } elseif (isset($options['width']) && isset($options['height'])) {
+            return $options['image_size'];
+        }
+
+        if (isset($options['width']) && isset($options['height'])) {
             $width = $options['width'];
             $height = $options['height'];
-            $payload['image_size'] = [
+
+            return [
                 'width' => is_numeric($width) ? (int)$width : 1024,
                 'height' => is_numeric($height) ? (int)$height : 1024,
             ];
-        } else {
-            $payload['image_size'] = 'square_hd';
         }
 
+        return 'square_hd';
+    }
+
+    /**
+     * Apply the numeric generation options to the payload.
+     *
+     * @param array<string, mixed> $payload
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private function applyNumericOptions(array $payload, array $options): array
+    {
         if (isset($options['num_images'])) {
             $numImages = $options['num_images'];
             $payload['num_images'] = is_numeric($numImages) ? min((int)$numImages, 4) : 1;
@@ -434,20 +472,27 @@ final class FalImageService extends AbstractSpecializedService
             $payload['seed'] = is_numeric($seed) ? (int)$seed : 0;
         }
 
-        if (isset($options['negative_prompt'])) {
-            $payload['negative_prompt'] = $options['negative_prompt'];
+        return $payload;
+    }
+
+    /**
+     * Apply the image-to-image options (source URL and optional strength).
+     *
+     * @param array<string, mixed> $payload
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private function applyImageToImageOptions(array $payload, array $options): array
+    {
+        if (!isset($options['image_url'])) {
+            return $payload;
         }
 
-        if (isset($options['enable_safety_checker'])) {
-            $payload['enable_safety_checker'] = (bool)$options['enable_safety_checker'];
-        }
-
-        if (isset($options['image_url'])) {
-            $payload['image_url'] = $options['image_url'];
-            if (isset($options['strength'])) {
-                $strength = $options['strength'];
-                $payload['strength'] = is_numeric($strength) ? (float)$strength : 0.75;
-            }
+        $payload['image_url'] = $options['image_url'];
+        if (isset($options['strength'])) {
+            $strength = $options['strength'];
+            $payload['strength'] = is_numeric($strength) ? (float)$strength : 0.75;
         }
 
         return $payload;

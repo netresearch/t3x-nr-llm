@@ -47,9 +47,8 @@ class ProviderRepository extends Repository
         $query->matching(
             $query->equals('identifier', $identifier),
         );
-        /** @var Provider|null $result */
-        $result = $query->execute()->getFirst();
-        return $result;
+
+        return $query->execute()->getFirst();
     }
 
     /**
@@ -99,9 +98,8 @@ class ProviderRepository extends Repository
             'sorting' => QueryInterface::ORDER_ASCENDING,
         ]);
         $query->setLimit(1);
-        /** @var Provider|null $result */
-        $result = $query->execute()->getFirst();
-        return $result;
+
+        return $query->execute()->getFirst();
     }
 
     /**

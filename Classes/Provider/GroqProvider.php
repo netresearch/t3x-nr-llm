@@ -270,30 +270,46 @@ final class GroqProvider extends AbstractProvider implements
                 $line = substr($buffer, 0, $pos);
                 $buffer = substr($buffer, $pos + 1);
 
-                if (str_starts_with($line, 'data: ')) {
-                    $data = substr($line, 6);
+                if (!str_starts_with($line, 'data: ')) {
+                    continue;
+                }
 
-                    if ($data === '[DONE]') {
-                        return;
-                    }
+                $data = substr($line, 6);
 
-                    try {
-                        $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
-                        if (is_array($decoded)) {
-                            $json = $this->asArray($decoded);
-                            $choices = $this->getList($json, 'choices');
-                            $firstChoice = $this->asArray($choices[0] ?? []);
-                            $delta = $this->getArray($firstChoice, 'delta');
-                            $content = $this->getString($delta, 'content');
-                            if ($content !== '') {
-                                yield $content;
-                            }
-                        }
-                    } catch (JsonException) {
-                        // Skip malformed JSON
-                    }
+                if ($data === '[DONE]') {
+                    return;
+                }
+
+                $content = $this->extractStreamContent($data);
+                if ($content !== '') {
+                    yield $content;
                 }
             }
+        }
+    }
+
+    /**
+     * Extract the delta content from a single SSE "data:" payload.
+     *
+     * Returns an empty string for chunks without content or malformed JSON.
+     */
+    private function extractStreamContent(string $data): string
+    {
+        try {
+            $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($decoded)) {
+                return '';
+            }
+
+            $json = $this->asArray($decoded);
+            $choices = $this->getList($json, 'choices');
+            $firstChoice = $this->asArray($choices[0] ?? []);
+            $delta = $this->getArray($firstChoice, 'delta');
+
+            return $this->getString($delta, 'content');
+        } catch (JsonException) {
+            // Skip malformed JSON
+            return '';
         }
     }
 

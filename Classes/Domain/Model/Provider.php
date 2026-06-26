@@ -143,7 +143,7 @@ class Provider extends AbstractEntity
 
         try {
             $vault = GeneralUtility::makeInstance(VaultServiceInterface::class);
-            return $vault->retrieve($this->apiKey) ?? '';
+            $result = $vault->retrieve($this->apiKey) ?? '';
         } catch (Throwable) {
             // Vault retrieval failed — return empty string so callers fall
             // through to "API key may be missing" rather than crashing the
@@ -160,8 +160,10 @@ class Provider extends AbstractEntity
             // the dependency (entity → service-locator) or require
             // touching every caller. Moving the logging to the controller
             // call sites is the right slice — see audit doc REC #11.
-            return '';
+            $result = '';
         }
+
+        return $result;
     }
 
     public function getOrganizationId(): string
@@ -252,7 +254,7 @@ class Provider extends AbstractEntity
 
     public function isActive(): bool
     {
-        return $this->isActive;
+        return $this->getIsActive();
     }
 
     public function getPriority(): int
