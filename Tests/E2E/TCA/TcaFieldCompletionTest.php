@@ -56,7 +56,7 @@ final class TcaFieldCompletionTest extends TestCase
 
         self::assertFileExists($tcaFile, sprintf('TCA file for table %s not found', $tableName));
 
-        $tca = require_once $tcaFile;
+        $tca = require $tcaFile;
 
         self::assertIsArray($tca, sprintf('TCA for %s must return an array', $tableName));
         /** @var array<string, mixed> $tca */
@@ -112,7 +112,7 @@ final class TcaFieldCompletionTest extends TestCase
         $tcaFile = __DIR__ . '/../../../Configuration/TCA/' . $tableName . '.php';
 
         /** @var array<string, mixed> $tca */
-        $tca = require_once $tcaFile;
+        $tca = require $tcaFile;
 
         /** @var array<string, array<string, mixed>> $columns */
         $columns = $tca['columns'];
@@ -165,7 +165,7 @@ final class TcaFieldCompletionTest extends TestCase
         $tcaFile = __DIR__ . '/../../../Configuration/TCA/' . $tableName . '.php';
 
         /** @var array<string, mixed> $tca */
-        $tca = require_once $tcaFile;
+        $tca = require $tcaFile;
 
         /** @var array<string, array<string, mixed>> $columns */
         $columns = $tca['columns'];

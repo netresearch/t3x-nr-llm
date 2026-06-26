@@ -48,7 +48,9 @@ class ProviderRepository extends Repository
             $query->equals('identifier', $identifier),
         );
 
-        return $query->execute()->getFirst();
+        $result = $query->execute()->getFirst();
+
+        return $result instanceof Provider ? $result : null;
     }
 
     /**
@@ -99,7 +101,9 @@ class ProviderRepository extends Repository
         ]);
         $query->setLimit(1);
 
-        return $query->execute()->getFirst();
+        $result = $query->execute()->getFirst();
+
+        return $result instanceof Provider ? $result : null;
     }
 
     /**
