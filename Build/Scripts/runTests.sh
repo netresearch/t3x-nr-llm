@@ -8,107 +8,111 @@
 # Template: https://github.com/netresearch/typo3-testing-skill
 #
 
-trap 'cleanUp;exit 2' SIGINT
+trap 'clean_up;exit 2' SIGINT
 
-waitFor() {
-    local HOST=${1}
-    local PORT=${2}
-    local TESTCOMMAND="
+wait_for() {
+    local host=${1}
+    local port=${2}
+    local test_command="
         COUNT=0;
-        while ! nc -z ${HOST} ${PORT}; do
+        while ! nc -z ${host} ${port}; do
             if [ \"\${COUNT}\" -gt 10 ]; then
-              echo \"Can not connect to ${HOST} port ${PORT}. Aborting.\";
+              echo \"Can not connect to ${host} port ${port}. Aborting.\";
               exit 1;
             fi;
             sleep 1;
             COUNT=\$((COUNT + 1));
         done;
     "
-    ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name wait-for-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${IMAGE_ALPINE} /bin/sh -c "${TESTCOMMAND}"
+    ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name wait-for-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${IMAGE_ALPINE} /bin/sh -c "${test_command}"
     if [[ $? -gt 0 ]]; then
         kill -SIGINT -$$
     fi
+    return 0
 }
 
-waitForHttp() {
-    local URL=${1}
-    local MAX_ATTEMPTS=${2:-30}
-    local TESTCOMMAND="
+wait_for_http() {
+    local url=${1}
+    local max_attempts=${2:-30}
+    local test_command="
         COUNT=0;
-        while ! wget -q --spider ${URL} 2>/dev/null; do
-            if [ \"\${COUNT}\" -gt ${MAX_ATTEMPTS} ]; then
-              echo \"HTTP endpoint ${URL} not available after ${MAX_ATTEMPTS} attempts. Aborting.\";
+        while ! wget -q --spider ${url} 2>/dev/null; do
+            if [ \"\${COUNT}\" -gt ${max_attempts} ]; then
+              echo \"HTTP endpoint ${url} not available after ${max_attempts} attempts. Aborting.\";
               exit 1;
             fi;
             sleep 1;
             COUNT=\$((COUNT + 1));
         done;
-        echo \"HTTP endpoint ${URL} is ready.\";
+        echo \"HTTP endpoint ${url} is ready.\";
     "
-    ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name wait-for-http-${SUFFIX} ${IMAGE_ALPINE} /bin/sh -c "${TESTCOMMAND}"
+    ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name wait-for-http-${SUFFIX} ${IMAGE_ALPINE} /bin/sh -c "${test_command}"
     if [[ $? -gt 0 ]]; then
         kill -SIGINT -$$
     fi
+    return 0
 }
 
-cleanUp() {
-    if [ -n "${NETWORK:-}" ] && [ -n "${CONTAINER_BIN:-}" ]; then
+clean_up() {
+    if [[ -n "${NETWORK:-}" ]] && [[ -n "${CONTAINER_BIN:-}" ]]; then
         ATTACHED_CONTAINERS=$(${CONTAINER_BIN} ps --filter network=${NETWORK} --format='{{.Names}}' 2>/dev/null)
         for ATTACHED_CONTAINER in ${ATTACHED_CONTAINERS}; do
             ${CONTAINER_BIN} rm -f ${ATTACHED_CONTAINER} >/dev/null 2>&1
         done
         ${CONTAINER_BIN} network rm ${NETWORK} >/dev/null 2>&1
     fi
+    return 0
 }
 
-cleanCacheFiles() {
+clean_cache_files() {
     echo -n "Clean caches ... "
     rm -rf \
         .Build/.cache \
         .Build/cache \
         .php-cs-fixer.cache
     echo "done"
+    return 0
 }
 
-handleDbmsOptions() {
+handle_dbms_options() {
     case ${DBMS} in
         mariadb)
-            [ -z "${DATABASE_DRIVER}" ] && DATABASE_DRIVER="mysqli"
-            if [ "${DATABASE_DRIVER}" != "mysqli" ] && [ "${DATABASE_DRIVER}" != "pdo_mysql" ]; then
+            [[ -z "${DATABASE_DRIVER}" ]] && DATABASE_DRIVER="${MYSQL_DRIVER}"
+            if [[ "${DATABASE_DRIVER}" != "${MYSQL_DRIVER}" ]] && [[ "${DATABASE_DRIVER}" != "pdo_mysql" ]]; then
                 echo "Invalid combination -d ${DBMS} -a ${DATABASE_DRIVER}" >&2
                 exit 1
             fi
-            [ -z "${DBMS_VERSION}" ] && DBMS_VERSION="11.4"
+            [[ -z "${DBMS_VERSION}" ]] && DBMS_VERSION="11.4"
             if ! [[ ${DBMS_VERSION} =~ ^(10.5|10.6|10.11|11.0|11.4)$ ]]; then
                 echo "Invalid combination -d ${DBMS} -i ${DBMS_VERSION}" >&2
                 exit 1
             fi
             ;;
         mysql)
-            [ -z "${DATABASE_DRIVER}" ] && DATABASE_DRIVER="mysqli"
-            if [ "${DATABASE_DRIVER}" != "mysqli" ] && [ "${DATABASE_DRIVER}" != "pdo_mysql" ]; then
+            [[ -z "${DATABASE_DRIVER}" ]] && DATABASE_DRIVER="${MYSQL_DRIVER}"
+            if [[ "${DATABASE_DRIVER}" != "${MYSQL_DRIVER}" ]] && [[ "${DATABASE_DRIVER}" != "pdo_mysql" ]]; then
                 echo "Invalid combination -d ${DBMS} -a ${DATABASE_DRIVER}" >&2
                 exit 1
             fi
-            [ -z "${DBMS_VERSION}" ] && DBMS_VERSION="8.4"
+            [[ -z "${DBMS_VERSION}" ]] && DBMS_VERSION="8.4"
             if ! [[ ${DBMS_VERSION} =~ ^(8.0|8.4|9.0)$ ]]; then
                 echo "Invalid combination -d ${DBMS} -i ${DBMS_VERSION}" >&2
                 exit 1
             fi
             ;;
         postgres)
-            if [ -n "${DATABASE_DRIVER}" ]; then
+            if [[ -n "${DATABASE_DRIVER}" ]]; then
                 echo "Invalid combination -d ${DBMS} -a ${DATABASE_DRIVER}" >&2
                 exit 1
             fi
-            [ -z "${DBMS_VERSION}" ] && DBMS_VERSION="16"
+            [[ -z "${DBMS_VERSION}" ]] && DBMS_VERSION="16"
             if ! [[ ${DBMS_VERSION} =~ ^(12|13|14|15|16|17)$ ]]; then
                 echo "Invalid combination -d ${DBMS} -i ${DBMS_VERSION}" >&2
                 exit 1
             fi
             ;;
         sqlite)
-            if [ -n "${DATABASE_DRIVER}" ]; then
+            if [[ -n "${DATABASE_DRIVER}" ]]; then
                 echo "Invalid combination -d ${DBMS} -a ${DATABASE_DRIVER}" >&2
                 exit 1
             fi
@@ -118,9 +122,10 @@ handleDbmsOptions() {
             exit 1
             ;;
     esac
+    return 0
 }
 
-loadHelp() {
+load_help() {
     read -r -d '' HELP <<EOF
 nr_llm - TYPO3 Extension Test Runner
 Execute tests in Docker containers using TYPO3 core-testing images.
@@ -193,10 +198,15 @@ E2E Tests:
         1. Start ddev: ddev start && ./Build/Scripts/runTests.sh -s e2e
         2. Set URL: TYPO3_BASE_URL=https://your-typo3.local ./Build/Scripts/runTests.sh -s e2e
 EOF
+    return 0
 }
 
+# Literal constants reused across the script
+readonly DOCKER_BIN="docker"
+readonly MYSQL_DRIVER="mysqli"
+
 # Check container runtime
-if ! type "docker" >/dev/null 2>&1 && ! type "podman" >/dev/null 2>&1; then
+if ! type "${DOCKER_BIN}" >/dev/null 2>&1 && ! type "podman" >/dev/null 2>&1; then
     echo "This script requires docker or podman." >&2
     exit 1
 fi
@@ -234,20 +244,21 @@ while getopts "a:b:d:i:s:p:t:xy:nhu" OPT; do
         x) PHP_XDEBUG_ON=1 ;;
         y) PHP_XDEBUG_PORT=${OPTARG} ;;
         n) CGLCHECK_DRY_RUN=1 ;;
-        h) loadHelp; echo "${HELP}"; exit 0 ;;
+        h) load_help; echo "${HELP}"; exit 0 ;;
         u) TEST_SUITE=update ;;
         \?) exit 1 ;;
+        *) exit 1 ;;
     esac
 done
 
-handleDbmsOptions
+handle_dbms_options
 
 # Extension version for Composer
 COMPOSER_ROOT_VERSION="0.1.x-dev"
 
 HOST_UID=$(id -u)
 USERSET=""
-if [ $(uname) != "Darwin" ]; then
+if [[ $(uname) != "Darwin" ]]; then
     USERSET="--user $HOST_UID"
 fi
 
@@ -266,7 +277,7 @@ TYPO3_IMAGE_PREFIX="ghcr.io/typo3/"
 CONTAINER_INTERACTIVE="-it --init"
 
 IS_CORE_CI=0
-if [ "${CI}" == "true" ] || ! [ -t 0 ]; then
+if [[ "${CI}" == "true" ]] || ! [[ -t 0 ]]; then
     IS_CORE_CI=1
     IMAGE_PREFIX=""
     CONTAINER_INTERACTIVE=""
@@ -276,8 +287,8 @@ fi
 if [[ -z "${CONTAINER_BIN}" ]]; then
     if type "podman" >/dev/null 2>&1; then
         CONTAINER_BIN="podman"
-    elif type "docker" >/dev/null 2>&1; then
-        CONTAINER_BIN="docker"
+    elif type "${DOCKER_BIN}" >/dev/null 2>&1; then
+        CONTAINER_BIN="${DOCKER_BIN}"
     fi
 fi
 
@@ -298,14 +309,14 @@ if ! ${CONTAINER_BIN} network create ${NETWORK} >/dev/null 2>&1; then
     exit 1
 fi
 
-if [ ${CONTAINER_BIN} = "docker" ]; then
+if [[ ${CONTAINER_BIN} = "${DOCKER_BIN}" ]]; then
     CONTAINER_COMMON_PARAMS="${CONTAINER_INTERACTIVE} --rm --network ${NETWORK} --add-host "${CONTAINER_HOST}:host-gateway" ${USERSET} -v ${ROOT_DIR}:${ROOT_DIR} -w ${ROOT_DIR}"
 else
     CONTAINER_HOST="host.containers.internal"
     CONTAINER_COMMON_PARAMS="${CONTAINER_INTERACTIVE} ${CI_PARAMS} --rm --network ${NETWORK} -v ${ROOT_DIR}:${ROOT_DIR} -w ${ROOT_DIR}"
 fi
 
-if [ ${PHP_XDEBUG_ON} -eq 0 ]; then
+if [[ ${PHP_XDEBUG_ON} -eq 0 ]]; then
     XDEBUG_MODE="-e XDEBUG_MODE=off"
     XDEBUG_CONFIG=" "
 else
@@ -356,7 +367,7 @@ case ${TEST_SUITE} in
         SUITE_EXIT_CODE=$?
         ;;
     cgl)
-        if [ "${CGLCHECK_DRY_RUN}" -eq 1 ]; then
+        if [[ "${CGLCHECK_DRY_RUN}" -eq 1 ]]; then
             COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/php-cs-fixer fix -v --dry-run --diff"
         else
             COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/php-cs-fixer fix -v"
@@ -365,7 +376,7 @@ case ${TEST_SUITE} in
         SUITE_EXIT_CODE=$?
         ;;
     clean)
-        cleanCacheFiles
+        clean_cache_files
         SUITE_EXIT_CODE=0
         ;;
     composer)
@@ -380,7 +391,7 @@ case ${TEST_SUITE} in
         SUITE_EXIT_CODE=$?
         ;;
     e2e)
-        if [ -n "${TYPO3_BASE_URL:-}" ]; then
+        if [[ -n "${TYPO3_BASE_URL:-}" ]]; then
             echo "Using TYPO3_BASE_URL from environment: ${TYPO3_BASE_URL}"
         elif type "ddev" >/dev/null 2>&1 && ddev describe >/dev/null 2>&1; then
             TYPO3_BASE_URL="https://v14.nr-llm.ddev.site"
@@ -397,9 +408,9 @@ case ${TEST_SUITE} in
         mkdir -p node_modules
 
         # Check for permission issues (root-owned files from previous container runs)
-        if [ -d "node_modules" ] && [ "$(find node_modules -maxdepth 1 -user root 2>/dev/null | head -1)" ]; then
-            echo "Error: node_modules contains root-owned files."
-            echo "Please remove and retry: sudo rm -rf node_modules"
+        if [[ -d "node_modules" ]] && [[ -n "$(find node_modules -maxdepth 1 -user root 2>/dev/null | head -1)" ]]; then
+            echo "Error: node_modules contains root-owned files." >&2
+            echo "Please remove and retry: sudo rm -rf node_modules" >&2
             exit 1
         fi
 
@@ -407,7 +418,7 @@ case ${TEST_SUITE} in
         DDEV_PARAMS=""
         if type "ddev" >/dev/null 2>&1 && ddev describe >/dev/null 2>&1; then
             ROUTER_IP=$(${CONTAINER_BIN} inspect ddev-router --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
-            if [ -n "${ROUTER_IP}" ]; then
+            if [[ -n "${ROUTER_IP}" ]]; then
                 DDEV_PARAMS="--network ddev_default"
                 DDEV_PARAMS="${DDEV_PARAMS} --add-host v14.nr-llm.ddev.site:${ROUTER_IP}"
                 echo "Connecting to ddev network (router IP: ${ROUTER_IP})"
@@ -429,7 +440,7 @@ case ${TEST_SUITE} in
             mariadb)
                 echo "Using driver: ${DATABASE_DRIVER}"
                 ${CONTAINER_BIN} run --rm ${CI_PARAMS} --name mariadb-func-${SUFFIX} --network ${NETWORK} -d -e MYSQL_ROOT_PASSWORD=funcp --tmpfs /var/lib/mysql/:rw,noexec,nosuid ${IMAGE_MARIADB} >/dev/null
-                waitFor mariadb-func-${SUFFIX} 3306
+                wait_for mariadb-func-${SUFFIX} 3306
                 CONTAINERPARAMS="-e typo3DatabaseDriver=${DATABASE_DRIVER} -e typo3DatabaseName=func_test -e typo3DatabaseUsername=root -e typo3DatabaseHost=mariadb-func-${SUFFIX} -e typo3DatabasePassword=funcp"
                 ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name functional-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${CONTAINERPARAMS} ${IMAGE_PHP} "${COMMAND[@]}"
                 SUITE_EXIT_CODE=$?
@@ -437,14 +448,14 @@ case ${TEST_SUITE} in
             mysql)
                 echo "Using driver: ${DATABASE_DRIVER}"
                 ${CONTAINER_BIN} run --rm ${CI_PARAMS} --name mysql-func-${SUFFIX} --network ${NETWORK} -d -e MYSQL_ROOT_PASSWORD=funcp --tmpfs /var/lib/mysql/:rw,noexec,nosuid ${IMAGE_MYSQL} >/dev/null
-                waitFor mysql-func-${SUFFIX} 3306
+                wait_for mysql-func-${SUFFIX} 3306
                 CONTAINERPARAMS="-e typo3DatabaseDriver=${DATABASE_DRIVER} -e typo3DatabaseName=func_test -e typo3DatabaseUsername=root -e typo3DatabaseHost=mysql-func-${SUFFIX} -e typo3DatabasePassword=funcp"
                 ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name functional-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${CONTAINERPARAMS} ${IMAGE_PHP} "${COMMAND[@]}"
                 SUITE_EXIT_CODE=$?
                 ;;
             postgres)
                 ${CONTAINER_BIN} run --rm ${CI_PARAMS} --name postgres-func-${SUFFIX} --network ${NETWORK} -d -e POSTGRES_PASSWORD=funcp -e POSTGRES_USER=funcu --tmpfs /var/lib/postgresql/data:rw,noexec,nosuid ${IMAGE_POSTGRES} >/dev/null
-                waitFor postgres-func-${SUFFIX} 5432
+                wait_for postgres-func-${SUFFIX} 5432
                 CONTAINERPARAMS="-e typo3DatabaseDriver=pdo_pgsql -e typo3DatabaseName=bamboo -e typo3DatabaseUsername=funcu -e typo3DatabaseHost=postgres-func-${SUFFIX} -e typo3DatabasePassword=funcp"
                 ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name functional-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${CONTAINERPARAMS} ${IMAGE_PHP} "${COMMAND[@]}"
                 SUITE_EXIT_CODE=$?
@@ -455,12 +466,16 @@ case ${TEST_SUITE} in
                 ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name functional-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${CONTAINERPARAMS} ${IMAGE_PHP} "${COMMAND[@]}"
                 SUITE_EXIT_CODE=$?
                 ;;
+            *)
+                echo "Unsupported DBMS for functional tests: ${DBMS}" >&2
+                exit 1
+                ;;
         esac
         ;;
     functionalParallel)
         mkdir -p "${ROOT_DIR}/.Build/Web/typo3temp/var/tests/functional-sqlite-dbs/"
 
-        if [ "${CI}" == "true" ]; then
+        if [[ "${CI}" == "true" ]]; then
             PARALLEL_JOBS=4
         else
             # Use half of available CPUs for local runs
@@ -506,7 +521,7 @@ case ${TEST_SUITE} in
         SUITE_EXIT_CODE=$?
         ;;
     rector)
-        if [ "${CGLCHECK_DRY_RUN}" -eq 1 ]; then
+        if [[ "${CGLCHECK_DRY_RUN}" -eq 1 ]]; then
             COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/rector process --config Build/rector/rector.php --dry-run"
         else
             COMMAND="php ${PHP_OPCACHE_OPTS} -dxdebug.mode=off .Build/bin/rector process --config Build/rector/rector.php"
@@ -531,14 +546,14 @@ case ${TEST_SUITE} in
         SUITE_EXIT_CODE=$?
         ;;
     *)
-        loadHelp
+        load_help
         echo "Invalid -s option: ${TEST_SUITE}" >&2
         echo "${HELP}" >&2
         exit 1
         ;;
 esac
 
-cleanUp
+clean_up
 
 # Print summary
 echo "" >&2
