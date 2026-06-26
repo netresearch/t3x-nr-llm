@@ -229,31 +229,7 @@ abstract class AbstractProvider implements ProviderInterface
 
         while ($attempt < $this->maxRetries) {
             try {
-                $response = $httpClient->sendRequest($request);
-                $statusCode = $response->getStatusCode();
-
-                if ($statusCode >= 200 && $statusCode < 300) {
-                    $body = (string)$response->getBody();
-
-                    return $this->decodeJsonResponse($body);
-                }
-
-                if ($statusCode >= 400 && $statusCode < 500) {
-                    $body = (string)$response->getBody();
-                    $decoded = json_decode($body, true);
-                    $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => self::UNKNOWN_ERROR]];
-                    throw new ProviderResponseException(
-                        message: $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
-                        httpStatus: $statusCode,
-                        responseBody: $body,
-                        endpoint: $endpoint,
-                    );
-                }
-
-                throw new ProviderConnectionException(
-                    sprintf('Server returned status %d', $statusCode),
-                    $statusCode,
-                );
+                return $this->handleResponse($httpClient->sendRequest($request), $endpoint);
             } catch (ProviderResponseException $e) {
                 throw $e;
             } catch (Throwable $e) {
@@ -271,6 +247,43 @@ abstract class AbstractProvider implements ProviderInterface
             . $this->sanitizeErrorMessage($lastException?->getMessage() ?? self::UNKNOWN_ERROR),
             0,
             $lastException,
+        );
+    }
+
+    /**
+     * Map an HTTP response to the decoded payload or the matching typed
+     * exception, mirroring the status handling expected by {@see sendRequest()}.
+     *
+     * @throws ProviderResponseException   on a 4xx response
+     * @throws ProviderConnectionException on any other non-2xx response
+     *
+     * @return array<string, mixed>
+     */
+    private function handleResponse(ResponseInterface $response, string $endpoint): array
+    {
+        $statusCode = $response->getStatusCode();
+
+        if ($statusCode >= 200 && $statusCode < 300) {
+            $body = (string)$response->getBody();
+
+            return $this->decodeJsonResponse($body);
+        }
+
+        if ($statusCode >= 400 && $statusCode < 500) {
+            $body = (string)$response->getBody();
+            $decoded = json_decode($body, true);
+            $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => self::UNKNOWN_ERROR]];
+            throw new ProviderResponseException(
+                message: $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
+                httpStatus: $statusCode,
+                responseBody: $body,
+                endpoint: $endpoint,
+            );
+        }
+
+        throw new ProviderConnectionException(
+            sprintf('Server returned status %d', $statusCode),
+            $statusCode,
         );
     }
 
@@ -356,13 +369,10 @@ abstract class AbstractProvider implements ProviderInterface
     {
         // Try nested error.message first (OpenAI format)
         $nestedError = $this->getArray($error, 'error');
-        if ($nestedError !== []) {
-            $message = $this->getNullableString($nestedError, 'message');
-            if ($message !== null) {
-                return $message;
-            }
+        $message = $nestedError !== [] ? $this->getNullableString($nestedError, 'message') : null;
 
-            // Sometimes error is just a string
+        // Sometimes error is just a string
+        if ($message === null && $nestedError !== []) {
             $errorValue = $error['error'] ?? null;
             if (is_string($errorValue)) {
                 return $errorValue;
@@ -370,12 +380,9 @@ abstract class AbstractProvider implements ProviderInterface
         }
 
         // Try direct message (some providers)
-        $message = $this->getNullableString($error, 'message');
-        if ($message !== null) {
-            return $message;
-        }
+        $message ??= $this->getNullableString($error, 'message');
 
-        return 'Unknown provider error';
+        return $message ?? 'Unknown provider error';
     }
 
     protected function validateConfiguration(): void

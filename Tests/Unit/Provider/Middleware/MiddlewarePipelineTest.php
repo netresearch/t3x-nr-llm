@@ -90,7 +90,7 @@ final class MiddlewarePipelineTest extends TestCase
         $result = $pipeline->run(
             context: ProviderCallContext::for(ProviderOperation::Chat),
             configuration: $this->configuration('primary'),
-            terminal: static function (LlmConfiguration $c) use (&$terminalWasCalled): string {
+            terminal: static function () use (&$terminalWasCalled): string {
                 $terminalWasCalled = true;
 
                 return 'terminal';

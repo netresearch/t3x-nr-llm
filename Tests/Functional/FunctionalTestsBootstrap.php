@@ -18,7 +18,7 @@ use TYPO3\TestingFramework\Core\Testbase;
 // Load composer autoloader
 $autoloadFile = dirname(__DIR__, 2) . '/.Build/vendor/autoload.php';
 if (!file_exists($autoloadFile)) {
-    throw new RuntimeException(
+    throw new LogicException(
         'Autoload file not found. Run "composer install" first.',
         1730000001,
     );

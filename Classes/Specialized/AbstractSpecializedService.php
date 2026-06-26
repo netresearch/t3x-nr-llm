@@ -620,9 +620,12 @@ abstract class AbstractSpecializedService
                     return [];
                 }
                 $decoded = json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
-                /** @var array<string, mixed> $result */
-                $result = is_array($decoded) ? $decoded : [];
-                return $result;
+                if (!is_array($decoded)) {
+                    return [];
+                }
+
+                /** @var array<string, mixed> $decoded */
+                return $decoded;
             }
 
             $errorMessage = $this->decodeErrorMessage($responseBody);
@@ -659,18 +662,14 @@ abstract class AbstractSpecializedService
      */
     protected function decodeErrorMessage(string $responseBody): string
     {
-        if ($responseBody === '') {
-            return $this->unknownErrorLabel();
-        }
-        $error = json_decode($responseBody, true);
-        if (!is_array($error)) {
-            return $this->unknownErrorLabel();
-        }
-        $errorBranch = $error['error'] ?? null;
-        if (is_array($errorBranch)) {
-            $message = $errorBranch['message'] ?? null;
-            if (is_string($message) && $message !== '') {
-                return $message;
+        $error = $responseBody === '' ? null : json_decode($responseBody, true);
+        if (is_array($error)) {
+            $errorBranch = $error['error'] ?? null;
+            if (is_array($errorBranch)) {
+                $message = $errorBranch['message'] ?? null;
+                if (is_string($message) && $message !== '') {
+                    return $message;
+                }
             }
         }
         return $this->unknownErrorLabel();

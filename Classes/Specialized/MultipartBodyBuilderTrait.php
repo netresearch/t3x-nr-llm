@@ -84,34 +84,51 @@ trait MultipartBodyBuilderTrait
             }
 
             $body .= "--{$boundary}\r\n";
-
-            $isFile = isset($part['filename']);
-            if ($isFile) {
-                $filename    = $this->sanitizeHeaderToken(is_string($part['filename'] ?? null) ? $part['filename'] : '');
-                $content     = is_string($part['content'] ?? null) ? $part['content'] : '';
-                $contentType = $this->sanitizeHeaderToken(is_string($part['contentType'] ?? null) ? $part['contentType'] : 'application/octet-stream');
-                if ($contentType === '') {
-                    $contentType = 'application/octet-stream';
-                }
-                $body .= sprintf(
-                    "Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n",
-                    $name,
-                    $filename,
-                );
-                $body .= "Content-Type: {$contentType}\r\n\r\n";
-                $body .= $content . "\r\n";
-                continue;
-            }
-
-            $value = $part['value'] ?? '';
-            $stringValue = is_scalar($value) ? (string)$value : '';
-            $body .= "Content-Disposition: form-data; name=\"{$name}\"\r\n\r\n";
-            $body .= $stringValue . "\r\n";
+            $body .= isset($part['filename'])
+                ? $this->encodeFilePart($part, $name)
+                : $this->encodeFieldPart($part, $name);
         }
 
         $body .= "--{$boundary}--\r\n";
 
         return $body;
+    }
+
+    /**
+     * Encode a single file part body (everything after the boundary line).
+     *
+     * @param array<string, mixed> $part
+     */
+    private function encodeFilePart(array $part, string $name): string
+    {
+        $filename    = $this->sanitizeHeaderToken(is_string($part['filename'] ?? null) ? $part['filename'] : '');
+        $content     = is_string($part['content'] ?? null) ? $part['content'] : '';
+        $contentType = $this->sanitizeHeaderToken(is_string($part['contentType'] ?? null) ? $part['contentType'] : 'application/octet-stream');
+        if ($contentType === '') {
+            $contentType = 'application/octet-stream';
+        }
+
+        return sprintf(
+            "Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n",
+            $name,
+            $filename,
+        )
+            . "Content-Type: {$contentType}\r\n\r\n"
+            . $content . "\r\n";
+    }
+
+    /**
+     * Encode a single field part body (everything after the boundary line).
+     *
+     * @param array<string, mixed> $part
+     */
+    private function encodeFieldPart(array $part, string $name): string
+    {
+        $value       = $part['value'] ?? '';
+        $stringValue = is_scalar($value) ? (string)$value : '';
+
+        return "Content-Disposition: form-data; name=\"{$name}\"\r\n\r\n"
+            . $stringValue . "\r\n";
     }
 
     /**

@@ -37,6 +37,16 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 #[CoversClass(ModelController::class)]
 final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
 {
+    private const AJAX_MODEL_DETECT_LIMITS = '/ajax/model/detect-limits';
+    private const AJAX_MODEL_GETBYPROVIDER = '/ajax/model/getbyprovider';
+    private const NO_PROVIDER_UID_SPECIFIED = 'No provider UID specified';
+    private const AJAX_MODEL_SETDEFAULT = '/ajax/model/setdefault';
+    private const NO_MODEL_UID_SPECIFIED = 'No model UID specified';
+    private const AJAX_MODEL_TOGGLE = '/ajax/model/toggle';
+    private const AJAX_MODEL_FETCH = '/ajax/model/fetch';
+    private const AJAX_MODEL_TEST = '/ajax/model/test';
+    private const MODEL_NOT_FOUND = 'Model not found';
+
     private ModelController $controller;
     private ModelRepository $modelRepository;
     private ProviderRepository $providerRepository;
@@ -182,7 +192,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($modelUid);
 
         // User clicks toggle to deactivate
-        $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $modelUid]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => $modelUid]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -213,7 +223,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $initialActiveCount = $this->modelRepository->findActive()->count();
 
         // Deactivate
-        $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $modelUid]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => $modelUid]);
         $this->controller->toggleActiveAction($request);
         $this->persistenceManager->clearState();
 
@@ -228,10 +238,10 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway3_3_toggleModelStatus_errorForNonExistent(): void
     {
-        $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => 99999]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => 99999]);
         $response = $this->controller->toggleActiveAction($request);
 
-        $this->assertErrorResponse($response, 404, 'Model not found');
+        $this->assertErrorResponse($response, 404, self::MODEL_NOT_FOUND);
     }
 
     // =========================================================================
@@ -259,7 +269,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $originalDefaultUid = $originalDefault?->getUid();
 
         // User clicks "Set Default"
-        $request = $this->createFormRequest('/ajax/model/setdefault', ['uid' => $nonDefault->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => $nonDefault->getUid()]);
         $response = $this->controller->setDefaultAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -282,12 +292,12 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway3_4_setDefaultModel_clearsOtherDefaults(): void
     {
         // Set model 1 as default
-        $request1 = $this->createFormRequest('/ajax/model/setdefault', ['uid' => 1]);
+        $request1 = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => 1]);
         $this->controller->setDefaultAction($request1);
         $this->persistenceManager->clearState();
 
         // Set model 3 as default
-        $request3 = $this->createFormRequest('/ajax/model/setdefault', ['uid' => 3]);
+        $request3 = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => 3]);
         $this->controller->setDefaultAction($request3);
         $this->persistenceManager->clearState();
 
@@ -310,7 +320,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($model);
 
         // User clicks "Test" button
-        $request = $this->createFormRequest('/ajax/model/test', ['uid' => $model->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => $model->getUid()]);
         $response = $this->controller->testModelAction($request);
 
         // Response should have proper structure regardless of API availability
@@ -328,10 +338,10 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway3_5_testModel_errorForInvalid(): void
     {
-        $request = $this->createFormRequest('/ajax/model/test', ['uid' => 99999]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => 99999]);
         $response = $this->controller->testModelAction($request);
 
-        $this->assertErrorResponse($response, 404, 'Model not found');
+        $this->assertErrorResponse($response, 404, self::MODEL_NOT_FOUND);
     }
 
     // =========================================================================
@@ -345,7 +355,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($provider);
 
         // User clicks "Fetch Available"
-        $request = $this->createFormRequest('/ajax/model/fetch', ['providerUid' => $provider->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_FETCH, ['providerUid' => $provider->getUid()]);
         $response = $this->controller->fetchAvailableModelsAction($request);
 
         // Response should be structured regardless of API availability
@@ -373,7 +383,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($provider);
 
         // User clicks "Detect Limits" - requires providerUid and modelId
-        $request = $this->createFormRequest('/ajax/model/detect-limits', [
+        $request = $this->createFormRequest(self::AJAX_MODEL_DETECT_LIMITS, [
             'providerUid' => $provider->getUid(),
             'modelId' => $model->getModelId(),
         ]);
@@ -438,7 +448,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($provider);
 
         // User requests models for a specific provider (e.g., dropdown population)
-        $request = $this->createFormRequest('/ajax/model/getbyprovider', ['providerUid' => $provider->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_GETBYPROVIDER, ['providerUid' => $provider->getUid()]);
         $response = $this->controller->getByProviderAction($request);
 
         self::assertSame(200, $response->getStatusCode());
@@ -466,10 +476,10 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway3_9_getModelsByProvider_errorForMissingProvider(): void
     {
-        $request = $this->createFormRequest('/ajax/model/getbyprovider', []);
+        $request = $this->createFormRequest(self::AJAX_MODEL_GETBYPROVIDER, []);
         $response = $this->controller->getByProviderAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No provider UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_PROVIDER_UID_SPECIFIED);
     }
 
     #[Test]
@@ -490,7 +500,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $addedProvider = $this->providerRepository->findOneByIdentifier('empty-provider-test');
         self::assertNotNull($addedProvider);
 
-        $request = $this->createFormRequest('/ajax/model/getbyprovider', ['providerUid' => $addedProvider->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_GETBYPROVIDER, ['providerUid' => $addedProvider->getUid()]);
         $response = $this->controller->getByProviderAction($request);
 
         self::assertSame(200, $response->getStatusCode());
@@ -580,29 +590,29 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway3_10_toggleModel_missingUid(): void
     {
-        $request = $this->createFormRequest('/ajax/model/toggle', []);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, []);
         $response = $this->controller->toggleActiveAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No model UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_MODEL_UID_SPECIFIED);
     }
 
     #[Test]
     public function pathway3_10_toggleModel_zeroUid(): void
     {
-        $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => 0]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => 0]);
         $response = $this->controller->toggleActiveAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No model UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_MODEL_UID_SPECIFIED);
     }
 
     #[Test]
     public function pathway3_10_toggleModel_stringUid(): void
     {
-        $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => 'invalid']);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => 'invalid']);
         $response = $this->controller->toggleActiveAction($request);
 
         // Invalid string should be treated as 0
-        $this->assertErrorResponse($response, 400, 'No model UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_MODEL_UID_SPECIFIED);
     }
 
     // =========================================================================
@@ -612,19 +622,19 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway3_11_setDefault_missingUid(): void
     {
-        $request = $this->createFormRequest('/ajax/model/setdefault', []);
+        $request = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, []);
         $response = $this->controller->setDefaultAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No model UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_MODEL_UID_SPECIFIED);
     }
 
     #[Test]
     public function pathway3_11_setDefault_nonExistentModel(): void
     {
-        $request = $this->createFormRequest('/ajax/model/setdefault', ['uid' => 99999]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => 99999]);
         $response = $this->controller->setDefaultAction($request);
 
-        $this->assertErrorResponse($response, 404, 'Model not found');
+        $this->assertErrorResponse($response, 404, self::MODEL_NOT_FOUND);
     }
 
     // =========================================================================
@@ -634,19 +644,19 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway3_12_testModel_missingUid(): void
     {
-        $request = $this->createFormRequest('/ajax/model/test', []);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TEST, []);
         $response = $this->controller->testModelAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No model UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_MODEL_UID_SPECIFIED);
     }
 
     #[Test]
     public function pathway3_12_testModel_zeroUid(): void
     {
-        $request = $this->createFormRequest('/ajax/model/test', ['uid' => 0]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => 0]);
         $response = $this->controller->testModelAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No model UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_MODEL_UID_SPECIFIED);
     }
 
     // =========================================================================
@@ -656,16 +666,16 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway3_13_fetchAvailable_missingProviderUid(): void
     {
-        $request = $this->createFormRequest('/ajax/model/fetch', []);
+        $request = $this->createFormRequest(self::AJAX_MODEL_FETCH, []);
         $response = $this->controller->fetchAvailableModelsAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No provider UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_PROVIDER_UID_SPECIFIED);
     }
 
     #[Test]
     public function pathway3_13_fetchAvailable_nonExistentProvider(): void
     {
-        $request = $this->createFormRequest('/ajax/model/fetch', ['providerUid' => 99999]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_FETCH, ['providerUid' => 99999]);
         $response = $this->controller->fetchAvailableModelsAction($request);
 
         $this->assertErrorResponse($response, 404, 'Provider not found');
@@ -678,12 +688,12 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway3_14_detectLimits_missingProviderUid(): void
     {
-        $request = $this->createFormRequest('/ajax/model/detect-limits', [
+        $request = $this->createFormRequest(self::AJAX_MODEL_DETECT_LIMITS, [
             'modelId' => 'gpt-5',
         ]);
         $response = $this->controller->detectLimitsAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No provider UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_PROVIDER_UID_SPECIFIED);
     }
 
     #[Test]
@@ -692,7 +702,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
-        $request = $this->createFormRequest('/ajax/model/detect-limits', [
+        $request = $this->createFormRequest(self::AJAX_MODEL_DETECT_LIMITS, [
             'providerUid' => $provider->getUid(),
         ]);
         $response = $this->controller->detectLimitsAction($request);
@@ -703,7 +713,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway3_14_detectLimits_nonExistentProvider(): void
     {
-        $request = $this->createFormRequest('/ajax/model/detect-limits', [
+        $request = $this->createFormRequest(self::AJAX_MODEL_DETECT_LIMITS, [
             'providerUid' => 99999,
             'modelId' => 'gpt-5',
         ]);
@@ -787,7 +797,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($modelUid);
 
         $initialState = $model->isActive();
-        $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $modelUid]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => $modelUid]);
 
         // Perform multiple rapid toggles
         for ($i = 0; $i < 4; $i++) {
@@ -808,7 +818,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
 
-        $request = $this->createFormRequest('/ajax/model/test', ['uid' => $model->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => $model->getUid()]);
 
         // Multiple test calls should all succeed (no rate limiting in tests)
         for ($i = 0; $i < 3; $i++) {
@@ -838,7 +848,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($providerUid);
 
         // Deactivate model
-        $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $modelUid]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => $modelUid]);
         $this->controller->toggleActiveAction($request);
         $this->persistenceManager->clearState();
 
@@ -1009,7 +1019,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($addedUid);
 
         // Toggle off
-        $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $addedUid]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => $addedUid]);
         $this->controller->toggleActiveAction($request);
         $this->persistenceManager->clearState();
 
@@ -1047,7 +1057,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($secondUid);
 
         // Set first as default
-        $request1 = $this->createFormRequest('/ajax/model/setdefault', ['uid' => $firstUid]);
+        $request1 = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => $firstUid]);
         $this->controller->setDefaultAction($request1);
         $this->persistenceManager->clearState();
 
@@ -1057,7 +1067,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertTrue($first->isDefault());
 
         // Set second as default
-        $request2 = $this->createFormRequest('/ajax/model/setdefault', ['uid' => $secondUid]);
+        $request2 = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => $secondUid]);
         $this->controller->setDefaultAction($request2);
         $this->persistenceManager->clearState();
 
@@ -1159,7 +1169,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
 
-        $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => $model->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => $model->getUid()]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = json_decode((string)$response->getBody(), true);
@@ -1179,7 +1189,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
 
-        $request = $this->createFormRequest('/ajax/model/setdefault', ['uid' => $model->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_SETDEFAULT, ['uid' => $model->getUid()]);
         $response = $this->controller->setDefaultAction($request);
 
         $body = json_decode((string)$response->getBody(), true);
@@ -1194,7 +1204,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
 
-        $request = $this->createFormRequest('/ajax/model/test', ['uid' => $model->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => $model->getUid()]);
         $response = $this->controller->testModelAction($request);
 
         $body = json_decode((string)$response->getBody(), true);
@@ -1206,7 +1216,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway3_20_errorResponseStructure(): void
     {
-        $request = $this->createFormRequest('/ajax/model/toggle', ['uid' => 99999]);
+        $request = $this->createFormRequest(self::AJAX_MODEL_TOGGLE, ['uid' => 99999]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = json_decode((string)$response->getBody(), true);

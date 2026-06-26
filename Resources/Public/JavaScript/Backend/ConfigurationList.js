@@ -46,7 +46,6 @@ class ConfigurationList {
                 e.preventDefault();
                 e.stopPropagation();
                 this.handleTestConfig(testBtn);
-                return;
             }
         });
 
@@ -161,7 +160,7 @@ class ConfigurationList {
             </div>
         `;
 
-        const modal = Modal.advanced({
+        Modal.advanced({
             title: `Test Configuration: ${name} (UID: ${uid})`,
             content: container,
             severity: Severity.info,
@@ -190,36 +189,13 @@ class ConfigurationList {
             // Use container reference instead of document.getElementById()
             // because TYPO3 Modal places content in a different DOM context
             const loadingDiv = container.querySelector('#config-test-loading');
-            const successDiv = container.querySelector('#config-test-success');
-            const errorDiv = container.querySelector('#config-test-error');
 
             if (loadingDiv) loadingDiv.style.display = 'none';
 
             if (data.success) {
-                if (successDiv) {
-                    successDiv.style.display = 'block';
-
-                    const responseEl = container.querySelector('#config-test-response');
-                    if (responseEl && data.content) {
-                        responseEl.textContent = data.content;
-                    }
-
-                    const modelEl = container.querySelector('#config-test-model');
-                    if (modelEl) {
-                        modelEl.textContent = data.model || '-';
-                    }
-
-                    const tokensEl = container.querySelector('#config-test-tokens');
-                    if (tokensEl && data.usage) {
-                        tokensEl.textContent = `${data.usage.totalTokens} (prompt: ${data.usage.promptTokens}, completion: ${data.usage.completionTokens})`;
-                    }
-                }
+                this.renderTestSuccess(container, data);
             } else {
-                if (errorDiv) {
-                    errorDiv.style.display = 'block';
-                    const msgEl = container.querySelector('#config-test-error-message');
-                    if (msgEl) msgEl.textContent = data.error || data.message || 'Unknown error';
-                }
+                this.renderTestError(container, data.error || data.message || 'Unknown error');
             }
         })
         .catch(err => {
@@ -235,6 +211,39 @@ class ConfigurationList {
                 if (msgEl) msgEl.textContent = err.message;
             }
         });
+    }
+
+    renderTestSuccess(container, data) {
+        const successDiv = container.querySelector('#config-test-success');
+        if (!successDiv) {
+            return;
+        }
+
+        successDiv.style.display = 'block';
+
+        const responseEl = container.querySelector('#config-test-response');
+        if (responseEl && data.content) {
+            responseEl.textContent = data.content;
+        }
+
+        const modelEl = container.querySelector('#config-test-model');
+        if (modelEl) {
+            modelEl.textContent = data.model || '-';
+        }
+
+        const tokensEl = container.querySelector('#config-test-tokens');
+        if (tokensEl && data.usage) {
+            tokensEl.textContent = `${data.usage.totalTokens} (prompt: ${data.usage.promptTokens}, completion: ${data.usage.completionTokens})`;
+        }
+    }
+
+    renderTestError(container, message) {
+        const errorDiv = container.querySelector('#config-test-error');
+        if (errorDiv) {
+            errorDiv.style.display = 'block';
+            const msgEl = container.querySelector('#config-test-error-message');
+            if (msgEl) msgEl.textContent = message;
+        }
     }
 
     escapeHtml(text) {

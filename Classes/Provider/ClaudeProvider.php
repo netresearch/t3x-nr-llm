@@ -285,6 +285,61 @@ final class ClaudeProvider extends AbstractProvider implements
     public function analyzeImage(array $content, array $options = []): VisionResponse
     {
         // Convert each VisionContent into Claude's vision-block format.
+        $claudeContent = $this->convertVisionContent($content);
+
+        $messages = [
+            [
+                'role' => 'user',
+                'content' => $claudeContent,
+            ],
+        ];
+
+        $model = $this->getString($options, 'model', 'claude-sonnet-4-5-20250929');
+
+        $payload = [
+            'model' => $model,
+            'messages' => $messages,
+            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
+        ];
+
+        $systemPrompt = $this->getNullableString($options, 'system_prompt');
+        if ($systemPrompt !== null) {
+            $payload['system'] = $systemPrompt;
+        }
+
+        $response = $this->sendRequest('messages', $payload);
+
+        $description = '';
+        $contentBlocks = $this->getList($response, 'content');
+        foreach ($contentBlocks as $block) {
+            $blockArray = $this->asArray($block);
+            if ($this->getString($blockArray, 'type') === 'text') {
+                $description .= $this->getString($blockArray, 'text');
+            }
+        }
+
+        $usage = $this->getArray($response, 'usage');
+
+        return new VisionResponse(
+            description: $description,
+            model: $this->getString($response, 'model', $model),
+            usage: $this->createUsageStatistics(
+                promptTokens: $this->getInt($usage, 'input_tokens'),
+                completionTokens: $this->getInt($usage, 'output_tokens'),
+            ),
+            provider: $this->getIdentifier(),
+        );
+    }
+
+    /**
+     * Convert VisionContent items into Claude's vision-block format.
+     *
+     * @param list<VisionContent> $content
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function convertVisionContent(array $content): array
+    {
         $claudeContent = [];
 
         foreach ($content as $item) {
@@ -332,48 +387,7 @@ final class ClaudeProvider extends AbstractProvider implements
             }
         }
 
-        $messages = [
-            [
-                'role' => 'user',
-                'content' => $claudeContent,
-            ],
-        ];
-
-        $model = $this->getString($options, 'model', 'claude-sonnet-4-5-20250929');
-
-        $payload = [
-            'model' => $model,
-            'messages' => $messages,
-            'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
-        ];
-
-        $systemPrompt = $this->getNullableString($options, 'system_prompt');
-        if ($systemPrompt !== null) {
-            $payload['system'] = $systemPrompt;
-        }
-
-        $response = $this->sendRequest('messages', $payload);
-
-        $description = '';
-        $contentBlocks = $this->getList($response, 'content');
-        foreach ($contentBlocks as $block) {
-            $blockArray = $this->asArray($block);
-            if ($this->getString($blockArray, 'type') === 'text') {
-                $description .= $this->getString($blockArray, 'text');
-            }
-        }
-
-        $usage = $this->getArray($response, 'usage');
-
-        return new VisionResponse(
-            description: $description,
-            model: $this->getString($response, 'model', $model),
-            usage: $this->createUsageStatistics(
-                promptTokens: $this->getInt($usage, 'input_tokens'),
-                completionTokens: $this->getInt($usage, 'output_tokens'),
-            ),
-            provider: $this->getIdentifier(),
-        );
+        return $claudeContent;
     }
 
     public function supportsVision(): bool
@@ -457,29 +471,62 @@ final class ClaudeProvider extends AbstractProvider implements
                 $line = substr($buffer, 0, $pos);
                 $buffer = substr($buffer, $pos + 1);
 
-                if (str_starts_with($line, 'data: ')) {
-                    $data = substr($line, 6);
-
-                    try {
-                        $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
-                        if (is_array($decoded)) {
-                            $json = $this->asArray($decoded);
-                            $type = $this->getString($json, 'type');
-                            if ($type === 'content_block_delta') {
-                                $delta = $this->getArray($json, 'delta');
-                                if ($this->getString($delta, 'type') === 'text_delta') {
-                                    yield $this->getString($delta, 'text');
-                                }
-                            } elseif ($type === 'message_stop') {
-                                return;
-                            }
-                        }
-                    } catch (JsonException) {
-                        // Skip malformed JSON
-                    }
+                $event = $this->parseStreamEvent($line);
+                if ($event === null) {
+                    continue;
                 }
+
+                if ($event['stop']) {
+                    return;
+                }
+
+                yield $event['text'];
             }
         }
+    }
+
+    /**
+     * Parse a single SSE line from the Claude streaming response.
+     *
+     * @return array{stop: bool, text: string}|null Null when the line carries no
+     *                                              actionable delta and is skipped.
+     */
+    private function parseStreamEvent(string $line): ?array
+    {
+        if (!str_starts_with($line, 'data: ')) {
+            return null;
+        }
+
+        $data = substr($line, 6);
+
+        try {
+            $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            // Skip malformed JSON
+            return null;
+        }
+
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $json = $this->asArray($decoded);
+        $type = $this->getString($json, 'type');
+
+        if ($type === 'content_block_delta') {
+            $delta = $this->getArray($json, 'delta');
+            if ($this->getString($delta, 'type') === 'text_delta') {
+                return ['stop' => false, 'text' => $this->getString($delta, 'text')];
+            }
+
+            return null;
+        }
+
+        if ($type === 'message_stop') {
+            return ['stop' => true, 'text' => ''];
+        }
+
+        return null;
     }
 
     public function supportsStreaming(): bool
@@ -536,48 +583,9 @@ final class ClaudeProvider extends AbstractProvider implements
                 $pendingToolResults = [];
             }
 
-            // Assistant with tool_calls: convert to tool_use content blocks
-            if ($role === 'assistant' && isset($msgArray['tool_calls']) && is_array($msgArray['tool_calls'])) {
-                $contentBlocks = [];
-                $textContent = is_string($content) ? $content : '';
-                if ($textContent !== '') {
-                    $contentBlocks[] = ['type' => 'text', 'text' => $textContent];
-                }
-
-                foreach ($msgArray['tool_calls'] as $call) {
-                    $callArray = $this->asArray($call);
-                    $function = $this->getArray($callArray, 'function');
-                    $arguments = $function['arguments'] ?? [];
-                    if (is_string($arguments)) {
-                        $arguments = json_decode($arguments, true) ?? [];
-                    }
-                    if (!is_array($arguments)) {
-                        $arguments = [];
-                    }
-
-                    $contentBlocks[] = [
-                        'type' => 'tool_use',
-                        'id' => $this->getString($callArray, 'id'),
-                        'name' => $this->getString($function, 'name'),
-                        'input' => $arguments !== [] ? $arguments : new stdClass(),
-                    ];
-                }
-
-                $filteredMessages[] = ['role' => 'assistant', 'content' => $contentBlocks];
-
-                continue;
-            }
-
-            // Multimodal content array: convert to Claude format
-            if (is_array($content)) {
-                $claudeContent = $this->convertMultimodalContent($content);
-                $filteredMessages[] = ['role' => $role, 'content' => $claudeContent];
-
-                continue;
-            }
-
-            // Plain text message: pass through
-            $filteredMessages[] = $msgArray;
+            // Assistant tool_calls, multimodal content arrays, and plain text
+            // messages are all dispatched to a single conversion helper.
+            $filteredMessages[] = $this->convertConversationMessage($role, $content, $msgArray);
         }
 
         // Flush remaining tool results
@@ -586,6 +594,72 @@ final class ClaudeProvider extends AbstractProvider implements
         }
 
         return ['systemMessage' => $systemMessage, 'messages' => $filteredMessages];
+    }
+
+    /**
+     * Convert a single non-system, non-tool conversation message to Claude's format.
+     *
+     * Handles assistant messages with tool_calls, multimodal content arrays, and
+     * plain text messages (pass-through).
+     *
+     * @param array<string, mixed> $msgArray
+     *
+     * @return array<string, mixed>
+     */
+    private function convertConversationMessage(string $role, mixed $content, array $msgArray): array
+    {
+        // Assistant with tool_calls: convert to tool_use content blocks
+        if ($role === 'assistant' && isset($msgArray['tool_calls']) && is_array($msgArray['tool_calls'])) {
+            return [
+                'role' => 'assistant',
+                'content' => $this->buildAssistantContentBlocks($msgArray['tool_calls'], $content),
+            ];
+        }
+
+        // Multimodal content array: convert to Claude format
+        if (is_array($content)) {
+            return ['role' => $role, 'content' => $this->convertMultimodalContent($content)];
+        }
+
+        // Plain text message: pass through
+        return $msgArray;
+    }
+
+    /**
+     * Build Claude assistant content blocks (optional text + tool_use blocks).
+     *
+     * @param array<array-key, mixed> $toolCalls
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildAssistantContentBlocks(array $toolCalls, mixed $content): array
+    {
+        $contentBlocks = [];
+        $textContent = is_string($content) ? $content : '';
+        if ($textContent !== '') {
+            $contentBlocks[] = ['type' => 'text', 'text' => $textContent];
+        }
+
+        foreach ($toolCalls as $call) {
+            $callArray = $this->asArray($call);
+            $function = $this->getArray($callArray, 'function');
+            $arguments = $function['arguments'] ?? [];
+            if (is_string($arguments)) {
+                $arguments = json_decode($arguments, true) ?? [];
+            }
+            if (!is_array($arguments)) {
+                $arguments = [];
+            }
+
+            $contentBlocks[] = [
+                'type' => 'tool_use',
+                'id' => $this->getString($callArray, 'id'),
+                'name' => $this->getString($function, 'name'),
+                'input' => $arguments !== [] ? $arguments : new stdClass(),
+            ];
+        }
+
+        return $contentBlocks;
     }
 
     /**

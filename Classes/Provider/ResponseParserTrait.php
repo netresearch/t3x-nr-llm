@@ -141,10 +141,6 @@ trait ResponseParserTrait
     {
         $value = $data[$key] ?? null;
 
-        if ($value === null) {
-            return null;
-        }
-
         if (is_string($value)) {
             return $value;
         }
@@ -164,10 +160,6 @@ trait ResponseParserTrait
     protected function getNullableInt(array $data, string $key): ?int
     {
         $value = $data[$key] ?? null;
-
-        if ($value === null) {
-            return null;
-        }
 
         if (is_int($value)) {
             return $value;
@@ -224,15 +216,7 @@ trait ResponseParserTrait
             $current = $current[$key];
         }
 
-        if (is_string($current)) {
-            return $current;
-        }
-
-        if (is_int($current) || is_float($current)) {
-            return (string)$current;
-        }
-
-        return $default;
+        return $this->asString($current, $default);
     }
 
     /**
@@ -252,15 +236,7 @@ trait ResponseParserTrait
             $current = $current[$key];
         }
 
-        if (is_int($current)) {
-            return $current;
-        }
-
-        if (is_numeric($current)) {
-            return (int)$current;
-        }
-
-        return $default;
+        return $this->asInt($current, $default);
     }
 
     /**

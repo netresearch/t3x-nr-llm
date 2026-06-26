@@ -43,6 +43,12 @@ final class ModelDiscovery implements ModelDiscoveryInterface
      */
     private const VAULT_DISPATCH_REASON = 'LLM setup-wizard model discovery';
 
+    /** Resource path appended to a provider endpoint to list available models. */
+    private const MODELS_PATH = '/models';
+
+    /** Authorization header value prefix for Bearer-token providers. */
+    private const AUTH_BEARER_PREFIX = 'Bearer ';
+
     /**
      * Whether the most recent discover() call substituted a static fallback
      * catalog for live API data (failed request, unexpected status, or
@@ -74,7 +80,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             $base = rtrim($provider->endpoint, '/');
             $endpoint = match ($provider->adapterType) {
                 'ollama' => $base . '/tags',
-                default => $base . '/models',
+                default => $base . self::MODELS_PATH,
             };
 
             $request = $this->requestFactory->createRequest('GET', $endpoint);
@@ -86,7 +92,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                     ->withHeader('anthropic-version', '2023-06-01'),
                 'gemini' => $request->withHeader('x-goog-api-key', $apiKey),
                 'ollama' => $request, // No auth needed
-                default => $request->withHeader('Authorization', 'Bearer ' . $apiKey),
+                default => $request->withHeader('Authorization', self::AUTH_BEARER_PREFIX . $apiKey),
             };
 
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
@@ -99,16 +105,13 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 ];
             }
 
-            if ($statusCode === 401) {
-                return [
-                    'success' => false,
-                    'message' => 'Authentication failed. Please check your API key.',
-                ];
-            }
+            $message = $statusCode === 401
+                ? 'Authentication failed. Please check your API key.'
+                : sprintf('Connection failed with status code %d', $statusCode);
 
             return [
                 'success' => false,
-                'message' => sprintf('Connection failed with status code %d', $statusCode),
+                'message' => $message,
             ];
         } catch (Throwable $e) {
             // Don't echo the raw exception back to the client: it can carry the
@@ -208,8 +211,8 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     private function discoverOpenAI(string $endpoint, string $apiKey): array
     {
         try {
-            $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
-                ->withHeader('Authorization', 'Bearer ' . $apiKey)
+            $request = $this->requestFactory->createRequest('GET', $endpoint . self::MODELS_PATH)
+                ->withHeader('Authorization', self::AUTH_BEARER_PREFIX . $apiKey)
                 ->withHeader('Content-Type', 'application/json');
 
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
@@ -221,17 +224,11 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             }
 
             $data = json_decode($response->getBody()->getContents(), true);
+            $dataList = is_array($data) && isset($data['data']) && is_array($data['data'])
+                ? $data['data']
+                : [];
+
             $models = [];
-
-            if (!is_array($data)) {
-                return $this->asFallback($this->getOpenAIFallbackModels());
-            }
-
-            $dataList = $data['data'] ?? [];
-            if (!is_array($dataList)) {
-                return $this->asFallback($this->getOpenAIFallbackModels());
-            }
-
             foreach ($dataList as $model) {
                 if (!is_array($model)) {
                     continue;
@@ -302,8 +299,38 @@ final class ModelDiscovery implements ModelDiscoveryInterface
      */
     private function enrichOpenAIModel(string $modelId): DiscoveredModel
     {
-        // June 2026 OpenAI model specifications
-        $specs = [
+        $spec = $this->openAIModelSpecs()[$modelId] ?? [
+            'name' => $modelId,
+            'description' => 'OpenAI model',
+            'capabilities' => $this->defaultOpenAICapabilities($modelId),
+            'contextLength' => 0,
+            'maxOutputTokens' => 0,
+            'costInput' => 0,
+            'costOutput' => 0,
+            'recommended' => false,
+        ];
+
+        return new DiscoveredModel(
+            modelId: $modelId,
+            name: $spec['name'],
+            description: $spec['description'],
+            capabilities: $spec['capabilities'],
+            contextLength: $spec['contextLength'],
+            maxOutputTokens: $spec['maxOutputTokens'],
+            costInput: $spec['costInput'],
+            costOutput: $spec['costOutput'],
+            recommended: $spec['recommended'],
+        );
+    }
+
+    /**
+     * June 2026 OpenAI model specifications, keyed by model id.
+     *
+     * @return array<string, array{name: string, description: string, capabilities: array<string>, contextLength: int, maxOutputTokens: int, costInput: int, costOutput: int, recommended: bool}>
+     */
+    private function openAIModelSpecs(): array
+    {
+        return [
             'gpt-5.5' => [
                 'name' => 'GPT-5.5',
                 'description' => 'Latest flagship model with enhanced reasoning',
@@ -450,29 +477,6 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             'tts-1-hd' => self::specializedSpec('TTS-1 HD', 'Text-to-speech model optimized for quality', 'text_to_speech'),
             'whisper-1' => self::specializedSpec('Whisper', 'Speech-to-text transcription model', 'transcription'),
         ];
-
-        $spec = $specs[$modelId] ?? [
-            'name' => $modelId,
-            'description' => 'OpenAI model',
-            'capabilities' => $this->defaultOpenAICapabilities($modelId),
-            'contextLength' => 0,
-            'maxOutputTokens' => 0,
-            'costInput' => 0,
-            'costOutput' => 0,
-            'recommended' => false,
-        ];
-
-        return new DiscoveredModel(
-            modelId: $modelId,
-            name: $spec['name'],
-            description: $spec['description'],
-            capabilities: $spec['capabilities'],
-            contextLength: $spec['contextLength'],
-            maxOutputTokens: $spec['maxOutputTokens'],
-            costInput: $spec['costInput'],
-            costOutput: $spec['costOutput'],
-            recommended: $spec['recommended'],
-        );
     }
 
     /**
@@ -551,7 +555,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     private function discoverAnthropic(string $endpoint, string $apiKey): array
     {
         try {
-            $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
+            $request = $this->requestFactory->createRequest('GET', $endpoint . self::MODELS_PATH)
                 ->withHeader('x-api-key', $apiKey)
                 ->withHeader('anthropic-version', '2023-06-01');
 
@@ -564,14 +568,9 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             }
 
             $data = json_decode($response->getBody()->getContents(), true);
-            if (!is_array($data)) {
-                return $this->asFallback($this->getAnthropicFallbackModels());
-            }
-
-            $modelList = $data['data'] ?? [];
-            if (!is_array($modelList) || $modelList === []) {
-                return $this->asFallback($this->getAnthropicFallbackModels());
-            }
+            $modelList = is_array($data) && isset($data['data']) && is_array($data['data'])
+                ? $data['data']
+                : [];
 
             $models = [];
             foreach ($modelList as $model) {
@@ -756,17 +755,11 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             }
 
             $data = json_decode($response->getBody()->getContents(), true);
+            $modelList = is_array($data) && isset($data['models']) && is_array($data['models'])
+                ? $data['models']
+                : [];
+
             $models = [];
-
-            if (!is_array($data)) {
-                return $this->asFallback($this->getGeminiFallbackModels());
-            }
-
-            $modelList = $data['models'] ?? [];
-            if (!is_array($modelList)) {
-                return $this->asFallback($this->getGeminiFallbackModels());
-            }
-
             foreach ($modelList as $model) {
                 if (!is_array($model)) {
                     continue;
@@ -803,12 +796,11 @@ final class ModelDiscovery implements ModelDiscoveryInterface
         }
 
         // Exclude embedding models (not usable for chat)
-        if (str_contains($modelId, 'embedding')) {
-            return false;
-        }
-
-        // Exclude very old models
-        if (str_starts_with($modelId, 'gemini-1.0') || str_starts_with($modelId, 'gemini-pro')) {
+        // and very old models (gemini-1.0, gemini-pro)
+        if (str_contains($modelId, 'embedding')
+            || str_starts_with($modelId, 'gemini-1.0')
+            || str_starts_with($modelId, 'gemini-pro')
+        ) {
             return false;
         }
 
@@ -1013,57 +1005,16 @@ final class ModelDiscovery implements ModelDiscoveryInterface
 
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
-            if ($response->getStatusCode() !== 200) {
-                return $defaults;
-            }
-
-            $data = json_decode($response->getBody()->getContents(), true);
+            $data = $response->getStatusCode() === 200
+                ? json_decode($response->getBody()->getContents(), true)
+                : null;
             if (!is_array($data)) {
                 return $defaults;
             }
 
-            // Extract model parameters
-            $modelInfo = isset($data['model_info']) && is_array($data['model_info'])
-                ? $data['model_info']
-                : [];
-
-            // Context length is in model_info or parameters
-            $contextLength = 0;
-            $parameters = isset($data['parameters']) && is_string($data['parameters'])
-                ? $data['parameters']
-                : '';
-
-            // Try to get from model_info (newer Ollama versions)
-            foreach ($modelInfo as $key => $value) {
-                if (str_contains(strtolower((string)$key), 'context') && is_numeric($value)) {
-                    $contextLength = (int)$value;
-                    break;
-                }
-            }
-
-            // Try to parse from parameters string (e.g., "num_ctx 32768")
-            if ($contextLength === 0 && $parameters !== '') {
-                if (preg_match('/num_ctx\s+(\d+)/i', $parameters, $matches)) {
-                    $contextLength = (int)$matches[1];
-                }
-            }
-
-            // Detect capabilities based on model family
-            $capabilities = ['chat'];
+            $contextLength = $this->extractOllamaContextLength($data);
             $modelIdLower = strtolower($modelId);
-
-            // Vision models
-            if (str_contains($modelIdLower, 'vision') || str_contains($modelIdLower, 'llava')) {
-                $capabilities[] = 'vision';
-            }
-
-            // Tool-use models (qwen, llama 3.x, mistral, etc.)
-            if (str_contains($modelIdLower, 'qwen')
-                || str_contains($modelIdLower, 'llama3')
-                || str_contains($modelIdLower, 'mistral')
-                || str_contains($modelIdLower, 'mixtral')) {
-                $capabilities[] = 'tools';
-            }
+            $capabilities = $this->detectOllamaCapabilities($modelIdLower);
 
             // Ollama doesn't expose max output tokens, so derive sensible defaults
             // Most models can output up to 1/4 of context, with reasonable caps
@@ -1078,6 +1029,62 @@ final class ModelDiscovery implements ModelDiscoveryInterface
         } catch (Throwable) {
             return $defaults;
         }
+    }
+
+    /**
+     * Extract the context length from an Ollama `/api/show` response.
+     *
+     * Context length is reported either in `model_info` (newer Ollama
+     * versions) or in the `parameters` string (e.g. "num_ctx 32768").
+     *
+     * @param array<int|string, mixed> $data
+     */
+    private function extractOllamaContextLength(array $data): int
+    {
+        // Try to get from model_info (newer Ollama versions)
+        $modelInfo = isset($data['model_info']) && is_array($data['model_info'])
+            ? $data['model_info']
+            : [];
+        foreach ($modelInfo as $key => $value) {
+            if (str_contains(strtolower((string)$key), 'context') && is_numeric($value)) {
+                return (int)$value;
+            }
+        }
+
+        // Try to parse from parameters string (e.g., "num_ctx 32768")
+        $parameters = isset($data['parameters']) && is_string($data['parameters'])
+            ? $data['parameters']
+            : '';
+        if ($parameters !== '' && preg_match('/num_ctx\s+(\d+)/i', $parameters, $matches) === 1) {
+            return (int)$matches[1];
+        }
+
+        return 0;
+    }
+
+    /**
+     * Detect Ollama model capabilities based on the model family.
+     *
+     * @return array<string>
+     */
+    private function detectOllamaCapabilities(string $modelIdLower): array
+    {
+        $capabilities = ['chat'];
+
+        // Vision models
+        if (str_contains($modelIdLower, 'vision') || str_contains($modelIdLower, 'llava')) {
+            $capabilities[] = 'vision';
+        }
+
+        // Tool-use models (qwen, llama 3.x, mistral, etc.)
+        if (str_contains($modelIdLower, 'qwen')
+            || str_contains($modelIdLower, 'llama3')
+            || str_contains($modelIdLower, 'mistral')
+            || str_contains($modelIdLower, 'mixtral')) {
+            $capabilities[] = 'tools';
+        }
+
+        return $capabilities;
     }
 
     /**
@@ -1133,8 +1140,8 @@ final class ModelDiscovery implements ModelDiscoveryInterface
      */
     private function fetchBearerModelList(string $adapterType, string $endpoint, string $apiKey): ?array
     {
-        $request = $this->requestFactory->createRequest('GET', $endpoint . '/models')
-            ->withHeader('Authorization', 'Bearer ' . $apiKey);
+        $request = $this->requestFactory->createRequest('GET', $endpoint . self::MODELS_PATH)
+            ->withHeader('Authorization', self::AUTH_BEARER_PREFIX . $apiKey);
 
         $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
@@ -1169,37 +1176,10 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 if (!is_array($model)) {
                     continue;
                 }
-                $modelId = isset($model['id']) && is_string($model['id']) ? $model['id'] : '';
-                if ($modelId === '') {
-                    continue;
+                $discovered = $this->mapOpenRouterModel($model);
+                if ($discovered !== null) {
+                    $models[] = $discovered;
                 }
-
-                $pricing = isset($model['pricing']) && is_array($model['pricing']) ? $model['pricing'] : [];
-                $modelName = isset($model['name']) && is_string($model['name']) ? $model['name'] : $modelId;
-                $modelDescription = isset($model['description']) && is_string($model['description'])
-                    ? $model['description']
-                    : 'OpenRouter model';
-                $contextLength = isset($model['context_length']) && is_numeric($model['context_length'])
-                    ? (int)$model['context_length']
-                    : 0;
-                $promptCost = isset($pricing['prompt']) && is_numeric($pricing['prompt'])
-                    ? (float)$pricing['prompt']
-                    : 0.0;
-                $completionCost = isset($pricing['completion']) && is_numeric($pricing['completion'])
-                    ? (float)$pricing['completion']
-                    : 0.0;
-
-                $models[] = new DiscoveredModel(
-                    modelId: $modelId,
-                    name: $modelName,
-                    description: $modelDescription,
-                    capabilities: ['chat'],
-                    contextLength: $contextLength,
-                    maxOutputTokens: 0,
-                    costInput: (int)($promptCost * 100000000),
-                    costOutput: (int)($completionCost * 100000000),
-                    recommended: false,
-                );
             }
 
             return $models;
@@ -1208,6 +1188,46 @@ final class ModelDiscovery implements ModelDiscoveryInterface
 
             return [];
         }
+    }
+
+    /**
+     * Map a single OpenRouter API model entry to a DiscoveredModel.
+     *
+     * @param array<int|string, mixed> $model
+     */
+    private function mapOpenRouterModel(array $model): ?DiscoveredModel
+    {
+        $modelId = isset($model['id']) && is_string($model['id']) ? $model['id'] : '';
+        if ($modelId === '') {
+            return null;
+        }
+
+        $pricing = isset($model['pricing']) && is_array($model['pricing']) ? $model['pricing'] : [];
+        $modelName = isset($model['name']) && is_string($model['name']) ? $model['name'] : $modelId;
+        $modelDescription = isset($model['description']) && is_string($model['description'])
+            ? $model['description']
+            : 'OpenRouter model';
+        $contextLength = isset($model['context_length']) && is_numeric($model['context_length'])
+            ? (int)$model['context_length']
+            : 0;
+        $promptCost = isset($pricing['prompt']) && is_numeric($pricing['prompt'])
+            ? (float)$pricing['prompt']
+            : 0.0;
+        $completionCost = isset($pricing['completion']) && is_numeric($pricing['completion'])
+            ? (float)$pricing['completion']
+            : 0.0;
+
+        return new DiscoveredModel(
+            modelId: $modelId,
+            name: $modelName,
+            description: $modelDescription,
+            capabilities: ['chat'],
+            contextLength: $contextLength,
+            maxOutputTokens: 0,
+            costInput: (int)($promptCost * 100000000),
+            costOutput: (int)($completionCost * 100000000),
+            recommended: false,
+        );
     }
 
     /**

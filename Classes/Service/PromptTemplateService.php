@@ -239,80 +239,107 @@ final readonly class PromptTemplateService implements PromptTemplateServiceInter
     private function substitute(string $template, array $variables): string
     {
         // Simple variable substitution: {{variable}}
+        $result = $this->renderVariables($template, $variables);
+
+        // Conditional with else: {{#if variable}}...{{else}}...{{/if}} (must be processed before simple if)
+        $result = $this->renderConditionalsWithElse($result, $variables);
+
+        // Conditional sections: {{#if variable}}...{{/if}}
+        $result = $this->renderConditionals($result, $variables);
+
+        // Loop: {{#each items}}{{this}}{{/each}}
+        return $this->renderLoops($result, $variables);
+    }
+
+    /**
+     * Render simple variable substitutions: {{variable}}.
+     *
+     * @param array<string, mixed> $variables
+     */
+    private function renderVariables(string $template, array $variables): string
+    {
         $result = preg_replace_callback(
             '/\{\{(\w+)\}\}/',
-            static function (array $matches) use ($variables): string {
-                $key = $matches[1];
-                $value = $variables[$key] ?? '';
-                if (is_string($value)) {
-                    return $value;
-                }
-                if (is_int($value) || is_float($value)) {
-                    return (string)$value;
-                }
-                if (is_array($value)) {
-                    return json_encode($value) ?: '';
-                }
-                return '';
-            },
+            fn(array $matches): string => $this->convertValueToString($variables[$matches[1]] ?? ''),
             $template,
         );
 
-        // Conditional with else: {{#if variable}}...{{else}}...{{/if}} (must be processed before simple if)
+        return (string)$result;
+    }
+
+    /**
+     * Render conditional sections with else branch: {{#if variable}}...{{else}}...{{/if}}.
+     *
+     * @param array<string, mixed> $variables
+     */
+    private function renderConditionalsWithElse(string $template, array $variables): string
+    {
         $result = preg_replace_callback(
             '/\{\{#if (\w+)\}\}(.*?)\{\{else\}\}(.*?)\{\{\/if\}\}/s',
-            function ($matches) use ($variables) {
-                $key = $matches[1];
-                $ifContent = $matches[2];
-                $elseContent = $matches[3];
-                return !empty($variables[$key]) ? $ifContent : $elseContent;
-            },
-            (string)$result,
+            static fn(array $matches): string => !empty($variables[$matches[1]]) ? $matches[2] : $matches[3],
+            $template,
         );
 
-        // Conditional sections: {{#if variable}}...{{/if}}
+        return (string)$result;
+    }
+
+    /**
+     * Render conditional sections: {{#if variable}}...{{/if}}.
+     *
+     * @param array<string, mixed> $variables
+     */
+    private function renderConditionals(string $template, array $variables): string
+    {
         $result = preg_replace_callback(
             '/\{\{#if (\w+)\}\}(.*?)\{\{\/if\}\}/s',
-            function ($matches) use ($variables) {
-                $key = $matches[1];
-                $content = $matches[2];
-                return !empty($variables[$key]) ? $content : '';
-            },
-            (string)$result,
+            static fn(array $matches): string => !empty($variables[$matches[1]]) ? $matches[2] : '',
+            $template,
         );
 
-        // Loop: {{#each items}}{{this}}{{/each}}
+        return (string)$result;
+    }
+
+    /**
+     * Render loop sections: {{#each items}}{{this}}{{/each}}.
+     *
+     * @param array<string, mixed> $variables
+     */
+    private function renderLoops(string $template, array $variables): string
+    {
         $result = preg_replace_callback(
             '/\{\{#each (\w+)\}\}(.*?)\{\{\/each\}\}/s',
-            static function (array $matches) use ($variables): string {
-                $key = $matches[1];
-                $itemTemplate = $matches[2];
-                $items = $variables[$key] ?? [];
+            function (array $matches) use ($variables): string {
+                $items = $variables[$matches[1]] ?? [];
 
                 if (!is_array($items)) {
                     return '';
                 }
 
+                $itemTemplate = $matches[2];
                 $output = '';
                 foreach ($items as $item) {
-                    if (is_array($item)) {
-                        $itemStr = json_encode($item) ?: '';
-                    } elseif (is_string($item)) {
-                        $itemStr = $item;
-                    } elseif (is_int($item) || is_float($item)) {
-                        $itemStr = (string)$item;
-                    } else {
-                        $itemStr = '';
-                    }
-                    $output .= str_replace('{{this}}', $itemStr, $itemTemplate);
+                    $output .= str_replace('{{this}}', $this->convertValueToString($item), $itemTemplate);
                 }
 
                 return $output;
             },
-            (string)$result,
+            $template,
         );
 
         return (string)$result;
+    }
+
+    /**
+     * Convert a substitution value to its string representation.
+     */
+    private function convertValueToString(mixed $value): string
+    {
+        return match (true) {
+            is_string($value) => $value,
+            is_int($value), is_float($value) => (string)$value,
+            is_array($value) => json_encode($value) ?: '',
+            default => '',
+        };
     }
 
     /**

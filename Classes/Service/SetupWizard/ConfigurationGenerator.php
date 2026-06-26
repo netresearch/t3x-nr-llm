@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\SetupWizard;
 
+use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\SuggestedConfiguration;
@@ -18,7 +19,6 @@ use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -212,7 +212,7 @@ final class ConfigurationGenerator
         $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
         if ($response->getStatusCode() !== 200) {
-            throw new RuntimeException('LLM API error: ' . $response->getStatusCode(), 6587111580);
+            throw new ProviderResponseException('LLM API error: ' . $response->getStatusCode(), $response->getStatusCode());
         }
 
         $data = json_decode($response->getBody()->getContents(), true);
@@ -265,28 +265,31 @@ final class ConfigurationGenerator
      */
     private function extractGeminiContent(array $data): string
     {
-        $candidates = $data['candidates'] ?? [];
-        if (!is_array($candidates) || $candidates === []) {
+        $candidates = $this->arrayAt($data, 'candidates');
+        if ($candidates === []) {
             return '';
         }
-        $firstCandidate = $candidates[0] ?? [];
-        if (!is_array($firstCandidate)) {
+        $content = $this->arrayAt($this->arrayAt($candidates, 0), 'content');
+        $parts   = $this->arrayAt($content, 'parts');
+        if ($parts === []) {
             return '';
         }
-        $content = $firstCandidate['content'] ?? [];
-        if (!is_array($content)) {
-            return '';
-        }
-        $parts = $content['parts'] ?? [];
-        if (!is_array($parts) || $parts === []) {
-            return '';
-        }
-        $firstPart = $parts[0] ?? [];
-        if (!is_array($firstPart)) {
-            return '';
-        }
-        $text = $firstPart['text'] ?? '';
+        $text = $this->arrayAt($parts, 0)['text'] ?? '';
         return is_string($text) ? $text : '';
+    }
+
+    /**
+     * Return the array value stored at $key in $data, or an empty array
+     * when the key is absent or the value is not an array.
+     *
+     * @param array<int|string, mixed> $data
+     *
+     * @return array<int|string, mixed>
+     */
+    private function arrayAt(array $data, int|string $key): array
+    {
+        $value = $data[$key] ?? [];
+        return is_array($value) ? $value : [];
     }
 
     /**
@@ -296,18 +299,11 @@ final class ConfigurationGenerator
      */
     private function extractOpenAIContent(array $data): string
     {
-        $choices = $data['choices'] ?? [];
-        if (!is_array($choices) || $choices === []) {
+        $choices = $this->arrayAt($data, 'choices');
+        if ($choices === []) {
             return '';
         }
-        $firstChoice = $choices[0] ?? [];
-        if (!is_array($firstChoice)) {
-            return '';
-        }
-        $message = $firstChoice['message'] ?? [];
-        if (!is_array($message)) {
-            return '';
-        }
+        $message = $this->arrayAt($this->arrayAt($choices, 0), 'message');
         $content = $message['content'] ?? '';
         return is_string($content) ? $content : '';
     }
@@ -413,30 +409,43 @@ final class ConfigurationGenerator
                 continue;
             }
 
-            $identifier = $item['identifier'] ?? null;
-            $name = $item['name'] ?? null;
-
-            if (!is_string($identifier) || !is_string($name)) {
-                continue;
+            $config = $this->buildConfiguration($item, $modelId);
+            if ($config !== null) {
+                $configs[] = $config;
             }
-
-            $description = $item['description'] ?? '';
-            $systemPrompt = $item['systemPrompt'] ?? $item['system_prompt'] ?? '';
-            $temperature = $item['temperature'] ?? 0.7;
-            $maxTokens = $item['maxTokens'] ?? $item['max_tokens'] ?? 4096;
-
-            $configs[] = new SuggestedConfiguration(
-                identifier: $this->sanitizeIdentifier($identifier),
-                name: $name,
-                description: is_string($description) ? $description : '',
-                systemPrompt: is_string($systemPrompt) ? $systemPrompt : '',
-                recommendedModelId: $modelId,
-                temperature: is_numeric($temperature) ? (float)$temperature : 0.7,
-                maxTokens: is_numeric($maxTokens) ? (int)$maxTokens : 4096,
-            );
         }
 
         return $configs;
+    }
+
+    /**
+     * Build a single configuration DTO from one decoded response item.
+     *
+     * @param array<int|string, mixed> $item
+     */
+    private function buildConfiguration(array $item, string $modelId): ?SuggestedConfiguration
+    {
+        $identifier = $item['identifier'] ?? null;
+        $name = $item['name'] ?? null;
+
+        if (!is_string($identifier) || !is_string($name)) {
+            return null;
+        }
+
+        $description = $item['description'] ?? '';
+        $systemPrompt = $item['systemPrompt'] ?? $item['system_prompt'] ?? '';
+        $temperature = $item['temperature'] ?? 0.7;
+        $maxTokens = $item['maxTokens'] ?? $item['max_tokens'] ?? 4096;
+
+        return new SuggestedConfiguration(
+            identifier: $this->sanitizeIdentifier($identifier),
+            name: $name,
+            description: is_string($description) ? $description : '',
+            systemPrompt: is_string($systemPrompt) ? $systemPrompt : '',
+            recommendedModelId: $modelId,
+            temperature: is_numeric($temperature) ? (float)$temperature : 0.7,
+            maxTokens: is_numeric($maxTokens) ? (int)$maxTokens : 4096,
+        );
     }
 
     /**
@@ -446,23 +455,23 @@ final class ConfigurationGenerator
      */
     private function extractJson(string $response): ?array
     {
-        // Try direct parse
-        $decoded = json_decode($response, true);
-        if (is_array($decoded)) {
-            return $decoded;
-        }
+        // Candidate JSON strings, tried in priority order: the raw
+        // response, then a markdown code block, then any array/object
+        // embedded in surrounding text.
+        $candidates = [$response];
 
         // Try to extract from markdown code block
         if (preg_match('/```(?:json)?\s*([\s\S]*?)```/', $response, $matches)) {
-            $decoded = json_decode(trim($matches[1]), true);
-            if (is_array($decoded)) {
-                return $decoded;
-            }
+            $candidates[] = trim($matches[1]);
         }
 
         // Try to find JSON array/object in text
         if (preg_match('/(\[[\s\S]*\]|\{[\s\S]*\})/', $response, $matches)) {
-            $decoded = json_decode($matches[1], true);
+            $candidates[] = $matches[1];
+        }
+
+        foreach ($candidates as $candidate) {
+            $decoded = json_decode($candidate, true);
             if (is_array($decoded)) {
                 return $decoded;
             }

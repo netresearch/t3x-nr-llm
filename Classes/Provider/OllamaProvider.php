@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Psr\Http\Message\StreamInterface;
 use Throwable;
 
 /**
@@ -127,23 +128,19 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
      */
     private static function sanitizeUrlForLog(string $url): string
     {
-        if ($url === '') {
+        $parts = parse_url($url);
+        if (!is_array($parts)) {
             return '';
         }
 
-        $parts = parse_url($url);
-        if ($parts === false) {
+        $host = $parts['host'] ?? '';
+        if ($host === '') {
             return '';
         }
 
         $scheme = isset($parts['scheme']) ? $parts['scheme'] . '://' : '';
-        $host   = $parts['host'] ?? '';
         $port   = isset($parts['port']) ? ':' . $parts['port'] : '';
         $path   = $parts['path'] ?? '';
-
-        if ($host === '') {
-            return '';
-        }
 
         return $scheme . $host . $port . $path;
     }
@@ -280,41 +277,61 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
 
         $response = $this->getHttpClient()->sendRequest($request);
         $this->assertStreamingResponseOk($response, self::ENDPOINT_CHAT);
-        $stream = $response->getBody();
 
+        yield from $this->streamChatLines($response->getBody());
+    }
+
+    /**
+     * Read newline-delimited JSON objects from a streaming response body and
+     * yield the assistant content of each chunk until the stream signals
+     * `done` or the body is exhausted.
+     *
+     * @return Generator<int, string, mixed, void>
+     */
+    private function streamChatLines(StreamInterface $stream): Generator
+    {
         $buffer = '';
         while (!$stream->eof()) {
-            $chunk = $stream->read(1024);
-            $buffer .= $chunk;
+            $buffer .= $stream->read(1024);
 
             while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = substr($buffer, 0, $pos);
+                $line   = substr($buffer, 0, $pos);
                 $buffer = substr($buffer, $pos + 1);
 
-                if (trim($line) === '') {
+                $json = $this->decodeStreamLine($line);
+                if ($json === null) {
                     continue;
                 }
 
-                try {
-                    $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
-                    if (is_array($decoded)) {
-                        $json = $this->asArray($decoded);
-                        $message = $this->getArray($json, 'message');
-                        $content = $this->getString($message, 'content');
-                        if ($content !== '') {
-                            yield $content;
-                        }
+                $content = $this->getString($this->getArray($json, 'message'), 'content');
+                if ($content !== '') {
+                    yield $content;
+                }
 
-                        // Check if done
-                        if ($this->getBool($json, 'done')) {
-                            return;
-                        }
-                    }
-                } catch (JsonException) {
-                    // Skip malformed JSON
+                // Check if done
+                if ($this->getBool($json, 'done')) {
+                    return;
                 }
             }
         }
+    }
+
+    /**
+     * Decode a single streamed line into an associative array, or return null
+     * for blank lines and malformed / non-object JSON (which are skipped).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function decodeStreamLine(string $line): ?array
+    {
+        try {
+            $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            // Skip malformed JSON
+            return null;
+        }
+
+        return is_array($decoded) ? $this->asArray($decoded) : null;
     }
 
     public function supportsStreaming(): bool

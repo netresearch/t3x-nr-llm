@@ -33,6 +33,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(LlmServiceManager::class)]
 class ChatCompletionWorkflowTest extends AbstractE2ETestCase
 {
+    private const FAKE_CLAUDE_VAULT_ID = '019650a0-1234-7abc-8def-0123456789ab';
+
     #[Test]
     public function completeOpenAiChatWorkflow(): void
     {
@@ -102,7 +104,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
 
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([
-            'providers' => ['claude' => ['apiKeyIdentifier' => '019650a0-1234-7abc-8def-0123456789ab']],
+            'providers' => ['claude' => ['apiKeyIdentifier' => self::FAKE_CLAUDE_VAULT_ID]],
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
@@ -357,7 +359,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         $extensionConfig->method('get')->willReturn([
             'providers' => [
                 'openai' => ['apiKeyIdentifier' => 'sk-openai-test'],
-                'claude' => ['apiKeyIdentifier' => '019650a0-1234-7abc-8def-0123456789ab'],
+                'claude' => ['apiKeyIdentifier' => self::FAKE_CLAUDE_VAULT_ID],
             ],
         ]);
 

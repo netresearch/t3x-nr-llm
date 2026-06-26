@@ -7,9 +7,10 @@
 import Notification from '@typo3/backend/notification.js';
 
 class SetupWizard {
+    currentStep = 1;
+    totalSteps = 5;
+
     constructor() {
-        this.currentStep = 1;
-        this.totalSteps = 5;
         this.data = {
             endpoint: '',
             apiKey: '',
@@ -91,7 +92,7 @@ class SetupWizard {
 
         // Update progress indicators
         document.querySelectorAll('.wizard-step').forEach(stepEl => {
-            const stepNum = parseInt(stepEl.dataset.step, 10);
+            const stepNum = Number.parseInt(stepEl.dataset.step, 10);
             stepEl.classList.remove('active', 'completed');
             if (stepNum < step) {
                 stepEl.classList.add('completed');
@@ -130,7 +131,8 @@ class SetupWizard {
                 this.showDetectedProvider(result.provider);
             }
         } catch (e) {
-            // Silent fail for auto-detection
+            // Silent fail for auto-detection: log at debug level without disrupting the UI
+            console.debug('Provider auto-detection failed:', e);
         }
     }
 
@@ -294,10 +296,12 @@ class SetupWizard {
                 `<span class="badge bg-secondary">${this.escapeHtml(cap)}</span>`
             ).join('');
 
-            const contextStr = model.contextLength ?
-                (model.contextLength >= 1000000 ?
+            let contextStr = '-';
+            if (model.contextLength) {
+                contextStr = model.contextLength >= 1000000 ?
                     `${(model.contextLength / 1000000).toFixed(1)}M` :
-                    `${(model.contextLength / 1000).toFixed(0)}K`) : '-';
+                    `${(model.contextLength / 1000).toFixed(0)}K`;
+            }
 
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -341,7 +345,7 @@ class SetupWizard {
     getSelectedModels() {
         const selected = [];
         document.querySelectorAll('.model-checkbox:checked').forEach(cb => {
-            const index = parseInt(cb.dataset.index, 10);
+            const index = Number.parseInt(cb.dataset.index, 10);
             if (this.data.models[index]) {
                 selected.push({
                     ...this.data.models[index],
@@ -404,8 +408,8 @@ class SetupWizard {
             const safeName = this.escapeHtml(config.name);
             const safeDescription = this.escapeHtml(config.description);
             // temperature and maxTokens are numbers, safe to use directly
-            const safeTemp = parseFloat(config.temperature) || 0;
-            const safeMaxTokens = parseInt(config.maxTokens, 10) || 0;
+            const safeTemp = Number.parseFloat(config.temperature) || 0;
+            const safeMaxTokens = Number.parseInt(config.maxTokens, 10) || 0;
 
             const col = document.createElement('div');
             col.className = 'col-md-6 mb-3';
@@ -452,7 +456,7 @@ class SetupWizard {
         const selected = [];
         document.querySelectorAll('.config-card').forEach(card => {
             const checkbox = card.querySelector('.config-check');
-            const index = parseInt(card.dataset.index, 10);
+            const index = Number.parseInt(card.dataset.index, 10);
             if (checkbox.checked && this.data.configurations[index]) {
                 selected.push({
                     ...this.data.configurations[index],
@@ -529,7 +533,7 @@ class SetupWizard {
     async saveConfiguration() {
         const selectedModels = this.getSelectedModels();
         const selectedConfigs = this.getSelectedConfigurations();
-        const pid = parseInt(document.getElementById('wizard-pid').value, 10) || 0;
+        const pid = Number.parseInt(document.getElementById('wizard-pid').value, 10) || 0;
 
         const providerData = {
             ...this.data.provider,

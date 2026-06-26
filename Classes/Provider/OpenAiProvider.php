@@ -372,24 +372,41 @@ final class OpenAiProvider extends AbstractProvider implements
                         return;
                     }
 
-                    try {
-                        $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
-                        if (is_array($decoded)) {
-                            $json = $this->asArray($decoded);
-                            $choices = $this->getList($json, 'choices');
-                            $firstChoice = $this->asArray($choices[0] ?? []);
-                            $delta = $this->getArray($firstChoice, 'delta');
-                            $content = $this->getString($delta, 'content');
-                            if ($content !== '') {
-                                yield $content;
-                            }
-                        }
-                    } catch (JsonException) {
-                        // Skip malformed JSON
+                    $content = $this->extractStreamDelta($data);
+                    if ($content !== null) {
+                        yield $content;
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Extract the streamed delta content from a single SSE `data:` payload.
+     *
+     * Returns the chunk's content string, or `null` when the payload is
+     * malformed JSON, not an object, or carries no content delta.
+     */
+    private function extractStreamDelta(string $data): ?string
+    {
+        try {
+            $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            // Skip malformed JSON
+            return null;
+        }
+
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $json = $this->asArray($decoded);
+        $choices = $this->getList($json, 'choices');
+        $firstChoice = $this->asArray($choices[0] ?? []);
+        $delta = $this->getArray($firstChoice, 'delta');
+        $content = $this->getString($delta, 'content');
+
+        return $content !== '' ? $content : null;
     }
 
     public function supportsStreaming(): bool

@@ -83,21 +83,33 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
 
         $output = [];
         foreach ($rows as $row) {
-            $tstamp     = isset($row['tstamp']) && is_numeric($row['tstamp']) ? (int)$row['tstamp'] : 0;
-            $typeValue  = isset($row['type']) && is_numeric($row['type']) ? (int)$row['type'] : 0;
-            $errorValue = isset($row['error']) && is_numeric($row['error']) ? (int)$row['error'] : 0;
-            $details    = isset($row['details']) && is_scalar($row['details']) ? (string)$row['details'] : '';
-
-            $time  = date('Y-m-d H:i:s', $tstamp);
-            $type  = $this->translateSyslogType($typeValue);
-            $error = $errorValue > 0
-                ? $this->translate('task.syslog.errorMarker', '[ERROR]')
-                : '';
-
-            $output[] = "[{$time}] [{$type}] {$error} {$details}";
+            $output[] = $this->formatSyslogRow($row);
         }
 
         return implode("\n", $output);
+    }
+
+    /**
+     * Format a single `sys_log` row into the resolver's one-line text
+     * representation. Extracted from {@see resolveSyslog()} to keep the
+     * per-source dispatch readable.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function formatSyslogRow(array $row): string
+    {
+        $tstamp     = isset($row['tstamp']) && is_numeric($row['tstamp']) ? (int)$row['tstamp'] : 0;
+        $typeValue  = isset($row['type']) && is_numeric($row['type']) ? (int)$row['type'] : 0;
+        $errorValue = isset($row['error']) && is_numeric($row['error']) ? (int)$row['error'] : 0;
+        $details    = isset($row['details']) && is_scalar($row['details']) ? (string)$row['details'] : '';
+
+        $time  = date('Y-m-d H:i:s', $tstamp);
+        $type  = $this->translateSyslogType($typeValue);
+        $error = $errorValue > 0
+            ? $this->translate('task.syslog.errorMarker', '[ERROR]')
+            : '';
+
+        return "[{$time}] [{$type}] {$error} {$details}";
     }
 
     private function translateSyslogType(int $typeValue): string
@@ -137,8 +149,29 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
             return $this->translate('task.table.notConfigured', 'No table configured.');
         }
 
+        $rows = $this->readTableRows($task, $table, $limit);
+        if ($rows === null) {
+            return $this->translate(
+                'task.table.readError',
+                'Error reading table. See system log for details.',
+            );
+        }
+
+        return json_encode($rows, JSON_PRETTY_PRINT) ?: '[]';
+    }
+
+    /**
+     * Read the configured table rows, returning `null` on any read
+     * failure after logging it. Extracted from {@see resolveTable()} so
+     * the two error arms share a single user-facing return path while
+     * keeping their distinct log levels.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function readTableRows(Task $task, string $table, int $limit): ?array
+    {
         try {
-            $rows = $this->recordTableReader->fetchAll($table, $limit);
+            return $this->recordTableReader->fetchAll($table, $limit);
         } catch (InvalidArgumentException $e) {
             // Table on the picker exclusion list — a policy rejection,
             // not a runtime error, so route through `info` rather than
@@ -156,10 +189,7 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
                 'table'     => $table,
             ]);
 
-            return $this->translate(
-                'task.table.readError',
-                'Error reading table. See system log for details.',
-            );
+            return null;
         } catch (Throwable $e) {
             $this->logger->warning('Task table input: table read failed', [
                 'exception' => $e,
@@ -168,13 +198,8 @@ final readonly class TaskInputResolver implements TaskInputResolverInterface
                 'limit'     => $limit,
             ]);
 
-            return $this->translate(
-                'task.table.readError',
-                'Error reading table. See system log for details.',
-            );
+            return null;
         }
-
-        return json_encode($rows, JSON_PRETTY_PRINT) ?: '[]';
     }
 
     /**

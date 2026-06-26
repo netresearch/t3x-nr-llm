@@ -57,6 +57,10 @@ final class ConfigurationController extends ActionController
 {
     private const TABLE_NAME = 'tx_nrllm_configuration';
 
+    private const ERROR_NO_UID = 'No configuration UID specified';
+
+    private const ERROR_NOT_FOUND = 'Configuration not found';
+
     private ModuleTemplate $moduleTemplate;
 
     public function __construct(
@@ -204,12 +208,12 @@ final class ConfigurationController extends ActionController
         } catch (ProviderException $e) {
             $this->logger->error('Configuration wizard: provider error', ['exception' => $e]);
             $this->addFlashMessage('Generation failed (LLM provider error). See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
-            return $this->redirect('wizardForm');
         } catch (Throwable $e) {
             $this->logger->error('Configuration wizard: unexpected error', ['exception' => $e]);
             $this->addFlashMessage('Generation failed. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
-            return $this->redirect('wizardForm');
         }
+
+        return $this->redirect('wizardForm');
     }
 
     /**
@@ -220,13 +224,9 @@ final class ConfigurationController extends ActionController
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
-        if ($uid === 0) {
-            return new JsonResponse((new ErrorResponse('No configuration UID specified'))->jsonSerialize(), 400);
-        }
-
-        $configuration = $this->configurationRepository->findByUid($uid);
-        if ($configuration === null) {
-            return new JsonResponse((new ErrorResponse('Configuration not found'))->jsonSerialize(), 404);
+        $configuration = $this->resolveConfiguration($uid);
+        if ($configuration instanceof ResponseInterface) {
+            return $configuration;
         }
 
         try {
@@ -237,17 +237,13 @@ final class ConfigurationController extends ActionController
             ))->jsonSerialize());
         } catch (DbalException $e) {
             $this->logger->error('Configuration toggleActive: persistence failed', ['exception' => $e, 'config_uid' => $uid]);
-            return new JsonResponse(
-                (new ErrorResponse('Database error while toggling configuration status.'))->jsonSerialize(),
-                500,
-            );
+            $message = 'Database error while toggling configuration status.';
         } catch (Throwable $e) {
             $this->logger->error('Configuration toggleActive: unexpected error', ['exception' => $e, 'config_uid' => $uid]);
-            return new JsonResponse(
-                (new ErrorResponse('Failed to toggle configuration status. See system log for details.'))->jsonSerialize(),
-                500,
-            );
+            $message = 'Failed to toggle configuration status. See system log for details.';
         }
+
+        return new JsonResponse((new ErrorResponse($message))->jsonSerialize(), 500);
     }
 
     /**
@@ -258,13 +254,9 @@ final class ConfigurationController extends ActionController
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
-        if ($uid === 0) {
-            return new JsonResponse((new ErrorResponse('No configuration UID specified'))->jsonSerialize(), 400);
-        }
-
-        $configuration = $this->configurationRepository->findByUid($uid);
-        if ($configuration === null) {
-            return new JsonResponse((new ErrorResponse('Configuration not found'))->jsonSerialize(), 404);
+        $configuration = $this->resolveConfiguration($uid);
+        if ($configuration instanceof ResponseInterface) {
+            return $configuration;
         }
 
         try {
@@ -272,17 +264,13 @@ final class ConfigurationController extends ActionController
             return new JsonResponse((new SuccessResponse())->jsonSerialize());
         } catch (DbalException $e) {
             $this->logger->error('Configuration setDefault: persistence failed', ['exception' => $e, 'config_uid' => $uid]);
-            return new JsonResponse(
-                (new ErrorResponse('Database error while setting default configuration.'))->jsonSerialize(),
-                500,
-            );
+            $message = 'Database error while setting default configuration.';
         } catch (Throwable $e) {
             $this->logger->error('Configuration setDefault: unexpected error', ['exception' => $e, 'config_uid' => $uid]);
-            return new JsonResponse(
-                (new ErrorResponse('Failed to set default configuration. See system log for details.'))->jsonSerialize(),
-                500,
-            );
+            $message = 'Failed to set default configuration. See system log for details.';
         }
+
+        return new JsonResponse((new ErrorResponse($message))->jsonSerialize(), 500);
     }
 
     /**
@@ -300,31 +288,33 @@ final class ConfigurationController extends ActionController
         try {
             $providers = $this->llmServiceManager->getAvailableProviders();
             if (!isset($providers[$providerKey])) {
-                return new JsonResponse((new ErrorResponse('Provider not available'))->jsonSerialize(), 404);
+                $response = new JsonResponse((new ErrorResponse('Provider not available'))->jsonSerialize(), 404);
+            } else {
+                $provider = $providers[$providerKey];
+                $models = $provider->getAvailableModels();
+                $defaultModel = $provider->getDefaultModel();
+
+                $response = new JsonResponse((new ProviderModelsResponse(
+                    success: true,
+                    models: $models,
+                    defaultModel: $defaultModel,
+                ))->jsonSerialize());
             }
-
-            $provider = $providers[$providerKey];
-            $models = $provider->getAvailableModels();
-            $defaultModel = $provider->getDefaultModel();
-
-            return new JsonResponse((new ProviderModelsResponse(
-                success: true,
-                models: $models,
-                defaultModel: $defaultModel,
-            ))->jsonSerialize());
         } catch (ProviderException $e) {
             $this->logger->warning('Configuration getModels: provider error', ['exception' => $e, 'provider' => $providerKey]);
-            return new JsonResponse(
+            $response = new JsonResponse(
                 (new ErrorResponse('LLM provider error while listing models. See system log for details.'))->jsonSerialize(),
                 502,
             );
         } catch (Throwable $e) {
             $this->logger->error('Configuration getModels: unexpected error', ['exception' => $e, 'provider' => $providerKey]);
-            return new JsonResponse(
+            $response = new JsonResponse(
                 (new ErrorResponse('Failed to load models. See system log for details.'))->jsonSerialize(),
                 500,
             );
         }
+
+        return $response;
     }
 
     /**
@@ -335,29 +325,25 @@ final class ConfigurationController extends ActionController
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
-        if ($uid === 0) {
-            return new JsonResponse((new ErrorResponse('No configuration UID specified'))->jsonSerialize(), 400);
-        }
-
-        $configuration = $this->configurationRepository->findByUid($uid);
-        if ($configuration === null) {
-            return new JsonResponse((new ErrorResponse('Configuration not found'))->jsonSerialize(), 404);
+        $configuration = $this->resolveConfiguration($uid);
+        if ($configuration instanceof ResponseInterface) {
+            return $configuration;
         }
 
         try {
             $model = $configuration->getLlmModel();
             if ($model === null || $model->getProvider() === null) {
-                return new JsonResponse((new ErrorResponse('Configuration has no model assigned'))->jsonSerialize(), 400);
+                $response = new JsonResponse((new ErrorResponse('Configuration has no model assigned'))->jsonSerialize(), 400);
+            } else {
+                $testPrompt = $this->testPromptResolver->resolve();
+                $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
+                $options = $configuration->toOptionsArray();
+                $completionResponse = $adapter->complete($testPrompt, $options);
+
+                $response = new JsonResponse(
+                    TestConfigurationResponse::fromCompletionResponse($completionResponse)->jsonSerialize(),
+                );
             }
-
-            $testPrompt = $this->testPromptResolver->resolve();
-            $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
-            $options = $configuration->toOptionsArray();
-            $response = $adapter->complete($testPrompt, $options);
-
-            return new JsonResponse(
-                TestConfigurationResponse::fromCompletionResponse($response)->jsonSerialize(),
-            );
         } catch (ProviderResponseException $e) {
             // Provider returned a typed error response. Surface the actual
             // upstream HTTP status so the JS frontend can distinguish
@@ -371,23 +357,25 @@ final class ConfigurationController extends ActionController
                 'endpoint'    => $e->endpoint,
                 'config_uid'  => $uid,
             ]);
-            return new JsonResponse(
+            $response = new JsonResponse(
                 (new ErrorResponse($e->getMessage()))->jsonSerialize(),
                 $e->httpStatus >= 400 && $e->httpStatus < 600 ? $e->httpStatus : 500,
             );
         } catch (ProviderException $e) {
             $this->logger->error('Configuration test: provider error', ['exception' => $e, 'config_uid' => $uid]);
-            return new JsonResponse(
+            $response = new JsonResponse(
                 (new ErrorResponse('LLM provider error during configuration test. See system log for details.'))->jsonSerialize(),
                 502,
             );
         } catch (Throwable $e) {
             $this->logger->error('Configuration test: unexpected error', ['exception' => $e, 'config_uid' => $uid]);
-            return new JsonResponse(
+            $response = new JsonResponse(
                 (new ErrorResponse('Configuration test failed. See system log for details.'))->jsonSerialize(),
                 500,
             );
         }
+
+        return $response;
     }
 
     /**
@@ -475,12 +463,7 @@ final class ConfigurationController extends ActionController
      */
     private function getOpenAIChatConstraints(): array
     {
-        return [
-            'temperature' => ['supported' => true, 'min' => 0.0, 'max' => 2.0],
-            'top_p' => ['supported' => true, 'min' => 0.0, 'max' => 1.0],
-            'frequency_penalty' => ['supported' => true, 'min' => -2.0, 'max' => 2.0],
-            'presence_penalty' => ['supported' => true, 'min' => -2.0, 'max' => 2.0],
-        ];
+        return $this->getDefaultConstraints();
     }
 
     /**
@@ -535,12 +518,7 @@ final class ConfigurationController extends ActionController
      */
     private function getOllamaConstraints(): array
     {
-        return [
-            'temperature' => ['supported' => true, 'min' => 0.0, 'max' => 2.0],
-            'top_p' => ['supported' => true, 'min' => 0.0, 'max' => 1.0],
-            'frequency_penalty' => ['supported' => true, 'min' => -2.0, 'max' => 2.0],
-            'presence_penalty' => ['supported' => true, 'min' => -2.0, 'max' => 2.0],
-        ];
+        return $this->getDefaultConstraints();
     }
 
     /**
@@ -638,6 +616,26 @@ final class ConfigurationController extends ActionController
         $value = $body[$key] ?? '';
 
         return is_string($value) || is_numeric($value) ? (string)$value : '';
+    }
+
+    /**
+     * Resolve a configuration by UID for AJAX actions.
+     *
+     * Returns the configuration, or a JSON error response (400 if no UID was
+     * specified, 404 if no configuration exists for the given UID).
+     */
+    private function resolveConfiguration(int $uid): LlmConfiguration|ResponseInterface
+    {
+        if ($uid === 0) {
+            return new JsonResponse((new ErrorResponse(self::ERROR_NO_UID))->jsonSerialize(), 400);
+        }
+
+        $configuration = $this->configurationRepository->findByUid($uid);
+        if ($configuration === null) {
+            return new JsonResponse((new ErrorResponse(self::ERROR_NOT_FOUND))->jsonSerialize(), 404);
+        }
+
+        return $configuration;
     }
 
 }

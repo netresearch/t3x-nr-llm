@@ -47,9 +47,9 @@ class LlmConfigurationRepository extends Repository
         $query->matching(
             $query->equals('identifier', $identifier),
         );
-        /** @var LlmConfiguration|null $result */
         $result = $query->execute()->getFirst();
-        return $result;
+
+        return $result instanceof LlmConfiguration ? $result : null;
     }
 
     /**
@@ -78,9 +78,9 @@ class LlmConfigurationRepository extends Repository
                 $query->equals('isDefault', true),
             ),
         );
-        /** @var LlmConfiguration|null $result */
         $result = $query->execute()->getFirst();
-        return $result;
+
+        return $result instanceof LlmConfiguration ? $result : null;
     }
 
     /**

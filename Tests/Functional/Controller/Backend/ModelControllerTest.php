@@ -36,6 +36,16 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 #[CoversClass(ModelController::class)]
 final class ModelControllerTest extends AbstractFunctionalTestCase
 {
+    private const AJAX_NRLLM_MODEL_GET_BY_PROVIDER = '/ajax/nrllm/model/get-by-provider';
+    private const AJAX_NRLLM_MODEL_FETCH_AVAILABLE = '/ajax/nrllm/model/fetch-available';
+    private const AJAX_NRLLM_MODEL_DETECT_LIMITS = '/ajax/nrllm/model/detect-limits';
+    private const AJAX_NRLLM_MODEL_SET_DEFAULT = '/ajax/nrllm/model/set-default';
+    private const NO_PROVIDER_UID_SPECIFIED = 'No provider UID specified';
+    private const AJAX_NRLLM_MODEL_TOGGLE = '/ajax/nrllm/model/toggle';
+    private const NO_MODEL_UID_SPECIFIED = 'No model UID specified';
+    private const AJAX_NRLLM_MODEL_TEST = '/ajax/nrllm/model/test';
+    private const MODEL_NOT_FOUND = 'Model not found';
+
     private ModelController $controller;
     private ModelRepository $modelRepository;
     private PersistenceManagerInterface $persistenceManager;
@@ -119,7 +129,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         self::assertNotNull($model);
         self::assertTrue($model->isActive());
 
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_TOGGLE);
         $request = $request->withParsedBody(['uid' => 1]);
 
         // Act
@@ -147,7 +157,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         self::assertNotNull($model);
         self::assertFalse($model->isActive());
 
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_TOGGLE);
         $request = $request->withParsedBody(['uid' => 5]);
 
         // Act
@@ -170,7 +180,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function toggleActiveReturnsErrorForMissingUid(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_TOGGLE);
         $request = $request->withParsedBody([]);
 
         // Act
@@ -181,13 +191,13 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No model UID specified', $body['error']);
+        self::assertSame(self::NO_MODEL_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function toggleActiveReturnsNotFoundForNonExistentModel(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_TOGGLE);
         $request = $request->withParsedBody(['uid' => 999]);
 
         // Act
@@ -198,14 +208,14 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Model not found', $body['error']);
+        self::assertSame(self::MODEL_NOT_FOUND, $body['error']);
     }
 
     #[Test]
     public function toggleActiveHandlesNumericStringUid(): void
     {
         // UID passed as string (common from form submissions)
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_TOGGLE);
         $request = $request->withParsedBody(['uid' => '1']);
 
         // Act
@@ -226,7 +236,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     public function setDefaultReturnsSuccessForValidModel(): void
     {
         // Arrange: uid=1 is already default, set uid=3 as default
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/set-default');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_SET_DEFAULT);
         $request = $request->withParsedBody(['uid' => 3]);
 
         // Act
@@ -252,7 +262,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function setDefaultReturnsErrorForMissingUid(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/set-default');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_SET_DEFAULT);
         $request = $request->withParsedBody([]);
 
         // Act
@@ -263,13 +273,13 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No model UID specified', $body['error']);
+        self::assertSame(self::NO_MODEL_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function setDefaultReturnsNotFoundForNonExistentModel(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/set-default');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_SET_DEFAULT);
         $request = $request->withParsedBody(['uid' => 999]);
 
         // Act
@@ -280,14 +290,14 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Model not found', $body['error']);
+        self::assertSame(self::MODEL_NOT_FOUND, $body['error']);
     }
 
     #[Test]
     public function setDefaultHandlesNumericStringUid(): void
     {
         // UID passed as string (common from form submissions)
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/set-default');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_SET_DEFAULT);
         $request = $request->withParsedBody(['uid' => '3']);
 
         // Act
@@ -309,7 +319,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     {
         // Note: This test verifies the controller action flow.
         // Actual API connection is tested in integration tests.
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_TEST);
         $request = $request->withParsedBody(['uid' => 1]);
 
         // Act
@@ -326,7 +336,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function testModelReturnsErrorForMissingUid(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_TEST);
         $request = $request->withParsedBody([]);
 
         // Act
@@ -337,13 +347,13 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No model UID specified', $body['error']);
+        self::assertSame(self::NO_MODEL_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function testModelReturnsNotFoundForNonExistentModel(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_TEST);
         $request = $request->withParsedBody(['uid' => 999]);
 
         // Act
@@ -354,14 +364,14 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Model not found', $body['error']);
+        self::assertSame(self::MODEL_NOT_FOUND, $body['error']);
     }
 
     #[Test]
     public function testModelHandlesNumericStringUid(): void
     {
         // UID passed as string (common from form submissions)
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_TEST);
         $request = $request->withParsedBody(['uid' => '1']);
 
         // Act
@@ -382,7 +392,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     public function getByProviderReturnsModelsForValidProvider(): void
     {
         // Provider uid=1 has models in fixture
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/get-by-provider');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_GET_BY_PROVIDER);
         $request = $request->withParsedBody(['providerUid' => 1]);
 
         // Act
@@ -400,7 +410,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function getByProviderReturnsErrorForMissingProviderUid(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/get-by-provider');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_GET_BY_PROVIDER);
         $request = $request->withParsedBody([]);
 
         // Act
@@ -411,14 +421,14 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No provider UID specified', $body['error']);
+        self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function getByProviderReturnsEmptyArrayForProviderWithNoModels(): void
     {
         // Provider uid=2 may have no models or different models
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/get-by-provider');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_GET_BY_PROVIDER);
         $request = $request->withParsedBody(['providerUid' => 999]);
 
         // Act
@@ -439,7 +449,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function fetchAvailableModelsReturnsErrorForMissingProviderUid(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/fetch-available');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_FETCH_AVAILABLE);
         $request = $request->withParsedBody([]);
 
         // Act
@@ -450,13 +460,13 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No provider UID specified', $body['error']);
+        self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function fetchAvailableModelsReturnsNotFoundForNonExistentProvider(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/fetch-available');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_FETCH_AVAILABLE);
         $request = $request->withParsedBody(['providerUid' => 999]);
 
         // Act
@@ -475,7 +485,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     {
         // Note: Without real API, this will fail with connection error or return empty
         // but we verify the controller action flow is correct
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/fetch-available');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_FETCH_AVAILABLE);
         $request = $request->withParsedBody(['providerUid' => 1]);
 
         // Act
@@ -495,7 +505,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function detectLimitsReturnsErrorForMissingProviderUid(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/detect-limits');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_DETECT_LIMITS);
         $request = $request->withParsedBody(['modelId' => 'gpt-5']);
 
         // Act
@@ -506,13 +516,13 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No provider UID specified', $body['error']);
+        self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function detectLimitsReturnsErrorForMissingModelId(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/detect-limits');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_DETECT_LIMITS);
         $request = $request->withParsedBody(['providerUid' => 1]);
 
         // Act
@@ -529,7 +539,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function detectLimitsReturnsNotFoundForNonExistentProvider(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/detect-limits');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_DETECT_LIMITS);
         $request = $request->withParsedBody(['providerUid' => 999, 'modelId' => 'gpt-5']);
 
         // Act
@@ -548,7 +558,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     {
         // Note: Without real API, this will fail with connection error
         // but we verify the controller action flow is correct
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/detect-limits');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_DETECT_LIMITS);
         $request = $request->withParsedBody(['providerUid' => 1, 'modelId' => 'gpt-5']);
 
         // Act
@@ -569,7 +579,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     public function testModelReturnsErrorForModelWithoutProvider(): void
     {
         // Model uid=6 has no provider (provider_uid = 0)
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_TEST);
         $request = $request->withParsedBody(['uid' => 6]);
 
         // Act
@@ -587,7 +597,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     public function toggleActiveHandlesNonNumericUidAsZero(): void
     {
         // Non-numeric string should be treated as 0
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_TOGGLE);
         $request = $request->withParsedBody(['uid' => 'invalid']);
 
         // Act
@@ -598,14 +608,14 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No model UID specified', $body['error']);
+        self::assertSame(self::NO_MODEL_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function setDefaultHandlesNonNumericUidAsZero(): void
     {
         // Non-numeric string should be treated as 0
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/set-default');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_SET_DEFAULT);
         $request = $request->withParsedBody(['uid' => 'not-a-number']);
 
         // Act
@@ -616,14 +626,14 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No model UID specified', $body['error']);
+        self::assertSame(self::NO_MODEL_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function testModelHandlesNonNumericUidAsZero(): void
     {
         // Non-numeric string should be treated as 0
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_TEST);
         $request = $request->withParsedBody(['uid' => 'abc']);
 
         // Act
@@ -634,14 +644,14 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No model UID specified', $body['error']);
+        self::assertSame(self::NO_MODEL_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function detectLimitsHandlesWhitespaceModelIdAsMissing(): void
     {
         // Model ID with only whitespace should be treated as missing
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/detect-limits');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_DETECT_LIMITS);
         $request = $request->withParsedBody(['providerUid' => 1, 'modelId' => '   ']);
 
         // Act
@@ -659,7 +669,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     public function getByProviderHandlesNumericStringProviderUid(): void
     {
         // Provider UID passed as string
-        $request = new ServerRequest('POST', '/ajax/nrllm/model/get-by-provider');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_GET_BY_PROVIDER);
         $request = $request->withParsedBody(['providerUid' => '1']);
 
         // Act

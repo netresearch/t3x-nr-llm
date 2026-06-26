@@ -49,16 +49,7 @@ final class ModelIdElement extends AbstractFormElement
         // The provider_uid field name follows TYPO3's naming convention
         $tableName = is_string($data['tableName'] ?? null) ? $data['tableName'] : 'tx_nrllm_model';
         $databaseRow = is_array($data['databaseRow'] ?? null) ? $data['databaseRow'] : [];
-        $currentProviderUid = 0;
-        if (isset($databaseRow['provider_uid'])) {
-            $providerUidValue = $databaseRow['provider_uid'];
-            if (is_array($providerUidValue)) {
-                $first = $providerUidValue[0] ?? 0;
-                $currentProviderUid = is_numeric($first) ? (int)$first : 0;
-            } elseif (is_numeric($providerUidValue)) {
-                $currentProviderUid = (int)$providerUidValue;
-            }
-        }
+        $currentProviderUid = $this->resolveCurrentProviderUid($databaseRow);
 
         $escapedValue = htmlspecialchars($itemFormElValue, ENT_QUOTES, 'UTF-8');
         $escapedName = htmlspecialchars($itemFormElName, ENT_QUOTES, 'UTF-8');
@@ -113,5 +104,23 @@ final class ModelIdElement extends AbstractFormElement
 
         /** @var array<string, mixed> $result */
         return $result;
+    }
+
+    /**
+     * @param array<string, mixed> $databaseRow
+     */
+    private function resolveCurrentProviderUid(array $databaseRow): int
+    {
+        if (!isset($databaseRow['provider_uid'])) {
+            return 0;
+        }
+
+        $providerUidValue = $databaseRow['provider_uid'];
+        if (is_array($providerUidValue)) {
+            $first = $providerUidValue[0] ?? 0;
+            return is_numeric($first) ? (int)$first : 0;
+        }
+
+        return is_numeric($providerUidValue) ? (int)$providerUidValue : 0;
     }
 }

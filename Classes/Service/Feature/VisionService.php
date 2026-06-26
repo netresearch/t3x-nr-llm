@@ -235,14 +235,14 @@ final readonly class VisionService implements VisionServiceInterface
     private function validateImageUrl(string $imageUrl): void
     {
         // Check if it's a valid URL or base64 data URI
-        if (!filter_var($imageUrl, FILTER_VALIDATE_URL)) {
-            // Check for base64 data URI
-            if (!preg_match('/^data:image\/(png|jpeg|jpg|gif|webp);base64,/', $imageUrl)) {
-                throw new InvalidArgumentException(
-                    'Invalid image URL or base64 data URI',
-                    1919008030,
-                );
-            }
+        if (
+            !filter_var($imageUrl, FILTER_VALIDATE_URL)
+            && !preg_match('/^data:image\/(png|jpeg|jpg|gif|webp);base64,/', $imageUrl)
+        ) {
+            throw new InvalidArgumentException(
+                'Invalid image URL or base64 data URI',
+                1919008030,
+            );
         }
     }
 

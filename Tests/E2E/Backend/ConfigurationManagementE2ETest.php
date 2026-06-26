@@ -46,6 +46,13 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 #[CoversClass(ConfigurationController::class)]
 final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
 {
+    private const NO_CONFIGURATION_UID_SPECIFIED = 'No configuration UID specified';
+    private const CONFIGURATION_NOT_FOUND = 'Configuration not found';
+    private const AJAX_CONFIG_SETDEFAULT = '/ajax/config/setdefault';
+    private const AJAX_CONFIG_GET_MODELS = '/ajax/config/get-models';
+    private const AJAX_CONFIG_TOGGLE = '/ajax/config/toggle';
+    private const AJAX_CONFIG_TEST = '/ajax/config/test';
+
     private ConfigurationController $controller;
     private LlmConfigurationRepository $configurationRepository;
     private ModelRepository $modelRepository;
@@ -186,7 +193,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($configUid);
 
         // User clicks toggle to deactivate
-        $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => $configUid]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $configUid]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -215,7 +222,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $initialActiveCount = $this->configurationRepository->findActive()->count();
 
         // Deactivate
-        $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => $configUid]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $configUid]);
         $this->controller->toggleActiveAction($request);
         $this->persistenceManager->clearState();
 
@@ -229,10 +236,10 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway4_2_toggleConfigurationStatus_errorForNonExistent(): void
     {
-        $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => 99999]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => 99999]);
         $response = $this->controller->toggleActiveAction($request);
 
-        $this->assertErrorResponse($response, 404, 'Configuration not found');
+        $this->assertErrorResponse($response, 404, self::CONFIGURATION_NOT_FOUND);
     }
 
     // =========================================================================
@@ -263,7 +270,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $originalDefaultUid = $originalDefault?->getUid();
 
         // User clicks "Set Default"
-        $request = $this->createFormRequest('/ajax/config/setdefault', ['uid' => $nonDefault->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, ['uid' => $nonDefault->getUid()]);
         $response = $this->controller->setDefaultAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -299,12 +306,12 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($uid1);
 
         // Set first as default
-        $request1 = $this->createFormRequest('/ajax/config/setdefault', ['uid' => $uid0]);
+        $request1 = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, ['uid' => $uid0]);
         $this->controller->setDefaultAction($request1);
         $this->persistenceManager->clearState();
 
         // Set second as default
-        $request2 = $this->createFormRequest('/ajax/config/setdefault', ['uid' => $uid1]);
+        $request2 = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, ['uid' => $uid1]);
         $this->controller->setDefaultAction($request2);
         $this->persistenceManager->clearState();
 
@@ -327,7 +334,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($config);
 
         // User clicks "Test" button
-        $request = $this->createFormRequest('/ajax/config/test', ['uid' => $config->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config->getUid()]);
         $response = $this->controller->testConfigurationAction($request);
 
         // Response should have proper structure
@@ -353,7 +360,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($config);
 
         // User enters custom test prompt
-        $request = $this->createFormRequest('/ajax/config/test', [
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, [
             'uid' => $config->getUid(),
             'prompt' => 'Say hello in exactly 3 words.',
         ]);
@@ -369,10 +376,10 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway4_4_testConfiguration_errorForInvalid(): void
     {
-        $request = $this->createFormRequest('/ajax/config/test', ['uid' => 99999]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => 99999]);
         $response = $this->controller->testConfigurationAction($request);
 
-        $this->assertErrorResponse($response, 404, 'Configuration not found');
+        $this->assertErrorResponse($response, 404, self::CONFIGURATION_NOT_FOUND);
     }
 
     // =========================================================================
@@ -487,7 +494,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
 
         // getModelsAction expects the adapter type (provider key in llmServiceManager)
         // not the database identifier
-        $request = $this->createFormRequest('/ajax/config/get-models', [
+        $request = $this->createFormRequest(self::AJAX_CONFIG_GET_MODELS, [
             'provider' => $provider->getAdapterType(),
         ]);
         $response = $this->controller->getModelsAction($request);
@@ -507,7 +514,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function getModelsForProvider_errorForInvalid(): void
     {
-        $request = $this->createFormRequest('/ajax/config/get-models', [
+        $request = $this->createFormRequest(self::AJAX_CONFIG_GET_MODELS, [
             'provider' => 'non-existent-provider',
         ]);
         $response = $this->controller->getModelsAction($request);
@@ -562,7 +569,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($configUid);
 
         // Try to test this configuration
-        $request = $this->createFormRequest('/ajax/config/test', ['uid' => $configUid]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $configUid]);
         $response = $this->controller->testConfigurationAction($request);
 
         $this->assertErrorResponse($response, 400, 'Configuration has no model assigned');
@@ -575,29 +582,29 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway4_8_toggleConfiguration_missingUid(): void
     {
-        $request = $this->createFormRequest('/ajax/config/toggle', []);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, []);
         $response = $this->controller->toggleActiveAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No configuration UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_CONFIGURATION_UID_SPECIFIED);
     }
 
     #[Test]
     public function pathway4_8_toggleConfiguration_zeroUid(): void
     {
-        $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => 0]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => 0]);
         $response = $this->controller->toggleActiveAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No configuration UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_CONFIGURATION_UID_SPECIFIED);
     }
 
     #[Test]
     public function pathway4_8_toggleConfiguration_stringUid(): void
     {
-        $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => 'invalid']);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => 'invalid']);
         $response = $this->controller->toggleActiveAction($request);
 
         // Invalid string should be treated as 0
-        $this->assertErrorResponse($response, 400, 'No configuration UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_CONFIGURATION_UID_SPECIFIED);
     }
 
     // =========================================================================
@@ -607,19 +614,19 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway4_9_setDefault_missingUid(): void
     {
-        $request = $this->createFormRequest('/ajax/config/setdefault', []);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, []);
         $response = $this->controller->setDefaultAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No configuration UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_CONFIGURATION_UID_SPECIFIED);
     }
 
     #[Test]
     public function pathway4_9_setDefault_nonExistentConfig(): void
     {
-        $request = $this->createFormRequest('/ajax/config/setdefault', ['uid' => 99999]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, ['uid' => 99999]);
         $response = $this->controller->setDefaultAction($request);
 
-        $this->assertErrorResponse($response, 404, 'Configuration not found');
+        $this->assertErrorResponse($response, 404, self::CONFIGURATION_NOT_FOUND);
     }
 
     // =========================================================================
@@ -629,7 +636,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway4_10_getModels_missingProvider(): void
     {
-        $request = $this->createFormRequest('/ajax/config/get-models', []);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_GET_MODELS, []);
         $response = $this->controller->getModelsAction($request);
 
         $this->assertErrorResponse($response, 400, 'No provider specified');
@@ -638,7 +645,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway4_10_getModels_emptyProvider(): void
     {
-        $request = $this->createFormRequest('/ajax/config/get-models', ['provider' => '']);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_GET_MODELS, ['provider' => '']);
         $response = $this->controller->getModelsAction($request);
 
         $this->assertErrorResponse($response, 400, 'No provider specified');
@@ -719,7 +726,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($configUid);
 
         $initialState = $config->isActive();
-        $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => $configUid]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $configUid]);
 
         // Perform multiple rapid toggles
         for ($i = 0; $i < 4; $i++) {
@@ -1003,7 +1010,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($retrievedUid);
 
         // Activate via toggle
-        $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => $retrievedUid]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $retrievedUid]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -1020,7 +1027,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
             self::assertNotNull($config);
             $configUid = $config->getUid();
             self::assertNotNull($configUid);
-            $request = $this->createFormRequest('/ajax/config/setdefault', ['uid' => $configUid]);
+            $request = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, ['uid' => $configUid]);
             $this->controller->setDefaultAction($request);
             $this->persistenceManager->clearState();
             $default = $this->configurationRepository->findDefault();
@@ -1031,7 +1038,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($defaultUid);
 
         // Deactivate the default
-        $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => $defaultUid]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $defaultUid]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -1130,19 +1137,19 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function testConfiguration_missingUid(): void
     {
-        $request = $this->createFormRequest('/ajax/config/test', []);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, []);
         $response = $this->controller->testConfigurationAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No configuration UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_CONFIGURATION_UID_SPECIFIED);
     }
 
     #[Test]
     public function testConfiguration_zeroUid(): void
     {
-        $request = $this->createFormRequest('/ajax/config/test', ['uid' => 0]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => 0]);
         $response = $this->controller->testConfigurationAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No configuration UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_CONFIGURATION_UID_SPECIFIED);
     }
 
     #[Test]
@@ -1151,7 +1158,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
 
-        $request = $this->createFormRequest('/ajax/config/test', [
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, [
             'uid' => $config->getUid(),
             'prompt' => "Test with <script>alert('xss')</script> and \"quotes\" & ampersand",
         ]);
@@ -1411,7 +1418,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
 
-        $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => $config->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => $config->getUid()]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -1433,13 +1440,13 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertInstanceOf(QueryResultInterface::class, $queryResult);
         /** @var array<int, LlmConfiguration> $configs */
         $configs = $queryResult->toArray();
-        if (count($configs) < 1) {
+        if ($configs === []) {
             self::markTestSkipped('Need at least 1 configuration');
         }
 
         $uid = $configs[0]->getUid();
         self::assertNotNull($uid);
-        $request = $this->createFormRequest('/ajax/config/setdefault', ['uid' => $uid]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_SETDEFAULT, ['uid' => $uid]);
         $response = $this->controller->setDefaultAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -1455,7 +1462,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $config = $this->configurationRepository->findActive()->getFirst();
         self::assertNotNull($config);
 
-        $request = $this->createFormRequest('/ajax/config/test', ['uid' => $config->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config->getUid()]);
         $response = $this->controller->testConfigurationAction($request);
 
         // Either success or error response
@@ -1479,7 +1486,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway4_18_errorResponseStructure(): void
     {
-        $request = $this->createFormRequest('/ajax/config/toggle', ['uid' => 99999]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TOGGLE, ['uid' => 99999]);
         $response = $this->controller->toggleActiveAction($request);
 
         self::assertSame(404, $response->getStatusCode());

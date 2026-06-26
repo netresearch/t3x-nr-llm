@@ -79,7 +79,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             fn() => $pipeline->run(
                 ProviderCallContext::for(ProviderOperation::Chat),
                 $primary,
-                static function (LlmConfiguration $c) use ($err): never {
+                static function () use ($err): never {
                     throw $err;
                 },
             ),
@@ -280,7 +280,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             fn() => $pipeline->run(
                 ProviderCallContext::for(ProviderOperation::Chat),
                 $primary,
-                static function (LlmConfiguration $c): never {
+                static function (): never {
                     throw new ProviderConnectionException('down', 0);
                 },
             ),

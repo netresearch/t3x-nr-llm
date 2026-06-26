@@ -462,28 +462,24 @@ final readonly class TranslationService implements TranslationServiceInterface
      */
     private function validateOptions(array $options): void
     {
-        if (isset($options['formality'])) {
-            if (!in_array($options['formality'], self::SUPPORTED_FORMALITIES, true)) {
-                throw new InvalidArgumentException(
-                    sprintf(
-                        'Invalid formality. Supported: %s',
-                        implode(', ', self::SUPPORTED_FORMALITIES),
-                    ),
-                    6448506079,
-                );
-            }
+        if (isset($options['formality']) && !in_array($options['formality'], self::SUPPORTED_FORMALITIES, true)) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Invalid formality. Supported: %s',
+                    implode(', ', self::SUPPORTED_FORMALITIES),
+                ),
+                6448506079,
+            );
         }
 
-        if (isset($options['domain'])) {
-            if (!in_array($options['domain'], self::SUPPORTED_DOMAINS, true)) {
-                throw new InvalidArgumentException(
-                    sprintf(
-                        'Invalid domain. Supported: %s',
-                        implode(', ', self::SUPPORTED_DOMAINS),
-                    ),
-                    3885497401,
-                );
-            }
+        if (isset($options['domain']) && !in_array($options['domain'], self::SUPPORTED_DOMAINS, true)) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Invalid domain. Supported: %s',
+                    implode(', ', self::SUPPORTED_DOMAINS),
+                ),
+                3885497401,
+            );
         }
 
         if (isset($options['glossary']) && !is_array($options['glossary'])) {

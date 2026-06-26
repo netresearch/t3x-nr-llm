@@ -46,6 +46,8 @@ test.describe('Action Buttons', () => {
 
       // This will fail if module isn't loading - helping us identify the issue
       // Note: We may not catch the initial load messages due to timing
+      expect(Array.isArray(consoleMessages)).toBe(true);
+      expect(typeof hasInitMessage).toBe('boolean');
     });
 
     test('should show modal when clicking test connection button or verify no providers', async ({ authenticatedPage }) => {

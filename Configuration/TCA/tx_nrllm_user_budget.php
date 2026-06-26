@@ -7,6 +7,8 @@
 
 declare(strict_types=1);
 
+$unlimitedHint = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget.unlimited_hint';
+
 return [
     'ctrl' => [
         'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget',
@@ -75,7 +77,7 @@ return [
         ],
         'max_requests_per_day' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget.max_requests_per_day',
-            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget.unlimited_hint',
+            'description' => $unlimitedHint,
             'config' => [
                 'type' => 'number',
                 'size' => 10,
@@ -85,7 +87,7 @@ return [
         ],
         'max_tokens_per_day' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget.max_tokens_per_day',
-            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget.unlimited_hint',
+            'description' => $unlimitedHint,
             'config' => [
                 'type' => 'number',
                 'size' => 10,
@@ -95,7 +97,7 @@ return [
         ],
         'max_cost_per_day' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget.max_cost_per_day',
-            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget.unlimited_hint',
+            'description' => $unlimitedHint,
             'config' => [
                 'type' => 'number',
                 'format' => 'decimal',
@@ -106,7 +108,7 @@ return [
         ],
         'max_requests_per_month' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget.max_requests_per_month',
-            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget.unlimited_hint',
+            'description' => $unlimitedHint,
             'config' => [
                 'type' => 'number',
                 'size' => 10,
@@ -116,7 +118,7 @@ return [
         ],
         'max_tokens_per_month' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget.max_tokens_per_month',
-            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget.unlimited_hint',
+            'description' => $unlimitedHint,
             'config' => [
                 'type' => 'number',
                 'size' => 10,
@@ -126,7 +128,7 @@ return [
         ],
         'max_cost_per_month' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget.max_cost_per_month',
-            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_user_budget.unlimited_hint',
+            'description' => $unlimitedHint,
             'config' => [
                 'type' => 'number',
                 'format' => 'decimal',

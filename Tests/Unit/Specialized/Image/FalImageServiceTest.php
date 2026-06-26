@@ -1058,8 +1058,6 @@ class FalImageServiceTest extends AbstractUnitTestCase
     #[Test]
     public function generateThrowsOnConnectionError(): void
     {
-        $subject = $this->createSubject();
-
         $requestStub = self::createStub(RequestInterface::class);
         $requestStub->method('withHeader')->willReturnSelf();
         $requestStub->method('withBody')->willReturnSelf();

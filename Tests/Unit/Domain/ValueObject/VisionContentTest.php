@@ -58,7 +58,7 @@ final class VisionContentTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1745420001);
 
-        new VisionContent(type: 'video', text: 'x');
+        self::assertInstanceOf(VisionContent::class, new VisionContent(type: 'video', text: 'x'));
     }
 
     #[Test]
@@ -67,7 +67,7 @@ final class VisionContentTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1745420002);
 
-        new VisionContent(type: VisionContent::TYPE_TEXT, text: '');
+        self::assertInstanceOf(VisionContent::class, new VisionContent(type: VisionContent::TYPE_TEXT, text: ''));
     }
 
     #[Test]
@@ -76,7 +76,7 @@ final class VisionContentTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1745420002);
 
-        new VisionContent(type: VisionContent::TYPE_TEXT);
+        self::assertInstanceOf(VisionContent::class, new VisionContent(type: VisionContent::TYPE_TEXT));
     }
 
     #[Test]
@@ -85,7 +85,7 @@ final class VisionContentTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1745420003);
 
-        new VisionContent(type: VisionContent::TYPE_IMAGE_URL, imageUrl: '');
+        self::assertInstanceOf(VisionContent::class, new VisionContent(type: VisionContent::TYPE_IMAGE_URL, imageUrl: ''));
     }
 
     #[Test]
@@ -94,7 +94,7 @@ final class VisionContentTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1745420003);
 
-        new VisionContent(type: VisionContent::TYPE_IMAGE_URL);
+        self::assertInstanceOf(VisionContent::class, new VisionContent(type: VisionContent::TYPE_IMAGE_URL));
     }
 
     #[Test]
@@ -215,11 +215,11 @@ final class VisionContentTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1745420004);
 
-        new VisionContent(
+        self::assertInstanceOf(VisionContent::class, new VisionContent(
             type: VisionContent::TYPE_IMAGE_URL,
             imageUrl: 'https://example.com/a.png',
             detail: 'extra-high',
-        );
+        ));
     }
 
     #[Test]
@@ -228,11 +228,11 @@ final class VisionContentTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1745420005);
 
-        new VisionContent(
+        self::assertInstanceOf(VisionContent::class, new VisionContent(
             type: VisionContent::TYPE_TEXT,
             text: 'caption',
             detail: VisionContent::DETAIL_HIGH,
-        );
+        ));
     }
 
     #[Test]

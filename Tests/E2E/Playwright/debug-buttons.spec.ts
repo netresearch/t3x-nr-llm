@@ -111,4 +111,7 @@ test('Debug: Click provider test button and capture network', async ({ authentic
     // Take screenshot
     await page.screenshot({ path: 'Tests/E2E/Playwright/test-results/debug-no-buttons.png', fullPage: true });
   }
+
+  expect(Array.isArray(requests)).toBe(true);
+  expect(Array.isArray(pageErrors)).toBe(true);
 });

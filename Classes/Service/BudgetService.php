@@ -44,15 +44,11 @@ final readonly class BudgetService implements BudgetServiceInterface
 
     public function check(int $beUserUid, float $plannedCost = 0.0): BudgetCheckResult
     {
-        if ($beUserUid <= 0) {
-            return BudgetCheckResult::allowed();
-        }
-
         // Negative planned cost would artificially reduce the projected
         // total and let callers bypass cost limits. Clamp defensively.
         $plannedCost = max(0.0, $plannedCost);
 
-        $budget = $this->repository->findOneByBeUser($beUserUid);
+        $budget = $beUserUid > 0 ? $this->repository->findOneByBeUser($beUserUid) : null;
         if ($budget === null || !$budget->isActive() || !$budget->hasAnyLimit()) {
             return BudgetCheckResult::allowed();
         }
@@ -75,40 +71,44 @@ final readonly class BudgetService implements BudgetServiceInterface
             $now->getTimestamp(),
         );
 
+        $result = BudgetCheckResult::allowed();
+
         if ($hasDailyLimits) {
-            $dailyResult = $this->compare(
+            $result = $this->compare(
                 usage: $windows['daily'],
                 plannedCost: $plannedCost,
                 requestLimit: $budget->getMaxRequestsPerDay(),
                 tokenLimit: $budget->getMaxTokensPerDay(),
                 costLimit: $budget->getMaxCostPerDay(),
-                requestLimitId: BudgetCheckResult::LIMIT_DAILY_REQUESTS,
-                tokenLimitId: BudgetCheckResult::LIMIT_DAILY_TOKENS,
-                costLimitId: BudgetCheckResult::LIMIT_DAILY_COST,
+                limitIds: [
+                    'request' => BudgetCheckResult::LIMIT_DAILY_REQUESTS,
+                    'token' => BudgetCheckResult::LIMIT_DAILY_TOKENS,
+                    'cost' => BudgetCheckResult::LIMIT_DAILY_COST,
+                ],
             );
-            if (!$dailyResult->allowed) {
-                return $dailyResult;
-            }
         }
 
-        if ($hasMonthlyLimits) {
-            return $this->compare(
+        if ($result->allowed && $hasMonthlyLimits) {
+            $result = $this->compare(
                 usage: $windows['monthly'],
                 plannedCost: $plannedCost,
                 requestLimit: $budget->getMaxRequestsPerMonth(),
                 tokenLimit: $budget->getMaxTokensPerMonth(),
                 costLimit: $budget->getMaxCostPerMonth(),
-                requestLimitId: BudgetCheckResult::LIMIT_MONTHLY_REQUESTS,
-                tokenLimitId: BudgetCheckResult::LIMIT_MONTHLY_TOKENS,
-                costLimitId: BudgetCheckResult::LIMIT_MONTHLY_COST,
+                limitIds: [
+                    'request' => BudgetCheckResult::LIMIT_MONTHLY_REQUESTS,
+                    'token' => BudgetCheckResult::LIMIT_MONTHLY_TOKENS,
+                    'cost' => BudgetCheckResult::LIMIT_MONTHLY_COST,
+                ],
             );
         }
 
-        return BudgetCheckResult::allowed();
+        return $result;
     }
 
     /**
-     * @param array{requests: int, tokens: int, cost: float} $usage
+     * @param array{requests: int, tokens: int, cost: float}      $usage
+     * @param array{request: string, token: string, cost: string} $limitIds
      */
     private function compare(
         array $usage,
@@ -116,33 +116,30 @@ final readonly class BudgetService implements BudgetServiceInterface
         int $requestLimit,
         int $tokenLimit,
         float $costLimit,
-        string $requestLimitId,
-        string $tokenLimitId,
-        string $costLimitId,
+        array $limitIds,
     ): BudgetCheckResult {
         // Each incoming call is +1 request, +$plannedCost. Tokens are unknown
         // at pre-flight so we check the existing total only.
+        $result = BudgetCheckResult::allowed();
         if ($requestLimit > 0 && ($usage['requests'] + 1) > $requestLimit) {
-            return BudgetCheckResult::denied(
-                $requestLimitId,
+            $result = BudgetCheckResult::denied(
+                $limitIds['request'],
                 (float)$usage['requests'],
                 (float)$requestLimit,
             );
-        }
-        if ($tokenLimit > 0 && $usage['tokens'] > $tokenLimit) {
-            return BudgetCheckResult::denied(
-                $tokenLimitId,
+        } elseif ($tokenLimit > 0 && $usage['tokens'] > $tokenLimit) {
+            $result = BudgetCheckResult::denied(
+                $limitIds['token'],
                 (float)$usage['tokens'],
                 (float)$tokenLimit,
             );
-        }
-        if ($costLimit > 0.0 && ($usage['cost'] + $plannedCost) > $costLimit) {
-            return BudgetCheckResult::denied(
-                $costLimitId,
+        } elseif ($costLimit > 0.0 && ($usage['cost'] + $plannedCost) > $costLimit) {
+            $result = BudgetCheckResult::denied(
+                $limitIds['cost'],
                 $usage['cost'],
                 $costLimit,
             );
         }
-        return BudgetCheckResult::allowed();
+        return $result;
     }
 }

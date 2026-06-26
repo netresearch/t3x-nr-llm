@@ -55,7 +55,7 @@ final class ToolSpecTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1745410001);
 
-        new ToolSpec(name: '', description: 'd', parameters: []);
+        self::assertInstanceOf(ToolSpec::class, new ToolSpec(name: '', description: 'd', parameters: []));
     }
 
     #[Test]
@@ -64,7 +64,7 @@ final class ToolSpecTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1745410002);
 
-        new ToolSpec(name: 'n', description: 'd', parameters: [], type: '');
+        self::assertInstanceOf(ToolSpec::class, new ToolSpec(name: 'n', description: 'd', parameters: [], type: ''));
     }
 
     #[Test]

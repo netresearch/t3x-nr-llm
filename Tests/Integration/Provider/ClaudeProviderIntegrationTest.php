@@ -26,10 +26,7 @@ use Psr\Http\Message\ResponseInterface;
 #[CoversClass(ClaudeProvider::class)]
 class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-    }
+    private const FAKE_VAULT_ID = '019650a0-5678-7def-9012-3456789abcde';
 
     /**
      * @param array<ResponseInterface> $responses
@@ -50,7 +47,7 @@ class ClaudeProviderIntegrationTest extends AbstractIntegrationTestCase
         // Provider::isVaultIdentifier (Domain/Model/Provider.php). Use a
         // deterministic UUIDv7 fixture so the format check passes.
         $provider->configure([
-            'apiKeyIdentifier' => '019650a0-5678-7def-9012-3456789abcde',
+            'apiKeyIdentifier' => self::FAKE_VAULT_ID,
             'defaultModel' => 'claude-sonnet-4-20250514',
             'timeout' => 30,
         ]);

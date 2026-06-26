@@ -46,7 +46,6 @@ class ModelList {
                 e.preventDefault();
                 e.stopPropagation();
                 this.handleTestModel(testBtn);
-                return;
             }
         });
 
@@ -175,7 +174,7 @@ class ModelList {
             </div>
         `;
 
-        const modal = Modal.advanced({
+        Modal.advanced({
             title: `Test Model: ${name} (UID: ${uid})`,
             content: container,
             severity: Severity.info,
@@ -252,28 +251,12 @@ class ModelList {
 
             console.debug('[ModelList] Test response:', data);
             // Use container reference instead of document.getElementById()
-            const loadingDiv = container.querySelector('#model-test-loading');
-            const successDiv = container.querySelector('#model-test-success');
-            const errorDiv = container.querySelector('#model-test-error');
-
-            if (loadingDiv) loadingDiv.style.display = 'none';
+            this.hideTestLoading(container);
 
             if (data.success) {
-                if (successDiv) {
-                    successDiv.style.display = 'block';
-                    const msgEl = container.querySelector('#model-test-success-message');
-                    if (msgEl) msgEl.textContent = data.message || 'Model test successful';
-                    const elapsedEl = container.querySelector('#success-elapsed');
-                    if (elapsedEl) elapsedEl.textContent = elapsed.toString();
-                }
+                this.showTestSuccess(container, data.message || 'Model test successful', elapsed);
             } else {
-                if (errorDiv) {
-                    errorDiv.style.display = 'block';
-                    const msgEl = container.querySelector('#model-test-error-message');
-                    if (msgEl) msgEl.textContent = data.error || data.message || 'Unknown error';
-                    const elapsedEl = container.querySelector('#error-elapsed');
-                    if (elapsedEl) elapsedEl.textContent = elapsed.toString();
-                }
+                this.showTestError(container, data.error || data.message || 'Unknown error', elapsed);
             }
         })
         .catch(err => {
@@ -282,18 +265,36 @@ class ModelList {
 
             console.error('[ModelList] Test error:', err);
             // Use container reference instead of document.getElementById()
-            const loadingDiv = container.querySelector('#model-test-loading');
-            const errorDiv = container.querySelector('#model-test-error');
-
-            if (loadingDiv) loadingDiv.style.display = 'none';
-            if (errorDiv) {
-                errorDiv.style.display = 'block';
-                const msgEl = container.querySelector('#model-test-error-message');
-                if (msgEl) msgEl.textContent = err.message;
-                const elapsedEl = container.querySelector('#error-elapsed');
-                if (elapsedEl) elapsedEl.textContent = elapsed.toString();
-            }
+            this.hideTestLoading(container);
+            this.showTestError(container, err.message, elapsed);
         });
+    }
+
+    hideTestLoading(container) {
+        const loadingDiv = container.querySelector('#model-test-loading');
+        if (loadingDiv) loadingDiv.style.display = 'none';
+    }
+
+    showTestSuccess(container, message, elapsed) {
+        const successDiv = container.querySelector('#model-test-success');
+        if (!successDiv) return;
+
+        successDiv.style.display = 'block';
+        const msgEl = container.querySelector('#model-test-success-message');
+        if (msgEl) msgEl.textContent = message;
+        const elapsedEl = container.querySelector('#success-elapsed');
+        if (elapsedEl) elapsedEl.textContent = elapsed.toString();
+    }
+
+    showTestError(container, message, elapsed) {
+        const errorDiv = container.querySelector('#model-test-error');
+        if (!errorDiv) return;
+
+        errorDiv.style.display = 'block';
+        const msgEl = container.querySelector('#model-test-error-message');
+        if (msgEl) msgEl.textContent = message;
+        const elapsedEl = container.querySelector('#error-elapsed');
+        if (elapsedEl) elapsedEl.textContent = elapsed.toString();
     }
 
     escapeHtml(text) {

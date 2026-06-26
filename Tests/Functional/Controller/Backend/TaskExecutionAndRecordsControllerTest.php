@@ -43,6 +43,13 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 #[CoversClass(TaskRecordsController::class)]
 final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTestCase
 {
+    private const AJAX_NRLLM_TASK_LOAD_RECORD_DATA = '/ajax/nrllm/task/load-record-data';
+    private const AJAX_NRLLM_TASK_FETCH_RECORDS = '/ajax/nrllm/task/fetch-records';
+    private const AJAX_NRLLM_TASK_REFRESH_INPUT = '/ajax/nrllm/task/refresh-input';
+    private const AJAX_NRLLM_TASK_EXECUTE = '/ajax/nrllm/task/execute';
+    private const TASK_NOT_FOUND = 'Task not found';
+    private const TEST_INPUT = 'test input';
+
     private TaskExecutionController $executionController;
     private TaskRecordsController $recordsController;
     private TaskRepository $taskRepository;
@@ -118,8 +125,8 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function executeActionReturnsNotFoundForNonExistentTask(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/execute');
-        $request = $request->withParsedBody(['uid' => 999, 'input' => 'test input']);
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_EXECUTE);
+        $request = $request->withParsedBody(['uid' => 999, 'input' => self::TEST_INPUT]);
 
         // Act
         $response = $this->executionController->executeAction($request);
@@ -129,15 +136,15 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Task not found', $body['error']);
+        self::assertSame(self::TASK_NOT_FOUND, $body['error']);
     }
 
     #[Test]
     public function executeActionReturnsErrorForInactiveTask(): void
     {
         // Task with uid=3 is inactive in fixture
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/execute');
-        $request = $request->withParsedBody(['uid' => 3, 'input' => 'test input']);
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_EXECUTE);
+        $request = $request->withParsedBody(['uid' => 3, 'input' => self::TEST_INPUT]);
 
         // Act
         $response = $this->executionController->executeAction($request);
@@ -154,8 +161,8 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     public function executeActionHandlesZeroUidAsNotFound(): void
     {
         // UID 0 should be treated as "not found"
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/execute');
-        $request = $request->withParsedBody(['uid' => 0, 'input' => 'test input']);
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_EXECUTE);
+        $request = $request->withParsedBody(['uid' => 0, 'input' => self::TEST_INPUT]);
 
         // Act
         $response = $this->executionController->executeAction($request);
@@ -165,15 +172,15 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Task not found', $body['error']);
+        self::assertSame(self::TASK_NOT_FOUND, $body['error']);
     }
 
     #[Test]
     public function executeActionHandlesStringUid(): void
     {
         // UID passed as string (common from form submissions)
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/execute');
-        $request = $request->withParsedBody(['uid' => '999', 'input' => 'test input']);
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_EXECUTE);
+        $request = $request->withParsedBody(['uid' => '999', 'input' => self::TEST_INPUT]);
 
         // Act
         $response = $this->executionController->executeAction($request);
@@ -191,7 +198,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         // Task with uid=1 is active in fixture
         // Note: Actual LLM call will fail in test environment (no real API)
         // but we verify the controller action flow is correct
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/execute');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_EXECUTE);
         $request = $request->withParsedBody(['uid' => 1, 'input' => 'Test input for analysis']);
 
         // Act
@@ -229,7 +236,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         self::assertIsArray($tables);
 
         // Verify table structure
-        if (count($tables) > 0) {
+        if ($tables !== []) {
             $firstTable = $tables[0];
             self::assertIsArray($firstTable);
             self::assertArrayHasKey('name', $firstTable);
@@ -286,7 +293,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function fetchRecordsActionReturnsRecordsForValidTable(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/fetch-records');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_FETCH_RECORDS);
         $request = $request->withParsedBody(['table' => 'tx_nrllm_task']);
 
         // Act
@@ -309,7 +316,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function fetchRecordsActionReturnsRecordStructureWithUidAndLabel(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/fetch-records');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_FETCH_RECORDS);
         $request = $request->withParsedBody(['table' => 'tx_nrllm_task']);
 
         // Act
@@ -324,7 +331,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         // Verify record structure
         $records = $body['records'];
         self::assertIsArray($records);
-        if (count($records) > 0) {
+        if ($records !== []) {
             $firstRecord = $records[0];
             self::assertIsArray($firstRecord);
             self::assertArrayHasKey('uid', $firstRecord);
@@ -337,7 +344,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function fetchRecordsActionReturnsErrorForMissingTable(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/fetch-records');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_FETCH_RECORDS);
         $request = $request->withParsedBody([]);
 
         // Act
@@ -354,7 +361,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function fetchRecordsActionReturnsErrorForEmptyTableName(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/fetch-records');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_FETCH_RECORDS);
         $request = $request->withParsedBody(['table' => '']);
 
         // Act
@@ -371,7 +378,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function fetchRecordsActionReturnsErrorForNonExistentTable(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/fetch-records');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_FETCH_RECORDS);
         $request = $request->withParsedBody(['table' => 'non_existent_table_xyz']);
 
         // Act
@@ -388,7 +395,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function fetchRecordsActionRespectsLimitParameter(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/fetch-records');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_FETCH_RECORDS);
         $request = $request->withParsedBody(['table' => 'tx_nrllm_task', 'limit' => 2]);
 
         // Act
@@ -407,7 +414,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function fetchRecordsActionUsesCustomLabelField(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/fetch-records');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_FETCH_RECORDS);
         $request = $request->withParsedBody([
             'table' => 'tx_nrllm_task',
             'labelField' => 'identifier',
@@ -472,7 +479,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function loadRecordDataReturnsErrorForMissingTable(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/load-record-data');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
         $request = $request->withParsedBody(['uids' => '1,2,3']);
 
         // Act
@@ -489,7 +496,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function loadRecordDataReturnsErrorForMissingUids(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/load-record-data');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
         $request = $request->withParsedBody(['table' => 'tx_nrllm_task']);
 
         // Act
@@ -506,7 +513,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function loadRecordDataReturnsRecordsForValidRequest(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/load-record-data');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
         $request = $request->withParsedBody([
             'table' => 'tx_nrllm_task',
             'uids' => '1,2',
@@ -534,7 +541,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function loadRecordDataReturnsEmptyForNonExistentUids(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/load-record-data');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
         $request = $request->withParsedBody([
             'table' => 'tx_nrllm_task',
             'uids' => '9999,9998',
@@ -558,7 +565,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function refreshInputReturnsNotFoundForNonExistentTask(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/refresh-input');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_REFRESH_INPUT);
         $request = $request->withParsedBody(['uid' => 999]);
 
         // Act
@@ -569,13 +576,13 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Task not found', $body['error']);
+        self::assertSame(self::TASK_NOT_FOUND, $body['error']);
     }
 
     #[Test]
     public function refreshInputReturnsDataForValidTask(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/refresh-input');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_REFRESH_INPUT);
         $request = $request->withParsedBody(['uid' => 1]);
 
         // Act
@@ -594,7 +601,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function refreshInputHandlesZeroUidAsNotFound(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/refresh-input');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_REFRESH_INPUT);
         $request = $request->withParsedBody(['uid' => 0]);
 
         // Act
@@ -605,7 +612,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Task not found', $body['error']);
+        self::assertSame(self::TASK_NOT_FOUND, $body['error']);
     }
 
     // ========================================
@@ -619,7 +626,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $this->importFixture('SysLog.csv');
 
         // Task uid=2 is configured with input_type='syslog'
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/refresh-input');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_REFRESH_INPUT);
         $request = $request->withParsedBody(['uid' => 2]);
 
         // Act
@@ -643,7 +650,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $this->importFixture('SysLog.csv');
 
         // Task uid=2 has error_only=true in input_source
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/refresh-input');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_REFRESH_INPUT);
         $request = $request->withParsedBody(['uid' => 2]);
 
         // Act
@@ -671,7 +678,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $this->importFixture('SysLog.csv');
 
         // Execute the syslog task (uid=2)
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/execute');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_EXECUTE);
         $request = $request->withParsedBody([
             'uid' => 2,
             'input' => '[2024-12-23 10:00:00] [ERROR] Login failed for user: admin',
@@ -697,7 +704,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         // We need a task with input_type='deprecation_log'
         // Since we don't have this in fixtures, test with the syslog task
         // and verify the structure is correct
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/refresh-input');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_REFRESH_INPUT);
         $request = $request->withParsedBody(['uid' => 1]); // manual task
 
         // Act
@@ -728,7 +735,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $conn->executeStatement('CREATE TABLE IF NOT EXISTS test_no_uid (name VARCHAR(255) NOT NULL, value TEXT)');
 
         try {
-            $request = new ServerRequest('POST', '/ajax/nrllm/task/fetch-records');
+            $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_FETCH_RECORDS);
             $request = $request->withParsedBody(['table' => 'test_no_uid']);
 
             $response = $this->recordsController->fetchRecordsAction($request);
@@ -748,7 +755,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function fetchRecordsActionReturnsDetectedLabelField(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/fetch-records');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_FETCH_RECORDS);
         $request = $request->withParsedBody(['table' => 'tx_nrllm_task']);
 
         // Act
@@ -767,7 +774,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function loadRecordDataReturnsFormattedJsonData(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/load-record-data');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
         $request = $request->withParsedBody([
             'table' => 'tx_nrllm_task',
             'uids' => '1',
@@ -801,7 +808,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function loadRecordDataHandlesMultipleUids(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/load-record-data');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
         $request = $request->withParsedBody([
             'table' => 'tx_nrllm_task',
             'uids' => '1,2,3',
@@ -822,7 +829,7 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
     #[Test]
     public function loadRecordDataHandlesInvalidUidsGracefully(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/task/load-record-data');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_TASK_LOAD_RECORD_DATA);
         $request = $request->withParsedBody([
             'table' => 'tx_nrllm_task',
             'uids' => 'abc,def',

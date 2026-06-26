@@ -57,6 +57,9 @@ use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 #[CoversClass(TaskExecutionController::class)]
 final class ErrorHandlingTest extends AbstractFunctionalTestCase
 {
+    private const AJAX_CONFIG_TEST = '/ajax/nrllm/config/test';
+    private const AJAX_TEST = '/ajax/test';
+
     private ConfigurationController $configController;
     private TaskExecutionController $taskController;
     private LlmModuleController $llmModuleController;
@@ -227,7 +230,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
     {
         // Test against configuration with potentially invalid credentials
         // The controller should handle the error gracefully
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/test');
+        $request = new ServerRequest('POST', self::AJAX_CONFIG_TEST);
         $request = $request->withParsedBody(['uid' => 1]);
 
         // Act
@@ -314,7 +317,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
     public function testConfigurationHandlesNetworkErrorGracefully(): void
     {
         // When network is unavailable, the controller should handle it gracefully
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/test');
+        $request = new ServerRequest('POST', self::AJAX_CONFIG_TEST);
         $request = $request->withParsedBody(['uid' => 1]);
 
         // Act
@@ -383,7 +386,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
     public function testConfigurationHandlesInvalidConfigurationGracefully(): void
     {
         // Test with non-existent configuration
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/test');
+        $request = new ServerRequest('POST', self::AJAX_CONFIG_TEST);
         $request = $request->withParsedBody(['uid' => 99999]);
 
         // Act
@@ -434,7 +437,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         ];
 
         foreach ($errorRequests as $errorRequest) {
-            $request = new ServerRequest('POST', '/ajax/test');
+            $request = new ServerRequest('POST', self::AJAX_TEST);
             $request = $request->withParsedBody($errorRequest['body']);
 
             $response = match ($errorRequest['action']) {
@@ -455,7 +458,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
     public function errorResponsesHaveAppropriateHttpStatusCodes(): void
     {
         // Missing required parameter -> 400
-        $request = new ServerRequest('POST', '/ajax/test');
+        $request = new ServerRequest('POST', self::AJAX_TEST);
         $request = $request->withParsedBody([]);
 
         $response = $this->configController->toggleActiveAction($request);
@@ -478,7 +481,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         ];
 
         foreach ($testCases as $testCase) {
-            $request = new ServerRequest('POST', '/ajax/test');
+            $request = new ServerRequest('POST', self::AJAX_TEST);
             $request = $request->withParsedBody($testCase['body']);
 
             $method = $testCase['method'];
@@ -504,7 +507,7 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
     public function controllerDoesNotExposeInternalExceptionsToUser(): void
     {
         // Test configuration with an invalid uid
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/test');
+        $request = new ServerRequest('POST', self::AJAX_CONFIG_TEST);
         $request = $request->withParsedBody(['uid' => -1]);
 
         $response = $this->configController->testConfigurationAction($request);

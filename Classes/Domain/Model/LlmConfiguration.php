@@ -321,7 +321,7 @@ class LlmConfiguration extends AbstractEntity
 
     public function isActive(): bool
     {
-        return $this->isActive;
+        return $this->getIsActive();
     }
 
     public function getIsDefault(): bool
@@ -331,7 +331,7 @@ class LlmConfiguration extends AbstractEntity
 
     public function isDefault(): bool
     {
-        return $this->isDefault;
+        return $this->getIsDefault();
     }
 
     public function getAllowedGroups(): int

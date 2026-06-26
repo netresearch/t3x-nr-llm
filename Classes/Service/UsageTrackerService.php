@@ -25,6 +25,8 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
 {
     private const TABLE = 'tx_nrllm_service_usage';
 
+    private const SELECT_TOTAL_COST = 'SUM(estimated_cost) as total_cost';
+
     public function __construct(
         private ConnectionPool $connectionPool,
         private Context $context,
@@ -168,7 +170,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
             ->addSelectLiteral('SUM(characters_used) as total_characters')
             ->addSelectLiteral('SUM(audio_seconds_used) as total_audio_seconds')
             ->addSelectLiteral('SUM(images_generated) as total_images')
-            ->addSelectLiteral('SUM(estimated_cost) as total_cost')
+            ->addSelectLiteral(self::SELECT_TOTAL_COST)
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('service_type', $queryBuilder->createNamedParameter($serviceType)),
@@ -207,7 +209,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
         $result = $queryBuilder
             ->select('service_type', 'service_provider')
             ->addSelectLiteral('SUM(request_count) as total_requests')
-            ->addSelectLiteral('SUM(estimated_cost) as total_cost')
+            ->addSelectLiteral(self::SELECT_TOTAL_COST)
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('be_user', $beUserUid),
@@ -277,7 +279,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
         $firstDayOfMonth = strtotime('first day of this month midnight');
 
         $result = $queryBuilder
-            ->addSelectLiteral('SUM(estimated_cost) as total_cost')
+            ->addSelectLiteral(self::SELECT_TOTAL_COST)
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->gte('request_date', $firstDayOfMonth),

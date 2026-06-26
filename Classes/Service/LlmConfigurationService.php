@@ -128,25 +128,21 @@ final readonly class LlmConfigurationService implements LlmConfigurationServiceI
     {
         // No backend user context: no access
         if (!$this->isBackendUserLoggedIn()) {
-            return false;
+            $hasAccess = false;
+        } elseif ($this->isCurrentUserAdmin() || !$configuration->hasAccessRestrictions()) {
+            // Admin users can access all configurations
+            // No restrictions: accessible to all
+            $hasAccess = true;
+        } else {
+            // Check group membership
+            $userGroupIds = $this->getCurrentUserGroupIds();
+            $allowedGroupIds = $this->getConfigurationGroupIds($configuration);
+
+            // Check if user is in any allowed group
+            $hasAccess = !empty(array_intersect($userGroupIds, $allowedGroupIds));
         }
 
-        // Admin users can access all configurations
-        if ($this->isCurrentUserAdmin()) {
-            return true;
-        }
-
-        // No restrictions: accessible to all
-        if (!$configuration->hasAccessRestrictions()) {
-            return true;
-        }
-
-        // Check group membership
-        $userGroupIds = $this->getCurrentUserGroupIds();
-        $allowedGroupIds = $this->getConfigurationGroupIds($configuration);
-
-        // Check if user is in any allowed group
-        return !empty(array_intersect($userGroupIds, $allowedGroupIds));
+        return $hasAccess;
     }
 
     /**

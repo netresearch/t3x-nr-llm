@@ -59,7 +59,7 @@ final readonly class LoadRecordDataRequest
         }
 
         // Whitelist: table names must be alphanumeric with underscores only
-        return preg_match('/[^a-zA-Z0-9_]/', $this->table) !== 1;
+        return preg_match('/\W/', $this->table) !== 1;
     }
 
     /**

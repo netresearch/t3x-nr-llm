@@ -27,6 +27,12 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
 {
     use SafeCastTrait;
 
+    private const USER_REQUEST_TEMPLATE = "User request: %s\n\n%s";
+
+    private const DEFAULT_CONFIGURATION_NAME = 'New Configuration';
+
+    private const DEFAULT_TASK_NAME = 'New Task';
+
     public function __construct(
         private LlmServiceManagerInterface $llmServiceManager,
         private LlmConfigurationRepository $configurationRepository,
@@ -136,7 +142,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         }
 
         $context = $this->buildFullChainContext();
-        $prompt = sprintf("User request: %s\n\n%s", $description, $context);
+        $prompt = sprintf(self::USER_REQUEST_TEMPLATE, $description, $context);
 
         try {
             $response = $this->llmServiceManager->chatWithConfiguration(
@@ -170,22 +176,28 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         /** @var list<Model> $activeModels */
         $activeModels = $this->modelRepository->findActive()->toArray();
 
+        $match = null;
+
         // Exact match on model_id
         foreach ($activeModels as $model) {
             if ($model->getModelId() === $recommendedModelId) {
-                return $model;
+                $match = $model;
+                break;
             }
         }
 
         // Partial match (e.g., "gpt-4" matches "gpt-4-turbo")
-        foreach ($activeModels as $model) {
-            if (str_contains($model->getModelId(), $recommendedModelId)
-                || str_contains($recommendedModelId, $model->getModelId())) {
-                return $model;
+        if ($match === null) {
+            foreach ($activeModels as $model) {
+                if (str_contains($model->getModelId(), $recommendedModelId)
+                    || str_contains($recommendedModelId, $model->getModelId())) {
+                    $match = $model;
+                    break;
+                }
             }
         }
 
-        return null;
+        return $match;
     }
 
     /**
@@ -336,12 +348,12 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
 
     private function buildConfigurationPrompt(string $description, string $context): string
     {
-        return sprintf("User request: %s\n\n%s", $description, $context);
+        return sprintf(self::USER_REQUEST_TEMPLATE, $description, $context);
     }
 
     private function buildTaskPrompt(string $description, string $context): string
     {
-        return sprintf("User request: %s\n\n%s", $description, $context);
+        return sprintf(self::USER_REQUEST_TEMPLATE, $description, $context);
     }
 
     /**
@@ -349,32 +361,34 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
      */
     private function parseJsonResponse(string $content): ?array
     {
+        $result = null;
+
         // Direct parse
         $decoded = json_decode($content, true);
         if (is_array($decoded)) {
             /** @var array<string, mixed> $decoded */
-            return $decoded;
+            $result = $decoded;
         }
 
         // Extract from markdown code block
-        if (preg_match('/```(?:json)?\s*([\s\S]*?)```/', $content, $matches)) {
+        if ($result === null && preg_match('/```(?:json)?\s*([\s\S]*?)```/', $content, $matches)) {
             $decoded = json_decode(trim($matches[1]), true);
             if (is_array($decoded)) {
                 /** @var array<string, mixed> $decoded */
-                return $decoded;
+                $result = $decoded;
             }
         }
 
         // Find JSON object in text
-        if (preg_match('/(\{[\s\S]*\})/', $content, $matches)) {
+        if ($result === null && preg_match('/(\{[\s\S]*\})/', $content, $matches)) {
             $decoded = json_decode($matches[1], true);
             if (is_array($decoded)) {
                 /** @var array<string, mixed> $decoded */
-                return $decoded;
+                $result = $decoded;
             }
         }
 
-        return null;
+        return $result;
     }
 
     /**
@@ -386,7 +400,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     {
         return [
             'identifier' => $this->sanitizeIdentifier(self::toStr($data['identifier'] ?? '')),
-            'name' => self::toStr($data['name'] ?? 'New Configuration') ?: 'New Configuration',
+            'name' => self::toStr($data['name'] ?? self::DEFAULT_CONFIGURATION_NAME) ?: self::DEFAULT_CONFIGURATION_NAME,
             'description' => self::toStr($data['description'] ?? $description) ?: $description,
             'system_prompt' => self::toStr($data['system_prompt'] ?? $data['systemPrompt'] ?? ''),
             'temperature' => $this->clamp(self::toFloat($data['temperature'] ?? 0.7), 0.0, 2.0),
@@ -414,7 +428,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
 
         return [
             'identifier' => $this->sanitizeIdentifier(self::toStr($data['identifier'] ?? '')),
-            'name' => self::toStr($data['name'] ?? 'New Task') ?: 'New Task',
+            'name' => self::toStr($data['name'] ?? self::DEFAULT_TASK_NAME) ?: self::DEFAULT_TASK_NAME,
             'description' => self::toStr($data['description'] ?? $description) ?: $description,
             'category' => in_array($category, $validCategories, true) ? $category : 'general',
             'prompt_template' => self::toStr($data['prompt_template'] ?? $data['promptTemplate'] ?? ''),
@@ -435,7 +449,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
 
         return [
             'identifier' => $identifier,
-            'name' => 'New Configuration',
+            'name' => self::DEFAULT_CONFIGURATION_NAME,
             'description' => $description,
             'system_prompt' => 'You are a helpful assistant. ' . $description,
             'temperature' => 0.7,
@@ -460,7 +474,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
 
         return [
             'identifier' => $identifier,
-            'name' => 'New Task',
+            'name' => self::DEFAULT_TASK_NAME,
             'description' => $description,
             'category' => 'general',
             'prompt_template' => $description . "\n\n{{input}}",
@@ -578,7 +592,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         return [
             'task' => [
                 'identifier' => $this->sanitizeIdentifier(self::toStr($taskData['identifier'] ?? '')),
-                'name' => self::toStr($taskData['name'] ?? 'New Task') ?: 'New Task',
+                'name' => self::toStr($taskData['name'] ?? self::DEFAULT_TASK_NAME) ?: self::DEFAULT_TASK_NAME,
                 'description' => self::toStr($taskData['description'] ?? $description) ?: $description,
                 'category' => in_array($category, $validCategories, true) ? $category : 'general',
                 'prompt_template' => self::toStr($taskData['prompt_template'] ?? $taskData['promptTemplate'] ?? ''),
@@ -619,7 +633,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         return [
             'task' => [
                 'identifier' => $identifier,
-                'name' => 'New Task',
+                'name' => self::DEFAULT_TASK_NAME,
                 'description' => $description,
                 'category' => 'general',
                 'prompt_template' => $description . "\n\n{{input}}",

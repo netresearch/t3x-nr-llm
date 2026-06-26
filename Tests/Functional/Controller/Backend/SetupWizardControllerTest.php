@@ -39,6 +39,13 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 #[CoversClass(SetupWizardController::class)]
 final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 {
+    private const AJAX_NRLLM_WIZARD_GENERATE = '/ajax/nrllm/wizard/generate';
+    private const AJAX_NRLLM_WIZARD_DETECT = '/ajax/nrllm/wizard/detect';
+    private const HTTPS_API_OPENAI_COM_V1 = 'https://api.openai.com/v1';
+    private const ENDPOINT_URL_IS_REQUIRED = 'Endpoint URL is required';
+    private const AJAX_NRLLM_WIZARD_SAVE = '/ajax/nrllm/wizard/save';
+    private const APPLICATION_JSON = 'application/json';
+
     private SetupWizardController $controller;
 
     protected function setUp(): void
@@ -136,8 +143,8 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function detectReturnsProviderInfoForValidEndpoint(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/wizard/detect');
-        $request = $request->withParsedBody(['endpoint' => 'https://api.openai.com/v1']);
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_DETECT);
+        $request = $request->withParsedBody(['endpoint' => self::HTTPS_API_OPENAI_COM_V1]);
 
         // Act
         $response = $this->controller->detectAction($request);
@@ -157,7 +164,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function detectReturnsErrorForMissingEndpoint(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/wizard/detect');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_DETECT);
         $request = $request->withParsedBody([]);
 
         // Act
@@ -168,13 +175,13 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Endpoint URL is required', $body['error']);
+        self::assertSame(self::ENDPOINT_URL_IS_REQUIRED, $body['error']);
     }
 
     #[Test]
     public function detectReturnsErrorForEmptyEndpoint(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/wizard/detect');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_DETECT);
         $request = $request->withParsedBody(['endpoint' => '']);
 
         // Act
@@ -205,7 +212,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Endpoint URL is required', $body['error']);
+        self::assertSame(self::ENDPOINT_URL_IS_REQUIRED, $body['error']);
     }
 
     #[Test]
@@ -215,7 +222,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         // Without a real API, it will return connection failure which is expected.
         $request = new ServerRequest('POST', '/ajax/nrllm/wizard/test');
         $request = $request->withParsedBody([
-            'endpoint' => 'https://api.openai.com/v1',
+            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
             'apiKey' => 'sk-invalid-key',
             'adapterType' => 'openai',
         ]);
@@ -249,7 +256,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Endpoint URL is required', $body['error']);
+        self::assertSame(self::ENDPOINT_URL_IS_REQUIRED, $body['error']);
     }
 
     #[Test]
@@ -258,7 +265,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         // Note: Without real API, this returns empty models array
         $request = new ServerRequest('POST', '/ajax/nrllm/wizard/discover');
         $request = $request->withParsedBody([
-            'endpoint' => 'https://api.openai.com/v1',
+            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
             'apiKey' => 'sk-test',
             'adapterType' => 'openai',
         ]);
@@ -282,8 +289,8 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function generateActionReturnsErrorForMissingEndpoint(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/wizard/generate');
-        $request = $request->withHeader('Content-Type', 'application/json');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_GENERATE);
+        $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
         $request = $request->withBody(Utils::streamFor(json_encode([
             'models' => [['modelId' => 'gpt-5', 'name' => 'GPT-5']],
         ])));
@@ -302,10 +309,10 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function generateActionReturnsErrorForMissingModels(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/wizard/generate');
-        $request = $request->withHeader('Content-Type', 'application/json');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_GENERATE);
+        $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
         $request = $request->withBody(Utils::streamFor(json_encode([
-            'endpoint' => 'https://api.openai.com/v1',
+            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
         ])));
 
         // Act
@@ -321,10 +328,10 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function generateActionReturnsConfigurationsArray(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/wizard/generate');
-        $request = $request->withHeader('Content-Type', 'application/json');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_GENERATE);
+        $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
         $request = $request->withBody(Utils::streamFor(json_encode([
-            'endpoint' => 'https://api.openai.com/v1',
+            'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
             'apiKey' => 'sk-test',
             'adapterType' => 'openai',
             'models' => [
@@ -351,7 +358,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function detectHandlesOllamaEndpoint(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/wizard/detect');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_DETECT);
         $request = $request->withParsedBody(['endpoint' => 'http://localhost:11434']);
 
         // Act
@@ -370,7 +377,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function detectHandlesAnthropicEndpoint(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/wizard/detect');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_DETECT);
         $request = $request->withParsedBody(['endpoint' => 'https://api.anthropic.com/v1']);
 
         // Act
@@ -393,8 +400,8 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function saveActionReturnsErrorForMissingProvider(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/wizard/save');
-        $request = $request->withHeader('Content-Type', 'application/json');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_SAVE);
+        $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
         $request = $request->withBody(Utils::streamFor(json_encode([
             'models' => [['modelId' => 'gpt-5', 'name' => 'GPT-5', 'selected' => true]],
         ])));
@@ -413,13 +420,13 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function saveActionReturnsErrorForMissingModels(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/wizard/save');
-        $request = $request->withHeader('Content-Type', 'application/json');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_SAVE);
+        $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
         $request = $request->withBody(Utils::streamFor(json_encode([
             'provider' => [
                 'suggestedName' => 'OpenAI',
                 'adapterType' => 'openai',
-                'endpoint' => 'https://api.openai.com/v1',
+                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
                 'apiKey' => 'sk-test',
             ],
         ])));
@@ -445,13 +452,13 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $this->importFixture('BeUsers.csv');
         $this->setUpBackendUser(1);
 
-        $request = new ServerRequest('POST', '/ajax/nrllm/wizard/save');
-        $request = $request->withHeader('Content-Type', 'application/json');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_SAVE);
+        $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
         $request = $request->withBody(Utils::streamFor(json_encode([
             'provider' => [
                 'suggestedName' => 'Test OpenAI Provider',
                 'adapterType' => 'openai',
-                'endpoint' => 'https://api.openai.com/v1',
+                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
                 'apiKey' => 'sk-test-key-12345',
             ],
             'models' => [
@@ -494,13 +501,13 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $this->importFixture('BeUsers.csv');
         $this->setUpBackendUser(1);
 
-        $request = new ServerRequest('POST', '/ajax/nrllm/wizard/save');
-        $request = $request->withHeader('Content-Type', 'application/json');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_SAVE);
+        $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
         $request = $request->withBody(Utils::streamFor(json_encode([
             'provider' => [
                 'suggestedName' => 'OpenAI With Config',
                 'adapterType' => 'openai',
-                'endpoint' => 'https://api.openai.com/v1',
+                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
                 'apiKey' => 'sk-test',
             ],
             'models' => [

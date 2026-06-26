@@ -162,18 +162,27 @@ import Notification from '@typo3/backend/notification.js';
             if (costOutInput) setFieldValue(costOutInput, String(model.costOutput));
         }
 
-        if (model.capabilities && Array.isArray(model.capabilities)) {
-            let match = inputName.match(/^data\[([^\]]+)\]\[([^\]]+)\]/);
-            if (match) {
-                const selector = '[name^="data[' + match[1] + '][' + match[2] + '][capabilities]"]';
-                document.querySelectorAll(selector).forEach(function (el) {
-                    if (el.type === 'checkbox') {
-                        el.checked = model.capabilities.includes(el.value);
-                        el.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                });
-            }
+        autoFillCapabilities(model, inputName);
+    }
+
+    /**
+     * Tick capability checkboxes matching the selected model's capabilities.
+     */
+    function autoFillCapabilities(model, inputName) {
+        if (!model.capabilities || !Array.isArray(model.capabilities)) {
+            return;
         }
+        const match = inputName.match(/^data\[([^\]]+)\]\[([^\]]+)\]/);
+        if (!match) {
+            return;
+        }
+        const selector = '[name^="data[' + match[1] + '][' + match[2] + '][capabilities]"]';
+        document.querySelectorAll(selector).forEach(function (el) {
+            if (el.type === 'checkbox') {
+                el.checked = model.capabilities.includes(el.value);
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
     }
 
     /**
@@ -182,7 +191,7 @@ import Notification from '@typo3/backend/notification.js';
     function setFieldValue(input, value) {
         input.value = value;
         input.dispatchEvent(new Event('change', { bubbles: true }));
-        const actualName = input.getAttribute('data-formengine-input-name');
+        const actualName = input.dataset.formengineInputName;
         if (actualName) {
             const hidden = document.querySelector('input[name="' + actualName + '"][type="hidden"]');
             if (hidden) hidden.value = value;
@@ -237,13 +246,25 @@ import Notification from '@typo3/backend/notification.js';
     }
 
     /**
+     * Filter models by a lowercased query string against id, name, description and capabilities.
+     */
+    function filterModels(models, q) {
+        return models.filter(function (m) {
+            return m.id?.toLowerCase().includes(q)
+                || m.name?.toLowerCase().includes(q)
+                || m.description?.toLowerCase().includes(q)
+                || m.capabilities?.some(function (c) { return c.includes(q); });
+        });
+    }
+
+    /**
      * Render the model dropdown with filter.
      */
     function renderDropdown(dropdown, models, input, button) {
         dropdown.replaceChildren();
 
-        const tableName = button.getAttribute('data-table') || 'tx_nrllm_model';
-        const inputName = input.getAttribute('data-formengine-input-name') || input.name;
+        const tableName = button.dataset.table || 'tx_nrllm_model';
+        const inputName = input.dataset.formengineInputName || input.name;
 
         // Filter input
         const filterWrap = document.createElement('div');
@@ -303,13 +324,7 @@ import Notification from '@typo3/backend/notification.js';
                     renderItems(models);
                     return;
                 }
-                const filtered = models.filter(function (m) {
-                    return m.id?.toLowerCase().includes(q)
-                        || m.name?.toLowerCase().includes(q)
-                        || m.description?.toLowerCase().includes(q)
-                        || (m.capabilities && m.capabilities.some(function (c) { return c.includes(q); }));
-                });
-                renderItems(filtered);
+                renderItems(filterModels(models, q));
             }, 150);
         });
 
@@ -330,26 +345,26 @@ import Notification from '@typo3/backend/notification.js';
      */
     function handleFetchClick(event) {
         const button = event.currentTarget;
-        const fetchUrl = button.getAttribute('data-fetch-url');
-        const inputId = button.getAttribute('data-input-id');
-        const tableName = button.getAttribute('data-table');
+        const fetchUrl = button.dataset.fetchUrl;
+        const inputId = button.dataset.inputId;
+        const tableName = button.dataset.table;
 
         const input = document.getElementById(inputId);
         if (!input) return;
-        const inputName = input.getAttribute('data-formengine-input-name') || input.name;
+        const inputName = input.dataset.formengineInputName || input.name;
 
         // Toggle dropdown if already open
         const existingDropdown = button.closest('.form-control-wrap').querySelector('.js-model-dropdown');
-        if (existingDropdown && existingDropdown.style.display === 'block') {
+        if (existingDropdown?.style.display === 'block') {
             existingDropdown.style.display = 'none';
             return;
         }
 
         // Read current provider_uid
-        let providerUid = parseInt(button.getAttribute('data-provider-uid'), 10) || 0;
+        let providerUid = Number.parseInt(button.dataset.providerUid, 10) || 0;
         const providerInput = findFormEngineInput(tableName, inputName, 'provider_uid');
         if (providerInput) {
-            providerUid = parseInt(providerInput.value, 10) || providerUid;
+            providerUid = Number.parseInt(providerInput.value, 10) || providerUid;
         }
 
         if (providerUid === 0) {
@@ -422,10 +437,10 @@ import Notification from '@typo3/backend/notification.js';
     // Invalidate cache when provider changes
     document.addEventListener('change', function (e) {
         const target = e.target;
-        if (!target || !target.name) return;
+        if (!target?.name) return;
         if (!target.name.includes('[provider_uid]')) return;
         document.querySelectorAll('.js-fetch-models').forEach(function (button) {
-            const inputId = button.getAttribute('data-input-id');
+            const inputId = button.dataset.inputId;
             const input = document.getElementById(inputId);
             if (input) {
                 input._fetchedModels = null;

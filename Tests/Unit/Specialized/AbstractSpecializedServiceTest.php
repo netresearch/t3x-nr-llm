@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized;
 
+use LogicException;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -1078,7 +1079,13 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $stub = self::createStub(RequestFactoryInterface::class);
         $stub->method('createRequest')
             ->willReturnCallback(static function (string $method, mixed $uri): RequestInterface {
-                $uriString = is_string($uri) ? $uri : (is_object($uri) && method_exists($uri, '__toString') ? $uri->__toString() : '');
+                if (is_string($uri)) {
+                    $uriString = $uri;
+                } elseif (is_object($uri) && method_exists($uri, '__toString')) {
+                    $uriString = $uri->__toString();
+                } else {
+                    $uriString = '';
+                }
                 return new TestableRequest($method, $uriString);
             });
         return $stub;
@@ -1275,7 +1282,7 @@ final class TestableRequest implements RequestInterface
     public function getBody(): StreamInterface
     {
         if ($this->body === null) {
-            throw new RuntimeException('No body set', 3134810639);
+            throw new LogicException('No body set', 3134810639);
         }
         return $this->body;
     }
@@ -1308,7 +1315,7 @@ final class TestableRequest implements RequestInterface
     }
     public function getUri(): UriInterface
     {
-        throw new RuntimeException('Not implemented', 4146456712);
+        throw new LogicException('Not implemented', 4146456712);
     }
     public function withUri(UriInterface $uri, bool $preserveHost = false): static
     {

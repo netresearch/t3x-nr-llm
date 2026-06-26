@@ -28,6 +28,8 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
  */
 final class ProviderDetector
 {
+    private const PROVIDER_NAME_MISTRAL = 'Mistral AI';
+
     /**
      * Detection patterns: [pattern => [adapterType, suggestedName, confidence]].
      *
@@ -50,8 +52,8 @@ final class ProviderDetector
         'openrouter.ai' => ['openrouter', 'OpenRouter', 1.0],
 
         // Mistral
-        'api.mistral.ai' => ['mistral', 'Mistral AI', 1.0],
-        'mistral.ai' => ['mistral', 'Mistral AI', 0.9],
+        'api.mistral.ai' => ['mistral', self::PROVIDER_NAME_MISTRAL, 1.0],
+        'mistral.ai' => ['mistral', self::PROVIDER_NAME_MISTRAL, 0.9],
 
         // Groq
         'api.groq.com' => ['groq', 'Groq', 1.0],
@@ -100,6 +102,16 @@ final class ProviderDetector
             );
         }
 
+        // Check known patterns, then OpenAI-compatible / unknown fallbacks
+        return $this->detectByPattern($endpoint, $host);
+    }
+
+    /**
+     * Detect provider from known host patterns, falling back to OpenAI-compatible
+     * and finally to an unknown/custom provider.
+     */
+    private function detectByPattern(string $endpoint, string $host): DetectedProvider
+    {
         // Check known patterns
         foreach (self::DETECTION_PATTERNS as $pattern => [$adapterType, $suggestedName, $confidence]) {
             if (str_contains($host, $pattern)) {
@@ -150,7 +162,7 @@ final class ProviderDetector
             'anthropic' => 'Anthropic',
             'gemini' => 'Google Gemini',
             'openrouter' => 'OpenRouter',
-            'mistral' => 'Mistral AI',
+            'mistral' => self::PROVIDER_NAME_MISTRAL,
             'groq' => 'Groq',
             'ollama' => 'Ollama (Local)',
             'azure_openai' => 'Azure OpenAI',

@@ -287,7 +287,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
     protected function getServiceProvider(): string
     {
-        return 'deepl';
+        return $this->getIdentifier();
     }
 
     protected function getDefaultBaseUrl(): string
@@ -400,16 +400,14 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
      */
     protected function decodeErrorMessage(string $responseBody): string
     {
-        if ($responseBody === '') {
-            return $this->unknownErrorLabel();
-        }
-        $error = json_decode($responseBody, true);
-        if (!is_array($error)) {
-            return $this->unknownErrorLabel();
-        }
-        $message = $error['message'] ?? null;
-        if (is_string($message) && $message !== '') {
-            return $message;
+        if ($responseBody !== '') {
+            $error = json_decode($responseBody, true);
+            if (is_array($error)) {
+                $message = $error['message'] ?? null;
+                if (is_string($message) && $message !== '') {
+                    return $message;
+                }
+            }
         }
         return $this->unknownErrorLabel();
     }
@@ -488,20 +486,36 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             $payload['preserve_formatting'] = $deepLOptions->preserveFormatting ? '1' : '0';
         }
 
-        if ($deepLOptions->tagHandling !== null) {
-            $payload['tag_handling'] = $deepLOptions->tagHandling;
-
-            if ($deepLOptions->ignoreTags !== null) {
-                $payload['ignore_tags'] = implode(',', $deepLOptions->ignoreTags);
-            }
-
-            if ($deepLOptions->nonSplittingTags !== null) {
-                $payload['non_splitting_tags'] = implode(',', $deepLOptions->nonSplittingTags);
-            }
-        }
+        $payload = $this->applyTagHandling($payload, $deepLOptions);
 
         if ($deepLOptions->splitSentences !== null) {
             $payload['split_sentences'] = $deepLOptions->splitSentences ? '1' : '0';
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Apply DeepL tag-handling options to a translate payload.
+     *
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, mixed>
+     */
+    private function applyTagHandling(array $payload, DeepLOptions $deepLOptions): array
+    {
+        if ($deepLOptions->tagHandling === null) {
+            return $payload;
+        }
+
+        $payload['tag_handling'] = $deepLOptions->tagHandling;
+
+        if ($deepLOptions->ignoreTags !== null) {
+            $payload['ignore_tags'] = implode(',', $deepLOptions->ignoreTags);
+        }
+
+        if ($deepLOptions->nonSplittingTags !== null) {
+            $payload['non_splitting_tags'] = implode(',', $deepLOptions->nonSplittingTags);
         }
 
         return $payload;

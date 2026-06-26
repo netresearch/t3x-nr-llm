@@ -54,17 +54,9 @@ final readonly class Segment
      */
     public static function fromWhisperResponse(array $data): self
     {
-        /** @var list<Word>|null $words */
-        $words = null;
-        if (isset($data['words']) && is_array($data['words'])) {
-            $words = [];
-            foreach ($data['words'] as $wordData) {
-                if (is_array($wordData)) {
-                    /** @var array<string, mixed> $wordData */
-                    $words[] = Word::fromWhisperResponse($wordData);
-                }
-            }
-        }
+        $words = isset($data['words']) && is_array($data['words'])
+            ? self::parseWords($data['words'])
+            : null;
 
         $text = isset($data['text']) && is_string($data['text']) ? $data['text'] : '';
         $start = isset($data['start']) && (is_float($data['start']) || is_int($data['start']))
@@ -86,5 +78,25 @@ final readonly class Segment
             confidence: $confidence,
             words: $words,
         );
+    }
+
+    /**
+     * Convert Whisper word-level data into Word objects.
+     *
+     * @param array<mixed> $wordsData Raw word entries from the Whisper response
+     *
+     * @return list<Word>
+     */
+    private static function parseWords(array $wordsData): array
+    {
+        $words = [];
+        foreach ($wordsData as $wordData) {
+            if (is_array($wordData)) {
+                /** @var array<string, mixed> $wordData */
+                $words[] = Word::fromWhisperResponse($wordData);
+            }
+        }
+
+        return $words;
     }
 }

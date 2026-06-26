@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
+use LogicException;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -28,7 +29,6 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\NullLogger;
 use ReflectionClass;
-use RuntimeException;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryInterface;
@@ -245,7 +245,7 @@ final class ModelControllerTest extends TestCase
 
         $this->modelRepository
             ->method('update')
-            ->willThrowException(new RuntimeException('Database error'));
+            ->willThrowException(new LogicException('Database error'));
 
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->toggleActiveAction($request);
@@ -338,7 +338,7 @@ final class ModelControllerTest extends TestCase
 
         $this->modelRepository
             ->method('setAsDefault')
-            ->willThrowException(new RuntimeException('Database error'));
+            ->willThrowException(new LogicException('Database error'));
 
         $request = $this->createRequest(['uid' => 1]);
         $response = $this->subject->setDefaultAction($request);
@@ -375,7 +375,10 @@ final class ModelControllerTest extends TestCase
             {
                 $this->items = array_values($items);
             }
-            public function setQuery(QueryInterface $query): void {}
+            public function setQuery(QueryInterface $query): void
+            {
+                // Intentionally empty: this in-memory stub ignores the query object.
+            }
             public function getFirst(): ?object
             {
                 return $this->items[0] ?? null;
@@ -394,7 +397,7 @@ final class ModelControllerTest extends TestCase
             }
             public function getQuery(): QueryInterface
             {
-                throw new RuntimeException('Not implemented', 7771386589);
+                throw new LogicException('Not implemented', 7771386589);
             }
             public function offsetExists($offset): bool
             {
@@ -480,7 +483,7 @@ final class ModelControllerTest extends TestCase
     {
         $this->modelRepository
             ->method('findByProviderUid')
-            ->willThrowException(new RuntimeException('Database error'));
+            ->willThrowException(new LogicException('Database error'));
 
         $request = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->getByProviderAction($request);
@@ -632,7 +635,7 @@ final class ModelControllerTest extends TestCase
         $adapter = $this->createMock(ProviderInterface::class);
         $adapter
             ->method('complete')
-            ->willThrowException(new RuntimeException('API connection failed'));
+            ->willThrowException(new LogicException('API connection failed'));
 
         $this->providerAdapterRegistry
             ->expects(self::once())
@@ -803,7 +806,7 @@ final class ModelControllerTest extends TestCase
 
         $this->modelDiscovery
             ->method('discover')
-            ->willThrowException(new RuntimeException('API unavailable'));
+            ->willThrowException(new LogicException('API unavailable'));
 
         $request = $this->createRequest(['providerUid' => 1]);
         $response = $this->subject->fetchAvailableModelsAction($request);
@@ -953,7 +956,7 @@ final class ModelControllerTest extends TestCase
 
         $this->modelDiscovery
             ->method('discover')
-            ->willThrowException(new RuntimeException('API unavailable'));
+            ->willThrowException(new LogicException('API unavailable'));
 
         $request = $this->createRequest(['providerUid' => 1, 'modelId' => 'gpt-4o']);
         $response = $this->subject->detectLimitsAction($request);

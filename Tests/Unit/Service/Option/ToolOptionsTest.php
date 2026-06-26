@@ -65,7 +65,7 @@ class ToolOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('tool_choice must be one of: auto, none, required');
 
-        new ToolOptions(toolChoice: $toolChoice);
+        self::assertInstanceOf(ToolOptions::class, new ToolOptions(toolChoice: $toolChoice));
     }
 
     /**
@@ -160,7 +160,7 @@ class ToolOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('temperature must be between 0 and 2');
 
-        new ToolOptions(temperature: 3.0);
+        self::assertInstanceOf(ToolOptions::class, new ToolOptions(temperature: 3.0));
     }
 
     #[Test]

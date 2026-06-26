@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Psr\Http\Message\RequestInterface;
 use Throwable;
 
 /**
@@ -537,6 +538,52 @@ final class OpenRouterProvider extends AbstractProvider implements
 
         $model = $this->selectModel($options);
 
+        $payload = $this->buildStreamPayload($messages, $model, $options);
+
+        $url = rtrim($this->baseUrl, '/') . '/' . self::ENDPOINT_CHAT_COMPLETIONS;
+
+        $request = $this->createStreamingRequest($url, $payload);
+
+        $response = $this->getHttpClient()->sendRequest($request);
+        $this->assertStreamingResponseOk($response, self::ENDPOINT_CHAT_COMPLETIONS);
+        $stream = $response->getBody();
+
+        $buffer = '';
+        while (!$stream->eof()) {
+            $buffer .= $stream->read(1024);
+
+            while (($pos = strpos($buffer, "\n")) !== false) {
+                $line = substr($buffer, 0, $pos);
+                $buffer = substr($buffer, $pos + 1);
+
+                if (!str_starts_with($line, 'data: ')) {
+                    continue;
+                }
+
+                $data = substr($line, 6);
+
+                if ($data === '[DONE]') {
+                    return;
+                }
+
+                $content = $this->extractStreamDeltaContent($data);
+                if ($content !== '') {
+                    yield $content;
+                }
+            }
+        }
+    }
+
+    /**
+     * Build the streaming chat-completion request payload.
+     *
+     * @param list<array<string, mixed>> $messages
+     * @param array<string, mixed>       $options
+     *
+     * @return array<string, mixed>
+     */
+    private function buildStreamPayload(array $messages, string $model, array $options): array
+    {
         $payload = [
             'model' => $model,
             'messages' => $messages,
@@ -553,8 +600,16 @@ final class OpenRouterProvider extends AbstractProvider implements
             }
         }
 
-        $url = rtrim($this->baseUrl, '/') . '/' . self::ENDPOINT_CHAT_COMPLETIONS;
+        return $payload;
+    }
 
+    /**
+     * Build the streaming HTTP request with OpenRouter attribution headers.
+     *
+     * @param array<string, mixed> $payload
+     */
+    private function createStreamingRequest(string $url, array $payload): RequestInterface
+    {
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json')
             ->withHeader('Accept', 'text/event-stream');
@@ -568,46 +623,34 @@ final class OpenRouterProvider extends AbstractProvider implements
         }
 
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR));
-        $request = $request->withBody($body);
 
-        $response = $this->getHttpClient()->sendRequest($request);
-        $this->assertStreamingResponseOk($response, self::ENDPOINT_CHAT_COMPLETIONS);
-        $stream = $response->getBody();
+        return $request->withBody($body);
+    }
 
-        $buffer = '';
-        while (!$stream->eof()) {
-            $chunk = $stream->read(1024);
-            $buffer .= $chunk;
-
-            while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = substr($buffer, 0, $pos);
-                $buffer = substr($buffer, $pos + 1);
-
-                if (str_starts_with($line, 'data: ')) {
-                    $data = substr($line, 6);
-
-                    if ($data === '[DONE]') {
-                        return;
-                    }
-
-                    try {
-                        $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
-                        if (is_array($decoded)) {
-                            $json = $this->asArray($decoded);
-                            $choices = $this->getList($json, 'choices');
-                            $firstChoice = $this->asArray($choices[0] ?? []);
-                            $delta = $this->getArray($firstChoice, 'delta');
-                            $content = $this->getString($delta, 'content');
-                            if ($content !== '') {
-                                yield $content;
-                            }
-                        }
-                    } catch (JsonException) {
-                        // Skip malformed JSON
-                    }
-                }
-            }
+    /**
+     * Extract the delta content from a single SSE "data:" payload.
+     *
+     * Returns an empty string for malformed JSON or when no content delta is present.
+     */
+    private function extractStreamDeltaContent(string $data): string
+    {
+        try {
+            $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            // Skip malformed JSON
+            return '';
         }
+
+        if (!is_array($decoded)) {
+            return '';
+        }
+
+        $json = $this->asArray($decoded);
+        $choices = $this->getList($json, 'choices');
+        $firstChoice = $this->asArray($choices[0] ?? []);
+        $delta = $this->getArray($firstChoice, 'delta');
+
+        return $this->getString($delta, 'content');
     }
 
     public function supportsStreaming(): bool
@@ -628,29 +671,27 @@ final class OpenRouterProvider extends AbstractProvider implements
             return $model;
         }
 
-        // Explicit strategy: use default model
-        if ($this->routingStrategy === 'explicit') {
-            return $this->getDefaultModel();
+        // Non-explicit strategies attempt smart routing over the available models.
+        if ($this->routingStrategy !== 'explicit') {
+            $models = $this->fetchAvailableModels();
+
+            // Filter models by requirements
+            $candidates = $models === []
+                ? []
+                : $this->filterModelsByRequirements($models, $options);
+
+            if ($candidates !== []) {
+                return match ($this->routingStrategy) {
+                    'cost_optimized' => $this->selectCheapestModel($candidates),
+                    'performance' => $this->selectFastestModel($candidates),
+                    'balanced' => $this->selectBalancedModel($candidates),
+                    default => $this->getDefaultModel(),
+                };
+            }
         }
 
-        // Try to fetch available models for smart routing
-        $models = $this->fetchAvailableModels();
-        if ($models === []) {
-            return $this->getDefaultModel();
-        }
-
-        // Filter models by requirements
-        $candidates = $this->filterModelsByRequirements($models, $options);
-        if ($candidates === []) {
-            return $this->getDefaultModel();
-        }
-
-        return match ($this->routingStrategy) {
-            'cost_optimized' => $this->selectCheapestModel($candidates),
-            'performance' => $this->selectFastestModel($candidates),
-            'balanced' => $this->selectBalancedModel($candidates),
-            default => $this->getDefaultModel(),
-        };
+        // Explicit strategy, no models available, or no matching candidates: use default model
+        return $this->getDefaultModel();
     }
 
     /**

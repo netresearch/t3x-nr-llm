@@ -115,7 +115,7 @@ class UserBudget extends AbstractEntity
 
     public function getIsActive(): bool
     {
-        return $this->isActive;
+        return $this->isActive();
     }
 
     public function setIsActive(bool $isActive): void
