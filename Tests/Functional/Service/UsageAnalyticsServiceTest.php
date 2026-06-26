@@ -19,6 +19,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 #[CoversClass(UsageAnalyticsService::class)]
 final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
 {
+    private const LIT_2026_06_01 = '2026-06-01';
+    private const LIT_2026_06_02 = '2026-06-02';
+
     private const TABLE = 'tx_nrllm_service_usage';
 
     private UsageAnalyticsService $service;
@@ -102,10 +105,10 @@ final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
     #[Test]
     public function kpiTotalsSumAcrossTheWindow(): void
     {
-        $this->insertRow('2026-06-01', ['estimated_cost' => 0.10, 'request_count' => 5, 'tokens_used' => 500, 'service_provider' => 'openai', 'model_id' => 'gpt-4o']);
-        $this->insertRow('2026-06-02', ['estimated_cost' => 0.20, 'request_count' => 3, 'tokens_used' => 300, 'service_provider' => 'claude', 'model_id' => 'claude-sonnet']);
+        $this->insertRow(self::LIT_2026_06_01, ['estimated_cost' => 0.10, 'request_count' => 5, 'tokens_used' => 500, 'service_provider' => 'openai', 'model_id' => 'gpt-4o']);
+        $this->insertRow(self::LIT_2026_06_02, ['estimated_cost' => 0.20, 'request_count' => 3, 'tokens_used' => 300, 'service_provider' => 'claude', 'model_id' => 'claude-sonnet']);
 
-        $kpi = $this->service->getKpiTotals(new DateTimeImmutable('2026-06-01'), new DateTimeImmutable('2026-06-02'));
+        $kpi = $this->service->getKpiTotals(new DateTimeImmutable(self::LIT_2026_06_01), new DateTimeImmutable(self::LIT_2026_06_02));
 
         self::assertEqualsWithDelta(0.30, $kpi['cost'], 0.0001);
         self::assertSame(8, $kpi['requests']);
@@ -117,23 +120,23 @@ final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
     #[Test]
     public function dailyTrendIsZeroFilledAndContinuous(): void
     {
-        $this->insertRow('2026-06-01', ['estimated_cost' => 0.10]);
+        $this->insertRow(self::LIT_2026_06_01, ['estimated_cost' => 0.10]);
         $this->insertRow('2026-06-03', ['estimated_cost' => 0.30]);
 
-        $trend = $this->service->getDailyTrend(new DateTimeImmutable('2026-06-01'), new DateTimeImmutable('2026-06-03'));
+        $trend = $this->service->getDailyTrend(new DateTimeImmutable(self::LIT_2026_06_01), new DateTimeImmutable('2026-06-03'));
 
         self::assertCount(3, $trend);
-        self::assertSame('2026-06-02', $trend[1]['date']);
+        self::assertSame(self::LIT_2026_06_02, $trend[1]['date']);
         self::assertSame(0.0, $trend[1]['cost']);
     }
 
     #[Test]
     public function breakdownByModelOrdersByCostDesc(): void
     {
-        $this->insertRow('2026-06-01', ['model_id' => 'gpt-4o', 'estimated_cost' => 0.10]);
-        $this->insertRow('2026-06-01', ['model_id' => 'claude-sonnet', 'estimated_cost' => 0.50, 'model_uid' => 2]);
+        $this->insertRow(self::LIT_2026_06_01, ['model_id' => 'gpt-4o', 'estimated_cost' => 0.10]);
+        $this->insertRow(self::LIT_2026_06_01, ['model_id' => 'claude-sonnet', 'estimated_cost' => 0.50, 'model_uid' => 2]);
 
-        $byModel = $this->service->getBreakdownByModel(new DateTimeImmutable('2026-06-01'), new DateTimeImmutable('2026-06-01'));
+        $byModel = $this->service->getBreakdownByModel(new DateTimeImmutable(self::LIT_2026_06_01), new DateTimeImmutable(self::LIT_2026_06_01));
 
         self::assertSame('claude-sonnet', $byModel[0]['label']);
         self::assertSame('gpt-4o', $byModel[1]['label']);
@@ -143,14 +146,14 @@ final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
     public function getTotalsGroupedByKeysByColumnValue(): void
     {
         // Two rows share configuration_uid 5 (must SUM), one has 6.
-        $this->insertRow('2026-06-01', ['configuration_uid' => 5, 'estimated_cost' => 0.01, 'request_count' => 1, 'tokens_used' => 100]);
-        $this->insertRow('2026-06-01', ['configuration_uid' => 5, 'estimated_cost' => 0.01, 'request_count' => 1, 'tokens_used' => 100]);
-        $this->insertRow('2026-06-01', ['configuration_uid' => 6, 'estimated_cost' => 0.05, 'request_count' => 3, 'tokens_used' => 300]);
+        $this->insertRow(self::LIT_2026_06_01, ['configuration_uid' => 5, 'estimated_cost' => 0.01, 'request_count' => 1, 'tokens_used' => 100]);
+        $this->insertRow(self::LIT_2026_06_01, ['configuration_uid' => 5, 'estimated_cost' => 0.01, 'request_count' => 1, 'tokens_used' => 100]);
+        $this->insertRow(self::LIT_2026_06_01, ['configuration_uid' => 6, 'estimated_cost' => 0.05, 'request_count' => 3, 'tokens_used' => 300]);
 
         $totals = $this->service->getTotalsGroupedBy(
             'configuration_uid',
-            new DateTimeImmutable('2026-06-01'),
-            new DateTimeImmutable('2026-06-01'),
+            new DateTimeImmutable(self::LIT_2026_06_01),
+            new DateTimeImmutable(self::LIT_2026_06_01),
         );
 
         self::assertArrayHasKey(5, $totals);
@@ -166,9 +169,9 @@ final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
     #[Test]
     public function perUserUsageLabelsSystemForUidZero(): void
     {
-        $this->insertRow('2026-06-01', ['be_user' => 0, 'estimated_cost' => 0.10]);
+        $this->insertRow(self::LIT_2026_06_01, ['be_user' => 0, 'estimated_cost' => 0.10]);
 
-        $perUser = $this->service->getPerUserUsage(new DateTimeImmutable('2026-06-01'), new DateTimeImmutable('2026-06-01'));
+        $perUser = $this->service->getPerUserUsage(new DateTimeImmutable(self::LIT_2026_06_01), new DateTimeImmutable(self::LIT_2026_06_01));
 
         self::assertNotEmpty($perUser);
         self::assertSame('system', $perUser[0]['label']);

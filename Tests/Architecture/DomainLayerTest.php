@@ -27,6 +27,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final class DomainLayerTest
 {
+    private const DOMAIN_MODEL_NS = 'Netresearch\NrLlm\Domain\Model';
+
     /**
      * Domain models should not depend on repositories.
      *
@@ -36,7 +38,7 @@ final class DomainLayerTest
     public function testDomainModelsDoNotDependOnRepositories(): Rule
     {
         return PHPat::rule()
-            ->classes(Selector::inNamespace('Netresearch\NrLlm\Domain\Model'))
+            ->classes(Selector::inNamespace(self::DOMAIN_MODEL_NS))
             ->shouldNotDependOn()
             ->classes(Selector::inNamespace('Netresearch\NrLlm\Domain\Repository'))
             ->because('Domain models must not depend on repositories. Use DTOs and factories for entity hydration.');
@@ -51,7 +53,7 @@ final class DomainLayerTest
     public function testDomainModelsDoNotDependOnControllers(): Rule
     {
         return PHPat::rule()
-            ->classes(Selector::inNamespace('Netresearch\NrLlm\Domain\Model'))
+            ->classes(Selector::inNamespace(self::DOMAIN_MODEL_NS))
             ->shouldNotDependOn()
             ->classes(Selector::inNamespace('Netresearch\NrLlm\Controller'))
             ->because('Domain models must not depend on controllers. This violates dependency inversion.');
@@ -65,7 +67,7 @@ final class DomainLayerTest
     public function testDomainModelsDoNotDependOnHttpClasses(): Rule
     {
         return PHPat::rule()
-            ->classes(Selector::inNamespace('Netresearch\NrLlm\Domain\Model'))
+            ->classes(Selector::inNamespace(self::DOMAIN_MODEL_NS))
             ->shouldNotDependOn()
             ->classes(
                 Selector::inNamespace('Psr\Http'),
@@ -83,7 +85,7 @@ final class DomainLayerTest
     public function testDomainModelsOnlyDependOnDomainAndCore(): Rule
     {
         return PHPat::rule()
-            ->classes(Selector::inNamespace('Netresearch\NrLlm\Domain\Model'))
+            ->classes(Selector::inNamespace(self::DOMAIN_MODEL_NS))
             ->excluding(
                 // Provider needs encryption service for API key handling
                 Selector::classname(Provider::class),
@@ -91,7 +93,7 @@ final class DomainLayerTest
             ->canOnlyDependOn()
             ->classes(
                 // Other domain models (for relations)
-                Selector::inNamespace('Netresearch\NrLlm\Domain\Model'),
+                Selector::inNamespace(self::DOMAIN_MODEL_NS),
                 // Domain enums (type-safe constants)
                 Selector::inNamespace('Netresearch\NrLlm\Domain\Enum'),
                 // Domain DTOs and Value Objects
@@ -119,7 +121,7 @@ final class DomainLayerTest
             ->canOnlyDependOn()
             ->classes(
                 // Other domain models
-                Selector::inNamespace('Netresearch\NrLlm\Domain\Model'),
+                Selector::inNamespace(self::DOMAIN_MODEL_NS),
                 // Domain DTOs (typed value objects — REC #6: ProviderOptions)
                 Selector::inNamespace('Netresearch\NrLlm\Domain\DTO'),
                 // Vault service (required for API key handling via nr-vault)

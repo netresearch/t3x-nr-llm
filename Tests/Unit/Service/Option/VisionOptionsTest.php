@@ -44,7 +44,7 @@ class VisionOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('detail_level must be one of: auto, low, high');
 
-        new VisionOptions(detailLevel: $detailLevel);
+        self::assertInstanceOf(VisionOptions::class, new VisionOptions(detailLevel: $detailLevel));
     }
 
     /**
@@ -86,7 +86,7 @@ class VisionOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('max_tokens must be a positive integer');
 
-        new VisionOptions(maxTokens: 0);
+        self::assertInstanceOf(VisionOptions::class, new VisionOptions(maxTokens: 0));
     }
 
     #[Test]
@@ -96,7 +96,7 @@ class VisionOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('temperature must be between 0 and 2');
 
-        new VisionOptions(temperature: $temperature);
+        self::assertInstanceOf(VisionOptions::class, new VisionOptions(temperature: $temperature));
     }
 
     /**
@@ -292,7 +292,7 @@ class VisionOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('be_user_uid must be >= 0');
 
-        new VisionOptions(beUserUid: -2);
+        self::assertInstanceOf(VisionOptions::class, new VisionOptions(beUserUid: -2));
     }
 
     #[Test]
@@ -301,7 +301,7 @@ class VisionOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('planned_cost must be >= 0.0');
 
-        new VisionOptions(plannedCost: -0.5);
+        self::assertInstanceOf(VisionOptions::class, new VisionOptions(plannedCost: -0.5));
     }
 
     #[Test]

@@ -161,7 +161,7 @@ class DeepLOptionsMutationTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('formality');
 
-        new DeepLOptions(formality: 'invalid');
+        self::assertInstanceOf(DeepLOptions::class, new DeepLOptions(formality: 'invalid'));
     }
 
     #[Test]
@@ -181,7 +181,7 @@ class DeepLOptionsMutationTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('tagHandling');
 
-        new DeepLOptions(tagHandling: 'invalid');
+        self::assertInstanceOf(DeepLOptions::class, new DeepLOptions(tagHandling: 'invalid'));
     }
 
     #[Test]

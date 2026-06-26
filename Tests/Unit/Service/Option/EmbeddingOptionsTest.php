@@ -49,7 +49,7 @@ class EmbeddingOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('dimensions must be a positive integer');
 
-        new EmbeddingOptions(dimensions: -1);
+        self::assertInstanceOf(EmbeddingOptions::class, new EmbeddingOptions(dimensions: -1));
     }
 
     #[Test]
@@ -58,7 +58,7 @@ class EmbeddingOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('dimensions must be a positive integer');
 
-        new EmbeddingOptions(dimensions: 0);
+        self::assertInstanceOf(EmbeddingOptions::class, new EmbeddingOptions(dimensions: 0));
     }
 
     #[Test]
@@ -67,7 +67,7 @@ class EmbeddingOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('cache_ttl must be between');
 
-        new EmbeddingOptions(cacheTtl: -1);
+        self::assertInstanceOf(EmbeddingOptions::class, new EmbeddingOptions(cacheTtl: -1));
     }
 
     // Factory Presets
@@ -227,7 +227,7 @@ class EmbeddingOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('be_user_uid must be >= 0');
 
-        new EmbeddingOptions(beUserUid: -1);
+        self::assertInstanceOf(EmbeddingOptions::class, new EmbeddingOptions(beUserUid: -1));
     }
 
     #[Test]
@@ -236,7 +236,7 @@ class EmbeddingOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('planned_cost must be >= 0.0');
 
-        new EmbeddingOptions(plannedCost: -0.5);
+        self::assertInstanceOf(EmbeddingOptions::class, new EmbeddingOptions(plannedCost: -0.5));
     }
 
     #[Test]

@@ -37,6 +37,13 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 #[CoversClass(TaskRecordsController::class)]
 final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 {
+    private const AJAX_TASK_REFRESH_INPUT = '/ajax/task/refresh-input';
+    private const AJAX_TASK_LOAD_RECORD = '/ajax/task/load-record';
+    private const AJAX_TASK_EXECUTE = '/ajax/task/execute';
+    private const AJAX_TASK_RECORDS = '/ajax/task/records';
+    private const TEST_INPUT = 'Test input';
+    private const INPUT = '{{input}}';
+
     private TaskExecutionController $executionController;
     private TaskRecordsController $recordsController;
     private TaskRepository $taskRepository;
@@ -141,7 +148,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         }
 
         // User enters text and clicks "Run Task"
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $task->getUid(),
             'input' => 'This is test input text for the E2E test.',
         ]);
@@ -171,9 +178,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $task->getUid(),
-            'input' => 'Test input',
+            'input' => self::TEST_INPUT,
         ]);
         $response = $this->executionController->executeAction($request);
 
@@ -192,9 +199,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $task->getUid(),
-            'input' => 'Test input',
+            'input' => self::TEST_INPUT,
         ]);
         $response = $this->executionController->executeAction($request);
 
@@ -215,7 +222,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway5_2_executeTask_errorForNonExistent(): void
     {
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => 99999,
             'input' => 'Test',
         ]);
@@ -243,7 +250,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function pathway5_3_getRecordsFromTable(): void
     {
         // User selects a table and browses records
-        $request = $this->createFormRequest('/ajax/task/records', [
+        $request = $this->createFormRequest(self::AJAX_TASK_RECORDS, [
             'table' => 'pages',
             'limit' => 10,
         ]);
@@ -268,7 +275,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($task);
 
         // User executes task with selected records
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $task->getUid(),
             'inputType' => 'records',
             'table' => 'pages',
@@ -327,7 +334,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
             self::markTestSkipped('No syslog task available');
         }
 
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $task->getUid(),
             'inputType' => 'syslog',
             'limit' => 50,
@@ -370,7 +377,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertSame('custom', $retrieved->getCategory());
         self::assertSame('manual', $retrieved->getInputType());
         self::assertFalse($retrieved->isSystem());
-        self::assertStringContainsString('{{input}}', $retrieved->getPromptTemplate());
+        self::assertStringContainsString(self::INPUT, $retrieved->getPromptTemplate());
     }
 
     #[Test]
@@ -416,7 +423,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setName('Task with Configuration');
         $task->setDescription('Uses specific LLM configuration');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('json');
         $task->setIsActive(true);
@@ -496,7 +503,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $task->getUid(),
             'input' => 'Test input for structured result',
         ]);
@@ -529,7 +536,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function loadRecordDataAction_loadsRecordDetails(): void
     {
         // User wants to load detailed data for a specific record
-        $request = $this->createFormRequest('/ajax/task/load-record', [
+        $request = $this->createFormRequest(self::AJAX_TASK_LOAD_RECORD, [
             'table' => 'pages',
             'uid' => 1,
         ]);
@@ -550,7 +557,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function loadRecordDataAction_errorForMissingTable(): void
     {
-        $request = $this->createFormRequest('/ajax/task/load-record', [
+        $request = $this->createFormRequest(self::AJAX_TASK_LOAD_RECORD, [
             'uid' => 1,
         ]);
         $response = $this->recordsController->loadRecordDataAction($request);
@@ -561,7 +568,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function loadRecordDataAction_errorForMissingUid(): void
     {
-        $request = $this->createFormRequest('/ajax/task/load-record', [
+        $request = $this->createFormRequest(self::AJAX_TASK_LOAD_RECORD, [
             'table' => 'pages',
         ]);
         $response = $this->recordsController->loadRecordDataAction($request);
@@ -576,7 +583,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($task);
 
         // User wants to refresh the input preview for a task
-        $request = $this->createFormRequest('/ajax/task/refresh-input', [
+        $request = $this->createFormRequest(self::AJAX_TASK_REFRESH_INPUT, [
             'uid' => $task->getUid(),
             'inputType' => 'manual',
             'input' => 'Test input text',
@@ -592,7 +599,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function refreshInputAction_errorForMissingTask(): void
     {
-        $request = $this->createFormRequest('/ajax/task/refresh-input', [
+        $request = $this->createFormRequest(self::AJAX_TASK_REFRESH_INPUT, [
             'uid' => 99999,
             'inputType' => 'manual',
         ]);
@@ -626,7 +633,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function fetchRecords_withPagination(): void
     {
         // User browses records with pagination
-        $request = $this->createFormRequest('/ajax/task/records', [
+        $request = $this->createFormRequest(self::AJAX_TASK_RECORDS, [
             'table' => 'pages',
             'limit' => 5,
             'offset' => 0,
@@ -651,7 +658,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     public function fetchRecords_withSearch(): void
     {
         // User searches for records
-        $request = $this->createFormRequest('/ajax/task/records', [
+        $request = $this->createFormRequest(self::AJAX_TASK_RECORDS, [
             'table' => 'pages',
             'search' => 'test',
             'limit' => 10,
@@ -685,9 +692,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $persistenceManager->persistAll();
 
         // Try to execute the inactive task
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $taskUid,
-            'input' => 'Test input',
+            'input' => self::TEST_INPUT,
         ]);
         $response = $this->executionController->executeAction($request);
 
@@ -782,7 +789,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($taskUid);
 
         // Refresh input for this task
-        $request = $this->createFormRequest('/ajax/task/refresh-input', [
+        $request = $this->createFormRequest(self::AJAX_TASK_REFRESH_INPUT, [
             'uid' => $taskUid,
         ]);
         $response = $this->executionController->refreshInputAction($request);
@@ -809,7 +816,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($taskUid);
 
         // Execute with empty input
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $taskUid,
             'input' => '',
         ]);
@@ -832,7 +839,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         // Execute with very long input
         $longInput = str_repeat('This is a test sentence. ', 1000);
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $taskUid,
             'input' => $longInput,
         ]);
@@ -892,7 +899,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function fetchRecordsAction_withNonExistentTable(): void
     {
-        $request = $this->createFormRequest('/ajax/task/records', [
+        $request = $this->createFormRequest(self::AJAX_TASK_RECORDS, [
             'table' => 'non_existent_table_xyz',
             'limit' => 10,
         ]);
@@ -966,7 +973,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 
         $retrieved = $this->taskRepository->findOneByIdentifier($task->getIdentifier());
         self::assertNotNull($retrieved);
-        self::assertStringContainsString('{{input}}', $retrieved->getPromptTemplate());
+        self::assertStringContainsString(self::INPUT, $retrieved->getPromptTemplate());
     }
 
     #[Test]
@@ -1034,9 +1041,9 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $this->taskRepository->update($task);
         $this->persistenceManager->persistAll();
 
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $task->getUid(),
-            'input' => 'Test input',
+            'input' => self::TEST_INPUT,
         ]);
         $response = $this->executionController->executeAction($request);
 
@@ -1098,17 +1105,8 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway5_10_taskCategoryOrganization(): void
     {
-        $counts = $this->taskRepository->countByCategory();
-
-        self::assertNotEmpty($counts);
-
         // Verify each category has valid tasks
-        foreach ($counts as $category => $count) {
-            self::assertGreaterThan(0, $count);
-
-            $tasksInCategory = $this->taskRepository->findByCategory($category);
-            self::assertSame($count, $tasksInCategory->count());
-        }
+        $this->pathway5_1_viewTaskListGroupedByCategory();
     }
 
     #[Test]
@@ -1122,7 +1120,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setName('New Category Task');
         $task->setDescription('Task in a new category');
         $task->setCategory($newCategory);
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('text');
         $task->setIsActive(true);
@@ -1169,7 +1167,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $task->getUid(),
             'input' => '日本語テスト 中文测试 한국어테스트 🎉🚀',
         ]);
@@ -1187,7 +1185,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $task->getUid(),
             'input' => '<p>HTML content</p><script>alert("test")</script>',
         ]);
@@ -1205,7 +1203,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $task->getUid(),
             'input' => "Line 1\nLine 2\n\tTabbed line\n\n\nMultiple newlines",
         ]);
@@ -1250,21 +1248,13 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway5_12_findSystemTasks(): void
     {
-        $systemTasks = $this->taskRepository->findSystemTasks();
-
-        foreach ($systemTasks as $task) {
-            self::assertTrue($task->isSystem());
-        }
+        $this->systemTasksAreIdentifiedCorrectly();
     }
 
     #[Test]
     public function pathway5_12_findUserTasks(): void
     {
-        $userTasks = $this->taskRepository->findUserTasks();
-
-        foreach ($userTasks as $task) {
-            self::assertFalse($task->isSystem());
-        }
+        $this->userTasksAreIdentifiedCorrectly();
     }
 
     // =========================================================================
@@ -1274,7 +1264,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway5_13_executeMissingUid(): void
     {
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'input' => 'Test',
         ]);
         $response = $this->executionController->executeAction($request);
@@ -1291,7 +1281,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway5_13_executeZeroUid(): void
     {
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => 0,
             'input' => 'Test',
         ]);
@@ -1308,7 +1298,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway5_13_executeNegativeUid(): void
     {
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => -1,
             'input' => 'Test',
         ]);
@@ -1339,7 +1329,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setName('Configuration Linked Task');
         $task->setDescription('Task with specific LLM configuration');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('text');
         $task->setIsActive(true);
@@ -1372,7 +1362,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setName('No Configuration Task');
         $task->setDescription('Task without specific configuration');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('text');
         $task->setIsActive(true);
@@ -1437,7 +1427,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => $task->getUid(),
             'input' => 'Test input for response structure',
         ]);
@@ -1458,7 +1448,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway5_15_executeResponseStructureError(): void
     {
-        $request = $this->createFormRequest('/ajax/task/execute', [
+        $request = $this->createFormRequest(self::AJAX_TASK_EXECUTE, [
             'uid' => 99999,
             'input' => 'Test',
         ]);
@@ -1501,7 +1491,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task = $this->taskRepository->findActive()->getFirst();
         self::assertNotNull($task);
 
-        $request = $this->createFormRequest('/ajax/task/refresh-input', [
+        $request = $this->createFormRequest(self::AJAX_TASK_REFRESH_INPUT, [
             'uid' => $task->getUid(),
         ]);
         $response = $this->executionController->refreshInputAction($request);
@@ -1530,10 +1520,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         self::assertGreaterThanOrEqual(0, $count);
 
         // Manual count should match
-        $manualCount = 0;
-        foreach ($allTasks as $task) {
-            $manualCount++;
-        }
+        $manualCount = iterator_count($allTasks);
         self::assertSame($count, $manualCount);
     }
 
@@ -1600,7 +1587,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setName('Description Test Task');
         $task->setDescription('This is a detailed description explaining what the task does and how to use it.');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('text');
         $task->setIsActive(true);
@@ -1624,7 +1611,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setName('Unicode Description Task');
         $task->setDescription('日本語の説明 中文描述 한국어 설명 🎉');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('text');
         $task->setIsActive(true);
@@ -1648,7 +1635,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setName('Input Source Task');
         $task->setDescription('Task with input source configuration');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('syslog');
         $task->setInputSource('{"table": "sys_log", "limit": 100}');
         $task->setOutputFormat('text');
@@ -1823,7 +1810,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setIdentifier('config-task-' . time());
         $task->setName('Configuration Task');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('text');
         $task->setConfiguration($config);
@@ -1850,7 +1837,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setIdentifier('no-config-task-' . time());
         $task->setName('No Configuration Task');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('text');
         $task->setConfiguration(null);
@@ -1883,7 +1870,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setIdentifier('change-config-task-' . time());
         $task->setName('Change Configuration Task');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('text');
         $task->setConfiguration($configs[0]);
@@ -1925,7 +1912,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setIdentifier('text-format-task-' . time());
         $task->setName('Text Format Task');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('text');
         $task->setIsActive(true);
@@ -1948,7 +1935,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setIdentifier('json-format-task-' . time());
         $task->setName('JSON Format Task');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('json');
         $task->setIsActive(true);
@@ -1971,7 +1958,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setIdentifier('markdown-format-task-' . time());
         $task->setName('Markdown Format Task');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('markdown');
         $task->setIsActive(true);
@@ -1994,7 +1981,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setIdentifier('code-format-task-' . time());
         $task->setName('Code Format Task');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('code');
         $task->setIsActive(true);
@@ -2023,7 +2010,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setIdentifier($identifier);
         $task->setName('Lifecycle Task');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('text');
         $task->setIsActive(true);
@@ -2055,7 +2042,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setIdentifier('update-uid-task-' . time());
         $task->setName('Original Task Name');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('text');
         $task->setIsActive(true);
@@ -2128,7 +2115,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         $task->setIdentifier('reactivate-task-' . time());
         $task->setName('Reactivate Task');
         $task->setCategory('custom');
-        $task->setPromptTemplate('{{input}}');
+        $task->setPromptTemplate(self::INPUT);
         $task->setInputType('manual');
         $task->setOutputFormat('text');
         $task->setIsActive(false);

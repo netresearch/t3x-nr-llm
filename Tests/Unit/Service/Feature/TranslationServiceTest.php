@@ -188,7 +188,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new TranslationOptions(formality: 'invalid');
+        self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(formality: 'invalid'));
     }
 
     #[Test]
@@ -210,7 +210,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new TranslationOptions(domain: 'invalid');
+        self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(domain: 'invalid'));
     }
 
     #[Test]

@@ -33,6 +33,10 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 #[CoversClass(ProviderController::class)]
 final class ProviderControllerTest extends AbstractFunctionalTestCase
 {
+    private const AJAX_NRLLM_PROVIDER_TOGGLE = '/ajax/nrllm/provider/toggle';
+    private const NO_PROVIDER_UID_SPECIFIED = 'No provider UID specified';
+    private const AJAX_NRLLM_PROVIDER_TEST = '/ajax/nrllm/provider/test';
+
     private ProviderController $controller;
     private ProviderRepository $providerRepository;
     private PersistenceManagerInterface $persistenceManager;
@@ -103,7 +107,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
         self::assertNotNull($provider);
         self::assertTrue($provider->isActive());
 
-        $request = new ServerRequest('POST', '/ajax/nrllm/provider/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_PROVIDER_TOGGLE);
         $request = $request->withParsedBody(['uid' => 1]);
 
         // Act
@@ -134,7 +138,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $request = new ServerRequest('POST', '/ajax/nrllm/provider/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_PROVIDER_TOGGLE);
         $request = $request->withParsedBody(['uid' => 1]);
 
         // Act
@@ -151,7 +155,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function toggleActiveReturnsErrorForMissingUid(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/provider/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_PROVIDER_TOGGLE);
         $request = $request->withParsedBody([]);
 
         // Act
@@ -162,13 +166,13 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No provider UID specified', $body['error']);
+        self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function toggleActiveReturnsNotFoundForNonExistentProvider(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/provider/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_PROVIDER_TOGGLE);
         $request = $request->withParsedBody(['uid' => 999]);
 
         // Act
@@ -191,7 +195,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
     {
         // Note: This test verifies the controller action flow.
         // Actual API connection is tested in integration tests.
-        $request = new ServerRequest('POST', '/ajax/nrllm/provider/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_PROVIDER_TEST);
         $request = $request->withParsedBody(['uid' => 1]);
 
         // Act
@@ -207,7 +211,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function testConnectionReturnsNotFoundForMissingProvider(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/provider/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_PROVIDER_TEST);
         $request = $request->withParsedBody(['uid' => 999]);
 
         // Act
@@ -224,7 +228,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function testConnectionReturnsErrorForMissingUid(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/provider/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_PROVIDER_TEST);
         $request = $request->withParsedBody([]);
 
         // Act
@@ -235,14 +239,14 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No provider UID specified', $body['error']);
+        self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function toggleActiveHandlesNumericStringUid(): void
     {
         // UID passed as string (common from form submissions)
-        $request = new ServerRequest('POST', '/ajax/nrllm/provider/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_PROVIDER_TOGGLE);
         $request = $request->withParsedBody(['uid' => '1']);
 
         // Act
@@ -259,7 +263,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
     public function toggleActiveHandlesNonNumericUidAsZero(): void
     {
         // Non-numeric string should be treated as 0
-        $request = new ServerRequest('POST', '/ajax/nrllm/provider/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_PROVIDER_TOGGLE);
         $request = $request->withParsedBody(['uid' => 'invalid-string']);
 
         // Act
@@ -270,14 +274,14 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No provider UID specified', $body['error']);
+        self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function testConnectionHandlesNumericStringUid(): void
     {
         // UID passed as string
-        $request = new ServerRequest('POST', '/ajax/nrllm/provider/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_PROVIDER_TEST);
         $request = $request->withParsedBody(['uid' => '1']);
 
         // Act
@@ -294,7 +298,7 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
     public function testConnectionHandlesNonNumericUidAsZero(): void
     {
         // Non-numeric string should be treated as 0
-        $request = new ServerRequest('POST', '/ajax/nrllm/provider/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_PROVIDER_TEST);
         $request = $request->withParsedBody(['uid' => 'not-a-number']);
 
         // Act
@@ -305,6 +309,6 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No provider UID specified', $body['error']);
+        self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
     }
 }

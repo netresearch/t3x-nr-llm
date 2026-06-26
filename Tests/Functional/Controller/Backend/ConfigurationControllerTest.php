@@ -44,6 +44,13 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 #[CoversClass(ConfigurationController::class)]
 final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 {
+    private const NO_CONFIGURATION_UID_SPECIFIED = 'No configuration UID specified';
+    private const AJAX_NRLLM_CONFIG_SETDEFAULT = '/ajax/nrllm/config/setdefault';
+    private const AJAX_NRLLM_CONFIG_GET_MODELS = '/ajax/nrllm/config/get-models';
+    private const AJAX_NRLLM_CONFIG_TOGGLE = '/ajax/nrllm/config/toggle';
+    private const CONFIGURATION_NOT_FOUND = 'Configuration not found';
+    private const AJAX_NRLLM_CONFIG_TEST = '/ajax/nrllm/config/test';
+
     private ConfigurationController $controller;
     private LlmConfigurationRepository $configurationRepository;
     private PersistenceManagerInterface $persistenceManager;
@@ -140,7 +147,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         self::assertNotNull($configuration);
         self::assertTrue($configuration->isActive());
 
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TOGGLE);
         $request = $request->withParsedBody(['uid' => 1]);
 
         // Act
@@ -168,7 +175,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         self::assertNotNull($configuration);
         self::assertFalse($configuration->isActive());
 
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TOGGLE);
         $request = $request->withParsedBody(['uid' => 5]);
 
         // Act
@@ -191,7 +198,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function toggleActiveReturnsErrorForMissingUid(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TOGGLE);
         $request = $request->withParsedBody([]);
 
         // Act
@@ -202,13 +209,13 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No configuration UID specified', $body['error']);
+        self::assertSame(self::NO_CONFIGURATION_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function toggleActiveReturnsNotFoundForNonExistentConfiguration(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TOGGLE);
         $request = $request->withParsedBody(['uid' => 999]);
 
         // Act
@@ -219,14 +226,14 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Configuration not found', $body['error']);
+        self::assertSame(self::CONFIGURATION_NOT_FOUND, $body['error']);
     }
 
     #[Test]
     public function toggleActiveHandlesNumericStringUid(): void
     {
         // UID passed as string (common from form submissions)
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TOGGLE);
         $request = $request->withParsedBody(['uid' => '1']);
 
         // Act
@@ -255,7 +262,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         self::assertNotNull($newDefault);
         self::assertFalse($newDefault->isDefault());
 
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/setdefault');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_SETDEFAULT);
         $request = $request->withParsedBody(['uid' => 2]);
 
         // Act
@@ -281,7 +288,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function setDefaultReturnsErrorForMissingUid(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/setdefault');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_SETDEFAULT);
         $request = $request->withParsedBody([]);
 
         // Act
@@ -292,13 +299,13 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No configuration UID specified', $body['error']);
+        self::assertSame(self::NO_CONFIGURATION_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function setDefaultReturnsNotFoundForNonExistentConfiguration(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/setdefault');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_SETDEFAULT);
         $request = $request->withParsedBody(['uid' => 999]);
 
         // Act
@@ -309,14 +316,14 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Configuration not found', $body['error']);
+        self::assertSame(self::CONFIGURATION_NOT_FOUND, $body['error']);
     }
 
     #[Test]
     public function setDefaultHandlesNumericStringUid(): void
     {
         // UID passed as string (common from form submissions)
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/setdefault');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_SETDEFAULT);
         $request = $request->withParsedBody(['uid' => '2']);
 
         // Act
@@ -338,7 +345,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
     {
         // Note: This test verifies the controller action flow.
         // Actual API connection is tested in integration tests.
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TEST);
         $request = $request->withParsedBody(['uid' => 1]);
 
         // Act
@@ -354,7 +361,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function testConfigurationReturnsErrorForMissingUid(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TEST);
         $request = $request->withParsedBody([]);
 
         // Act
@@ -365,13 +372,13 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No configuration UID specified', $body['error']);
+        self::assertSame(self::NO_CONFIGURATION_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function testConfigurationReturnsNotFoundForNonExistentConfiguration(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TEST);
         $request = $request->withParsedBody(['uid' => 999]);
 
         // Act
@@ -382,7 +389,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Configuration not found', $body['error']);
+        self::assertSame(self::CONFIGURATION_NOT_FOUND, $body['error']);
     }
 
     #[Test]
@@ -393,7 +400,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         self::assertNotNull($configuration);
         self::assertNull($configuration->getLlmModel());
 
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/test');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TEST);
         $request = $request->withParsedBody(['uid' => 8]);
 
         // Act
@@ -411,7 +418,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
     public function toggleActiveHandlesNonNumericUidAsZero(): void
     {
         // Non-numeric string should be treated as 0
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/toggle');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TOGGLE);
         $request = $request->withParsedBody(['uid' => 'invalid']);
 
         // Act
@@ -422,14 +429,14 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No configuration UID specified', $body['error']);
+        self::assertSame(self::NO_CONFIGURATION_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
     public function getModelsHandlesNumericProviderValue(): void
     {
         // Numeric value should be converted to string
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/get-models');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_GET_MODELS);
         $request = $request->withParsedBody(['provider' => 12345]);
 
         // Act
@@ -450,7 +457,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function getModelsReturnsErrorForMissingProvider(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/get-models');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_GET_MODELS);
         $request = $request->withParsedBody([]);
 
         // Act
@@ -467,7 +474,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function getModelsReturnsNotFoundForNonExistentProvider(): void
     {
-        $request = new ServerRequest('POST', '/ajax/nrllm/config/get-models');
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_GET_MODELS);
         $request = $request->withParsedBody(['provider' => 'non-existent-provider']);
 
         // Act

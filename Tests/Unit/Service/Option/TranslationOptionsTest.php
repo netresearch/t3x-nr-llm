@@ -82,7 +82,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('formality must be one of: default, formal, informal');
 
-        new TranslationOptions(formality: $formality);
+        self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(formality: $formality));
     }
 
     /**
@@ -127,7 +127,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('domain must be one of: general, technical, medical, legal, marketing');
 
-        new TranslationOptions(domain: $domain);
+        self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(domain: $domain));
     }
 
     /**
@@ -148,7 +148,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('temperature must be between 0 and 2');
 
-        new TranslationOptions(temperature: 2.5);
+        self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(temperature: 2.5));
     }
 
     #[Test]
@@ -157,7 +157,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('max_tokens must be a positive integer');
 
-        new TranslationOptions(maxTokens: 0);
+        self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(maxTokens: 0));
     }
 
     // Factory Presets
@@ -441,7 +441,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('be_user_uid must be >= 0');
 
-        new TranslationOptions(beUserUid: -1);
+        self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(beUserUid: -1));
     }
 
     #[Test]
@@ -450,7 +450,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('planned_cost must be >= 0.0');
 
-        new TranslationOptions(plannedCost: -1.5);
+        self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(plannedCost: -1.5));
     }
 
     #[Test]

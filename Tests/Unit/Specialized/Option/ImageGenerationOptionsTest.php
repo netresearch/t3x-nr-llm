@@ -97,7 +97,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid size');
 
-        new ImageGenerationOptions(model: 'dall-e-3', size: '256x256');
+        self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(model: 'dall-e-3', size: '256x256'));
     }
 
     #[Test]
@@ -106,7 +106,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid size');
 
-        new ImageGenerationOptions(model: 'dall-e-2', size: '1792x1024');
+        self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(model: 'dall-e-2', size: '1792x1024'));
     }
 
     #[Test]
@@ -135,7 +135,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('quality must be one of');
 
-        new ImageGenerationOptions(quality: 'ultra');
+        self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(quality: 'ultra'));
     }
 
     #[Test]
@@ -164,7 +164,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('style must be one of');
 
-        new ImageGenerationOptions(style: 'artistic');
+        self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(style: 'artistic'));
     }
 
     #[Test]
@@ -193,7 +193,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('format must be one of');
 
-        new ImageGenerationOptions(format: 'binary');
+        self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(format: 'binary'));
     }
 
     #[Test]
@@ -222,7 +222,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('model must be one of');
 
-        new ImageGenerationOptions(model: 'dall-e-4');
+        self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(model: 'dall-e-4'));
     }
 
     #[Test]

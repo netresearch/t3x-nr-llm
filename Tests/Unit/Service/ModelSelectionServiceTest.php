@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service;
 
+use LogicException;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
@@ -18,7 +19,6 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
-use RuntimeException;
 use TYPO3\CMS\Extbase\Persistence\QueryInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
@@ -102,7 +102,10 @@ final class ModelSelectionServiceTest extends TestCase
             {
                 $this->items = array_values($items);
             }
-            public function setQuery(QueryInterface $query): void {}
+            public function setQuery(QueryInterface $query): void
+            {
+                // Intentionally empty: this in-memory test double has no backing query to bind.
+            }
             public function getFirst(): ?object
             {
                 return $this->items[0] ?? null;
@@ -121,7 +124,7 @@ final class ModelSelectionServiceTest extends TestCase
             }
             public function getQuery(): QueryInterface
             {
-                throw new RuntimeException('Not implemented', 7771386590);
+                throw new LogicException('Not implemented', 7771386590);
             }
             public function offsetExists($offset): bool
             {
@@ -145,10 +148,9 @@ final class ModelSelectionServiceTest extends TestCase
             }
             public function offsetUnset($offset): void
             {
-                if (!is_int($offset)) {
-                    return;
+                if (is_int($offset)) {
+                    unset($this->items[$offset]);
                 }
-                unset($this->items[$offset]);
             }
             public function current(): object
             {

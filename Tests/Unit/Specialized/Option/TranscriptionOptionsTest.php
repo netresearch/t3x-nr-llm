@@ -77,7 +77,7 @@ class TranscriptionOptionsTest extends AbstractUnitTestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new TranscriptionOptions(format: 'invalid_format');
+        self::assertInstanceOf(TranscriptionOptions::class, new TranscriptionOptions(format: 'invalid_format'));
     }
 
     #[Test]
@@ -95,7 +95,7 @@ class TranscriptionOptionsTest extends AbstractUnitTestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new TranscriptionOptions(temperature: -0.1);
+        self::assertInstanceOf(TranscriptionOptions::class, new TranscriptionOptions(temperature: -0.1));
     }
 
     #[Test]
@@ -103,7 +103,7 @@ class TranscriptionOptionsTest extends AbstractUnitTestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new TranscriptionOptions(temperature: 1.1);
+        self::assertInstanceOf(TranscriptionOptions::class, new TranscriptionOptions(temperature: 1.1));
     }
 
     #[Test]

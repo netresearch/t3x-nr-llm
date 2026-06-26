@@ -37,6 +37,8 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 #[CoversClass(ConfigurationController::class)]
 final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
 {
+    private const AJAX_CONFIG_TEST = '/ajax/config/test';
+
     private ProviderRepository $providerRepository;
     private ModelRepository $modelRepository;
     private LlmConfigurationRepository $configurationRepository;
@@ -212,7 +214,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $config1 = $configs[0];
 
         // Test with first configuration
-        $request1 = $this->createFormRequest('/ajax/config/test', ['uid' => $config1->getUid()]);
+        $request1 = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config1->getUid()]);
         $response1 = $this->configurationController->testConfigurationAction($request1);
 
         self::assertContains($response1->getStatusCode(), [200, 500]);
@@ -223,7 +225,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         if (count($configs) >= 2) {
             $config2 = $configs[1];
 
-            $request2 = $this->createFormRequest('/ajax/config/test', ['uid' => $config2->getUid()]);
+            $request2 = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config2->getUid()]);
             $response2 = $this->configurationController->testConfigurationAction($request2);
 
             self::assertContains($response2->getStatusCode(), [200, 500]);
@@ -390,7 +392,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         // Test configuration should fail gracefully
-        $request = $this->createFormRequest('/ajax/config/test', ['uid' => $addedConfig->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $addedConfig->getUid()]);
         $response = $this->configurationController->testConfigurationAction($request);
 
         // Should return a structured response (success or error)

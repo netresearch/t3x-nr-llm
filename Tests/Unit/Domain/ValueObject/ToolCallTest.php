@@ -47,7 +47,7 @@ final class ToolCallTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1745411001);
 
-        new ToolCall(id: '', name: 'fn', arguments: []);
+        self::assertInstanceOf(ToolCall::class, new ToolCall(id: '', name: 'fn', arguments: []));
     }
 
     #[Test]
@@ -56,7 +56,7 @@ final class ToolCallTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1745411002);
 
-        new ToolCall(id: 'id', name: '', arguments: []);
+        self::assertInstanceOf(ToolCall::class, new ToolCall(id: 'id', name: '', arguments: []));
     }
 
     #[Test]
@@ -65,7 +65,7 @@ final class ToolCallTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1745411003);
 
-        new ToolCall(id: 'id', name: 'fn', arguments: [], type: '');
+        self::assertInstanceOf(ToolCall::class, new ToolCall(id: 'id', name: 'fn', arguments: [], type: ''));
     }
 
     #[Test]

@@ -75,7 +75,7 @@ class SpeechSynthesisOptionsTest extends AbstractUnitTestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new SpeechSynthesisOptions(voice: 'invalid_voice');
+        self::assertInstanceOf(SpeechSynthesisOptions::class, new SpeechSynthesisOptions(voice: 'invalid_voice'));
     }
 
     #[Test]
@@ -103,7 +103,7 @@ class SpeechSynthesisOptionsTest extends AbstractUnitTestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new SpeechSynthesisOptions(model: 'invalid-model');
+        self::assertInstanceOf(SpeechSynthesisOptions::class, new SpeechSynthesisOptions(model: 'invalid-model'));
     }
 
     #[Test]
@@ -135,7 +135,7 @@ class SpeechSynthesisOptionsTest extends AbstractUnitTestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new SpeechSynthesisOptions(format: 'invalid_format');
+        self::assertInstanceOf(SpeechSynthesisOptions::class, new SpeechSynthesisOptions(format: 'invalid_format'));
     }
 
     #[Test]
@@ -153,7 +153,7 @@ class SpeechSynthesisOptionsTest extends AbstractUnitTestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new SpeechSynthesisOptions(speed: 0.24);
+        self::assertInstanceOf(SpeechSynthesisOptions::class, new SpeechSynthesisOptions(speed: 0.24));
     }
 
     #[Test]
@@ -161,7 +161,7 @@ class SpeechSynthesisOptionsTest extends AbstractUnitTestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new SpeechSynthesisOptions(speed: 4.1);
+        self::assertInstanceOf(SpeechSynthesisOptions::class, new SpeechSynthesisOptions(speed: 4.1));
     }
 
     #[Test]

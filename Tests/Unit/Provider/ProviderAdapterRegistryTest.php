@@ -145,7 +145,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
         $this->expectExceptionMessage('must extend');
 
         // stdClass is not a subclass of AbstractProvider
-        new ProviderAdapterRegistry(
+        self::assertInstanceOf(ProviderAdapterRegistry::class, new ProviderAdapterRegistry(
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->loggerStub,
@@ -153,7 +153,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
             $this->createSecureHttpClientFactoryMock(),
             /** @phpstan-ignore argument.type */
             ['invalid' => stdClass::class],
-        );
+        ));
     }
 
     #[Test]
@@ -164,7 +164,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
 
         // Numeric (int) keys would be re-indexed by array_merge,
         // breaking the adapter-type lookup. Reject at the boundary.
-        new ProviderAdapterRegistry(
+        self::assertInstanceOf(ProviderAdapterRegistry::class, new ProviderAdapterRegistry(
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->loggerStub,
@@ -172,7 +172,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
             $this->createSecureHttpClientFactoryMock(),
             /** @phpstan-ignore argument.type */
             [0 => OpenAiProvider::class],
-        );
+        ));
     }
 
     #[Test]
@@ -181,14 +181,14 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
         $this->expectException(ProviderConfigurationException::class);
         $this->expectExceptionMessage('Adapter override key');
 
-        new ProviderAdapterRegistry(
+        self::assertInstanceOf(ProviderAdapterRegistry::class, new ProviderAdapterRegistry(
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->loggerStub,
             $this->createVaultServiceMock(),
             $this->createSecureHttpClientFactoryMock(),
             ['' => OpenAiProvider::class],
-        );
+        ));
     }
 
     #[Test]
@@ -200,7 +200,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
         // A non-string value would have caused TypeError inside
         // is_subclass_of(); the explicit guard surfaces it as a
         // domain exception instead.
-        new ProviderAdapterRegistry(
+        self::assertInstanceOf(ProviderAdapterRegistry::class, new ProviderAdapterRegistry(
             $this->createRequestFactoryMock(),
             $this->createStreamFactoryMock(),
             $this->loggerStub,
@@ -208,7 +208,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
             $this->createSecureHttpClientFactoryMock(),
             /** @phpstan-ignore argument.type */
             ['custom' => 42],
-        );
+        ));
     }
 
     #[Test]
@@ -546,9 +546,6 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
         string $identifier,
         string $adapterType,
         string $apiKey,
-        string $endpointUrl = '',
-        int $apiTimeout = 30,
-        int $maxRetries = 3,
         string $organizationId = '',
         array $options = [],
     ): Provider&Stub {
@@ -557,9 +554,9 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
         $provider->method('getIdentifier')->willReturn($identifier);
         $provider->method('getAdapterType')->willReturn($adapterType);
         $provider->method('getApiKey')->willReturn($apiKey);
-        $provider->method('getEffectiveEndpointUrl')->willReturn($endpointUrl);
-        $provider->method('getApiTimeout')->willReturn($apiTimeout);
-        $provider->method('getMaxRetries')->willReturn($maxRetries);
+        $provider->method('getEffectiveEndpointUrl')->willReturn('');
+        $provider->method('getApiTimeout')->willReturn(30);
+        $provider->method('getMaxRetries')->willReturn(3);
         $provider->method('getOrganizationId')->willReturn($organizationId);
         $provider->method('getOptionsArray')->willReturn($options);
 

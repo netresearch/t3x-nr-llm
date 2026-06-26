@@ -54,7 +54,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('temperature must be between 0 and 2');
 
-        new ChatOptions(temperature: $temperature);
+        self::assertInstanceOf(ChatOptions::class, new ChatOptions(temperature: $temperature));
     }
 
     /**
@@ -97,7 +97,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('max_tokens must be a positive integer');
 
-        new ChatOptions(maxTokens: 0);
+        self::assertInstanceOf(ChatOptions::class, new ChatOptions(maxTokens: 0));
     }
 
     #[Test]
@@ -107,7 +107,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('top_p must be between 0 and 1');
 
-        new ChatOptions(topP: $topP);
+        self::assertInstanceOf(ChatOptions::class, new ChatOptions(topP: $topP));
     }
 
     /**
@@ -128,7 +128,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('frequency_penalty must be between -2 and 2');
 
-        new ChatOptions(frequencyPenalty: $penalty);
+        self::assertInstanceOf(ChatOptions::class, new ChatOptions(frequencyPenalty: $penalty));
     }
 
     #[Test]
@@ -138,7 +138,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('presence_penalty must be between -2 and 2');
 
-        new ChatOptions(presencePenalty: $penalty);
+        self::assertInstanceOf(ChatOptions::class, new ChatOptions(presencePenalty: $penalty));
     }
 
     /**
@@ -158,7 +158,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('response_format must be one of: text, json, markdown');
 
-        new ChatOptions(responseFormat: 'xml');
+        self::assertInstanceOf(ChatOptions::class, new ChatOptions(responseFormat: 'xml'));
     }
 
     // Factory Presets
@@ -415,7 +415,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('be_user_uid must be >= 0');
 
-        new ChatOptions(beUserUid: -1);
+        self::assertInstanceOf(ChatOptions::class, new ChatOptions(beUserUid: -1));
     }
 
     #[Test]
@@ -434,7 +434,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('planned_cost must be >= 0.0');
 
-        new ChatOptions(plannedCost: -0.01);
+        self::assertInstanceOf(ChatOptions::class, new ChatOptions(plannedCost: -0.01));
     }
 
     #[Test]

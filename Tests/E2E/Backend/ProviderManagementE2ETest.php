@@ -32,6 +32,13 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 #[CoversClass(ProviderController::class)]
 final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 {
+    private const LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F = '0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f';
+    private const NO_PROVIDER_UID_SPECIFIED = 'No provider UID specified';
+    private const HTTPS_API_OPENAI_COM_V1 = 'https://api.openai.com/v1';
+    private const HTTP_LOCALHOST_11434 = 'http://localhost:11434';
+    private const AJAX_PROVIDER_TOGGLE = '/ajax/provider/toggle';
+    private const AJAX_PROVIDER_TEST = '/ajax/provider/test';
+
     private ProviderController $controller;
     private ProviderRepository $providerRepository;
     private ModelRepository $modelRepository;
@@ -104,7 +111,6 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 
         $allResult = $this->providerRepository->findAll();
         self::assertInstanceOf(QueryResultInterface::class, $allResult);
-        $allProviders = $allResult->toArray();
 
         // User should see which providers are active vs inactive
         self::assertNotEmpty($activeProviders, 'Should have active providers');
@@ -140,7 +146,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($providerUid);
 
         // Step 1: User clicks toggle to deactivate
-        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $providerUid]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $providerUid]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -155,7 +161,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertFalse($reloaded->isActive());
 
         // Step 2: User clicks toggle again to reactivate
-        $request2 = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $providerUid]);
+        $request2 = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $providerUid]);
         $response2 = $this->controller->toggleActiveAction($request2);
 
         $body2 = $this->assertSuccessResponse($response2);
@@ -181,7 +187,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $initialActiveCount = $this->providerRepository->findActive()->count();
 
         // Deactivate provider
-        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $providerUid]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $providerUid]);
         $this->controller->toggleActiveAction($request);
 
         $this->persistenceManager->clearState();
@@ -197,7 +203,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_2_toggleProviderStatus_errorForNonExistent(): void
     {
-        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => 99999]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => 99999]);
         $response = $this->controller->toggleActiveAction($request);
 
         $this->assertErrorResponse($response, 404, 'Provider not found');
@@ -206,10 +212,10 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_2_toggleProviderStatus_errorForMissingUid(): void
     {
-        $request = $this->createFormRequest('/ajax/provider/toggle', []);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, []);
         $response = $this->controller->toggleActiveAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No provider UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_PROVIDER_UID_SPECIFIED);
     }
 
     // =========================================================================
@@ -223,7 +229,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($provider);
 
         // User clicks "Test Connection" button
-        $request = $this->createFormRequest('/ajax/provider/test', ['uid' => $provider->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
         $response = $this->controller->testConnectionAction($request);
 
         // Response should indicate success or failure (not crash)
@@ -247,7 +253,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
-        $request = $this->createFormRequest('/ajax/provider/test', ['uid' => $provider->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
         $response = $this->controller->testConnectionAction($request);
 
         // Must be valid JSON regardless of outcome
@@ -261,7 +267,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_3_testProviderConnection_errorForInvalidProvider(): void
     {
-        $request = $this->createFormRequest('/ajax/provider/test', ['uid' => 99999]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => 99999]);
         $response = $this->controller->testConnectionAction($request);
 
         $this->assertErrorResponse($response, 404, 'Provider not found');
@@ -432,29 +438,29 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway2_6_testConnection_missingUid(): void
     {
-        $request = $this->createFormRequest('/ajax/provider/test', []);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, []);
         $response = $this->controller->testConnectionAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No provider UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_PROVIDER_UID_SPECIFIED);
     }
 
     #[Test]
     public function pathway2_6_testConnection_zeroUid(): void
     {
-        $request = $this->createFormRequest('/ajax/provider/test', ['uid' => 0]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => 0]);
         $response = $this->controller->testConnectionAction($request);
 
-        $this->assertErrorResponse($response, 400, 'No provider UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_PROVIDER_UID_SPECIFIED);
     }
 
     #[Test]
     public function pathway2_6_testConnection_stringUid(): void
     {
-        $request = $this->createFormRequest('/ajax/provider/test', ['uid' => 'invalid']);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => 'invalid']);
         $response = $this->controller->testConnectionAction($request);
 
         // Invalid string should be treated as 0
-        $this->assertErrorResponse($response, 400, 'No provider UID specified');
+        $this->assertErrorResponse($response, 400, self::NO_PROVIDER_UID_SPECIFIED);
     }
 
     // =========================================================================
@@ -514,7 +520,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $modelsBefore = $this->modelRepository->findByProvider($provider)->count();
 
         // Deactivate provider
-        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $providerUid]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $providerUid]);
         $this->controller->toggleActiveAction($request);
         $this->persistenceManager->clearState();
 
@@ -616,7 +622,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($providerUid);
 
         $initialState = $provider->isActive();
-        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $providerUid]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $providerUid]);
 
         // Perform multiple rapid toggles
         for ($i = 0; $i < 4; $i++) {
@@ -637,7 +643,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
-        $request = $this->createFormRequest('/ajax/provider/test', ['uid' => $provider->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
 
         // Multiple test connection calls should all succeed (no rate limiting in tests)
         for ($i = 0; $i < 3; $i++) {
@@ -678,7 +684,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setName('Custom Endpoint Provider');
         $provider->setAdapterType('openai');
         $provider->setEndpointUrl('https://custom.api.example.com/v1');
-        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
+        $provider->setApiKey(self::LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F);
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -855,7 +861,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($added);
 
         // Test connection should fail gracefully (no crash)
-        $request = $this->createFormRequest('/ajax/provider/test', ['uid' => $added->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $added->getUid()]);
         $response = $this->controller->testConnectionAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 500]);
@@ -872,8 +878,8 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('full-config-provider-' . time());
         $provider->setName('Full Config Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
-        $provider->setEndpointUrl('https://api.openai.com/v1');
+        $provider->setApiKey(self::LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F);
+        $provider->setEndpointUrl(self::HTTPS_API_OPENAI_COM_V1);
         $provider->setTimeout(30);
         $provider->setPriority(50);
         $provider->setIsActive(true);
@@ -914,7 +920,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertFalse($added->isActive());
 
         // Activate via toggle
-        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $added->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $added->getUid()]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = $this->assertSuccessResponse($response);
@@ -935,7 +941,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $modelCount = $models->count();
 
         // Toggle provider
-        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $providerUid]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $providerUid]);
         $this->controller->toggleActiveAction($request);
         $this->persistenceManager->clearState();
 
@@ -972,7 +978,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('inactive-test-provider-' . time());
         $provider->setName('Inactive Test Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
+        $provider->setApiKey(self::LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F);
         $provider->setIsActive(false);
 
         $this->providerRepository->add($provider);
@@ -983,7 +989,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($added);
 
         // Test connection on inactive provider should still work (API call is independent of status)
-        $request = $this->createFormRequest('/ajax/provider/test', ['uid' => $added->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $added->getUid()]);
         $response = $this->controller->testConnectionAction($request);
 
         self::assertContains($response->getStatusCode(), [200, 500]);
@@ -1051,7 +1057,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('lifecycle-provider-' . time());
         $provider->setName('Lifecycle Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
+        $provider->setApiKey(self::LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F);
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1067,7 +1073,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($addedUid);
 
         // Toggle to inactive
-        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $addedUid]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $addedUid]);
         $this->controller->toggleActiveAction($request);
         $this->persistenceManager->clearState();
 
@@ -1119,7 +1125,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('apikey-provider-' . time());
         $provider->setName('API Key Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
+        $provider->setApiKey(self::LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F);
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1142,7 +1148,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setName('No API Key Provider');
         $provider->setAdapterType('ollama');
         $provider->setApiKey(''); // Empty API key
-        $provider->setEndpointUrl('http://localhost:11434');
+        $provider->setEndpointUrl(self::HTTP_LOCALHOST_11434);
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1166,7 +1172,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('timeout-provider-' . time());
         $provider->setName('Timeout Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
+        $provider->setApiKey(self::LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F);
         $provider->setTimeout(120); // 2 minutes
         $provider->setIsActive(true);
 
@@ -1187,7 +1193,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('default-timeout-provider-' . time());
         $provider->setName('Default Timeout Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
+        $provider->setApiKey(self::LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F);
         // Don't set timeout explicitly
         $provider->setIsActive(true);
 
@@ -1215,7 +1221,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('long-name-provider-' . time());
         $provider->setName($longName);
         $provider->setAdapterType('openai');
-        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
+        $provider->setApiKey(self::LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F);
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1238,7 +1244,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('unicode-name-provider-' . time());
         $provider->setName($unicodeName);
         $provider->setAdapterType('openai');
-        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
+        $provider->setApiKey(self::LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F);
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1260,7 +1266,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('special-char-provider-' . time());
         $provider->setName($specialName);
         $provider->setAdapterType('openai');
-        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
+        $provider->setApiKey(self::LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F);
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1283,7 +1289,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
-        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $provider->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $provider->getUid()]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = json_decode((string)$response->getBody(), true);
@@ -1303,7 +1309,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
-        $request = $this->createFormRequest('/ajax/provider/test', ['uid' => $provider->getUid()]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
         $response = $this->controller->testConnectionAction($request);
 
         $body = json_decode((string)$response->getBody(), true);
@@ -1320,7 +1326,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway2_19_errorResponseStructure(): void
     {
         // Test with invalid UID
-        $request = $this->createFormRequest('/ajax/provider/toggle', ['uid' => 99999]);
+        $request = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => 99999]);
         $response = $this->controller->toggleActiveAction($request);
 
         $body = json_decode((string)$response->getBody(), true);
@@ -1338,13 +1344,13 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertNotNull($provider);
 
         // Test toggle response
-        $request1 = $this->createFormRequest('/ajax/provider/toggle', ['uid' => $provider->getUid()]);
+        $request1 = $this->createFormRequest(self::AJAX_PROVIDER_TOGGLE, ['uid' => $provider->getUid()]);
         $response1 = $this->controller->toggleActiveAction($request1);
         $body1 = json_decode((string)$response1->getBody(), true);
         self::assertIsArray($body1);
 
         // Test connection response
-        $request2 = $this->createFormRequest('/ajax/provider/test', ['uid' => $provider->getUid()]);
+        $request2 = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $provider->getUid()]);
         $response2 = $this->controller->testConnectionAction($request2);
         $body2 = json_decode((string)$response2->getBody(), true);
         self::assertIsArray($body2);
@@ -1365,8 +1371,8 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('https-endpoint-provider-' . time());
         $provider->setName('HTTPS Endpoint Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
-        $provider->setEndpointUrl('https://api.openai.com/v1');
+        $provider->setApiKey(self::LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F);
+        $provider->setEndpointUrl(self::HTTPS_API_OPENAI_COM_V1);
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1375,7 +1381,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 
         $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
         self::assertNotNull($added);
-        self::assertSame('https://api.openai.com/v1', $added->getEndpointUrl());
+        self::assertSame(self::HTTPS_API_OPENAI_COM_V1, $added->getEndpointUrl());
     }
 
     #[Test]
@@ -1386,7 +1392,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('localhost-endpoint-provider-' . time());
         $provider->setName('Localhost Endpoint Provider');
         $provider->setAdapterType('ollama');
-        $provider->setEndpointUrl('http://localhost:11434');
+        $provider->setEndpointUrl(self::HTTP_LOCALHOST_11434);
         $provider->setIsActive(true);
 
         $this->providerRepository->add($provider);
@@ -1395,7 +1401,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 
         $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
         self::assertNotNull($added);
-        self::assertSame('http://localhost:11434', $added->getEndpointUrl());
+        self::assertSame(self::HTTP_LOCALHOST_11434, $added->getEndpointUrl());
     }
 
     #[Test]
@@ -1426,7 +1432,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('path-endpoint-provider-' . time());
         $provider->setName('Path Endpoint Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
+        $provider->setApiKey(self::LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F);
         $provider->setEndpointUrl('https://api.example.com/custom/path/v1');
         $provider->setIsActive(true);
 
@@ -1447,7 +1453,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider->setIdentifier('empty-endpoint-provider-' . time());
         $provider->setName('Empty Endpoint Provider');
         $provider->setAdapterType('openai');
-        $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');
+        $provider->setApiKey(self::LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F);
         $provider->setEndpointUrl('');
         $provider->setIsActive(true);
 
