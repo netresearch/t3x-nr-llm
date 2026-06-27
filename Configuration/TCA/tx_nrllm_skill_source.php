@@ -107,9 +107,16 @@ return [
         'sync_status' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.sync_status',
             'config' => [
-                'type' => 'input',
-                'size' => 20,
-                'max' => 20,
+                'type' => 'select',
+                'renderType' => 'selectSingle',
+                'items' => [
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.sync_status.never_synced', 'value' => 'never_synced'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.sync_status.syncing', 'value' => 'syncing'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.sync_status.ok', 'value' => 'ok'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.sync_status.partial', 'value' => 'partial'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.sync_status.error', 'value' => 'error'],
+                ],
+                'default' => 'never_synced',
                 'readOnly' => true,
             ],
         ],

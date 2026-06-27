@@ -36,6 +36,11 @@ final class SkillMarkdownParser
             throw SkillParseException::forReason($path, 'content is not valid UTF-8');
         }
 
+        // Strip a leading UTF-8 BOM so the front-matter delimiter is recognised.
+        if (str_starts_with($content, "\xEF\xBB\xBF")) {
+            $content = substr($content, 3);
+        }
+
         // Front-matter must be a leading `---\n ... \n---` block.
         if (!preg_match('/^---\R(.*?)\R---\R?(.*)$/s', $content, $m)) {
             throw SkillParseException::forReason($path, 'missing YAML front-matter');

@@ -38,6 +38,16 @@ final class SkillMarkdownParserTest extends TestCase
     }
 
     #[Test]
+    public function parsesContentWithLeadingByteOrderMark(): void
+    {
+        $content = "\xEF\xBB\xBF---\nname: My Skill\ndescription: Does things\n---\nBody line one.\n";
+        $parsed = $this->parser->parse('SKILL.md', $content);
+        self::assertSame('My Skill', $parsed->name);
+        self::assertSame('Does things', $parsed->description);
+        self::assertSame('Body line one.', trim($parsed->body));
+    }
+
+    #[Test]
     public function flagsPartialWhenBodyReferencesScripts(): void
     {
         $content = "---\nname: S\ndescription: d\n---\nRun `scripts/audit.py` then continue.\n";

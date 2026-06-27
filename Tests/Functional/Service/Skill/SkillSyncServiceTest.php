@@ -132,8 +132,72 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     {
         $source = $this->repoSource();
         $source->setSyncStatus(SyncStatus::SYNCING);
+        $source->setLastSynced(time()); // fresh heartbeat → lock is considered active
         $result = $this->service(new FakeGitHubClient('sha1', [], []))->sync($source);
         self::assertSame(SyncStatus::SYNCING, $result->status);
         self::assertSame(['A sync is already running for this source.'], $result->errors);
+    }
+
+    #[Test]
+    public function recoversFromStaleLock(): void
+    {
+        $source = $this->repoSource();
+        $source->setSyncStatus(SyncStatus::SYNCING);
+        $source->setLastSynced(time() - 3600); // older than STALE_LOCK_SECONDS → stale, proceed
+        $gitHub = new FakeGitHubClient('sha1', ['skills/a/SKILL.md'], [
+            'skills/a/SKILL.md' => "---\nname: A\ndescription: d\n---\nbody",
+        ]);
+        $result = $this->service($gitHub)->sync($source);
+        self::assertSame(SyncStatus::OK, $result->status);
+        self::assertSame(1, $result->created);
+    }
+
+    #[Test]
+    public function doesNotOrphanSkillWhenItsFileBecomesUnparseable(): void
+    {
+        $source = $this->repoSource();
+        $this->service(new FakeGitHubClient('sha1', ['skills/a/SKILL.md'], [
+            'skills/a/SKILL.md' => "---\nname: A\ndescription: d\n---\nv1",
+        ]))->sync($source);
+        $repo = $this->get(SkillRepository::class);
+        self::assertNotNull($repo->findBySourceAndIdentifier(10, '10:skills/a/SKILL.md'));
+
+        // The file is STILL PRESENT upstream but can no longer be parsed.
+        $result = $this->service(new FakeGitHubClient('sha2', ['skills/a/SKILL.md'], [
+            'skills/a/SKILL.md' => 'broken, no front-matter',
+        ]))->sync($source);
+
+        self::assertSame(SyncStatus::PARTIAL, $result->status);
+        self::assertSame(0, $result->orphaned, 'a present-but-unparseable file must not orphan the skill');
+        $reloaded = $repo->findBySourceAndIdentifier(10, '10:skills/a/SKILL.md');
+        self::assertNotNull($reloaded);
+        self::assertFalse($reloaded->isOrphaned());
+    }
+
+    #[Test]
+    public function persistsSyncStateForRealSource(): void
+    {
+        $source = new SkillSource();
+        $source->setType(SkillSourceType::REPO);
+        $source->setUrl('https://github.com/acme/skills');
+        $source->setRef('main');
+        $sourceRepository = $this->get(SkillSourceRepository::class);
+        $sourceRepository->add($source);
+        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $uid = $source->getUid();
+        self::assertNotNull($uid);
+
+        $gitHub = new FakeGitHubClient('cafe1234', ['skills/a/SKILL.md'], [
+            'skills/a/SKILL.md' => "---\nname: A\ndescription: d\n---\nbody",
+        ]);
+        $result = $this->service($gitHub)->sync($source);
+        self::assertSame(SyncStatus::OK, $result->status);
+
+        $this->get(PersistenceManagerInterface::class)->persistAll();
+        $reloaded = $sourceRepository->findByUid($uid);
+        self::assertNotNull($reloaded);
+        self::assertSame(SyncStatus::OK, $reloaded->getSyncStatus());
+        self::assertSame('cafe1234', $reloaded->getPinnedSha());
+        self::assertGreaterThan(0, $reloaded->getLastSynced());
     }
 }
