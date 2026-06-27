@@ -17,6 +17,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Utility\StringUtility;
@@ -50,6 +51,9 @@ final class SkillSourceController extends ActionController
 
     public function syncAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $uid = $this->intFromBody($request->getParsedBody(), 'source');
         $source = $this->sourceRepository->findByUid($uid);
         if ($source === null) {
@@ -69,6 +73,9 @@ final class SkillSourceController extends ActionController
 
     public function toggleSkillAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $skill = $this->skillRepository->findByUid($this->intFromBody($body, 'skill'));
         if ($skill === null) {
@@ -85,6 +92,9 @@ final class SkillSourceController extends ActionController
 
     public function setTokenAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $source = $this->sourceRepository->findByUid($this->intFromBody($body, 'source'));
         if ($source === null) {
@@ -105,6 +115,19 @@ final class SkillSourceController extends ActionController
         $skill = $this->skillRepository->findByUid($this->intFromBody($this->request->getQueryParams(), 'skill'));
         $moduleTemplate->assign('skill', $skill);
         return $moduleTemplate->renderResponse('Backend/Skill/Diff');
+    }
+
+    /**
+     * Guard the AJAX endpoints: only an authenticated backend admin may sync, toggle or set tokens.
+     * Skill source/skill management is admin-only (see Modules.php access => admin).
+     */
+    private function denyNonAdmin(): ?ResponseInterface
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if ($backendUser instanceof BackendUserAuthentication && $backendUser->isAdmin()) {
+            return null;
+        }
+        return new JsonResponse(['success' => false, 'error' => 'Forbidden'], 403);
     }
 
     private function intFromBody(mixed $body, string $key): int
