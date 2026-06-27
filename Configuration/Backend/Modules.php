@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\PromptSnippetController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
+use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Controller\Backend\TaskListController;
 use Netresearch\NrLlm\Controller\Backend\TaskWizardController;
@@ -180,6 +181,25 @@ return [
         'controllerActions' => [
             SetupWizardController::class => [
                 'index',
+            ],
+        ],
+    ],
+    // Skills management - child of main module
+    // Note: AJAX actions (sync, toggleSkill, setToken) are registered via AjaxRoutes.php
+    'nrllm_skills' => [
+        'parent' => 'nrllm',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-skill',
+        'path' => '/module/nrllm/skills',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_skill.xlf',
+        'extensionName' => 'NrLlm',
+        'controllerActions' => [
+            SkillSourceController::class => [
+                'list',
+                'sync',
+                'toggleSkill',
+                'setToken',
+                'diff',
             ],
         ],
     ],

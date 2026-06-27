@@ -791,6 +791,80 @@
             <trans-unit id="tx_nrllm_promptsnippet.is_active.description">
                 <source>Only active snippets are returned to consuming extensions</source>
             </trans-unit>
+            <!-- Skill source table -->
+            <trans-unit id="tx_nrllm_skill_source">
+                <source>LLM Skill Source</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.title">
+                <source>Title</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.type">
+                <source>Source type</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.url">
+                <source>URL</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.ref">
+                <source>Git ref (branch or tag)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.pinned_sha">
+                <source>Pinned commit SHA</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_status">
+                <source>Sync status</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_error">
+                <source>Sync error</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.last_synced">
+                <source>Last synced</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.enabled">
+                <source>Enabled</source>
+            </trans-unit>
+            <!-- Skill table -->
+            <trans-unit id="tx_nrllm_skill">
+                <source>LLM Skill</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.source">
+                <source>Source</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.identifier">
+                <source>Identifier</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.name">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.description">
+                <source>Description</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.body">
+                <source>Body</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.body_checksum">
+                <source>Body checksum</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.source_sha">
+                <source>Source commit SHA</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.raw_frontmatter">
+                <source>Raw front-matter (JSON)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.support_status">
+                <source>Support status</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.unsupported_notes">
+                <source>Unsupported notes</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.allowed_tools">
+                <source>Allowed tools (JSON, ignored in 1a)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.orphaned">
+                <source>Orphaned</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.enabled">
+                <source>Enabled</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

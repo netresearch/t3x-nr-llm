@@ -1014,6 +1014,104 @@
                 <source>Only active snippets are returned to consuming extensions</source>
                 <target>Nur aktive Snippets werden an konsumierende Extensions ausgeliefert</target>
             </trans-unit>
+            <!-- Skill source table -->
+            <trans-unit id="tx_nrllm_skill_source">
+                <source>LLM Skill Source</source>
+                <target>LLM-Skill-Quelle</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.title">
+                <source>Title</source>
+                <target>Titel</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.type">
+                <source>Source type</source>
+                <target>Quelltyp</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.url">
+                <source>URL</source>
+                <target>URL</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.ref">
+                <source>Git ref (branch or tag)</source>
+                <target>Git-Ref (Branch oder Tag)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.pinned_sha">
+                <source>Pinned commit SHA</source>
+                <target>Festgepinnte Commit-SHA</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_status">
+                <source>Sync status</source>
+                <target>Sync-Status</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_error">
+                <source>Sync error</source>
+                <target>Sync-Fehler</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.last_synced">
+                <source>Last synced</source>
+                <target>Zuletzt synchronisiert</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.enabled">
+                <source>Enabled</source>
+                <target>Aktiviert</target>
+            </trans-unit>
+            <!-- Skill table -->
+            <trans-unit id="tx_nrllm_skill">
+                <source>LLM Skill</source>
+                <target>LLM-Skill</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.source">
+                <source>Source</source>
+                <target>Quelle</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.identifier">
+                <source>Identifier</source>
+                <target>Bezeichner</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.name">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.description">
+                <source>Description</source>
+                <target>Beschreibung</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.body">
+                <source>Body</source>
+                <target>Inhalt</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.body_checksum">
+                <source>Body checksum</source>
+                <target>Inhalts-Prüfsumme</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.source_sha">
+                <source>Source commit SHA</source>
+                <target>Quell-Commit-SHA</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.raw_frontmatter">
+                <source>Raw front-matter (JSON)</source>
+                <target>Roh-Front-Matter (JSON)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.support_status">
+                <source>Support status</source>
+                <target>Unterstützungsstatus</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.unsupported_notes">
+                <source>Unsupported notes</source>
+                <target>Hinweise zu nicht unterstützten Funktionen</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.allowed_tools">
+                <source>Allowed tools (JSON, ignored in 1a)</source>
+                <target>Erlaubte Tools (JSON, in 1a ignoriert)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.orphaned">
+                <source>Orphaned</source>
+                <target>Verwaist</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.enabled">
+                <source>Enabled</source>
+                <target>Aktiviert</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>
