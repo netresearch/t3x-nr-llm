@@ -1027,6 +1027,18 @@
                 <source>Source type</source>
                 <target>Quelltyp</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.type.single_file">
+                <source>Single SKILL.md file</source>
+                <target>Einzelne SKILL.md-Datei</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.type.repo">
+                <source>Repository</source>
+                <target>Repository</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.type.marketplace">
+                <source>Marketplace index</source>
+                <target>Marketplace-Index</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill_source.url">
                 <source>URL</source>
                 <target>URL</target>
@@ -1042,6 +1054,26 @@
             <trans-unit id="tx_nrllm_skill_source.sync_status">
                 <source>Sync status</source>
                 <target>Sync-Status</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_status.never_synced">
+                <source>Never synced</source>
+                <target>Noch nie synchronisiert</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_status.syncing">
+                <source>Syncing</source>
+                <target>Wird synchronisiert</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_status.ok">
+                <source>OK</source>
+                <target>OK</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_status.partial">
+                <source>Partial</source>
+                <target>Teilweise</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_status.error">
+                <source>Error</source>
+                <target>Fehler</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_skill_source.sync_error">
                 <source>Sync error</source>
@@ -1095,6 +1127,14 @@
             <trans-unit id="tx_nrllm_skill.support_status">
                 <source>Support status</source>
                 <target>Unterstützungsstatus</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.support_status.full">
+                <source>Full</source>
+                <target>Voll</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.support_status.partial">
+                <source>Partial</source>
+                <target>Teilweise</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_skill.unsupported_notes">
                 <source>Unsupported notes</source>

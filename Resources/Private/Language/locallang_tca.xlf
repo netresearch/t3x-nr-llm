@@ -801,6 +801,15 @@
             <trans-unit id="tx_nrllm_skill_source.type">
                 <source>Source type</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.type.single_file">
+                <source>Single SKILL.md file</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.type.repo">
+                <source>Repository</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.type.marketplace">
+                <source>Marketplace index</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill_source.url">
                 <source>URL</source>
             </trans-unit>
@@ -812,6 +821,21 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_skill_source.sync_status">
                 <source>Sync status</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_status.never_synced">
+                <source>Never synced</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_status.syncing">
+                <source>Syncing</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_status.ok">
+                <source>OK</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_status.partial">
+                <source>Partial</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.sync_status.error">
+                <source>Error</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_skill_source.sync_error">
                 <source>Sync error</source>
@@ -852,6 +876,12 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_skill.support_status">
                 <source>Support status</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.support_status.full">
+                <source>Full</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.support_status.partial">
+                <source>Partial</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_skill.unsupported_notes">
                 <source>Unsupported notes</source>

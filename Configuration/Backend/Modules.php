@@ -196,10 +196,6 @@ return [
         'controllerActions' => [
             SkillSourceController::class => [
                 'list',
-                'sync',
-                'toggleSkill',
-                'setToken',
-                'diff',
             ],
         ],
     ],

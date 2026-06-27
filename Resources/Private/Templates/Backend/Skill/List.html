@@ -9,15 +9,15 @@
     <div>
         <h1>
             <core:icon identifier="module-nrllm-skill" size="medium" />
-            Skills
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.list.title" default="Skills" />
         </h1>
 
         <f:be.infobox state="-2">
-            <p>Add GitHub-hosted skill sources (a single <code>SKILL.md</code>, a repository, or a marketplace index), then synchronise them. Skills are fetched by immutable commit SHA, integrity-checksummed and host-allowlisted.</p>
-            <p class="mb-0">Skills discovered from repositories and marketplaces are materialised <strong>disabled by default</strong>. Re-syncing an enabled skill whose body changed upstream auto-disables it for review.</p>
+            <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.intro.line1" default="Add GitHub-hosted skill sources (a single SKILL.md file, a repository, or a marketplace index), then synchronise them. Skills are fetched by immutable commit SHA, integrity-checksummed and host-allowlisted." /></p>
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.intro.line2" default="Skills discovered from repositories and marketplaces are materialised disabled by default. Re-syncing an enabled skill whose body changed upstream auto-disables it for review." /></p>
         </f:be.infobox>
 
-        <h2>Sources</h2>
+        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.sources.heading" default="Sources" /></h2>
         <f:if condition="{sources -> f:count()}">
             <f:then>
                 <div class="card mb-4">
@@ -25,11 +25,11 @@
                         <table class="table table-striped table-hover mb-0">
                             <thead>
                                 <tr>
-                                    <th>Title</th>
-                                    <th>Type</th>
-                                    <th>Sync status</th>
-                                    <th>Last synced</th>
-                                    <th style="width: 200px;">Actions</th>
+                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.field.title" default="Title" /></th>
+                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.field.type" default="Type" /></th>
+                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.field.syncStatus" default="Sync status" /></th>
+                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.field.lastSynced" default="Last synced" /></th>
+                                    <th style="width: 200px;"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -41,18 +41,18 @@
                                         <td>
                                             <f:if condition="{source.lastSynced} > 0">
                                                 <f:then><f:format.date date="@{source.lastSynced}" format="Y-m-d H:i" /></f:then>
-                                                <f:else><span class="text-body-secondary">never</span></f:else>
+                                                <f:else><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.lastSynced.never" default="never" /></span></f:else>
                                             </f:if>
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
                                                 <button type="button" class="btn btn-secondary js-skill-sync"
-                                                        data-source="{source.uid}" title="Sync">
-                                                    <core:icon identifier="actions-refresh" size="small" /> Sync
+                                                        data-source="{source.uid}" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.sync', default: 'Sync')}">
+                                                    <core:icon identifier="actions-refresh" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.sync" default="Sync" />
                                                 </button>
                                                 <button type="button" class="btn btn-secondary js-skill-token"
-                                                        data-source="{source.uid}" title="Set GitHub token">
-                                                    <core:icon identifier="actions-key" size="small" /> Token
+                                                        data-source="{source.uid}" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.token', default: 'Set GitHub token')}">
+                                                    <core:icon identifier="actions-key" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.token" default="Token" />
                                                 </button>
                                             </div>
                                         </td>
@@ -64,13 +64,13 @@
                 </div>
             </f:then>
             <f:else>
-                <f:be.infobox title="No skill sources configured" state="-1">
-                    <p>No skill sources have been added yet. Create a source record to ingest skills from GitHub.</p>
+                <f:be.infobox title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.sources.empty.title', default: 'No skill sources configured')}" state="-1">
+                    <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.sources.empty.message" default="No skill sources have been added yet. Create a source record to ingest skills from GitHub." /></p>
                 </f:be.infobox>
             </f:else>
         </f:if>
 
-        <h2>Skills</h2>
+        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.skills.heading" default="Skills" /></h2>
         <f:if condition="{skills -> f:count()}">
             <f:then>
                 <div class="card mb-4">
@@ -78,10 +78,10 @@
                         <table class="table table-striped table-hover mb-0">
                             <thead>
                                 <tr>
-                                    <th>Name</th>
-                                    <th>Support</th>
-                                    <th>State</th>
-                                    <th style="width: 160px;">Actions</th>
+                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.field.name" default="Name" /></th>
+                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.field.support" default="Support" /></th>
+                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.field.state" default="State" /></th>
+                                    <th style="width: 160px;"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -95,17 +95,17 @@
                                         </td>
                                         <td>
                                             <f:if condition="{skill.supportStatus.value} == 'full'">
-                                                <f:then><span class="badge text-bg-success">Full</span></f:then>
-                                                <f:else><span class="badge text-bg-warning" title="{skill.unsupportedNotes}">Partial</span></f:else>
+                                                <f:then><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.support.full" default="Full" /></span></f:then>
+                                                <f:else><span class="badge text-bg-warning" title="{skill.unsupportedNotes}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.support.partial" default="Partial" /></span></f:else>
                                             </f:if>
                                         </td>
                                         <td>
                                             <f:if condition="{skill.isOrphaned}">
-                                                <span class="badge text-bg-danger">Orphaned</span>
+                                                <span class="badge text-bg-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.state.orphaned" default="Orphaned" /></span>
                                             </f:if>
                                             <f:if condition="{skill.isEnabled}">
-                                                <f:then><span class="badge text-bg-success">Enabled</span></f:then>
-                                                <f:else><span class="badge text-bg-secondary">Disabled</span></f:else>
+                                                <f:then><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.state.enabled" default="Enabled" /></span></f:then>
+                                                <f:else><span class="badge text-bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.state.disabled" default="Disabled" /></span></f:else>
                                             </f:if>
                                         </td>
                                         <td>
@@ -113,7 +113,7 @@
                                                 <button type="button" class="btn btn-secondary js-skill-toggle"
                                                         data-skill="{skill.uid}"
                                                         data-enabled="{f:if(condition: skill.isEnabled, then: '1', else: '0')}"
-                                                        title="{f:if(condition: skill.isEnabled, then: 'Disable', else: 'Enable')}">
+                                                        title="{f:if(condition: skill.isEnabled, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.disable\', default: \'Disable\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.enable\', default: \'Enable\')}')}">
                                                     <f:if condition="{skill.isEnabled}">
                                                         <f:then><core:icon identifier="actions-toggle-on" size="small" /></f:then>
                                                         <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
@@ -129,8 +129,8 @@
                 </div>
             </f:then>
             <f:else>
-                <f:be.infobox title="No skills ingested" state="-1">
-                    <p>No skills have been ingested yet. Add a source and run a sync.</p>
+                <f:be.infobox title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.skills.empty.title', default: 'No skills ingested')}" state="-1">
+                    <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.skills.empty.message" default="No skills have been ingested yet. Add a source and run a sync." /></p>
                 </f:be.infobox>
             </f:else>
         </f:if>

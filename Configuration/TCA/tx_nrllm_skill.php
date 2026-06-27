@@ -16,6 +16,7 @@ return [
         'crdate' => 'crdate',
         'delete' => 'deleted',
         'default_sortby' => 'name ASC',
+        'searchFields' => 'identifier,name,description',
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
@@ -131,8 +132,8 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
                 'items' => [
-                    ['label' => 'Full', 'value' => 'full'],
-                    ['label' => 'Partial', 'value' => 'partial'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.support_status.full', 'value' => 'full'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.support_status.partial', 'value' => 'partial'],
                 ],
                 'default' => 'full',
                 'readOnly' => true,

@@ -518,6 +518,112 @@
                 <source>Tokens (30d)</source>
                 <target>Tokens (30 T.)</target>
             </trans-unit>
+
+            <!-- Skills backend module -->
+            <trans-unit id="skill.list.title">
+                <source>Skills</source>
+                <target>Skills</target>
+            </trans-unit>
+            <trans-unit id="skill.intro.line1">
+                <source>Add GitHub-hosted skill sources (a single SKILL.md file, a repository, or a marketplace index), then synchronise them. Skills are fetched by immutable commit SHA, integrity-checksummed and host-allowlisted.</source>
+                <target>Fügen Sie auf GitHub gehostete Skill-Quellen hinzu (eine einzelne SKILL.md-Datei, ein Repository oder einen Marketplace-Index) und synchronisieren Sie sie anschließend. Skills werden anhand der unveränderlichen Commit-SHA abgerufen, per Prüfsumme abgesichert und auf erlaubte Hosts beschränkt.</target>
+            </trans-unit>
+            <trans-unit id="skill.intro.line2">
+                <source>Skills discovered from repositories and marketplaces are materialised disabled by default. Re-syncing an enabled skill whose body changed upstream auto-disables it for review.</source>
+                <target>In Repositories und Marketplaces gefundene Skills werden standardmäßig deaktiviert angelegt. Wird ein bereits aktivierter Skill erneut synchronisiert und hat sich sein Inhalt geändert, wird er zur erneuten Überprüfung automatisch deaktiviert.</target>
+            </trans-unit>
+            <trans-unit id="skill.sources.heading">
+                <source>Sources</source>
+                <target>Quellen</target>
+            </trans-unit>
+            <trans-unit id="skill.field.title">
+                <source>Title</source>
+                <target>Titel</target>
+            </trans-unit>
+            <trans-unit id="skill.field.type">
+                <source>Type</source>
+                <target>Typ</target>
+            </trans-unit>
+            <trans-unit id="skill.field.syncStatus">
+                <source>Sync status</source>
+                <target>Sync-Status</target>
+            </trans-unit>
+            <trans-unit id="skill.field.lastSynced">
+                <source>Last synced</source>
+                <target>Zuletzt synchronisiert</target>
+            </trans-unit>
+            <trans-unit id="skill.lastSynced.never">
+                <source>never</source>
+                <target>nie</target>
+            </trans-unit>
+            <trans-unit id="skill.action.sync">
+                <source>Sync</source>
+                <target>Synchronisieren</target>
+            </trans-unit>
+            <trans-unit id="skill.action.token">
+                <source>Token</source>
+                <target>Token</target>
+            </trans-unit>
+            <trans-unit id="skill.sources.empty.title">
+                <source>No skill sources configured</source>
+                <target>Keine Skill-Quellen konfiguriert</target>
+            </trans-unit>
+            <trans-unit id="skill.sources.empty.message">
+                <source>No skill sources have been added yet. Create a source record to ingest skills from GitHub.</source>
+                <target>Es wurden noch keine Skill-Quellen hinzugefügt. Legen Sie einen Quell-Datensatz an, um Skills von GitHub zu importieren.</target>
+            </trans-unit>
+            <trans-unit id="skill.skills.heading">
+                <source>Skills</source>
+                <target>Skills</target>
+            </trans-unit>
+            <trans-unit id="skill.field.name">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="skill.field.support">
+                <source>Support</source>
+                <target>Unterstützung</target>
+            </trans-unit>
+            <trans-unit id="skill.field.state">
+                <source>State</source>
+                <target>Status</target>
+            </trans-unit>
+            <trans-unit id="skill.support.full">
+                <source>Full</source>
+                <target>Voll</target>
+            </trans-unit>
+            <trans-unit id="skill.support.partial">
+                <source>Partial</source>
+                <target>Teilweise</target>
+            </trans-unit>
+            <trans-unit id="skill.state.orphaned">
+                <source>Orphaned</source>
+                <target>Verwaist</target>
+            </trans-unit>
+            <trans-unit id="skill.state.enabled">
+                <source>Enabled</source>
+                <target>Aktiviert</target>
+            </trans-unit>
+            <trans-unit id="skill.state.disabled">
+                <source>Disabled</source>
+                <target>Deaktiviert</target>
+            </trans-unit>
+            <trans-unit id="skill.action.enable">
+                <source>Enable</source>
+                <target>Aktivieren</target>
+            </trans-unit>
+            <trans-unit id="skill.action.disable">
+                <source>Disable</source>
+                <target>Deaktivieren</target>
+            </trans-unit>
+            <trans-unit id="skill.skills.empty.title">
+                <source>No skills ingested</source>
+                <target>Keine Skills importiert</target>
+            </trans-unit>
+            <trans-unit id="skill.skills.empty.message">
+                <source>No skills have been ingested yet. Add a source and run a sync.</source>
+                <target>Es wurden noch keine Skills importiert. Fügen Sie eine Quelle hinzu und starten Sie eine Synchronisierung.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

@@ -109,14 +109,6 @@ final class SkillSourceController extends ActionController
         return new JsonResponse(['success' => true]);
     }
 
-    public function diffAction(): ResponseInterface
-    {
-        $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $skill = $this->skillRepository->findByUid($this->intFromBody($this->request->getQueryParams(), 'skill'));
-        $moduleTemplate->assign('skill', $skill);
-        return $moduleTemplate->renderResponse('Backend/Skill/Diff');
-    }
-
     /**
      * Guard the AJAX endpoints: only an authenticated backend admin may sync, toggle or set tokens.
      * Skill source/skill management is admin-only (see Modules.php access => admin).

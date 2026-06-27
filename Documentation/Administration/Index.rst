@@ -31,7 +31,7 @@ section, and AI wizard buttons.
    The LLM dashboard with setup progress, wizard
    buttons, and quick-reference PHP snippets.
 
-The module has six sections accessible from the
+The module has seven sections accessible from the
 left-hand navigation:
 
 - **Dashboard** — overview and wizards

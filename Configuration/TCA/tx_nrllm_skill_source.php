@@ -16,6 +16,7 @@ return [
         'crdate' => 'crdate',
         'delete' => 'deleted',
         'default_sortby' => 'title ASC',
+        'searchFields' => 'title,url,ref',
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
@@ -68,9 +69,9 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
                 'items' => [
-                    ['label' => 'Single SKILL.md file', 'value' => 'single_file'],
-                    ['label' => 'Repository', 'value' => 'repo'],
-                    ['label' => 'Marketplace index', 'value' => 'marketplace'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.type.single_file', 'value' => 'single_file'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.type.repo', 'value' => 'repo'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.type.marketplace', 'value' => 'marketplace'],
                 ],
                 'default' => 'single_file',
                 'required' => true,
