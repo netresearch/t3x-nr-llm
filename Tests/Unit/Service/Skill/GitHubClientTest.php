@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
+use Netresearch\NrLlm\Service\Skill\Exception\GitHubApiException;
 use Netresearch\NrLlm\Service\Skill\Exception\HostNotAllowedException;
 use Netresearch\NrLlm\Service\Skill\GitHubClient;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -102,5 +103,64 @@ final class GitHubClientTest extends TestCase
         $client = $this->clientReturning(fn(RequestInterface $r) => $this->json([]));
         $this->expectException(HostNotAllowedException::class);
         $client->fetchAllowedUrl('http://raw.githubusercontent.com/o/r/sha/SKILL.md', null);
+    }
+
+    #[Test]
+    public function exhaustedPrimaryBudgetOn403IsFlaggedAsRateLimit(): void
+    {
+        $client = $this->clientReturning(
+            fn(RequestInterface $r) => $this->httpResponse(403, ['X-RateLimit-Remaining' => '0', 'X-RateLimit-Reset' => '4711']),
+        );
+        $e = $this->captureFailure($client);
+        self::assertTrue($e->isRateLimit, '403 with X-RateLimit-Remaining: 0 must be a rate-limit failure');
+    }
+
+    #[Test]
+    public function http429IsFlaggedAsRateLimit(): void
+    {
+        $client = $this->clientReturning(fn(RequestInterface $r) => $this->httpResponse(429));
+        $e = $this->captureFailure($client);
+        self::assertTrue($e->isRateLimit, 'HTTP 429 must be a rate-limit failure');
+    }
+
+    #[Test]
+    public function http500IsNotARateLimit(): void
+    {
+        $client = $this->clientReturning(fn(RequestInterface $r) => $this->httpResponse(500));
+        $e = $this->captureFailure($client);
+        self::assertFalse($e->isRateLimit, 'a server error must stay a generic (non-rate-limit) failure');
+        self::assertSame(500, $e->status);
+    }
+
+    #[Test]
+    public function redirectIsRejectedAndNeverSilentlyConsumed(): void
+    {
+        // 3xx must be treated as an error: a followed redirect could escape the host allowlist.
+        $client = $this->clientReturning(fn(RequestInterface $r) => $this->httpResponse(302, ['Location' => 'https://evil.example.com/']));
+        $e = $this->captureFailure($client);
+        self::assertFalse($e->isRateLimit);
+        self::assertSame(302, $e->status);
+    }
+
+    /**
+     * @param array<string,string> $headers
+     */
+    private function httpResponse(int $status, array $headers = []): ResponseInterface
+    {
+        $response = (new Response())->withStatus($status);
+        foreach ($headers as $name => $value) {
+            $response = $response->withHeader($name, $value);
+        }
+        return $response;
+    }
+
+    private function captureFailure(GitHubClient $client): GitHubApiException
+    {
+        try {
+            $client->fetchAllowedUrl('https://api.github.com/repos/o/r/commits/main', null);
+        } catch (GitHubApiException $e) {
+            return $e;
+        }
+        self::fail('expected a GitHubApiException to be thrown');
     }
 }
