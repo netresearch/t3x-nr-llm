@@ -11,6 +11,8 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\Model\Skill;
+use Netresearch\NrLlm\Domain\Model\SkillSource;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Model\UserBudget;
 
@@ -23,6 +25,12 @@ use Netresearch\NrLlm\Domain\Model\UserBudget;
 return [
     Provider::class => [
         'tableName' => 'tx_nrllm_provider',
+    ],
+    Skill::class => [
+        'tableName' => 'tx_nrllm_skill',
+    ],
+    SkillSource::class => [
+        'tableName' => 'tx_nrllm_skill_source',
     ],
     Model::class => [
         'tableName' => 'tx_nrllm_model',

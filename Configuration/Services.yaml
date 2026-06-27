@@ -21,6 +21,7 @@ services:
       - '../Classes/Domain/Model/*'
       - '../Classes/Provider/Exception/*'
       - '../Classes/Service/SetupWizard/Exception/*'
+      - '../Classes/Service/Skill/Exception/*'
       - '../Classes/Specialized/Exception/*'
       - '../Classes/Widgets/*'
 
@@ -179,6 +180,12 @@ services:
     public: true
 
   Netresearch\NrLlm\Domain\Repository\UserBudgetRepository:
+    public: true
+
+  Netresearch\NrLlm\Domain\Repository\SkillRepository:
+    public: true
+
+  Netresearch\NrLlm\Domain\Repository\SkillSourceRepository:
     public: true
 
   Netresearch\NrLlm\Service\BudgetService:

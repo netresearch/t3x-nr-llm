@@ -400,3 +400,87 @@ CREATE TABLE tx_nrllm_service_usage (
     KEY model_lookup (model_uid, request_date),
     KEY task_lookup (task_uid, request_date)
 );
+
+#
+# Table structure for table 'tx_nrllm_skill_source'
+# GitHub-hosted skill sources (single SKILL.md, repo, or marketplace index)
+#
+CREATE TABLE tx_nrllm_skill_source (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    -- Identity
+    title varchar(255) DEFAULT '' NOT NULL,
+    type varchar(20) DEFAULT 'single_file' NOT NULL,
+
+    -- Source location
+    url varchar(2048) DEFAULT '' NOT NULL,
+    ref varchar(255) DEFAULT '' NOT NULL,
+    pinned_sha varchar(64) DEFAULT '' NOT NULL,
+
+    -- Credentials (nr-vault UUID, never plaintext)
+    github_token varchar(64) DEFAULT '' NOT NULL,
+
+    -- Sync state
+    sync_status varchar(20) DEFAULT 'never_synced' NOT NULL,
+    sync_error text,
+    last_synced int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Status
+    enabled tinyint(1) DEFAULT '1' NOT NULL,
+
+    -- Standard TYPO3 fields
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
+    hidden tinyint(4) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY type (type)
+);
+
+#
+# Table structure for table 'tx_nrllm_skill'
+# Parsed SKILL.md records materialized from a skill source
+#
+CREATE TABLE tx_nrllm_skill (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    -- Source relation
+    source int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Identity
+    identifier varchar(512) DEFAULT '' NOT NULL,
+    name varchar(255) DEFAULT '' NOT NULL,
+    description text,
+
+    -- Content
+    body mediumtext,
+    body_checksum varchar(64) DEFAULT '' NOT NULL,
+    source_sha varchar(64) DEFAULT '' NOT NULL,
+    raw_frontmatter text,
+
+    -- Support assessment
+    support_status varchar(20) DEFAULT 'full' NOT NULL,
+    unsupported_notes text,
+    allowed_tools text,
+
+    -- Lifecycle
+    orphaned tinyint(1) DEFAULT '0' NOT NULL,
+    enabled tinyint(1) DEFAULT '0' NOT NULL,
+
+    -- Standard TYPO3 fields
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
+    hidden tinyint(4) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY source (source),
+    KEY identifier (identifier(191))
+);
