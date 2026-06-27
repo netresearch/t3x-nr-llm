@@ -188,6 +188,9 @@ services:
   Netresearch\NrLlm\Domain\Repository\SkillSourceRepository:
     public: true
 
+  Netresearch\NrLlm\Service\Skill\GitHubClientInterface:
+    alias: Netresearch\NrLlm\Service\Skill\GitHubClient
+
   Netresearch\NrLlm\Service\BudgetService:
     public: true
 
