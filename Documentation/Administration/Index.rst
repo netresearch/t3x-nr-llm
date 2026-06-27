@@ -40,6 +40,7 @@ left-hand navigation:
 - **Configurations** — use-case presets
 - **Tasks** — one-shot prompt templates
 - **Snippets** — tagged reusable prompt fragments
+- **Skills** — GitHub-hosted ``SKILL.md`` sources (admin-only)
 
 .. toctree::
    :maxdepth: 2
@@ -49,6 +50,7 @@ left-hand navigation:
    Configurations
    Tasks
    PromptSnippets
+   Skills
    Wizards
    UserBudgets
    Analytics
