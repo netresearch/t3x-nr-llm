@@ -78,6 +78,8 @@ fixtures through real Doctrine, so they must be public.
 * ``Domain\Repository\ModelRepository``
 * ``Domain\Repository\TaskRepository``
 * ``Domain\Repository\UserBudgetRepository``
+* ``Domain\Repository\SkillRepository``
+* ``Domain\Repository\SkillSourceRepository``
 
 **4. SetupWizard collaborators.** Three services that are
 co-instantiated by the wizard controller's typed-DTO factories
@@ -118,11 +120,11 @@ The unit test
 ``Configuration/Services.yaml`` and asserts:
 
 * The total count of ``public: true`` keys matches the expected
-  total (currently **40**).
+  total (currently **42**).
 * The ADR file exists and references both ``REC #9c`` and the
   ``public: true`` policy text.
 
-Breakdown of the 40:
+Breakdown of the 42:
 
 * **22** Category 1 — Public LLM API surface
   (13 concrete services + 9 interface aliases).
@@ -142,10 +144,13 @@ Breakdown of the 40:
   aliases = 22.
 * **4** Category 2 — Specialized services
   (Whisper, TextToSpeech, DallE, Fal).
-* **6** Category 3 — Repositories
+* **8** Category 3 — Repositories
   (LlmConfiguration, Provider, Model, Task, PromptSnippet,
-  UserBudget). ``PromptSnippetRepository`` is additionally the
-  documented query surface for consuming extensions (ADR-031).
+  UserBudget, Skill, SkillSource). ``PromptSnippetRepository`` is
+  additionally the documented query surface for consuming
+  extensions (ADR-031). ``SkillRepository`` and
+  ``SkillSourceRepository`` (skills-ingest) are public so their
+  functional tests resolve them via ``FunctionalTestCase::get()``.
 * **4** Category 4 — SetupWizard
   (3 concrete: ProviderDetector, ModelDiscovery,
   ConfigurationGenerator + 1 alias: ModelDiscoveryInterface).

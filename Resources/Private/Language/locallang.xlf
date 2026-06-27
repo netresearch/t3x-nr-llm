@@ -394,6 +394,86 @@
             <trans-unit id="analytics.col.tokens">
                 <source>Tokens (30d)</source>
             </trans-unit>
+
+            <!-- Skills backend module -->
+            <trans-unit id="skill.list.title">
+                <source>Skills</source>
+            </trans-unit>
+            <trans-unit id="skill.intro.line1">
+                <source>Add GitHub-hosted skill sources (a single SKILL.md file, a repository, or a marketplace index), then synchronise them. Skills are fetched by immutable commit SHA, integrity-checksummed and host-allowlisted.</source>
+            </trans-unit>
+            <trans-unit id="skill.intro.line2">
+                <source>Skills discovered from repositories and marketplaces are materialised disabled by default. Re-syncing an enabled skill whose body changed upstream auto-disables it for review.</source>
+            </trans-unit>
+            <trans-unit id="skill.sources.heading">
+                <source>Sources</source>
+            </trans-unit>
+            <trans-unit id="skill.field.title">
+                <source>Title</source>
+            </trans-unit>
+            <trans-unit id="skill.field.type">
+                <source>Type</source>
+            </trans-unit>
+            <trans-unit id="skill.field.syncStatus">
+                <source>Sync status</source>
+            </trans-unit>
+            <trans-unit id="skill.field.lastSynced">
+                <source>Last synced</source>
+            </trans-unit>
+            <trans-unit id="skill.lastSynced.never">
+                <source>never</source>
+            </trans-unit>
+            <trans-unit id="skill.action.sync">
+                <source>Sync</source>
+            </trans-unit>
+            <trans-unit id="skill.action.token">
+                <source>Token</source>
+            </trans-unit>
+            <trans-unit id="skill.sources.empty.title">
+                <source>No skill sources configured</source>
+            </trans-unit>
+            <trans-unit id="skill.sources.empty.message">
+                <source>No skill sources have been added yet. Create a source record to ingest skills from GitHub.</source>
+            </trans-unit>
+            <trans-unit id="skill.skills.heading">
+                <source>Skills</source>
+            </trans-unit>
+            <trans-unit id="skill.field.name">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="skill.field.support">
+                <source>Support</source>
+            </trans-unit>
+            <trans-unit id="skill.field.state">
+                <source>State</source>
+            </trans-unit>
+            <trans-unit id="skill.support.full">
+                <source>Full</source>
+            </trans-unit>
+            <trans-unit id="skill.support.partial">
+                <source>Partial</source>
+            </trans-unit>
+            <trans-unit id="skill.state.orphaned">
+                <source>Orphaned</source>
+            </trans-unit>
+            <trans-unit id="skill.state.enabled">
+                <source>Enabled</source>
+            </trans-unit>
+            <trans-unit id="skill.state.disabled">
+                <source>Disabled</source>
+            </trans-unit>
+            <trans-unit id="skill.action.enable">
+                <source>Enable</source>
+            </trans-unit>
+            <trans-unit id="skill.action.disable">
+                <source>Disable</source>
+            </trans-unit>
+            <trans-unit id="skill.skills.empty.title">
+                <source>No skills ingested</source>
+            </trans-unit>
+            <trans-unit id="skill.skills.empty.message">
+                <source>No skills have been ingested yet. Add a source and run a sync.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

@@ -1,0 +1,189 @@
+<?php
+
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Domain\Model;
+
+use Netresearch\NrLlm\Domain\Enum\SupportStatus;
+use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
+
+class Skill extends AbstractEntity
+{
+    protected int $source = 0;
+    protected string $identifier = '';
+    protected string $name = '';
+    protected string $description = '';
+    protected string $body = '';
+    protected string $bodyChecksum = '';
+    protected string $sourceSha = '';
+    protected string $rawFrontmatter = '';
+    protected SupportStatus $supportStatus = SupportStatus::FULL;
+    protected string $unsupportedNotes = '';
+    protected string $allowedTools = '';
+    protected bool $orphaned = false;
+    protected bool $enabled = false;
+
+    public function getSource(): int
+    {
+        return $this->source;
+    }
+
+    public function setSource(int $source): void
+    {
+        $this->source = $source;
+    }
+
+    public function getIdentifier(): string
+    {
+        return $this->identifier;
+    }
+
+    public function setIdentifier(string $identifier): void
+    {
+        $this->identifier = $identifier;
+    }
+
+    public function getName(): string
+    {
+        return $this->name;
+    }
+
+    public function setName(string $name): void
+    {
+        $this->name = $name;
+    }
+
+    public function getDescription(): string
+    {
+        return $this->description;
+    }
+
+    public function setDescription(string $description): void
+    {
+        $this->description = $description;
+    }
+
+    public function getBody(): string
+    {
+        return $this->body;
+    }
+
+    public function setBody(string $body): void
+    {
+        $this->body = $body;
+    }
+
+    public function getBodyChecksum(): string
+    {
+        return $this->bodyChecksum;
+    }
+
+    public function setBodyChecksum(string $bodyChecksum): void
+    {
+        $this->bodyChecksum = $bodyChecksum;
+    }
+
+    public function getSourceSha(): string
+    {
+        return $this->sourceSha;
+    }
+
+    public function setSourceSha(string $sourceSha): void
+    {
+        $this->sourceSha = $sourceSha;
+    }
+
+    public function getRawFrontmatter(): string
+    {
+        return $this->rawFrontmatter;
+    }
+
+    public function setRawFrontmatter(string $rawFrontmatter): void
+    {
+        $this->rawFrontmatter = $rawFrontmatter;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function getRawFrontmatterArray(): array
+    {
+        if (trim($this->rawFrontmatter) === '') {
+            return [];
+        }
+        $decoded = json_decode($this->rawFrontmatter, true);
+        if (!is_array($decoded) || array_is_list($decoded)) {
+            return [];
+        }
+        $out = [];
+        foreach ($decoded as $k => $v) {
+            $out[(string)$k] = $v;
+        }
+        return $out;
+    }
+
+    public function getSupportStatus(): SupportStatus
+    {
+        return $this->supportStatus;
+    }
+
+    public function setSupportStatus(SupportStatus $supportStatus): void
+    {
+        $this->supportStatus = $supportStatus;
+    }
+
+    public function getUnsupportedNotes(): string
+    {
+        return $this->unsupportedNotes;
+    }
+
+    public function setUnsupportedNotes(string $unsupportedNotes): void
+    {
+        $this->unsupportedNotes = $unsupportedNotes;
+    }
+
+    public function getAllowedTools(): string
+    {
+        return $this->allowedTools;
+    }
+
+    public function setAllowedTools(string $allowedTools): void
+    {
+        $this->allowedTools = $allowedTools;
+    }
+
+    public function isOrphaned(): bool
+    {
+        return $this->orphaned;
+    }
+
+    public function getIsOrphaned(): bool
+    {
+        return $this->isOrphaned();
+    }
+
+    public function setOrphaned(bool $orphaned): void
+    {
+        $this->orphaned = $orphaned;
+    }
+
+    public function isEnabled(): bool
+    {
+        return $this->enabled;
+    }
+
+    public function getIsEnabled(): bool
+    {
+        return $this->isEnabled();
+    }
+
+    public function setEnabled(bool $enabled): void
+    {
+        $this->enabled = $enabled;
+    }
+}

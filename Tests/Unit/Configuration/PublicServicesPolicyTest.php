@@ -44,7 +44,9 @@ final class PublicServicesPolicyTest extends TestCase
      * - Category 3 (Repositories — required public for
      *   FunctionalTestCase::get(); PromptSnippetRepository is also
      *   the documented query surface for consuming extensions,
-     *   ADR-031): 6
+     *   ADR-031): 8. Includes SkillRepository and
+     *   SkillSourceRepository, public so the skills-ingest
+     *   functional tests resolve them via FunctionalTestCase::get().
      * - Category 4 (SetupWizard collaborators): 3 concrete +
      *   1 interface alias = 4
      * - Doctrine + provider wiring tail (services exposed for
@@ -53,14 +55,14 @@ final class PublicServicesPolicyTest extends TestCase
      *   UsageAnalyticsService, public solely so the Analytics
      *   functional test resolves it via FunctionalTestCase::get().
      *
-     * Total: 22 + 4 + 6 + 4 + 4 = **40**.
+     * Total: 22 + 4 + 8 + 4 + 4 = **42**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
      * `Documentation/Adr/Adr028PublicServicesPolicy.rst` in the
      * same PR — the diff is the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 40;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 42;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 

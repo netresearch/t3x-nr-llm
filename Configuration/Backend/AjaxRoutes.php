@@ -12,6 +12,7 @@ use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
+use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Controller\Backend\TaskRecordsController;
 
@@ -113,6 +114,20 @@ return [
     'nrllm_task_execute' => [
         'path' => '/nrllm/task/execute',
         'target' => TaskExecutionController::class . '::executeAction',
+    ],
+
+    // Skill routes
+    'nrllm_skill_sync' => [
+        'path' => '/nrllm/skill/sync',
+        'target' => SkillSourceController::class . '::syncAction',
+    ],
+    'nrllm_skill_toggle' => [
+        'path' => '/nrllm/skill/toggle',
+        'target' => SkillSourceController::class . '::toggleSkillAction',
+    ],
+    'nrllm_skill_token' => [
+        'path' => '/nrllm/skill/token',
+        'target' => SkillSourceController::class . '::setTokenAction',
     ],
 
     // Setup Wizard routes

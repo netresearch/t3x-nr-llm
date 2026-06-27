@@ -230,6 +230,26 @@ Modern architecture (v0.4+)
       .. card-footer:: :ref:`Read <adr-020>`
          :button-style: btn btn-secondary stretched-link
 
+.. _adr-skills:
+
+Skills
+------
+
+.. card-grid::
+   :columns: 1
+   :columns-md: 2
+   :gap: 4
+   :card-height: 100
+
+   .. card:: ADR-035: Skill ingest
+
+      GitHub-hosted ``SKILL.md`` sources: host
+      allowlist, SHA-pin + checksum, disabled-by-default
+      review.
+
+      .. card-footer:: :ref:`Read <adr-035>`
+         :button-style: btn btn-secondary stretched-link
+
 .. toctree::
    :hidden:
 
@@ -267,3 +287,4 @@ Modern architecture (v0.4+)
    Adr032SpecializedUsageAndPricingCatalog
    Adr033SpecializedModelRegistry
    Adr034RemoveExtensionConfigDefaultProvider
+   Adr035SkillIngest
