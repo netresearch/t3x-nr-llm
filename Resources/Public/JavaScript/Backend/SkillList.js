@@ -114,7 +114,7 @@ class SkillList {
             return;
         }
 
-        const token = window.prompt('Enter a GitHub access token for this source (stored encrypted via vault):');
+        const token = globalThis.prompt('Enter a GitHub access token for this source (stored encrypted via vault):');
         if (token === null) {
             return;
         }

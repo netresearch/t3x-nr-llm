@@ -52,7 +52,7 @@ final class SkillRepository extends Repository
         $query = $this->createQuery();
         $query->matching($query->equals('source', $source));
         /** @var list<Skill> $skills */
-        $skills = array_values($query->execute()->toArray());
-        return $skills;
+        $skills = $query->execute()->toArray();
+        return array_values($skills);
     }
 }

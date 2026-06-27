@@ -123,7 +123,7 @@ class SkillSource extends AbstractEntity
 
     public function getIsEnabled(): bool
     {
-        return $this->enabled;
+        return $this->isEnabled();
     }
 
     public function setEnabled(bool $enabled): void

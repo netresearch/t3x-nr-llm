@@ -44,5 +44,8 @@ final readonly class FakeGitHubClient implements GitHubClientInterface
         return '';
     }
 
-    public function setHttpClient(ClientInterface $client): void {}
+    public function setHttpClient(ClientInterface $client): void
+    {
+        // No-op: the fake bypasses the HTTP transport entirely.
+    }
 }

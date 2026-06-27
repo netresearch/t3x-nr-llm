@@ -164,7 +164,7 @@ class Skill extends AbstractEntity
 
     public function getIsOrphaned(): bool
     {
-        return $this->orphaned;
+        return $this->isOrphaned();
     }
 
     public function setOrphaned(bool $orphaned): void
@@ -179,7 +179,7 @@ class Skill extends AbstractEntity
 
     public function getIsEnabled(): bool
     {
-        return $this->enabled;
+        return $this->isEnabled();
     }
 
     public function setEnabled(bool $enabled): void
