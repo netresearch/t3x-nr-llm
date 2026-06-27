@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SyncResult;
 use Netresearch\NrLlm\Service\Skill\Exception\GitHubApiException;
 use Netresearch\NrLlm\Service\Skill\Exception\HostNotAllowedException;
 use Netresearch\NrLlm\Service\Skill\Exception\SkillParseException;
+use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Extbase\Persistence\Exception\UnknownObjectException;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
@@ -29,16 +30,15 @@ final class SkillSyncService
     /** A SYNCING lock older than this many seconds is considered stale and may be reclaimed. */
     private const STALE_LOCK_SECONDS = 600;
 
-    /** Hard ceiling on files fetched per sync; prevents a huge repo/marketplace from running unbounded. */
-    private const MAX_FILES = 500;
-
-    /** Hard ceiling on wall-clock seconds spent collecting per sync. */
-    private const MAX_SECONDS = 120;
-
     private int $syncDeadline = 0;
     private int $filesProcessed = 0;
     private bool $boundsExceeded = false;
 
+    /**
+     * @param int $maxFiles   Hard ceiling on files fetched per sync; prevents a huge repo/marketplace
+     *                        from running unbounded (constructor-injectable so tests can lower it).
+     * @param int $maxSeconds Hard ceiling on wall-clock seconds spent collecting per sync.
+     */
     public function __construct(
         private readonly GitHubClientInterface $gitHub,
         private readonly SkillMarkdownParser $parser,
@@ -47,6 +47,8 @@ final class SkillSyncService
         private readonly SkillRepository $skillRepository,
         private readonly SkillSourceRepository $sourceRepository,
         private readonly PersistenceManagerInterface $persistenceManager,
+        private readonly int $maxFiles = 500,
+        private readonly int $maxSeconds = 120,
     ) {}
 
     public function sync(SkillSource $source): SyncResult
@@ -67,7 +69,7 @@ final class SkillSyncService
         $source->setLastSynced($now);
         $this->persistSource($source);
 
-        $this->syncDeadline = $now + self::MAX_SECONDS;
+        $this->syncDeadline = $now + $this->maxSeconds;
         $this->filesProcessed = 0;
         $this->boundsExceeded = false;
 
@@ -100,13 +102,15 @@ final class SkillSyncService
                 static fn(string $path): string => $sourcePrefix . $path,
                 $collected['discovered'],
             );
-            $reachedPrefixIds = $collected['reachedPrefixes'] === null
+            $prefixIds = static fn(?array $prefixes): ?array => $prefixes === null
                 ? null
-                : array_map(
-                    static fn(string $prefix): string => $sourcePrefix . $prefix,
-                    $collected['reachedPrefixes'],
-                );
-            $orphaned = $this->orphanRemoved($source, $discoveredIds, $reachedPrefixIds);
+                : array_map(static fn(string $prefix): string => $sourcePrefix . $prefix, $prefixes);
+            $orphaned = $this->orphanRemoved(
+                $source,
+                $discoveredIds,
+                $prefixIds($collected['reachedPrefixes']),
+                $prefixIds($collected['listedPrefixes']),
+            );
 
             $status = $errors === [] ? SyncStatus::OK : SyncStatus::PARTIAL;
             // Only single_file/repo pin the source SHA; marketplace child-repo SHAs must not overwrite it.
@@ -136,23 +140,27 @@ final class SkillSyncService
      *     parsed: list<array{0:string,1:ParsedSkill}>,
      *     discovered: list<string>,
      *     reachedPrefixes: ?list<string>,
+     *     listedPrefixes: ?list<string>,
      *     rootSha: ?string,
      * }
      */
     private function collect(SkillSource $source, array &$errors): array
     {
-        [$owner, $repo] = $this->ownerRepo($source->getUrl());
-        return match ($source->getType()) {
-            SkillSourceType::SINGLE_FILE => $this->collectSingleFile($source, $owner, $repo, $errors),
-            SkillSourceType::REPO => $this->collectRepo($source, $owner, $repo, $source->getRef(), $errors),
-            SkillSourceType::MARKETPLACE => $this->collectMarketplace($source, $errors),
-        };
+        if ($source->getType() === SkillSourceType::MARKETPLACE) {
+            return $this->collectMarketplace($source, $errors);
+        }
+        // Non-marketplace sources address a single GitHub repo; an unparseable URL is fatal and
+        // surfaces as a clear ERROR rather than a malformed API call against an empty owner/repo.
+        [$owner, $repo] = $this->requireOwnerRepo($source->getUrl());
+        return $source->getType() === SkillSourceType::SINGLE_FILE
+            ? $this->collectSingleFile($source, $owner, $repo, $errors)
+            : $this->collectRepo($source, $owner, $repo, $source->getRef(), $errors);
     }
 
     /**
      * @param list<string> $errors
      *
-     * @return array{parsed: list<array{0:string,1:ParsedSkill}>, discovered: list<string>, reachedPrefixes: ?list<string>, rootSha: ?string}
+     * @return array{parsed: list<array{0:string,1:ParsedSkill}>, discovered: list<string>, reachedPrefixes: ?list<string>, listedPrefixes: ?list<string>, rootSha: ?string}
      */
     private function collectSingleFile(SkillSource $source, string $owner, string $repo, array &$errors): array
     {
@@ -160,8 +168,9 @@ final class SkillSyncService
         // resolveSha is the source-root reach; a failure here is fatal (caught by sync()).
         $sha = $this->gitHub->resolveSha($owner, $repo, $this->refOrHead($source->getRef()), $this->token($source));
 
-        // The single file is always "discovered" (present) regardless of fetch/parse success.
+        // The single file is "discovered" (present) unless the resolved commit returns a hard 404 for it.
         $parsed = [];
+        $discovered = [$path];
         try {
             $body = $this->gitHub->fetchRawBySha($owner, $repo, $sha, $path, $this->token($source));
             $parsed[] = [$sha, $this->parser->parse($path, $body)];
@@ -169,18 +178,23 @@ final class SkillSyncService
             if ($e->isRateLimit) {
                 throw $e;
             }
+            if ($e->status === 404) {
+                // The file is gone at the resolved commit: drop it from discovered so it is orphaned.
+                // A non-404 (transient) error leaves it discovered (present) and does not orphan it.
+                $discovered = [];
+            }
             $errors[] = $e->getMessage();
         } catch (SkillParseException $e) {
             $errors[] = $e->getMessage();
         }
 
-        return ['parsed' => $parsed, 'discovered' => [$path], 'reachedPrefixes' => null, 'rootSha' => $sha];
+        return ['parsed' => $parsed, 'discovered' => $discovered, 'reachedPrefixes' => null, 'listedPrefixes' => null, 'rootSha' => $sha];
     }
 
     /**
      * @param list<string> $errors
      *
-     * @return array{parsed: list<array{0:string,1:ParsedSkill}>, discovered: list<string>, reachedPrefixes: ?list<string>, rootSha: ?string}
+     * @return array{parsed: list<array{0:string,1:ParsedSkill}>, discovered: list<string>, reachedPrefixes: ?list<string>, listedPrefixes: ?list<string>, rootSha: ?string}
      */
     private function collectRepo(SkillSource $source, string $owner, string $repo, string $ref, array &$errors): array
     {
@@ -209,13 +223,13 @@ final class SkillSyncService
             }
         }
 
-        return ['parsed' => $parsed, 'discovered' => $paths, 'reachedPrefixes' => null, 'rootSha' => $sha];
+        return ['parsed' => $parsed, 'discovered' => $paths, 'reachedPrefixes' => null, 'listedPrefixes' => null, 'rootSha' => $sha];
     }
 
     /**
      * @param list<string> $errors
      *
-     * @return array{parsed: list<array{0:string,1:ParsedSkill}>, discovered: list<string>, reachedPrefixes: ?list<string>, rootSha: ?string}
+     * @return array{parsed: list<array{0:string,1:ParsedSkill}>, discovered: list<string>, reachedPrefixes: ?list<string>, listedPrefixes: ?list<string>, rootSha: ?string}
      */
     private function collectMarketplace(SkillSource $source, array &$errors): array
     {
@@ -225,20 +239,31 @@ final class SkillSyncService
         $parsed = [];
         $discovered = [];
         $reachedPrefixes = [];
+        $listedPrefixes = [];
         foreach ($this->marketplaceParser->parse($index) as $entry) {
-            if ($this->limitReached($errors)) {
-                break;
-            }
             // Namespace marketplace skills by repo to avoid path collisions across plugins.
             $prefix = $entry->owner . '/' . $entry->repo . '/';
+            // Dedup duplicate plugin entries (same owner/repo): first wins.
+            if (in_array($prefix, $listedPrefixes, true)) {
+                $errors[] = sprintf('duplicate marketplace plugin "%s/%s", first wins', $entry->owner, $entry->repo);
+                continue;
+            }
+            // "Listed" = present in the parsed index this run, even if unreached below. A skill whose
+            // prefix is no longer listed (plugin de-listed) IS orphaned; one listed-but-unreached is not.
+            $listedPrefixes[] = $prefix;
+
+            // A bound hit leaves the remaining plugins listed (protected) but unvisited this run.
+            if ($this->limitReached($errors)) {
+                continue;
+            }
             try {
                 $repoResult = $this->collectRepo($source, $entry->owner, $entry->repo, $entry->ref ?? 'HEAD', $errors);
             } catch (GitHubApiException $e) {
                 if ($e->isRateLimit) {
                     throw $e;
                 }
-                // An unreachable child repo is recorded and skipped (PARTIAL); it is excluded from
-                // the discovered/reached sets so its existing skills are left untouched, not orphaned.
+                // An unreachable child repo is recorded and skipped (PARTIAL); it stays "listed" (so its
+                // existing skills are protected as a transient failure) but is excluded from "reached".
                 $errors[] = $e->getMessage();
                 continue;
             } catch (HostNotAllowedException $e) {
@@ -263,7 +288,7 @@ final class SkillSyncService
             }
         }
 
-        return ['parsed' => $parsed, 'discovered' => $discovered, 'reachedPrefixes' => $reachedPrefixes, 'rootSha' => null];
+        return ['parsed' => $parsed, 'discovered' => $discovered, 'reachedPrefixes' => $reachedPrefixes, 'listedPrefixes' => $listedPrefixes, 'rootSha' => null];
     }
 
     /**
@@ -276,12 +301,12 @@ final class SkillSyncService
         if ($this->boundsExceeded) {
             return true;
         }
-        if ($this->filesProcessed >= self::MAX_FILES || time() >= $this->syncDeadline) {
+        if ($this->filesProcessed >= $this->maxFiles || time() >= $this->syncDeadline) {
             $this->boundsExceeded = true;
             $errors[] = sprintf(
                 'Per-sync limit reached (max %d files / %d seconds); collection stopped early.',
-                self::MAX_FILES,
-                self::MAX_SECONDS,
+                $this->maxFiles,
+                $this->maxSeconds,
             );
             return true;
         }
@@ -338,11 +363,12 @@ final class SkillSyncService
      * Orphan DB skills that are absent from the discovered (upstream-present) set.
      *
      * @param list<string>  $discovered      Full identifiers present upstream this run.
-     * @param ?list<string> $reachedPrefixes When non-null, only skills whose identifier starts with one
-     *                                       of these prefixes are eligible for orphaning (others belong to
-     *                                       repos that were not reached and must be left untouched).
+     * @param ?list<string> $reachedPrefixes Marketplace only (null otherwise): prefixes whose child repo
+     *                                       was successfully visited this run.
+     * @param ?list<string> $listedPrefixes  Marketplace only (null otherwise): prefixes present in the
+     *                                       parsed index this run (whether or not the child repo was reached).
      */
-    private function orphanRemoved(SkillSource $source, array $discovered, ?array $reachedPrefixes): int
+    private function orphanRemoved(SkillSource $source, array $discovered, ?array $reachedPrefixes, ?array $listedPrefixes): int
     {
         $count = 0;
         foreach ($this->skillRepository->findBySource($source->getUid()) as $skill) {
@@ -350,7 +376,11 @@ final class SkillSyncService
             if (in_array($identifier, $discovered, true)) {
                 continue;
             }
-            if ($reachedPrefixes !== null && !$this->inReachedScope($identifier, $reachedPrefixes)) {
+            if (
+                $reachedPrefixes !== null
+                && $listedPrefixes !== null
+                && !$this->orphanEligible($identifier, $reachedPrefixes, $listedPrefixes)
+            ) {
                 continue;
             }
             if (!$skill->isOrphaned()) {
@@ -364,11 +394,27 @@ final class SkillSyncService
     }
 
     /**
+     * Decide whether an absent marketplace skill may be orphaned.
+     *
+     * Orphan when its child repo WAS reached (the skill was genuinely removed there) OR when its prefix
+     * is no longer listed in the index (the plugin was de-listed). Protect (do not orphan) only the
+     * listed-but-unreached case — a transient child-repo failure this run.
+     *
      * @param list<string> $reachedPrefixes
+     * @param list<string> $listedPrefixes
      */
-    private function inReachedScope(string $identifier, array $reachedPrefixes): bool
+    private function orphanEligible(string $identifier, array $reachedPrefixes, array $listedPrefixes): bool
     {
-        foreach ($reachedPrefixes as $prefix) {
+        return $this->inScope($identifier, $reachedPrefixes)
+            || !$this->inScope($identifier, $listedPrefixes);
+    }
+
+    /**
+     * @param list<string> $prefixes
+     */
+    private function inScope(string $identifier, array $prefixes): bool
+    {
+        foreach ($prefixes as $prefix) {
             if (str_starts_with($identifier, $prefix)) {
                 return true;
             }
@@ -405,10 +451,25 @@ final class SkillSyncService
     }
 
     /**
+     * @throws RuntimeException When the URL is not a recognisable GitHub owner/repo URL.
+     *
+     * @return array{0:string,1:string}
+     */
+    private function requireOwnerRepo(string $url): array
+    {
+        [$owner, $repo] = $this->ownerRepo($url);
+        if ($owner === '' || $repo === '') {
+            throw new RuntimeException(sprintf('Not a GitHub URL: %s', $url), 1719500201);
+        }
+        return [$owner, $repo];
+    }
+
+    /**
      * @return array{0:string,1:string}
      */
     private function ownerRepo(string $url): array
     {
+        $url = $this->stripQueryAndFragment($url);
         if (preg_match('#github(?:usercontent)?\.com/([^/]+)/([^/]+)#', $url, $m) === 1) {
             return [$m[1], preg_replace('/\.git$/', '', $m[2]) ?? $m[2]];
         }
@@ -417,6 +478,7 @@ final class SkillSyncService
 
     private function pathFromUrl(string $url): string
     {
+        $url = $this->stripQueryAndFragment($url);
         // raw URL: https://raw.githubusercontent.com/owner/repo/ref/<path>
         if (preg_match('#raw\.githubusercontent\.com/[^/]+/[^/]+/[^/]+/(.+)$#', $url, $m) === 1) {
             return $m[1];
@@ -426,5 +488,14 @@ final class SkillSyncService
             return $m[1];
         }
         return 'SKILL.md';
+    }
+
+    /**
+     * Drop any URL query string and/or fragment before matching, so e.g.
+     * ".../SKILL.md?token=..#frag" parses to the bare path/owner/repo.
+     */
+    private function stripQueryAndFragment(string $url): string
+    {
+        return substr($url, 0, strcspn($url, '?#'));
     }
 }

@@ -91,7 +91,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $reloaded = $repo->findBySourceAndIdentifier(10, '10:skills/a/SKILL.md');
         self::assertNotNull($reloaded);
         self::assertFalse($reloaded->isEnabled(), 'changed enabled skill must auto-disable');
-        self::assertSame('v2', trim($reloaded->getBody()));
+        self::assertSame('v2', trim((string)$reloaded->getBody()));
     }
 
     #[Test]

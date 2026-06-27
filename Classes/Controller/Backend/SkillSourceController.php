@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillSourceRepository;
 use Netresearch\NrLlm\Service\Skill\SkillSyncService;
@@ -77,17 +78,33 @@ final class SkillSourceController extends ActionController
             return $deny;
         }
         $body = $request->getParsedBody();
-        $skill = $this->skillRepository->findByUid($this->intFromBody($body, 'skill'));
-        if ($skill === null) {
-            return new JsonResponse(['success' => false, 'error' => 'Unknown skill'], 404);
+        [$skill, $error] = $this->resolveToggleableSkill($body);
+        if ($error !== null) {
+            return $error;
         }
-        if ($skill->isOrphaned()) {
-            return new JsonResponse(['success' => false, 'error' => 'Cannot enable an orphaned skill'], 422);
-        }
+        assert($skill instanceof Skill);
         $skill->setEnabled($this->boolFromBody($body, 'enabled'));
         $this->skillRepository->update($skill);
         $this->persistenceManager->persistAll();
         return new JsonResponse(['success' => true, 'enabled' => $skill->isEnabled()]);
+    }
+
+    /**
+     * Resolve and validate the skill targeted by a toggle request (early-return guard, like denyNonAdmin).
+     *
+     * @return array{0:?Skill,1:?ResponseInterface} The skill on success (error null), or a JSON error
+     *                                              response (skill null) for an unknown or orphaned skill.
+     */
+    private function resolveToggleableSkill(mixed $body): array
+    {
+        $skill = $this->skillRepository->findByUid($this->intFromBody($body, 'skill'));
+        if ($skill === null) {
+            return [null, new JsonResponse(['success' => false, 'error' => 'Unknown skill'], 404)];
+        }
+        if ($skill->isOrphaned()) {
+            return [null, new JsonResponse(['success' => false, 'error' => 'Cannot enable an orphaned skill'], 422)];
+        }
+        return [$skill, null];
     }
 
     public function setTokenAction(ServerRequestInterface $request): ResponseInterface
@@ -145,6 +162,7 @@ final class SkillSourceController extends ActionController
         if (!is_array($body)) {
             return false;
         }
-        return (bool)($body[$key] ?? false);
+        // filter_var (not a plain cast) so the string "false"/"0" from form bodies is correctly false.
+        return filter_var($body[$key] ?? false, FILTER_VALIDATE_BOOLEAN);
     }
 }

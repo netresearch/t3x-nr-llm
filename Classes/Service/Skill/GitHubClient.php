@@ -17,6 +17,15 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 
+/**
+ * Minimal GitHub fetch client for skill ingestion.
+ *
+ * SECURITY: the host allowlist (self::ALLOWED_HOSTS) is enforced on the INITIAL request URL only.
+ * Its safety therefore depends on the transport NOT following redirects: any 3xx response is treated
+ * as an error (see getBody()), because a followed redirect could escape the allowlist to an arbitrary
+ * host. The production transport (nr-vault audited client) has redirects disabled by factory default;
+ * an injected test client (setHttpClient) must likewise not follow redirects.
+ */
 final class GitHubClient implements GitHubClientInterface
 {
     private const ALLOWED_HOSTS = ['github.com', 'raw.githubusercontent.com', 'api.github.com', 'codeload.github.com'];
@@ -35,7 +44,10 @@ final class GitHubClient implements GitHubClientInterface
 
     public function resolveSha(string $owner, string $repo, string $ref, ?string $tokenUuid): string
     {
-        $url = sprintf('https://api.github.com/repos/%s/%s/commits/%s', rawurlencode($owner), rawurlencode($repo), rawurlencode($ref));
+        // Encode the ref per path-segment (like fetchRawBySha encodes paths) so slash refs such as
+        // "release/1.0" resolve; encoding the whole ref would turn the separating slash into %2F.
+        $refEncoded = implode('/', array_map(rawurlencode(...), explode('/', $ref)));
+        $url = sprintf('https://api.github.com/repos/%s/%s/commits/%s', rawurlencode($owner), rawurlencode($repo), $refEncoded);
         $data = $this->getJson($url, $tokenUuid);
         if (!isset($data['sha']) || !is_string($data['sha'])) {
             throw GitHubApiException::forStatus($url, 0);
@@ -61,7 +73,7 @@ final class GitHubClient implements GitHubClientInterface
 
     public function fetchRawBySha(string $owner, string $repo, string $sha, string $path, ?string $tokenUuid): string
     {
-        $segments = implode('/', array_map('rawurlencode', explode('/', $path)));
+        $segments = implode('/', array_map(rawurlencode(...), explode('/', $path)));
         $url = sprintf('https://raw.githubusercontent.com/%s/%s/%s/%s', rawurlencode($owner), rawurlencode($repo), rawurlencode($sha), $segments);
         return $this->getBody($url, $tokenUuid);
     }
@@ -99,7 +111,8 @@ final class GitHubClient implements GitHubClientInterface
 
         $response = $this->send($request);
         $status = $response->getStatusCode();
-        if ($status === 403 && $response->getHeaderLine('X-RateLimit-Remaining') === '0') {
+        if ($this->isRateLimited($status, $response)) {
+            // Rate-limit failures must abort the whole sync (re-thrown past per-file/per-repo isolation).
             throw GitHubApiException::forRateLimit((int)$response->getHeaderLine('X-RateLimit-Reset'));
         }
         if ($status >= 300) {
@@ -107,6 +120,22 @@ final class GitHubClient implements GitHubClientInterface
             throw GitHubApiException::forStatus($url, $status);
         }
         return (string)$response->getBody();
+    }
+
+    /**
+     * Detect a rate-limit response: HTTP 429, or a 403 that carries either a Retry-After header
+     * or an exhausted primary rate-limit budget (X-RateLimit-Remaining: 0).
+     */
+    private function isRateLimited(int $status, ResponseInterface $response): bool
+    {
+        if ($status === 429) {
+            return true;
+        }
+        if ($status === 403) {
+            return $response->getHeaderLine('X-RateLimit-Remaining') === '0'
+                || $response->hasHeader('Retry-After');
+        }
+        return false;
     }
 
     private function send(RequestInterface $request): ResponseInterface

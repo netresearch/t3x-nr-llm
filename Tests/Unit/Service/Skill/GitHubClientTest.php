@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
 use Netresearch\NrLlm\Service\Skill\Exception\HostNotAllowedException;
 use Netresearch\NrLlm\Service\Skill\GitHubClient;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -32,7 +33,7 @@ final class GitHubClientTest extends TestCase
     {
         // nr-vault transport is bypassed because setHttpClient() injects the stub below.
         $client = new GitHubClient(
-            self::createStub(\Netresearch\NrVault\Service\VaultServiceInterface::class),
+            self::createStub(VaultServiceInterface::class),
             new RequestFactory(new GuzzleClientFactory()),
         );
         $stub = new class ($handler) implements ClientInterface {

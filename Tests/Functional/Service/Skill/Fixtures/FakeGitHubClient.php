@@ -12,16 +12,16 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Skill\Fixtures;
 use Netresearch\NrLlm\Service\Skill\GitHubClientInterface;
 use Psr\Http\Client\ClientInterface;
 
-final class FakeGitHubClient implements GitHubClientInterface
+final readonly class FakeGitHubClient implements GitHubClientInterface
 {
     /**
      * @param list<string>         $tree
      * @param array<string,string> $bodies
      */
     public function __construct(
-        private readonly string $sha,
-        private readonly array $tree,
-        private readonly array $bodies,
+        private string $sha,
+        private array $tree,
+        private array $bodies,
     ) {}
 
     public function resolveSha(string $owner, string $repo, string $ref, ?string $tokenUuid): string

@@ -15,7 +15,7 @@ use Netresearch\NrLlm\Service\Skill\Exception\SkillParseException;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
 
-final class SkillMarkdownParser
+final readonly class SkillMarkdownParser
 {
     /** Patterns that indicate the skill relies on assets/scripts not supported in Plan 1a. */
     private const UNSUPPORTED_PATTERNS = [
@@ -26,8 +26,8 @@ final class SkillMarkdownParser
     ];
 
     public function __construct(
-        private readonly int $maxBodyBytes = 65536,
-        private readonly int $maxFrontmatterBytes = 8192,
+        private int $maxBodyBytes = 65536,
+        private int $maxFrontmatterBytes = 8192,
     ) {}
 
     public function parse(string $path, string $content): ParsedSkill
