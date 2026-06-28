@@ -35,7 +35,7 @@ final class SkillRepositoryTest extends AbstractFunctionalTestCase
         $skill = $this->repository->findBySourceAndIdentifier(1, '1:SKILL.md');
         self::assertNotNull($skill);
         self::assertSame('Example', $skill->getName());
-        self::assertSame(SupportStatus::FULL, $skill->getSupportStatus());
+        self::assertSame(SupportStatus::FULL, $skill->getSupportStatusEnum());
     }
 
     #[Test]

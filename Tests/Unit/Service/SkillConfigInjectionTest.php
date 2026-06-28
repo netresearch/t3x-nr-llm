@@ -229,7 +229,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $skill->setName('Config Skill');
         $skill->setBody('Always answer in JSON.');
         $skill->setBodyChecksum(hash('sha256', 'Always answer in JSON.'));
-        $skill->setSupportStatus(SupportStatus::FULL);
+        $skill->setSupportStatus(SupportStatus::FULL->value);
         $skill->setEnabled(true);
         $skill->setOrphaned(false);
         $configuration->addSkill($skill);

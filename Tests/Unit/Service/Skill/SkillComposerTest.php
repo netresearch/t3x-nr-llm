@@ -169,7 +169,7 @@ final class SkillComposerTest extends TestCase
         $skill->setName($name);
         $skill->setBody($body);
         $skill->setBodyChecksum(hash('sha256', $body));
-        $skill->setSupportStatus($support);
+        $skill->setSupportStatus($support->value);
         $skill->setEnabled($enabled);
         $skill->setOrphaned($orphaned);
 
