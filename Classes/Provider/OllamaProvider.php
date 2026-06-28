@@ -15,7 +15,10 @@ use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
+use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
@@ -28,7 +31,7 @@ use Throwable;
  * @see https://ollama.com/
  */
 #[AsLlmProvider(priority: 40)]
-final class OllamaProvider extends AbstractProvider implements StreamingCapableInterface
+final class OllamaProvider extends AbstractProvider implements StreamingCapableInterface, ToolCapableInterface
 {
     /** @var array<string> */
     protected array $supportedFeatures = [
@@ -198,6 +201,170 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             ),
             finishReason: $this->getString($response, 'done_reason', 'stop'),
         );
+    }
+
+    /**
+     * Ollama exposes OpenAI-style function calling on the same `/api/chat`
+     * endpoint: tools are declared under a top-level `tools` key and the model
+     * answers with `message.tool_calls`. Unlike OpenAI it returns no call id and
+     * expects replayed turns in its own native shape, both reconciled here.
+     *
+     * `tool_choice` / `parallel_tool_calls` options are intentionally ignored —
+     * Ollama does not understand them.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $tools
+     * @param array<string, mixed>                   $options
+     */
+    public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
+    {
+        $messages = array_map(
+            static fn(ChatMessage|array $m): array
+                => $m instanceof ChatMessage ? $m->toArray() : $m,
+            $messages,
+        );
+
+        $messages = $this->normaliseToolTurnsForOllama($messages);
+
+        $model = $this->getString($options, 'model', $this->getDefaultModel());
+
+        /** @var array<string, mixed> $payloadOptions */
+        $payloadOptions = [];
+
+        if (isset($options['temperature'])) {
+            $payloadOptions['temperature'] = $this->getFloat($options, 'temperature');
+        }
+
+        if (isset($options['top_p'])) {
+            $payloadOptions['top_p'] = $this->getFloat($options, 'top_p');
+        }
+
+        if (isset($options['num_predict']) || isset($options['max_tokens'])) {
+            $payloadOptions['num_predict'] = $this->getInt($options, 'num_predict', $this->getInt($options, 'max_tokens', 4096));
+        }
+
+        $payload = [
+            'model' => $model,
+            'messages' => $messages,
+            'stream' => false,
+            'tools' => array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $tools),
+        ];
+
+        if ($payloadOptions !== []) {
+            $payload['options'] = $payloadOptions;
+        }
+
+        $response = $this->sendRequest(self::ENDPOINT_CHAT, $payload);
+
+        $message = $this->getArray($response, 'message');
+
+        $toolCalls    = null;
+        $rawToolCalls = $this->getArray($message, 'tool_calls');
+        if ($rawToolCalls !== []) {
+            $toolCalls = [];
+            $index     = 0;
+            foreach ($rawToolCalls as $rawToolCall) {
+                $callData = $this->asArray($rawToolCall);
+                // Ollama returns no call id; synthesise a stable, non-empty one
+                // (ToolCall rejects an empty id). `function.arguments` already
+                // arrives as an object, which ToolCall normalises straight
+                // through.
+                $callData['id'] = 'call_' . $index;
+                $toolCalls[]    = ToolCall::fromArray($callData);
+                ++$index;
+            }
+        }
+
+        return new CompletionResponse(
+            content: $this->getString($message, 'content'),
+            model: $this->getString($response, 'model', $model),
+            usage: $this->createUsageStatistics(
+                promptTokens: $this->getInt($response, 'prompt_eval_count'),
+                completionTokens: $this->getInt($response, 'eval_count'),
+            ),
+            finishReason: $this->getString($response, 'done_reason', 'stop'),
+            provider: $this->getIdentifier(),
+            toolCalls: $toolCalls,
+        );
+    }
+
+    public function supportsTools(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Translate replayed OpenAI-shape conversation turns into Ollama's native
+     * chat shape before they go back on the wire.
+     *
+     * The agent loop replays canonical OpenAI-shaped turns: an assistant turn
+     * carries `tool_calls` whose `function.arguments` is a JSON *string*, and a
+     * tool result arrives as a `{role:'tool', tool_call_id, content}` turn.
+     * Ollama wants `function.arguments` as a decoded object and keys tool
+     * results by role/position rather than id, so:
+     *
+     *  - assistant turns: each `function.arguments` JSON string is decoded to an
+     *    object/array;
+     *  - `tool` turns: the `tool_call_id` key is dropped.
+     *
+     * Plain `{role, content}` turns pass through untouched.
+     *
+     * @param list<array<string, mixed>> $messages
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function normaliseToolTurnsForOllama(array $messages): array
+    {
+        $normalised = [];
+        foreach ($messages as $message) {
+            if (($message['role'] ?? null) === 'tool') {
+                unset($message['tool_call_id']);
+                $normalised[] = $message;
+                continue;
+            }
+
+            if (isset($message['tool_calls']) && is_array($message['tool_calls'])) {
+                $calls = [];
+                foreach ($message['tool_calls'] as $call) {
+                    $calls[] = $this->decodeToolCallArguments($call);
+                }
+                $message['tool_calls'] = $calls;
+            }
+
+            $normalised[] = $message;
+        }
+
+        return $normalised;
+    }
+
+    /**
+     * Decode a single replayed assistant tool-call's `function.arguments` from
+     * the OpenAI JSON-string form into Ollama's object form. Anything that is
+     * not a tool-call array with a string `arguments` is returned untouched.
+     */
+    private function decodeToolCallArguments(mixed $call): mixed
+    {
+        if (!is_array($call)) {
+            return $call;
+        }
+
+        $function = $call['function'] ?? null;
+        if (!is_array($function)) {
+            return $call;
+        }
+
+        $arguments = $function['arguments'] ?? null;
+        if (!is_string($arguments)) {
+            return $call;
+        }
+
+        $decoded = json_decode($arguments, true);
+        if (is_array($decoded)) {
+            $function['arguments'] = $decoded;
+            $call['function']      = $function;
+        }
+
+        return $call;
     }
 
     /**
