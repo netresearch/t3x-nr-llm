@@ -250,6 +250,15 @@ Skills
       .. card-footer:: :ref:`Read <adr-035>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: ADR-036: Skill injection
+
+      Attach skills to tasks/configurations; compose into
+      the user prompt (text-gen only), budgeted and
+      checksum-verified.
+
+      .. card-footer:: :ref:`Read <adr-036>`
+         :button-style: btn btn-secondary stretched-link
+
 .. toctree::
    :hidden:
 
@@ -288,3 +297,4 @@ Skills
    Adr033SpecializedModelRegistry
    Adr034RemoveExtensionConfigDefaultProvider
    Adr035SkillIngest
+   Adr036SkillInjection
