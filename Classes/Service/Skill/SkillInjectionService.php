@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Skill;
 use Netresearch\NrLlm\Domain\Enum\MessageRole;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\SkillCompositionResult;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
@@ -48,12 +49,26 @@ final readonly class SkillInjectionService
      */
     public function augmentPrompt(string $userPrompt, array $configSkills, array $taskSkills = []): string
     {
-        $block = $this->composeAndLog($configSkills, $taskSkills);
-        if ($block === '') {
-            return $userPrompt;
-        }
+        return $this->prepend($this->composeAndLog($configSkills, $taskSkills)->block, $userPrompt);
+    }
 
-        return $block . self::SEPARATOR . $userPrompt;
+    /**
+     * Augment a plain prompt and report which skills were applied.
+     *
+     * Used by the task-execution path so the result can attribute the
+     * provider-reported token usage (which already includes the injected
+     * prose) to the contributing skills. Composition runs exactly once.
+     *
+     * @param list<Skill> $configSkills
+     * @param list<Skill> $taskSkills
+     *
+     * @return array{0: string, 1: list<string>} augmented prompt, applied skill identifiers
+     */
+    public function augmentPromptWithReport(string $userPrompt, array $configSkills, array $taskSkills = []): array
+    {
+        $result = $this->composeAndLog($configSkills, $taskSkills);
+
+        return [$this->prepend($result->block, $userPrompt), $result->included];
     }
 
     /**
@@ -71,7 +86,7 @@ final readonly class SkillInjectionService
      */
     public function augmentMessages(array $messages, array $configSkills, array $taskSkills = []): array
     {
-        $block = $this->composeAndLog($configSkills, $taskSkills);
+        $block = $this->composeAndLog($configSkills, $taskSkills)->block;
         if ($block === '') {
             return $messages;
         }
@@ -114,14 +129,23 @@ final readonly class SkillInjectionService
      * @param list<Skill> $configSkills
      * @param list<Skill> $taskSkills
      */
-    private function composeAndLog(array $configSkills, array $taskSkills): string
+    private function composeAndLog(array $configSkills, array $taskSkills): SkillCompositionResult
     {
         $result = $this->composer->composeBlock($configSkills, $taskSkills);
         foreach ($result->warnings as $warning) {
             $this->logger->warning($warning);
         }
 
-        return $result->block;
+        return $result;
+    }
+
+    private function prepend(string $block, string $userPrompt): string
+    {
+        if ($block === '') {
+            return $userPrompt;
+        }
+
+        return $block . self::SEPARATOR . $userPrompt;
     }
 
     /**

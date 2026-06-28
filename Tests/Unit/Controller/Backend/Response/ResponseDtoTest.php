@@ -365,9 +365,10 @@ final class ResponseDtoTest extends TestCase
             promptTokens: $usage->promptTokens,
             completionTokens: $usage->completionTokens,
             totalTokens: $usage->totalTokens,
+            appliedSkills: ['cfg:baseline', 'task:additive'],
         ))->jsonSerialize();
 
-        self::assertSame(['success', 'content', 'model', 'outputFormat', 'usage'], array_keys($data));
+        self::assertSame(['success', 'content', 'model', 'outputFormat', 'usage', 'appliedSkills'], array_keys($data));
         self::assertTrue($data['success']);
         self::assertSame('Hello', $data['content']);
         self::assertSame('gpt-4', $data['model']);
@@ -376,6 +377,10 @@ final class ResponseDtoTest extends TestCase
             ['promptTokens' => 100, 'completionTokens' => 50, 'totalTokens' => 150],
             $data['usage'],
         );
+        // The provider-reported token usage above already includes the injected
+        // skill prose; appliedSkills attributes that cost to the contributing
+        // skills (it is NOT a separate token count or a char-based estimate).
+        self::assertSame(['cfg:baseline', 'task:additive'], $data['appliedSkills']);
     }
 
     public function testTaskExecutionResponseFromResult(): void
@@ -385,6 +390,7 @@ final class ResponseDtoTest extends TestCase
             model: 'claude-3-5-sonnet',
             outputFormat: 'plain',
             usage: new UsageStatistics(promptTokens: 7, completionTokens: 13, totalTokens: 20),
+            appliedSkills: ['cfg:baseline'],
         );
         $data = TaskExecutionResponse::fromResult($result)->jsonSerialize();
 
@@ -395,6 +401,36 @@ final class ResponseDtoTest extends TestCase
             ['promptTokens' => 7, 'completionTokens' => 13, 'totalTokens' => 20],
             $data['usage'],
         );
+        self::assertSame(['cfg:baseline'], $data['appliedSkills']);
+    }
+
+    public function testTaskExecutionResponseCarriesUntrustedOutputAsInertData(): void
+    {
+        // Skill-influenced LLM output is untrusted. The service layer must carry
+        // it as inert structured data, never as pre-rendered markup — escaping
+        // happens at the documented render boundary (Backend/TaskExecute.js).
+        $payload = "<script>alert('xss')</script>\n\"quotes\" & <img src=x onerror=alert(1)>";
+
+        $json = json_encode(
+            (new TaskExecutionResponse(
+                content: $payload,
+                model: 'gpt-4',
+                outputFormat: 'html',
+                promptTokens: 1,
+                completionTokens: 1,
+                totalTokens: 2,
+            ))->jsonSerialize(),
+            JSON_THROW_ON_ERROR,
+        );
+
+        /** @var array{content: string, outputFormat: string} $decoded */
+        $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+
+        // The payload round-trips byte-for-byte as a JSON string value: the
+        // server neither executes nor mutates it (no server-side rendering of
+        // untrusted output), leaving neutralisation to the render boundary.
+        self::assertSame($payload, $decoded['content']);
+        self::assertSame('html', $decoded['outputFormat']);
     }
 
     public function testTaskInputResponseShape(): void

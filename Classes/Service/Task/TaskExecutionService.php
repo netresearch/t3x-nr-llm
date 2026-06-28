@@ -65,7 +65,7 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
         $configSkills = $configuration !== null
             ? SkillInjectionService::toList($configuration->getSkills())
             : [];
-        $prompt = $this->skillInjection->augmentPrompt(
+        [$prompt, $appliedSkills] = $this->skillInjection->augmentPromptWithReport(
             $prompt,
             $configSkills,
             SkillInjectionService::toList($task->getSkills()),
@@ -75,11 +75,15 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
             ? $this->llmServiceManager->completeWithConfiguration($prompt, $configuration, $metadata)
             : $this->llmServiceManager->complete($prompt, new ChatOptions());
 
+        // The skills injected above contributed to the prompt the provider
+        // tokenised, so their cost is already part of $response->usage. Surface
+        // the applied identifiers to attribute that post-call usage to skills.
         return new TaskExecutionResult(
             content: $response->content,
             model: $response->model,
             outputFormat: $task->getOutputFormat(),
             usage: $response->usage,
+            appliedSkills: $appliedSkills,
         );
     }
 }

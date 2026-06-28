@@ -89,4 +89,38 @@ final class TaskExecutionSkillInjectionTest extends AbstractFunctionalTestCase
         // The skill block precedes the user prompt (user-role position).
         self::assertStringEndsWith('Process: the input', $capturedPrompt);
     }
+
+    #[Test]
+    public function executeSurfacesAppliedSkillsForCostAttribution(): void
+    {
+        $repository = $this->get(TaskRepository::class);
+        self::assertInstanceOf(TaskRepository::class, $repository);
+
+        $task = $repository->findByUid(210);
+        self::assertInstanceOf(Task::class, $task);
+
+        $manager = $this->createMock(LlmServiceManagerInterface::class);
+        $manager->method('completeWithConfiguration')->willReturn(
+            new CompletionResponse(
+                content: 'done',
+                model: 'gpt-4o',
+                usage: new UsageStatistics(123, 45, 168),
+                provider: 'openai',
+            ),
+        );
+
+        $service = new TaskExecutionService(
+            $manager,
+            new SkillInjectionService(new SkillComposer(), self::createStub(LoggerInterface::class)),
+        );
+
+        $result = $service->execute($task, 'the input');
+
+        // appliedSkills attributes the provider-reported usage (which already
+        // includes the injected skill prose) to the contributing skills, in
+        // composition order: configuration baseline first, task-additive second.
+        self::assertSame(['cfg:baseline', 'task:additive'], $result->appliedSkills);
+        // The surfaced cost figure is the post-call provider total, not an estimate.
+        self::assertSame(168, $result->usage->totalTokens);
+    }
 }

@@ -22,10 +22,23 @@ use Netresearch\NrLlm\Service\Task\TaskExecutionResult;
  * `UsageStatistics` value object lets the public API stay stable
  * while internal types tighten over time.
  *
+ * The `usage` counts are the post-call, provider-reported figures and
+ * already include the tokens contributed by any injected skill prose —
+ * there is deliberately no separate "skill tokens" meter and no
+ * chars/4 pre-flight estimate. `appliedSkills` instead attributes that
+ * already-counted cost to the contributing skills.
+ *
+ * `content` is untrusted LLM output and is emitted verbatim as inert
+ * JSON data; it is escaped at the render boundary (`Backend/TaskExecute.js`),
+ * never pre-rendered to markup here.
+ *
  * @internal
  */
 final readonly class TaskExecutionResponse implements JsonSerializable
 {
+    /**
+     * @param list<string> $appliedSkills identifiers of skills injected into the prompt
+     */
     public function __construct(
         public string $content,
         public string $model,
@@ -34,6 +47,7 @@ final readonly class TaskExecutionResponse implements JsonSerializable
         public int $completionTokens,
         public int $totalTokens,
         public bool $success = true,
+        public array $appliedSkills = [],
     ) {}
 
     public static function fromResult(TaskExecutionResult $result): self
@@ -45,6 +59,7 @@ final readonly class TaskExecutionResponse implements JsonSerializable
             promptTokens: $result->usage->promptTokens,
             completionTokens: $result->usage->completionTokens,
             totalTokens: $result->usage->totalTokens,
+            appliedSkills: $result->appliedSkills,
         );
     }
 
@@ -54,7 +69,8 @@ final readonly class TaskExecutionResponse implements JsonSerializable
      *   content: string,
      *   model: string,
      *   outputFormat: string,
-     *   usage: array{promptTokens: int, completionTokens: int, totalTokens: int}
+     *   usage: array{promptTokens: int, completionTokens: int, totalTokens: int},
+     *   appliedSkills: list<string>
      * }
      */
     public function jsonSerialize(): array
@@ -69,6 +85,7 @@ final readonly class TaskExecutionResponse implements JsonSerializable
                 'completionTokens' => $this->completionTokens,
                 'totalTokens'      => $this->totalTokens,
             ],
+            'appliedSkills' => $this->appliedSkills,
         ];
     }
 }
