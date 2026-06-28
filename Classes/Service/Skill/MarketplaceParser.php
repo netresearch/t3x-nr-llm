@@ -52,12 +52,47 @@ final class MarketplaceParser
             $slug = $source;
         } elseif (is_array($source) && isset($source['repo']) && is_string($source['repo'])) {
             $slug = $source['repo'];
+        } elseif (is_array($source) && isset($source['url']) && is_string($source['url'])) {
+            return $this->extractFromGitUrl($source['url']);
         }
         if ($slug === null || !str_contains($slug, '/')) {
             return null;
         }
         [$owner, $repo] = explode('/', $slug, 2);
         if ($owner === '' || $repo === '') {
+            return null;
+        }
+        return [$owner, $repo];
+    }
+
+    /**
+     * Resolve a `{source: git, url: ...}` plugin to an owner/repo pair.
+     *
+     * Only GitHub-hosted URLs are resolved; non-GitHub git URLs are skipped
+     * (the host allowlist would reject them anyway).
+     *
+     * @return array{0:string,1:string}|null
+     */
+    private function extractFromGitUrl(string $url): ?array
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+        if (!is_string($host) || !in_array(strtolower($host), ['github.com', 'www.github.com'], true)) {
+            return null;
+        }
+        $path = parse_url($url, PHP_URL_PATH);
+        if (!is_string($path)) {
+            return null;
+        }
+        $segments = array_values(array_filter(explode('/', $path), static fn(string $s): bool => $s !== ''));
+        if (count($segments) < 2) {
+            return null;
+        }
+        $owner = $segments[0];
+        $repo = $segments[1];
+        if (str_ends_with($repo, '.git')) {
+            $repo = substr($repo, 0, -4);
+        }
+        if ($repo === '') {
             return null;
         }
         return [$owner, $repo];
