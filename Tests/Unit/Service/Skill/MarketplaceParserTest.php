@@ -37,6 +37,24 @@ final class MarketplaceParserTest extends TestCase
     }
 
     #[Test]
+    public function parsesGitUrlSource(): void
+    {
+        $json = '{"plugins":[{"name":"c","source":{"source":"git","url":"https://github.com/acme/repo-c.git"}}]}';
+        $entries = $this->parser->parse($json);
+        self::assertCount(1, $entries);
+        self::assertSame('acme', $entries[0]->owner);
+        self::assertSame('repo-c', $entries[0]->repo);
+    }
+
+    #[Test]
+    public function skipsNonGithubGitUrlSource(): void
+    {
+        $json = '{"plugins":[{"name":"y","source":{"source":"git","url":"https://gitlab.com/x/y.git"}}]}';
+        $entries = $this->parser->parse($json);
+        self::assertCount(0, $entries);
+    }
+
+    #[Test]
     public function ignoresUnknownKeysAndUnresolvableEntries(): void
     {
         $json = '{"plugins":[{"name":"a","source":"acme/repo-a","extra":true},{"name":"bad"}]}';

@@ -172,7 +172,7 @@ final class SkillInjectionServiceTest extends TestCase
         $skill->setName($name);
         $skill->setBody($body);
         $skill->setBodyChecksum($checksum ?? hash('sha256', $body));
-        $skill->setSupportStatus($support);
+        $skill->setSupportStatus($support->value);
         $skill->setEnabled(true);
         $skill->setOrphaned(false);
 

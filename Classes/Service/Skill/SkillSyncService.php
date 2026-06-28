@@ -57,7 +57,7 @@ final class SkillSyncService
         // Concurrency guard with stale-lock recovery: a SYNCING source is only treated as locked
         // when its heartbeat (lastSynced) is recent; an old or never-set heartbeat is stale.
         if (
-            $source->getSyncStatus() === SyncStatus::SYNCING
+            $source->getSyncStatusEnum() === SyncStatus::SYNCING
             && $source->getLastSynced() !== 0
             && ($now - $source->getLastSynced()) <= self::STALE_LOCK_SECONDS
         ) {
@@ -65,7 +65,7 @@ final class SkillSyncService
         }
 
         // Acquire the lock and write a heartbeat BEFORE the work so a crash leaves a reclaimable lock.
-        $source->setSyncStatus(SyncStatus::SYNCING);
+        $source->setSyncStatus(SyncStatus::SYNCING->value);
         $source->setLastSynced($now);
         $this->persistSource($source);
 
@@ -126,7 +126,7 @@ final class SkillSyncService
         }
 
         // Always persist the final state so the lock is never left stuck.
-        $source->setSyncStatus($status);
+        $source->setSyncStatus($status->value);
         $source->setLastSynced(time());
         $this->persistSource($source);
 
@@ -146,13 +146,18 @@ final class SkillSyncService
      */
     private function collect(SkillSource $source, array &$errors): array
     {
-        if ($source->getType() === SkillSourceType::MARKETPLACE) {
+        // Resolve the type once and fail closed on an unknown/invalid stored value:
+        // a malformed type must surface as a clear ERROR, never be silently treated as a repo.
+        $type = $source->getTypeEnum()
+            ?? throw new RuntimeException(sprintf('Unknown skill source type "%s".', $source->getType()), 4636357234);
+
+        if ($type === SkillSourceType::MARKETPLACE) {
             return $this->collectMarketplace($source, $errors);
         }
         // Non-marketplace sources address a single GitHub repo; an unparseable URL is fatal and
         // surfaces as a clear ERROR rather than a malformed API call against an empty owner/repo.
         [$owner, $repo] = $this->requireOwnerRepo($source->getUrl());
-        return $source->getType() === SkillSourceType::SINGLE_FILE
+        return $type === SkillSourceType::SINGLE_FILE
             ? $this->collectSingleFile($source, $owner, $repo, $errors)
             : $this->collectRepo($source, $owner, $repo, $source->getRef(), $errors);
     }
@@ -326,7 +331,7 @@ final class SkillSyncService
             $skill->setSource($source->getUid());
             $skill->setIdentifier($identifier);
             $this->apply($skill, $parsed, $sha, $checksum);
-            $skill->setEnabled($source->getType() === SkillSourceType::SINGLE_FILE);
+            $skill->setEnabled($source->getTypeEnum() === SkillSourceType::SINGLE_FILE);
             $skill->setOrphaned(false);
             $this->skillRepository->add($skill);
             return 'created';
@@ -353,7 +358,7 @@ final class SkillSyncService
         $skill->setBodyChecksum($checksum);
         $skill->setSourceSha($sha);
         $skill->setRawFrontmatter((string)json_encode($parsed->rawFrontmatter));
-        $skill->setSupportStatus($parsed->supportStatus);
+        $skill->setSupportStatus($parsed->supportStatus->value);
         $skill->setUnsupportedNotes($parsed->unsupportedNotes);
         $tools = $parsed->rawFrontmatter['allowed-tools'] ?? $parsed->rawFrontmatter['allowed_tools'] ?? [];
         $skill->setAllowedTools((string)json_encode(is_array($tools) ? $tools : []));

@@ -22,7 +22,7 @@ class Skill extends AbstractEntity
     protected string $bodyChecksum = '';
     protected string $sourceSha = '';
     protected string $rawFrontmatter = '';
-    protected SupportStatus $supportStatus = SupportStatus::FULL;
+    protected string $supportStatus = SupportStatus::FULL->value;
     protected string $unsupportedNotes = '';
     protected string $allowedTools = '';
     protected bool $orphaned = false;
@@ -127,12 +127,20 @@ class Skill extends AbstractEntity
         return $out;
     }
 
-    public function getSupportStatus(): SupportStatus
+    public function getSupportStatus(): string
     {
         return $this->supportStatus;
     }
 
-    public function setSupportStatus(SupportStatus $supportStatus): void
+    /**
+     * Get support status as enum.
+     */
+    public function getSupportStatusEnum(): ?SupportStatus
+    {
+        return SupportStatus::tryFrom($this->supportStatus);
+    }
+
+    public function setSupportStatus(string $supportStatus): void
     {
         $this->supportStatus = $supportStatus;
     }

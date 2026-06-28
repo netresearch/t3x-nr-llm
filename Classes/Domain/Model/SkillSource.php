@@ -16,12 +16,12 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 class SkillSource extends AbstractEntity
 {
     protected string $title = '';
-    protected SkillSourceType $type = SkillSourceType::SINGLE_FILE;
+    protected string $type = SkillSourceType::SINGLE_FILE->value;
     protected string $url = '';
     protected string $ref = '';
     protected string $pinnedSha = '';
     protected string $githubToken = '';
-    protected SyncStatus $syncStatus = SyncStatus::NEVER_SYNCED;
+    protected string $syncStatus = SyncStatus::NEVER_SYNCED->value;
     protected string $syncError = '';
     protected int $lastSynced = 0;
     protected bool $enabled = true;
@@ -36,12 +36,20 @@ class SkillSource extends AbstractEntity
         $this->title = $title;
     }
 
-    public function getType(): SkillSourceType
+    public function getType(): string
     {
         return $this->type;
     }
 
-    public function setType(SkillSourceType $type): void
+    /**
+     * Get type as enum.
+     */
+    public function getTypeEnum(): ?SkillSourceType
+    {
+        return SkillSourceType::tryFrom($this->type);
+    }
+
+    public function setType(string $type): void
     {
         $this->type = $type;
     }
@@ -86,12 +94,20 @@ class SkillSource extends AbstractEntity
         $this->githubToken = $githubToken;
     }
 
-    public function getSyncStatus(): SyncStatus
+    public function getSyncStatus(): string
     {
         return $this->syncStatus;
     }
 
-    public function setSyncStatus(SyncStatus $syncStatus): void
+    /**
+     * Get sync status as enum.
+     */
+    public function getSyncStatusEnum(): ?SyncStatus
+    {
+        return SyncStatus::tryFrom($this->syncStatus);
+    }
+
+    public function setSyncStatus(string $syncStatus): void
     {
         $this->syncStatus = $syncStatus;
     }

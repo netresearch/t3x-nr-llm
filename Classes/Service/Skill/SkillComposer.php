@@ -156,7 +156,7 @@ final readonly class SkillComposer
     private function renderSection(Skill $skill): string
     {
         $body = $skill->getBody();
-        if ($skill->getSupportStatus() === SupportStatus::PARTIAL) {
+        if ($skill->getSupportStatusEnum() === SupportStatus::PARTIAL) {
             $body = $this->stripAssetReferences($body);
         }
 

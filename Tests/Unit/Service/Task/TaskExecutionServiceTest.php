@@ -145,7 +145,7 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
         $skill->setName($name);
         $skill->setBody($body);
         $skill->setBodyChecksum(hash('sha256', $body));
-        $skill->setSupportStatus(SupportStatus::FULL);
+        $skill->setSupportStatus(SupportStatus::FULL->value);
         $skill->setEnabled(true);
         $skill->setOrphaned(false);
 
