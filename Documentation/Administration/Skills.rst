@@ -19,9 +19,11 @@ tables are treated as a privilege-escalation surface.
 
 .. note::
 
-   Plan 1a covers ingest only — sources are fetched, parsed and
-   reviewable. Skills are **not yet injected** into prompts; that follows
-   in a later release. See :ref:`ADR-035 <adr-035>` for the rationale.
+   Ingest — adding sources, syncing and reviewing — is described by
+   :ref:`ADR-035 <adr-035>`. Attaching enabled skills to tasks and
+   configurations and injecting them into text-generation prompts is
+   described by :ref:`ADR-036 <adr-036>` and the
+   :ref:`Attaching skills <administration-skills-attach>` section below.
 
 .. _administration-skills-source-types:
 
@@ -156,3 +158,35 @@ Each skill carries a support badge:
    instructions, not as a security control.
 
 See :ref:`ADR-035 <adr-035>` for the full design and security rationale.
+
+.. _administration-skills-attach:
+
+Attaching skills and injecting them into prompts
+================================================
+
+Enabled, non-orphaned skills can be attached to a **Task** and/or an
+**LLM configuration** via the :guilabel:`Skills` field on those records
+(only enabled skills are offered). At execution time, for text-generation
+operations only — completion, translation and task execution; **never**
+embeddings, vision or speech — nr-llm composes the attached skills into a
+delimited block and prepends it to the *user* prompt. The configuration
+``system_prompt`` is never modified.
+
+Composition rules:
+
+- **Precedence.** Configuration skills are the baseline, task skills are
+  additive; the set is the union deduped by source + identifier (the
+  configuration wins on a duplicate). The configuration block renders
+  first.
+- **Budget.** The block is bounded by a conservative character budget;
+  when it is exceeded, task-additive skills are dropped before
+  configuration-baseline skills and each drop is logged.
+- **Integrity.** Each skill's body checksum is re-verified at injection
+  time; a mismatch (tampering or a stale row) drops that skill — it is
+  never injected.
+- **Untrusted output.** Skill prose is third-party text; output produced
+  under its influence is treated as untrusted and escaped/sanitized where
+  it is stored or rendered. Message role is defense-in-depth, not a trust
+  boundary.
+
+See :ref:`ADR-036 <adr-036>` for the injection design.

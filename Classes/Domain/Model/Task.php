@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\TaskCategory;
 use Netresearch\NrLlm\Domain\Enum\TaskInputType;
 use Netresearch\NrLlm\Domain\Enum\TaskOutputFormat;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
+use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
 /**
  * Domain model for one-shot prompt tasks.
@@ -84,6 +85,18 @@ class Task extends AbstractEntity
     protected int $sorting = 0;
     protected int $tstamp = 0;
     protected int $crdate = 0;
+
+    /**
+     * Attached skills (MM relation).
+     *
+     * @var ObjectStorage<Skill>
+     */
+    protected ObjectStorage $skills;
+
+    public function __construct()
+    {
+        $this->skills = new ObjectStorage();
+    }
 
     // ========================================
     // Getters
@@ -211,6 +224,14 @@ class Task extends AbstractEntity
         return $this->crdate;
     }
 
+    /**
+     * @return ObjectStorage<Skill>
+     */
+    public function getSkills(): ObjectStorage
+    {
+        return $this->skills;
+    }
+
     // ========================================
     // Setters
     // ========================================
@@ -283,6 +304,24 @@ class Task extends AbstractEntity
     public function setSorting(int $sorting): void
     {
         $this->sorting = $sorting;
+    }
+
+    /**
+     * @param ObjectStorage<Skill> $skills
+     */
+    public function setSkills(ObjectStorage $skills): void
+    {
+        $this->skills = $skills;
+    }
+
+    public function addSkill(Skill $skill): void
+    {
+        $this->skills->attach($skill);
+    }
+
+    public function removeSkill(Skill $skill): void
+    {
+        $this->skills->detach($skill);
     }
 
     // ========================================

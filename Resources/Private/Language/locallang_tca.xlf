@@ -220,6 +220,13 @@
                 <source>If empty, configuration is accessible to all users with LLM permissions</source>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_configuration.skills">
+                <source>Attached Skills</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.skills.description">
+                <source>Skills attached here form the baseline injected into every text generation that uses this configuration</source>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_configuration.model_selection_mode">
                 <source>Model Selection</source>
             </trans-unit>
@@ -641,6 +648,13 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_task.is_system.description">
                 <source>System tasks are managed by extensions and should not be modified</source>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.skills">
+                <source>Attached Skills</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.skills.description">
+                <source>Skills attached here are injected into this task's text-generation prompt, in addition to any skills on the selected configuration</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_task.tab.input_output">

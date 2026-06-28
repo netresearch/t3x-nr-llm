@@ -1,0 +1,17 @@
+"tx_nrllm_skill"
+,"uid","pid","source","identifier","name","enabled","orphaned","support_status"
+,101,0,1,"rel:first","First Skill",1,0,"full"
+,102,0,1,"rel:second","Second Skill",1,0,"full"
+"tx_nrllm_task"
+,"uid","pid","identifier","name","skills"
+,110,0,"rel-task","Relation Task",2
+"tx_nrllm_configuration"
+,"uid","pid","identifier","name","skills"
+,120,0,"rel-config","Relation Config",1
+"tx_nrllm_task_skill_mm"
+,"uid_local","uid_foreign","sorting","sorting_foreign"
+,110,101,1,0
+,110,102,2,0
+"tx_nrllm_configuration_skill_mm"
+,"uid_local","uid_foreign","sorting","sorting_foreign"
+,120,101,1,0

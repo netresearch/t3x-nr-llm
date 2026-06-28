@@ -81,9 +81,17 @@ class LlmConfiguration extends AbstractEntity
      */
     protected ?ObjectStorage $beGroups = null;
 
+    /**
+     * Attached skills (MM relation).
+     *
+     * @var ObjectStorage<Skill>
+     */
+    protected ObjectStorage $skills;
+
     public function __construct()
     {
         $this->beGroups = new ObjectStorage();
+        $this->skills = new ObjectStorage();
     }
 
     // ========================================
@@ -347,6 +355,14 @@ class LlmConfiguration extends AbstractEntity
         return $this->beGroups;
     }
 
+    /**
+     * @return ObjectStorage<Skill>
+     */
+    public function getSkills(): ObjectStorage
+    {
+        return $this->skills;
+    }
+
     public function getTstamp(): int
     {
         return $this->tstamp;
@@ -581,6 +597,24 @@ class LlmConfiguration extends AbstractEntity
     public function setBeGroups(?ObjectStorage $beGroups): void
     {
         $this->beGroups = $beGroups;
+    }
+
+    /**
+     * @param ObjectStorage<Skill> $skills
+     */
+    public function setSkills(ObjectStorage $skills): void
+    {
+        $this->skills = $skills;
+    }
+
+    public function addSkill(Skill $skill): void
+    {
+        $this->skills->attach($skill);
+    }
+
+    public function removeSkill(Skill $skill): void
+    {
+        $this->skills->detach($skill);
     }
 
     // ========================================
