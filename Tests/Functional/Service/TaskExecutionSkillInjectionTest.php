@@ -57,6 +57,7 @@ final class TaskExecutionSkillInjectionTest extends AbstractFunctionalTestCase
         $manager->method('completeWithConfiguration')->willReturnCallback(
             function (string $prompt, LlmConfiguration $configuration, array $metadata) use (&$capturedPrompt): CompletionResponse {
                 $capturedPrompt = $prompt;
+                self::assertInstanceOf(LlmConfiguration::class, $configuration);
                 self::assertSame(210, $metadata[UsageMiddleware::METADATA_TASK_UID] ?? null);
                 return new CompletionResponse(
                     content: 'done',

@@ -74,10 +74,15 @@ final readonly class SkillComposer
             ];
         }
 
-        // Enforce the byte budget: drop from the tail (task-additive before config baseline).
-        while ($rendered !== [] && strlen($this->assemble(array_column($rendered, 'section'))) > $this->maxBytes) {
+        // Enforce the byte budget by dropping from the tail (task-additive before
+        // the config baseline). The assembled length is tracked incrementally
+        // instead of re-assembling the whole block each iteration: dropping one
+        // section removes its own bytes plus the single "\n" that joined it.
+        $totalBytes = strlen($this->assemble(array_column($rendered, 'section')));
+        while ($rendered !== [] && $totalBytes > $this->maxBytes) {
             /** @var array{key: string, id: string, name: string, section: string} $popped */
             $popped     = array_pop($rendered);
+            $totalBytes -= strlen($popped['section']) + 1;
             $warnings[] = sprintf(self::WARN_BUDGET, $popped['name'], $popped['id'], $this->maxBytes);
         }
 

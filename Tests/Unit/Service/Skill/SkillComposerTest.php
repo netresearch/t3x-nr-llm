@@ -87,7 +87,8 @@ final class SkillComposerTest extends TestCase
     #[Test]
     public function skipsSkillWithChecksumMismatchAndWarns(): void
     {
-        $tampered = $this->makeSkill('bad', 'Tampered Skill', 'real body', checksum: 'deadbeef');
+        $tampered = $this->makeSkill('bad', 'Tampered Skill', 'real body');
+        $tampered->setBodyChecksum('deadbeef');
 
         $result = (new SkillComposer())->composeBlock([$tampered], []);
 
@@ -161,14 +162,13 @@ final class SkillComposerTest extends TestCase
         bool $enabled = true,
         bool $orphaned = false,
         SupportStatus $support = SupportStatus::FULL,
-        ?string $checksum = null,
     ): Skill {
         $skill = new Skill();
         $skill->setSource($source);
         $skill->setIdentifier($identifier);
         $skill->setName($name);
         $skill->setBody($body);
-        $skill->setBodyChecksum($checksum ?? hash('sha256', $body));
+        $skill->setBodyChecksum(hash('sha256', $body));
         $skill->setSupportStatus($support);
         $skill->setEnabled($enabled);
         $skill->setOrphaned($orphaned);
