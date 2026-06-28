@@ -15,11 +15,14 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Skill\SkillComposer;
+use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Task\TaskExecutionService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Log\LoggerInterface;
 use ReflectionProperty;
 
 #[CoversClass(TaskExecutionService::class)]
@@ -32,7 +35,10 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
     {
         parent::setUp();
         $this->llmServiceManager = $this->createMock(LlmServiceManagerInterface::class);
-        $this->subject           = new TaskExecutionService($this->llmServiceManager);
+        $this->subject           = new TaskExecutionService(
+            $this->llmServiceManager,
+            new SkillInjectionService(new SkillComposer(), self::createStub(LoggerInterface::class)),
+        );
     }
 
     #[Test]

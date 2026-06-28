@@ -1,0 +1,16 @@
+"tx_nrllm_skill"
+,"uid","pid","source","identifier","name","description","body","body_checksum","source_sha","support_status","unsupported_notes","allowed_tools","orphaned","enabled"
+,201,0,1,"cfg:baseline","Config Skill","Config baseline","Configuration baseline guidance.","3890efe866fe07d688d55acfeead14f76b10229686228cb5c88aa618d4a88178","sha","full","","",0,1
+,202,0,1,"task:additive","Task Skill","Task additive","Task additive guidance.","7e3326545eec99e1cdffaf9198e3a953a1e055a25c3f8b9bb80ec341c812b5c4","sha","full","","",0,1
+"tx_nrllm_configuration"
+,"uid","pid","identifier","name","skills"
+,220,0,"inj-config","Injection Config",1
+"tx_nrllm_task"
+,"uid","pid","identifier","name","prompt_template","configuration_uid","input_type","output_format","skills"
+,210,0,"inj-task","Injection Task","Process: {{input}}",220,"manual","markdown",1
+"tx_nrllm_configuration_skill_mm"
+,"uid_local","uid_foreign","sorting","sorting_foreign"
+,220,201,1,0
+"tx_nrllm_task_skill_mm"
+,"uid_local","uid_foreign","sorting","sorting_foreign"
+,210,202,1,0

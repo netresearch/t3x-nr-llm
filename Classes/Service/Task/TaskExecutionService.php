@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 
 /**
  * Orchestrates running a `Task` through the LLM.
@@ -43,6 +44,7 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
 {
     public function __construct(
         private LlmServiceManagerInterface $llmServiceManager,
+        private SkillInjectionService $skillInjection,
     ) {}
 
     public function execute(Task $task, string $input): TaskExecutionResult
@@ -53,6 +55,22 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
         $metadata = ($taskUid !== null && $taskUid > 0) ? [UsageMiddleware::METADATA_TASK_UID => $taskUid] : [];
 
         $configuration = $task->getConfiguration();
+
+        // Inject the attached skills into the user prompt before the provider
+        // call: the configuration's skills form the baseline, the task's own
+        // skills are additive (precedence + dedup handled by SkillComposer).
+        // The configuration-driven path in LlmServiceManager does NOT re-inject
+        // for these explicit completeWithConfiguration()/complete() calls, so
+        // the block is composed exactly once here.
+        $configSkills = $configuration !== null
+            ? SkillInjectionService::toList($configuration->getSkills())
+            : [];
+        $prompt = $this->skillInjection->augmentPrompt(
+            $prompt,
+            $configSkills,
+            SkillInjectionService::toList($task->getSkills()),
+        );
+
         $response = $configuration !== null
             ? $this->llmServiceManager->completeWithConfiguration($prompt, $configuration, $metadata)
             : $this->llmServiceManager->complete($prompt, new ChatOptions());

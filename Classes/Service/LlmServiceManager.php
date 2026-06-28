@@ -36,6 +36,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
+use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\SingletonInterface;
@@ -55,8 +56,51 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         private readonly MiddlewarePipeline $pipeline,
         private readonly CacheManagerInterface $cacheManager,
         private readonly ?LlmConfigurationRepository $configurationRepository = null,
+        private readonly ?SkillInjectionService $skillInjection = null,
     ) {
         $this->loadConfiguration();
+    }
+
+    /**
+     * Prepend the resolved configuration's attached skills to a plain prompt.
+     *
+     * Used only by the configuration-driven entry points (complete()/chat()/
+     * streamChat()) once a backend-managed default configuration has been
+     * resolved — never by embed()/vision()/speech, keeping skill injection
+     * scoped to text generation. A no-op when no SkillInjectionService is
+     * wired (unit-test constructions that omit it).
+     */
+    private function injectConfigSkillsIntoPrompt(string $prompt, LlmConfiguration $configuration): string
+    {
+        if ($this->skillInjection === null) {
+            return $prompt;
+        }
+
+        return $this->skillInjection->augmentPrompt(
+            $prompt,
+            SkillInjectionService::toList($configuration->getSkills()),
+        );
+    }
+
+    /**
+     * Prepend the resolved configuration's attached skills to the first
+     * user-role message (system role untouched). See
+     * {@see self::injectConfigSkillsIntoPrompt()} for the scope rationale.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     *
+     * @return list<ChatMessage|array<string, mixed>>
+     */
+    private function injectConfigSkillsIntoMessages(array $messages, LlmConfiguration $configuration): array
+    {
+        if ($this->skillInjection === null) {
+            return $messages;
+        }
+
+        return $this->skillInjection->augmentMessages(
+            $messages,
+            SkillInjectionService::toList($configuration->getSkills()),
+        );
     }
 
     /**
@@ -196,7 +240,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $defaultConfiguration = $this->resolveDefaultConfiguration($providerKey);
         if ($defaultConfiguration !== null) {
             return $this->chatWithConfiguration(
-                $messages,
+                $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
                 $defaultConfiguration,
                 $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
                 $optionsArray,
@@ -227,7 +271,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $defaultConfiguration = $this->resolveDefaultConfiguration($providerKey);
         if ($defaultConfiguration !== null) {
             return $this->completeWithConfiguration(
-                $prompt,
+                $this->injectConfigSkillsIntoPrompt($prompt, $defaultConfiguration),
                 $defaultConfiguration,
                 $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
                 $optionsArray,
@@ -369,7 +413,11 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         // so streaming and non-streaming calls resolve the same provider/model.
         $defaultConfiguration = $this->resolveDefaultConfiguration($providerKey);
         if ($defaultConfiguration !== null) {
-            return $this->streamChatWithConfiguration($messages, $defaultConfiguration, $optionsArray);
+            return $this->streamChatWithConfiguration(
+                $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
+                $defaultConfiguration,
+                $optionsArray,
+            );
         }
 
         $provider = $this->getProvider($providerKey);
