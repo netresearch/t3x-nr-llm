@@ -29,6 +29,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\NullLogger;
 use ReflectionClass;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryInterface;
@@ -50,10 +51,18 @@ final class ModelControllerTest extends TestCase
     private ModelDiscoveryInterface&MockObject $modelDiscovery;
     private TestPromptResolverInterface&MockObject $testPromptResolver;
     private ModelController $subject;
+    private mixed $previousBeUser;
 
     protected function setUp(): void
     {
         parent::setUp();
+
+        // The AJAX actions are guarded by RequiresBackendAdminTrait (ADR-037);
+        // provide an admin backend user so these tests reach the action body.
+        $this->previousBeUser = $GLOBALS['BE_USER'] ?? null;
+        $backendUser = new BackendUserAuthentication();
+        $backendUser->user = ['uid' => 1, 'admin' => 1];
+        $GLOBALS['BE_USER'] = $backendUser;
 
         $this->modelRepository = $this->createMock(ModelRepository::class);
         $this->providerRepository = $this->createMock(ProviderRepository::class);
@@ -65,6 +74,16 @@ final class ModelControllerTest extends TestCase
 
         // Create controller using reflection to inject only required dependencies
         $this->subject = $this->createControllerWithDependencies();
+    }
+
+    protected function tearDown(): void
+    {
+        if ($this->previousBeUser === null) {
+            unset($GLOBALS['BE_USER']);
+        } else {
+            $GLOBALS['BE_USER'] = $this->previousBeUser;
+        }
+        parent::tearDown();
     }
 
     /**

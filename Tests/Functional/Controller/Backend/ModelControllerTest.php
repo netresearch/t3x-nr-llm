@@ -57,6 +57,12 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $this->importFixture('Providers.csv');
         $this->importFixture('Models.csv');
 
+        // The backend AJAX endpoints now require an authenticated admin
+        // (RequiresBackendAdminTrait — ADR-037); set one up so these tests
+        // exercise the success paths.
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+
         // Get real services from container
         $repository = $this->get(ModelRepository::class);
         self::assertInstanceOf(ModelRepository::class, $repository);

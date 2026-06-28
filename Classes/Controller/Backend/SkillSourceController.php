@@ -18,7 +18,6 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
-use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Utility\StringUtility;
@@ -28,6 +27,8 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 #[AsController]
 final class SkillSourceController extends ActionController
 {
+    use RequiresBackendAdminTrait;
+
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly SkillSourceRepository $sourceRepository,
@@ -124,19 +125,6 @@ final class SkillSourceController extends ActionController
         $this->sourceRepository->update($source);
         $this->persistenceManager->persistAll();
         return new JsonResponse(['success' => true]);
-    }
-
-    /**
-     * Guard the AJAX endpoints: only an authenticated backend admin may sync, toggle or set tokens.
-     * Skill source/skill management is admin-only (see Modules.php access => admin).
-     */
-    private function denyNonAdmin(): ?ResponseInterface
-    {
-        $backendUser = $GLOBALS['BE_USER'] ?? null;
-        if ($backendUser instanceof BackendUserAuthentication && $backendUser->isAdmin()) {
-            return null;
-        }
-        return new JsonResponse(['success' => false, 'error' => 'Forbidden'], 403);
     }
 
     private function intFromBody(mixed $body, string $key): int

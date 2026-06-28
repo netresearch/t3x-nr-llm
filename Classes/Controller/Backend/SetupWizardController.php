@@ -53,6 +53,8 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class SetupWizardController extends ActionController
 {
+    use RequiresBackendAdminTrait;
+
     private const ERROR_ENDPOINT_REQUIRED = 'Endpoint URL is required';
 
     private ModuleTemplate $moduleTemplate;
@@ -132,6 +134,9 @@ final class SetupWizardController extends ActionController
      */
     public function detectAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $endpoint = $this->extractStringFromBody($body, 'endpoint');
 
@@ -154,6 +159,9 @@ final class SetupWizardController extends ActionController
      */
     public function testAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $endpoint = $this->extractStringFromBody($body, 'endpoint');
         $apiKey = $this->extractStringFromBody($body, 'apiKey');
@@ -184,6 +192,9 @@ final class SetupWizardController extends ActionController
      */
     public function discoverAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $endpoint = $this->extractStringFromBody($body, 'endpoint');
         $apiKey = $this->extractStringFromBody($body, 'apiKey');
@@ -216,6 +227,9 @@ final class SetupWizardController extends ActionController
      */
     public function generateAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $this->parseRequestBody($request);
         $endpoint = $this->extractStringFromBody($body, 'endpoint');
         $apiKey = $this->extractStringFromBody($body, 'apiKey');
@@ -254,6 +268,9 @@ final class SetupWizardController extends ActionController
      */
     public function saveAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $this->parseRequestBody($request);
         $providerData = $this->extractArrayFromBody($body, 'provider');
         $modelsData = $this->extractArrayFromBody($body, 'models');

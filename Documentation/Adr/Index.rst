@@ -230,6 +230,14 @@ Modern architecture (v0.4+)
       .. card-footer:: :ref:`Read <adr-020>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: ADR-037: Backend AJAX admin guard
+
+      Shared trait requires a backend admin on every
+      backend AJAX endpoint (403 otherwise).
+
+      .. card-footer:: :ref:`Read <adr-037>`
+         :button-style: btn btn-secondary stretched-link
+
 .. _adr-skills:
 
 Skills
@@ -298,3 +306,4 @@ Skills
    Adr034RemoveExtensionConfigDefaultProvider
    Adr035SkillIngest
    Adr036SkillInjection
+   Adr037BackendAjaxAdminGuard

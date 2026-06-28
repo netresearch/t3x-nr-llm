@@ -53,6 +53,8 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class ModelController extends ActionController
 {
+    use RequiresBackendAdminTrait;
+
     private const TABLE_NAME = 'tx_nrllm_model';
 
     private const ERROR_NO_MODEL_UID = 'No model UID specified';
@@ -160,6 +162,9 @@ final class ModelController extends ActionController
      */
     public function toggleActiveAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -192,6 +197,9 @@ final class ModelController extends ActionController
      */
     public function setDefaultAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -220,6 +228,9 @@ final class ModelController extends ActionController
      */
     public function getByProviderAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $providerUid = $this->extractIntFromBody($body, 'providerUid');
 
@@ -246,6 +257,9 @@ final class ModelController extends ActionController
      */
     public function testModelAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -343,6 +357,9 @@ final class ModelController extends ActionController
      */
     public function fetchAvailableModelsAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $providerUid = $this->extractIntFromBody($body, 'providerUid');
 
@@ -429,6 +446,9 @@ final class ModelController extends ActionController
      */
     public function detectLimitsAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $providerUid = $this->extractIntFromBody($body, 'providerUid');
         $modelId = $this->extractStringFromBody($body, 'modelId');

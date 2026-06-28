@@ -55,6 +55,8 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class ConfigurationController extends ActionController
 {
+    use RequiresBackendAdminTrait;
+
     private const TABLE_NAME = 'tx_nrllm_configuration';
 
     private const ERROR_NO_UID = 'No configuration UID specified';
@@ -221,6 +223,9 @@ final class ConfigurationController extends ActionController
      */
     public function toggleActiveAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -251,6 +256,9 @@ final class ConfigurationController extends ActionController
      */
     public function setDefaultAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -278,6 +286,9 @@ final class ConfigurationController extends ActionController
      */
     public function getModelsAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $providerKey = $this->extractStringFromBody($body, 'provider');
 
@@ -322,6 +333,9 @@ final class ConfigurationController extends ActionController
      */
     public function testConfigurationAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -387,6 +401,9 @@ final class ConfigurationController extends ActionController
      */
     public function getModelConstraintsAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $modelUid = $this->extractIntFromBody($body, 'modelUid');
 

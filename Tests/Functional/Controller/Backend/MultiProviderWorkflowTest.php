@@ -77,6 +77,12 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $this->importFixture('LlmConfigurations.csv');
         $this->importFixture('Tasks.csv');
 
+        // The backend AJAX endpoints now require an authenticated admin
+        // (RequiresBackendAdminTrait — ADR-037); set one up so the workflow
+        // exercises the multi-provider paths rather than the admin guard.
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+
         // Get repositories
         $providerRepository = $this->get(ProviderRepository::class);
         self::assertInstanceOf(ProviderRepository::class, $providerRepository);
