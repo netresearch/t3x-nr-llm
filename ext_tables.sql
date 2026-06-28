@@ -139,6 +139,9 @@ CREATE TABLE tx_nrllm_configuration (
     -- Access control (MM relation to be_groups)
     allowed_groups int(11) DEFAULT '0' NOT NULL,
 
+    -- Attached skills (MM relation to tx_nrllm_skill)
+    skills int(11) DEFAULT '0' NOT NULL,
+
     -- Standard TYPO3 fields
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
@@ -229,6 +232,9 @@ CREATE TABLE tx_nrllm_task (
 
     -- Output configuration
     output_format varchar(20) DEFAULT 'markdown' NOT NULL,
+
+    -- Attached skills (MM relation to tx_nrllm_skill)
+    skills int(11) DEFAULT '0' NOT NULL,
 
     -- Status
     is_active tinyint(1) DEFAULT '1' NOT NULL,
@@ -483,4 +489,30 @@ CREATE TABLE tx_nrllm_skill (
     KEY parent (pid),
     KEY source (source),
     KEY identifier (identifier(191))
+);
+
+#
+# MM table for task ↔ skill relations
+#
+CREATE TABLE tx_nrllm_task_skill_mm (
+    uid_local int(11) unsigned DEFAULT '0' NOT NULL,
+    uid_foreign int(11) unsigned DEFAULT '0' NOT NULL,
+    sorting int(11) unsigned DEFAULT '0' NOT NULL,
+    sorting_foreign int(11) unsigned DEFAULT '0' NOT NULL,
+
+    KEY uid_local (uid_local),
+    KEY uid_foreign (uid_foreign)
+);
+
+#
+# MM table for configuration ↔ skill relations
+#
+CREATE TABLE tx_nrllm_configuration_skill_mm (
+    uid_local int(11) unsigned DEFAULT '0' NOT NULL,
+    uid_foreign int(11) unsigned DEFAULT '0' NOT NULL,
+    sorting int(11) unsigned DEFAULT '0' NOT NULL,
+    sorting_foreign int(11) unsigned DEFAULT '0' NOT NULL,
+
+    KEY uid_local (uid_local),
+    KEY uid_foreign (uid_foreign)
 );

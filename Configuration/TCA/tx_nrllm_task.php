@@ -34,6 +34,7 @@ return [
                     --palette--;;identity,
                     --palette--;;settings,
                     prompt_template,
+                    skills,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.tab.input_output,
                     --palette--;;input,
                     --palette--;;output,
@@ -201,6 +202,20 @@ return [
             'config' => [
                 'type' => 'check',
                 'default' => 0,
+            ],
+        ],
+        'skills' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.skills',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.skills.description',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectMultipleSideBySide',
+                'foreign_table' => 'tx_nrllm_skill',
+                'foreign_table_where' => 'AND tx_nrllm_skill.enabled = 1 AND tx_nrllm_skill.orphaned = 0 ORDER BY tx_nrllm_skill.name',
+                'MM' => 'tx_nrllm_task_skill_mm',
+                'size' => 5,
+                'minitems' => 0,
+                'maxitems' => 100,
             ],
         ],
     ],

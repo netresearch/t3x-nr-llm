@@ -282,6 +282,15 @@
                 <target>Wenn leer, ist die Konfiguration für alle Benutzer mit LLM-Berechtigungen zugänglich</target>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_configuration.skills">
+                <source>Attached Skills</source>
+                <target>Zugewiesene Skills</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.skills.description">
+                <source>Skills attached here form the baseline injected into every text generation that uses this configuration</source>
+                <target>Hier zugewiesene Skills bilden die Grundlage, die in jede Textgenerierung mit dieser Konfiguration eingefügt wird</target>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_configuration.model_selection_mode">
                 <source>Model Selection</source>
                 <target>Modellauswahl</target>
@@ -821,6 +830,15 @@
             <trans-unit id="tx_nrllm_task.is_system.description">
                 <source>System tasks are managed by extensions and should not be modified</source>
                 <target>Systemaufgaben werden von Extensions verwaltet und sollten nicht geändert werden</target>
+            </trans-unit>
+
+            <trans-unit id="tx_nrllm_task.skills">
+                <source>Attached Skills</source>
+                <target>Zugewiesene Skills</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_task.skills.description">
+                <source>Skills attached here are injected into this task's text-generation prompt, in addition to any skills on the selected configuration</source>
+                <target>Hier zugewiesene Skills werden zusätzlich zu den Skills der gewählten Konfiguration in den Textgenerierungs-Prompt dieser Aufgabe eingefügt</target>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_task.tab.input_output">
