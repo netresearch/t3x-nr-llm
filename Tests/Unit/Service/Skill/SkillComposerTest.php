@@ -88,7 +88,7 @@ final class SkillComposerTest extends TestCase
         $config = $this->makeSkill('cfg', 'Cfg', str_repeat('c', 80), source: 1);
         $task   = $this->makeSkill('tsk', 'Tsk', str_repeat('t', 80), source: 2);
 
-        $result = (new SkillComposer(maxChars: 200))->composeBlock([$config], [$task]);
+        $result = (new SkillComposer(maxBytes: 200))->composeBlock([$config], [$task]);
 
         self::assertSame(['cfg'], $result->included);
         self::assertSame(['tsk'], $result->dropped);
