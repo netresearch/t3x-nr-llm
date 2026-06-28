@@ -360,8 +360,15 @@ final class SkillSyncService
         $skill->setRawFrontmatter((string)json_encode($parsed->rawFrontmatter));
         $skill->setSupportStatus($parsed->supportStatus->value);
         $skill->setUnsupportedNotes($parsed->unsupportedNotes);
-        $tools = $parsed->rawFrontmatter['allowed-tools'] ?? $parsed->rawFrontmatter['allowed_tools'] ?? [];
-        $skill->setAllowedTools((string)json_encode(is_array($tools) ? $tools : []));
+        // Distinguish "no opinion" (key absent → store '') from a present declaration (store its JSON,
+        // including '[]' for a declared-empty fail-closed list). The accessor treats '' as null/no-opinion.
+        $frontmatter = $parsed->rawFrontmatter;
+        if (!array_key_exists('allowed-tools', $frontmatter) && !array_key_exists('allowed_tools', $frontmatter)) {
+            $skill->setAllowedTools('');
+        } else {
+            $tools = $frontmatter['allowed-tools'] ?? $frontmatter['allowed_tools'] ?? [];
+            $skill->setAllowedTools((string)json_encode(is_array($tools) ? $tools : []));
+        }
     }
 
     /**

@@ -105,6 +105,17 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         return sprintf("---\nname: %s\ndescription: %s\n---\n%s", $name, $description, $body);
     }
 
+    private function mdWithTools(string $name, string $allowedToolsYaml, string $body, string $description = 'd'): string
+    {
+        return sprintf(
+            "---\nname: %s\ndescription: %s\nallowed-tools: %s\n---\n%s",
+            $name,
+            $description,
+            $allowedToolsYaml,
+            $body,
+        );
+    }
+
     /**
      * Build a marketplace client whose index lists the given owner/repo plugin slugs and whose child
      * repos each expose a single skill at SKILL_A_PATH. Optionally force a child (owner,repo) to fail.
@@ -146,6 +157,33 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         foreach ($skills as $skill) {
             self::assertFalse($skill->isEnabled(), 'multi-skill discovery must default disabled');
         }
+    }
+
+    #[Test]
+    public function syncStoresAbsentAllowedToolsAsEmptyAndDeclaredAsJson(): void
+    {
+        // Absent front-matter key → '' (no opinion); a present declaration → its JSON,
+        // including '[]' for a declared-empty fail-closed list.
+        $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH, self::SKILL_B_PATH, 'skills/c/SKILL.md'], [
+            self::SKILL_A_PATH    => $this->md('A', 'body a'),
+            self::SKILL_B_PATH    => $this->mdWithTools('B', '[]', 'body b'),
+            'skills/c/SKILL.md'   => $this->mdWithTools('C', '[x]', 'body c'),
+        ]);
+        $this->service($gitHub)->sync($this->repoSource());
+
+        $repo = $this->get(SkillRepository::class);
+
+        $absent = $repo->findBySourceAndIdentifier(10, self::SKILL_A_ID);
+        self::assertNotNull($absent);
+        self::assertSame('', $absent->getAllowedTools(), 'absent allowed-tools front-matter stores empty string');
+
+        $declaredEmpty = $repo->findBySourceAndIdentifier(10, self::SKILL_B_ID);
+        self::assertNotNull($declaredEmpty);
+        self::assertSame('[]', $declaredEmpty->getAllowedTools(), 'declared-empty allowed-tools stores "[]"');
+
+        $declaredList = $repo->findBySourceAndIdentifier(10, '10:skills/c/SKILL.md');
+        self::assertNotNull($declaredList);
+        self::assertSame('["x"]', $declaredList->getAllowedTools(), 'a declared list stores its JSON encoding');
     }
 
     #[Test]
