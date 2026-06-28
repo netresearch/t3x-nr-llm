@@ -55,6 +55,22 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         );
     }
 
+    #[Test]
+    public function unknownStoredTypeYieldsErrorStatus(): void
+    {
+        // A malformed/unsupported type column must fail closed (clear ERROR), not be
+        // silently treated as a repo — the point of the defensive getTypeEnum() pattern.
+        $source = new SkillSource();
+        $source->_setProperty('uid', 40);
+        $source->setType('bogus-type');
+        $source->setUrl(self::REPO_URL);
+
+        $result = $this->service($this->marketGitHub([]))->sync($source);
+
+        self::assertSame(SyncStatus::ERROR, $result->status);
+        self::assertNotSame([], $result->errors);
+    }
+
     private function repoSource(int $uid = 10): SkillSource
     {
         $source = new SkillSource();

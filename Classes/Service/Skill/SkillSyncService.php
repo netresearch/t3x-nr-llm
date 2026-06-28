@@ -146,13 +146,18 @@ final class SkillSyncService
      */
     private function collect(SkillSource $source, array &$errors): array
     {
-        if ($source->getTypeEnum() === SkillSourceType::MARKETPLACE) {
+        // Resolve the type once and fail closed on an unknown/invalid stored value:
+        // a malformed type must surface as a clear ERROR, never be silently treated as a repo.
+        $type = $source->getTypeEnum()
+            ?? throw new RuntimeException(sprintf('Unknown skill source type "%s".', $source->getType()), 4636357234);
+
+        if ($type === SkillSourceType::MARKETPLACE) {
             return $this->collectMarketplace($source, $errors);
         }
         // Non-marketplace sources address a single GitHub repo; an unparseable URL is fatal and
         // surfaces as a clear ERROR rather than a malformed API call against an empty owner/repo.
         [$owner, $repo] = $this->requireOwnerRepo($source->getUrl());
-        return $source->getTypeEnum() === SkillSourceType::SINGLE_FILE
+        return $type === SkillSourceType::SINGLE_FILE
             ? $this->collectSingleFile($source, $owner, $repo, $errors)
             : $this->collectRepo($source, $owner, $repo, $source->getRef(), $errors);
     }

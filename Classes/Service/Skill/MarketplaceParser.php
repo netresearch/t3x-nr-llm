@@ -75,11 +75,15 @@ final class MarketplaceParser
      */
     private function extractFromGitUrl(string $url): ?array
     {
-        $host = parse_url($url, PHP_URL_HOST);
+        $parts = parse_url($url);
+        if (!is_array($parts)) {
+            return null;
+        }
+        $host = $parts['host'] ?? null;
         if (!is_string($host) || !in_array(strtolower($host), ['github.com', 'www.github.com'], true)) {
             return null;
         }
-        $path = parse_url($url, PHP_URL_PATH);
+        $path = $parts['path'] ?? null;
         if (!is_string($path)) {
             return null;
         }
