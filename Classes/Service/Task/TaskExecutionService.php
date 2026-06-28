@@ -54,14 +54,20 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
         $taskUid  = $task->getUid();
         $metadata = ($taskUid !== null && $taskUid > 0) ? [UsageMiddleware::METADATA_TASK_UID => $taskUid] : [];
 
-        $configuration = $task->getConfiguration();
+        // Resolve the effective configuration exactly once: the task's own
+        // configuration when set, otherwise the backend-managed active default
+        // (resolved by LlmServiceManager with the same guards as a generic call).
+        // Routing through this single resolution — and dispatching via
+        // completeWithConfiguration(), which does NOT re-inject — guarantees the
+        // skill block is composed exactly once: without it a configuration-less
+        // task would inject the task skills here and then have complete() resolve
+        // the default and inject ITS skills again (double preamble, leaked default
+        // skills, appliedSkills missing the default's skills).
+        $configuration = $this->llmServiceManager->resolveEffectiveConfiguration($task->getConfiguration());
 
-        // Inject the attached skills into the user prompt before the provider
-        // call: the configuration's skills form the baseline, the task's own
-        // skills are additive (precedence + dedup handled by SkillComposer).
-        // The configuration-driven path in LlmServiceManager does NOT re-inject
-        // for these explicit completeWithConfiguration()/complete() calls, so
-        // the block is composed exactly once here.
+        // The effective configuration's skills form the baseline, the task's own
+        // skills are additive (precedence + dedup handled by SkillComposer). The
+        // applied identifiers therefore cover BOTH sets, deduped.
         $configSkills = $configuration !== null
             ? SkillInjectionService::toList($configuration->getSkills())
             : [];
@@ -71,6 +77,8 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
             SkillInjectionService::toList($task->getSkills()),
         );
 
+        // With no resolvable configuration the task cannot run; the generic path
+        // raises the existing "no provider specified" error — preserve that.
         $response = $configuration !== null
             ? $this->llmServiceManager->completeWithConfiguration($prompt, $configuration, $metadata)
             : $this->llmServiceManager->complete($prompt, new ChatOptions());

@@ -57,6 +57,17 @@ interface LlmServiceManagerInterface
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse;
 
     /**
+     * Resolve the effective configuration for a configuration-driven completion.
+     *
+     * Returns the explicitly passed configuration when set, otherwise the
+     * backend-managed active default (resolved with the same guards as a generic
+     * complete()/chat() call). Returns null when neither resolves, signalling the
+     * caller to fall back to the generic path (which raises the "no provider
+     * specified" error).
+     */
+    public function resolveEffectiveConfiguration(?LlmConfiguration $configuration = null): ?LlmConfiguration;
+
+    /**
      * Complete a prompt using a specific LLM configuration.
      *
      * @param array<string, mixed> $metadata

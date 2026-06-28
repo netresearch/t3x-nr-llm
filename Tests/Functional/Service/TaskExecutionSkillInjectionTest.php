@@ -53,6 +53,7 @@ final class TaskExecutionSkillInjectionTest extends AbstractFunctionalTestCase
 
         $capturedPrompt = null;
         $manager        = $this->createMock(LlmServiceManagerInterface::class);
+        $manager->method('resolveEffectiveConfiguration')->willReturnArgument(0);
         $manager->method('completeWithConfiguration')->willReturnCallback(
             function (string $prompt, LlmConfiguration $configuration, array $metadata) use (&$capturedPrompt): CompletionResponse {
                 $capturedPrompt = $prompt;
@@ -100,6 +101,7 @@ final class TaskExecutionSkillInjectionTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(Task::class, $task);
 
         $manager = $this->createMock(LlmServiceManagerInterface::class);
+        $manager->method('resolveEffectiveConfiguration')->willReturnArgument(0);
         $manager->method('completeWithConfiguration')->willReturn(
             new CompletionResponse(
                 content: 'done',

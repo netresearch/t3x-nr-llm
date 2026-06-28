@@ -139,6 +139,22 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         return $configuration;
     }
 
+    /**
+     * Resolve the effective configuration for a configuration-driven completion.
+     *
+     * Returns the explicitly passed configuration when set, otherwise the
+     * backend-module-managed active default — resolved through the very same
+     * guards the generic complete()/chat() path uses (see
+     * {@see self::resolveDefaultConfiguration()}), so callers never duplicate
+     * that logic. Returns null when neither resolves; the caller must then
+     * dispatch through the generic path so the existing "no provider specified"
+     * error is raised.
+     */
+    public function resolveEffectiveConfiguration(?LlmConfiguration $configuration = null): ?LlmConfiguration
+    {
+        return $configuration ?? $this->resolveDefaultConfiguration(null);
+    }
+
     private function loadConfiguration(): void
     {
         try {
