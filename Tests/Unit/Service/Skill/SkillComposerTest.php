@@ -53,6 +53,22 @@ final class SkillComposerTest extends TestCase
     }
 
     #[Test]
+    public function keepsCrossSourceTwinsSharingIdentifier(): void
+    {
+        // Same identifier, different source: the dedup key is (source, identifier),
+        // so both must survive. With an identifier-only key the second is wrongly dropped.
+        $first  = $this->makeSkill('twin', 'First Source Twin', 'first source body', source: 1);
+        $second = $this->makeSkill('twin', 'Second Source Twin', 'second source body', source: 2);
+
+        $result = (new SkillComposer())->composeBlock([$first], [$second]);
+
+        self::assertStringContainsString('### Skill: First Source Twin', $result->block);
+        self::assertStringContainsString('### Skill: Second Source Twin', $result->block);
+        self::assertSame(['twin', 'twin'], $result->included);
+        self::assertSame([], $result->dropped);
+    }
+
+    #[Test]
     public function rendersConfigBlockBeforeTaskBlock(): void
     {
         $config = $this->makeSkill('cfg', 'Config Skill', 'config text', source: 1);

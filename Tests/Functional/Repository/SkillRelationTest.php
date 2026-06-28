@@ -54,6 +54,9 @@ final class SkillRelationTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Collect skill names in MM-relation order (no re-sorting), so the
+     * deterministic `sorting` ordering of the MM relation is asserted.
+     *
      * @param iterable<Skill> $skills
      *
      * @return list<string>
@@ -64,7 +67,6 @@ final class SkillRelationTest extends AbstractFunctionalTestCase
         foreach ($skills as $skill) {
             $names[] = $skill->getName();
         }
-        sort($names);
 
         return $names;
     }

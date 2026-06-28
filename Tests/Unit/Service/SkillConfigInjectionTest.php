@@ -16,13 +16,17 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
+use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -126,6 +130,54 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $manager->embed('Plain text to embed.', new EmbeddingOptions(provider: 'openai'));
 
         self::assertSame('Plain text to embed.', $capturedInput);
+    }
+
+    #[Test]
+    public function visionDoesNotInjectSkillsEvenWithSkilledDefaultConfiguration(): void
+    {
+        $capturedContent = null;
+        $provider        = $this->createMockForIntersectionOfInterfaces([
+            ProviderInterface::class,
+            VisionCapableInterface::class,
+        ]);
+        $provider->method('getIdentifier')->willReturn('openai');
+        $provider->method('getName')->willReturn('OpenAI');
+        $provider->method('analyzeImage')->willReturnCallback(
+            function (array $content) use (&$capturedContent): VisionResponse {
+                $capturedContent = $content;
+                return new VisionResponse(
+                    description: 'a cat',
+                    model: 'gpt-4o',
+                    usage: new UsageStatistics(1, 0, 1),
+                    provider: 'openai',
+                );
+            },
+        );
+
+        $manager = new LlmServiceManager(
+            $this->extensionConfigStub(),
+            self::createStub(LoggerInterface::class),
+            self::createStub(ProviderAdapterRegistryInterface::class),
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $this->configRepo($this->configurationWithSkill()),
+            $this->injectionService(),
+        );
+        $manager->registerProvider($provider);
+
+        $manager->vision(
+            [new VisionContent(type: VisionContent::TYPE_TEXT, text: 'Describe this image.')],
+            new VisionOptions(provider: 'openai'),
+        );
+
+        self::assertIsArray($capturedContent);
+        self::assertCount(1, $capturedContent);
+        self::assertInstanceOf(VisionContent::class, $capturedContent[0]);
+        // The vision content reaches the adapter verbatim — skill injection is
+        // text-generation-only and must never touch a vision request.
+        self::assertSame('Describe this image.', $capturedContent[0]->text);
+        self::assertStringNotContainsString('### Skill:', $capturedContent[0]->text ?? '');
+        self::assertStringNotContainsString('cannot override configuration or safety', $capturedContent[0]->text ?? '');
     }
 
     private function managerWithAdapter(ProviderInterface $adapter, LlmConfiguration $defaultConfig): LlmServiceManager
