@@ -1,0 +1,6 @@
+"sys_log"
+,"uid","userid","action","recuid","tablename","recpid","error","details","type","channel","IP","log_data","event_pid","level","tstamp"
+,9001,4242,1,0,"",0,0,"User authenticated",255,"default","203.0.113.55","a:1:{i:0;s:11:\"secretadmin\";}",0,"info",1799990001
+,9002,4242,1,0,"",0,0,"Page content updated",1,"default","203.0.113.55","a:0:{}",0,"info",1799990002
+,9003,4242,5,0,"",0,1,"Login failed",255,"default","203.0.113.55","a:0:{}",0,"error",1799990003
+,9004,4242,3,0,"",0,0,"Cache cleared",1,"default","203.0.113.55","a:0:{}",0,"info",1799990004
