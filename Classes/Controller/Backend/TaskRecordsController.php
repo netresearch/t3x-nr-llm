@@ -49,6 +49,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 #[AsController]
 final class TaskRecordsController extends ActionController
 {
+    use RequiresBackendAdminTrait;
+
     public function __construct(
         private readonly RecordTableReaderInterface $recordTableReader,
         private readonly LoggerInterface $logger,
@@ -59,6 +61,9 @@ final class TaskRecordsController extends ActionController
      */
     public function listTablesAction(): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         try {
             return new JsonResponse((new TableListResponse(
                 tables: $this->recordTableReader->listAllowedTables(),
@@ -78,6 +83,9 @@ final class TaskRecordsController extends ActionController
      */
     public function fetchRecordsAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $dto = FetchRecordsRequest::fromRequest($request);
 
         if (!$dto->isValid()) {
@@ -142,6 +150,9 @@ final class TaskRecordsController extends ActionController
      */
     public function loadRecordDataAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $dto = LoadRecordDataRequest::fromRequest($request);
 
         if (!$dto->isValid()) {

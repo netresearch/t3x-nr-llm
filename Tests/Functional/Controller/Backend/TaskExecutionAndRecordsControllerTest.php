@@ -61,6 +61,12 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $this->importFixture('LlmConfigurations.csv');
         $this->importFixture('Tasks.csv');
 
+        // The Task AJAX endpoints now require an authenticated admin
+        // (RequiresBackendAdminTrait — ADR-037); set one up so these tests
+        // exercise the success paths.
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+
         $taskRepository = $this->get(TaskRepository::class);
         self::assertInstanceOf(TaskRepository::class, $taskRepository);
         $this->taskRepository = $taskRepository;

@@ -32,6 +32,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 #[AsController]
 final class LlmModuleController extends ActionController
 {
+    use RequiresBackendAdminTrait;
+
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly LlmServiceManagerInterface $llmServiceManager,
@@ -137,6 +139,9 @@ final class LlmModuleController extends ActionController
 
     public function executeTestAction(): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $this->request->getParsedBody();
         $provider = $this->extractStringFromBody($body, 'provider');
         $prompt = $this->extractStringFromBody($body, 'prompt', $this->testPromptResolver->resolve());

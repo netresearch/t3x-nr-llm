@@ -65,6 +65,8 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class TaskExecutionController extends ActionController
 {
+    use RequiresBackendAdminTrait;
+
     private const TABLE_NAME = 'tx_nrllm_task';
 
     public function __construct(
@@ -182,6 +184,9 @@ final class TaskExecutionController extends ActionController
      */
     public function executeAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $dto = ExecuteTaskRequest::fromRequest($request);
 
         $task = $this->taskRepository->findByUid($dto->uid);
@@ -253,6 +258,9 @@ final class TaskExecutionController extends ActionController
      */
     public function refreshInputAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $dto = RefreshInputRequest::fromRequest($request);
 
         $task = $this->taskRepository->findByUid($dto->uid);

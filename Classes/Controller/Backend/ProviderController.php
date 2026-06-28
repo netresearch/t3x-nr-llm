@@ -47,6 +47,8 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class ProviderController extends ActionController
 {
+    use RequiresBackendAdminTrait;
+
     private const TABLE_NAME = 'tx_nrllm_provider';
 
     private ModuleTemplate $moduleTemplate;
@@ -140,6 +142,9 @@ final class ProviderController extends ActionController
      */
     public function toggleActiveAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -189,6 +194,9 @@ final class ProviderController extends ActionController
      */
     public function testConnectionAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 

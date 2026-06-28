@@ -49,6 +49,12 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         $this->importFixture('LlmConfigurations.csv');
         $this->importFixture('Tasks.csv');
 
+        // executeTestAction now requires an authenticated admin
+        // (RequiresBackendAdminTrait — ADR-037); set one up so these tests
+        // exercise the success paths.
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+
         // Get real services from container
         $llmServiceManager = $this->get(LlmServiceManager::class);
         self::assertInstanceOf(LlmServiceManager::class, $llmServiceManager);

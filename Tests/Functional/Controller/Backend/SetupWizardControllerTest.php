@@ -52,6 +52,13 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     {
         parent::setUp();
 
+        // Every wizard AJAX endpoint now requires an authenticated admin
+        // (RequiresBackendAdminTrait — ADR-037). saveAction additionally needs
+        // an authorized actor for the nr-vault store() call. Set up an admin so
+        // the detect/test/discover/generate/save success + validation paths run.
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1); // uid 1 is an admin (admin=1)
+
         // Get real services from container
         $providerDetector = $this->get(ProviderDetector::class);
         self::assertInstanceOf(ProviderDetector::class, $providerDetector);
@@ -445,13 +452,8 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function saveActionCreatesProviderAndModels(): void
     {
-        // saveAction stores the API key through nr-vault, which since
-        // nr-vault 0.6.0 requires an authorized actor (VaultService::store()
-        // calls canCreate()). The wizard's AJAX save route is backend-only in
-        // production, so set up the authenticated backend user it relies on.
-        $this->importFixture('BeUsers.csv');
-        $this->setUpBackendUser(1);
-
+        // The admin backend user (required by both the admin guard and the
+        // nr-vault store() call) is set up in setUp().
         $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_SAVE);
         $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
         $request = $request->withBody(Utils::streamFor(json_encode([
@@ -496,11 +498,8 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     #[Test]
     public function saveActionCreatesProviderWithConfigurations(): void
     {
-        // Authenticated backend user required for the nr-vault store() call
-        // (see saveActionCreatesProviderAndModels).
-        $this->importFixture('BeUsers.csv');
-        $this->setUpBackendUser(1);
-
+        // The admin backend user (required by both the admin guard and the
+        // nr-vault store() call) is set up in setUp().
         $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_SAVE);
         $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
         $request = $request->withBody(Utils::streamFor(json_encode([
