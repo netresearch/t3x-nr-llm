@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use stdClass;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
@@ -110,7 +111,9 @@ final class ToolPlaygroundController extends ActionController
             'trace'        => array_map(
                 static fn(ToolInvocation $invocation): array => [
                     'name'      => $invocation->name,
-                    'arguments' => $invocation->arguments,
+                    // Empty arguments must serialise to a JSON object ({}), not an
+                    // array ([]) — the OpenAI tool-call convention (ADR-038).
+                    'arguments' => $invocation->arguments === [] ? new stdClass() : $invocation->arguments,
                     'result'    => $invocation->result,
                     'isError'   => $invocation->isError,
                 ],
@@ -132,7 +135,9 @@ final class ToolPlaygroundController extends ActionController
         if (!$backendUser instanceof BackendUserAuthentication) {
             return 0;
         }
-        $uid = $backendUser->user['uid'] ?? 0;
+        // BackendUserAuthentication::$user is untyped and may be null before a
+        // session is fully loaded (CLI/testing), so guard with is_array().
+        $uid = is_array($backendUser->user) ? ($backendUser->user['uid'] ?? 0) : 0;
         return is_numeric($uid) ? (int)$uid : 0;
     }
 

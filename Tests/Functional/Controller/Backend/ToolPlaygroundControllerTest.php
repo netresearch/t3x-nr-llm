@@ -235,7 +235,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
     private function createBackendRequest(): ExtbaseRequest
     {
         $extbaseParameters = new ExtbaseRequestParameters();
-        $extbaseParameters->setControllerName('ToolPlayground');
+        $extbaseParameters->setControllerName('Backend\ToolPlayground');
         $extbaseParameters->setControllerActionName('list');
         $extbaseParameters->setControllerExtensionName('NrLlm');
 
