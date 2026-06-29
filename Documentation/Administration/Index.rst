@@ -31,7 +31,7 @@ section, and AI wizard buttons.
    The LLM dashboard with setup progress, wizard
    buttons, and quick-reference PHP snippets.
 
-The module has seven sections accessible from the
+The module has eight sections accessible from the
 left-hand navigation:
 
 - **Dashboard** — overview and wizards
@@ -41,6 +41,7 @@ left-hand navigation:
 - **Tasks** — one-shot prompt templates
 - **Snippets** — tagged reusable prompt fragments
 - **Skills** — GitHub-hosted ``SKILL.md`` sources (admin-only)
+- **Tool Playground** — run the agent tool loop (admin-only)
 
 .. toctree::
    :maxdepth: 2
@@ -51,6 +52,7 @@ left-hand navigation:
    Tasks
    PromptSnippets
    Skills
+   Tools
    Wizards
    UserBudgets
    Analytics

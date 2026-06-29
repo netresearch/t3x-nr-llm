@@ -267,6 +267,26 @@ Skills
       .. card-footer:: :ref:`Read <adr-036>`
          :button-style: btn btn-secondary stretched-link
 
+.. _adr-tools:
+
+Tools
+-----
+
+.. card-grid::
+   :columns: 1
+   :columns-md: 2
+   :gap: 4
+   :card-height: 100
+
+   .. card:: ADR-038: Tool runtime
+
+      DI-tagged tool registry + bounded agent loop on the
+      config's vault key/model/pricing; allow-list gated,
+      admin-only.
+
+      .. card-footer:: :ref:`Read <adr-038>`
+         :button-style: btn btn-secondary stretched-link
+
 .. toctree::
    :hidden:
 
@@ -307,3 +327,4 @@ Skills
    Adr035SkillIngest
    Adr036SkillInjection
    Adr037BackendAjaxAdminGuard
+   Adr038ToolRuntime
