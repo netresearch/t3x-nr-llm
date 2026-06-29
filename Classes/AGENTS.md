@@ -4,7 +4,7 @@
 
 <!-- AGENTS-GENERATED:START overview -->
 ## Overview
-PHP 8.2+ source code (139 files) with strict typing, PSR-12, PHPStan level 10. Three-tier domain: Providers -> Models -> Configurations.
+PHP 8.2+ source code (249 files) with strict typing, PSR-12, PHPStan level 10. Three-tier domain: Providers -> Models -> Configurations.
 <!-- AGENTS-GENERATED:END overview -->
 
 <!-- AGENTS-GENERATED:START setup -->
@@ -32,7 +32,7 @@ Full test matrix in root `AGENTS.md` Setup section.
 | Directory | Purpose |
 |-----------|---------|
 | `Attribute/` | `#[AsLlmProvider]` auto-registration attribute |
-| `Controller/Backend/` | Backend module controllers (6), request DTOs (4), Response objects (9) |
+| `Controller/Backend/` | Backend module controllers (13), request DTOs (4), Response objects (9) |
 | `DependencyInjection/` | ProviderCompilerPass |
 | `Domain/DTO/` | BudgetCheckResult, FallbackChain, ModelSelectionCriteria |
 | `Domain/Enum/` | ModelCapability, ModelSelectionMode, TaskCategory, TaskInputType, TaskOutputFormat |
@@ -122,7 +122,7 @@ See `Tests/Architecture/` for enforcement tests.
 
 <!-- AGENTS-GENERATED:START help -->
 ## When Stuck
-- Architecture decisions: `Documentation/Adr/` (20 ADRs)
+- Architecture decisions: `Documentation/Adr/` (38 ADRs)
 - API reference: `Documentation/Api/` (9 pages)
 - Run `./Build/Scripts/runTests.sh -s phpstan` to check types
 <!-- AGENTS-GENERATED:END help -->

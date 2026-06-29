@@ -81,7 +81,7 @@ ALWAYS use the Docker test runner; never invoke `phpunit` / `phpstan` / `rector`
 
 | File | Purpose |
 |------|---------|
-| `ext_emconf.php` | Extension metadata, version 0.11.1 |
+| `ext_emconf.php` | Extension metadata, version 0.13.0 |
 | `ext_localconf.php` | Extension bootstrap |
 | `composer.json` | Dependencies (composer.lock NOT committed) |
 | `Build/phpunit.xml` | PHPUnit configuration |
@@ -100,7 +100,7 @@ Three-tier model: **Provider → Model → Configuration**. See `Documentation/A
 ### Directory Structure
 ```
 nr_llm/
-├── Classes/                    # 139 PHP source files
+├── Classes/                    # 249 PHP source files
 │   ├── Attribute/              # #[AsLlmProvider] auto-registration attribute
 │   ├── Controller/Backend/     # Backend controllers, DTOs, Response objects
 │   ├── DependencyInjection/    # Compiler passes (ProviderCompilerPass)
@@ -113,8 +113,8 @@ nr_llm/
 │   ├── Utility/                # SafeCastTrait, ErrorMessageSanitizerTrait
 │   └── Widgets/DataProvider/   # Backend dashboard widgets (cost, requests)
 ├── Configuration/              # TYPO3 config (TCA, services, caching, icons, routes)
-├── Documentation/              # 69 RST files + guides.xml + brand assets
-│   └── Adr/                    # 26 Architecture Decision Records
+├── Documentation/              # 86 RST files + guides.xml + brand assets
+│   └── Adr/                    # 38 Architecture Decision Records
 ├── Tests/                      # Unit, Integration, Functional, Fuzzy, Architecture, E2E
 ├── Resources/                  # Templates, XLIFF (EN+DE), icons, CSS, JS
 └── Build/                      # PHPStan, Rector, Fractor configs + runTests.sh
@@ -207,7 +207,7 @@ Prefer looking at real code in this repo over inventing new patterns. Canonical 
 <!-- AGENTS-GENERATED:START help -->
 ## When Stuck
 - Run tests: `./Build/Scripts/runTests.sh -s unit` (NEVER phpunit directly)
-- Check ADRs in `Documentation/Adr/` for design rationale (20 ADRs)
+- Check ADRs in `Documentation/Adr/` for design rationale (38 ADRs)
 - API docs: `Documentation/Api/` (9 reference pages)
 - Issues: https://github.com/netresearch/t3x-nr-llm/issues
 - Discussions: https://github.com/netresearch/t3x-nr-llm/discussions
