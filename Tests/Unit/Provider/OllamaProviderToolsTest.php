@@ -137,6 +137,54 @@ class OllamaProviderToolsTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function plainChatCompletionTranslatesReplayedToolTurns(): void
+    {
+        // The truncation-synthesis path replays prior tool turns through the
+        // plain chatCompletion() endpoint, so it must perform the same
+        // OpenAI->Ollama shape translation as chatCompletionWithTools().
+        $subject = $this->buildSubject($this->plainAssistantResponse('ok'));
+
+        $messages = [
+            ['role' => 'user', 'content' => 'show logs'],
+            [
+                'role'       => 'assistant',
+                'content'    => '',
+                'tool_calls' => [
+                    [
+                        'id'       => 'call_0',
+                        'type'     => 'function',
+                        'function' => ['name' => 'fetch_logs', 'arguments' => '{"limit":5}'],
+                    ],
+                ],
+            ],
+            ['role' => 'tool', 'tool_call_id' => 'call_0', 'content' => 'LOGS'],
+        ];
+
+        $subject->chatCompletion($messages);
+
+        $payload = $this->capturedRequest();
+        $sent    = $payload['messages'];
+        self::assertIsArray($sent);
+
+        // Assistant turn: the JSON-string arguments are decoded to an object.
+        $assistant = $sent[1] ?? null;
+        self::assertIsArray($assistant);
+        $calls = $assistant['tool_calls'] ?? null;
+        self::assertIsArray($calls);
+        $firstCall = $calls[0] ?? null;
+        self::assertIsArray($firstCall);
+        $function = $firstCall['function'] ?? null;
+        self::assertIsArray($function);
+        self::assertSame(['limit' => 5], $function['arguments'] ?? null);
+
+        // Tool turn: the OpenAI-only tool_call_id key is dropped.
+        $toolTurn = $sent[2] ?? null;
+        self::assertIsArray($toolTurn);
+        self::assertArrayNotHasKey('tool_call_id', $toolTurn);
+        self::assertSame('LOGS', $toolTurn['content'] ?? null);
+    }
+
+    #[Test]
     public function nonToolResponseReturnsPlainContent(): void
     {
         $subject = $this->buildSubject($this->plainAssistantResponse('plain answer'));

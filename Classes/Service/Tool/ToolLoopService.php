@@ -16,11 +16,11 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
-use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use stdClass;
 use Throwable;
 
@@ -35,7 +35,7 @@ use Throwable;
  * configurable max-iteration cap.
  *
  * Failure handling is fail-soft so the admin always sees what ran:
- * - a tool that throws, or an unknown/disallowed tool name, becomes a sanitised
+ * - a tool that throws, or an unknown/disallowed tool name, becomes a generic
  *   error tool-result and the loop continues;
  * - hitting the iteration cap with tools still pending triggers one final plain
  *   completion via {@see LlmServiceManagerInterface::chatWithConfiguration()}
@@ -49,8 +49,6 @@ use Throwable;
  */
 final readonly class ToolLoopService
 {
-    use ErrorMessageSanitizerTrait;
-
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,
@@ -80,6 +78,26 @@ final readonly class ToolLoopService
         $max   = $maxIterations ?? $this->defaultMaxIterations;
         $specs = $this->registry->specs($allowedToolNames);
 
+        // No tools offered (an empty allow-list, or nothing registered): a tools
+        // request with an empty `tools` array makes some providers (OpenAI) 400.
+        // The design (§4.3) maps "no tools" to a single plain completion.
+        if ($specs === []) {
+            $resp = $this->mgr->chatWithConfiguration($messages, $configuration, $this->budgetMetadata($options));
+
+            return new ToolLoopResult(
+                $resp->content,
+                [],
+                1,
+                false,
+                UsageStatistics::fromTokens($resp->usage->promptTokens, $resp->usage->completionTokens),
+            );
+        }
+
+        // Enforce the offered set at execution time too: a model steered by
+        // injected skill prose must not be able to call a registered-but-not-
+        // offered tool.
+        $allowedNames = array_map(static fn(ToolSpec $s): string => $s->name, $specs);
+
         $trace            = [];
         $promptTokens     = 0;
         $completionTokens = 0;
@@ -104,7 +122,7 @@ final readonly class ToolLoopService
 
                 $messages[] = $this->assistantTurn($resp);
                 foreach ($resp->toolCalls ?? [] as $call) {
-                    [$result, $isError] = $this->invoke($call);
+                    [$result, $isError] = $this->invoke($call, $allowedNames);
                     $messages[]         = [
                         'role'         => 'tool',
                         'tool_call_id' => $call->id,
@@ -178,23 +196,37 @@ final readonly class ToolLoopService
     }
 
     /**
-     * Resolve and execute a single tool call. A missing tool or a thrown
-     * exception becomes a sanitised error result (`isError = true`) so the loop
-     * can continue instead of aborting or leaking internals.
+     * Resolve and execute a single tool call. A missing tool, a tool not in the
+     * offered allow-list, or a thrown exception becomes a generic error result
+     * (`isError = true`) so the loop can continue instead of aborting or leaking
+     * internals.
+     *
+     * The thrown-exception branch returns a generic message rather than the
+     * exception text: the tool name is a known registered name (safe), but the
+     * exception body may carry DBAL/PDO credentials ('Access denied for user
+     * X@host') that URL-sanitising would not strip, so it must never reach the
+     * provider.
+     *
+     * @param list<string> $allowedNames Names of the tools actually offered this
+     *                                   run; a call to any other registered tool
+     *                                   is rejected unexecuted.
      *
      * @return array{0: string, 1: bool} [result, isError]
      */
-    private function invoke(ToolCall $call): array
+    private function invoke(ToolCall $call, array $allowedNames): array
     {
         $tool = $this->registry->get($call->name);
         if ($tool === null) {
             return [sprintf('Error: unknown tool "%s"', $call->name), true];
         }
+        if (!in_array($call->name, $allowedNames, true)) {
+            return [sprintf('Error: tool "%s" not permitted', $call->name), true];
+        }
 
         try {
             return [$tool->execute($call->arguments), false];
-        } catch (Throwable $e) {
-            return ['Error: ' . $this->sanitizeErrorMessage($e->getMessage()), true];
+        } catch (Throwable) {
+            return [sprintf('Error: tool "%s" failed.', $call->name), true];
         }
     }
 

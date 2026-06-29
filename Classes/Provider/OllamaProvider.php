@@ -160,6 +160,12 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             $messages,
         );
 
+        // The truncation-synthesis path replays prior tool turns through this
+        // plain endpoint, so apply the same OpenAI->Ollama shape translation as
+        // chatCompletionWithTools(). It is a no-op for plain {role,content}
+        // turns, so it is safe for every caller.
+        $messages = $this->normaliseToolTurnsForOllama($messages);
+
         $model = $this->getString($options, 'model', $this->getDefaultModel());
 
         /** @var array<string, mixed> $payloadOptions */

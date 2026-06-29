@@ -38,7 +38,9 @@ final class ToolLoopServiceTest extends TestCase
             ->willReturn($this->response('the answer'));
         $mgr->expects(self::never())->method('chatWithConfiguration');
 
-        $service = new ToolLoopService($mgr, new ToolRegistry([]));
+        // A registered tool keeps the loop on the tools path (an empty registry
+        // would short-circuit to a plain completion — covered separately).
+        $service = new ToolLoopService($mgr, new ToolRegistry([new FakeTool('noop')]));
         $result  = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), null);
 
         self::assertSame('the answer', $result->finalContent);
@@ -81,7 +83,10 @@ final class ToolLoopServiceTest extends TestCase
         $mgr->method('chatWithToolsForConfiguration')
             ->willReturnCallback($this->queueCallback($queue));
 
-        $service = new ToolLoopService($mgr, new ToolRegistry([]));
+        // The registry holds a different tool so the loop stays on the tools
+        // path; the model then requests the unregistered name "nope", which
+        // registry->get() resolves to null (the unknown-tool branch).
+        $service = new ToolLoopService($mgr, new ToolRegistry([new FakeTool('real_tool')]));
         $result  = $service->runLoop([$this->userTurn('do it')], new LlmConfiguration(), null);
 
         self::assertCount(1, $result->trace);
@@ -92,7 +97,7 @@ final class ToolLoopServiceTest extends TestCase
     }
 
     #[Test]
-    public function toolExecuteThrowsIsCaughtAndSanitised(): void
+    public function toolExecuteThrowsIsCaughtAsGenericError(): void
     {
         $throwing = new class implements ToolInterface {
             public function getSpec(): ToolSpec
@@ -122,8 +127,10 @@ final class ToolLoopServiceTest extends TestCase
 
         self::assertCount(1, $result->trace);
         self::assertTrue($result->trace[0]->isError);
-        self::assertStringContainsString('key=***', $result->trace[0]->result);
+        // Generic message only: no exception text (URL / credentials / DBAL).
+        self::assertSame('Error: tool "boom_tool" failed.', $result->trace[0]->result);
         self::assertStringNotContainsString('secret', $result->trace[0]->result);
+        self::assertStringNotContainsString('https', $result->trace[0]->result);
         self::assertSame('recovered', $result->finalContent);
         self::assertFalse($result->truncated);
     }
@@ -260,6 +267,68 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame(13, $result->usage->promptTokens);
         self::assertSame(7, $result->usage->completionTokens);
         self::assertSame(20, $result->usage->totalTokens);
+    }
+
+    #[Test]
+    public function emptyAllowListDoesSinglePlainCompletion(): void
+    {
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        // No tools offered ⇒ exactly one plain completion, never the tools path.
+        $mgr->expects(self::once())
+            ->method('chatWithConfiguration')
+            ->willReturn($this->response('plain answer'));
+        $mgr->expects(self::never())->method('chatWithToolsForConfiguration');
+
+        // A tool IS registered, but the empty allow-list offers none of them.
+        $service = new ToolLoopService($mgr, new ToolRegistry([new FakeTool('fetch_logs')]));
+        $result  = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), []);
+
+        self::assertSame('plain answer', $result->finalContent);
+        self::assertSame([], $result->trace);
+        self::assertSame(1, $result->iterations);
+        self::assertFalse($result->truncated);
+    }
+
+    #[Test]
+    public function disallowedButRegisteredToolIsRejectedAndNotExecuted(): void
+    {
+        $spy = new class implements ToolInterface {
+            public bool $executed = false;
+
+            public function getSpec(): ToolSpec
+            {
+                return ToolSpec::function('read_meta', 'reads meta', ['type' => 'object', 'properties' => []]);
+            }
+
+            /**
+             * @param array<string, mixed> $arguments
+             */
+            public function execute(array $arguments): string
+            {
+                $this->executed = true;
+
+                return 'META';
+            }
+        };
+
+        $mgr   = self::createStub(LlmServiceManagerInterface::class);
+        $queue = [
+            // The model calls a registered tool that is NOT in the allow-list.
+            $this->response('', [new ToolCall('call_1', 'read_meta', [])]),
+            $this->response('done'),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturnCallback($this->queueCallback($queue));
+
+        $registry = new ToolRegistry([new FakeTool('fetch_logs'), $spy]);
+        $service  = new ToolLoopService($mgr, $registry);
+        $result   = $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ['fetch_logs']);
+
+        self::assertCount(1, $result->trace);
+        self::assertTrue($result->trace[0]->isError);
+        self::assertStringContainsString('not permitted', $result->trace[0]->result);
+        self::assertFalse($spy->executed, 'a disallowed tool must never be executed');
+        self::assertSame('done', $result->finalContent);
     }
 
     /**
