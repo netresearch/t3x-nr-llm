@@ -67,8 +67,9 @@ final class LlmServiceManagerToolsConfigurationTest extends AbstractFunctionalTe
         $resolvedFromModel = null;
         $adapterRegistry   = $this->createMock(ProviderAdapterRegistryInterface::class);
         $adapterRegistry->expects(self::once())->method('createAdapterFromModel')->willReturnCallback(
-            function (Model $passedModel, bool $useCache = true) use ($adapter, &$resolvedFromModel): RecordingToolAdapter {
+            function (Model $passedModel) use ($adapter, &$resolvedFromModel): RecordingToolAdapter {
                 $resolvedFromModel = $passedModel;
+
                 return $adapter;
             },
         );

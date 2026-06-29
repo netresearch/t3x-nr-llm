@@ -17,7 +17,6 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
-use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -25,7 +24,9 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
+use Throwable;
 
 #[CoversClass(ToolLoopService::class)]
 final class ToolLoopServiceTest extends TestCase
@@ -136,6 +137,49 @@ final class ToolLoopServiceTest extends TestCase
     }
 
     #[Test]
+    public function toolFailureIsLoggedServerSideWithFullDetail(): void
+    {
+        $throwing = new class implements ToolInterface {
+            public function getSpec(): ToolSpec
+            {
+                return ToolSpec::function('boom_tool', 'throws', ['type' => 'object', 'properties' => []]);
+            }
+
+            /**
+             * @param array<string, mixed> $arguments
+             */
+            public function execute(array $arguments): string
+            {
+                throw new RuntimeException('boom https://x?key=secret', 1782700101);
+            }
+        };
+
+        $mgr   = self::createStub(LlmServiceManagerInterface::class);
+        $queue = [
+            $this->response('', [new ToolCall('call_1', 'boom_tool', [])]),
+            $this->response('recovered'),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturnCallback($this->queueCallback($queue));
+
+        // The provider-facing result is generic (no egress of internals), but the
+        // server-side logger MUST still receive the real exception detail.
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())
+            ->method('error')
+            ->with(
+                self::stringContains('boom_tool'),
+                self::callback(
+                    static fn(mixed $context): bool => is_array($context)
+                        && ($context['exception'] ?? null) instanceof Throwable,
+                ),
+            );
+
+        $service = new ToolLoopService($mgr, new ToolRegistry([$throwing]), $logger);
+        $service->runLoop([$this->userTurn('blow up')], new LlmConfiguration(), null);
+    }
+
+    #[Test]
     public function assistantTurnShapeIsOpenAiCompatible(): void
     {
         $captured = [];
@@ -198,12 +242,8 @@ final class ToolLoopServiceTest extends TestCase
 
         $mgr = self::createStub(LlmServiceManagerInterface::class);
         $mgr->method('chatWithToolsForConfiguration')
-            ->willReturnCallback(function (
-                array $messages,
-                array $tools,
-                LlmConfiguration $configuration,
-                ?ToolOptions $options,
-            ) use (&$capturedTools, $response): CompletionResponse {
+            // $messages is an unused positional placeholder for the $tools arg.
+            ->willReturnCallback(function (array $messages, array $tools) use (&$capturedTools, $response): CompletionResponse {
                 $capturedTools[] = $tools;
 
                 return $response;
@@ -365,16 +405,11 @@ final class ToolLoopServiceTest extends TestCase
      * @param list<CompletionResponse>     $queue
      * @param list<array<int, mixed>>|null $captured
      *
-     * @return callable(array<int, mixed>, array<int, mixed>, LlmConfiguration, ?ToolOptions): CompletionResponse
+     * @return callable(array<int, mixed>): CompletionResponse
      */
     private function queueCallback(array $queue, ?array &$captured = null): callable
     {
-        return function (
-            array $messages,
-            array $tools,
-            LlmConfiguration $configuration,
-            ?ToolOptions $options,
-        ) use (&$queue, &$captured): CompletionResponse {
+        return function (array $messages) use (&$queue, &$captured): CompletionResponse {
             if ($captured !== null) {
                 $captured[] = $messages;
             }

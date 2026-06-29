@@ -47,6 +47,6 @@ final class ToolRegistryTest extends TestCase
     public function duplicateToolNameThrows(): void
     {
         $this->expectException(LogicException::class);
-        new ToolRegistry([new FakeTool('dup'), new FakeTool('dup')]);
+        self::assertInstanceOf(ToolRegistry::class, new ToolRegistry([new FakeTool('dup'), new FakeTool('dup')]));
     }
 }

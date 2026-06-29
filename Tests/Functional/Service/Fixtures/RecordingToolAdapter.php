@@ -73,7 +73,11 @@ final class RecordingToolAdapter implements ProviderInterface, ToolCapableInterf
         return 'recording-fake';
     }
 
-    public function configure(array $config): void {}
+    public function configure(array $config): void
+    {
+        // intentional no-op: this double is resolved directly via a mocked
+        // createAdapterFromModel(), so configure() is never invoked by the test.
+    }
 
     public function isAvailable(): bool
     {

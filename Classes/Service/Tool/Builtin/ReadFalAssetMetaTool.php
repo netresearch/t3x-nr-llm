@@ -102,6 +102,12 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface
             ->from(self::METADATA_TABLE)
             ->where(
                 $metaQuery->expr()->eq('file', $metaQuery->createNamedParameter($uid, Connection::PARAM_INT)),
+                // sys_file_metadata is language-aware: removeAll() above drops the
+                // language restriction, so pin to the default language explicitly —
+                // otherwise an arbitrary translated row could replace the original
+                // metadata. (The table has no soft-delete capability, hence no
+                // `deleted` column to filter.)
+                $metaQuery->expr()->eq('sys_language_uid', $metaQuery->createNamedParameter(0, Connection::PARAM_INT)),
             )
             ->executeQuery()
             ->fetchAssociative();

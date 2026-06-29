@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Psr\Log\LoggerInterface;
 use stdClass;
 use Throwable;
 
@@ -52,6 +53,7 @@ final readonly class ToolLoopService
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,
+        private ?LoggerInterface $logger = null,
         private int $defaultMaxIterations = 5,
     ) {}
 
@@ -225,7 +227,12 @@ final readonly class ToolLoopService
 
         try {
             return [$tool->execute($call->arguments), false];
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            $this->logger?->error(
+                sprintf('Tool "%s" failed: %s', $call->name, $e->getMessage()),
+                ['exception' => $e],
+            );
+
             return [sprintf('Error: tool "%s" failed.', $call->name), true];
         }
     }
