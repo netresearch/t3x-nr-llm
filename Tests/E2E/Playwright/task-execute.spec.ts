@@ -397,7 +397,7 @@ test.describe('Task Execute Module', () => {
       if (count === 0) {
         // No tasks - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 

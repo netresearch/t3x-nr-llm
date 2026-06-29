@@ -9,21 +9,34 @@
     <div>
         <h1>
             <core:icon identifier="module-nrllm-snippet" size="medium" />
-            Prompt Snippets ({totalCount})
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.list.title" default="Prompt Snippets" /> ({totalCount})
         </h1>
 
-        <f:be.infobox state="-2">
-            <p>Prompt snippets are small reusable prompt <strong>fragments</strong> — personas, tones of voice, target audiences, image styles, layouts — managed centrally in one place. Consuming extensions query them by tag and compose them into their prompts.</p>
-            <p class="mb-0">Tag snippets with comma-separated free-form tags. Established tags: <code>audience</code>, <code>tone_of_voice</code>, <code>persona</code>, <code>layout</code>, <code>style</code>. Snippets are not prompt templates: templates are complete prompts with model parameters, snippets are building blocks.</p>
+        <f:be.infobox state="-1">
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.adminOnly" default="This module is admin-only. Records and actions here affect every editor using LLM features." /></p>
         </f:be.infobox>
+
+        <div class="mb-3">
+            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
+            <a href="{be:moduleLink(route: 'nrllm_tasks')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.list.title" default="Tasks" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+        </div>
+
+        <f:be.infobox state="-2">
+            <p><f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.intro.line1" default="Prompt snippets are small reusable prompt fragments." /></f:format.raw></p>
+            <p class="mb-0"><f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.intro.line2" default="Tag snippets with comma-separated free-form tags." /></f:format.raw></p>
+        </f:be.infobox>
+
+        <f:render partial="Backend/Glossary" />
 
         <f:if condition="{totalCount} == 0">
             <f:then>
                 <f:be.infobox
-                    title="No Prompt Snippets Configured"
+                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.empty.title', default: 'No Prompt Snippets Configured')}"
                     state="-1"
                 >
-                    <p>No prompt snippets have been created yet.</p>
+                    <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.empty.message" default="No prompt snippets have been created yet." /></p>
                     <p><a href="{newUrl}" class="btn btn-primary btn-sm"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.snippet.new" default="New Snippet" /></a></p>
                 </f:be.infobox>
             </f:then>
@@ -34,10 +47,10 @@
                             <thead>
                                 <tr>
                                     <th style="width: 40px;"></th>
-                                    <th>Name</th>
-                                    <th>Identifier</th>
-                                    <th>Tags</th>
-                                    <th style="width: 120px;">Actions</th>
+                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.col.name" default="Name" /></th>
+                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.col.identifier" default="Identifier" /></th>
+                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.col.tags" default="Tags" /></th>
+                                    <th style="width: 120px;"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -46,12 +59,12 @@
                                         <td>
                                             <f:if condition="{snippet.isActive}">
                                                 <f:then>
-                                                    <span class="badge text-bg-success" title="Active">
+                                                    <span class="badge text-bg-success" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.active')}">
                                                         <core:icon identifier="actions-check" size="small" />
                                                     </span>
                                                 </f:then>
                                                 <f:else>
-                                                    <span class="badge text-bg-secondary" title="Inactive">
+                                                    <span class="badge text-bg-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.inactive')}">
                                                         <core:icon identifier="actions-close" size="small" />
                                                     </span>
                                                 </f:else>
@@ -71,7 +84,7 @@
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
-                                                <a href="{editUrls.{snippet.uid}}" class="btn btn-secondary" title="Edit">
+                                                <a href="{editUrls.{snippet.uid}}" class="btn btn-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.edit')}">
                                                     <core:icon identifier="actions-open" size="small" />
                                                 </a>
                                             </div>

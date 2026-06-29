@@ -175,6 +175,9 @@
             <trans-unit id="error">
                 <source>Error</source>
             </trans-unit>
+            <trans-unit id="error.adminRequired">
+                <source>This action requires backend administrator privileges. Please contact your site administrator to enable LLM management for your account.</source>
+            </trans-unit>
             <trans-unit id="provider">
                 <source>Provider</source>
             </trans-unit>
@@ -476,6 +479,648 @@
             </trans-unit>
             <trans-unit id="skill.skills.empty.message">
                 <source>No skills have been ingested yet. Add a source and run a sync.</source>
+            </trans-unit>
+
+            <!-- Glossary partial -->
+            <trans-unit id="glossary.title">
+                <source>Terms &amp; Parameters</source>
+            </trans-unit>
+            <trans-unit id="glossary.intro">
+                <source>A quick reference for the terms and numeric parameters used across these modules.</source>
+            </trans-unit>
+            <trans-unit id="glossary.section.terms">
+                <source>Terms</source>
+            </trans-unit>
+            <trans-unit id="glossary.section.params">
+                <source>Numeric parameters</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.provider.label">
+                <source>Provider</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.provider.text">
+                <source>An API connection to an LLM service (OpenAI, Claude, Gemini, Ollama, …). Stores endpoint, adapter type and the encrypted API key.</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.adapter.label">
+                <source>Adapter type</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.adapter.text">
+                <source>The protocol dialect a provider speaks (e.g. OpenAI-compatible, Anthropic, Gemini). Determines how requests are formatted.</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.model.label">
+                <source>Model</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.model.text">
+                <source>A specific model offered by a provider (e.g. gpt-4o, claude-sonnet). Carries its capabilities, context window and cost.</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.configuration.label">
+                <source>Configuration</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.configuration.text">
+                <source>A reusable preset that bundles a model with default parameters and a system prompt. Tasks and consuming extensions reference it.</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.capabilities.label">
+                <source>Capabilities</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.capabilities.text">
+                <source>What a model can do: chat, vision (image input), tool_use (function calling) and embeddings (vector representations).</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.fallback.label">
+                <source>Fallback chain</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.fallback.text">
+                <source>An ordered list of providers tried in turn: if one fails, the next is used automatically.</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.priority.label">
+                <source>Priority</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.priority.text">
+                <source>Ordering weight when several providers qualify. Lower number = higher priority (tried first).</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.vault.label">
+                <source>Vault UUID</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.vault.text">
+                <source>A reference to an API key stored encrypted by the nr-vault extension. The key itself is never kept in the database in plain text.</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.token.label">
+                <source>Token</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.token.text">
+                <source>The unit LLMs read and write in — roughly a word fragment. Usage and cost are measured in tokens.</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.context.label">
+                <source>Context window</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.context.text">
+                <source>The maximum number of tokens (input plus output) a model can handle in a single request.</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.budget.label">
+                <source>Budget</source>
+            </trans-unit>
+            <trans-unit id="glossary.term.budget.text">
+                <source>A per-user spending ceiling. Requests are blocked once the ceiling for the period is reached.</source>
+            </trans-unit>
+            <trans-unit id="glossary.param.temperature">
+                <source>Randomness of the output (typically 0–2). Lower = more focused and deterministic, higher = more creative.</source>
+            </trans-unit>
+            <trans-unit id="glossary.param.maxTokens">
+                <source>Upper limit on the number of tokens the model may generate in its response.</source>
+            </trans-unit>
+            <trans-unit id="glossary.param.topP">
+                <source>Nucleus sampling (0–1): only the most probable tokens whose cumulative probability reaches top_p are considered. An alternative to temperature.</source>
+            </trans-unit>
+            <trans-unit id="glossary.param.frequencyPenalty">
+                <source>Discourages repeating the same tokens (typically -2 to 2). Higher values reduce verbatim repetition.</source>
+            </trans-unit>
+            <trans-unit id="glossary.param.presencePenalty">
+                <source>Encourages introducing new topics (typically -2 to 2). Higher values push the model toward novelty.</source>
+            </trans-unit>
+
+            <!-- Per-module help / admin / see-also -->
+            <trans-unit id="module.adminOnly">
+                <source>This module is admin-only. Records and actions here affect every editor using LLM features.</source>
+            </trans-unit>
+            <trans-unit id="seeAlso.heading">
+                <source>See also</source>
+            </trans-unit>
+            <trans-unit id="seeAlso.next.models">
+                <source>Next: register Models</source>
+            </trans-unit>
+            <trans-unit id="seeAlso.next.configurations">
+                <source>Next: create Configurations</source>
+            </trans-unit>
+            <trans-unit id="seeAlso.providers">
+                <source>Providers</source>
+            </trans-unit>
+            <trans-unit id="seeAlso.models">
+                <source>Models</source>
+            </trans-unit>
+            <trans-unit id="seeAlso.docs">
+                <source>Read the documentation</source>
+            </trans-unit>
+            <trans-unit id="seeAlso.help">
+                <source>Open Help</source>
+            </trans-unit>
+
+            <!-- Readiness (overview) -->
+            <trans-unit id="readiness.title">
+                <source>Setup readiness</source>
+            </trans-unit>
+            <trans-unit id="readiness.ready">
+                <source>Ready</source>
+            </trans-unit>
+            <trans-unit id="readiness.incomplete">
+                <source>Setup incomplete</source>
+            </trans-unit>
+            <trans-unit id="readiness.step.provider">
+                <source>At least one Provider</source>
+            </trans-unit>
+            <trans-unit id="readiness.step.model">
+                <source>At least one Model</source>
+            </trans-unit>
+            <trans-unit id="readiness.step.configuration">
+                <source>At least one Configuration</source>
+            </trans-unit>
+            <trans-unit id="readiness.hint">
+                <source>Set up Provider → Model → Configuration in that order, then create Tasks.</source>
+            </trans-unit>
+            <trans-unit id="help.card.title">
+                <source>Help &amp; Documentation</source>
+            </trans-unit>
+            <trans-unit id="help.card.subtitle">
+                <source>Guides and reference</source>
+            </trans-unit>
+            <trans-unit id="skill.card.title">
+                <source>Skills</source>
+            </trans-unit>
+            <trans-unit id="skill.card.subtitle">
+                <source>Agent skill library</source>
+            </trans-unit>
+            <trans-unit id="skill.card.description">
+                <source>Sync GitHub-hosted SKILL.md sources and enable the skills available to the agent.</source>
+            </trans-unit>
+            <trans-unit id="skill.card.button">
+                <source>Manage Skills</source>
+            </trans-unit>
+            <trans-unit id="tool.card.title">
+                <source>Tools</source>
+            </trans-unit>
+            <trans-unit id="tool.card.subtitle">
+                <source>Function-calling tools</source>
+            </trans-unit>
+            <trans-unit id="tool.card.description">
+                <source>Function-calling tools available to the agent, with an admin playground to test them.</source>
+            </trans-unit>
+            <trans-unit id="tool.card.button">
+                <source>Open Tool Playground</source>
+            </trans-unit>
+            <trans-unit id="help.card.description">
+                <source>Read the in-module help and the online documentation for setup guidance and troubleshooting.</source>
+            </trans-unit>
+            <trans-unit id="help.card.button">
+                <source>Open Help</source>
+            </trans-unit>
+
+            <!-- Readiness signals (lists) -->
+            <trans-unit id="configuration.noModel.badge">
+                <source>No model assigned</source>
+            </trans-unit>
+            <trans-unit id="configuration.noModel.title">
+                <source>This configuration has no model and cannot be activated. Edit it and assign a model first.</source>
+            </trans-unit>
+            <trans-unit id="configuration.intro.modelNote">
+                <source>Every configuration needs a model assigned before it can be activated and used.</source>
+            </trans-unit>
+            <trans-unit id="model.noDefault.warning">
+                <source>No default model is set. Tasks and features that do not specify a model will fail until you mark one model as default.</source>
+            </trans-unit>
+            <trans-unit id="model.orphaned.title">
+                <source>This model has no provider and cannot be used. Reassign a provider to it.</source>
+            </trans-unit>
+            <trans-unit id="model.reassignProvider">
+                <source>Reassign Provider</source>
+            </trans-unit>
+            <trans-unit id="task.noActive.warning">
+                <source>No active tasks. Only active tasks appear in the CKEditor cowriter dialog and the API. Activate a task to make it available.</source>
+            </trans-unit>
+            <trans-unit id="skill.syncStatus.never">
+                <source>Never synced</source>
+            </trans-unit>
+            <trans-unit id="skill.syncStatus.syncing">
+                <source>Syncing</source>
+            </trans-unit>
+            <trans-unit id="skill.syncStatus.ok">
+                <source>Synced</source>
+            </trans-unit>
+            <trans-unit id="skill.syncStatus.partial">
+                <source>Partial</source>
+            </trans-unit>
+            <trans-unit id="skill.syncStatus.error">
+                <source>Failed</source>
+            </trans-unit>
+            <trans-unit id="skill.source.edit">
+                <source>Edit source</source>
+            </trans-unit>
+
+            <!-- Empty-state standardization -->
+            <trans-unit id="provider.empty.hint">
+                <source>Providers are the first tier of setup (Provider → Model → Configuration). Launch the Setup Wizard to add one.</source>
+            </trans-unit>
+            <trans-unit id="model.empty.hint">
+                <source>Models are the second tier of setup and require a Provider first (Provider → Model → Configuration).</source>
+            </trans-unit>
+            <trans-unit id="configuration.empty.hint">
+                <source>Configurations are the third tier of setup and require a Model first (Provider → Model → Configuration).</source>
+            </trans-unit>
+            <trans-unit id="task.empty.title">
+                <source>No Tasks Configured</source>
+            </trans-unit>
+            <trans-unit id="task.empty.message">
+                <source>Tasks are one-shot prompt templates. They require a Configuration first. Launch the Setup Wizard to get started, or create a task manually.</source>
+            </trans-unit>
+            <trans-unit id="skill.sources.empty.admin">
+                <source>Administrators: add a source record, then run a sync. Discovered skills start disabled — enable the ones you want to use.</source>
+            </trans-unit>
+            <trans-unit id="skill.sources.empty.developer">
+                <source>Developers: a source points at a GitHub-hosted SKILL.md file, repository or marketplace index.</source>
+            </trans-unit>
+            <trans-unit id="skill.skills.empty.admin">
+                <source>Administrators: once a source is synced, enable a skill here to make it available.</source>
+            </trans-unit>
+            <trans-unit id="playground.empty.admin">
+                <source>Administrators: enable a tool below, pick a configuration and run a prompt to try the agent loop.</source>
+            </trans-unit>
+            <trans-unit id="playground.empty.developer">
+                <source>Developers: implement Netresearch\NrLlm\Service\Tool\ToolInterface and tag it with nr_llm.tool to register a new tool.</source>
+            </trans-unit>
+
+            <!-- Tasks list (translation sweep) -->
+            <trans-unit id="task.list.title">
+                <source>Tasks</source>
+            </trans-unit>
+            <trans-unit id="task.col.name">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="task.col.identifier">
+                <source>Identifier</source>
+            </trans-unit>
+            <trans-unit id="task.col.input">
+                <source>Input</source>
+            </trans-unit>
+            <trans-unit id="task.col.output">
+                <source>Output</source>
+            </trans-unit>
+            <trans-unit id="task.badge.system">
+                <source>System</source>
+            </trans-unit>
+            <trans-unit id="task.title.system">
+                <source>System task</source>
+            </trans-unit>
+            <trans-unit id="task.title.active">
+                <source>Active</source>
+            </trans-unit>
+            <trans-unit id="task.title.inactive">
+                <source>Inactive</source>
+            </trans-unit>
+            <trans-unit id="task.action.execute">
+                <source>Execute</source>
+            </trans-unit>
+            <trans-unit id="task.action.run">
+                <source>Run</source>
+            </trans-unit>
+            <trans-unit id="task.action.edit">
+                <source>Edit</source>
+            </trans-unit>
+            <trans-unit id="task.intro.line1">
+                <source>Tasks define &lt;strong&gt;what&lt;/strong&gt; the AI should do: a prompt template with placeholders for input data. Each task is a one-shot prompt — for example, "Summarize this text" or "Check for grammar errors". Tasks receive input, send it to the LLM, and return the result.</source>
+            </trans-unit>
+            <trans-unit id="task.intro.line2">
+                <source>Each task uses a &lt;strong&gt;Configuration&lt;/strong&gt; that defines &lt;strong&gt;how&lt;/strong&gt; the AI behaves (model, temperature, system prompt). You can assign different configurations to tasks depending on the use case — a translation task might use a precise, low-temperature configuration, while a creative writing task uses a high-temperature one.</source>
+            </trans-unit>
+
+            <!-- Overview AI task callout (translation sweep) -->
+            <trans-unit id="taskAi.callout.title">
+                <source>Create Tasks with AI</source>
+            </trans-unit>
+            <trans-unit id="taskAi.callout.message">
+                <source>Use the AI Task Wizard to describe what a task should do in plain language. The AI generates a complete task setup — prompt template, dedicated configuration, and model recommendation — in one step.</source>
+            </trans-unit>
+            <trans-unit id="taskAi.callout.button">
+                <source>Create Task with AI</source>
+            </trans-unit>
+            <trans-unit id="taskAi.createWithAi">
+                <source>Create with AI</source>
+            </trans-unit>
+
+            <!-- Configuration list intro (translation sweep) -->
+            <trans-unit id="configuration.intro.line1">
+                <source>Configurations define &lt;strong&gt;how&lt;/strong&gt; the AI behaves: which model to use, creativity level (temperature), response length, and a system prompt that sets the AI's role. Each configuration is a reusable preset — for example, a "Translator" config with low temperature and a translation-focused system prompt.</source>
+            </trans-unit>
+            <trans-unit id="configuration.intro.line2">
+                <source>Configurations are shared across &lt;strong&gt;Tasks&lt;/strong&gt;. A Task defines &lt;strong&gt;what&lt;/strong&gt; to do (the prompt template), while a Configuration defines &lt;strong&gt;how&lt;/strong&gt; to do it (model, temperature, system prompt). One configuration can power many different tasks.</source>
+            </trans-unit>
+
+            <!-- Prompt snippet list intro + empty (translation sweep) -->
+            <trans-unit id="snippet.list.title">
+                <source>Prompt Snippets</source>
+            </trans-unit>
+            <trans-unit id="snippet.intro.line1">
+                <source>Prompt snippets are small reusable prompt &lt;strong&gt;fragments&lt;/strong&gt; — personas, tones of voice, target audiences, image styles, layouts — managed centrally in one place. Consuming extensions query them by tag and compose them into their prompts.</source>
+            </trans-unit>
+            <trans-unit id="snippet.intro.line2">
+                <source>Tag snippets with comma-separated free-form tags. Established tags: &lt;code&gt;audience&lt;/code&gt;, &lt;code&gt;tone_of_voice&lt;/code&gt;, &lt;code&gt;persona&lt;/code&gt;, &lt;code&gt;layout&lt;/code&gt;, &lt;code&gt;style&lt;/code&gt;. Snippets are not prompt templates: templates are complete prompts with model parameters, snippets are building blocks.</source>
+            </trans-unit>
+            <trans-unit id="snippet.empty.title">
+                <source>No Prompt Snippets Configured</source>
+            </trans-unit>
+            <trans-unit id="snippet.empty.message">
+                <source>No prompt snippets have been created yet.</source>
+            </trans-unit>
+            <trans-unit id="snippet.col.name">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="snippet.col.identifier">
+                <source>Identifier</source>
+            </trans-unit>
+            <trans-unit id="snippet.col.tags">
+                <source>Tags</source>
+            </trans-unit>
+
+            <!-- Setup wizard (translation sweep) -->
+            <trans-unit id="wizard.step.connect">
+                <source>Connect</source>
+            </trans-unit>
+            <trans-unit id="wizard.step.verify">
+                <source>Verify</source>
+            </trans-unit>
+            <trans-unit id="wizard.step.models">
+                <source>Models</source>
+            </trans-unit>
+            <trans-unit id="wizard.step.configure">
+                <source>Configure</source>
+            </trans-unit>
+            <trans-unit id="wizard.step.save">
+                <source>Save</source>
+            </trans-unit>
+            <trans-unit id="wizard.field.endpoint">
+                <source>API Endpoint URL *</source>
+            </trans-unit>
+            <trans-unit id="wizard.field.endpoint.hint">
+                <source>Examples: https://api.openai.com/v1, https://api.anthropic.com/v1, http://localhost:11434</source>
+            </trans-unit>
+            <trans-unit id="wizard.field.apikey">
+                <source>API Key</source>
+            </trans-unit>
+            <trans-unit id="wizard.field.apikey.toggle">
+                <source>Toggle API key visibility</source>
+            </trans-unit>
+            <trans-unit id="wizard.field.apikey.hint">
+                <source>Leave empty for local providers like Ollama that don't require authentication.</source>
+            </trans-unit>
+            <trans-unit id="wizard.detected.label">
+                <source>Detected:</source>
+            </trans-unit>
+            <trans-unit id="wizard.field.adapter">
+                <source>Provider Type (override)</source>
+            </trans-unit>
+            <trans-unit id="wizard.field.adapter.select">
+                <source>Select provider type</source>
+            </trans-unit>
+            <trans-unit id="wizard.field.adapter.hint">
+                <source>Only change this if auto-detection is incorrect.</source>
+            </trans-unit>
+            <trans-unit id="wizard.btn.overrideAdapter">
+                <source>Override provider type</source>
+            </trans-unit>
+            <trans-unit id="wizard.btn.detect">
+                <source>Detect &amp; Continue</source>
+            </trans-unit>
+            <trans-unit id="wizard.testing.hidden">
+                <source>Testing connection...</source>
+            </trans-unit>
+            <trans-unit id="wizard.connectionFailed">
+                <source>Connection Failed</source>
+            </trans-unit>
+            <trans-unit id="wizard.connectionFailed.hint">
+                <source>Please check your endpoint URL and API key, then try again.</source>
+            </trans-unit>
+            <trans-unit id="wizard.btn.back">
+                <source>Back</source>
+            </trans-unit>
+            <trans-unit id="wizard.btn.discover">
+                <source>Discover Models</source>
+            </trans-unit>
+            <trans-unit id="wizard.discovering.hidden">
+                <source>Discovering models...</source>
+            </trans-unit>
+            <trans-unit id="wizard.col.model">
+                <source>Model</source>
+            </trans-unit>
+            <trans-unit id="wizard.col.context">
+                <source>Context</source>
+            </trans-unit>
+            <trans-unit id="wizard.col.capabilities">
+                <source>Capabilities</source>
+            </trans-unit>
+            <trans-unit id="wizard.col.recommended">
+                <source>Recommended</source>
+            </trans-unit>
+            <trans-unit id="wizard.selectAll">
+                <source>Select all models</source>
+            </trans-unit>
+            <trans-unit id="wizard.btn.generate">
+                <source>Generate Configurations</source>
+            </trans-unit>
+            <trans-unit id="wizard.btn.review">
+                <source>Review &amp; Save</source>
+            </trans-unit>
+            <trans-unit id="wizard.section.provider">
+                <source>Provider</source>
+            </trans-unit>
+            <trans-unit id="wizard.section.models">
+                <source>Models</source>
+            </trans-unit>
+            <trans-unit id="wizard.section.configurations">
+                <source>Configurations</source>
+            </trans-unit>
+            <trans-unit id="wizard.field.pid">
+                <source>Storage Folder (Page ID)</source>
+            </trans-unit>
+            <trans-unit id="wizard.field.pid.hint">
+                <source>The page ID where records will be stored. Use 0 for root level.</source>
+            </trans-unit>
+            <trans-unit id="wizard.btn.goProviders">
+                <source>View Providers</source>
+            </trans-unit>
+            <trans-unit id="wizard.btn.restart">
+                <source>Add Another Provider</source>
+            </trans-unit>
+            <trans-unit id="wizard.saveFailed">
+                <source>Save Failed</source>
+            </trans-unit>
+            <trans-unit id="wizard.btn.save">
+                <source>Save Configuration</source>
+            </trans-unit>
+            <trans-unit id="wizard.progress.aria">
+                <source>Setup wizard progress</source>
+            </trans-unit>
+
+            <!-- Test page (translation sweep) -->
+            <trans-unit id="test.page.title">
+                <source>Test LLM Provider</source>
+            </trans-unit>
+            <trans-unit id="test.info.title">
+                <source>Raw provider test</source>
+            </trans-unit>
+            <trans-unit id="test.info.body">
+                <source>This page sends a single prompt directly to the selected provider, bypassing tasks and configurations. Use it to confirm a provider connection works. Results are not stored.</source>
+            </trans-unit>
+            <trans-unit id="test.card.send">
+                <source>Send Test Request</source>
+            </trans-unit>
+            <trans-unit id="test.field.provider">
+                <source>Provider</source>
+            </trans-unit>
+            <trans-unit id="test.field.prompt">
+                <source>Prompt</source>
+            </trans-unit>
+            <trans-unit id="test.btn.run">
+                <source>Run Test</source>
+            </trans-unit>
+            <trans-unit id="test.btn.back">
+                <source>Back to Overview</source>
+            </trans-unit>
+            <trans-unit id="test.card.response">
+                <source>Response</source>
+            </trans-unit>
+            <trans-unit id="test.response.success">
+                <source>Success!</source>
+            </trans-unit>
+            <trans-unit id="test.response.error">
+                <source>Error:</source>
+            </trans-unit>
+            <trans-unit id="test.response.content">
+                <source>Content</source>
+            </trans-unit>
+            <trans-unit id="test.response.usage">
+                <source>Usage</source>
+            </trans-unit>
+            <trans-unit id="test.usage.model">
+                <source>Model</source>
+            </trans-unit>
+            <trans-unit id="test.usage.promptTokens">
+                <source>Prompt Tokens</source>
+            </trans-unit>
+            <trans-unit id="test.usage.completionTokens">
+                <source>Completion Tokens</source>
+            </trans-unit>
+            <trans-unit id="test.usage.totalTokens">
+                <source>Total Tokens</source>
+            </trans-unit>
+            <trans-unit id="test.loading">
+                <source>Sending request...</source>
+            </trans-unit>
+
+            <!-- Help page (translation sweep) -->
+            <trans-unit id="help.page.title">
+                <source>LLM Management Help</source>
+            </trans-unit>
+            <trans-unit id="help.lead">
+                <source>This guide explains how to set up LLM providers, configure models, create task pipelines, and troubleshoot common issues.</source>
+            </trans-unit>
+            <trans-unit id="help.gettingStarted">
+                <source>Getting started</source>
+            </trans-unit>
+            <trans-unit id="help.intro">
+                <source>The LLM extension connects your TYPO3 installation to large language model APIs (OpenAI, Anthropic, Google, local Ollama, etc.). Follow these steps for initial setup:</source>
+            </trans-unit>
+            <trans-unit id="help.step1.title">
+                <source>Step 1 — Run the Setup Wizard</source>
+            </trans-unit>
+            <trans-unit id="help.step1.text">
+                <source>The fastest way to get started is the Setup Wizard. Paste your API endpoint URL and key, and the wizard will auto-detect the provider type, discover available models, and generate a ready-to-use configuration.</source>
+            </trans-unit>
+            <trans-unit id="help.step2.title">
+                <source>Step 2 — Create a Provider</source>
+            </trans-unit>
+            <trans-unit id="help.step2.text">
+                <source>A provider represents an API connection. Each provider stores the endpoint URL, API key (encrypted via nr-vault), and adapter type. You can create providers manually or via the Setup Wizard.</source>
+            </trans-unit>
+            <trans-unit id="help.step3.title">
+                <source>Step 3 — Register Models</source>
+            </trans-unit>
+            <trans-unit id="help.step3.text">
+                <source>Each provider can host multiple models. Models define capabilities (chat, completion, vision, embeddings, tools), context window limits, and cost information. The wizard can discover models automatically from the provider's API.</source>
+            </trans-unit>
+            <trans-unit id="help.step4.title">
+                <source>Step 4 — Create Configurations</source>
+            </trans-unit>
+            <trans-unit id="help.step4.text">
+                <source>A configuration ties a provider and model together with default parameters (temperature, max tokens, system prompt). Extensions like Cowriter reference configurations by identifier.</source>
+            </trans-unit>
+            <trans-unit id="help.step5.title">
+                <source>Step 5 — Define Tasks (optional)</source>
+            </trans-unit>
+            <trans-unit id="help.step5.text">
+                <source>Tasks are one-shot prompt templates that appear in the Cowriter dialog. They are simple utility prompts — not multi-step AI agents.</source>
+            </trans-unit>
+            <trans-unit id="help.arch.title">
+                <source>Architecture overview</source>
+            </trans-unit>
+            <trans-unit id="help.arch.intro">
+                <source>The extension follows a layered architecture:</source>
+            </trans-unit>
+            <trans-unit id="help.arch.provider">
+                <source>&lt;strong&gt;Provider layer&lt;/strong&gt; — Adapters for each API (OpenAI, Anthropic, Google Gemini, Ollama). Each adapter translates the unified interface into provider-specific HTTP calls.</source>
+            </trans-unit>
+            <trans-unit id="help.arch.service">
+                <source>&lt;strong&gt;Service layer&lt;/strong&gt; — &lt;code&gt;LlmServiceManager&lt;/code&gt; provides feature-based services (chat, translation, vision) that automatically route to the correct provider and model.</source>
+            </trans-unit>
+            <trans-unit id="help.arch.configuration">
+                <source>&lt;strong&gt;Configuration layer&lt;/strong&gt; — Database-backed configurations with encrypted API keys via nr-vault's envelope encryption.</source>
+            </trans-unit>
+            <trans-unit id="help.secret.title">
+                <source>Secret management</source>
+            </trans-unit>
+            <trans-unit id="help.secret.text">
+                <source>API keys are stored using the &lt;code&gt;nr-vault&lt;/code&gt; extension which provides envelope encryption. Keys are never stored in plain text. The vault reveal endpoint allows viewing keys temporarily in the backend with proper authentication.</source>
+            </trans-unit>
+            <trans-unit id="help.trouble.title">
+                <source>Troubleshooting</source>
+            </trans-unit>
+            <trans-unit id="help.trouble.conn.title">
+                <source>Connection test fails with "Unknown error"</source>
+            </trans-unit>
+            <trans-unit id="help.trouble.conn.text">
+                <source>This usually means the API returned an unexpected response. Check:</source>
+            </trans-unit>
+            <trans-unit id="help.trouble.conn.item1">
+                <source>The endpoint URL is correct and includes the API path (e.g., &lt;code&gt;/v1&lt;/code&gt; for OpenAI/Anthropic)</source>
+            </trans-unit>
+            <trans-unit id="help.trouble.conn.item2">
+                <source>The API key is valid and not expired</source>
+            </trans-unit>
+            <trans-unit id="help.trouble.conn.item3">
+                <source>The server can reach the API endpoint (firewall, proxy settings)</source>
+            </trans-unit>
+            <trans-unit id="help.trouble.models.title">
+                <source>Models not discovered</source>
+            </trans-unit>
+            <trans-unit id="help.trouble.models.text">
+                <source>Some providers (e.g., Anthropic) do not expose a model listing API. For these providers, models must be added manually. The Setup Wizard will warn you when auto-discovery is not available.</source>
+            </trans-unit>
+            <trans-unit id="help.trouble.500.title">
+                <source>Translation or task execution returns 500</source>
+            </trans-unit>
+            <trans-unit id="help.trouble.500.text">
+                <source>Ensure a &lt;strong&gt;default configuration&lt;/strong&gt; is set. Feature services like translation require a default provider to be configured. Check the Configurations module and mark one configuration as default.</source>
+            </trans-unit>
+            <trans-unit id="help.faq.title">
+                <source>Frequently asked questions</source>
+            </trans-unit>
+            <trans-unit id="help.faq.q1">
+                <source>Can I use multiple providers at the same time?</source>
+            </trans-unit>
+            <trans-unit id="help.faq.a1">
+                <source>Yes. You can register as many providers as you need. Each configuration references a specific provider and model. Different features (chat, translation, vision) can use different providers.</source>
+            </trans-unit>
+            <trans-unit id="help.faq.q2">
+                <source>How are API keys stored?</source>
+            </trans-unit>
+            <trans-unit id="help.faq.a2">
+                <source>API keys are encrypted using the &lt;code&gt;nr-vault&lt;/code&gt; extension's envelope encryption. Each key is encrypted with a unique data encryption key (DEK), which is itself encrypted with a master key (KEK). Keys are never stored in plain text in the database.</source>
+            </trans-unit>
+            <trans-unit id="help.faq.q3">
+                <source>Can I use a local LLM (e.g., Ollama)?</source>
+            </trans-unit>
+            <trans-unit id="help.faq.a3">
+                <source>Yes. The Ollama adapter supports local LLM instances. Set the endpoint to your Ollama server URL (e.g., &lt;code&gt;http://localhost:11434&lt;/code&gt;) and the wizard will auto-detect it. No API key is needed for local instances.</source>
+            </trans-unit>
+            <trans-unit id="help.faq.q4">
+                <source>What is the difference between tasks and the Cowriter dialog?</source>
+            </trans-unit>
+            <trans-unit id="help.faq.a4">
+                <source>&lt;strong&gt;Tasks&lt;/strong&gt; are simple one-shot prompts defined here in the LLM module. They appear as preset options in the Cowriter dialog. The &lt;strong&gt;Cowriter dialog&lt;/strong&gt; is the CKEditor plugin that editors use to interact with the AI. Editors can pick a task or write a custom instruction.</source>
             </trans-unit>
         </body>
     </file>

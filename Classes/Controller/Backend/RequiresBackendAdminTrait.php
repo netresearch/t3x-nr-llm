@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Psr\Http\Message\ResponseInterface;
+use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
+use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
  * Shared admin guard for the backend module's standalone AJAX endpoints.
@@ -35,6 +37,20 @@ trait RequiresBackendAdminTrait
         if ($backendUser instanceof BackendUserAuthentication && $backendUser->isAdmin()) {
             return null;
         }
-        return new JsonResponse(['success' => false, 'error' => 'Forbidden'], 403);
+
+        $fallback = 'This action requires backend administrator privileges. Please contact your site administrator.';
+
+        try {
+            $message = LocalizationUtility::translate(
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.adminRequired',
+                'NrLlm',
+            ) ?? $fallback;
+        } catch (Throwable) {
+            // Outside a full TYPO3 request (e.g. an isolated unit context) the
+            // language service may be unavailable; fall back to the English message.
+            $message = $fallback;
+        }
+
+        return new JsonResponse(['success' => false, 'error' => $message], 403);
     }
 }

@@ -1,0 +1,82 @@
+<f:comment>
+    Shared "Terms &amp; Parameters" glossary card. Collapsed by default so it
+    does not clutter list views. Included via <f:render partial="Backend/Glossary" />.
+    All copy is translated (glossary.term.* / glossary.param.*).
+</f:comment>
+<f:comment>Partial (no &lt;html&gt; page wrapper): declare only the non-default namespace.</f:comment>
+{namespace core=TYPO3\CMS\Core\ViewHelpers}
+<div class="card mb-4">
+    <div class="card-header py-2">
+        <button type="button" class="btn btn-link text-decoration-none p-0 collapsed"
+                data-bs-toggle="collapse" data-bs-target="#nrllm-glossary"
+                aria-expanded="false" aria-controls="nrllm-glossary">
+            <core:icon identifier="actions-info" size="small" />
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.title" default="Terms &amp; Parameters" />
+        </button>
+    </div>
+    <div class="collapse" id="nrllm-glossary">
+        <div class="card-body">
+            <p class="text-body-secondary">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.intro" default="A quick reference for the terms and numeric parameters used across these modules." />
+            </p>
+            <div class="row">
+                <div class="col-md-6">
+                    <h4><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.section.terms" default="Terms" /></h4>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.provider.label" default="Provider" /></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.provider.text" default="An API connection to an LLM service (OpenAI, Claude, Gemini, Ollama, …). Stores endpoint, adapter type and the encrypted API key." /></dd>
+
+                        <dt class="col-sm-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.adapter.label" default="Adapter type" /></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.adapter.text" default="The protocol dialect a provider speaks (e.g. OpenAI-compatible, Anthropic, Gemini). Determines how requests are formatted." /></dd>
+
+                        <dt class="col-sm-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.model.label" default="Model" /></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.model.text" default="A specific model offered by a provider (e.g. gpt-4o, claude-sonnet). Carries its capabilities, context window and cost." /></dd>
+
+                        <dt class="col-sm-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.configuration.label" default="Configuration" /></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.configuration.text" default="A reusable preset that bundles a model with default parameters and a system prompt. Tasks and consuming extensions reference it." /></dd>
+
+                        <dt class="col-sm-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.capabilities.label" default="Capabilities" /></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.capabilities.text" default="What a model can do: chat, vision (image input), tool_use (function calling) and embeddings (vector representations)." /></dd>
+
+                        <dt class="col-sm-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.fallback.label" default="Fallback chain" /></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.fallback.text" default="An ordered list of providers tried in turn: if one fails, the next is used automatically." /></dd>
+
+                        <dt class="col-sm-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.priority.label" default="Priority" /></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.priority.text" default="Ordering weight when several providers qualify. Lower number = higher priority (tried first)." /></dd>
+
+                        <dt class="col-sm-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.vault.label" default="Vault UUID" /></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.vault.text" default="A reference to an API key stored encrypted by the nr-vault extension. The key itself is never kept in the database in plain text." /></dd>
+
+                        <dt class="col-sm-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.token.label" default="Token" /></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.token.text" default="The unit LLMs read and write in — roughly a word fragment. Usage and cost are measured in tokens." /></dd>
+
+                        <dt class="col-sm-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.context.label" default="Context window" /></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.context.text" default="The maximum number of tokens (input plus output) a model can handle in a single request." /></dd>
+
+                        <dt class="col-sm-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.budget.label" default="Budget" /></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.budget.text" default="A per-user spending ceiling. Requests are blocked once the ceiling for the period is reached." /></dd>
+                    </dl>
+                </div>
+                <div class="col-md-6">
+                    <h4><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.section.params" default="Numeric parameters" /></h4>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4"><code>temperature</code></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.param.temperature" default="Randomness of the output (typically 0–2). Lower = more focused and deterministic, higher = more creative." /></dd>
+
+                        <dt class="col-sm-4"><code>max_tokens</code></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.param.maxTokens" default="Upper limit on the number of tokens the model may generate in its response." /></dd>
+
+                        <dt class="col-sm-4"><code>top_p</code></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.param.topP" default="Nucleus sampling (0–1): only the most probable tokens whose cumulative probability reaches top_p are considered. An alternative to temperature." /></dd>
+
+                        <dt class="col-sm-4"><code>frequency_penalty</code></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.param.frequencyPenalty" default="Discourages repeating the same tokens (typically -2 to 2). Higher values reduce verbatim repetition." /></dd>
+
+                        <dt class="col-sm-4"><code>presence_penalty</code></dt>
+                        <dd class="col-sm-8"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.param.presencePenalty" default="Encourages introducing new topics (typically -2 to 2). Higher values push the model toward novelty." /></dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

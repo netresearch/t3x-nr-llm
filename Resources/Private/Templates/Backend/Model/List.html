@@ -9,6 +9,27 @@
     <div>
         <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.list.title" default="LLM Models" /></h1>
 
+        <f:be.infobox state="-1">
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.adminOnly" default="This module is admin-only. Records and actions here affect every editor using LLM features." /></p>
+        </f:be.infobox>
+
+        <div class="mb-3">
+            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
+            <a href="{be:moduleLink(route: 'nrllm_configurations')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.next.configurations" default="Next: create Configurations" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_providers')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.providers" default="Providers" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+        </div>
+
+        <f:render partial="Backend/Glossary" />
+
+        <f:if condition="{models -> f:count()} &gt; 0 &amp;&amp; !{hasDefaultModel}">
+            <div class="alert alert-warning">
+                <core:icon identifier="actions-exclamation-triangle" size="small" />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.noDefault.warning" default="No default model is set. Tasks and features that do not specify a model will fail until you mark one model as default." />
+            </div>
+        </f:if>
+
         <f:if condition="{models -> f:count()}">
             <f:then>
                 <div class="table-fit">
@@ -47,7 +68,7 @@
                                                 <span class="badge text-bg-info">{model.provider.name}</span>
                                             </f:then>
                                             <f:else>
-                                                <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:noProvider" default="No provider" /></span>
+                                                <span class="badge text-bg-warning" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.orphaned.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:noProvider" default="No provider" /></span>
                                             </f:else>
                                         </f:if>
                                     </td>
@@ -82,6 +103,12 @@
                                     <td>{tokByModel.{model.uid}}</td>
                                     <td class="col-control">
                                         <div class="btn-group" role="group">
+                                            <f:if condition="!{model.provider}">
+                                                <a href="{editUrls.{model.uid}}" class="btn btn-warning btn-sm" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.orphaned.title')}">
+                                                    <core:icon identifier="actions-link" size="small" />
+                                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.reassignProvider" default="Reassign Provider" />
+                                                </a>
+                                            </f:if>
                                             <a href="{editUrls.{model.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
                                                 <core:icon identifier="actions-open" size="small" />
                                             </a>
@@ -119,6 +146,7 @@
                     state="-1"
                 >
                     <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.empty.message" default="No models configured yet. Create your first model to start using LLM services." /></p>
+                    <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.empty.hint" default="Models are the second tier of setup and require a Provider first (Provider → Model → Configuration)." /></p>
                     <f:if condition="{providers -> f:count()} == 0">
                         <p class="mb-0">
                             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:note" default="Note" />:</strong>

@@ -29,19 +29,58 @@
             <f:if condition="{dbProviderCount} > 0">
                 <div class="col-md-6">
                     <f:be.infobox
-                        title="Create Tasks with AI"
+                        title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:taskAi.callout.title', default: 'Create Tasks with AI')}"
                         state="-2"
                     >
                         <p>
-                            Use the AI Task Wizard to describe what a task should do in plain language. The AI generates a complete task setup — prompt template, dedicated configuration, and model recommendation — in one step.
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:taskAi.callout.message" default="Use the AI Task Wizard to describe what a task should do in plain language. The AI generates a complete task setup — prompt template, dedicated configuration, and model recommendation — in one step." />
                         </p>
                         <a href="{taskWizardUrl}" class="btn btn-primary">
                             <core:icon identifier="actions-bolt" size="small" />
-                            Create Task with AI
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:taskAi.callout.button" default="Create Task with AI" />
                         </a>
                     </f:be.infobox>
                 </div>
             </f:if>
+        </div>
+
+        <f:comment>Setup readiness checklist (Provider → Model → Configuration)</f:comment>
+        <f:comment>Attribute-form f:if so the &amp;&amp; entities decode — inline {f:if(...)} does not decode them.</f:comment>
+        <f:variable name="setupReady"><f:if condition="{dbProviderCount} > 0 &amp;&amp; {dbModelCount} > 0 &amp;&amp; {dbConfigurationCount} > 0"><f:then>1</f:then><f:else>0</f:else></f:if></f:variable>
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h2 class="card-title mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:readiness.title" default="Setup readiness" /></h2>
+                <f:if condition="{setupReady}">
+                    <f:then><span class="badge text-bg-success"><core:icon identifier="actions-check" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:readiness.ready" default="Ready" /></span></f:then>
+                    <f:else><span class="badge text-bg-warning"><core:icon identifier="actions-exclamation-triangle" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:readiness.incomplete" default="Setup incomplete" /></span></f:else>
+                </f:if>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-2">
+                    <li>
+                        <f:if condition="{dbProviderCount} > 0">
+                            <f:then><span class="text-success"><core:icon identifier="actions-check" size="small" /></span></f:then>
+                            <f:else><span class="text-warning"><core:icon identifier="actions-close" size="small" /></span></f:else>
+                        </f:if>
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:readiness.step.provider" default="At least one Provider" />
+                    </li>
+                    <li>
+                        <f:if condition="{dbModelCount} > 0">
+                            <f:then><span class="text-success"><core:icon identifier="actions-check" size="small" /></span></f:then>
+                            <f:else><span class="text-warning"><core:icon identifier="actions-close" size="small" /></span></f:else>
+                        </f:if>
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:readiness.step.model" default="At least one Model" />
+                    </li>
+                    <li>
+                        <f:if condition="{dbConfigurationCount} > 0">
+                            <f:then><span class="text-success"><core:icon identifier="actions-check" size="small" /></span></f:then>
+                            <f:else><span class="text-warning"><core:icon identifier="actions-close" size="small" /></span></f:else>
+                        </f:if>
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:readiness.step.configuration" default="At least one Configuration" />
+                    </li>
+                </ul>
+                <p class="text-body-secondary mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:readiness.hint" default="Set up Provider → Model → Configuration in that order, then create Tasks." /></p>
+            </div>
         </div>
 
         <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.management" default="LLM Management" /></h2>
@@ -183,7 +222,7 @@
                         <f:else>
                             <p class="text-muted fw-bold mb-0">
                                 <core:icon identifier="actions-info" size="small" />
-                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.none.tasks" default="No tasks configured - use seed data" />
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.none.tasks" default="No tasks yet" />
                             </p>
                         </f:else>
                     </f:if>
@@ -199,7 +238,7 @@
                     <f:if condition="{dbProviderCount} > 0">
                         <a href="{taskWizardUrl}" class="btn btn-primary btn-sm ms-1">
                             <core:icon identifier="actions-bolt" size="small" />
-                            Create with AI
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:taskAi.createWithAi" default="Create with AI" />
                         </a>
                     </f:if>
                 </div>
@@ -246,6 +285,46 @@
             <div class="card card-size-small">
                 <div class="card-header">
                     <div class="card-icon">
+                        <core:icon identifier="module-nrllm-skill" size="medium" />
+                    </div>
+                    <div class="card-header-body">
+                        <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.card.title" default="Skills" /></h2>
+                        <span class="card-subtitle"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.card.subtitle" default="Agent skill library" /></span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.card.description" default="Sync GitHub-hosted SKILL.md sources and enable the skills available to the agent." /></p>
+                </div>
+                <div class="card-footer">
+                    <a href="{be:moduleLink(route: 'nrllm_skills')}" class="btn btn-secondary">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.card.button" default="Manage Skills" />
+                    </a>
+                </div>
+            </div>
+
+            <div class="card card-size-small">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <core:icon identifier="module-nrllm-tool" size="medium" />
+                    </div>
+                    <div class="card-header-body">
+                        <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tool.card.title" default="Tools" /></h2>
+                        <span class="card-subtitle"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tool.card.subtitle" default="Function-calling tools" /></span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tool.card.description" default="Function-calling tools available to the agent, with an admin playground to test them." /></p>
+                </div>
+                <div class="card-footer">
+                    <a href="{be:moduleLink(route: 'nrllm_tools')}" class="btn btn-secondary">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tool.card.button" default="Open Tool Playground" />
+                    </a>
+                </div>
+            </div>
+
+            <div class="card card-size-small">
+                <div class="card-header">
+                    <div class="card-icon">
                         <core:icon identifier="module-nrllm-analytics" size="medium" />
                     </div>
                     <div class="card-header-body">
@@ -259,6 +338,31 @@
                 <div class="card-footer">
                     <a href="{be:moduleLink(route: 'nrllm_analytics')}" class="btn btn-secondary">
                         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.card.button" default="Open Analytics" />
+                    </a>
+                </div>
+            </div>
+
+            <f:comment>Help &amp; Documentation card (readiness task D)</f:comment>
+            <div class="card card-size-small">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <core:icon identifier="actions-info" size="medium" />
+                    </div>
+                    <div class="card-header-body">
+                        <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.card.title" default="Help &amp; Documentation" /></h2>
+                        <span class="card-subtitle"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.card.subtitle" default="Guides and reference" /></span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.card.description" default="Read the in-module help and the online documentation for setup guidance and troubleshooting." /></p>
+                </div>
+                <div class="card-footer">
+                    <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="btn btn-secondary">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.card.button" default="Open Help" />
+                    </a>
+                    <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="btn btn-default btn-sm ms-1">
+                        <core:icon identifier="actions-open" size="small" />
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" />
                     </a>
                 </div>
             </div>

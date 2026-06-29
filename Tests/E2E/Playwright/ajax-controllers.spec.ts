@@ -33,7 +33,7 @@ test.describe('Provider AJAX Actions', () => {
       if (count === 0) {
         // No providers - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 
@@ -69,7 +69,7 @@ test.describe('Provider AJAX Actions', () => {
       if (count === 0) {
         // No providers - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 
@@ -124,7 +124,7 @@ test.describe('Provider AJAX Actions', () => {
       if (count === 0) {
         // No providers - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 
@@ -156,7 +156,7 @@ test.describe('Provider AJAX Actions', () => {
       if (count === 0) {
         // No providers - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 
@@ -189,7 +189,7 @@ test.describe('Model AJAX Actions', () => {
       if (count === 0) {
         // No models - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 
@@ -211,7 +211,7 @@ test.describe('Model AJAX Actions', () => {
       if (count === 0) {
         // No models - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 
@@ -234,7 +234,7 @@ test.describe('Model AJAX Actions', () => {
       if (count === 0) {
         // No models - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 
@@ -255,7 +255,7 @@ test.describe('Model AJAX Actions', () => {
       if (count === 0) {
         // No models - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 
@@ -278,7 +278,7 @@ test.describe('Model AJAX Actions', () => {
       if (count === 0) {
         // No models - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 
@@ -372,7 +372,7 @@ test.describe('Configuration AJAX Actions', () => {
       if (count === 0) {
         // No configurations - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 
@@ -431,7 +431,7 @@ test.describe('Configuration AJAX Actions', () => {
       if (count === 0) {
         // No configurations - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 
@@ -463,7 +463,7 @@ test.describe('Configuration AJAX Actions', () => {
       if (count === 0) {
         // No configurations - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 
@@ -510,7 +510,7 @@ test.describe('AJAX Error Handling', () => {
     if (count === 0) {
       // No AJAX buttons - verify empty state is shown
       const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-      await expect(emptyState).toBeVisible();
+      await expect(emptyState.first()).toBeVisible();
       return;
     }
 
