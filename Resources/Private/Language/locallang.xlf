@@ -204,6 +204,9 @@
             <trans-unit id="btn.provider.new">
                 <source>New Provider</source>
             </trans-unit>
+            <trans-unit id="btn.skill.source.new">
+                <source>Add source</source>
+            </trans-unit>
             <trans-unit id="btn.model.new">
                 <source>New Model</source>
             </trans-unit>

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
+use Netresearch\NrLlm\Controller\Backend\FormEngineUrlBuilder;
 use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
 use Netresearch\NrLlm\Domain\Enum\SkillSourceType;
 use Netresearch\NrLlm\Domain\Model\SkillSource;
@@ -26,6 +27,7 @@ use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
@@ -65,6 +67,8 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
             $vault,
             $this->get(PersistenceManagerInterface::class),
             $this->get(PageRenderer::class),
+            $this->get(IconFactory::class),
+            $this->get(FormEngineUrlBuilder::class),
         );
     }
 

@@ -268,6 +268,10 @@
                 <source>New Provider</source>
                 <target>Neuer Anbieter</target>
             </trans-unit>
+            <trans-unit id="btn.skill.source.new">
+                <source>Add source</source>
+                <target>Quelle hinzufügen</target>
+            </trans-unit>
             <trans-unit id="btn.model.new">
                 <source>New Model</source>
                 <target>Neues Modell</target>
