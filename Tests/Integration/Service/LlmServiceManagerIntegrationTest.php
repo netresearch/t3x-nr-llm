@@ -44,7 +44,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         parent::setUp();
 
         $this->extensionConfigStub = $this->createMock(ExtensionConfiguration::class);
-        $this->extensionConfigStub->expects(self::any())->method('get')
+        $this->extensionConfigStub->expects(self::atLeastOnce())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => [
