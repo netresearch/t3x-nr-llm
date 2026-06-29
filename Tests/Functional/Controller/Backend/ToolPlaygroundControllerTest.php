@@ -20,10 +20,10 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
-use Netresearch\NrLlm\Service\Skill\SkillComposer;
-use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ScriptedToolAdapter;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
@@ -35,6 +35,7 @@ use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -74,13 +75,17 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $pageRenderer = $this->get(PageRenderer::class);
         self::assertInstanceOf(PageRenderer::class, $pageRenderer);
 
+        $toolRegistry = new ToolRegistry([new FakeTool('fetch_logs')]);
+        $availability = $this->availabilityFor($toolRegistry);
+
         $controller = new ToolPlaygroundController(
             $moduleTemplateFactory,
-            new ToolRegistry([new FakeTool('fetch_logs')]),
+            $toolRegistry,
             $configurationRepository,
             $pageRenderer,
-            new AllowedToolsResolver(new SkillComposer()),
-            new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([])),
+            new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([]), $availability),
+            $availability,
+            new ToolStateRepository($this->toolConnectionPool()),
         );
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
 
@@ -110,10 +115,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $configurationRepository = $this->get(LlmConfigurationRepository::class);
         self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
 
-        $controller = $this->makeController(
+        $emptyRegistry = new ToolRegistry([]);
+        $controller    = $this->makeController(
             $configurationRepository,
-            new ToolRegistry([]),
-            new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([])),
+            $emptyRegistry,
+            new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), $emptyRegistry, $this->availabilityFor($emptyRegistry)),
         );
 
         $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
@@ -171,7 +177,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoopService = new ToolLoopService($manager, $toolRegistry, new NullLogger());
+        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
 
         $controller = $this->makeController($configurationRepository, $toolRegistry, $toolLoopService);
 
@@ -223,9 +229,27 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $toolRegistry,
             $configurationRepository,
             $pageRenderer,
-            new AllowedToolsResolver(new SkillComposer()),
             $toolLoopService,
+            $this->availabilityFor($toolRegistry),
+            new ToolStateRepository($this->toolConnectionPool()),
         );
+    }
+
+    /**
+     * Build the real availability service over the given registry, backed by the
+     * functional database — so the fail-closed gate is exercised end-to-end.
+     */
+    private function availabilityFor(ToolRegistry $toolRegistry): ToolAvailabilityService
+    {
+        return new ToolAvailabilityService($toolRegistry, new ToolStateRepository($this->toolConnectionPool()));
+    }
+
+    private function toolConnectionPool(): ConnectionPool
+    {
+        $connectionPool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+
+        return $connectionPool;
     }
 
     /**

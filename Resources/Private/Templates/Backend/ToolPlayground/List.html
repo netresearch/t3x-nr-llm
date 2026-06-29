@@ -38,6 +38,29 @@
                             <textarea id="nrllm-tool-prompt" class="form-control" rows="4"></textarea>
                         </div>
 
+                        <f:if condition="{toolStates -> f:count()}">
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.run.tools" default="Tools available to this run" />
+                                </label>
+                                <f:for each="{toolStates}" as="tool">
+                                    <div class="form-check">
+                                        <f:if condition="{tool.enabled}">
+                                            <f:then>
+                                                <input class="form-check-input js-tool-select" type="checkbox" id="nrllm-tool-select-{tool.name}" value="{tool.name}" checked="checked" />
+                                            </f:then>
+                                            <f:else>
+                                                <input class="form-check-input js-tool-select" type="checkbox" id="nrllm-tool-select-{tool.name}" value="{tool.name}" />
+                                            </f:else>
+                                        </f:if>
+                                        <label class="form-check-label" for="nrllm-tool-select-{tool.name}">
+                                            <code>{tool.name}</code>
+                                        </label>
+                                    </div>
+                                </f:for>
+                            </div>
+                        </f:if>
+
                         <button type="button" id="nrllm-tool-run" class="btn btn-primary">
                             <core:icon identifier="actions-play" size="small" />
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.run" default="Run" />
@@ -51,16 +74,43 @@
 
             <div class="col-md-5">
                 <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tools" default="Available tools" /></h2>
-                <f:if condition="{tools -> f:count()}">
+                <f:if condition="{toolStates -> f:count()}">
                     <f:then>
                         <div class="card mb-4">
                             <ul class="list-group list-group-flush">
-                                <f:for each="{tools}" as="tool">
-                                    <li class="list-group-item">
-                                        <strong><code>{tool.name}</code></strong>
-                                        <f:if condition="{tool.description}">
-                                            <br><small class="text-body-secondary">{tool.description}</small>
-                                        </f:if>
+                                <f:for each="{toolStates}" as="tool">
+                                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                                        <div class="me-3">
+                                            <strong><code>{tool.name}</code></strong>
+                                            <f:if condition="{tool.enabled}">
+                                                <f:then>
+                                                    <span class="badge bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enabled" default="Enabled" /></span>
+                                                </f:then>
+                                                <f:else>
+                                                    <span class="badge bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disabled" default="Disabled" /></span>
+                                                </f:else>
+                                            </f:if>
+                                            <f:if condition="{tool.overridden}">
+                                                <f:then>
+                                                    <span class="badge bg-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.overridden" default="Override" /></span>
+                                                </f:then>
+                                                <f:else>
+                                                    <span class="badge bg-light text-dark"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.default" default="Default" /></span>
+                                                </f:else>
+                                            </f:if>
+                                            <f:if condition="{tool.description}">
+                                                <br><small class="text-body-secondary">{tool.description}</small>
+                                            </f:if>
+                                        </div>
+                                        <button type="button"
+                                                class="btn btn-sm js-tool-toggle {f:if(condition: tool.enabled, then: 'btn-outline-secondary', else: 'btn-outline-success')}"
+                                                data-tool="{tool.name}"
+                                                data-enabled="{f:if(condition: tool.enabled, then: '1', else: '0')}">
+                                            <f:if condition="{tool.enabled}">
+                                                <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disable" default="Disable" /></f:then>
+                                                <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enable" default="Enable" /></f:else>
+                                            </f:if>
+                                        </button>
                                     </li>
                                 </f:for>
                             </ul>
@@ -72,6 +122,27 @@
                         </f:be.infobox>
                     </f:else>
                 </f:if>
+
+                <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.help.title" default="How to add a tool" /></h2>
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.help.intro" default="Tools are auto-discovered PHP classes — no manual registration is needed." /></p>
+                        <ol class="mb-3">
+                            <li>
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.help.step.interface" default="Implement Netresearch\NrLlm\Service\Tool\ToolInterface (getSpec + execute + isEnabledByDefault)." />
+                            </li>
+                            <li>
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.help.step.tag" default="The class is auto-discovered via the nr_llm.tool DI tag — there is nothing else to register." />
+                            </li>
+                            <li>
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.help.step.template" default="Copy Classes/Service/Tool/Builtin/FetchLogsTool.php as a starting template." />
+                            </li>
+                        </ol>
+                        <f:be.infobox state="-1">
+                            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.help.security" default="A tool runs with full backend privileges and its result egresses to the LLM provider. Keep it admin-only and read-only, scope and validate every argument, and never expose secrets." /></p>
+                        </f:be.infobox>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

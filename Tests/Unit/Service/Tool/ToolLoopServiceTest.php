@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -41,7 +42,7 @@ final class ToolLoopServiceTest extends TestCase
 
         // A registered tool keeps the loop on the tools path (an empty registry
         // would short-circuit to a plain completion — covered separately).
-        $service = new ToolLoopService($mgr, new ToolRegistry([new FakeTool('noop')]));
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('noop')]));
         $result  = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), null);
 
         self::assertSame('the answer', $result->finalContent);
@@ -61,7 +62,7 @@ final class ToolLoopServiceTest extends TestCase
         $mgr->method('chatWithToolsForConfiguration')
             ->willReturnCallback($this->queueCallback($queue));
 
-        $service = new ToolLoopService($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
         $result  = $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), null);
 
         self::assertCount(1, $result->trace);
@@ -87,7 +88,7 @@ final class ToolLoopServiceTest extends TestCase
         // The registry holds a different tool so the loop stays on the tools
         // path; the model then requests the unregistered name "nope", which
         // registry->get() resolves to null (the unknown-tool branch).
-        $service = new ToolLoopService($mgr, new ToolRegistry([new FakeTool('real_tool')]));
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('real_tool')]));
         $result  = $service->runLoop([$this->userTurn('do it')], new LlmConfiguration(), null);
 
         self::assertCount(1, $result->trace);
@@ -113,6 +114,11 @@ final class ToolLoopServiceTest extends TestCase
             {
                 throw new RuntimeException('boom https://x?key=secret', 1782700101);
             }
+
+            public function isEnabledByDefault(): bool
+            {
+                return true;
+            }
         };
 
         $mgr   = self::createStub(LlmServiceManagerInterface::class);
@@ -123,7 +129,7 @@ final class ToolLoopServiceTest extends TestCase
         $mgr->method('chatWithToolsForConfiguration')
             ->willReturnCallback($this->queueCallback($queue));
 
-        $service = new ToolLoopService($mgr, new ToolRegistry([$throwing]));
+        $service = $this->service($mgr, new ToolRegistry([$throwing]));
         $result  = $service->runLoop([$this->userTurn('blow up')], new LlmConfiguration(), null);
 
         self::assertCount(1, $result->trace);
@@ -152,6 +158,11 @@ final class ToolLoopServiceTest extends TestCase
             {
                 throw new RuntimeException('boom https://x?key=secret', 1782700101);
             }
+
+            public function isEnabledByDefault(): bool
+            {
+                return true;
+            }
         };
 
         $mgr   = self::createStub(LlmServiceManagerInterface::class);
@@ -175,7 +186,7 @@ final class ToolLoopServiceTest extends TestCase
                 ),
             );
 
-        $service = new ToolLoopService($mgr, new ToolRegistry([$throwing]), $logger);
+        $service = $this->service($mgr, new ToolRegistry([$throwing]), $logger);
         $service->runLoop([$this->userTurn('blow up')], new LlmConfiguration(), null);
     }
 
@@ -192,7 +203,7 @@ final class ToolLoopServiceTest extends TestCase
         $mgr->method('chatWithToolsForConfiguration')
             ->willReturnCallback($this->queueCallback($queue, $captured));
 
-        $service = new ToolLoopService($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
         $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), null);
 
         // The second round must carry the appended assistant + tool turns.
@@ -225,7 +236,7 @@ final class ToolLoopServiceTest extends TestCase
             ->method('chatWithConfiguration')
             ->willReturn($this->response('SYNTHESISED'));
 
-        $service = new ToolLoopService($mgr, new ToolRegistry([new FakeTool('loop_tool')]));
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('loop_tool')]));
         $result  = $service->runLoop([$this->userTurn('loop')], new LlmConfiguration(), null, null, 2);
 
         self::assertSame(2, $result->iterations);
@@ -244,13 +255,17 @@ final class ToolLoopServiceTest extends TestCase
         $mgr->method('chatWithToolsForConfiguration')
             // $messages is an unused positional placeholder for the $tools arg.
             ->willReturnCallback(function (array $messages, array $tools) use (&$capturedTools, $response): CompletionResponse {
+                // $messages must stay first so $tools binds positionally to the
+                // real chatWithToolsForConfiguration signature; assert it rather
+                // than leave it unused.
+                self::assertNotSame([], $messages);
                 $capturedTools[] = $tools;
 
                 return $response;
             });
 
         $registry = new ToolRegistry([new FakeTool('fetch_logs'), new FakeTool('read_meta')]);
-        $service  = new ToolLoopService($mgr, $registry);
+        $service  = $this->service($mgr, $registry);
         $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ['fetch_logs']);
 
         $specs = self::arr($capturedTools[0] ?? null);
@@ -280,7 +295,7 @@ final class ToolLoopServiceTest extends TestCase
                 throw $budgetException;
             });
 
-        $service = new ToolLoopService($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
         $result  = $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), null);
 
         self::assertTrue($result->truncated);
@@ -301,7 +316,7 @@ final class ToolLoopServiceTest extends TestCase
         $mgr->method('chatWithToolsForConfiguration')
             ->willReturnCallback($this->queueCallback($queue));
 
-        $service = new ToolLoopService($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
         $result  = $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), null);
 
         self::assertSame(13, $result->usage->promptTokens);
@@ -320,7 +335,7 @@ final class ToolLoopServiceTest extends TestCase
         $mgr->expects(self::never())->method('chatWithToolsForConfiguration');
 
         // A tool IS registered, but the empty allow-list offers none of them.
-        $service = new ToolLoopService($mgr, new ToolRegistry([new FakeTool('fetch_logs')]));
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs')]));
         $result  = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), []);
 
         self::assertSame('plain answer', $result->finalContent);
@@ -349,6 +364,11 @@ final class ToolLoopServiceTest extends TestCase
 
                 return 'META';
             }
+
+            public function isEnabledByDefault(): bool
+            {
+                return true;
+            }
         };
 
         $mgr   = self::createStub(LlmServiceManagerInterface::class);
@@ -361,7 +381,7 @@ final class ToolLoopServiceTest extends TestCase
             ->willReturnCallback($this->queueCallback($queue));
 
         $registry = new ToolRegistry([new FakeTool('fetch_logs'), $spy]);
-        $service  = new ToolLoopService($mgr, $registry);
+        $service  = $this->service($mgr, $registry);
         $result   = $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ['fetch_logs']);
 
         self::assertCount(1, $result->trace);
@@ -369,6 +389,83 @@ final class ToolLoopServiceTest extends TestCase
         self::assertStringContainsString('not permitted', $result->trace[0]->result);
         self::assertFalse($spy->executed, 'a disallowed tool must never be executed');
         self::assertSame('done', $result->finalContent);
+    }
+
+    #[Test]
+    public function globallyDisabledToolIsNeverOfferedEvenWhenExplicitlyAllowed(): void
+    {
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        // The disabled tool drops out of the effective set ⇒ no tools offered ⇒
+        // exactly one plain completion, never the tools path.
+        $mgr->expects(self::once())
+            ->method('chatWithConfiguration')
+            ->willReturn($this->response('plain answer'));
+        $mgr->expects(self::never())->method('chatWithToolsForConfiguration');
+
+        // fetch_logs IS registered, but the global gate reports it disabled.
+        $service = new ToolLoopService(
+            $mgr,
+            new ToolRegistry([new FakeTool('fetch_logs')]),
+            new FakeToolAvailability([]),
+        );
+        // The caller explicitly lists the disabled tool — the gate still wins.
+        $result = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ['fetch_logs']);
+
+        self::assertSame('plain answer', $result->finalContent);
+        self::assertSame([], $result->trace);
+        self::assertSame(1, $result->iterations);
+    }
+
+    #[Test]
+    public function nullAllowListDefaultsToEnabledSetNotEveryRegisteredTool(): void
+    {
+        $capturedTools = [];
+        $response      = $this->response('done');
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturnCallback(function (array $messages, array $tools) use (&$capturedTools, $response): CompletionResponse {
+                // $messages must stay first so $tools binds positionally to the
+                // real chatWithToolsForConfiguration signature; assert it rather
+                // than leave it unused.
+                self::assertNotSame([], $messages);
+                $capturedTools[] = $tools;
+
+                return $response;
+            });
+
+        // Two tools registered, but only one is globally enabled.
+        $registry = new ToolRegistry([new FakeTool('fetch_logs'), new FakeTool('read_meta')]);
+        $service  = new ToolLoopService($mgr, $registry, new FakeToolAvailability(['fetch_logs']));
+        // null ⇒ "no per-run restriction" ⇒ collapses to the enabled set only.
+        $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), null);
+
+        $specs = self::arr($capturedTools[0] ?? null);
+        $names = array_map(
+            static fn(mixed $s): string => $s instanceof ToolSpec ? $s->name : '<not-a-spec>',
+            array_values($specs),
+        );
+        self::assertSame(['fetch_logs'], $names);
+    }
+
+    /**
+     * Build a ToolLoopService whose global availability gate is a no-op: every
+     * registered tool counts as enabled, so the loop's effective allow-set is
+     * governed solely by the caller's $allowedToolNames (the behaviour these
+     * tests target). Gating-specific tests build the service inline with a
+     * restricted {@see FakeToolAvailability}.
+     */
+    private function service(
+        LlmServiceManagerInterface $mgr,
+        ToolRegistry $registry,
+        ?LoggerInterface $logger = null,
+    ): ToolLoopService {
+        return new ToolLoopService(
+            $mgr,
+            $registry,
+            new FakeToolAvailability($registry->names()),
+            $logger,
+        );
     }
 
     /**

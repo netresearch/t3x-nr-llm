@@ -46,4 +46,16 @@ interface ToolInterface
      * @param array<string, mixed> $arguments
      */
     public function execute(array $arguments): string;
+
+    /**
+     * Whether this tool is offered by default when an admin has not set an
+     * explicit global override (see {@see ToolStateRepository}).
+     *
+     * Curated, low-risk tools return `true`. "Raw" tools whose output can
+     * egress server/host secrets to the external provider return `false`, so
+     * they are unavailable until an admin deliberately enables them in the
+     * Tool Playground module — defence in depth on top of the admin-only
+     * context.
+     */
+    public function isEnabledByDefault(): bool;
 }
