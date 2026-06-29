@@ -125,4 +125,9 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface
 
         return implode("\n", $lines);
     }
+
+    public function isEnabledByDefault(): bool
+    {
+        return true;
+    }
 }

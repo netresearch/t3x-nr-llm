@@ -516,3 +516,20 @@ CREATE TABLE tx_nrllm_configuration_skill_mm (
     KEY uid_local (uid_local),
     KEY uid_foreign (uid_foreign)
 );
+
+#
+# Table structure for table 'tx_nrllm_tool_state'
+# Global per-tool enable/disable overrides for the agent tool runtime.
+# Managed via the Tool Playground module toggles (no FormEngine UI / no TCA);
+# a missing row means "use the tool's isEnabledByDefault()".
+#
+CREATE TABLE tx_nrllm_tool_state (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    tool_name varchar(190) DEFAULT '' NOT NULL,
+    enabled smallint(5) unsigned DEFAULT '1' NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY tool_name (tool_name)
+);

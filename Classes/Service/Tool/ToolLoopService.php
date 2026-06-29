@@ -53,6 +53,7 @@ final readonly class ToolLoopService
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,
+        private ToolAvailabilityServiceInterface $availability,
         private ?LoggerInterface $logger = null,
         private int $defaultMaxIterations = 5,
     ) {}
@@ -61,12 +62,11 @@ final readonly class ToolLoopService
      * Run the bounded agent loop and return its outcome.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
-     * @param list<string>|null                      $allowedToolNames null ⇒ all
-     *                                                                 registered
-     *                                                                 tools; a
-     *                                                                 list ⇒ that
-     *                                                                 set (∩
-     *                                                                 registry);
+     * @param list<string>|null                      $allowedToolNames null ⇒ the
+     *                                                                 globally-
+     *                                                                 enabled set;
+     *                                                                 a list ⇒ that
+     *                                                                 set ∩ enabled;
      *                                                                 `[]` ⇒ no
      *                                                                 tools
      */
@@ -77,8 +77,18 @@ final readonly class ToolLoopService
         ?ToolOptions $options = null,
         ?int $maxIterations = null,
     ): ToolLoopResult {
-        $max   = $maxIterations ?? $this->defaultMaxIterations;
-        $specs = $this->registry->specs($allowedToolNames);
+        $max = $maxIterations ?? $this->defaultMaxIterations;
+
+        // Fail-closed global gate: the effective allow-set is always intersected
+        // with the globally-enabled tools. A null caller list means "no per-run
+        // restriction" and collapses to the enabled set (NOT every registered
+        // tool); a disabled tool can therefore never be offered, even when a
+        // caller — or a model steered by injected skill prose — names it.
+        $enabled   = $this->availability->enabledNames();
+        $effective = $allowedToolNames === null
+            ? $enabled
+            : array_values(array_intersect($allowedToolNames, $enabled));
+        $specs = $this->registry->specs($effective);
 
         // No tools offered (an empty allow-list, or nothing registered): a tools
         // request with an empty `tools` array makes some providers (OpenAI) 400.

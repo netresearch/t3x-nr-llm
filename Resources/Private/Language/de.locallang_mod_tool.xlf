@@ -46,6 +46,58 @@
                 <source>No tools are registered. Add a tool by tagging a ToolInterface implementation with nr_llm.tool.</source>
                 <target>Es sind keine Tools registriert. Ein Tool wird hinzugefügt, indem eine ToolInterface-Implementierung mit nr_llm.tool getaggt wird.</target>
             </trans-unit>
+            <trans-unit id="playground.run.tools">
+                <source>Tools available to this run</source>
+                <target>Für diesen Lauf verfügbare Tools</target>
+            </trans-unit>
+            <trans-unit id="playground.tool.enabled">
+                <source>Enabled</source>
+                <target>Aktiviert</target>
+            </trans-unit>
+            <trans-unit id="playground.tool.disabled">
+                <source>Disabled</source>
+                <target>Deaktiviert</target>
+            </trans-unit>
+            <trans-unit id="playground.tool.default">
+                <source>Default</source>
+                <target>Standard</target>
+            </trans-unit>
+            <trans-unit id="playground.tool.overridden">
+                <source>Override</source>
+                <target>Überschrieben</target>
+            </trans-unit>
+            <trans-unit id="playground.tool.enable">
+                <source>Enable</source>
+                <target>Aktivieren</target>
+            </trans-unit>
+            <trans-unit id="playground.tool.disable">
+                <source>Disable</source>
+                <target>Deaktivieren</target>
+            </trans-unit>
+            <trans-unit id="playground.help.title">
+                <source>How to add a tool</source>
+                <target>Ein Tool hinzufügen</target>
+            </trans-unit>
+            <trans-unit id="playground.help.intro">
+                <source>Tools are auto-discovered PHP classes — no manual registration is needed.</source>
+                <target>Tools sind automatisch erkannte PHP-Klassen — eine manuelle Registrierung ist nicht nötig.</target>
+            </trans-unit>
+            <trans-unit id="playground.help.step.interface">
+                <source>Implement Netresearch\NrLlm\Service\Tool\ToolInterface (getSpec + execute + isEnabledByDefault).</source>
+                <target>Netresearch\NrLlm\Service\Tool\ToolInterface implementieren (getSpec + execute + isEnabledByDefault).</target>
+            </trans-unit>
+            <trans-unit id="playground.help.step.tag">
+                <source>The class is auto-discovered via the nr_llm.tool DI tag — there is nothing else to register.</source>
+                <target>Die Klasse wird über das DI-Tag nr_llm.tool automatisch erkannt — es ist nichts weiter zu registrieren.</target>
+            </trans-unit>
+            <trans-unit id="playground.help.step.template">
+                <source>Copy Classes/Service/Tool/Builtin/FetchLogsTool.php as a starting template.</source>
+                <target>Classes/Service/Tool/Builtin/FetchLogsTool.php als Vorlage kopieren.</target>
+            </trans-unit>
+            <trans-unit id="playground.help.security">
+                <source>A tool runs with full backend privileges and its result egresses to the LLM provider. Keep it admin-only and read-only, scope and validate every argument, and never expose secrets.</source>
+                <target>Ein Tool läuft mit vollen Backend-Rechten und sein Ergebnis wird an den LLM-Provider übertragen. Es muss nur für Administratoren und lesend bleiben, jedes Argument prüfen und eingrenzen und darf niemals Geheimnisse preisgeben.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

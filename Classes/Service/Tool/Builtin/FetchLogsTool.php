@@ -115,4 +115,9 @@ final readonly class FetchLogsTool implements ToolInterface
 
         return implode("\n", $lines);
     }
+
+    public function isEnabledByDefault(): bool
+    {
+        return true;
+    }
 }

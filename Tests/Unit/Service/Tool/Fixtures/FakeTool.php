@@ -24,6 +24,7 @@ final readonly class FakeTool implements ToolInterface
     public function __construct(
         private string $name,
         private string $result = 'ok',
+        private bool $enabledByDefault = true,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -41,5 +42,10 @@ final readonly class FakeTool implements ToolInterface
     public function execute(array $arguments): string
     {
         return $this->result;
+    }
+
+    public function isEnabledByDefault(): bool
+    {
+        return $this->enabledByDefault;
     }
 }

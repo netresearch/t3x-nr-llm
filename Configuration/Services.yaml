@@ -191,6 +191,9 @@ services:
   Netresearch\NrLlm\Service\Skill\GitHubClientInterface:
     alias: Netresearch\NrLlm\Service\Skill\GitHubClient
 
+  Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface:
+    alias: Netresearch\NrLlm\Service\Tool\ToolAvailabilityService
+
   Netresearch\NrLlm\Service\BudgetService:
     public: true
 

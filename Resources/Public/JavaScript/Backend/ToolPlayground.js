@@ -60,6 +60,12 @@ class ToolPlayground {
         formData.append('configuration', configuration);
         formData.append('prompt', prompt);
 
+        // Restrict this run to the ticked tools. When none are ticked, the
+        // `tools` key is omitted and the server defaults to the enabled set.
+        this.root.querySelectorAll('.js-tool-select:checked').forEach((checkbox) => {
+            formData.append('tools[]', checkbox.value);
+        });
+
         if (this.runButton) {
             this.runButton.disabled = true;
         }

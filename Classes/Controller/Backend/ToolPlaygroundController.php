@@ -13,9 +13,10 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
-use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerAwareInterface;
@@ -40,7 +41,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  *
  * Mirrors {@see SkillSourceController}: a `#[AsController]` Extbase
  * ActionController whose list action is the module entry point, gated to
- * admins via the module's ``access => admin`` and (for the AJAX action) the
+ * admins via the module's ``access => admin`` and (for the AJAX actions) the
  * {@see RequiresBackendAdminTrait} guard.
  */
 #[AsController]
@@ -54,18 +55,20 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         private readonly ToolRegistry $toolRegistry,
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly PageRenderer $pageRenderer,
-        private readonly AllowedToolsResolver $allowedToolsResolver,
         private readonly ToolLoopService $toolLoopService,
+        private readonly ToolAvailabilityServiceInterface $toolAvailability,
+        private readonly ToolStateRepository $toolStateRepository,
     ) {}
 
     public function listAction(): ResponseInterface
     {
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/ToolPlayground.js');
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/ToolState.js');
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->makeDocHeaderModuleMenu();
         $moduleTemplate->assignMultiple([
             'configurations' => $this->configurationRepository->findAll(),
-            'tools' => $this->toolRegistry->specs(),
+            'toolStates' => $this->toolAvailability->states(),
             'ajaxRoute' => 'nrllm_tool_run',
         ]);
         return $moduleTemplate->renderResponse('Backend/ToolPlayground/List');
@@ -79,10 +82,13 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      * module's ``access => admin`` check (ADR-037). The configuration's vault
      * key, model and pricing reach the call through
      * {@see ToolLoopService::runLoop()} (it runs on
-     * `chatWithToolsForConfiguration`). The skill-derived allow-list narrows
-     * which tools are offered. Any unexpected provider/tool failure returns a
-     * generic JSON 500 — never the exception message, which can carry
-     * DBAL/PDO credentials — while the detail is logged downstream.
+     * `chatWithToolsForConfiguration`). The per-run allow-list comes from the
+     * tool checkboxes the operator ticked (defaulting to the globally-enabled
+     * set when none are sent); {@see ToolLoopService} still intersects it with
+     * the global gate, so a disabled tool can never be offered. Any unexpected
+     * provider/tool failure returns a generic JSON 500 — never the exception
+     * message, which can carry DBAL/PDO credentials — while the detail is
+     * logged downstream.
      */
     public function runAction(ServerRequestInterface $request): ResponseInterface
     {
@@ -101,9 +107,13 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         $options = new ToolOptions(beUserUid: $this->currentBackendUserUid());
 
+        // The checked tool boxes restrict this run; absent any selection, fall
+        // back to the globally-enabled set. The runtime gate is authoritative
+        // regardless (a disabled tool stays off).
+        $allowed = $this->toolNamesFromBody($body) ?? $this->toolAvailability->enabledNames();
+
         try {
-            $allowed = $this->allowedToolsResolver->resolve($config);
-            $result  = $this->toolLoopService->runLoop([ChatMessage::user($prompt)], $config, $allowed, $options);
+            $result = $this->toolLoopService->runLoop([ChatMessage::user($prompt)], $config, $allowed, $options);
         } catch (Throwable $e) {
             $this->logger?->error('Tool playground run failed', ['exception' => $e]);
             return new JsonResponse(['success' => false, 'error' => 'Tool run failed'], 500);
@@ -127,6 +137,33 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             'truncated'  => $result->truncated,
             'usage'      => ['totalTokens' => $result->usage->totalTokens],
         ]);
+    }
+
+    /**
+     * Toggle the global enable state of a single tool (AJAX, admin-gated).
+     *
+     * Admin-gated via {@see denyNonAdmin()} FIRST (ADR-037). The override is
+     * persisted to `tx_nrllm_tool_state` via {@see ToolStateRepository}; the
+     * fail-closed runtime gate then refuses a disabled tool on every later run.
+     * Only a registered tool name is accepted so the table cannot accumulate
+     * orphan rows.
+     */
+    public function toggleToolAction(ServerRequestInterface $request): ResponseInterface
+    {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
+
+        $body     = $request->getParsedBody();
+        $toolName = $this->stringFromBody($body, 'tool');
+        if ($toolName === '' || $this->toolRegistry->get($toolName) === null) {
+            return new JsonResponse(['success' => false, 'error' => 'Unknown tool'], 404);
+        }
+
+        $enabled = $this->boolFromBody($body, 'enabled');
+        $this->toolStateRepository->setEnabled($toolName, $enabled);
+
+        return new JsonResponse(['success' => true, 'enabled' => $enabled]);
     }
 
     /**
@@ -161,5 +198,37 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         }
         $value = $body[$key] ?? '';
         return is_scalar($value) ? (string)$value : '';
+    }
+
+    private function boolFromBody(mixed $body, string $key): bool
+    {
+        if (!is_array($body)) {
+            return false;
+        }
+        // filter_var (not a plain cast) so the string "false"/"0" from form bodies is correctly false.
+        return filter_var($body[$key] ?? false, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * Read the ticked tool checkboxes (`tools[]`) from the run form. Returns the
+     * selected names, or null when the form sent no `tools` key at all — the
+     * caller then defaults to the globally-enabled set.
+     *
+     * @return list<string>|null
+     */
+    private function toolNamesFromBody(mixed $body): ?array
+    {
+        if (!is_array($body) || !isset($body['tools']) || !is_array($body['tools'])) {
+            return null;
+        }
+
+        $names = [];
+        foreach ($body['tools'] as $value) {
+            if (is_string($value) && $value !== '') {
+                $names[] = $value;
+            }
+        }
+
+        return $names;
     }
 }

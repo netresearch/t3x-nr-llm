@@ -136,6 +136,10 @@ return [
         'path' => '/nrllm/tool/run',
         'target' => ToolPlaygroundController::class . '::runAction',
     ],
+    'nrllm_tool_toggle' => [
+        'path' => '/nrllm/tool/toggle',
+        'target' => ToolPlaygroundController::class . '::toggleToolAction',
+    ],
 
     // Setup Wizard routes
     'nrllm_wizard_detect' => [
