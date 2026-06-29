@@ -150,6 +150,7 @@ nr_llm/
 - **Stuck on a "this works locally but breaks in CI" issue?** Reproduce inside `Build/Scripts/runTests.sh -s <suite>` first — it uses the same Docker PHP image as CI.
 - **Adding a config option?** TCA + `LLL:` translation key in `Resources/Private/Language/locallang*.xlf` for both EN and DE.
 - **Touching the public surface?** Add an ADR under `Documentation/Adr/`. Format: `Adr<N>Description.rst`.
+- **Linking between backend controllers?** Use the full Extbase alias `Backend\<Name>` (e.g. `'controller' => 'Backend\\TaskWizard'`), not the short name — `resolveControllerAliasFromControllerClassName()` keeps the segment after `Controller\`, so a short alias yields an empty URL / `InvalidControllerNameException`. Namespaced backend arguments are OFF here, so use bare `controller`/`action` keys (NOT `tx_nrllm_task[...]`; the bot's suggested namespaced form is wrong for this instance). Introduced by ADR-027's TaskController split.
 <!-- AGENTS-GENERATED:END heuristics -->
 
 <!-- AGENTS-GENERATED:START utilities -->
