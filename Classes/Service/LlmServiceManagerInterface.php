@@ -134,6 +134,22 @@ interface LlmServiceManagerInterface
      */
     public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse;
 
+    /**
+     * Chat completion with tool calling against a specific LLM configuration.
+     *
+     * Unlike {@see self::chatWithTools()} — which resolves a provider from
+     * ExtensionConfiguration against a model-less transient configuration —
+     * this entry point resolves the adapter from the configuration's model
+     * (vault key + model + pricing) so the middleware pipeline records real
+     * cost and budget. Legacy array-shaped message and tool fixtures are
+     * accepted for back-compat and normalised via `ChatMessage::fromArray()`
+     * / `ToolSpec::fromArray()` before dispatch.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec|array<string, mixed>>    $tools
+     */
+    public function chatWithToolsForConfiguration(array $messages, array $tools, LlmConfiguration $configuration, ?ToolOptions $options = null): CompletionResponse;
+
     public function supportsFeature(string $feature, ?string $provider = null): bool;
 
     /**

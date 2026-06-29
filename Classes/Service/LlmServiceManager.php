@@ -491,6 +491,60 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
+     * Chat completion with tool calling against a specific LLM configuration.
+     *
+     * Mirrors {@see self::chatWithConfiguration()} — resolves the adapter via
+     * {@see self::getAdapterFromConfiguration()} (so the configuration's vault
+     * key + model + params drive the call) and runs through the middleware
+     * pipeline (so Budget/Usage see the real Model and record real cost) — but
+     * guards `ToolCapableInterface` and dispatches `chatCompletionWithTools()`.
+     *
+     * This is the keystone for the tool runtime: the keyed
+     * {@see self::chatWithTools()} path cannot reach a DB-backed configuration's
+     * vault key/model/pricing (it resolves a provider from ExtensionConfiguration
+     * against a model-less transient configuration), so a tool loop that must
+     * run on a selected configuration uses this entry point instead.
+     *
+     * The per-call {@see ToolOptions} take precedence over the configuration's
+     * stored defaults, matching `chatWithConfiguration()`'s override semantics.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec|array<string, mixed>>    $tools
+     */
+    public function chatWithToolsForConfiguration(array $messages, array $tools, LlmConfiguration $configuration, ?ToolOptions $options = null): CompletionResponse
+    {
+        $options ??= new ToolOptions();
+        $optionOverrides = $options->toArray();
+        unset($optionOverrides['provider']);
+
+        $normalisedMessages = $this->normaliseMessages($messages);
+        $normalisedTools    = array_values(array_map(
+            static fn(ToolSpec|array $tool): ToolSpec => $tool instanceof ToolSpec ? $tool : ToolSpec::fromArray($tool),
+            $tools,
+        ));
+
+        return $this->runThroughPipeline(
+            $configuration,
+            ProviderOperation::Tools,
+            function (LlmConfiguration $config) use ($normalisedMessages, $normalisedTools, $optionOverrides): CompletionResponse {
+                $adapter = $this->getAdapterFromConfiguration($config);
+                if (!$adapter instanceof ToolCapableInterface) {
+                    throw new UnsupportedFeatureException(
+                        sprintf('Provider "%s" does not support tool calling', $adapter->getIdentifier()),
+                        1782748801,
+                    );
+                }
+
+                $callOptions = array_merge($config->toOptionsArray(), $optionOverrides);
+                unset($callOptions['provider']);
+
+                return $adapter->chatCompletionWithTools($normalisedMessages, $normalisedTools, $callOptions);
+            },
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
+        );
+    }
+
+    /**
      * Check if a specific feature is supported by a provider.
      */
     public function supportsFeature(string $feature, ?string $provider = null): bool

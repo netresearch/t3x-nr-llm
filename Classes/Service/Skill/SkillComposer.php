@@ -112,12 +112,16 @@ final readonly class SkillComposer
      * Union of config-then-task, deduped by (source, identifier) with config winning,
      * keeping only enabled and non-orphaned skills.
      *
+     * This is the single source of truth for "which skills are in effect" — both the
+     * injection path (via selectCandidates()) and the allowed-tools gating path
+     * (AllowedToolsResolver) consume it, so the selection stays consistent.
+     *
      * @param list<Skill> $configSkills
      * @param list<Skill> $taskSkills
      *
      * @return list<Skill>
      */
-    private function selectCandidates(array $configSkills, array $taskSkills): array
+    public function effectiveSkills(array $configSkills, array $taskSkills): array
     {
         $candidates = [];
         $seen       = [];
@@ -136,6 +140,17 @@ final readonly class SkillComposer
         }
 
         return $candidates;
+    }
+
+    /**
+     * @param list<Skill> $configSkills
+     * @param list<Skill> $taskSkills
+     *
+     * @return list<Skill>
+     */
+    private function selectCandidates(array $configSkills, array $taskSkills): array
+    {
+        return $this->effectiveSkills($configSkills, $taskSkills);
     }
 
     /**

@@ -1,0 +1,4 @@
+"sys_file"
+,"uid","pid","storage","type","mime_type","name","identifier","size"
+,1,0,1,2,"image/png","logo.png","/logo.png",2048
+,2,0,2,2,"image/jpeg","secret.jpg","/secret.jpg",4096

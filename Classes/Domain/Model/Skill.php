@@ -165,6 +165,26 @@ class Skill extends AbstractEntity
         $this->allowedTools = $allowedTools;
     }
 
+    /**
+     * Decode the stored allow-list into tool names.
+     *
+     * Returns null when the skill expresses no opinion (stored value is the
+     * empty string, i.e. the front-matter declared no `allowed-tools` key, or
+     * the stored JSON is not an array). Returns the decoded list of string
+     * names otherwise — including the empty list `[]`, which is a deliberate
+     * fail-closed declaration of "no tools".
+     *
+     * @return list<string>|null
+     */
+    public function getAllowedToolsList(): ?array
+    {
+        if ($this->allowedTools === '') {
+            return null;
+        }
+        $decoded = json_decode($this->allowedTools, true);
+        return is_array($decoded) ? array_values(array_filter($decoded, is_string(...))) : null;
+    }
+
     public function isOrphaned(): bool
     {
         return $this->orphaned;
