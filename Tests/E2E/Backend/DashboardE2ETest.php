@@ -17,8 +17,10 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
@@ -69,12 +71,18 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $llmServiceManager = $this->get(LlmServiceManager::class);
         self::assertInstanceOf(LlmServiceManager::class, $llmServiceManager);
 
+        $testPromptResolver = $this->get(TestPromptResolverInterface::class);
+        self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
+
         return $this->createControllerWithReflection(LlmModuleController::class, [
             'llmServiceManager' => $llmServiceManager,
             'providerRepository' => $this->providerRepository,
             'modelRepository' => $this->modelRepository,
             'configurationRepository' => $this->configurationRepository,
             'taskRepository' => $this->taskRepository,
+            // executeTest resolves a default prompt; error paths log.
+            'testPromptResolver' => $testPromptResolver,
+            'logger' => new NullLogger(),
         ]);
     }
 

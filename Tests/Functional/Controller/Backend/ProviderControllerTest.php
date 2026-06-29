@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
@@ -90,6 +91,8 @@ final class ProviderControllerTest extends AbstractFunctionalTestCase
         $this->setPrivateProperty($controller, 'providerRepository', $providerRepository);
         $this->setPrivateProperty($controller, 'providerAdapterRegistry', $providerAdapterRegistry);
         $this->setPrivateProperty($controller, 'persistenceManager', $persistenceManager);
+        // toggleActive/testConnection log failures via LoggerInterface.
+        $this->setPrivateProperty($controller, 'logger', new NullLogger());
 
         return $controller;
     }

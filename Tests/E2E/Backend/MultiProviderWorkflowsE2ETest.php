@@ -21,9 +21,10 @@ use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
@@ -84,15 +85,17 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $providerAdapterRegistry = $this->get(ProviderAdapterRegistry::class);
         self::assertInstanceOf(ProviderAdapterRegistry::class, $providerAdapterRegistry);
 
-        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
-        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+        $testPromptResolver = $this->get(TestPromptResolverInterface::class);
+        self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
         return $this->createControllerWithReflection(ConfigurationController::class, [
             'configurationService' => $configurationService,
             'configurationRepository' => $this->configurationRepository,
             'llmServiceManager' => $llmServiceManager,
             'providerAdapterRegistry' => $providerAdapterRegistry,
-            'extensionConfiguration' => $extensionConfiguration,
+            // testConfiguration resolves a default prompt; error paths log.
+            'testPromptResolver' => $testPromptResolver,
+            'logger' => new NullLogger(),
         ]);
     }
 
