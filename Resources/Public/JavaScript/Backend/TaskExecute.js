@@ -3,14 +3,12 @@
  */
 import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 import Notification from '@typo3/backend/notification.js';
+import { escapeHtml } from '@netresearch/nr-llm/Backend/HtmlEscape.js';
 
 class TaskExecute {
     constructor() {
         this.container = document.querySelector('[data-task-execute]');
         if (!this.container) return;
-
-        // Create reusable element for HTML escaping
-        this._escapeEl = document.createElement('div');
 
         // Raw response content for format switching
         this._rawContent = '';
@@ -344,7 +342,7 @@ class TaskExecute {
      */
     renderOutput() {
         const content = this._rawContent;
-        const escaped = this.escapeHtml(content);
+        const escaped = escapeHtml(content);
 
         switch (this._activeFormat) {
             case 'html':
@@ -457,21 +455,6 @@ class TaskExecute {
         }).catch(() => {
             Notification.error('Failed', 'Could not copy to clipboard');
         });
-    }
-
-    /**
-     * Escape HTML entities to prevent XSS attacks.
-     * LLM responses are untrusted external content.
-     *
-     * @param {string} text - The text to escape
-     * @returns {string} - HTML-escaped text
-     */
-    escapeHtml(text) {
-        if (typeof text !== 'string') {
-            return '';
-        }
-        this._escapeEl.textContent = text;
-        return this._escapeEl.innerHTML;
     }
 }
 
