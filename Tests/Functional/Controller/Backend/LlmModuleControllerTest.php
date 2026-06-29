@@ -15,9 +15,11 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
@@ -101,6 +103,13 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         $this->setPrivateProperty($controller, 'modelRepository', $modelRepository);
         $this->setPrivateProperty($controller, 'configurationRepository', $configurationRepository);
         $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
+
+        // executeTestAction resolves a default prompt and logs provider
+        // errors via LoggerInterface — initialise both typed properties.
+        $testPromptResolver = $this->get(TestPromptResolverInterface::class);
+        self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
+        $this->setPrivateProperty($controller, 'testPromptResolver', $testPromptResolver);
+        $this->setPrivateProperty($controller, 'logger', new NullLogger());
 
         return $controller;
     }

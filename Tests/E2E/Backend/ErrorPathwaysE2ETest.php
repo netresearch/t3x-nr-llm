@@ -29,10 +29,11 @@ use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
 use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Message\ResponseInterface;
-use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
@@ -118,6 +119,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
             'providerRepository' => $this->providerRepository,
             'providerAdapterRegistry' => $providerAdapterRegistry,
             'persistenceManager' => $this->persistenceManager,
+            // toggleActive/testConnection log failures via LoggerInterface.
+            'logger' => new NullLogger(),
         ]);
     }
 
@@ -129,8 +132,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $modelDiscovery = $this->get(ModelDiscoveryInterface::class);
         self::assertInstanceOf(ModelDiscoveryInterface::class, $modelDiscovery);
 
-        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
-        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+        $testPromptResolver = $this->get(TestPromptResolverInterface::class);
+        self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
         return $this->createControllerWithReflection(ModelController::class, [
             'modelRepository' => $this->modelRepository,
@@ -138,7 +141,9 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
             'providerAdapterRegistry' => $providerAdapterRegistry,
             'modelDiscovery' => $modelDiscovery,
             'persistenceManager' => $this->persistenceManager,
-            'extensionConfiguration' => $extensionConfiguration,
+            // testModel resolves a default prompt; error paths log.
+            'testPromptResolver' => $testPromptResolver,
+            'logger' => new NullLogger(),
         ]);
     }
 
@@ -153,15 +158,17 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $configurationService = $this->get(LlmConfigurationService::class);
         self::assertInstanceOf(LlmConfigurationService::class, $configurationService);
 
-        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
-        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+        $testPromptResolver = $this->get(TestPromptResolverInterface::class);
+        self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
         return $this->createControllerWithReflection(ConfigurationController::class, [
             'configurationService' => $configurationService,
             'configurationRepository' => $this->configurationRepository,
             'llmServiceManager' => $llmServiceManager,
             'providerAdapterRegistry' => $providerAdapterRegistry,
-            'extensionConfiguration' => $extensionConfiguration,
+            // testConfiguration resolves a default prompt; error paths log.
+            'testPromptResolver' => $testPromptResolver,
+            'logger' => new NullLogger(),
         ]);
     }
 
@@ -177,6 +184,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
             'taskRepository'       => $this->taskRepository,
             'taskExecutionService' => $taskExecutionService,
             'taskInputResolver'    => $taskInputResolver,
+            // executeAction logs provider/unexpected errors via LoggerInterface.
+            'logger'               => new NullLogger(),
         ]);
     }
 
@@ -191,8 +200,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $taskRepository = $this->get(TaskRepository::class);
         self::assertInstanceOf(TaskRepository::class, $taskRepository);
 
-        $extensionConfiguration = $this->get(ExtensionConfiguration::class);
-        self::assertInstanceOf(ExtensionConfiguration::class, $extensionConfiguration);
+        $testPromptResolver = $this->get(TestPromptResolverInterface::class);
+        self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
         return $this->createControllerWithReflection(LlmModuleController::class, [
             'llmServiceManager' => $llmServiceManager,
@@ -200,7 +209,9 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
             'modelRepository' => $this->modelRepository,
             'configurationRepository' => $configurationRepository,
             'taskRepository' => $taskRepository,
-            'extensionConfiguration' => $extensionConfiguration,
+            // executeTest resolves a default prompt; error paths log.
+            'testPromptResolver' => $testPromptResolver,
+            'logger' => new NullLogger(),
         ]);
     }
 

@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
 use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
@@ -74,10 +75,14 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
             'taskRepository'       => $this->taskRepository,
             'taskExecutionService' => $taskExecutionService,
             'taskInputResolver'    => $taskInputResolver,
+            // executeAction logs provider/unexpected errors via LoggerInterface.
+            'logger'               => new NullLogger(),
         ]);
 
         $this->recordsController = $this->createControllerWithReflection(TaskRecordsController::class, [
             'recordTableReader' => $recordTableReader,
+            // record actions log failures via LoggerInterface.
+            'logger'            => new NullLogger(),
         ]);
     }
 

@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
@@ -102,6 +103,8 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
         $this->setPrivateProperty($controller, 'taskExecutionService', $taskExecutionService);
         $this->setPrivateProperty($controller, 'taskInputResolver', $taskInputResolver);
+        // executeAction logs provider/unexpected errors via LoggerInterface.
+        $this->setPrivateProperty($controller, 'logger', new NullLogger());
 
         return $controller;
     }
@@ -113,6 +116,8 @@ final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTest
         $controller = $reflection->newInstanceWithoutConstructor();
 
         $this->setPrivateProperty($controller, 'recordTableReader', $recordTableReader);
+        // All record actions log failures via LoggerInterface.
+        $this->setPrivateProperty($controller, 'logger', new NullLogger());
 
         return $controller;
     }

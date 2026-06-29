@@ -15,9 +15,11 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
@@ -112,6 +114,14 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $this->setPrivateProperty($controller, 'persistenceManager', $persistenceManager);
         $this->setPrivateProperty($controller, 'providerAdapterRegistry', $providerAdapterRegistry);
         $this->setPrivateProperty($controller, 'modelDiscovery', $modelDiscovery);
+
+        // The test AJAX action resolves a default prompt and the typed
+        // catch blocks log via LoggerInterface — initialise both so the
+        // exercised actions don't hit an uninitialised typed property.
+        $testPromptResolver = $this->get(TestPromptResolverInterface::class);
+        self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
+        $this->setPrivateProperty($controller, 'testPromptResolver', $testPromptResolver);
+        $this->setPrivateProperty($controller, 'logger', new NullLogger());
 
         return $controller;
     }

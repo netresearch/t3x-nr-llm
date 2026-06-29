@@ -16,8 +16,10 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
+use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
@@ -79,12 +81,18 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $modelDiscovery = $this->get(ModelDiscoveryInterface::class);
         self::assertInstanceOf(ModelDiscoveryInterface::class, $modelDiscovery);
 
+        $testPromptResolver = $this->get(TestPromptResolverInterface::class);
+        self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
+
         return $this->createControllerWithReflection(ModelController::class, [
             'modelRepository' => $this->modelRepository,
             'providerRepository' => $this->providerRepository,
             'providerAdapterRegistry' => $providerAdapterRegistry,
             'modelDiscovery' => $modelDiscovery,
             'persistenceManager' => $this->persistenceManager,
+            // testModel resolves a default prompt; error paths log.
+            'testPromptResolver' => $testPromptResolver,
+            'logger' => new NullLogger(),
         ]);
     }
 
