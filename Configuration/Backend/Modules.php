@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Controller\Backend\TaskListController;
 use Netresearch\NrLlm\Controller\Backend\TaskWizardController;
+use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
 
 /**
  * Backend module registration for nr_llm.
@@ -195,6 +196,23 @@ return [
         'extensionName' => 'NrLlm',
         'controllerActions' => [
             SkillSourceController::class => [
+                'list',
+            ],
+        ],
+    ],
+    // Tool playground - child of main module
+    // Admin-only interactive playground for the tool runtime (PR-A).
+    // Note: the AJAX runAction is registered via AjaxRoutes.php (nrllm_tool_run)
+    // and additionally guards itself with RequiresBackendAdminTrait (ADR-037).
+    'nrllm_tools' => [
+        'parent' => 'nrllm',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-tool',
+        'path' => '/module/nrllm/tools',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf',
+        'extensionName' => 'NrLlm',
+        'controllerActions' => [
+            ToolPlaygroundController::class => [
                 'list',
             ],
         ],
