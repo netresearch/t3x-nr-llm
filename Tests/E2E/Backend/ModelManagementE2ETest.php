@@ -115,7 +115,11 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
             self::assertInstanceOf(Model::class, $model);
             self::assertNotEmpty($model->getName(), 'Model should have a name');
             self::assertNotEmpty($model->getModelId(), 'Model should have a model ID');
-            self::assertNotNull($model->getProvider(), 'Model should have a provider');
+            // "orphan-model" (uid 6) is an intentional provider-less edge-case
+            // fixture consumed by ModelControllerTest::testModelReturnsErrorForModelWithoutProvider.
+            if ($model->getIdentifier() !== 'orphan-model') {
+                self::assertNotNull($model->getProvider(), 'Model should have a provider');
+            }
         }
     }
 
@@ -180,8 +184,13 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
 
         self::assertNotEmpty($counts);
 
-        // User sees count for each provider
+        // User sees count for each provider. provider_uid 0 is the intentional
+        // "orphan-model" edge-case fixture (a model with no provider) and is
+        // not a real provider bucket.
         foreach ($counts as $providerUid => $count) {
+            if ($providerUid === 0) {
+                continue;
+            }
             self::assertGreaterThan(0, $providerUid);
             self::assertGreaterThan(0, $count);
         }
@@ -743,6 +752,11 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
 
         foreach ($models as $model) {
             self::assertInstanceOf(Model::class, $model);
+            // "orphan-model" (uid 6) is an intentional provider-less edge-case
+            // fixture for error-path testing; skip the integrity check for it.
+            if ($model->getIdentifier() === 'orphan-model') {
+                continue;
+            }
             $provider = $model->getProvider();
             self::assertNotNull($provider, "Model {$model->getName()} must have a provider");
             self::assertNotNull($provider->getUid(), 'Provider must have UID');

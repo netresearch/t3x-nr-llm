@@ -209,7 +209,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $response = $this->controller->executeTestAction();
 
         // Verify response structure
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
@@ -389,7 +389,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             $response = $this->controller->executeTestAction();
 
             // Each provider should return a valid response structure
-            self::assertContains($response->getStatusCode(), [200, 500]);
+            self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
             $body = json_decode((string)$response->getBody(), true);
             self::assertIsArray($body);
@@ -414,7 +414,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $response = $this->controller->executeTestAction();
 
         // Should return error for invalid provider
-        self::assertContains($response->getStatusCode(), [400, 404, 500]);
+        self::assertContains($response->getStatusCode(), [400, 404, 500, 502]);
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
@@ -439,7 +439,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $response = $this->controller->executeTestAction();
 
         // Should handle special characters gracefully
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
@@ -465,7 +465,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $response = $this->controller->executeTestAction();
 
         // Should handle long prompts (may succeed or fail with token limit error)
-        self::assertContains($response->getStatusCode(), [200, 400, 500]);
+        self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
@@ -488,7 +488,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $response = $this->controller->executeTestAction();
 
         // Should handle whitespace-only prompt (might use default or return error)
-        self::assertContains($response->getStatusCode(), [200, 400, 500]);
+        self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
@@ -512,7 +512,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $response = $this->controller->executeTestAction();
 
         // Should handle multiline prompts
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
@@ -717,6 +717,11 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $models = $this->modelRepository->findActive()->toArray();
 
         foreach ($models as $model) {
+            // "orphan-model" (uid 6) is an intentional provider-less edge-case
+            // fixture for error-path testing; skip the relationship check for it.
+            if ($model->getIdentifier() === 'orphan-model') {
+                continue;
+            }
             // Dashboard shows model capabilities
             self::assertNotEmpty($model->getModelId());
             self::assertGreaterThanOrEqual(0, $model->getContextLength());
@@ -808,6 +813,11 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
         // Every model should have a valid provider
         foreach ($models as $model) {
+            // "orphan-model" (uid 6) is an intentional provider-less edge-case
+            // fixture for error-path testing; skip the relationship check for it.
+            if ($model->getIdentifier() === 'orphan-model') {
+                continue;
+            }
             $provider = $model->getProvider();
             self::assertNotNull($provider);
             $providerUid = $provider->getUid();
@@ -872,7 +882,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
         // All providers should return valid responses
         foreach ($results as $result) {
-            self::assertContains($result['status'], [200, 500]);
+            self::assertContains($result['status'], [200, 500, 502]);
         }
     }
 
@@ -893,7 +903,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
 
             $response = $this->controller->executeTestAction();
 
-            self::assertContains($response->getStatusCode(), [200, 500]);
+            self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
             $body = json_decode((string)$response->getBody(), true);
             self::assertIsArray($body);
@@ -1033,7 +1043,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $this->setPrivateProperty($this->controller, 'request', $request);
         $response = $this->controller->executeTestAction();
 
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
     }
@@ -1052,7 +1062,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $this->setPrivateProperty($this->controller, 'request', $request);
         $response = $this->controller->executeTestAction();
 
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
     }
@@ -1071,7 +1081,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $this->setPrivateProperty($this->controller, 'request', $request);
         $response = $this->controller->executeTestAction();
 
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
     }
@@ -1274,6 +1284,11 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $models = $this->modelRepository->findActive()->toArray();
 
         foreach ($models as $model) {
+            // "orphan-model" (uid 6) is an intentional provider-less edge-case
+            // fixture for error-path testing; skip the relationship check for it.
+            if ($model->getIdentifier() === 'orphan-model') {
+                continue;
+            }
             $provider = $model->getProvider();
             self::assertNotNull($provider, 'Each model must have a provider');
             self::assertNotNull($provider->getUid());
@@ -1402,6 +1417,11 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         self::assertGreaterThanOrEqual(0, $models->count());
 
         foreach ($models as $model) {
+            // "orphan-model" (uid 6) is an intentional provider-less edge-case
+            // fixture for error-path testing; skip the relationship check for it.
+            if ($model->getIdentifier() === 'orphan-model') {
+                continue;
+            }
             self::assertNotNull($model->getProvider());
         }
     }

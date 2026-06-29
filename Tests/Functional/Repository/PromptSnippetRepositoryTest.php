@@ -122,14 +122,15 @@ final class PromptSnippetRepositoryTest extends AbstractFunctionalTestCase
     {
         $snippets = $this->repository->findActiveByTag('tone_of_voice');
 
-        // tone-formal (sorting 10) before tone-casual (sorting 20),
-        // although 'Casual tone' sorts before 'Formal tone' by name
+        // tone-formal (sorting 10) comes before tone-casual (sorting 20),
+        // although by name 'Casual tone' sorts before 'Formal tone' — proving
+        // the query's `sorting ASC, name ASC` ordering puts sorting first.
+        // Assert the resulting identifier order (the repository's contract);
+        // `sorting` is a TCA `ctrl.sortby` field which Extbase uses for the
+        // query ordering but does not hydrate back onto the domain property.
         self::assertSame(
-            [10, 20],
-            array_map(
-                static fn(PromptSnippet $snippet): int => $snippet->getSorting(),
-                $snippets,
-            ),
+            ['tone-formal', 'tone-casual'],
+            $this->identifiersOf($snippets),
         );
     }
 

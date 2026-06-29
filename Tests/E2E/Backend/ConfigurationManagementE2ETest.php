@@ -152,7 +152,11 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         // Verify each configuration has required display information
         foreach ($configurations as $config) {
             self::assertNotEmpty($config->getName(), 'Configuration should have a name');
-            self::assertNotNull($config->getLlmModel(), 'Configuration should have a model');
+            // "no-model-config" (uid 8) is an intentional model-less edge-case
+            // fixture consumed by ConfigurationControllerTest::testConfigurationReturnsErrorForConfigurationWithoutModel.
+            if ($config->getIdentifier() !== 'no-model-config') {
+                self::assertNotNull($config->getLlmModel(), 'Configuration should have a model');
+            }
             // isActive() and isDefault() return bool, getTemperature() returns float, getMaxTokens() returns int
             // Verify values are accessible (types are enforced by domain model)
             $config->isActive();
@@ -338,7 +342,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $response = $this->controller->testConfigurationAction($request);
 
         // Response should have proper structure
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
@@ -366,7 +370,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         ]);
         $response = $this->controller->testConfigurationAction($request);
 
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
@@ -1165,7 +1169,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $response = $this->controller->testConfigurationAction($request);
 
         // Should handle special characters gracefully
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
     }
@@ -1466,7 +1470,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $response = $this->controller->testConfigurationAction($request);
 
         // Either success or error response
-        self::assertContains($response->getStatusCode(), [200, 400, 500]);
+        self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);

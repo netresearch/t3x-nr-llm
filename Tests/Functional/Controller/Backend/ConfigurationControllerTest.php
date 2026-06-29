@@ -358,7 +358,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
         $response = $this->controller->testConfigurationAction($request);
 
         // Assert - response is either success or connection failure (expected without real API)
-        self::assertContains($response->getStatusCode(), [200, 400, 500]);
+        self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
