@@ -19,10 +19,13 @@ use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
+use TYPO3\CMS\Core\Imaging\IconFactory;
+use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Utility\StringUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 #[AsController]
 final class SkillSourceController extends ActionController
@@ -37,6 +40,8 @@ final class SkillSourceController extends ActionController
         private readonly VaultServiceInterface $vault,
         private readonly PersistenceManagerInterface $persistenceManager,
         private readonly PageRenderer $pageRenderer,
+        private readonly IconFactory $iconFactory,
+        private readonly FormEngineUrlBuilder $formEngineUrlBuilder,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -44,6 +49,17 @@ final class SkillSourceController extends ActionController
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/SkillList.js');
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->makeDocHeaderModuleMenu();
+
+        // "Add source" button in the docheader → FormEngine new-record form for
+        // tx_nrllm_skill_source, returning to this module after save/close.
+        $buttonBar = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
+        $createButton = $buttonBar->makeLinkButton()
+            ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.skill.source.new', 'NrLlm') ?? 'Add source')
+            ->setShowLabelText(true)
+            ->setHref($this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_skill_source', 'nrllm_skills'));
+        $buttonBar->addButton($createButton);
+
         $moduleTemplate->assignMultiple([
             'sources' => $this->sourceRepository->findAll(),
             'skills' => $this->skillRepository->findAll(),
