@@ -121,7 +121,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         ];
 
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn(array_merge($defaultConfig, $config));
 
@@ -139,7 +139,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     private function createSubjectWithoutApiKey(): TextToSpeechService
     {
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => [],
@@ -334,7 +334,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $this->setupSuccessfulRequest();
 
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => [
@@ -385,11 +385,11 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $record->_setProperty('uid', 7);
 
         $modelRepository = $this->createMock(ModelRepository::class);
-        $modelRepository->expects(self::any())->method('findOneByModelId')->with('tts-1')->willReturn($record);
+        $modelRepository->expects(self::once())->method('findOneByModelId')->with('tts-1')->willReturn($record);
 
         $this->setupSuccessfulRequest();
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
 
@@ -542,13 +542,13 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $configuration->_setProperty('uid', 11);
 
         $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
-        $configurationRepository->expects(self::any())->method('findOneByIdentifier')
+        $configurationRepository->expects(self::once())->method('findOneByIdentifier')
             ->with('podcast-narration')
             ->willReturn($configuration);
 
         $this->setupSuccessfulRequest();
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
 
@@ -820,7 +820,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     public function loadConfigurationHandlesInvalidConfig(): void
     {
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
@@ -1039,7 +1039,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     public function loadConfigurationHandlesNonArrayConfig(): void
     {
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
@@ -1059,7 +1059,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     public function loadConfigurationHandlesNonArrayProviders(): void
     {
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'providers' => 'not-an-array',

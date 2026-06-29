@@ -68,7 +68,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     {
         $template = $this->createTemplate('my-prompt');
         $this->repositoryMock
-            ->expects(self::any())->method('findOneByIdentifier')
+            ->expects(self::once())->method('findOneByIdentifier')
             ->with('my-prompt')
             ->willReturn($template);
 
@@ -81,7 +81,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     public function getPromptThrowsExceptionWhenNotFound(): void
     {
         $this->repositoryMock
-            ->expects(self::any())->method('findOneByIdentifier')
+            ->expects(self::once())->method('findOneByIdentifier')
             ->with('nonexistent')
             ->willReturn(null);
 
@@ -463,7 +463,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
     {
         $variant = $this->createTemplate('variant-a');
         $this->repositoryMock
-            ->expects(self::any())->method('findVariant')
+            ->expects(self::once())->method('findVariant')
             ->with('base', 'variant-a')
             ->willReturn($variant);
 
@@ -548,7 +548,7 @@ class PromptTemplateServiceTest extends AbstractUnitTestCase
             ->willReturn([$template1, $template2]);
 
         $this->repositoryMock
-            ->expects(self::any())->method('findByFeature')
+            ->expects(self::once())->method('findByFeature')
             ->with('translation')
             ->willReturn($queryResultMock);
 

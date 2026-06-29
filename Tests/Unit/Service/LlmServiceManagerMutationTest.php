@@ -244,7 +244,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 
         $provider = $this->createMock(ProviderInterface::class);
         $provider->method('getIdentifier')->willReturn('test');
-        $provider->expects(self::any())->method('supportsFeature')
+        $provider->expects(self::once())->method('supportsFeature')
             ->with('chat')
             ->willReturn(true);
 

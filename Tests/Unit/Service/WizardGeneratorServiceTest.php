@@ -154,7 +154,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $defaultConfig = $this->createConfigurationWithModel();
 
         $this->configurationRepository
-            ->expects(self::any())->method('findByUid')
+            ->expects(self::once())->method('findByUid')
             ->with(999)
             ->willReturn(null);
         $this->stubDefaultConfig($defaultConfig);

@@ -38,8 +38,10 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     public function getReturnsNullWhenCacheHasNoEntry(): void
     {
         $cacheFrontend = $this->createMock(FrontendInterface::class);
+        // CacheManager::get() reads via $cache->get() directly (it never calls
+        // has()); a missing entry is signalled by get() returning false.
         $cacheFrontend
-            ->expects(self::any())->method('has')
+            ->expects(self::once())->method('get')
             ->with('test_key')
             ->willReturn(false);
 
@@ -57,11 +59,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
 
         $cacheFrontend = $this->createMock(FrontendInterface::class);
         $cacheFrontend
-            ->expects(self::any())->method('has')
-            ->with('test_key')
-            ->willReturn(true);
-        $cacheFrontend
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('test_key')
             ->willReturn($expectedData);
 

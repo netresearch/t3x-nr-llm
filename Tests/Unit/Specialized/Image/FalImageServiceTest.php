@@ -154,7 +154,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         ];
 
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn(array_replace_recursive($defaultConfig, $config));
 
@@ -171,7 +171,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
     private function createSubjectWithoutApiKey(): FalImageService
     {
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'image' => [
@@ -440,7 +440,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         ]);
 
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'image' => [
@@ -610,7 +610,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         ]);
 
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'image' => [
@@ -764,7 +764,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
     public function loadConfigurationHandlesInvalidConfig(): void
     {
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn('not-an-array');
 
@@ -784,7 +784,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
     public function loadConfigurationHandlesMissingImageConfig(): void
     {
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn([]);
 
@@ -804,7 +804,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
     public function loadConfigurationHandlesMissingFalConfig(): void
     {
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn(['image' => []]);
 
@@ -868,7 +868,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
     public function loadConfigurationHandlesNumericTypes(): void
     {
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'image' => [
@@ -1080,7 +1080,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willThrowException(new RuntimeException('Connection timeout'));
 
         $this->extensionConfigMock
-            ->expects(self::any())->method('get')
+            ->expects(self::once())->method('get')
             ->with('nr_llm')
             ->willReturn([
                 'image' => [
