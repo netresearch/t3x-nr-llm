@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
@@ -99,6 +100,11 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
             'modelRepository' => $this->modelRepository,
             'llmConfigurationRepository' => $this->configurationRepository,
             'persistenceManager' => $this->persistenceManager,
+            // The vault's master-key encryption isn't configured in the
+            // functional env, so the real VaultService::store() throws and the
+            // save flow returns 500. Inject a stub (no-op void store(), null
+            // retrieve()) so the wizard's persist path completes as in prod.
+            'vaultService' => self::createStub(VaultServiceInterface::class),
         ]);
     }
 

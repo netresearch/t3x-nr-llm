@@ -220,7 +220,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $request1 = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config1->getUid()]);
         $response1 = $this->configurationController->testConfigurationAction($request1);
 
-        self::assertContains($response1->getStatusCode(), [200, 500]);
+        self::assertContains($response1->getStatusCode(), [200, 500, 502]);
         $body1 = json_decode((string)$response1->getBody(), true);
         self::assertIsArray($body1);
 
@@ -231,7 +231,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             $request2 = $this->createFormRequest(self::AJAX_CONFIG_TEST, ['uid' => $config2->getUid()]);
             $response2 = $this->configurationController->testConfigurationAction($request2);
 
-            self::assertContains($response2->getStatusCode(), [200, 500]);
+            self::assertContains($response2->getStatusCode(), [200, 500, 502]);
             $body2 = json_decode((string)$response2->getBody(), true);
             self::assertIsArray($body2);
 
@@ -399,7 +399,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $response = $this->configurationController->testConfigurationAction($request);
 
         // Should return a structured response (success or error)
-        self::assertContains($response->getStatusCode(), [200, 400, 500]);
+        self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
 
@@ -1318,6 +1318,11 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $models = $queryResult->toArray();
 
         foreach ($models as $model) {
+            // "orphan-model" (uid 6) is an intentional provider-less edge-case
+            // fixture for error-path testing; skip the relationship check for it.
+            if ($model->getIdentifier() === 'orphan-model') {
+                continue;
+            }
             $provider = $model->getProvider();
             self::assertNotNull($provider, "Model {$model->getName()} must have a provider");
             self::assertNotNull($provider->getUid());
@@ -1506,6 +1511,12 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $models = $queryResult->toArray();
 
         foreach ($models as $model) {
+            // "orphan-model" (uid 6) is an intentional provider-less edge-case
+            // fixture consumed by ModelControllerTest; it is the one deliberate
+            // orphan and is excluded from this no-orphans integrity sweep.
+            if ($model->getIdentifier() === 'orphan-model') {
+                continue;
+            }
             $provider = $model->getProvider();
             self::assertNotNull($provider, "Model {$model->getIdentifier()} is orphaned");
 

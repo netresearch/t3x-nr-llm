@@ -261,7 +261,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $response = $this->providerController->testConnectionAction($request);
 
         // Response should be structured (not crash)
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
@@ -356,8 +356,9 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->setPrivateProperty($this->dashboardController, 'request', $request);
         $response = $this->dashboardController->executeTestAction();
 
-        // Response should be structured
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        // Response should be structured. 502 = upstream provider unreachable
+        // in the test env (Bad Gateway), handled gracefully.
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
 
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);

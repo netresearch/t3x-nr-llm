@@ -124,8 +124,10 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
 
         $configs = $this->subject->getAccessibleConfigurations();
 
-        // Should return all active configurations for admin
-        self::assertCount(6, $configs);
+        // Should return all active configurations for admin: 6 fully-wired
+        // configs + the intentional edge-case fixture "no-model-config"
+        // (uid 8, active but model_uid=0) = 7.
+        self::assertCount(7, $configs);
     }
 
     #[Test]

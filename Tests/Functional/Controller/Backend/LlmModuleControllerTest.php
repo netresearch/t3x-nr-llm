@@ -203,8 +203,9 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         // Act
         $response = $this->controller->executeTestAction();
 
-        // Assert - either 200 with success or 500 with error (no real API)
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        // Assert - either 200 with success or 500/502 with error (no real API:
+        // 502 = upstream provider unreachable in the test env, Bad Gateway)
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
 
@@ -233,8 +234,9 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         // Act
         $response = $this->controller->executeTestAction();
 
-        // Assert - either 200 or 500, but not 400 (bad request)
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        // Assert - either 200 or 500/502, but not 400 (bad request);
+        // 502 = upstream provider unreachable in the test env (Bad Gateway)
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         // The action should proceed (not return bad request for missing prompt)

@@ -317,8 +317,8 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $response2 = $this->llmModuleController->executeTestAction();
 
         // Both requests should return valid responses (success or error)
-        self::assertContains($response1->getStatusCode(), [200, 500]);
-        self::assertContains($response2->getStatusCode(), [200, 500]);
+        self::assertContains($response1->getStatusCode(), [200, 500, 502]);
+        self::assertContains($response2->getStatusCode(), [200, 500, 502]);
 
         $body1 = json_decode((string)$response1->getBody(), true);
         $body2 = json_decode((string)$response2->getBody(), true);

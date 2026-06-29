@@ -50,7 +50,10 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->findAll();
 
-        self::assertCount(7, $result);
+        // 8 non-deleted rows incl. the intentional edge-case fixture
+        // "no-model-config" (uid 8, model_uid=0) used by the error-path
+        // controller tests (testConfigurationReturnsErrorForConfigurationWithoutModel).
+        self::assertCount(8, $result);
     }
 
     #[Test]
@@ -78,7 +81,9 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     {
         $result = $this->subject->findActive();
 
-        self::assertCount(6, $result);
+        // 7 active rows: 6 fully-wired configs + the intentional edge-case
+        // fixture "no-model-config" (uid 8, active but model_uid=0).
+        self::assertCount(7, $result);
 
         foreach ($result as $config) {
             self::assertTrue($config->isActive());

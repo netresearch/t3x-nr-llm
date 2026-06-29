@@ -241,8 +241,10 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // Act
         $response = $this->configController->testConfigurationAction($request);
 
-        // Assert - should return error response without crashing
-        self::assertContains($response->getStatusCode(), [200, 400, 500]);
+        // Assert - should return error response without crashing.
+        // 502 = the upstream provider is unreachable in the test env (handled
+        // gracefully as Bad Gateway), not a crash.
+        self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertArrayHasKey('success', $body);
@@ -269,8 +271,9 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // Act
         $response = $this->llmModuleController->executeTestAction();
 
-        // Assert - should return structured error response
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        // Assert - should return structured error response.
+        // 502 = upstream provider unreachable in the test env (Bad Gateway).
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
 
@@ -328,8 +331,9 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // Act
         $response = $this->configController->testConfigurationAction($request);
 
-        // Assert - should return proper HTTP status
-        self::assertContains($response->getStatusCode(), [200, 400, 500]);
+        // Assert - should return proper HTTP status.
+        // 502 = upstream provider unreachable in the test env (Bad Gateway).
+        self::assertContains($response->getStatusCode(), [200, 400, 500, 502]);
 
         // Body should be valid JSON
         $body = json_decode((string)$response->getBody(), true);
@@ -353,8 +357,9 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         // Act
         $response = $this->llmModuleController->executeTestAction();
 
-        // Assert - should not throw unhandled exception
-        self::assertContains($response->getStatusCode(), [200, 500]);
+        // Assert - should not throw unhandled exception.
+        // 502 = upstream provider unreachable in the test env (Bad Gateway).
+        self::assertContains($response->getStatusCode(), [200, 500, 502]);
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
 
