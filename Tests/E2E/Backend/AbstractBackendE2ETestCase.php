@@ -36,6 +36,13 @@ abstract class AbstractBackendE2ETestCase extends AbstractFunctionalTestCase
         $this->importFixture('Models.csv');
         $this->importFixture('LlmConfigurations.csv');
         $this->importFixture('Tasks.csv');
+
+        // Authenticate as an admin backend user: the backend controllers these
+        // E2E tests drive are admin-gated (RequiresBackendAdminTrait, ADR-037),
+        // so without an admin BE user their actions return 403. uid 1 in
+        // BeUsers.csv is an admin (admin=1).
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
     }
 
     /**
