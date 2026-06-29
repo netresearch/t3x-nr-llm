@@ -18,6 +18,8 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionClass;
+use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
 /**
  * Unit tests for LlmConfiguration domain entity.
@@ -707,6 +709,20 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
     public function beGroupsStorageInitializedInConstructor(): void
     {
         self::assertNotNull($this->subject->getBeGroups());
+    }
+
+    #[Test]
+    public function getSkillsReturnsEmptyStorageWhenReconstitutedWithoutConstructor(): void
+    {
+        // Extbase reconstitutes a relation-less entity without running the
+        // constructor, leaving the typed $skills property unset. getSkills()
+        // must not throw "must not be accessed before initialization".
+        $reconstituted = (new ReflectionClass(LlmConfiguration::class))->newInstanceWithoutConstructor();
+
+        $skills = $reconstituted->getSkills();
+
+        self::assertInstanceOf(ObjectStorage::class, $skills);
+        self::assertCount(0, $skills);
     }
 
     /**

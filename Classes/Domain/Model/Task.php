@@ -229,6 +229,11 @@ class Task extends AbstractEntity
      */
     public function getSkills(): ObjectStorage
     {
+        // Extbase can reconstitute a relation-less entity without the constructor's
+        // ObjectStorage init, leaving this typed property unset.
+        if (!isset($this->skills)) { // @phpstan-ignore isset.initializedProperty (Extbase reconstitution skips the constructor)
+            $this->skills = new ObjectStorage();
+        }
         return $this->skills;
     }
 
