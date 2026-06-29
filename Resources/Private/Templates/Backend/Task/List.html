@@ -9,21 +9,41 @@
     <div>
         <h1>
             <core:icon identifier="actions-bolt" size="medium" />
-            Tasks ({totalCount})
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.list.title" default="Tasks" /> ({totalCount})
         </h1>
 
-        <f:be.infobox state="-2">
-            <p>Tasks define <strong>what</strong> the AI should do: a prompt template with placeholders for input data. Each task is a one-shot prompt — for example, "Summarize this text" or "Check for grammar errors". Tasks receive input, send it to the LLM, and return the result.</p>
-            <p class="mb-0">Each task uses a <strong>Configuration</strong> that defines <strong>how</strong> the AI behaves (model, temperature, system prompt). You can assign different configurations to tasks depending on the use case — a translation task might use a precise, low-temperature configuration, while a creative writing task uses a high-temperature one.</p>
+        <f:be.infobox state="-1">
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.adminOnly" default="This module is admin-only. Records and actions here affect every editor using LLM features." /></p>
         </f:be.infobox>
+
+        <div class="mb-3">
+            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
+            <a href="{be:moduleLink(route: 'nrllm_configurations')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="Configurations" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+        </div>
+
+        <f:be.infobox state="-2">
+            <p><f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.intro.line1" default="Tasks define what the AI should do." /></f:format.raw></p>
+            <p class="mb-0"><f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.intro.line2" default="Each task uses a Configuration." /></f:format.raw></p>
+        </f:be.infobox>
+
+        <f:render partial="Backend/Glossary" />
+
+        <f:if condition="{totalCount} &gt; 0 &amp;&amp; {activeCount} == 0">
+            <div class="alert alert-warning">
+                <core:icon identifier="actions-exclamation-triangle" size="small" />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.noActive.warning" default="No active tasks. Only active tasks appear in the CKEditor cowriter dialog and the API. Activate a task to make it available." />
+            </div>
+        </f:if>
 
         <f:if condition="{totalCount} == 0">
             <f:then>
                 <f:be.infobox
-                    title="No Tasks Configured"
+                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.empty.title', default: 'No Tasks Configured')}"
                     state="-1"
                 >
-                    <p>No tasks have been created yet. Use the seed data or create your first task.</p>
+                    <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.empty.message" default="Tasks are one-shot prompt templates. They require a Configuration first. Launch the Setup Wizard to get started, or create a task manually." /></p>
                     <p><a href="{wizardUrl}" class="btn btn-primary btn-sm"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.launch" default="Launch Setup Wizard" /></a></p>
                 </f:be.infobox>
             </f:then>
@@ -47,14 +67,14 @@
                                 <thead>
                                     <tr>
                                         <th style="width: 40px;"></th>
-                                        <th>Name</th>
-                                        <th>Identifier</th>
-                                        <th>Input</th>
-                                        <th>Output</th>
+                                        <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.col.name" default="Name" /></th>
+                                        <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.col.identifier" default="Identifier" /></th>
+                                        <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.col.input" default="Input" /></th>
+                                        <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.col.output" default="Output" /></th>
                                         <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.cost" default="Cost (30d)" /></th>
                                         <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.requests" default="Requests (30d)" /></th>
                                         <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.tokens" default="Tokens (30d)" /></th>
-                                        <th style="width: 200px;">Actions</th>
+                                        <th style="width: 200px;"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -63,12 +83,12 @@
                                             <td>
                                                 <f:if condition="{task.isActive}">
                                                     <f:then>
-                                                        <span class="badge text-bg-success" title="Active">
+                                                        <span class="badge text-bg-success" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.active')}">
                                                             <core:icon identifier="actions-check" size="small" />
                                                         </span>
                                                     </f:then>
                                                     <f:else>
-                                                        <span class="badge text-bg-secondary" title="Inactive">
+                                                        <span class="badge text-bg-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.inactive')}">
                                                             <core:icon identifier="actions-close" size="small" />
                                                         </span>
                                                     </f:else>
@@ -77,7 +97,7 @@
                                             <td>
                                                 <strong>{task.name}</strong>
                                                 <f:if condition="{task.isSystem}">
-                                                    <span class="badge text-bg-info ms-1" title="System task">System</span>
+                                                    <span class="badge text-bg-info ms-1" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.system')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.badge.system" default="System" /></span>
                                                 </f:if>
                                                 <f:if condition="{task.description}">
                                                     <br><small class="text-muted">{task.description}</small>
@@ -96,12 +116,12 @@
                                             <td>
                                                 <div class="btn-group btn-group-sm">
                                                     <f:if condition="{task.isActive}">
-                                                        <f:link.action action="executeForm" arguments="{uid: task.uid}" class="btn btn-success" title="Execute">
+                                                        <f:link.action action="executeForm" arguments="{uid: task.uid}" class="btn btn-success" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.execute')}">
                                                             <core:icon identifier="actions-play" size="small" />
-                                                            Run
+                                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.run" default="Run" />
                                                         </f:link.action>
                                                     </f:if>
-                                                    <a href="{editUrls.{task.uid}}" class="btn btn-secondary" title="Edit">
+                                                    <a href="{editUrls.{task.uid}}" class="btn btn-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.edit')}">
                                                         <core:icon identifier="actions-open" size="small" />
                                                     </a>
                                                 </div>

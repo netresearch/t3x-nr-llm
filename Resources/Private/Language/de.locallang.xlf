@@ -230,6 +230,10 @@
                 <source>Error</source>
                 <target>Fehler</target>
             </trans-unit>
+            <trans-unit id="error.adminRequired">
+                <source>This action requires backend administrator privileges. Please contact your site administrator to enable LLM management for your account.</source>
+                <target>Diese Aktion erfordert Backend-Administratorrechte. Bitte wenden Sie sich an Ihren Website-Administrator, um die LLM-Verwaltung für Ihr Konto zu aktivieren.</target>
+            </trans-unit>
             <trans-unit id="provider">
                 <source>Provider</source>
                 <target>Anbieter</target>
@@ -627,6 +631,854 @@
             <trans-unit id="skill.skills.empty.message">
                 <source>No skills have been ingested yet. Add a source and run a sync.</source>
                 <target>Es wurden noch keine Skills importiert. Fügen Sie eine Quelle hinzu und starten Sie eine Synchronisierung.</target>
+            </trans-unit>
+
+            <!-- Glossary partial -->
+            <trans-unit id="glossary.title">
+                <source>Terms &amp; Parameters</source>
+                <target>Begriffe &amp; Parameter</target>
+            </trans-unit>
+            <trans-unit id="glossary.intro">
+                <source>A quick reference for the terms and numeric parameters used across these modules.</source>
+                <target>Eine Kurzreferenz der Begriffe und numerischen Parameter, die in diesen Modulen verwendet werden.</target>
+            </trans-unit>
+            <trans-unit id="glossary.section.terms">
+                <source>Terms</source>
+                <target>Begriffe</target>
+            </trans-unit>
+            <trans-unit id="glossary.section.params">
+                <source>Numeric parameters</source>
+                <target>Numerische Parameter</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.provider.label">
+                <source>Provider</source>
+                <target>Anbieter</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.provider.text">
+                <source>An API connection to an LLM service (OpenAI, Claude, Gemini, Ollama, …). Stores endpoint, adapter type and the encrypted API key.</source>
+                <target>Eine API-Verbindung zu einem LLM-Dienst (OpenAI, Claude, Gemini, Ollama, …). Speichert Endpunkt, Adaptertyp und den verschlüsselten API-Schlüssel.</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.adapter.label">
+                <source>Adapter type</source>
+                <target>Adaptertyp</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.adapter.text">
+                <source>The protocol dialect a provider speaks (e.g. OpenAI-compatible, Anthropic, Gemini). Determines how requests are formatted.</source>
+                <target>Der Protokolldialekt, den ein Anbieter spricht (z. B. OpenAI-kompatibel, Anthropic, Gemini). Bestimmt, wie Anfragen formatiert werden.</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.model.label">
+                <source>Model</source>
+                <target>Modell</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.model.text">
+                <source>A specific model offered by a provider (e.g. gpt-4o, claude-sonnet). Carries its capabilities, context window and cost.</source>
+                <target>Ein bestimmtes Modell, das ein Anbieter bereitstellt (z. B. gpt-4o, claude-sonnet). Trägt seine Fähigkeiten, sein Kontextfenster und seine Kosten.</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.configuration.label">
+                <source>Configuration</source>
+                <target>Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.configuration.text">
+                <source>A reusable preset that bundles a model with default parameters and a system prompt. Tasks and consuming extensions reference it.</source>
+                <target>Eine wiederverwendbare Vorlage, die ein Modell mit Standardparametern und einem System-Prompt bündelt. Aufgaben und verwendende Erweiterungen verweisen darauf.</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.capabilities.label">
+                <source>Capabilities</source>
+                <target>Fähigkeiten</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.capabilities.text">
+                <source>What a model can do: chat, vision (image input), tool_use (function calling) and embeddings (vector representations).</source>
+                <target>Was ein Modell kann: chat, vision (Bildeingabe), tool_use (Funktionsaufrufe) und embeddings (Vektordarstellungen).</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.fallback.label">
+                <source>Fallback chain</source>
+                <target>Fallback-Kette</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.fallback.text">
+                <source>An ordered list of providers tried in turn: if one fails, the next is used automatically.</source>
+                <target>Eine geordnete Liste von Anbietern, die nacheinander versucht werden: Schlägt einer fehl, wird automatisch der nächste verwendet.</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.priority.label">
+                <source>Priority</source>
+                <target>Priorität</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.priority.text">
+                <source>Ordering weight when several providers qualify. Lower number = higher priority (tried first).</source>
+                <target>Gewichtung der Reihenfolge, wenn mehrere Anbieter infrage kommen. Niedrigere Zahl = höhere Priorität (zuerst versucht).</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.vault.label">
+                <source>Vault UUID</source>
+                <target>Vault-UUID</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.vault.text">
+                <source>A reference to an API key stored encrypted by the nr-vault extension. The key itself is never kept in the database in plain text.</source>
+                <target>Ein Verweis auf einen API-Schlüssel, der von der Erweiterung nr-vault verschlüsselt gespeichert wird. Der Schlüssel selbst wird nie im Klartext in der Datenbank abgelegt.</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.token.label">
+                <source>Token</source>
+                <target>Token</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.token.text">
+                <source>The unit LLMs read and write in — roughly a word fragment. Usage and cost are measured in tokens.</source>
+                <target>Die Einheit, in der LLMs lesen und schreiben — etwa ein Wortfragment. Nutzung und Kosten werden in Token gemessen.</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.context.label">
+                <source>Context window</source>
+                <target>Kontextfenster</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.context.text">
+                <source>The maximum number of tokens (input plus output) a model can handle in a single request.</source>
+                <target>Die maximale Anzahl an Token (Eingabe plus Ausgabe), die ein Modell in einer einzelnen Anfrage verarbeiten kann.</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.budget.label">
+                <source>Budget</source>
+                <target>Budget</target>
+            </trans-unit>
+            <trans-unit id="glossary.term.budget.text">
+                <source>A per-user spending ceiling. Requests are blocked once the ceiling for the period is reached.</source>
+                <target>Eine Ausgabenobergrenze pro Benutzer. Anfragen werden blockiert, sobald die Grenze für den Zeitraum erreicht ist.</target>
+            </trans-unit>
+            <trans-unit id="glossary.param.temperature">
+                <source>Randomness of the output (typically 0–2). Lower = more focused and deterministic, higher = more creative.</source>
+                <target>Zufälligkeit der Ausgabe (typisch 0–2). Niedriger = fokussierter und deterministischer, höher = kreativer.</target>
+            </trans-unit>
+            <trans-unit id="glossary.param.maxTokens">
+                <source>Upper limit on the number of tokens the model may generate in its response.</source>
+                <target>Obergrenze für die Anzahl der Token, die das Modell in seiner Antwort erzeugen darf.</target>
+            </trans-unit>
+            <trans-unit id="glossary.param.topP">
+                <source>Nucleus sampling (0–1): only the most probable tokens whose cumulative probability reaches top_p are considered. An alternative to temperature.</source>
+                <target>Nucleus-Sampling (0–1): Es werden nur die wahrscheinlichsten Token berücksichtigt, deren kumulierte Wahrscheinlichkeit top_p erreicht. Eine Alternative zu temperature.</target>
+            </trans-unit>
+            <trans-unit id="glossary.param.frequencyPenalty">
+                <source>Discourages repeating the same tokens (typically -2 to 2). Higher values reduce verbatim repetition.</source>
+                <target>Verringert das Wiederholen derselben Token (typisch -2 bis 2). Höhere Werte reduzieren wörtliche Wiederholungen.</target>
+            </trans-unit>
+            <trans-unit id="glossary.param.presencePenalty">
+                <source>Encourages introducing new topics (typically -2 to 2). Higher values push the model toward novelty.</source>
+                <target>Fördert das Einbringen neuer Themen (typisch -2 bis 2). Höhere Werte drängen das Modell zu mehr Abwechslung.</target>
+            </trans-unit>
+
+            <!-- Per-module help / admin / see-also -->
+            <trans-unit id="module.adminOnly">
+                <source>This module is admin-only. Records and actions here affect every editor using LLM features.</source>
+                <target>Dieses Modul ist nur für Administratoren. Datensätze und Aktionen hier wirken sich auf alle Redakteure aus, die LLM-Funktionen nutzen.</target>
+            </trans-unit>
+            <trans-unit id="seeAlso.heading">
+                <source>See also</source>
+                <target>Siehe auch</target>
+            </trans-unit>
+            <trans-unit id="seeAlso.next.models">
+                <source>Next: register Models</source>
+                <target>Weiter: Modelle anlegen</target>
+            </trans-unit>
+            <trans-unit id="seeAlso.next.configurations">
+                <source>Next: create Configurations</source>
+                <target>Weiter: Konfigurationen erstellen</target>
+            </trans-unit>
+            <trans-unit id="seeAlso.providers">
+                <source>Providers</source>
+                <target>Anbieter</target>
+            </trans-unit>
+            <trans-unit id="seeAlso.models">
+                <source>Models</source>
+                <target>Modelle</target>
+            </trans-unit>
+            <trans-unit id="seeAlso.docs">
+                <source>Read the documentation</source>
+                <target>Dokumentation lesen</target>
+            </trans-unit>
+            <trans-unit id="seeAlso.help">
+                <source>Open Help</source>
+                <target>Hilfe öffnen</target>
+            </trans-unit>
+
+            <!-- Readiness (overview) -->
+            <trans-unit id="readiness.title">
+                <source>Setup readiness</source>
+                <target>Einrichtungsstatus</target>
+            </trans-unit>
+            <trans-unit id="readiness.ready">
+                <source>Ready</source>
+                <target>Bereit</target>
+            </trans-unit>
+            <trans-unit id="readiness.incomplete">
+                <source>Setup incomplete</source>
+                <target>Einrichtung unvollständig</target>
+            </trans-unit>
+            <trans-unit id="readiness.step.provider">
+                <source>At least one Provider</source>
+                <target>Mindestens ein Anbieter</target>
+            </trans-unit>
+            <trans-unit id="readiness.step.model">
+                <source>At least one Model</source>
+                <target>Mindestens ein Modell</target>
+            </trans-unit>
+            <trans-unit id="readiness.step.configuration">
+                <source>At least one Configuration</source>
+                <target>Mindestens eine Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="readiness.hint">
+                <source>Set up Provider → Model → Configuration in that order, then create Tasks.</source>
+                <target>Richten Sie Anbieter → Modell → Konfiguration in dieser Reihenfolge ein und erstellen Sie anschließend Aufgaben.</target>
+            </trans-unit>
+            <trans-unit id="help.card.title">
+                <source>Help &amp; Documentation</source>
+                <target>Hilfe &amp; Dokumentation</target>
+            </trans-unit>
+            <trans-unit id="help.card.subtitle">
+                <source>Guides and reference</source>
+                <target>Anleitungen und Referenz</target>
+            </trans-unit>
+            <trans-unit id="skill.card.title">
+                <source>Skills</source>
+                <target>Skills</target>
+            </trans-unit>
+            <trans-unit id="skill.card.subtitle">
+                <source>Agent skill library</source>
+                <target>Skill-Bibliothek für den Agenten</target>
+            </trans-unit>
+            <trans-unit id="skill.card.description">
+                <source>Sync GitHub-hosted SKILL.md sources and enable the skills available to the agent.</source>
+                <target>Auf GitHub gehostete SKILL.md-Quellen synchronisieren und die für den Agenten verfügbaren Skills aktivieren.</target>
+            </trans-unit>
+            <trans-unit id="skill.card.button">
+                <source>Manage Skills</source>
+                <target>Skills verwalten</target>
+            </trans-unit>
+            <trans-unit id="tool.card.title">
+                <source>Tools</source>
+                <target>Werkzeuge</target>
+            </trans-unit>
+            <trans-unit id="tool.card.subtitle">
+                <source>Function-calling tools</source>
+                <target>Werkzeuge für Funktionsaufrufe</target>
+            </trans-unit>
+            <trans-unit id="tool.card.description">
+                <source>Function-calling tools available to the agent, with an admin playground to test them.</source>
+                <target>Werkzeuge für Funktionsaufrufe, die dem Agenten zur Verfügung stehen, mit einem Administrator-Playground zum Testen.</target>
+            </trans-unit>
+            <trans-unit id="tool.card.button">
+                <source>Open Tool Playground</source>
+                <target>Werkzeug-Playground öffnen</target>
+            </trans-unit>
+            <trans-unit id="help.card.description">
+                <source>Read the in-module help and the online documentation for setup guidance and troubleshooting.</source>
+                <target>Lesen Sie die Hilfe im Modul und die Online-Dokumentation für Einrichtungshinweise und Fehlerbehebung.</target>
+            </trans-unit>
+            <trans-unit id="help.card.button">
+                <source>Open Help</source>
+                <target>Hilfe öffnen</target>
+            </trans-unit>
+
+            <!-- Readiness signals (lists) -->
+            <trans-unit id="configuration.noModel.badge">
+                <source>No model assigned</source>
+                <target>Kein Modell zugewiesen</target>
+            </trans-unit>
+            <trans-unit id="configuration.noModel.title">
+                <source>This configuration has no model and cannot be activated. Edit it and assign a model first.</source>
+                <target>Diese Konfiguration hat kein Modell und kann nicht aktiviert werden. Bearbeiten Sie sie und weisen Sie zuerst ein Modell zu.</target>
+            </trans-unit>
+            <trans-unit id="configuration.intro.modelNote">
+                <source>Every configuration needs a model assigned before it can be activated and used.</source>
+                <target>Jeder Konfiguration muss ein Modell zugewiesen sein, bevor sie aktiviert und verwendet werden kann.</target>
+            </trans-unit>
+            <trans-unit id="model.noDefault.warning">
+                <source>No default model is set. Tasks and features that do not specify a model will fail until you mark one model as default.</source>
+                <target>Es ist kein Standardmodell festgelegt. Aufgaben und Funktionen, die kein Modell angeben, schlagen fehl, bis Sie ein Modell als Standard markieren.</target>
+            </trans-unit>
+            <trans-unit id="model.orphaned.title">
+                <source>This model has no provider and cannot be used. Reassign a provider to it.</source>
+                <target>Dieses Modell hat keinen Anbieter und kann nicht verwendet werden. Weisen Sie ihm erneut einen Anbieter zu.</target>
+            </trans-unit>
+            <trans-unit id="model.reassignProvider">
+                <source>Reassign Provider</source>
+                <target>Anbieter neu zuweisen</target>
+            </trans-unit>
+            <trans-unit id="task.noActive.warning">
+                <source>No active tasks. Only active tasks appear in the CKEditor cowriter dialog and the API. Activate a task to make it available.</source>
+                <target>Keine aktiven Aufgaben. Nur aktive Aufgaben erscheinen im CKEditor-Cowriter-Dialog und in der API. Aktivieren Sie eine Aufgabe, um sie verfügbar zu machen.</target>
+            </trans-unit>
+            <trans-unit id="skill.syncStatus.never">
+                <source>Never synced</source>
+                <target>Nie synchronisiert</target>
+            </trans-unit>
+            <trans-unit id="skill.syncStatus.syncing">
+                <source>Syncing</source>
+                <target>Synchronisiert gerade</target>
+            </trans-unit>
+            <trans-unit id="skill.syncStatus.ok">
+                <source>Synced</source>
+                <target>Synchronisiert</target>
+            </trans-unit>
+            <trans-unit id="skill.syncStatus.partial">
+                <source>Partial</source>
+                <target>Teilweise</target>
+            </trans-unit>
+            <trans-unit id="skill.syncStatus.error">
+                <source>Failed</source>
+                <target>Fehlgeschlagen</target>
+            </trans-unit>
+            <trans-unit id="skill.source.edit">
+                <source>Edit source</source>
+                <target>Quelle bearbeiten</target>
+            </trans-unit>
+
+            <!-- Empty-state standardization -->
+            <trans-unit id="provider.empty.hint">
+                <source>Providers are the first tier of setup (Provider → Model → Configuration). Launch the Setup Wizard to add one.</source>
+                <target>Anbieter sind die erste Stufe der Einrichtung (Anbieter → Modell → Konfiguration). Starten Sie den Einrichtungsassistenten, um einen anzulegen.</target>
+            </trans-unit>
+            <trans-unit id="model.empty.hint">
+                <source>Models are the second tier of setup and require a Provider first (Provider → Model → Configuration).</source>
+                <target>Modelle sind die zweite Stufe der Einrichtung und erfordern zuerst einen Anbieter (Anbieter → Modell → Konfiguration).</target>
+            </trans-unit>
+            <trans-unit id="configuration.empty.hint">
+                <source>Configurations are the third tier of setup and require a Model first (Provider → Model → Configuration).</source>
+                <target>Konfigurationen sind die dritte Stufe der Einrichtung und erfordern zuerst ein Modell (Anbieter → Modell → Konfiguration).</target>
+            </trans-unit>
+            <trans-unit id="task.empty.title">
+                <source>No Tasks Configured</source>
+                <target>Keine Aufgaben konfiguriert</target>
+            </trans-unit>
+            <trans-unit id="task.empty.message">
+                <source>Tasks are one-shot prompt templates. They require a Configuration first. Launch the Setup Wizard to get started, or create a task manually.</source>
+                <target>Aufgaben sind einmalige Prompt-Vorlagen. Sie erfordern zuerst eine Konfiguration. Starten Sie den Einrichtungsassistenten oder legen Sie eine Aufgabe manuell an.</target>
+            </trans-unit>
+            <trans-unit id="skill.sources.empty.admin">
+                <source>Administrators: add a source record, then run a sync. Discovered skills start disabled — enable the ones you want to use.</source>
+                <target>Administratoren: Legen Sie einen Quelldatensatz an und starten Sie eine Synchronisierung. Gefundene Skills sind zunächst deaktiviert — aktivieren Sie die, die Sie verwenden möchten.</target>
+            </trans-unit>
+            <trans-unit id="skill.sources.empty.developer">
+                <source>Developers: a source points at a GitHub-hosted SKILL.md file, repository or marketplace index.</source>
+                <target>Entwickler: Eine Quelle verweist auf eine auf GitHub gehostete SKILL.md-Datei, ein Repository oder einen Marketplace-Index.</target>
+            </trans-unit>
+            <trans-unit id="skill.skills.empty.admin">
+                <source>Administrators: once a source is synced, enable a skill here to make it available.</source>
+                <target>Administratoren: Sobald eine Quelle synchronisiert ist, aktivieren Sie hier einen Skill, um ihn verfügbar zu machen.</target>
+            </trans-unit>
+            <trans-unit id="playground.empty.admin">
+                <source>Administrators: enable a tool below, pick a configuration and run a prompt to try the agent loop.</source>
+                <target>Administratoren: Aktivieren Sie unten ein Werkzeug, wählen Sie eine Konfiguration und führen Sie einen Prompt aus, um die Agentenschleife auszuprobieren.</target>
+            </trans-unit>
+            <trans-unit id="playground.empty.developer">
+                <source>Developers: implement Netresearch\NrLlm\Service\Tool\ToolInterface and tag it with nr_llm.tool to register a new tool.</source>
+                <target>Entwickler: Implementieren Sie Netresearch\NrLlm\Service\Tool\ToolInterface und versehen Sie die Klasse mit dem Tag nr_llm.tool, um ein neues Werkzeug zu registrieren.</target>
+            </trans-unit>
+
+            <!-- Tasks list (translation sweep) -->
+            <trans-unit id="task.list.title">
+                <source>Tasks</source>
+                <target>Aufgaben</target>
+            </trans-unit>
+            <trans-unit id="task.col.name">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="task.col.identifier">
+                <source>Identifier</source>
+                <target>Bezeichner</target>
+            </trans-unit>
+            <trans-unit id="task.col.input">
+                <source>Input</source>
+                <target>Eingabe</target>
+            </trans-unit>
+            <trans-unit id="task.col.output">
+                <source>Output</source>
+                <target>Ausgabe</target>
+            </trans-unit>
+            <trans-unit id="task.badge.system">
+                <source>System</source>
+                <target>System</target>
+            </trans-unit>
+            <trans-unit id="task.title.system">
+                <source>System task</source>
+                <target>Systemaufgabe</target>
+            </trans-unit>
+            <trans-unit id="task.title.active">
+                <source>Active</source>
+                <target>Aktiv</target>
+            </trans-unit>
+            <trans-unit id="task.title.inactive">
+                <source>Inactive</source>
+                <target>Inaktiv</target>
+            </trans-unit>
+            <trans-unit id="task.action.execute">
+                <source>Execute</source>
+                <target>Ausführen</target>
+            </trans-unit>
+            <trans-unit id="task.action.run">
+                <source>Run</source>
+                <target>Starten</target>
+            </trans-unit>
+            <trans-unit id="task.action.edit">
+                <source>Edit</source>
+                <target>Bearbeiten</target>
+            </trans-unit>
+            <trans-unit id="task.intro.line1">
+                <source>Tasks define &lt;strong&gt;what&lt;/strong&gt; the AI should do: a prompt template with placeholders for input data. Each task is a one-shot prompt — for example, "Summarize this text" or "Check for grammar errors". Tasks receive input, send it to the LLM, and return the result.</source>
+                <target>Aufgaben legen fest, &lt;strong&gt;was&lt;/strong&gt; die KI tun soll: eine Prompt-Vorlage mit Platzhaltern für Eingabedaten. Jede Aufgabe ist ein einmaliger Prompt — zum Beispiel „Diesen Text zusammenfassen“ oder „Auf Grammatikfehler prüfen“. Aufgaben erhalten eine Eingabe, senden sie an das LLM und geben das Ergebnis zurück.</target>
+            </trans-unit>
+            <trans-unit id="task.intro.line2">
+                <source>Each task uses a &lt;strong&gt;Configuration&lt;/strong&gt; that defines &lt;strong&gt;how&lt;/strong&gt; the AI behaves (model, temperature, system prompt). You can assign different configurations to tasks depending on the use case — a translation task might use a precise, low-temperature configuration, while a creative writing task uses a high-temperature one.</source>
+                <target>Jede Aufgabe verwendet eine &lt;strong&gt;Konfiguration&lt;/strong&gt;, die festlegt, &lt;strong&gt;wie&lt;/strong&gt; sich die KI verhält (Modell, Temperatur, System-Prompt). Je nach Anwendungsfall können Sie Aufgaben unterschiedliche Konfigurationen zuweisen — eine Übersetzungsaufgabe nutzt vielleicht eine präzise Konfiguration mit niedriger Temperatur, während eine kreative Schreibaufgabe eine mit hoher Temperatur verwendet.</target>
+            </trans-unit>
+
+            <!-- Overview AI task callout (translation sweep) -->
+            <trans-unit id="taskAi.callout.title">
+                <source>Create Tasks with AI</source>
+                <target>Aufgaben mit KI erstellen</target>
+            </trans-unit>
+            <trans-unit id="taskAi.callout.message">
+                <source>Use the AI Task Wizard to describe what a task should do in plain language. The AI generates a complete task setup — prompt template, dedicated configuration, and model recommendation — in one step.</source>
+                <target>Beschreiben Sie mit dem KI-Aufgabenassistenten in einfacher Sprache, was eine Aufgabe tun soll. Die KI erzeugt eine vollständige Aufgabe — Prompt-Vorlage, eigene Konfiguration und Modellempfehlung — in einem Schritt.</target>
+            </trans-unit>
+            <trans-unit id="taskAi.callout.button">
+                <source>Create Task with AI</source>
+                <target>Aufgabe mit KI erstellen</target>
+            </trans-unit>
+            <trans-unit id="taskAi.createWithAi">
+                <source>Create with AI</source>
+                <target>Mit KI erstellen</target>
+            </trans-unit>
+
+            <!-- Configuration list intro (translation sweep) -->
+            <trans-unit id="configuration.intro.line1">
+                <source>Configurations define &lt;strong&gt;how&lt;/strong&gt; the AI behaves: which model to use, creativity level (temperature), response length, and a system prompt that sets the AI's role. Each configuration is a reusable preset — for example, a "Translator" config with low temperature and a translation-focused system prompt.</source>
+                <target>Konfigurationen legen fest, &lt;strong&gt;wie&lt;/strong&gt; sich die KI verhält: welches Modell verwendet wird, der Grad an Kreativität (Temperatur), die Antwortlänge und ein System-Prompt, der die Rolle der KI festlegt. Jede Konfiguration ist eine wiederverwendbare Vorlage — zum Beispiel eine „Übersetzer“-Konfiguration mit niedriger Temperatur und einem auf Übersetzung ausgerichteten System-Prompt.</target>
+            </trans-unit>
+            <trans-unit id="configuration.intro.line2">
+                <source>Configurations are shared across &lt;strong&gt;Tasks&lt;/strong&gt;. A Task defines &lt;strong&gt;what&lt;/strong&gt; to do (the prompt template), while a Configuration defines &lt;strong&gt;how&lt;/strong&gt; to do it (model, temperature, system prompt). One configuration can power many different tasks.</source>
+                <target>Konfigurationen werden von mehreren &lt;strong&gt;Aufgaben&lt;/strong&gt; gemeinsam genutzt. Eine Aufgabe legt fest, &lt;strong&gt;was&lt;/strong&gt; zu tun ist (die Prompt-Vorlage), während eine Konfiguration festlegt, &lt;strong&gt;wie&lt;/strong&gt; es zu tun ist (Modell, Temperatur, System-Prompt). Eine Konfiguration kann viele verschiedene Aufgaben antreiben.</target>
+            </trans-unit>
+
+            <!-- Prompt snippet list intro + empty (translation sweep) -->
+            <trans-unit id="snippet.list.title">
+                <source>Prompt Snippets</source>
+                <target>Prompt-Snippets</target>
+            </trans-unit>
+            <trans-unit id="snippet.intro.line1">
+                <source>Prompt snippets are small reusable prompt &lt;strong&gt;fragments&lt;/strong&gt; — personas, tones of voice, target audiences, image styles, layouts — managed centrally in one place. Consuming extensions query them by tag and compose them into their prompts.</source>
+                <target>Prompt-Snippets sind kleine, wiederverwendbare Prompt-&lt;strong&gt;Fragmente&lt;/strong&gt; — Personas, Tonalitäten, Zielgruppen, Bildstile, Layouts — die zentral an einer Stelle verwaltet werden. Verwendende Erweiterungen fragen sie per Tag ab und setzen sie in ihre Prompts ein.</target>
+            </trans-unit>
+            <trans-unit id="snippet.intro.line2">
+                <source>Tag snippets with comma-separated free-form tags. Established tags: &lt;code&gt;audience&lt;/code&gt;, &lt;code&gt;tone_of_voice&lt;/code&gt;, &lt;code&gt;persona&lt;/code&gt;, &lt;code&gt;layout&lt;/code&gt;, &lt;code&gt;style&lt;/code&gt;. Snippets are not prompt templates: templates are complete prompts with model parameters, snippets are building blocks.</source>
+                <target>Versehen Sie Snippets mit kommagetrennten freien Tags. Etablierte Tags: &lt;code&gt;audience&lt;/code&gt;, &lt;code&gt;tone_of_voice&lt;/code&gt;, &lt;code&gt;persona&lt;/code&gt;, &lt;code&gt;layout&lt;/code&gt;, &lt;code&gt;style&lt;/code&gt;. Snippets sind keine Prompt-Vorlagen: Vorlagen sind vollständige Prompts mit Modellparametern, Snippets sind Bausteine.</target>
+            </trans-unit>
+            <trans-unit id="snippet.empty.title">
+                <source>No Prompt Snippets Configured</source>
+                <target>Keine Prompt-Snippets konfiguriert</target>
+            </trans-unit>
+            <trans-unit id="snippet.empty.message">
+                <source>No prompt snippets have been created yet.</source>
+                <target>Es wurden noch keine Prompt-Snippets erstellt.</target>
+            </trans-unit>
+            <trans-unit id="snippet.col.name">
+                <source>Name</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="snippet.col.identifier">
+                <source>Identifier</source>
+                <target>Bezeichner</target>
+            </trans-unit>
+            <trans-unit id="snippet.col.tags">
+                <source>Tags</source>
+                <target>Tags</target>
+            </trans-unit>
+
+            <!-- Setup wizard (translation sweep) -->
+            <trans-unit id="wizard.step.connect">
+                <source>Connect</source>
+                <target>Verbinden</target>
+            </trans-unit>
+            <trans-unit id="wizard.step.verify">
+                <source>Verify</source>
+                <target>Prüfen</target>
+            </trans-unit>
+            <trans-unit id="wizard.step.models">
+                <source>Models</source>
+                <target>Modelle</target>
+            </trans-unit>
+            <trans-unit id="wizard.step.configure">
+                <source>Configure</source>
+                <target>Konfigurieren</target>
+            </trans-unit>
+            <trans-unit id="wizard.step.save">
+                <source>Save</source>
+                <target>Speichern</target>
+            </trans-unit>
+            <trans-unit id="wizard.field.endpoint">
+                <source>API Endpoint URL *</source>
+                <target>API-Endpunkt-URL *</target>
+            </trans-unit>
+            <trans-unit id="wizard.field.endpoint.hint">
+                <source>Examples: https://api.openai.com/v1, https://api.anthropic.com/v1, http://localhost:11434</source>
+                <target>Beispiele: https://api.openai.com/v1, https://api.anthropic.com/v1, http://localhost:11434</target>
+            </trans-unit>
+            <trans-unit id="wizard.field.apikey">
+                <source>API Key</source>
+                <target>API-Schlüssel</target>
+            </trans-unit>
+            <trans-unit id="wizard.field.apikey.toggle">
+                <source>Toggle API key visibility</source>
+                <target>Sichtbarkeit des API-Schlüssels umschalten</target>
+            </trans-unit>
+            <trans-unit id="wizard.field.apikey.hint">
+                <source>Leave empty for local providers like Ollama that don't require authentication.</source>
+                <target>Bei lokalen Anbietern wie Ollama, die keine Authentifizierung benötigen, leer lassen.</target>
+            </trans-unit>
+            <trans-unit id="wizard.detected.label">
+                <source>Detected:</source>
+                <target>Erkannt:</target>
+            </trans-unit>
+            <trans-unit id="wizard.field.adapter">
+                <source>Provider Type (override)</source>
+                <target>Anbietertyp (überschreiben)</target>
+            </trans-unit>
+            <trans-unit id="wizard.field.adapter.select">
+                <source>Select provider type</source>
+                <target>Anbietertyp auswählen</target>
+            </trans-unit>
+            <trans-unit id="wizard.field.adapter.hint">
+                <source>Only change this if auto-detection is incorrect.</source>
+                <target>Ändern Sie dies nur, wenn die automatische Erkennung falsch ist.</target>
+            </trans-unit>
+            <trans-unit id="wizard.btn.overrideAdapter">
+                <source>Override provider type</source>
+                <target>Anbietertyp überschreiben</target>
+            </trans-unit>
+            <trans-unit id="wizard.btn.detect">
+                <source>Detect &amp; Continue</source>
+                <target>Erkennen &amp; fortfahren</target>
+            </trans-unit>
+            <trans-unit id="wizard.testing.hidden">
+                <source>Testing connection...</source>
+                <target>Verbindung wird getestet …</target>
+            </trans-unit>
+            <trans-unit id="wizard.connectionFailed">
+                <source>Connection Failed</source>
+                <target>Verbindung fehlgeschlagen</target>
+            </trans-unit>
+            <trans-unit id="wizard.connectionFailed.hint">
+                <source>Please check your endpoint URL and API key, then try again.</source>
+                <target>Bitte prüfen Sie Endpunkt-URL und API-Schlüssel und versuchen Sie es erneut.</target>
+            </trans-unit>
+            <trans-unit id="wizard.btn.back">
+                <source>Back</source>
+                <target>Zurück</target>
+            </trans-unit>
+            <trans-unit id="wizard.btn.discover">
+                <source>Discover Models</source>
+                <target>Modelle ermitteln</target>
+            </trans-unit>
+            <trans-unit id="wizard.discovering.hidden">
+                <source>Discovering models...</source>
+                <target>Modelle werden ermittelt …</target>
+            </trans-unit>
+            <trans-unit id="wizard.col.model">
+                <source>Model</source>
+                <target>Modell</target>
+            </trans-unit>
+            <trans-unit id="wizard.col.context">
+                <source>Context</source>
+                <target>Kontext</target>
+            </trans-unit>
+            <trans-unit id="wizard.col.capabilities">
+                <source>Capabilities</source>
+                <target>Fähigkeiten</target>
+            </trans-unit>
+            <trans-unit id="wizard.col.recommended">
+                <source>Recommended</source>
+                <target>Empfohlen</target>
+            </trans-unit>
+            <trans-unit id="wizard.selectAll">
+                <source>Select all models</source>
+                <target>Alle Modelle auswählen</target>
+            </trans-unit>
+            <trans-unit id="wizard.btn.generate">
+                <source>Generate Configurations</source>
+                <target>Konfigurationen erzeugen</target>
+            </trans-unit>
+            <trans-unit id="wizard.btn.review">
+                <source>Review &amp; Save</source>
+                <target>Prüfen &amp; speichern</target>
+            </trans-unit>
+            <trans-unit id="wizard.section.provider">
+                <source>Provider</source>
+                <target>Anbieter</target>
+            </trans-unit>
+            <trans-unit id="wizard.section.models">
+                <source>Models</source>
+                <target>Modelle</target>
+            </trans-unit>
+            <trans-unit id="wizard.section.configurations">
+                <source>Configurations</source>
+                <target>Konfigurationen</target>
+            </trans-unit>
+            <trans-unit id="wizard.field.pid">
+                <source>Storage Folder (Page ID)</source>
+                <target>Ablageordner (Seiten-ID)</target>
+            </trans-unit>
+            <trans-unit id="wizard.field.pid.hint">
+                <source>The page ID where records will be stored. Use 0 for root level.</source>
+                <target>Die Seiten-ID, unter der die Datensätze gespeichert werden. 0 für die Wurzelebene.</target>
+            </trans-unit>
+            <trans-unit id="wizard.btn.goProviders">
+                <source>View Providers</source>
+                <target>Anbieter ansehen</target>
+            </trans-unit>
+            <trans-unit id="wizard.btn.restart">
+                <source>Add Another Provider</source>
+                <target>Weiteren Anbieter hinzufügen</target>
+            </trans-unit>
+            <trans-unit id="wizard.saveFailed">
+                <source>Save Failed</source>
+                <target>Speichern fehlgeschlagen</target>
+            </trans-unit>
+            <trans-unit id="wizard.btn.save">
+                <source>Save Configuration</source>
+                <target>Konfiguration speichern</target>
+            </trans-unit>
+            <trans-unit id="wizard.progress.aria">
+                <source>Setup wizard progress</source>
+                <target>Fortschritt des Einrichtungsassistenten</target>
+            </trans-unit>
+
+            <!-- Test page (translation sweep) -->
+            <trans-unit id="test.page.title">
+                <source>Test LLM Provider</source>
+                <target>LLM-Anbieter testen</target>
+            </trans-unit>
+            <trans-unit id="test.info.title">
+                <source>Raw provider test</source>
+                <target>Direkter Anbietertest</target>
+            </trans-unit>
+            <trans-unit id="test.info.body">
+                <source>This page sends a single prompt directly to the selected provider, bypassing tasks and configurations. Use it to confirm a provider connection works. Results are not stored.</source>
+                <target>Diese Seite sendet einen einzelnen Prompt direkt an den ausgewählten Anbieter und umgeht dabei Aufgaben und Konfigurationen. Nutzen Sie sie, um zu bestätigen, dass eine Anbieterverbindung funktioniert. Ergebnisse werden nicht gespeichert.</target>
+            </trans-unit>
+            <trans-unit id="test.card.send">
+                <source>Send Test Request</source>
+                <target>Testanfrage senden</target>
+            </trans-unit>
+            <trans-unit id="test.field.provider">
+                <source>Provider</source>
+                <target>Anbieter</target>
+            </trans-unit>
+            <trans-unit id="test.field.prompt">
+                <source>Prompt</source>
+                <target>Prompt</target>
+            </trans-unit>
+            <trans-unit id="test.btn.run">
+                <source>Run Test</source>
+                <target>Test ausführen</target>
+            </trans-unit>
+            <trans-unit id="test.btn.back">
+                <source>Back to Overview</source>
+                <target>Zurück zur Übersicht</target>
+            </trans-unit>
+            <trans-unit id="test.card.response">
+                <source>Response</source>
+                <target>Antwort</target>
+            </trans-unit>
+            <trans-unit id="test.response.success">
+                <source>Success!</source>
+                <target>Erfolg!</target>
+            </trans-unit>
+            <trans-unit id="test.response.error">
+                <source>Error:</source>
+                <target>Fehler:</target>
+            </trans-unit>
+            <trans-unit id="test.response.content">
+                <source>Content</source>
+                <target>Inhalt</target>
+            </trans-unit>
+            <trans-unit id="test.response.usage">
+                <source>Usage</source>
+                <target>Nutzung</target>
+            </trans-unit>
+            <trans-unit id="test.usage.model">
+                <source>Model</source>
+                <target>Modell</target>
+            </trans-unit>
+            <trans-unit id="test.usage.promptTokens">
+                <source>Prompt Tokens</source>
+                <target>Prompt-Token</target>
+            </trans-unit>
+            <trans-unit id="test.usage.completionTokens">
+                <source>Completion Tokens</source>
+                <target>Completion-Token</target>
+            </trans-unit>
+            <trans-unit id="test.usage.totalTokens">
+                <source>Total Tokens</source>
+                <target>Token gesamt</target>
+            </trans-unit>
+            <trans-unit id="test.loading">
+                <source>Sending request...</source>
+                <target>Anfrage wird gesendet …</target>
+            </trans-unit>
+
+            <!-- Help page (translation sweep) -->
+            <trans-unit id="help.page.title">
+                <source>LLM Management Help</source>
+                <target>Hilfe zur LLM-Verwaltung</target>
+            </trans-unit>
+            <trans-unit id="help.lead">
+                <source>This guide explains how to set up LLM providers, configure models, create task pipelines, and troubleshoot common issues.</source>
+                <target>Diese Anleitung erklärt, wie Sie LLM-Anbieter einrichten, Modelle konfigurieren, Aufgaben-Pipelines erstellen und häufige Probleme beheben.</target>
+            </trans-unit>
+            <trans-unit id="help.gettingStarted">
+                <source>Getting started</source>
+                <target>Erste Schritte</target>
+            </trans-unit>
+            <trans-unit id="help.intro">
+                <source>The LLM extension connects your TYPO3 installation to large language model APIs (OpenAI, Anthropic, Google, local Ollama, etc.). Follow these steps for initial setup:</source>
+                <target>Die LLM-Erweiterung verbindet Ihre TYPO3-Installation mit APIs großer Sprachmodelle (OpenAI, Anthropic, Google, lokales Ollama usw.). Folgen Sie diesen Schritten für die Ersteinrichtung:</target>
+            </trans-unit>
+            <trans-unit id="help.step1.title">
+                <source>Step 1 — Run the Setup Wizard</source>
+                <target>Schritt 1 — Einrichtungsassistenten ausführen</target>
+            </trans-unit>
+            <trans-unit id="help.step1.text">
+                <source>The fastest way to get started is the Setup Wizard. Paste your API endpoint URL and key, and the wizard will auto-detect the provider type, discover available models, and generate a ready-to-use configuration.</source>
+                <target>Am schnellsten gelingt der Einstieg mit dem Einrichtungsassistenten. Fügen Sie Ihre API-Endpunkt-URL und den Schlüssel ein, und der Assistent erkennt den Anbietertyp automatisch, ermittelt verfügbare Modelle und erzeugt eine einsatzbereite Konfiguration.</target>
+            </trans-unit>
+            <trans-unit id="help.step2.title">
+                <source>Step 2 — Create a Provider</source>
+                <target>Schritt 2 — Anbieter anlegen</target>
+            </trans-unit>
+            <trans-unit id="help.step2.text">
+                <source>A provider represents an API connection. Each provider stores the endpoint URL, API key (encrypted via nr-vault), and adapter type. You can create providers manually or via the Setup Wizard.</source>
+                <target>Ein Anbieter steht für eine API-Verbindung. Jeder Anbieter speichert die Endpunkt-URL, den API-Schlüssel (über nr-vault verschlüsselt) und den Adaptertyp. Sie können Anbieter manuell oder über den Einrichtungsassistenten anlegen.</target>
+            </trans-unit>
+            <trans-unit id="help.step3.title">
+                <source>Step 3 — Register Models</source>
+                <target>Schritt 3 — Modelle anlegen</target>
+            </trans-unit>
+            <trans-unit id="help.step3.text">
+                <source>Each provider can host multiple models. Models define capabilities (chat, completion, vision, embeddings, tools), context window limits, and cost information. The wizard can discover models automatically from the provider's API.</source>
+                <target>Jeder Anbieter kann mehrere Modelle bereitstellen. Modelle legen Fähigkeiten (chat, completion, vision, embeddings, tools), Grenzen des Kontextfensters und Kosteninformationen fest. Der Assistent kann Modelle automatisch über die API des Anbieters ermitteln.</target>
+            </trans-unit>
+            <trans-unit id="help.step4.title">
+                <source>Step 4 — Create Configurations</source>
+                <target>Schritt 4 — Konfigurationen erstellen</target>
+            </trans-unit>
+            <trans-unit id="help.step4.text">
+                <source>A configuration ties a provider and model together with default parameters (temperature, max tokens, system prompt). Extensions like Cowriter reference configurations by identifier.</source>
+                <target>Eine Konfiguration verknüpft einen Anbieter und ein Modell mit Standardparametern (Temperatur, max. Token, System-Prompt). Erweiterungen wie Cowriter verweisen über den Bezeichner auf Konfigurationen.</target>
+            </trans-unit>
+            <trans-unit id="help.step5.title">
+                <source>Step 5 — Define Tasks (optional)</source>
+                <target>Schritt 5 — Aufgaben definieren (optional)</target>
+            </trans-unit>
+            <trans-unit id="help.step5.text">
+                <source>Tasks are one-shot prompt templates that appear in the Cowriter dialog. They are simple utility prompts — not multi-step AI agents.</source>
+                <target>Aufgaben sind einmalige Prompt-Vorlagen, die im Cowriter-Dialog erscheinen. Es sind einfache Hilfs-Prompts — keine mehrstufigen KI-Agenten.</target>
+            </trans-unit>
+            <trans-unit id="help.arch.title">
+                <source>Architecture overview</source>
+                <target>Architekturübersicht</target>
+            </trans-unit>
+            <trans-unit id="help.arch.intro">
+                <source>The extension follows a layered architecture:</source>
+                <target>Die Erweiterung folgt einer geschichteten Architektur:</target>
+            </trans-unit>
+            <trans-unit id="help.arch.provider">
+                <source>&lt;strong&gt;Provider layer&lt;/strong&gt; — Adapters for each API (OpenAI, Anthropic, Google Gemini, Ollama). Each adapter translates the unified interface into provider-specific HTTP calls.</source>
+                <target>&lt;strong&gt;Anbieterschicht&lt;/strong&gt; — Adapter für jede API (OpenAI, Anthropic, Google Gemini, Ollama). Jeder Adapter übersetzt die einheitliche Schnittstelle in anbieterspezifische HTTP-Aufrufe.</target>
+            </trans-unit>
+            <trans-unit id="help.arch.service">
+                <source>&lt;strong&gt;Service layer&lt;/strong&gt; — &lt;code&gt;LlmServiceManager&lt;/code&gt; provides feature-based services (chat, translation, vision) that automatically route to the correct provider and model.</source>
+                <target>&lt;strong&gt;Dienstschicht&lt;/strong&gt; — &lt;code&gt;LlmServiceManager&lt;/code&gt; stellt funktionsbasierte Dienste (chat, translation, vision) bereit, die automatisch an den passenden Anbieter und das passende Modell weiterleiten.</target>
+            </trans-unit>
+            <trans-unit id="help.arch.configuration">
+                <source>&lt;strong&gt;Configuration layer&lt;/strong&gt; — Database-backed configurations with encrypted API keys via nr-vault's envelope encryption.</source>
+                <target>&lt;strong&gt;Konfigurationsschicht&lt;/strong&gt; — Datenbankgestützte Konfigurationen mit über die Envelope-Verschlüsselung von nr-vault verschlüsselten API-Schlüsseln.</target>
+            </trans-unit>
+            <trans-unit id="help.secret.title">
+                <source>Secret management</source>
+                <target>Verwaltung von Geheimnissen</target>
+            </trans-unit>
+            <trans-unit id="help.secret.text">
+                <source>API keys are stored using the &lt;code&gt;nr-vault&lt;/code&gt; extension which provides envelope encryption. Keys are never stored in plain text. The vault reveal endpoint allows viewing keys temporarily in the backend with proper authentication.</source>
+                <target>API-Schlüssel werden über die Erweiterung &lt;code&gt;nr-vault&lt;/code&gt; gespeichert, die eine Envelope-Verschlüsselung bietet. Schlüssel werden nie im Klartext gespeichert. Der Reveal-Endpunkt des Vaults erlaubt es, Schlüssel mit entsprechender Authentifizierung vorübergehend im Backend anzuzeigen.</target>
+            </trans-unit>
+            <trans-unit id="help.trouble.title">
+                <source>Troubleshooting</source>
+                <target>Fehlerbehebung</target>
+            </trans-unit>
+            <trans-unit id="help.trouble.conn.title">
+                <source>Connection test fails with "Unknown error"</source>
+                <target>Verbindungstest schlägt mit „Unbekannter Fehler“ fehl</target>
+            </trans-unit>
+            <trans-unit id="help.trouble.conn.text">
+                <source>This usually means the API returned an unexpected response. Check:</source>
+                <target>Das bedeutet meist, dass die API eine unerwartete Antwort zurückgegeben hat. Prüfen Sie:</target>
+            </trans-unit>
+            <trans-unit id="help.trouble.conn.item1">
+                <source>The endpoint URL is correct and includes the API path (e.g., &lt;code&gt;/v1&lt;/code&gt; for OpenAI/Anthropic)</source>
+                <target>Die Endpunkt-URL ist korrekt und enthält den API-Pfad (z. B. &lt;code&gt;/v1&lt;/code&gt; für OpenAI/Anthropic)</target>
+            </trans-unit>
+            <trans-unit id="help.trouble.conn.item2">
+                <source>The API key is valid and not expired</source>
+                <target>Der API-Schlüssel ist gültig und nicht abgelaufen</target>
+            </trans-unit>
+            <trans-unit id="help.trouble.conn.item3">
+                <source>The server can reach the API endpoint (firewall, proxy settings)</source>
+                <target>Der Server kann den API-Endpunkt erreichen (Firewall, Proxy-Einstellungen)</target>
+            </trans-unit>
+            <trans-unit id="help.trouble.models.title">
+                <source>Models not discovered</source>
+                <target>Modelle werden nicht ermittelt</target>
+            </trans-unit>
+            <trans-unit id="help.trouble.models.text">
+                <source>Some providers (e.g., Anthropic) do not expose a model listing API. For these providers, models must be added manually. The Setup Wizard will warn you when auto-discovery is not available.</source>
+                <target>Manche Anbieter (z. B. Anthropic) stellen keine API zum Auflisten von Modellen bereit. Bei diesen Anbietern müssen Modelle manuell hinzugefügt werden. Der Einrichtungsassistent weist Sie darauf hin, wenn die automatische Ermittlung nicht verfügbar ist.</target>
+            </trans-unit>
+            <trans-unit id="help.trouble.500.title">
+                <source>Translation or task execution returns 500</source>
+                <target>Übersetzung oder Aufgabenausführung gibt 500 zurück</target>
+            </trans-unit>
+            <trans-unit id="help.trouble.500.text">
+                <source>Ensure a &lt;strong&gt;default configuration&lt;/strong&gt; is set. Feature services like translation require a default provider to be configured. Check the Configurations module and mark one configuration as default.</source>
+                <target>Stellen Sie sicher, dass eine &lt;strong&gt;Standardkonfiguration&lt;/strong&gt; festgelegt ist. Funktionsdienste wie die Übersetzung erfordern einen konfigurierten Standardanbieter. Prüfen Sie das Modul Konfigurationen und markieren Sie eine Konfiguration als Standard.</target>
+            </trans-unit>
+            <trans-unit id="help.faq.title">
+                <source>Frequently asked questions</source>
+                <target>Häufig gestellte Fragen</target>
+            </trans-unit>
+            <trans-unit id="help.faq.q1">
+                <source>Can I use multiple providers at the same time?</source>
+                <target>Kann ich mehrere Anbieter gleichzeitig verwenden?</target>
+            </trans-unit>
+            <trans-unit id="help.faq.a1">
+                <source>Yes. You can register as many providers as you need. Each configuration references a specific provider and model. Different features (chat, translation, vision) can use different providers.</source>
+                <target>Ja. Sie können so viele Anbieter anlegen, wie Sie benötigen. Jede Konfiguration verweist auf einen bestimmten Anbieter und ein bestimmtes Modell. Verschiedene Funktionen (chat, translation, vision) können verschiedene Anbieter nutzen.</target>
+            </trans-unit>
+            <trans-unit id="help.faq.q2">
+                <source>How are API keys stored?</source>
+                <target>Wie werden API-Schlüssel gespeichert?</target>
+            </trans-unit>
+            <trans-unit id="help.faq.a2">
+                <source>API keys are encrypted using the &lt;code&gt;nr-vault&lt;/code&gt; extension's envelope encryption. Each key is encrypted with a unique data encryption key (DEK), which is itself encrypted with a master key (KEK). Keys are never stored in plain text in the database.</source>
+                <target>API-Schlüssel werden mit der Envelope-Verschlüsselung der Erweiterung &lt;code&gt;nr-vault&lt;/code&gt; verschlüsselt. Jeder Schlüssel wird mit einem eindeutigen Datenschlüssel (DEK) verschlüsselt, der wiederum mit einem Hauptschlüssel (KEK) verschlüsselt ist. Schlüssel werden nie im Klartext in der Datenbank gespeichert.</target>
+            </trans-unit>
+            <trans-unit id="help.faq.q3">
+                <source>Can I use a local LLM (e.g., Ollama)?</source>
+                <target>Kann ich ein lokales LLM (z. B. Ollama) verwenden?</target>
+            </trans-unit>
+            <trans-unit id="help.faq.a3">
+                <source>Yes. The Ollama adapter supports local LLM instances. Set the endpoint to your Ollama server URL (e.g., &lt;code&gt;http://localhost:11434&lt;/code&gt;) and the wizard will auto-detect it. No API key is needed for local instances.</source>
+                <target>Ja. Der Ollama-Adapter unterstützt lokale LLM-Instanzen. Setzen Sie den Endpunkt auf die URL Ihres Ollama-Servers (z. B. &lt;code&gt;http://localhost:11434&lt;/code&gt;), und der Assistent erkennt ihn automatisch. Für lokale Instanzen ist kein API-Schlüssel erforderlich.</target>
+            </trans-unit>
+            <trans-unit id="help.faq.q4">
+                <source>What is the difference between tasks and the Cowriter dialog?</source>
+                <target>Was ist der Unterschied zwischen Aufgaben und dem Cowriter-Dialog?</target>
+            </trans-unit>
+            <trans-unit id="help.faq.a4">
+                <source>&lt;strong&gt;Tasks&lt;/strong&gt; are simple one-shot prompts defined here in the LLM module. They appear as preset options in the Cowriter dialog. The &lt;strong&gt;Cowriter dialog&lt;/strong&gt; is the CKEditor plugin that editors use to interact with the AI. Editors can pick a task or write a custom instruction.</source>
+                <target>&lt;strong&gt;Aufgaben&lt;/strong&gt; sind einfache einmalige Prompts, die hier im LLM-Modul definiert werden. Sie erscheinen als vorgegebene Optionen im Cowriter-Dialog. Der &lt;strong&gt;Cowriter-Dialog&lt;/strong&gt; ist das CKEditor-Plugin, mit dem Redakteure mit der KI interagieren. Redakteure können eine Aufgabe auswählen oder eine eigene Anweisung schreiben.</target>
             </trans-unit>
         </body>
     </file>

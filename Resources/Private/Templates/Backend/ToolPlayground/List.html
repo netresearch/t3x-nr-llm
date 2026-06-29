@@ -16,6 +16,16 @@
             <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.intro" default="Pick an LLM configuration, enter a prompt and run the agent loop. Each tool call, its result and the final answer are shown below. Tools run with full backend privileges and their results egress to the configured provider — this module is admin-only." /></p>
         </f:be.infobox>
 
+        <div class="mb-3">
+            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
+            <a href="{be:moduleLink(route: 'nrllm_configurations')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="Configurations" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_skills')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.list.title" default="Skills" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+        </div>
+
+        <f:render partial="Backend/Glossary" />
+
         <div class="row">
             <div class="col-md-7">
                 <div class="card mb-4">
@@ -118,7 +128,9 @@
                     </f:then>
                     <f:else>
                         <f:be.infobox state="-1">
-                            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.empty" default="No tools are registered. Add a tool by tagging a ToolInterface implementation with nr_llm.tool." /></p>
+                            <p class="mb-1"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.empty" default="No tools are registered. Add a tool by tagging a ToolInterface implementation with nr_llm.tool." /></p>
+                            <p class="mb-1"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:playground.empty.admin" default="Administrators: enable a tool below, pick a configuration and run a prompt to try the agent loop." /></p>
+                            <p class="mb-0 text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:playground.empty.developer" default="Developers: implement Netresearch\NrLlm\Service\Tool\ToolInterface and tag it with nr_llm.tool to register a new tool." /></p>
                         </f:be.infobox>
                     </f:else>
                 </f:if>

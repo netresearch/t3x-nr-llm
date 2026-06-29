@@ -9,6 +9,19 @@
     <div>
         <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.list.title" default="LLM Providers" /></h1>
 
+        <f:be.infobox state="-1">
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.adminOnly" default="This module is admin-only. Records and actions here affect every editor using LLM features." /></p>
+        </f:be.infobox>
+
+        <div class="mb-3">
+            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
+            <a href="{be:moduleLink(route: 'nrllm_models')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.next.models" default="Next: register Models" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+        </div>
+
+        <f:render partial="Backend/Glossary" />
+
         <f:if condition="{providers -> f:count()}">
             <f:then>
                 <div class="table-fit">
@@ -19,7 +32,7 @@
                                 <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.identifier" default="Identifier" /></th>
                                 <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.adapterType" default="Adapter Type" /></th>
                                 <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.endpoint" default="Endpoint" /></th>
-                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.apiKey" default="API Key" /></th>
+                                <th title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:glossary.term.vault.text')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.apiKey" default="API Key" /></th>
                                 <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.status" default="Status" /></th>
                                 <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.field.priority" default="Priority" /></th>
                                 <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.col.cost" default="Cost (30d)" /></th>
@@ -110,6 +123,7 @@
                     state="-1"
                 >
                     <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.empty.message" default="No API providers configured yet. Create your first provider to connect to LLM services." /></p>
+                    <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.empty.hint" default="Providers are the first tier of setup (Provider → Model → Configuration). Launch the Setup Wizard to add one." /></p>
                     <p><a href="{wizardUrl}" class="btn btn-primary btn-sm"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.launch" default="Launch Setup Wizard" /></a></p>
                 </f:be.infobox>
             </f:else>

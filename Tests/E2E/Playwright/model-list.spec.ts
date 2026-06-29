@@ -82,7 +82,7 @@ test.describe('Model List Module', () => {
       if (count === 0) {
         // No models - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
         return;
       }
 

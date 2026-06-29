@@ -133,6 +133,7 @@ final class ModelController extends ActionController
             'editUrls' => $editUrls,
             'newUrl' => $this->buildNewUrl(),
             'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
+            'hasDefaultModel' => $this->modelRepository->findDefault() !== null,
             'costByModel' => $usage['cost'],
             'reqByModel' => $usage['requests'],
             'tokByModel' => $usage['tokens'],

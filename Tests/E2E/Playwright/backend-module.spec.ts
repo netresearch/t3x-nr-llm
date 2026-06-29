@@ -35,8 +35,8 @@ test.describe('LLM Backend Module - Multi-Tier Architecture', () => {
 
       // Check for expected content: either providers table or empty state callout
       const hasTable = await moduleFrame.locator('table').isVisible();
-      const hasCallout = await moduleFrame.locator('.callout').isVisible();
-      const hasInfoBox = await moduleFrame.locator('.t3js-infobox, [class*="infobox"]').isVisible();
+      const hasCallout = await moduleFrame.locator('.callout').first().isVisible();
+      const hasInfoBox = await moduleFrame.locator('.t3js-infobox, [class*="infobox"]').first().isVisible();
 
       expect(hasTable || hasCallout || hasInfoBox).toBe(true);
     });
@@ -155,7 +155,7 @@ test.describe('LLM Backend Module - Multi-Tier Architecture', () => {
         expect(buttonCount).toBeGreaterThan(0);
       } else {
         // No providers - verify empty state message exists
-        const hasEmptyState = await moduleFrame.locator('.callout, [class*="infobox"]').isVisible();
+        const hasEmptyState = await moduleFrame.locator('.callout, [class*="infobox"]').first().isVisible();
         expect(hasEmptyState).toBe(true);
       }
     });

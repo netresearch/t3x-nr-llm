@@ -10,59 +10,45 @@
 -->
 <f:layout name="Module" />
 <f:section name="Content">
-    <h1>LLM Management Help</h1>
+    <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.page.title" default="LLM Management Help" /></h1>
     <p class="lead">
-        This guide explains how to set up LLM providers, configure models,
-        create task pipelines, and troubleshoot common issues.
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.lead" default="This guide explains how to set up LLM providers, configure models, create task pipelines, and troubleshoot common issues." />
     </p>
 
     <!-- Section 1: Getting started -->
     <div class="card mb-3">
         <div class="card-header">
-            <h2 class="card-title mb-0">Getting started</h2>
+            <h2 class="card-title mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.gettingStarted" default="Getting started" /></h2>
         </div>
         <div class="card-body">
             <p>
-                The LLM extension connects your TYPO3 installation to large language
-                model APIs (OpenAI, Anthropic, Google, local Ollama, etc.). Follow
-                these steps for initial setup:
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.intro" default="The LLM extension connects your TYPO3 installation to large language model APIs (OpenAI, Anthropic, Google, local Ollama, etc.). Follow these steps for initial setup:" />
             </p>
 
-            <h3>Step 1 &mdash; Run the Setup Wizard</h3>
+            <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.step1.title" default="Step 1 — Run the Setup Wizard" /></h3>
             <p>
-                The fastest way to get started is the
-                <a href="{wizardUrl}">Setup Wizard</a>. Paste your API endpoint
-                URL and key, and the wizard will auto-detect the provider type,
-                discover available models, and generate a ready-to-use configuration.
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.step1.text" default="The fastest way to get started is the Setup Wizard. Paste your API endpoint URL and key, and the wizard will auto-detect the provider type, discover available models, and generate a ready-to-use configuration." />
+            </p>
+            <p><a href="{wizardUrl}" class="btn btn-primary btn-sm"><core:icon identifier="actions-bolt" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.launch" default="Launch Setup Wizard" /></a></p>
+
+            <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.step2.title" default="Step 2 — Create a Provider" /></h3>
+            <p>
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.step2.text" default="A provider represents an API connection. Each provider stores the endpoint URL, API key (encrypted via nr-vault), and adapter type. You can create providers manually or via the Setup Wizard." />
             </p>
 
-            <h3>Step 2 &mdash; Create a Provider</h3>
+            <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.step3.title" default="Step 3 — Register Models" /></h3>
             <p>
-                A <strong>provider</strong> represents an API connection. Each provider
-                stores the endpoint URL, API key (encrypted via nr-vault), and adapter
-                type. You can create providers manually or via the Setup Wizard.
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.step3.text" default="Each provider can host multiple models. Models define capabilities (chat, completion, vision, embeddings, tools), context window limits, and cost information. The wizard can discover models automatically from the provider's API." />
             </p>
 
-            <h3>Step 3 &mdash; Register Models</h3>
+            <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.step4.title" default="Step 4 — Create Configurations" /></h3>
             <p>
-                Each provider can host multiple <strong>models</strong>. Models define
-                capabilities (chat, completion, vision, embeddings, tools), context
-                window limits, and cost information. The wizard can discover models
-                automatically from the provider's API.
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.step4.text" default="A configuration ties a provider and model together with default parameters (temperature, max tokens, system prompt). Extensions like Cowriter reference configurations by identifier." />
             </p>
 
-            <h3>Step 4 &mdash; Create Configurations</h3>
+            <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.step5.title" default="Step 5 — Define Tasks (optional)" /></h3>
             <p>
-                A <strong>configuration</strong> ties a provider and model together
-                with default parameters (temperature, max tokens, system prompt).
-                Extensions like Cowriter reference configurations by identifier.
-            </p>
-
-            <h3>Step 5 &mdash; Define Tasks (optional)</h3>
-            <p>
-                <strong>Tasks</strong> are one-shot prompt templates that appear in
-                the Cowriter dialog. They are simple utility prompts &mdash; not
-                multi-step AI agents.
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.step5.text" default="Tasks are one-shot prompt templates that appear in the Cowriter dialog. They are simple utility prompts — not multi-step AI agents." />
             </p>
         </div>
     </div>
@@ -70,34 +56,25 @@
     <!-- Section 2: Architecture -->
     <div class="card mb-3">
         <div class="card-header">
-            <h2 class="card-title mb-0">Architecture overview</h2>
+            <h2 class="card-title mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.arch.title" default="Architecture overview" /></h2>
         </div>
         <div class="card-body">
-            <p>The extension follows a layered architecture:</p>
+            <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.arch.intro" default="The extension follows a layered architecture:" /></p>
             <ul>
                 <li>
-                    <strong>Provider layer</strong> &mdash; Adapters for each API
-                    (OpenAI, Anthropic, Google Gemini, Ollama). Each adapter translates
-                    the unified interface into provider-specific HTTP calls.
+                    <f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.arch.provider" default="Provider layer — Adapters for each API." /></f:format.raw>
                 </li>
                 <li>
-                    <strong>Service layer</strong> &mdash; <code>LlmServiceManager</code>
-                    provides feature-based services (chat, translation, vision) that
-                    automatically route to the correct provider and model.
+                    <f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.arch.service" default="Service layer — LlmServiceManager." /></f:format.raw>
                 </li>
                 <li>
-                    <strong>Configuration layer</strong> &mdash; Database-backed
-                    configurations with encrypted API keys via nr-vault's envelope
-                    encryption.
+                    <f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.arch.configuration" default="Configuration layer — Database-backed configurations." /></f:format.raw>
                 </li>
             </ul>
 
-            <h3>Secret management</h3>
+            <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.secret.title" default="Secret management" /></h3>
             <p>
-                API keys are stored using the <code>nr-vault</code> extension which
-                provides envelope encryption. Keys are never stored in plain text.
-                The vault reveal endpoint allows viewing keys temporarily in the
-                backend with proper authentication.
+                <f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.secret.text" default="API keys are stored using the nr-vault extension which provides envelope encryption. Keys are never stored in plain text." /></f:format.raw>
             </p>
         </div>
     </div>
@@ -105,31 +82,27 @@
     <!-- Section 3: Troubleshooting -->
     <div class="card mb-3">
         <div class="card-header">
-            <h2 class="card-title mb-0">Troubleshooting</h2>
+            <h2 class="card-title mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.trouble.title" default="Troubleshooting" /></h2>
         </div>
         <div class="card-body">
-            <h3>Connection test fails with "Unknown error"</h3>
+            <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.trouble.conn.title" default="Connection test fails with &quot;Unknown error&quot;" /></h3>
             <p>
-                This usually means the API returned an unexpected response. Check:
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.trouble.conn.text" default="This usually means the API returned an unexpected response. Check:" />
             </p>
             <ul>
-                <li>The endpoint URL is correct and includes the API path (e.g., <code>/v1</code> for OpenAI/Anthropic)</li>
-                <li>The API key is valid and not expired</li>
-                <li>The server can reach the API endpoint (firewall, proxy settings)</li>
+                <li><f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.trouble.conn.item1" default="The endpoint URL is correct and includes the API path." /></f:format.raw></li>
+                <li><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.trouble.conn.item2" default="The API key is valid and not expired" /></li>
+                <li><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.trouble.conn.item3" default="The server can reach the API endpoint (firewall, proxy settings)" /></li>
             </ul>
 
-            <h3>Models not discovered</h3>
+            <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.trouble.models.title" default="Models not discovered" /></h3>
             <p>
-                Some providers (e.g., Anthropic) do not expose a model listing API.
-                For these providers, models must be added manually. The Setup Wizard
-                will warn you when auto-discovery is not available.
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.trouble.models.text" default="Some providers (e.g., Anthropic) do not expose a model listing API. For these providers, models must be added manually. The Setup Wizard will warn you when auto-discovery is not available." />
             </p>
 
-            <h3>Translation or task execution returns 500</h3>
+            <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.trouble.500.title" default="Translation or task execution returns 500" /></h3>
             <p>
-                Ensure a <strong>default configuration</strong> is set. Feature services
-                like translation require a default provider to be configured. Check the
-                Configurations module and mark one configuration as default.
+                <f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.trouble.500.text" default="Ensure a default configuration is set." /></f:format.raw>
             </p>
         </div>
     </div>
@@ -137,7 +110,7 @@
     <!-- Section 4: FAQ -->
     <div class="card mb-3">
         <div class="card-header">
-            <h2 class="card-title mb-0">Frequently asked questions</h2>
+            <h2 class="card-title mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.title" default="Frequently asked questions" /></h2>
         </div>
         <div class="card-body">
             <div class="accordion" id="faqAccordion">
@@ -147,17 +120,14 @@
                         <button class="accordion-button collapsed" type="button"
                                 data-bs-toggle="collapse" data-bs-target="#faqCollapse1"
                                 aria-expanded="false" aria-controls="faqCollapse1">
-                            Can I use multiple providers at the same time?
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.q1" default="Can I use multiple providers at the same time?" />
                         </button>
                     </h3>
                     <div id="faqCollapse1" class="accordion-collapse collapse"
                          aria-labelledby="faqHeading1" data-bs-parent="#faqAccordion">
                         <div class="accordion-body">
                             <p>
-                                Yes. You can register as many providers as you need.
-                                Each configuration references a specific provider and model.
-                                Different features (chat, translation, vision) can use
-                                different providers.
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.a1" default="Yes. You can register as many providers as you need. Each configuration references a specific provider and model. Different features (chat, translation, vision) can use different providers." />
                             </p>
                         </div>
                     </div>
@@ -168,18 +138,14 @@
                         <button class="accordion-button collapsed" type="button"
                                 data-bs-toggle="collapse" data-bs-target="#faqCollapse2"
                                 aria-expanded="false" aria-controls="faqCollapse2">
-                            How are API keys stored?
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.q2" default="How are API keys stored?" />
                         </button>
                     </h3>
                     <div id="faqCollapse2" class="accordion-collapse collapse"
                          aria-labelledby="faqHeading2" data-bs-parent="#faqAccordion">
                         <div class="accordion-body">
                             <p>
-                                API keys are encrypted using the <code>nr-vault</code>
-                                extension's envelope encryption. Each key is encrypted with
-                                a unique data encryption key (DEK), which is itself encrypted
-                                with a master key (KEK). Keys are never stored in plain text
-                                in the database.
+                                <f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.a2" default="API keys are encrypted using the nr-vault extension's envelope encryption." /></f:format.raw>
                             </p>
                         </div>
                     </div>
@@ -190,17 +156,14 @@
                         <button class="accordion-button collapsed" type="button"
                                 data-bs-toggle="collapse" data-bs-target="#faqCollapse3"
                                 aria-expanded="false" aria-controls="faqCollapse3">
-                            Can I use a local LLM (e.g., Ollama)?
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.q3" default="Can I use a local LLM (e.g., Ollama)?" />
                         </button>
                     </h3>
                     <div id="faqCollapse3" class="accordion-collapse collapse"
                          aria-labelledby="faqHeading3" data-bs-parent="#faqAccordion">
                         <div class="accordion-body">
                             <p>
-                                Yes. The Ollama adapter supports local LLM instances. Set the
-                                endpoint to your Ollama server URL (e.g.,
-                                <code>http://localhost:11434</code>) and the wizard will
-                                auto-detect it. No API key is needed for local instances.
+                                <f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.a3" default="Yes. The Ollama adapter supports local LLM instances." /></f:format.raw>
                             </p>
                         </div>
                     </div>
@@ -211,18 +174,14 @@
                         <button class="accordion-button collapsed" type="button"
                                 data-bs-toggle="collapse" data-bs-target="#faqCollapse4"
                                 aria-expanded="false" aria-controls="faqCollapse4">
-                            What is the difference between tasks and the Cowriter dialog?
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.q4" default="What is the difference between tasks and the Cowriter dialog?" />
                         </button>
                     </h3>
                     <div id="faqCollapse4" class="accordion-collapse collapse"
                          aria-labelledby="faqHeading4" data-bs-parent="#faqAccordion">
                         <div class="accordion-body">
                             <p>
-                                <strong>Tasks</strong> are simple one-shot prompts defined
-                                here in the LLM module. They appear as preset options in the
-                                Cowriter dialog. The <strong>Cowriter dialog</strong> is the
-                                CKEditor plugin that editors use to interact with the AI.
-                                Editors can pick a task or write a custom instruction.
+                                <f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.faq.a4" default="Tasks are simple one-shot prompts defined here in the LLM module." /></f:format.raw>
                             </p>
                         </div>
                     </div>

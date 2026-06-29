@@ -97,6 +97,7 @@ final class TaskListController extends ActionController
         $moduleTemplate->assignMultiple([
             'groupedTasks' => $groupedTasks,
             'totalCount'   => $tasks->count(),
+            'activeCount'  => $this->taskRepository->countActive(),
             'editUrls'     => $editUrls,
             'newUrl'       => $this->buildNewUrl(),
             'wizardUrl'    => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),

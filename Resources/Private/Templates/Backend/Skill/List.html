@@ -12,6 +12,19 @@
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.list.title" default="Skills" />
         </h1>
 
+        <f:be.infobox state="-1">
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.adminOnly" default="This module is admin-only. Records and actions here affect every editor using LLM features." /></p>
+        </f:be.infobox>
+
+        <div class="mb-3">
+            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
+            <a href="{be:moduleLink(route: 'nrllm_tools')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.title" default="Tool Playground" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+        </div>
+
+        <f:render partial="Backend/Glossary" />
+
         <f:be.infobox state="-2">
             <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.intro.line1" default="Add GitHub-hosted skill sources (a single SKILL.md file, a repository, or a marketplace index), then synchronise them. Skills are fetched by immutable commit SHA, integrity-checksummed and host-allowlisted." /></p>
             <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.intro.line2" default="Skills discovered from repositories and marketplaces are materialised disabled by default. Re-syncing an enabled skill whose body changed upstream auto-disables it for review." /></p>
@@ -37,7 +50,16 @@
                                     <tr data-source-uid="{source.uid}">
                                         <td><strong>{source.title}</strong></td>
                                         <td><span class="badge text-bg-info">{source.type.value}</span></td>
-                                        <td><code>{source.syncStatus.value}</code></td>
+                                        <td>
+                                            <f:switch expression="{source.syncStatus.value}">
+                                                <f:case value="ok"><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.ok" default="Synced" /></span></f:case>
+                                                <f:case value="never_synced"><span class="badge text-bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.never" default="Never synced" /></span></f:case>
+                                                <f:case value="syncing"><span class="badge text-bg-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.syncing" default="Syncing" /></span></f:case>
+                                                <f:case value="partial"><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.partial" default="Partial" /></span></f:case>
+                                                <f:case value="error"><span class="badge text-bg-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.error" default="Failed" /></span></f:case>
+                                                <f:defaultCase><code>{source.syncStatus.value}</code></f:defaultCase>
+                                            </f:switch>
+                                        </td>
                                         <td>
                                             <f:if condition="{source.lastSynced} > 0">
                                                 <f:then><f:format.date date="@{source.lastSynced}" format="Y-m-d H:i" /></f:then>
@@ -46,6 +68,9 @@
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
+                                                <a href="{sourceEditUrls.{source.uid}}" class="btn btn-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.source.edit', default: 'Edit source')}">
+                                                    <core:icon identifier="actions-open" size="small" />
+                                                </a>
                                                 <button type="button" class="btn btn-secondary js-skill-sync"
                                                         data-source="{source.uid}" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.sync', default: 'Sync')}">
                                                     <core:icon identifier="actions-refresh" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.sync" default="Sync" />
@@ -66,6 +91,8 @@
             <f:else>
                 <f:be.infobox title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.sources.empty.title', default: 'No skill sources configured')}" state="-1">
                     <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.sources.empty.message" default="No skill sources have been added yet. Create a source record to ingest skills from GitHub." /></p>
+                    <p class="mb-1"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.sources.empty.admin" default="Administrators: add a source record, then run a sync. Discovered skills start disabled — enable the ones you want to use." /></p>
+                    <p class="mb-0 text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.sources.empty.developer" default="Developers: a source points at a GitHub-hosted SKILL.md file, repository or marketplace index." /></p>
                 </f:be.infobox>
             </f:else>
         </f:if>
@@ -131,6 +158,7 @@
             <f:else>
                 <f:be.infobox title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.skills.empty.title', default: 'No skills ingested')}" state="-1">
                     <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.skills.empty.message" default="No skills have been ingested yet. Add a source and run a sync." /></p>
+                    <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.skills.empty.admin" default="Administrators: once a source is synced, enable a skill here to make it available." /></p>
                 </f:be.infobox>
             </f:else>
         </f:if>

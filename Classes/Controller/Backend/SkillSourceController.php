@@ -60,8 +60,23 @@ final class SkillSourceController extends ActionController
             ->setHref($this->formEngineUrlBuilder->buildNewUrl('tx_nrllm_skill_source', 'nrllm_skills'));
         $buttonBar->addButton($createButton);
 
+        $sources = $this->sourceRepository->findAll();
+
+        // FormEngine edit URLs per source, returning to this module after save/close
+        // (mirrors the docheader "Add source" button's buildNewUrl pattern).
+        /** @var array<int, string> $sourceEditUrls */
+        $sourceEditUrls = [];
+        foreach ($sources as $source) {
+            $uid = $source->getUid();
+            if ($uid === null) {
+                continue;
+            }
+            $sourceEditUrls[$uid] = $this->formEngineUrlBuilder->buildEditUrl('tx_nrllm_skill_source', $uid, 'nrllm_skills');
+        }
+
         $moduleTemplate->assignMultiple([
-            'sources' => $this->sourceRepository->findAll(),
+            'sources' => $sources,
+            'sourceEditUrls' => $sourceEditUrls,
             'skills' => $this->skillRepository->findAll(),
         ]);
         return $moduleTemplate->renderResponse('Backend/Skill/List');

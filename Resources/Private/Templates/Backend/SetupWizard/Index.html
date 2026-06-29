@@ -14,34 +14,34 @@
                     <div class="step-icon">
                         <core:icon identifier="actions-link" size="small" />
                     </div>
-                    <div class="step-label">Connect</div>
+                    <div class="step-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step.connect" default="Connect" /></div>
                 </div>
                 <div class="wizard-step" data-step="2">
                     <div class="step-icon">
                         <core:icon identifier="actions-check" size="small" />
                     </div>
-                    <div class="step-label">Verify</div>
+                    <div class="step-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step.verify" default="Verify" /></div>
                 </div>
                 <div class="wizard-step" data-step="3">
                     <div class="step-icon">
                         <core:icon identifier="apps-pagetree-folder-contains-board" size="small" />
                     </div>
-                    <div class="step-label">Models</div>
+                    <div class="step-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step.models" default="Models" /></div>
                 </div>
                 <div class="wizard-step" data-step="4">
                     <div class="step-icon">
                         <core:icon identifier="actions-cog" size="small" />
                     </div>
-                    <div class="step-label">Configure</div>
+                    <div class="step-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step.configure" default="Configure" /></div>
                 </div>
                 <div class="wizard-step" data-step="5">
                     <div class="step-icon">
                         <core:icon identifier="actions-database" size="small" />
                     </div>
-                    <div class="step-label">Save</div>
+                    <div class="step-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.step.save" default="Save" /></div>
                 </div>
             </div>
-            <div class="wizard-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Setup wizard progress">
+            <div class="wizard-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.progress.aria')}">
                 <div class="wizard-progress-fill" style="width: 0%"></div>
             </div>
         </div>
@@ -61,26 +61,26 @@
                     </p>
 
                     <div class="mb-3">
-                        <label for="wizard-endpoint" class="form-label">API Endpoint URL *</label>
+                        <label for="wizard-endpoint" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.field.endpoint" default="API Endpoint URL *" /></label>
                         <input type="url" class="form-control" id="wizard-endpoint"
                                placeholder="https://api.openai.com/v1" required>
                         <div class="form-text">
-                            Examples: https://api.openai.com/v1, https://api.anthropic.com/v1, http://localhost:11434
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.field.endpoint.hint" default="Examples: https://api.openai.com/v1, https://api.anthropic.com/v1, http://localhost:11434" />
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label for="wizard-apikey" class="form-label">API Key</label>
+                        <label for="wizard-apikey" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.field.apikey" default="API Key" /></label>
                         <div class="input-group">
                             <input type="password" class="form-control" id="wizard-apikey"
                                    placeholder="sk-...">
                             <button type="button" class="btn btn-outline-secondary" id="toggle-apikey"
-                                    aria-label="Toggle API key visibility">
+                                    aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.field.apikey.toggle')}">
                                 <core:icon identifier="actions-preview" size="small" />
                             </button>
                         </div>
                         <div class="form-text">
-                            Leave empty for local providers like Ollama that don't require authentication.
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.field.apikey.hint" default="Leave empty for local providers like Ollama that don't require authentication." />
                         </div>
                     </div>
 
@@ -90,7 +90,7 @@
                                 <core:icon identifier="information" size="small" />
                             </div>
                             <div>
-                                <strong>Detected:</strong> <span id="detected-name"></span>
+                                <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.detected.label" default="Detected:" /></strong> <span id="detected-name"></span>
                                 <span class="badge text-bg-secondary ms-2" id="detected-adapter"></span>
                                 <div class="small text-body-secondary" id="detected-confidence"></div>
                             </div>
@@ -98,27 +98,27 @@
                     </div>
 
                     <div class="mb-3" id="adapter-override" style="display: none;">
-                        <label for="wizard-adapter" class="form-label">Provider Type (override)</label>
-                        <select class="form-select" id="wizard-adapter" aria-label="Select provider type">
+                        <label for="wizard-adapter" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.field.adapter" default="Provider Type (override)" /></label>
+                        <select class="form-select" id="wizard-adapter" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.field.adapter.select')}">
                             <f:for each="{adapterTypes}" as="label" key="value">
                                 <option value="{value}">{label}</option>
                             </f:for>
                         </select>
                         <div class="form-text">
-                            Only change this if auto-detection is incorrect.
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.field.adapter.hint" default="Only change this if auto-detection is incorrect." />
                         </div>
                     </div>
 
                     <button type="button" class="btn btn-link btn-sm" id="show-adapter-override">
                         <core:icon identifier="actions-cog" size="small" />
-                        Override provider type
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.btn.overrideAdapter" default="Override provider type" />
                     </button>
                 </div>
                 <div class="card-footer">
                     <div class="d-flex justify-content-end">
                         <button type="button" class="btn btn-primary" id="btn-detect">
                             <core:icon identifier="actions-search" size="small" />
-                            Detect &amp; Continue
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.btn.detect" default="Detect &amp; Continue" />
                         </button>
                     </div>
                 </div>
@@ -137,7 +137,7 @@
                 <div class="card-body">
                     <div id="test-loading" class="text-center py-5">
                         <div class="spinner-border text-primary mb-3" role="status">
-                            <span class="visually-hidden">Testing connection...</span>
+                            <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.testing.hidden" default="Testing connection..." /></span>
                         </div>
                         <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testingConnection" default="Testing connection to provider..." /></p>
                     </div>
@@ -155,22 +155,22 @@
                     <div id="test-error" class="alert alert-danger" style="display: none;">
                         <h4 class="alert-heading">
                             <core:icon identifier="actions-ban" size="small" />
-                            Connection Failed
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.connectionFailed" default="Connection Failed" />
                         </h4>
                         <p id="test-error-message"></p>
                         <hr>
-                        <p class="mb-0">Please check your endpoint URL and API key, then try again.</p>
+                        <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.connectionFailed.hint" default="Please check your endpoint URL and API key, then try again." /></p>
                     </div>
                 </div>
                 <div class="card-footer">
                     <div class="d-flex justify-content-between">
                         <button type="button" class="btn btn-secondary" id="btn-back-1">
                             <core:icon identifier="actions-chevron-left" size="small" />
-                            Back
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.btn.back" default="Back" />
                         </button>
                         <button type="button" class="btn btn-primary" id="btn-discover" disabled>
                             <core:icon identifier="actions-refresh" size="small" />
-                            Discover Models
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.btn.discover" default="Discover Models" />
                         </button>
                     </div>
                 </div>
@@ -189,7 +189,7 @@
                 <div class="card-body">
                     <div id="models-loading" class="text-center py-5">
                         <div class="spinner-border text-primary mb-3" role="status">
-                            <span class="visually-hidden">Discovering models...</span>
+                            <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.discovering.hidden" default="Discovering models..." /></span>
                         </div>
                         <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:discoveringModels" default="Discovering available models..." /></p>
                     </div>
@@ -204,12 +204,12 @@
                                     <tr>
                                         <th style="width: 40px;">
                                             <input type="checkbox" class="form-check-input" id="select-all-models"
-                                                   aria-label="Select all models">
+                                                   aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.selectAll')}">
                                         </th>
-                                        <th>Model</th>
-                                        <th>Context</th>
-                                        <th>Capabilities</th>
-                                        <th style="width: 100px;">Recommended</th>
+                                        <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.col.model" default="Model" /></th>
+                                        <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.col.context" default="Context" /></th>
+                                        <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.col.capabilities" default="Capabilities" /></th>
+                                        <th style="width: 100px;"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.col.recommended" default="Recommended" /></th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -221,11 +221,11 @@
                     <div class="d-flex justify-content-between">
                         <button type="button" class="btn btn-secondary" id="btn-back-2">
                             <core:icon identifier="actions-chevron-left" size="small" />
-                            Back
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.btn.back" default="Back" />
                         </button>
                         <button type="button" class="btn btn-primary" id="btn-generate" disabled>
                             <core:icon identifier="actions-bolt" size="small" />
-                            Generate Configurations
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.btn.generate" default="Generate Configurations" />
                         </button>
                     </div>
                 </div>
@@ -262,11 +262,11 @@
                     <div class="d-flex justify-content-between">
                         <button type="button" class="btn btn-secondary" id="btn-back-3">
                             <core:icon identifier="actions-chevron-left" size="small" />
-                            Back
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.btn.back" default="Back" />
                         </button>
                         <button type="button" class="btn btn-primary" id="btn-review">
                             <core:icon identifier="actions-preview" size="small" />
-                            Review &amp; Save
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.btn.review" default="Review &amp; Save" />
                         </button>
                     </div>
                 </div>
@@ -284,26 +284,26 @@
                 </div>
                 <div class="card-body">
                     <div id="review-content">
-                        <h5>Provider</h5>
+                        <h5><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.section.provider" default="Provider" /></h5>
                         <div class="card mb-3">
                             <div class="card-body" id="review-provider"></div>
                         </div>
 
-                        <h5>Models (<span id="review-models-count">0</span>)</h5>
+                        <h5><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.section.models" default="Models" /> (<span id="review-models-count">0</span>)</h5>
                         <div class="card mb-3">
                             <ul class="list-group list-group-flush" id="review-models"></ul>
                         </div>
 
-                        <h5>Configurations (<span id="review-configs-count">0</span>)</h5>
+                        <h5><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.section.configurations" default="Configurations" /> (<span id="review-configs-count">0</span>)</h5>
                         <div class="card mb-3">
                             <ul class="list-group list-group-flush" id="review-configs"></ul>
                         </div>
 
                         <div class="mb-3">
-                            <label for="wizard-pid" class="form-label">Storage Folder (Page ID)</label>
+                            <label for="wizard-pid" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.field.pid" default="Storage Folder (Page ID)" /></label>
                             <input type="number" class="form-control" id="wizard-pid" value="0" min="0">
                             <div class="form-text">
-                                The page ID where records will be stored. Use 0 for root level.
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.field.pid.hint" default="The page ID where records will be stored. Use 0 for root level." />
                             </div>
                         </div>
                     </div>
@@ -326,11 +326,11 @@
                         <div class="mt-4">
                             <a href="#" class="btn btn-primary" id="btn-go-providers">
                                 <core:icon identifier="actions-open" size="small" />
-                                View Providers
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.btn.goProviders" default="View Providers" />
                             </a>
                             <button type="button" class="btn btn-secondary" id="btn-restart">
                                 <core:icon identifier="actions-refresh" size="small" />
-                                Add Another Provider
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.btn.restart" default="Add Another Provider" />
                             </button>
                         </div>
                     </div>
@@ -338,7 +338,7 @@
                     <div id="save-error" class="alert alert-danger" style="display: none;">
                         <h4 class="alert-heading">
                             <core:icon identifier="actions-ban" size="small" />
-                            Save Failed
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.saveFailed" default="Save Failed" />
                         </h4>
                         <p id="save-error-message"></p>
                     </div>
@@ -347,11 +347,11 @@
                     <div class="d-flex justify-content-between">
                         <button type="button" class="btn btn-secondary" id="btn-back-4">
                             <core:icon identifier="actions-chevron-left" size="small" />
-                            Back
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.btn.back" default="Back" />
                         </button>
                         <button type="button" class="btn btn-success" id="btn-save">
                             <core:icon identifier="actions-check" size="small" />
-                            Save Configuration
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.btn.save" default="Save Configuration" />
                         </button>
                     </div>
                 </div>

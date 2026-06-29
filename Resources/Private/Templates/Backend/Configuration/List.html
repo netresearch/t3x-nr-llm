@@ -9,10 +9,25 @@
     <div>
         <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="LLM Configurations" /></h1>
 
-        <f:be.infobox state="-2">
-            <p>Configurations define <strong>how</strong> the AI behaves: which model to use, creativity level (temperature), response length, and a system prompt that sets the AI's role. Each configuration is a reusable preset — for example, a "Translator" config with low temperature and a translation-focused system prompt.</p>
-            <p class="mb-0">Configurations are shared across <strong>Tasks</strong>. A Task defines <strong>what</strong> to do (the prompt template), while a Configuration defines <strong>how</strong> to do it (model, temperature, system prompt). One configuration can power many different tasks.</p>
+        <f:be.infobox state="-1">
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.adminOnly" default="This module is admin-only. Records and actions here affect every editor using LLM features." /></p>
         </f:be.infobox>
+
+        <div class="mb-3">
+            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
+            <a href="{be:moduleLink(route: 'nrllm_providers')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.providers" default="Providers" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_models')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.models" default="Models" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+        </div>
+
+        <f:be.infobox state="-2">
+            <p><f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.intro.line1" default="Configurations define &lt;strong&gt;how&lt;/strong&gt; the AI behaves." /></f:format.raw></p>
+            <p><f:format.raw><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.intro.line2" default="Configurations are shared across Tasks." /></f:format.raw></p>
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.intro.modelNote" default="Every configuration needs a model assigned before it can be activated and used." /></p>
+        </f:be.infobox>
+
+        <f:render partial="Backend/Glossary" />
 
         <f:if condition="{configurations -> f:count()}">
             <f:then>
@@ -57,7 +72,7 @@
                                                 <br /><span class="text-body-secondary">{config.llmModel.modelId}</span>
                                             </f:then>
                                             <f:else>
-                                                <span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:notConfigured" default="Not configured" /></span>
+                                                <span class="badge text-bg-danger" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.badge" default="No model assigned" /></span>
                                             </f:else>
                                         </f:if>
                                     </td>
@@ -79,14 +94,24 @@
                                             <a href="{editUrls.{config.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
                                                 <core:icon identifier="actions-open" size="small" />
                                             </a>
-                                            <button type="button" class="btn btn-secondary btn-sm js-toggle-active"
-                                                    data-uid="{config.uid}"
-                                                    title="{f:if(condition: config.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
-                                                <f:if condition="{config.isActive}">
-                                                    <f:then><core:icon identifier="actions-toggle-on" size="small" /></f:then>
-                                                    <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
-                                                </f:if>
-                                            </button>
+                                            <f:if condition="{config.llmModel}">
+                                                <f:then>
+                                                    <button type="button" class="btn btn-secondary btn-sm js-toggle-active"
+                                                            data-uid="{config.uid}"
+                                                            title="{f:if(condition: config.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
+                                                        <f:if condition="{config.isActive}">
+                                                            <f:then><core:icon identifier="actions-toggle-on" size="small" /></f:then>
+                                                            <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
+                                                        </f:if>
+                                                    </button>
+                                                </f:then>
+                                                <f:else>
+                                                    <button type="button" class="btn btn-secondary btn-sm" disabled
+                                                            title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}">
+                                                        <core:icon identifier="actions-toggle-off" size="small" />
+                                                    </button>
+                                                </f:else>
+                                            </f:if>
                                             <f:if condition="!{config.isDefault}">
                                                 <button type="button" class="btn btn-secondary btn-sm js-set-default"
                                                         data-uid="{config.uid}"
@@ -114,6 +139,7 @@
                     state="-1"
                 >
                     <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.empty.message" default="No LLM configurations found yet. Create your first configuration to get started." /></p>
+                    <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.empty.hint" default="Configurations are the third tier of setup and require a Model first (Provider → Model → Configuration)." /></p>
                     <p><a href="{wizardUrl}" class="btn btn-primary btn-sm"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.launch" default="Launch Setup Wizard" /></a></p>
                 </f:be.infobox>
             </f:else>

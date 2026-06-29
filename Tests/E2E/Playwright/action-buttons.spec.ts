@@ -17,7 +17,7 @@ test.describe('Action Buttons', () => {
       } else {
         // No providers configured - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
       }
     });
 
@@ -126,7 +126,7 @@ test.describe('Action Buttons', () => {
       } else {
         // No models configured - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
       }
     });
   });
@@ -152,7 +152,7 @@ test.describe('Action Buttons', () => {
       } else {
         // No configurations - verify empty state is shown
         const emptyState = moduleFrame.locator('.callout-info, .alert-info, [class*="infobox"]');
-        await expect(emptyState).toBeVisible();
+        await expect(emptyState.first()).toBeVisible();
       }
     });
 

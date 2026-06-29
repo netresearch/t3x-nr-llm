@@ -85,7 +85,10 @@ final class BackendAjaxAdminGuardTest extends AbstractFunctionalTestCase
         $payload = json_decode((string)$response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
-        self::assertSame('Forbidden', $payload['error']);
+        // The denial carries an actionable, admin-oriented message (translated;
+        // falls back to the English source) rather than a bare "Forbidden".
+        self::assertIsString($payload['error']);
+        self::assertStringContainsStringIgnoringCase('administrator', $payload['error']);
     }
 
     #[Test]

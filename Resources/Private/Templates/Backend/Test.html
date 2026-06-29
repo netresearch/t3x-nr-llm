@@ -9,19 +9,23 @@
 </f:section>
 
 <f:section name="Content">
-    <h1>Test LLM Provider</h1>
+    <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.page.title" default="Test LLM Provider" /></h1>
+
+    <f:be.infobox state="-1" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.info.title', default: 'Raw provider test')}">
+        <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.info.body" default="This page sends a single prompt directly to the selected provider, bypassing tasks and configurations. Use it to confirm a provider connection works. Results are not stored." /></p>
+    </f:be.infobox>
 
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
-                        <h2 class="card-title">Send Test Request</h2>
+                        <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.card.send" default="Send Test Request" /></h2>
                     </div>
                     <div class="card-body">
                         <form id="testForm">
                             <div class="mb-3">
-                                <label for="provider" class="form-label">Provider</label>
+                                <label for="provider" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.field.provider" default="Provider" /></label>
                                 <select id="provider" name="provider" class="form-select">
                                     <f:for each="{providers}" as="provider">
                                         <option value="{provider.identifier}">{provider.name}</option>
@@ -30,16 +34,16 @@
                             </div>
 
                             <div class="mb-3">
-                                <label for="prompt" class="form-label">Prompt</label>
+                                <label for="prompt" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.field.prompt" default="Prompt" /></label>
                                 <textarea id="prompt" name="prompt" class="form-control" rows="4">Hello, please respond with a brief greeting to test the connection.</textarea>
                             </div>
 
                             <button type="submit" class="btn btn-primary mt-3">
-                                Run Test
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.btn.run" default="Run Test" />
                             </button>
 
                             <f:link.action action="index" class="btn btn-secondary mt-3">
-                                Back to Overview
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.btn.back" default="Back to Overview" />
                             </f:link.action>
                         </form>
                     </div>
@@ -49,37 +53,37 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
-                        <h2 class="card-title">Response</h2>
+                        <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.card.response" default="Response" /></h2>
                     </div>
                     <div class="card-body">
                         <div id="responseContainer" style="display: none;">
                             <div id="responseSuccess" class="alert alert-success" style="display: none;">
-                                <strong>Success!</strong>
+                                <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.response.success" default="Success!" /></strong>
                             </div>
                             <div id="responseError" class="alert alert-danger" style="display: none;">
-                                <strong>Error:</strong> <span id="errorMessage"></span>
+                                <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.response.error" default="Error:" /></strong> <span id="errorMessage"></span>
                             </div>
 
                             <div id="responseDetails" style="display: none;">
-                                <h4>Content</h4>
+                                <h4><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.response.content" default="Content" /></h4>
                                 <pre id="responseContent" class="bg-light p-3"></pre>
 
-                                <h4>Usage</h4>
+                                <h4><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.response.usage" default="Usage" /></h4>
                                 <table class="table table-sm">
                                     <tr>
-                                        <td>Model</td>
+                                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.usage.model" default="Model" /></td>
                                         <td id="responseModel"></td>
                                     </tr>
                                     <tr>
-                                        <td>Prompt Tokens</td>
+                                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.usage.promptTokens" default="Prompt Tokens" /></td>
                                         <td id="promptTokens"></td>
                                     </tr>
                                     <tr>
-                                        <td>Completion Tokens</td>
+                                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.usage.completionTokens" default="Completion Tokens" /></td>
                                         <td id="completionTokens"></td>
                                     </tr>
                                     <tr>
-                                        <td>Total Tokens</td>
+                                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.usage.totalTokens" default="Total Tokens" /></td>
                                         <td id="totalTokens"></td>
                                     </tr>
                                 </table>
@@ -88,9 +92,9 @@
 
                         <div id="loadingIndicator" style="display: none;">
                             <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
+                                <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.loading" default="Sending request..." /></span>
                             </div>
-                            <span class="ms-2">Sending request...</span>
+                            <span class="ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.loading" default="Sending request..." /></span>
                         </div>
                     </div>
                 </div>
