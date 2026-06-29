@@ -18,6 +18,8 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
 use stdClass;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
@@ -42,9 +44,10 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * {@see RequiresBackendAdminTrait} guard.
  */
 #[AsController]
-final class ToolPlaygroundController extends ActionController
+final class ToolPlaygroundController extends ActionController implements LoggerAwareInterface
 {
     use RequiresBackendAdminTrait;
+    use LoggerAwareTrait;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -101,7 +104,8 @@ final class ToolPlaygroundController extends ActionController
         try {
             $allowed = $this->allowedToolsResolver->resolve($config);
             $result  = $this->toolLoopService->runLoop([ChatMessage::user($prompt)], $config, $allowed, $options);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            $this->logger?->error('Tool playground run failed', ['exception' => $e]);
             return new JsonResponse(['success' => false, 'error' => 'Tool run failed'], 500);
         }
 
