@@ -85,6 +85,16 @@ Using the Tool Playground
 The playground lives in :guilabel:`Admin Tools > LLM > Tool Playground` and
 is admin-only.
 
+.. figure:: /Images/ToolPlaygroundShell.png
+   :alt: The Tool Playground module with the LLM configuration picker, an
+       empty prompt box, the Run button, and the Available tools panel
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   The playground shell — the configuration picker and prompt box on the
+   left, the :guilabel:`Available tools` panel listing every registered
+   tool (here ``fetch_logs`` and ``read_fal_asset_meta``) on the right.
+
 1. Pick an **LLM configuration** from the dropdown. Its vault-stored API key,
    model, temperature and system prompt are what the loop actually runs on —
    the playground never falls back to a default model.
@@ -92,6 +102,16 @@ is admin-only.
 3. Read the **trace**. Each tool the model called is shown in order with its
    name, the arguments the model chose, and the tool's result (errors are
    badged). The model's **final answer** follows the trace.
+
+.. figure:: /Images/ToolPlaygroundRun.png
+   :alt: A completed tool run showing a two-iteration agent loop that
+       called fetch_logs, its redacted result, and the run metadata
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   A completed run — a two-iteration loop in which the model called
+   ``fetch_logs`` (arguments ``{"limit": 20}``); the redacted ``sys_log``
+   result is fed back and the model's final answer closes the trace.
 
 The :guilabel:`Available tools` panel lists every registered tool. Every
 displayed string — tool arguments, tool results (which may include
