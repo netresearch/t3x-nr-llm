@@ -80,7 +80,11 @@
         },
         "typo3/cms": {
             "extension-key": "nr_llm",
-            "web-dir": ".Build/Web"
+            "web-dir": ".Build/Web",
+            "version": "0.13.0",
+            "Package": {
+                "providesPackages": {}
+            }
         }
     },
     "scripts": {
