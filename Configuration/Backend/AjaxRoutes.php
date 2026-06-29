@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Controller\Backend\TaskRecordsController;
+use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
 
 /**
  * AJAX routes for nr_llm backend module.
@@ -128,6 +129,12 @@ return [
     'nrllm_skill_token' => [
         'path' => '/nrllm/skill/token',
         'target' => SkillSourceController::class . '::setTokenAction',
+    ],
+
+    // Tool playground route
+    'nrllm_tool_run' => [
+        'path' => '/nrllm/tool/run',
+        'target' => ToolPlaygroundController::class . '::runAction',
     ],
 
     // Setup Wizard routes
