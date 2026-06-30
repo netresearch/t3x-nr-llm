@@ -108,9 +108,10 @@ Decision
    registered-but-not-offered tool.
 
 6. **Authorization is enforced in the runtime, against the acting backend
-   user — not only in the playground.** Because :php:`ToolLoopService` is a
-   public service (a future non-admin consumer could call it), every tool
-   declares :php:`requiresAdmin()`. The loop resolves the acting
+   user — not only in the playground.** Because :php:`ToolLoopService` runs
+   tools on behalf of a backend request (and a future non-admin consumer could
+   be wired to it), every tool declares :php:`requiresAdmin()`. The loop
+   resolves the acting
    ``$GLOBALS['BE_USER']`` and, when it is not an admin, **filters every
    admin-only tool out of the offered set** (fail-closed: an unknown tool name
    is treated as admin-only). Admin-only tools are those exposing system /
