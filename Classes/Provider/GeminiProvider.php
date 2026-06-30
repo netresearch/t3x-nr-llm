@@ -250,8 +250,13 @@ final class GeminiProvider extends AbstractProvider implements
 
             $functionCall = $this->getArray($partArray, 'functionCall');
             if ($functionCall !== []) {
+                // Gemini does not return tool-call IDs; synthesise a
+                // conversation-unique one. A per-response part index would
+                // reset to 0 each loop turn and collide across turns in
+                // buildToolCallIdToName(); uniqid(more_entropy: true) is
+                // collision-free even for multiple calls in one response.
                 $toolCalls[] = ToolCall::function(
-                    id: 'call_' . uniqid(),
+                    id: uniqid('call_', true),
                     name: $this->getString($functionCall, 'name'),
                     arguments: $this->getArray($functionCall, 'args'),
                 );
