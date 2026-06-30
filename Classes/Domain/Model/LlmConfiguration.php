@@ -619,12 +619,14 @@ class LlmConfiguration extends AbstractEntity
 
     public function addSkill(Skill $skill): void
     {
-        $this->skills->attach($skill);
+        // Route through the lazy-initializing getter: Extbase reconstitution
+        // skips the constructor, leaving $skills unset on relation-less entities.
+        $this->getSkills()->attach($skill);
     }
 
     public function removeSkill(Skill $skill): void
     {
-        $this->skills->detach($skill);
+        $this->getSkills()->detach($skill);
     }
 
     // ========================================
