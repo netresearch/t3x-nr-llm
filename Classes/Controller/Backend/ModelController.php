@@ -54,6 +54,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 final class ModelController extends ActionController
 {
     use RequiresBackendAdminTrait;
+    use DefensiveLocalizationTrait;
 
     private const TABLE_NAME = 'tx_nrllm_model';
 
@@ -236,7 +237,7 @@ final class ModelController extends ActionController
         $providerUid = $this->extractIntFromBody($body, 'providerUid');
 
         if ($providerUid === 0) {
-            return new JsonResponse((new ErrorResponse(self::ERROR_NO_PROVIDER_UID))->jsonSerialize(), 400);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.noProviderUid', self::ERROR_NO_PROVIDER_UID)))->jsonSerialize(), 400);
         }
 
         try {
@@ -279,7 +280,7 @@ final class ModelController extends ActionController
     {
         // Provider is lazy-loaded by Extbase
         if ($model->getProvider() === null) {
-            return new JsonResponse((new ErrorResponse('Model has no provider configured'))->jsonSerialize(), 400);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.noProviderConfigured', 'Model has no provider configured')))->jsonSerialize(), 400);
         }
 
         // Resolve localized format strings before try/catch to avoid LocalizationUtility
@@ -367,7 +368,7 @@ final class ModelController extends ActionController
         if ($providerUid === 0) {
             return new JsonResponse([
                 'success' => false,
-                'error' => self::ERROR_NO_PROVIDER_UID,
+                'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.noProviderUid', self::ERROR_NO_PROVIDER_UID),
             ], 400);
         }
 
@@ -375,7 +376,7 @@ final class ModelController extends ActionController
         if ($provider === null) {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'Provider not found',
+                'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.notFound', 'Provider not found'),
             ], 404);
         }
 
@@ -463,7 +464,7 @@ final class ModelController extends ActionController
         if ($provider === null) {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'Provider not found',
+                'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.notFound', 'Provider not found'),
             ], 404);
         }
 
@@ -480,14 +481,14 @@ final class ModelController extends ActionController
         if ($providerUid === 0) {
             return new JsonResponse([
                 'success' => false,
-                'error' => self::ERROR_NO_PROVIDER_UID,
+                'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.noProviderUid', self::ERROR_NO_PROVIDER_UID),
             ], 400);
         }
 
         if ($modelId === '') {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'No model ID specified',
+                'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.noModelId', 'No model ID specified'),
             ], 400);
         }
 
@@ -525,7 +526,7 @@ final class ModelController extends ActionController
             if ($foundModel === null) {
                 return new JsonResponse([
                     'success' => false,
-                    'error' => sprintf('Model "%s" not found in provider\'s available models', $modelId),
+                    'error' => sprintf($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.modelIdNotFound', 'Model "%s" not found in provider\'s available models'), $modelId),
                 ], 404);
             }
 
@@ -592,12 +593,12 @@ final class ModelController extends ActionController
     private function resolveModelOrError(int $uid): Model|ResponseInterface
     {
         if ($uid === 0) {
-            return new JsonResponse((new ErrorResponse(self::ERROR_NO_MODEL_UID))->jsonSerialize(), 400);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.noModelUid', self::ERROR_NO_MODEL_UID)))->jsonSerialize(), 400);
         }
 
         $model = $this->modelRepository->findByUid($uid);
         if ($model === null) {
-            return new JsonResponse((new ErrorResponse(self::ERROR_MODEL_NOT_FOUND))->jsonSerialize(), 404);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.notFound', self::ERROR_MODEL_NOT_FOUND)))->jsonSerialize(), 404);
         }
 
         return $model;

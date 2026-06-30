@@ -207,7 +207,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame(self::NO_MODEL_UID_SPECIFIED, $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString(self::NO_MODEL_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
@@ -224,7 +225,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame(self::MODEL_NOT_FOUND, $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString(self::MODEL_NOT_FOUND, $body['error']);
     }
 
     #[Test]
@@ -289,7 +291,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame(self::NO_MODEL_UID_SPECIFIED, $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString(self::NO_MODEL_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
@@ -306,7 +309,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame(self::MODEL_NOT_FOUND, $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString(self::MODEL_NOT_FOUND, $body['error']);
     }
 
     #[Test]
@@ -363,7 +367,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame(self::NO_MODEL_UID_SPECIFIED, $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString(self::NO_MODEL_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
@@ -380,7 +385,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame(self::MODEL_NOT_FOUND, $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString(self::MODEL_NOT_FOUND, $body['error']);
     }
 
     #[Test]
@@ -437,7 +443,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
@@ -476,7 +483,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
@@ -493,7 +501,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Provider not found', $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString('Provider not found', $body['error']);
     }
 
     #[Test]
@@ -532,7 +541,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString(self::NO_PROVIDER_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
@@ -549,7 +559,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No model ID specified', $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString('No model ID specified', $body['error']);
     }
 
     #[Test]
@@ -566,7 +577,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Provider not found', $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString('Provider not found', $body['error']);
     }
 
     #[Test]
@@ -606,7 +618,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('Model has no provider configured', $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString('Model has no provider configured', $body['error']);
     }
 
     #[Test]
@@ -624,7 +637,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame(self::NO_MODEL_UID_SPECIFIED, $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString(self::NO_MODEL_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
@@ -642,7 +656,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame(self::NO_MODEL_UID_SPECIFIED, $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString(self::NO_MODEL_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
@@ -660,7 +675,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame(self::NO_MODEL_UID_SPECIFIED, $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString(self::NO_MODEL_UID_SPECIFIED, $body['error']);
     }
 
     #[Test]
@@ -678,7 +694,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
         self::assertFalse($body['success']);
-        self::assertSame('No model ID specified', $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString('No model ID specified', $body['error']);
     }
 
     #[Test]

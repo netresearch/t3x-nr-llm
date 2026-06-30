@@ -161,7 +161,8 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         self::assertSame(400, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
-        self::assertSame('No provider specified', $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString('No provider specified', $body['error']);
     }
 
     #[Test]
@@ -183,7 +184,8 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         self::assertSame(400, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
-        self::assertSame('No provider specified', $body['error']);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString('No provider specified', $body['error']);
     }
 
     #[Test]

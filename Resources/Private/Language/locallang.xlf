@@ -1266,6 +1266,366 @@
             <trans-unit id="flash.task.creationFailed.body">
                 <source>Failed to create task. See system log for details.</source>
             </trans-unit>
+            <trans-unit id="wizard.shared.generateWithAi">
+                <source>Generate with AI</source>
+            </trans-unit>
+            <trans-unit id="wizard.shared.generating">
+                <source>Generating... this may take a moment</source>
+            </trans-unit>
+            <trans-unit id="wizard.shared.generatingShort">
+                <source>Generating...</source>
+            </trans-unit>
+            <trans-unit id="wizard.shared.cancel">
+                <source>Cancel</source>
+            </trans-unit>
+            <trans-unit id="wizard.shared.configLabel">
+                <source>LLM Configuration</source>
+            </trans-unit>
+            <trans-unit id="wizard.shared.currentlyUsing">
+                <source>Currently using:</source>
+            </trans-unit>
+            <trans-unit id="wizard.shared.noConfig.title">
+                <source>No LLM configuration available.</source>
+            </trans-unit>
+            <trans-unit id="wizard.shared.noConfig.hint">
+                <source>You need at least one active configuration with a model assigned before you can use the AI wizard.</source>
+            </trans-unit>
+            <trans-unit id="wizard.shared.examples">
+                <source>Examples:</source>
+            </trans-unit>
+            <trans-unit id="wizard.task.title">
+                <source>Create Task with AI</source>
+            </trans-unit>
+            <trans-unit id="wizard.task.intro">
+                <source>Describe the action this task should perform. The AI will generate a complete task setup including prompt template, a dedicated configuration with optimized parameters, and model recommendation.</source>
+            </trans-unit>
+            <trans-unit id="wizard.task.examples">
+                <source>"Summarize long articles into 3 bullet points" or "Check text for grammar and spelling errors and suggest corrections"</source>
+            </trans-unit>
+            <trans-unit id="wizard.task.label">
+                <source>What should this task do?</source>
+            </trans-unit>
+            <trans-unit id="wizard.task.placeholder">
+                <source>Describe what the task should do with the input data...</source>
+            </trans-unit>
+            <trans-unit id="wizard.task.invalidFeedback">
+                <source>Please enter a description of what this task should do.</source>
+            </trans-unit>
+            <trans-unit id="wizard.task.goToConfigurations">
+                <source>Go to Configurations</source>
+            </trans-unit>
+            <trans-unit id="wizard.task.loading.title">
+                <source>Generating task...</source>
+            </trans-unit>
+            <trans-unit id="wizard.task.loading.message">
+                <source>The AI is creating your task. This usually takes 10-30 seconds.</source>
+            </trans-unit>
+            <trans-unit id="wizard.config.title">
+                <source>Create Configuration with AI</source>
+            </trans-unit>
+            <trans-unit id="wizard.config.intro">
+                <source>Describe the AI personality and behavior you need. The AI will generate a complete configuration including system prompt, temperature, and other model parameters.</source>
+            </trans-unit>
+            <trans-unit id="wizard.config.examples">
+                <source>"A translator that converts German to English, preserving TYPO3 terminology" or "A creative blog writer with a casual, friendly tone"</source>
+            </trans-unit>
+            <trans-unit id="wizard.config.label">
+                <source>What should this configuration do?</source>
+            </trans-unit>
+            <trans-unit id="wizard.config.placeholder">
+                <source>Describe the behavior, role, and personality of the AI...</source>
+            </trans-unit>
+            <trans-unit id="wizard.config.invalidFeedback">
+                <source>Please enter a description of what this configuration should do.</source>
+            </trans-unit>
+            <trans-unit id="wizard.config.loading.title">
+                <source>Generating configuration...</source>
+            </trans-unit>
+            <trans-unit id="wizard.config.loading.message">
+                <source>The AI is creating your configuration. This usually takes 10-30 seconds.</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.openEditor">
+                <source>Open in Editor</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.regenerate">
+                <source>Regenerate</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.editDescription">
+                <source>Edit Description</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.backToList">
+                <source>Back to List</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.reviewIntro">
+                <source>Click "Open in Editor" to fine-tune the values in the full form, or "Regenerate" to try again.</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.yourDescription">
+                <source>Your description:</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.generatedWith">
+                <source>Generated with</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.generatedWithoutAi">
+                <source>Generated without AI (fallback)</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.via">
+                <source>via</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.task.title">
+                <source>AI-Generated Task</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.task.review">
+                <source>Review the generated task below.</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.task.heading">
+                <source>Generated Task</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.config.title">
+                <source>AI-Generated Configuration</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.config.review">
+                <source>Review the generated configuration below.</source>
+            </trans-unit>
+            <trans-unit id="wizard.preview.config.heading">
+                <source>Generated Configuration</source>
+            </trans-unit>
+            <trans-unit id="field.name">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="field.identifier">
+                <source>Identifier</source>
+            </trans-unit>
+            <trans-unit id="field.description">
+                <source>Description</source>
+            </trans-unit>
+            <trans-unit id="field.category">
+                <source>Category</source>
+            </trans-unit>
+            <trans-unit id="field.outputFormat">
+                <source>Output Format</source>
+            </trans-unit>
+            <trans-unit id="field.promptTemplate">
+                <source>Prompt Template</source>
+            </trans-unit>
+            <trans-unit id="field.systemPrompt">
+                <source>System Prompt</source>
+            </trans-unit>
+            <trans-unit id="field.temperature">
+                <source>Temperature</source>
+            </trans-unit>
+            <trans-unit id="field.maxTokens">
+                <source>Max Tokens</source>
+            </trans-unit>
+            <trans-unit id="field.topP">
+                <source>Top P</source>
+            </trans-unit>
+            <trans-unit id="field.frequencyPenalty">
+                <source>Frequency Penalty</source>
+            </trans-unit>
+            <trans-unit id="field.presencePenalty">
+                <source>Presence Penalty</source>
+            </trans-unit>
+            <trans-unit id="task.execute.title">
+                <source>Execute</source>
+            </trans-unit>
+            <trans-unit id="task.execute.inactive.title">
+                <source>This task is inactive.</source>
+            </trans-unit>
+            <trans-unit id="task.execute.inactive.message">
+                <source>It will not appear in the CKEditor cowriter dialog or API. You can still test it here.</source>
+            </trans-unit>
+            <trans-unit id="task.execute.config.title">
+                <source>Configuration &amp; Model</source>
+            </trans-unit>
+            <trans-unit id="task.execute.config.usingDefault">
+                <source>Using system default</source>
+            </trans-unit>
+            <trans-unit id="task.execute.config.provider">
+                <source>Provider</source>
+            </trans-unit>
+            <trans-unit id="task.execute.config.model">
+                <source>Model</source>
+            </trans-unit>
+            <trans-unit id="task.execute.config.configuration">
+                <source>Configuration</source>
+            </trans-unit>
+            <trans-unit id="task.execute.config.freqPenalty">
+                <source>Freq. Penalty</source>
+            </trans-unit>
+            <trans-unit id="task.execute.config.modelNotAssigned">
+                <source>No model assigned</source>
+            </trans-unit>
+            <trans-unit id="task.execute.config.noConfig.title">
+                <source>No configuration available.</source>
+            </trans-unit>
+            <trans-unit id="task.execute.config.noConfig.message">
+                <source>This task has no configuration assigned and no system default is set. Execution will use provider defaults.</source>
+            </trans-unit>
+            <trans-unit id="task.execute.btn.editTask">
+                <source>Edit Task</source>
+            </trans-unit>
+            <trans-unit id="task.execute.btn.backToList">
+                <source>Back to List</source>
+            </trans-unit>
+            <trans-unit id="task.execute.btn.editProvider">
+                <source>Edit Provider</source>
+            </trans-unit>
+            <trans-unit id="task.execute.btn.editModel">
+                <source>Edit Model</source>
+            </trans-unit>
+            <trans-unit id="task.execute.btn.editConfiguration">
+                <source>Edit Configuration</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.title">
+                <source>Input</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.loadFromDb">
+                <source>Load data from database table</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.selectTable">
+                <source>Select Table</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.loadTables">
+                <source>-- Load tables --</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.selectRecords">
+                <source>Select Records</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.selectTableFirst">
+                <source>Select a table first</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.multiSelectHint">
+                <source>Hold Ctrl/Cmd to select multiple</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.load">
+                <source>Load</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.enterInput">
+                <source>Enter your input:</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.autoFetched">
+                <source>Auto-fetched data</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.autoPopulated">
+                <source>Auto-populated</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.placeholder">
+                <source>Enter the data to analyze...</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.noData">
+                <source>No data available.</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.noData.syslog">
+                <source>The system log (sys_log) contains no matching entries. This is normal for a fresh installation.</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.noData.deprecationLog">
+                <source>No deprecation log found. The file var/log/typo3_deprecations.log may not exist yet.</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.noData.table">
+                <source>The configured table is empty or the table/field configuration is missing.</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.noData.default">
+                <source>No data could be fetched automatically.</source>
+            </trans-unit>
+            <trans-unit id="task.execute.input.noData.manual">
+                <source>You can still enter data manually above.</source>
+            </trans-unit>
+            <trans-unit id="task.execute.btn.execute">
+                <source>Execute Task</source>
+            </trans-unit>
+            <trans-unit id="task.execute.btn.executing">
+                <source>Executing...</source>
+            </trans-unit>
+            <trans-unit id="task.execute.btn.refreshData">
+                <source>Refresh Data</source>
+            </trans-unit>
+            <trans-unit id="task.execute.promptTemplate.title">
+                <source>Prompt Template</source>
+            </trans-unit>
+            <trans-unit id="task.execute.promptTemplate.hint">
+                <source>will be replaced with the input above.</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.title">
+                <source>Output</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.processing">
+                <source>Processing...</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.placeholder">
+                <source>Click "Execute Task" to run this task</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.loading.title">
+                <source>Processing request...</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.loading.message">
+                <source>Sending to LLM and waiting for response</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.error">
+                <source>Error:</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.format.plain">
+                <source>Plain</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.format.plainTitle">
+                <source>Plain text</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.format.html">
+                <source>HTML</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.format.htmlTitle">
+                <source>Rendered HTML</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.format.markdown">
+                <source>Markdown</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.format.markdownTitle">
+                <source>Rendered Markdown</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.formatAria">
+                <source>Output format</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.modelLabel">
+                <source>Model:</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.tokensLabel">
+                <source>Tokens:</source>
+            </trans-unit>
+            <trans-unit id="task.execute.output.copy">
+                <source>Copy to Clipboard</source>
+            </trans-unit>
+            <trans-unit id="error.skill.unknownSource">
+                <source>Unknown source</source>
+            </trans-unit>
+            <trans-unit id="error.skill.unknownSkill">
+                <source>Unknown skill</source>
+            </trans-unit>
+            <trans-unit id="error.skill.orphaned">
+                <source>Cannot enable an orphaned skill</source>
+            </trans-unit>
+            <trans-unit id="error.model.noModelUid">
+                <source>No model UID specified</source>
+            </trans-unit>
+            <trans-unit id="error.model.notFound">
+                <source>Model not found</source>
+            </trans-unit>
+            <trans-unit id="error.model.noProviderUid">
+                <source>No provider UID specified</source>
+            </trans-unit>
+            <trans-unit id="error.model.noModelId">
+                <source>No model ID specified</source>
+            </trans-unit>
+            <trans-unit id="error.model.noProviderConfigured">
+                <source>Model has no provider configured</source>
+            </trans-unit>
+            <trans-unit id="error.model.modelIdNotFound">
+                <source>Model "%s" not found in provider's available models</source>
+            </trans-unit>
+            <trans-unit id="error.tool.invalidInput">
+                <source>Invalid configuration or prompt</source>
+            </trans-unit>
+            <trans-unit id="error.tool.unknownTool">
+                <source>Unknown tool</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

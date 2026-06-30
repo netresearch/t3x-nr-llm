@@ -34,6 +34,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 final class LlmModuleController extends ActionController
 {
     use RequiresBackendAdminTrait;
+    use DefensiveLocalizationTrait;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -148,7 +149,7 @@ final class LlmModuleController extends ActionController
         $prompt = $this->extractStringFromBody($body, 'prompt', $this->testPromptResolver->resolve());
 
         if ($provider === '') {
-            return new JsonResponse(['error' => 'No provider specified'], 400);
+            return new JsonResponse(['error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.noProvider', 'No provider specified')], 400);
         }
 
         try {
