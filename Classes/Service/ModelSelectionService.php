@@ -263,14 +263,13 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
             return $a->isDefault() ? -1 : 1; // Default first
         }
 
-        // Fourth priority: sorting order.
-        // NOTE: `sorting` is a TYPO3-managed TCA `ctrl.sortby` field and is NOT
-        // hydrated onto the model by Extbase, so getSorting() returns 0 here and
-        // this comparison is effectively a no-op. Tied candidates therefore keep
-        // their repository order, which PHP's stable sort preserves. The line is
-        // kept intentionally so the intended ordering takes effect automatically
-        // should the field ever become hydrated.
-        return $a->getSorting() <=> $b->getSorting();
+        // Fourth priority: sorting order — handled at the query level.
+        // ModelRepository hydrates candidates already ordered by `sorting, name`
+        // (its $defaultOrderings), and usort() is stable, so equal-priority
+        // candidates keep that order without an explicit tiebreaker here. (A
+        // getSorting() comparison would be a no-op anyway: `sorting` is a TCA
+        // ctrl.sortby field that Extbase does not hydrate onto the model.)
+        return 0;
     }
 
     /**
