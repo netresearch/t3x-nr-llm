@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Image;
 
+use JsonException;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -330,21 +331,41 @@ final class FalImageService extends AbstractSpecializedService
     /**
      * FAL uses `detail` (FastAPI default) or `message` for error
      * messages — the OpenAI-style `error.message` shape doesn't apply.
+     *
+     * A non-JSON error body (e.g. an HTML gateway/proxy error page) is logged
+     * with a short sample so it is distinguishable from an empty response, and
+     * surfaced as a clearer fallback than the generic unknown-error label.
      */
     protected function decodeErrorMessage(string $responseBody): string
     {
-        $result = $this->unknownErrorLabel();
-        $error  = $responseBody === '' ? null : json_decode($responseBody, true);
+        if ($responseBody === '') {
+            return $this->unknownErrorLabel();
+        }
+
+        try {
+            $error = json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            $this->logger->warning('FAL error response is not JSON', [
+                'provider' => $this->getServiceProvider(),
+                'message'  => $e->getMessage(),
+                'sample'   => substr($responseBody, 0, 200),
+            ]);
+
+            return 'FAL error response is not JSON';
+        }
+
         if (is_array($error)) {
             $detail  = $error['detail']  ?? null;
             $message = $error['message'] ?? null;
             if (is_string($detail) && $detail !== '') {
-                $result = $detail;
-            } elseif (is_string($message) && $message !== '') {
-                $result = $message;
+                return $detail;
+            }
+            if (is_string($message) && $message !== '') {
+                return $message;
             }
         }
-        return $result;
+
+        return $this->unknownErrorLabel();
     }
 
     /**
