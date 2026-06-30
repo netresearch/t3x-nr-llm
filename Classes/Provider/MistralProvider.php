@@ -137,6 +137,17 @@ final class MistralProvider extends AbstractProvider implements
             $payload['top_p'] = $this->getFloat($options, 'top_p');
         }
 
+        if (isset($options['stop'])) {
+            $payload['stop'] = $options['stop'];
+        } else {
+            // ChatOptions emits stop sequences as `stop_sequences`; the
+            // OpenAI-compatible API expects them under `stop`.
+            $stopSequences = $options['stop_sequences'] ?? null;
+            if (is_array($stopSequences) && $stopSequences !== []) {
+                $payload['stop'] = $stopSequences;
+            }
+        }
+
         // Mistral uses 'random_seed' instead of 'seed'
         if (isset($options['seed'])) {
             $payload['random_seed'] = $this->getInt($options, 'seed');

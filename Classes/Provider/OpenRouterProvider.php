@@ -300,6 +300,13 @@ final class OpenRouterProvider extends AbstractProvider implements
 
         if (isset($options['stop'])) {
             $payload['stop'] = $options['stop'];
+        } else {
+            // ChatOptions emits stop sequences as `stop_sequences`; the
+            // OpenAI-compatible API expects them under `stop`.
+            $stopSequences = $options['stop_sequences'] ?? null;
+            if (is_array($stopSequences) && $stopSequences !== []) {
+                $payload['stop'] = $stopSequences;
+            }
         }
 
         // OpenRouter-specific: automatic fallback

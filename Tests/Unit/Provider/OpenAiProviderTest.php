@@ -214,6 +214,24 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         );
     }
 
+    #[Test]
+    public function chatCompletionMapsStopSequencesOptionToStopPayloadKey(): void
+    {
+        // ChatOptions::toArray() emits stop sequences under `stop_sequences`;
+        // the OpenAI-compatible API expects them under `stop`.
+        $payload = $this->captureChatCompletionPayload(['stop_sequences' => ['END', '###']]);
+
+        self::assertArrayHasKey('stop', $payload);
+        self::assertSame(['END', '###'], $payload['stop']);
+    }
+
+    #[Test]
+    public function chatCompletionOmitsStopForEmptyOrUnsetStopSequences(): void
+    {
+        self::assertArrayNotHasKey('stop', $this->captureChatCompletionPayload(['stop_sequences' => []]));
+        self::assertArrayNotHasKey('stop', $this->captureChatCompletionPayload([]));
+    }
+
     /**
      * Run chatCompletion with the given options and return the JSON request body the
      * provider hands to the stream factory, so payload shaping can be asserted directly.
