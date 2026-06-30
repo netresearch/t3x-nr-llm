@@ -348,9 +348,9 @@ class LlmConfiguration extends AbstractEntity
     }
 
     /**
-     * @return ObjectStorage<AbstractEntity>|null
+     * @return ObjectStorage<AbstractEntity>
      */
-    public function getBeGroups(): ?ObjectStorage
+    public function getBeGroups(): ObjectStorage
     {
         // Extbase can reconstitute a relation-less entity without the constructor's
         // ObjectStorage init, leaving this property unset/null.

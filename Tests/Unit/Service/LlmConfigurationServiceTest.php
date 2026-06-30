@@ -86,7 +86,9 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
             }
             $config->method('getBeGroups')->willReturn($groups);
         } else {
-            $config->method('getBeGroups')->willReturn(null);
+            // getBeGroups() never returns null — an unrestricted configuration
+            // exposes an empty ObjectStorage.
+            $config->method('getBeGroups')->willReturn(new ObjectStorage());
         }
 
         return $config;
@@ -521,13 +523,15 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
     // ==================== Edge cases ====================
 
     #[Test]
-    public function hasAccessHandlesNullBeGroups(): void
+    public function hasAccessHandlesEmptyBeGroups(): void
     {
         $this->setupNonAdminUser([1, 2]);
 
         $config = self::createStub(LlmConfiguration::class);
         $config->method('hasAccessRestrictions')->willReturn(true);
-        $config->method('getBeGroups')->willReturn(null);
+        // getBeGroups() never returns null — a restricted config with no groups
+        // assigned exposes an empty ObjectStorage.
+        $config->method('getBeGroups')->willReturn(new ObjectStorage());
 
         $subject = $this->createSubject();
         $result = $subject->hasAccess($config);

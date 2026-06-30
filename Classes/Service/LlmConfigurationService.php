@@ -252,9 +252,6 @@ final readonly class LlmConfigurationService implements LlmConfigurationServiceI
     private function getConfigurationGroupIds(LlmConfiguration $configuration): array
     {
         $beGroups = $configuration->getBeGroups();
-        if ($beGroups === null) {
-            return [];
-        }
 
         $groupIds = [];
         foreach ($beGroups as $group) {

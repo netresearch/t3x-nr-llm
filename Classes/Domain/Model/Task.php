@@ -79,7 +79,7 @@ class Task extends AbstractEntity
     protected string $promptTemplate = '';
     protected string $inputType = TaskInputType::MANUAL->value;
     protected string $inputSource = '';
-    protected string $outputFormat = self::OUTPUT_MARKDOWN;
+    protected string $outputFormat = TaskOutputFormat::MARKDOWN->value;
     protected bool $isActive = true;
     protected bool $isSystem = false;
     protected int $sorting = 0;
