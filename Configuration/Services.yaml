@@ -55,17 +55,17 @@ services:
     public: true
 
   # ========================================
-  # Providers (PUBLIC)
+  # Providers (private; resolved via LlmServiceManager)
   # ========================================
   # Provider registration and priority are declared via the
   # #[AsLlmProvider(priority: N)] attribute on each provider class.
-  # ProviderCompilerPass scans for the attribute, tags matching
-  # services automatically, AND makes attribute-discovered providers
-  # public so backend diagnostics can resolve them by class name.
-  # Services.yaml `tags:` entries still work for third-party
-  # providers and take precedence if both are present; yaml-tagged
-  # services remain private unless the yaml entry sets
-  # `public: true` explicitly.
+  # ProviderCompilerPass scans for the attribute and tags matching
+  # services automatically. Providers stay PRIVATE — nothing resolves a
+  # provider by class name from the container; all access is via
+  # LlmServiceManager::getProvider(), which keeps the documented public
+  # service set stable (ADR-028 / PublicServicesPolicyTest).
+  # Services.yaml `tags:` entries still work for third-party providers and
+  # take precedence if both are present.
 
   # ========================================
   # Provider Adapter Registry (database-backed providers)
