@@ -462,8 +462,11 @@ final class SetupWizardController extends ActionController
             $configIdentifier = is_string($configData['identifier'] ?? null) ? $configData['identifier'] : '';
             $configDescription = is_string($configData['description'] ?? null) ? $configData['description'] : '';
             $systemPrompt = is_string($configData['systemPrompt'] ?? null) ? $configData['systemPrompt'] : '';
-            $temperature = is_numeric($configData['temperature'] ?? null) ? (float)$configData['temperature'] : 0.7;
-            $maxTokens = is_numeric($configData['maxTokens'] ?? null) ? (int)$configData['maxTokens'] : 4096;
+            // Clamp to valid ranges (mirrors TaskWizardController): temperature
+            // 0.0–2.0, maxTokens 1–128000, so the wizard cannot persist
+            // out-of-range values that the providers would reject.
+            $temperature = max(0.0, min(2.0, is_numeric($configData['temperature'] ?? null) ? (float)$configData['temperature'] : 0.7));
+            $maxTokens = max(1, min(128000, is_numeric($configData['maxTokens'] ?? null) ? (int)$configData['maxTokens'] : 4096));
 
             $config = new LlmConfiguration();
             $config->setIdentifier($configIdentifier !== '' ? $configIdentifier : $this->generateIdentifier($configName));
