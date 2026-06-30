@@ -12,15 +12,18 @@ namespace Netresearch\NrLlm\Controller\Backend;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
+use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
+use ReflectionClass;
 use stdClass;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
@@ -49,6 +52,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 {
     use RequiresBackendAdminTrait;
     use LoggerAwareTrait;
+    use ErrorMessageSanitizerTrait;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -116,7 +120,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             $result = $this->toolLoopService->runLoop([ChatMessage::user($prompt)], $config, $allowed, $options);
         } catch (Throwable $e) {
             $this->logger?->error('Tool playground run failed', ['exception' => $e]);
-            return new JsonResponse(['success' => false, 'error' => 'Tool run failed'], 500);
+
+            return new JsonResponse(['success' => false, 'error' => $this->diagnoseRunFailure($e)], 500);
         }
 
         return new JsonResponse([
@@ -230,5 +235,34 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         }
 
         return $names;
+    }
+
+    /**
+     * Build an actionable error string for a failed run.
+     *
+     * The playground is admin-only ({@see RequiresBackendAdminTrait}), so it
+     * surfaces the concrete failure — exception class + (secret-sanitised)
+     * message, and for an upstream {@see ProviderResponseException} the HTTP
+     * status and a truncated, sanitised response-body snippet — instead of a
+     * generic "Tool run failed". The full exception is still logged separately.
+     */
+    private function diagnoseRunFailure(Throwable $e): string
+    {
+        $class   = (new ReflectionClass($e))->getShortName();
+        $message = $this->sanitizeErrorMessage($e->getMessage());
+        $detail  = sprintf('%s: %s', $class, $message);
+
+        if ($e instanceof ProviderResponseException) {
+            if ($e->httpStatus > 0) {
+                $detail .= sprintf(' (HTTP %d)', $e->httpStatus);
+            }
+            $body = trim($e->responseBody);
+            if ($body !== '') {
+                $snippet = $this->sanitizeErrorMessage(mb_substr($body, 0, 500));
+                $detail .= "\nProvider response: " . $snippet;
+            }
+        }
+
+        return $detail;
     }
 }

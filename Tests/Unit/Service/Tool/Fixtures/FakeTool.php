@@ -25,6 +25,7 @@ final readonly class FakeTool implements ToolInterface
         private string $name,
         private string $result = 'ok',
         private bool $enabledByDefault = true,
+        private bool $requiresAdmin = false,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -47,5 +48,10 @@ final readonly class FakeTool implements ToolInterface
     public function isEnabledByDefault(): bool
     {
         return $this->enabledByDefault;
+    }
+
+    public function requiresAdmin(): bool
+    {
+        return $this->requiresAdmin;
     }
 }

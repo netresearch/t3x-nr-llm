@@ -357,6 +357,41 @@ class AbstractProviderTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function flatErrorStringSurfacesInsteadOfUnknownProviderError(): void
+    {
+        // Ollama (and others) return a 4xx body as a FLAT {"error":"<text>"}
+        // string rather than the nested {"error":{"message":...}} form. The real
+        // message must surface — regression guard for the bug where the flat
+        // case was skipped and everything degraded to "Unknown provider error".
+        $provider = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-5.2',
+            'maxRetries' => 1,
+        ]);
+
+        $client = $this->createHttpClientMock();
+        $client->method('sendRequest')->willReturn(
+            $this->createJsonResponseMock(['error' => 'qwen3:0.6b does not support tools'], 400),
+        );
+        $provider->setHttpClient($client);
+
+        try {
+            $provider->complete('hello');
+            self::fail('Expected ProviderResponseException was not thrown');
+        } catch (ProviderResponseException $e) {
+            self::assertStringContainsString('does not support tools', $e->getMessage());
+            self::assertStringNotContainsString('Unknown provider error', $e->getMessage());
+        }
+    }
+
+    #[Test]
     public function sanitizeErrorMessageRedactsApiKeyOnConnectionExhaustion(): void
     {
         // When all retries fail, the surfaced "Failed to connect …" message must

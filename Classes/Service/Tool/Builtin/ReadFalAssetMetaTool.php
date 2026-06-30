@@ -74,6 +74,12 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface
             return self::NOT_PERMITTED;
         }
 
+        // sys_file / sys_file_metadata are FAL system tables without enable
+        // columns (no deleted/hidden), so removeAll() is kept; the storage
+        // allow-list ({@see $allowedStorages}) is the access gate, and the
+        // metadata query pins sys_language_uid below. This tool is admin-only
+        // (requiresAdmin() = true) — the runtime never offers it to a non-admin
+        // — so cross-storage file metadata cannot reach a non-admin.
         $fileQuery = $this->connectionPool->getQueryBuilderForTable(self::FILE_TABLE);
         $fileQuery->getRestrictions()->removeAll();
         $file = $fileQuery
@@ -128,6 +134,15 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface
 
     public function isEnabledByDefault(): bool
     {
+        return true;
+    }
+
+    public function requiresAdmin(): bool
+    {
+        // Admin-only: file metadata can span storages the acting non-admin may
+        // not access, and resolving per-user storage perms here is brittle; the
+        // simpler, stricter gate is admin-only (the runtime never offers it to a
+        // non-admin), with the storage allow-list as a further bound.
         return true;
     }
 }

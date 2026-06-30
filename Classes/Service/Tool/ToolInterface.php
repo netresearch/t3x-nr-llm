@@ -20,13 +20,20 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * AutoconfigureTag, mirroring ProviderMiddlewareInterface) and collected by
  * ToolRegistry through a tagged iterator.
  *
- * Security contract: a tool runs with full TYPO3 privileges and has NO
- * per-record authorization. Its array `$arguments` are model-chosen and
+ * Security contract: a tool's array `$arguments` are model-chosen and
  * therefore attacker-influenceable (the model is steerable by injected,
  * externally-authored skill prose), and its return value egresses both to
  * the external provider AND the rendered backend DOM. Implementations MUST
- * assume an authorized-admin caller and treat `$arguments` as untrusted:
- * validate and scope them, and never expose secrets.
+ * treat `$arguments` as untrusted: validate and scope them, and never expose
+ * secrets.
+ *
+ * Authorization is enforced at TWO levels (see {@see requiresAdmin()}):
+ * a coarse admin-only tier checked by the runtime ({@see ToolLoopService}
+ * resolves the acting `$GLOBALS['BE_USER']` and never offers an admin-only
+ * tool to a non-admin), and — for tools that touch user-scoped data — a
+ * fine-grained self-enforcement of the ACTING user's TYPO3 permissions
+ * inside `execute()` (page perms / `tables_select` / accessible file
+ * storages). Both fail CLOSED when no `BackendUserAuthentication` is present.
  */
 #[AutoconfigureTag(name: self::TAG_NAME)]
 interface ToolInterface
@@ -58,4 +65,23 @@ interface ToolInterface
      * context.
      */
     public function isEnabledByDefault(): bool;
+
+    /**
+     * Whether this tool may only ever be offered to a backend ADMIN.
+     *
+     * `true` for tools exposing system / host / cross-user data that a
+     * non-admin must never reach (logs, environment, phpinfo, the backend
+     * user/group listings). {@see ToolLoopService} resolves the acting
+     * `$GLOBALS['BE_USER']` and filters every admin-only tool out of the
+     * offered set when that user is not an admin — fail-closed when no
+     * backend user is present.
+     *
+     * `false` for tools usable by a non-admin; those that read user-scoped
+     * records additionally self-enforce the acting user's own TYPO3
+     * permissions inside {@see execute()} (page perms / `tables_select` /
+     * accessible file storages), so a non-admin only ever sees what they are
+     * already entitled to in the backend. An admin bypasses that narrowing
+     * (TYPO3 admins see everything).
+     */
+    public function requiresAdmin(): bool;
 }

@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
  * Return the backend page tree (`pages`) as a depth-indented outline.
@@ -30,6 +31,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  */
 final readonly class GetPageTreeTool implements ToolInterface
 {
+    use ResolvesActingBackendUserTrait;
     use SafeCastTrait;
 
     private const TABLE = 'pages';
@@ -101,6 +103,12 @@ final readonly class GetPageTreeTool implements ToolInterface
         return true;
     }
 
+    public function requiresAdmin(): bool
+    {
+        // Usable by non-admins; execute() self-enforces the acting user's TYPO3 permissions.
+        return false;
+    }
+
     /**
      * Append the live (non-deleted, non-hidden) children of $pid, recursing
      * until the depth or the global node cap is reached.
@@ -113,21 +121,37 @@ final readonly class GetPageTreeTool implements ToolInterface
             return;
         }
 
+        // Respect the acting user's page permissions: a non-admin only sees
+        // pages they may show. No backend user → no pages (fail-closed).
+        $user = $this->actingBackendUser();
+        if ($user === null) {
+            return;
+        }
+        $permsClause = $user->getPagePermsClause(Permission::PAGE_SHOW);
+
+        // Default restrictions (no removeAll) already drop soft-deleted rows;
+        // the explicit deleted/hidden filters are kept as belt-and-suspenders,
+        // and sys_language_uid is pinned so translated rows do not duplicate the
+        // tree.
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $queryBuilder->getRestrictions()->removeAll();
-        $rows = $queryBuilder
+        $queryBuilder
             ->select('uid', 'title', 'doktype')
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pid, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                // removeAll() above drops the language restriction, so pin to the
-                // default language explicitly — otherwise translated page records
-                // surface as separate nodes and corrupt the tree structure.
                 $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
             )
-            ->orderBy('sorting', 'ASC')
+            ->orderBy('sorting', 'ASC');
+
+        // For an admin getPagePermsClause() yields an empty string; only add it
+        // for non-admins so we never pass an empty constraint to andWhere().
+        if ($permsClause !== '') {
+            $queryBuilder->andWhere($permsClause);
+        }
+
+        $rows = $queryBuilder
             ->executeQuery()
             ->fetchAllAssociative();
 

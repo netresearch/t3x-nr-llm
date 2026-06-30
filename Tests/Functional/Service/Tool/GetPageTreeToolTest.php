@@ -32,6 +32,12 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
     {
         parent::setUp();
 
+        // get_pagetree self-enforces the acting backend user's page permissions
+        // (ADR-038): set up an admin (BeUsers.csv uid 1) so getPagePermsClause
+        // resolves to "show all" and the tool returns the full live tree here.
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
         $connectionPool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
         $this->tool = new GetPageTreeTool($connectionPool);
