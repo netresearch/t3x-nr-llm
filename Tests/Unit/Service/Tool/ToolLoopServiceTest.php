@@ -581,4 +581,81 @@ final class ToolLoopServiceTest extends TestCase
             $GLOBALS['BE_USER'] = $beUserBackup;
         }
     }
+
+    #[Test]
+    public function adminIsOfferedAdminOnlyToolAndItExecutesThroughTheLoop(): void
+    {
+        // Positive RBAC case (mirror of adminOnlyToolIsNeverOfferedToNonAdmin):
+        // when the acting user IS an admin, the admin-only tool survives the
+        // runtime filter, is offered on the tools path, executes, and its real
+        // result is recorded in the trace.
+        $beUserBackup       = $GLOBALS['BE_USER'] ?? null;
+        $admin              = new BackendUserAuthentication();
+        $admin->user        = ['uid' => 1, 'admin' => 1];
+        $GLOBALS['BE_USER'] = $admin;
+
+        try {
+            $mgr   = self::createStub(LlmServiceManagerInterface::class);
+            $queue = [
+                // The model calls the admin-only tool, then answers.
+                $this->response('', [new ToolCall('call_1', 'fetch_logs', [])]),
+                $this->response('logs reviewed'),
+            ];
+            $mgr->method('chatWithToolsForConfiguration')
+                ->willReturnCallback($this->queueCallback($queue));
+
+            // requiresAdmin = true; globally enabled; explicitly allowed.
+            $service = new ToolLoopService(
+                $mgr,
+                new ToolRegistry([new FakeTool('fetch_logs', 'LOGS', true, true)]),
+                new FakeToolAvailability(['fetch_logs']),
+            );
+            $result = $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), ['fetch_logs']);
+
+            self::assertCount(1, $result->trace);
+            self::assertSame('fetch_logs', $result->trace[0]->name);
+            self::assertSame('LOGS', $result->trace[0]->result, 'the admin-only tool actually executed');
+            self::assertFalse($result->trace[0]->isError);
+            self::assertSame('logs reviewed', $result->finalContent);
+            self::assertFalse($result->truncated);
+        } finally {
+            $GLOBALS['BE_USER'] = $beUserBackup;
+        }
+    }
+
+    #[Test]
+    public function disabledGateComposesWithAdminGateForAdminUser(): void
+    {
+        // The two fail-closed gates compose: an admin-only tool that the global
+        // availability gate reports as DISABLED is dropped by the disabled gate
+        // BEFORE the admin gate ever sees it, so even an admin is not offered it
+        // ⇒ no tools ⇒ exactly one plain completion.
+        $beUserBackup       = $GLOBALS['BE_USER'] ?? null;
+        $admin              = new BackendUserAuthentication();
+        $admin->user        = ['uid' => 1, 'admin' => 1];
+        $GLOBALS['BE_USER'] = $admin;
+
+        try {
+            $mgr = $this->createMock(LlmServiceManagerInterface::class);
+            $mgr->expects(self::once())
+                ->method('chatWithConfiguration')
+                ->willReturn($this->response('plain answer'));
+            $mgr->expects(self::never())->method('chatWithToolsForConfiguration');
+
+            // Tool requiresAdmin AND is registered, but the global gate reports
+            // NO enabled tools — the caller even explicitly allows it.
+            $service = new ToolLoopService(
+                $mgr,
+                new ToolRegistry([new FakeTool('fetch_logs', 'LOGS', true, true)]),
+                new FakeToolAvailability([]),
+            );
+            $result = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ['fetch_logs']);
+
+            self::assertSame('plain answer', $result->finalContent);
+            self::assertSame([], $result->trace);
+            self::assertSame(1, $result->iterations);
+        } finally {
+            $GLOBALS['BE_USER'] = $beUserBackup;
+        }
+    }
 }
