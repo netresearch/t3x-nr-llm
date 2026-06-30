@@ -54,6 +54,7 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 final class TaskWizardController extends ActionController
 {
     use SafeCastTrait;
+    use DefensiveLocalizationTrait;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -91,7 +92,7 @@ final class TaskWizardController extends ActionController
         $moduleTemplate->makeDocHeaderModuleMenu();
         $description = trim($description);
         if ($description === '') {
-            $this->enqueueFlashMessage('Please describe what this task should do.', 'Missing description', ContextualFeedbackSeverity::WARNING);
+            $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.missingDescription.body', 'Please describe what this task should do.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.missingDescription.title', 'Missing description'), ContextualFeedbackSeverity::WARNING);
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
         if (mb_strlen($description) > 2000) {
@@ -129,10 +130,10 @@ final class TaskWizardController extends ActionController
                 // REC #8b: provider error text often references endpoints / payloads /
                 // model names that aren't safe to render verbatim into the backend UI.
                 $this->logger->error('Task wizard: single-task generation failed (provider)', ['exception' => $e]);
-                $this->enqueueFlashMessage('Generation failed (LLM provider error). See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+                $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.provider', 'Generation failed (LLM provider error). See system log for details.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
             } else {
                 $this->logger->error('Task wizard: single-task generation failed unexpectedly', ['exception' => $e]);
-                $this->enqueueFlashMessage('Generation failed. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+                $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.generic', 'Generation failed. See system log for details.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
             }
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
@@ -144,7 +145,7 @@ final class TaskWizardController extends ActionController
         $moduleTemplate->makeDocHeaderModuleMenu();
         $description = trim($description);
         if ($description === '') {
-            $this->enqueueFlashMessage('Please describe what this task should do.', 'Missing description', ContextualFeedbackSeverity::WARNING);
+            $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.missingDescription.body', 'Please describe what this task should do.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.missingDescription.title', 'Missing description'), ContextualFeedbackSeverity::WARNING);
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
         if (mb_strlen($description) > 2000) {
@@ -175,10 +176,10 @@ final class TaskWizardController extends ActionController
         } catch (Throwable $e) {
             if ($e instanceof ProviderException) {
                 $this->logger->error('Task wizard: chain generation failed (provider)', ['exception' => $e]);
-                $this->enqueueFlashMessage('Generation failed (LLM provider error). See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+                $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.provider', 'Generation failed (LLM provider error). See system log for details.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
             } else {
                 $this->logger->error('Task wizard: chain generation failed unexpectedly', ['exception' => $e]);
-                $this->enqueueFlashMessage('Generation failed. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+                $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.generic', 'Generation failed. See system log for details.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
             }
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
@@ -188,7 +189,7 @@ final class TaskWizardController extends ActionController
     {
         $body = $this->request->getParsedBody();
         if (!is_array($body)) {
-            $this->enqueueFlashMessage('Invalid request.', 'Error', ContextualFeedbackSeverity::ERROR);
+            $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.invalidRequest.body', 'Invalid request.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
 
@@ -248,8 +249,8 @@ final class TaskWizardController extends ActionController
             $this->persistenceManager->persistAll();
 
             $this->enqueueFlashMessage(
-                sprintf('Task "%s" created successfully with dedicated configuration.', $task->getName()),
-                'Task Created',
+                sprintf($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.created.body', 'Task "%s" created successfully with dedicated configuration.'), $task->getName()),
+                $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.created.title', 'Task Created'),
                 ContextualFeedbackSeverity::OK,
             );
 
@@ -274,7 +275,7 @@ final class TaskWizardController extends ActionController
             // schema and connection internals — log and surface a
             // generic message.
             $this->logger->error('Task wizard: failed to persist generated task', ['exception' => $e]);
-            $this->enqueueFlashMessage('Failed to create task. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+            $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.creationFailed.body', 'Failed to create task. See system log for details.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
     }

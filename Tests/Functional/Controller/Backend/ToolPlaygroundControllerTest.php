@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -86,6 +87,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([]), $availability),
             $availability,
             new ToolStateRepository($this->toolConnectionPool()),
+            $this->get(AllowedToolsResolver::class),
         );
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
 
@@ -233,6 +235,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $toolLoopService,
             $this->availabilityFor($toolRegistry),
             new ToolStateRepository($this->toolConnectionPool()),
+            $this->get(AllowedToolsResolver::class),
         );
     }
 

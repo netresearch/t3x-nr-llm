@@ -12,6 +12,7 @@ Sitemap
 
    Introduction/Index
    Installation/Index
+   Administration/Index
    Configuration/Index
    Architecture/Index
    Developer/Index

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 /**
  * Wires the test prompt form to the nrllm_test AJAX endpoint and renders
  * the response (success, error, usage details).

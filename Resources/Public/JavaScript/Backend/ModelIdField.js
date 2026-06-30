@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 /**
  * ModelIdField — TCA custom element JS for model_id with fetch + rich dropdown.
  *

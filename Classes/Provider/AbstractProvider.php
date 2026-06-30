@@ -237,7 +237,12 @@ abstract class AbstractProvider implements ProviderInterface
                 $attempt++;
 
                 if ($attempt < $this->maxRetries) {
-                    usleep((int)(100000 * (2 ** $attempt)));
+                    // Exponential backoff capped at 30s. Short-circuit at
+                    // attempt >= 9 (100000 * 2**9 = 51.2s already exceeds the
+                    // cap) so the 2 ** $attempt term cannot overflow the float→int
+                    // cast into a negative value and make usleep() throw.
+                    $backoffMicros = $attempt >= 9 ? 30_000_000 : (int)(100000 * (2 ** $attempt));
+                    usleep($backoffMicros);
                 }
             }
         }
@@ -404,6 +409,11 @@ abstract class AbstractProvider implements ProviderInterface
 
     protected function createUsageStatistics(int $promptTokens, int $completionTokens): UsageStatistics
     {
+        // Token counts come from untrusted provider responses; a negative value
+        // (malformed payload) would corrupt usage and cost accounting downstream.
+        $promptTokens     = max(0, $promptTokens);
+        $completionTokens = max(0, $completionTokens);
+
         return new UsageStatistics(
             promptTokens: $promptTokens,
             completionTokens: $completionTokens,

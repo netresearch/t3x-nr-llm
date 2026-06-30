@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Tests\Functional\Service\Skill\Fixtures\FakeGitHubClient;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Http\ServerRequest;
@@ -58,6 +59,7 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
             $this->get(SkillRepository::class),
             $this->get(SkillSourceRepository::class),
             $this->get(PersistenceManagerInterface::class),
+            new NullLogger(),
         );
         return new SkillSourceController(
             $this->get(ModuleTemplateFactory::class),

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 /**
  * Configuration list JavaScript module for TYPO3 backend (ES6 Module).
  *

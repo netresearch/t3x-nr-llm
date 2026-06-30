@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Model\UserBudget;
 use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
 use Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface;
@@ -29,6 +30,21 @@ use TYPO3\CMS\Core\SingletonInterface;
 final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInterface, SingletonInterface
 {
     private const TABLE = 'tx_nrllm_service_usage';
+
+    /**
+     * Columns the grouped-by/breakdown queries may select and GROUP BY. All
+     * current callers pass hardcoded literals; this whitelist is a defence in
+     * depth so a future refactor cannot feed untrusted input into the SQL
+     * identifier position (which QueryBuilder does not parameterise).
+     */
+    private const GROUPABLE_COLUMNS = [
+        'service_provider',
+        'model_id',
+        'service_type',
+        'model_uid',
+        'configuration_uid',
+        'task_uid',
+    ];
 
     private const SUM_COST = 'SUM(estimated_cost) AS cost';
 
@@ -105,6 +121,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
     public function getTotalsGroupedBy(string $column, DateTimeInterface $from, DateTimeInterface $to): array
     {
+        $this->assertGroupableColumn($column);
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $qb->select($column)->from(self::TABLE);
         $this->selectUsageSums($qb, $from, $to);
@@ -281,11 +298,22 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
             );
     }
 
+    private function assertGroupableColumn(string $column): void
+    {
+        if (!in_array($column, self::GROUPABLE_COLUMNS, true)) {
+            throw new InvalidArgumentException(
+                sprintf('Unsupported group column "%s"', $column),
+                1751299200,
+            );
+        }
+    }
+
     /**
      * @return list<array{label: string, cost: float, requests: int, tokens: int}>
      */
     private function breakdown(string $column, DateTimeInterface $from, DateTimeInterface $to): array
     {
+        $this->assertGroupableColumn($column);
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $qb->select($column)->from(self::TABLE);
         $this->selectUsageSums($qb, $from, $to);
