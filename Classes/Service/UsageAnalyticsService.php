@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use Netresearch\NrLlm\Domain\Model\UserBudget;
 use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
 use Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface;
 use TYPO3\CMS\Core\Database\Connection;
@@ -152,11 +153,23 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
         $merged = self::mergeUsernames($rows, $this->resolveUsernames($rows));
 
+        // Batch-load every per-user budget in one query (keyed by uid) instead
+        // of one findOneByBeUser() round-trip per row inside the loop (N+1).
+        // Mirrors how resolveUsernames() batches the be_users lookup above.
+        $budgets = $this->userBudgetRepository->findByBeUsers(
+            array_map(static fn(array $entry): int => $entry['beUserUid'], $merged),
+        );
+
         $now = new DateTimeImmutable();
         $monthStart = $now->modify('first day of this month')->setTime(0, 0, 0)->getTimestamp();
         $result = [];
         foreach ($merged as $entry) {
-            $entry['budget'] = $this->budgetConsumption($entry['beUserUid'], $monthStart, $now->getTimestamp());
+            $entry['budget'] = $this->budgetConsumption(
+                $entry['beUserUid'],
+                $budgets[$entry['beUserUid']] ?? null,
+                $monthStart,
+                $now->getTimestamp(),
+            );
             $result[] = $entry;
         }
 
@@ -337,14 +350,15 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     }
 
     /**
+     * @param UserBudget|null $budget Pre-fetched budget for $beUserUid (batch-loaded by the caller).
+     *
      * @return array{usedCost: float, limitCost: float, percent: float}|null
      */
-    private function budgetConsumption(int $beUserUid, int $monthStart, int $now): ?array
+    private function budgetConsumption(int $beUserUid, ?UserBudget $budget, int $monthStart, int $now): ?array
     {
         if ($beUserUid <= 0) {
             return null;
         }
-        $budget = $this->userBudgetRepository->findOneByBeUser($beUserUid);
         if ($budget === null || !$budget->isActive() || $budget->getMaxCostPerMonth() <= 0.0) {
             return null;
         }

@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Repository;
 
 use Netresearch\NrLlm\Domain\Model\Task;
+use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Persistence\QueryInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 use TYPO3\CMS\Extbase\Persistence\Repository;
@@ -21,11 +23,20 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  */
 class TaskRepository extends Repository
 {
+    private const TABLE = 'tx_nrllm_task';
+
     protected $defaultOrderings = [
         'category' => QueryInterface::ORDER_ASCENDING,
         'sorting' => QueryInterface::ORDER_ASCENDING,
         'name' => QueryInterface::ORDER_ASCENDING,
     ];
+
+    private ConnectionPool $connectionPool;
+
+    public function injectConnectionPool(ConnectionPool $connectionPool): void
+    {
+        $this->connectionPool = $connectionPool;
+    }
 
     /**
      * Initialize repository for backend module use.
@@ -187,23 +198,34 @@ class TaskRepository extends Repository
     /**
      * Count tasks grouped by category.
      *
+     * DB-side COUNT(*) grouped by category instead of loading every active
+     * task into PHP and tallying. Matches findActive()'s effective filter:
+     * active (is_active = 1) and non-deleted, ignoring the hidden enable
+     * field and storage page (the backend module query settings).
+     *
      * @return array<string, int>
      */
     public function countByCategory(): array
     {
-        $counts = [];
-        $tasks = $this->findActive();
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $queryBuilder->getRestrictions()->removeAll();
 
-        foreach ($tasks as $task) {
-            // @phpstan-ignore instanceof.alwaysTrue (defensive type guard)
-            if (!$task instanceof Task) {
-                continue;
-            }
-            $category = $task->getCategory();
-            if (!isset($counts[$category])) {
-                $counts[$category] = 0;
-            }
-            $counts[$category]++;
+        $rows = $queryBuilder
+            ->select('category')
+            ->addSelectLiteral('COUNT(*) AS task_count')
+            ->from(self::TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('is_active', $queryBuilder->createNamedParameter(1, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->groupBy('category')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $category = is_string($row['category'] ?? null) ? $row['category'] : '';
+            $counts[$category] = is_numeric($row['task_count'] ?? null) ? (int)$row['task_count'] : 0;
         }
 
         return $counts;

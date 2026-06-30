@@ -175,7 +175,7 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
     {
         $magnitude = sqrt(array_sum(array_map(static fn($x) => $x * $x, $vector)));
 
-        if ($magnitude == 0) {
+        if ($magnitude === 0.0) {
             return $vector;
         }
 

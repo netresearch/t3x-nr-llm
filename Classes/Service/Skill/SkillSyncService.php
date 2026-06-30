@@ -89,11 +89,12 @@ final class SkillSyncService
 
             foreach ($collected['parsed'] as [$sha, $parsed]) {
                 $identifier = $sourcePrefix . $parsed->path;
-                if (in_array($identifier, $seen, true)) {
+                // Keyed set: O(1) dedup instead of in_array() over a growing list.
+                if (isset($seen[$identifier])) {
                     $errors[] = sprintf('duplicate identifier "%s", first wins', $identifier);
                     continue;
                 }
-                $seen[] = $identifier;
+                $seen[$identifier] = true;
                 $outcome = $this->upsert($source, $identifier, $sha, $parsed);
                 $created += $outcome === 'created' ? 1 : 0;
                 $updated += $outcome === 'updated' ? 1 : 0;
@@ -385,10 +386,14 @@ final class SkillSyncService
      */
     private function orphanRemoved(SkillSource $source, array $discovered, ?array $reachedPrefixes, ?array $listedPrefixes): int
     {
+        // O(1) membership lookup instead of in_array() over the (unbounded)
+        // discovered list for every DB skill. Identifiers are unique strings,
+        // so array_flip is a faithful hash set.
+        $discoveredSet = array_flip($discovered);
         $count = 0;
         foreach ($this->skillRepository->findBySource($source->getUid()) as $skill) {
             $identifier = $skill->getIdentifier();
-            if (in_array($identifier, $discovered, true)) {
+            if (isset($discoveredSet[$identifier])) {
                 continue;
             }
             if (

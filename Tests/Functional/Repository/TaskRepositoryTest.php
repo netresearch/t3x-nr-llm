@@ -135,12 +135,14 @@ final class TaskRepositoryTest extends AbstractFunctionalTestCase
     {
         $counts = $this->repository->countByCategory();
 
-        self::assertNotEmpty($counts);
-
-        // All counts should be positive
-        foreach ($counts as $count) {
-            self::assertGreaterThan(0, $count);
-        }
+        // Fixture: uid 1 (general, active), uid 2 (log_analysis, active) are
+        // counted; uid 3 (general, INACTIVE) and uid 4 (general, DELETED) are
+        // excluded. So general = 1 (not 3), log_analysis = 1.
+        ksort($counts);
+        self::assertSame(
+            ['general' => 1, 'log_analysis' => 1],
+            $counts,
+        );
     }
 
     // =========================================================================

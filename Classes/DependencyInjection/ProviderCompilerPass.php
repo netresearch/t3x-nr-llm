@@ -69,8 +69,10 @@ final class ProviderCompilerPass implements CompilerPassInterface
      *
      * Services that already carry the `nr_llm.provider` tag (from yaml)
      * are left untouched to avoid double-registration. Attribute-discovered
-     * providers are set public so TYPO3 backend diagnostics can resolve
-     * them by class name.
+     * providers stay private: nothing resolves a provider by class name from
+     * the container — all access is via `LlmServiceManager::getProvider(string)`
+     * — so keeping them private avoids drifting the documented public-service
+     * set locked by ADR-028 / `PublicServicesPolicyTest`.
      */
     private function autoTagAttributeProviders(ContainerBuilder $container): void
     {
@@ -97,7 +99,6 @@ final class ProviderCompilerPass implements CompilerPassInterface
             $attribute = $attributes[0]->newInstance();
 
             $definition->addTag(AsLlmProvider::TAG_NAME, ['priority' => $attribute->priority]);
-            $definition->setPublic(true);
         }
     }
 }

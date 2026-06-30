@@ -257,8 +257,11 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function attributeTaggedProvidersAreMadePublic(): void
+    public function attributeTaggedProvidersStayPrivate(): void
     {
+        // Providers are resolved only via LlmServiceManager::getProvider(string),
+        // never by class name from the container, so the pass must NOT make them
+        // public — doing so would drift the public-service set locked by ADR-028.
         $container = new ContainerBuilder();
         $container->setDefinition(LlmServiceManager::class, new Definition(LlmServiceManager::class));
         $definition = $container->setDefinition('provider.attr', new Definition(AttributeTaggedProvider::class));
@@ -266,7 +269,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
 
         (new ProviderCompilerPass())->process($container);
 
-        self::assertTrue($container->getDefinition('provider.attr')->isPublic());
+        self::assertFalse($container->getDefinition('provider.attr')->isPublic());
     }
 
     #[Test]
