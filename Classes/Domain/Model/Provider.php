@@ -278,9 +278,9 @@ class Provider extends AbstractEntity
     }
 
     /**
-     * @return ObjectStorage<Model>|null
+     * @return ObjectStorage<Model>
      */
-    public function getModels(): ?ObjectStorage
+    public function getModels(): ObjectStorage
     {
         // Extbase can reconstitute a relation-less entity without the constructor's
         // ObjectStorage init, leaving this property unset/null.

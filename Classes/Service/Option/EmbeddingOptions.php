@@ -25,7 +25,7 @@ class EmbeddingOptions extends AbstractOptions implements BudgetAwareOptionsInte
     public function __construct(
         private ?string $model = null,
         private ?int $dimensions = null,
-        private ?int $cacheTtl = self::DEFAULT_CACHE_TTL,
+        private int $cacheTtl = self::DEFAULT_CACHE_TTL,
         private ?string $provider = null,
         ?int $beUserUid = null,
         ?float $plannedCost = null,
@@ -130,7 +130,7 @@ class EmbeddingOptions extends AbstractOptions implements BudgetAwareOptionsInte
         return $this->dimensions;
     }
 
-    public function getCacheTtl(): ?int
+    public function getCacheTtl(): int
     {
         return $this->cacheTtl;
     }
@@ -166,7 +166,7 @@ class EmbeddingOptions extends AbstractOptions implements BudgetAwareOptionsInte
             self::validatePositiveInt($this->dimensions, 'dimensions');
         }
 
-        if ($this->cacheTtl !== null && $this->cacheTtl < 0) {
+        if ($this->cacheTtl < 0) {
             self::validateRange($this->cacheTtl, 0, PHP_INT_MAX, 'cache_ttl');
         }
 

@@ -4,7 +4,7 @@
 
 <!-- AGENTS-GENERATED:START overview -->
 ## Overview
-PHP 8.2+ source code (249 files) with strict typing, PSR-12, PHPStan level 10. Three-tier domain: Providers -> Models -> Configurations.
+PHP 8.2+ source code (264 files) with strict typing, PSR-12, PHPStan level 10. Three-tier domain: Providers -> Models -> Configurations.
 <!-- AGENTS-GENERATED:END overview -->
 
 <!-- AGENTS-GENERATED:START setup -->

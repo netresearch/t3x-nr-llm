@@ -65,8 +65,14 @@ All releases include:
 ### Dependency Management
 
 - Dependabot enabled for automated updates
-- composer.lock committed for reproducible builds
-- All GitHub Actions pinned with SHA hashes
+- No `composer.lock` committed — as a TYPO3 extension (library) the lock file is
+  intentionally git-ignored so the host project resolves compatible versions;
+  reproducibility is enforced by the `composer.json` constraints and the CI matrix
+- Third-party GitHub Actions pinned to full commit SHAs (with a version comment).
+  First-party Netresearch reusable workflows (`netresearch/typo3-ci-workflows`,
+  `netresearch/.github`) are referenced at `@main`: they are org-owned,
+  OpenSSF-Scorecard-monitored, and centrally maintained, so pinning them to a SHA
+  would freeze shared CI fixes across every consuming repository
 - Weekly dependency audits
 
 ## Succession Planning

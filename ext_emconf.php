@@ -15,6 +15,11 @@ $EM_CONF[$_EXTKEY] = [
     'state' => 'beta',
     'version' => '0.13.0',
     'constraints' => [
+        // composer.json is the authoritative dependency constraint
+        // ("typo3/cms-core": "^13.4 || ^14.3"). The TER `depends` format only
+        // supports a single contiguous min-max range and therefore cannot
+        // express the 14.0–14.2 gap; the broad range below is intentional and
+        // never under-claims the supported 13.4 / 14.3 targets.
         'depends' => [
             'typo3' => '13.4.0-14.99.99',
             'php' => '8.2.0-8.99.99',
