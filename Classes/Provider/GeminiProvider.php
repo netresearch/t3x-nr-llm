@@ -25,7 +25,7 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
-use Psr\Http\Message\RequestInterface;
+use Netresearch\NrVault\Http\SecretPlacement;
 
 #[AsLlmProvider(priority: 80)]
 final class GeminiProvider extends AbstractProvider implements
@@ -91,9 +91,9 @@ final class GeminiProvider extends AbstractProvider implements
      * getAvailableModels() returns a static list and never touches the
      * network, so the AbstractProvider default would report success even
      * when the endpoint is unreachable or the key is invalid. Make a real
-     * lightweight GET to the models endpoint (Gemini carries the key in the
-     * URL) and let any failure surface as the typed exception sendRequest()
-     * raises.
+     * lightweight GET to the models endpoint (the key travels in the
+     * x-goog-api-key header) and let any failure surface as the typed
+     * exception sendRequest() raises.
      *
      * @throws ProviderConnectionException on connection failure
      *
@@ -102,7 +102,7 @@ final class GeminiProvider extends AbstractProvider implements
     public function testConnection(): array
     {
         // Real HTTP request to the models endpoint — do NOT catch exceptions.
-        $response = $this->sendRequest('models?key=' . $this->retrieveApiKey(), [], 'GET');
+        $response = $this->sendRequest('models', [], 'GET');
         $list = $this->getList($response, 'models');
 
         $models = [];
@@ -164,7 +164,7 @@ final class GeminiProvider extends AbstractProvider implements
         }
 
         $response = $this->sendRequest(
-            "models/{$model}:generateContent?key=" . $this->retrieveApiKey(),
+            "models/{$model}:generateContent",
             $payload,
         );
 
@@ -229,7 +229,7 @@ final class GeminiProvider extends AbstractProvider implements
         }
 
         $response = $this->sendRequest(
-            "models/{$model}:generateContent?key=" . $this->retrieveApiKey(),
+            "models/{$model}:generateContent",
             $payload,
         );
 
@@ -309,7 +309,7 @@ final class GeminiProvider extends AbstractProvider implements
             ];
 
             $response = $this->sendRequest(
-                "models/{$model}:embedContent?key=" . $this->retrieveApiKey(),
+                "models/{$model}:embedContent",
                 $payload,
             );
 
@@ -399,7 +399,7 @@ final class GeminiProvider extends AbstractProvider implements
         }
 
         $response = $this->sendRequest(
-            "models/{$model}:generateContent?key=" . $this->retrieveApiKey(),
+            "models/{$model}:generateContent",
             $payload,
         );
 
@@ -487,8 +487,11 @@ final class GeminiProvider extends AbstractProvider implements
             $payload['systemInstruction'] = $geminiContents['systemInstruction'];
         }
 
-        $url = rtrim($this->baseUrl, '/') . "/models/{$model}:streamGenerateContent?key=" . $this->retrieveApiKey() . '&alt=sse';
+        $url = rtrim($this->baseUrl, '/') . "/models/{$model}:streamGenerateContent?alt=sse";
 
+        // The vault HTTP client injects the API key as the x-goog-api-key header
+        // (SecretPlacement::Header) — the key is never decrypted into provider
+        // memory here.
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json')
             ->withHeader('Accept', 'text/event-stream');
@@ -554,10 +557,23 @@ final class GeminiProvider extends AbstractProvider implements
         return true;
     }
 
-    protected function addProviderSpecificHeaders(RequestInterface $request): RequestInterface
+    protected function getSecretPlacement(): SecretPlacement
     {
-        // Gemini uses API key in URL, not headers
-        return $request->withoutHeader('Authorization');
+        // Inject the API key as the x-goog-api-key header via the vault HTTP
+        // client. The key never enters the URL (no ?key= leak to logs/referrer)
+        // and is never decrypted into this provider's memory.
+        return SecretPlacement::Header;
+    }
+
+    /**
+     * @return array{headerName: string, reason: string}
+     */
+    protected function getSecretPlacementOptions(): array
+    {
+        return [
+            'headerName' => 'x-goog-api-key',
+            'reason' => sprintf('LLM API call to %s', $this->getName()),
+        ];
     }
 
     /**

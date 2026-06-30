@@ -590,6 +590,17 @@ class SetupWizard {
             document.getElementById('save-error-message').textContent = 'Network error: ' + saveError;
             document.getElementById('save-footer').style.display = 'flex';
             Notification.error('Network Error', saveError, 10);
+        } finally {
+            // The key has been transmitted (encrypted server-side via the vault).
+            // Drop it from this module-level singleton's memory AND from the DOM
+            // input so it cannot be read back via the console or an XSS payload
+            // after the save.
+            this.data.apiKey = '';
+            providerData.apiKey = '';
+            const apiKeyInput = document.getElementById('wizard-apikey');
+            if (apiKeyInput) {
+                apiKeyInput.value = '';
+            }
         }
     }
 

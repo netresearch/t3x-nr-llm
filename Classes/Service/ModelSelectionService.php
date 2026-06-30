@@ -263,13 +263,11 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
             return $a->isDefault() ? -1 : 1; // Default first
         }
 
-        // Fourth priority: sorting order — handled at the query level.
-        // ModelRepository hydrates candidates already ordered by `sorting, name`
-        // (its $defaultOrderings), and usort() is stable, so equal-priority
-        // candidates keep that order without an explicit tiebreaker here. (A
-        // getSorting() comparison would be a no-op anyway: `sorting` is a TCA
-        // ctrl.sortby field that Extbase does not hydrate onto the model.)
-        return 0;
+        // Fourth priority: explicit sorting-order tiebreak. Extbase maps the
+        // ctrl.sortby `sorting` column onto the model, and ModelRepository
+        // already pre-orders by `sorting, name`, so this yields a deterministic
+        // result without relying on usort() input-order preservation.
+        return $a->getSorting() <=> $b->getSorting();
     }
 
     /**
