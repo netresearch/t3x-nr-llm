@@ -30,6 +30,9 @@ final class SkillSyncService
     /** A SYNCING lock older than this many seconds is considered stale and may be reclaimed. */
     private const STALE_LOCK_SECONDS = 600;
 
+    /** Claude Code convention path of a marketplace index inside a repository. */
+    private const MARKETPLACE_INDEX_PATH = '.claude-plugin/marketplace.json';
+
     private int $syncDeadline = 0;
     private int $filesProcessed = 0;
     private bool $boundsExceeded = false;
@@ -239,7 +242,7 @@ final class SkillSyncService
     private function collectMarketplace(SkillSource $source, array &$errors): array
     {
         // The marketplace index fetch + parse are the source-root reach; failures here are fatal.
-        $index = $this->gitHub->fetchAllowedUrl($source->getUrl(), $this->token($source));
+        $index = $this->fetchMarketplaceIndex($source);
 
         $parsed = [];
         $discovered = [];
@@ -460,6 +463,67 @@ final class SkillSyncService
     private function refOrHead(string $ref): string
     {
         return $ref === '' ? 'HEAD' : $ref;
+    }
+
+    /**
+     * Fetch the marketplace index JSON for a marketplace source.
+     *
+     * Accepts every form an admin is likely to paste:
+     * - a raw index URL (``raw.githubusercontent.com/…``) is fetched verbatim;
+     * - a github.com *blob* view URL (``…/blob/<ref>/<path>``, copied from the
+     *   browser) is converted to its raw equivalent and fetched — the HTML view
+     *   would otherwise fail to parse as JSON;
+     * - a plain repository URL (``https://github.com/owner/repo``) is resolved
+     *   to the Claude Code convention path {@see self::MARKETPLACE_INDEX_PATH}
+     *   on the repository's default branch.
+     *
+     * @throws RuntimeException When the URL is neither a raw/blob index nor a GitHub repository URL.
+     */
+    private function fetchMarketplaceIndex(SkillSource $source): string
+    {
+        $url   = $source->getUrl();
+        $token = $this->token($source);
+        $host  = parse_url($url, PHP_URL_HOST);
+        $host  = is_string($host) ? strtolower($host) : '';
+
+        // Already a raw file URL → fetch verbatim (it is expected to BE the index).
+        if ($host === 'raw.githubusercontent.com') {
+            return $this->gitHub->fetchAllowedUrl($url, $token);
+        }
+
+        // A github.com "blob" view URL (e.g. copied from the browser address bar:
+        // …/blob/<ref>/<path>) is NOT raw — fetching it returns HTML. Convert it
+        // to its raw equivalent and fetch that exact path.
+        if (($host === 'github.com' || $host === 'www.github.com') && str_contains($url, '/blob/')) {
+            $raw = preg_replace(
+                '#^https?://(?:www\.)?github\.com/([^/]+)/([^/]+)/blob/#',
+                'https://raw.githubusercontent.com/$1/$2/',
+                $url,
+            );
+            if (is_string($raw) && $raw !== $url) {
+                return $this->gitHub->fetchAllowedUrl($raw, $token);
+            }
+        }
+
+        // Otherwise treat it as a plain GitHub repository URL and resolve the
+        // convention index on the default branch.
+        [$owner, $repo] = $this->ownerRepo($url);
+        if ($owner === '' || $repo === '') {
+            throw new RuntimeException(
+                sprintf(
+                    'Marketplace URL "%s" is neither a raw marketplace.json nor a GitHub repository URL. '
+                    . 'Use the repository URL (https://github.com/<owner>/<repo>) or the raw index URL '
+                    . '(https://raw.githubusercontent.com/<owner>/<repo>/<branch>/.claude-plugin/marketplace.json).',
+                    $url,
+                ),
+                1751280001,
+            );
+        }
+
+        // Resolve the default-branch HEAD, then fetch the convention index path.
+        $sha = $this->gitHub->resolveSha($owner, $repo, 'HEAD', $token);
+
+        return $this->gitHub->fetchRawBySha($owner, $repo, $sha, self::MARKETPLACE_INDEX_PATH, $token);
     }
 
     /**

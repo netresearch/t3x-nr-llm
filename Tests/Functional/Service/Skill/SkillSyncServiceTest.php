@@ -142,6 +142,78 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function marketplaceResolvesPlainRepoUrlToConventionIndex(): void
+    {
+        // A marketplace source URL given as a plain GitHub repo URL (not a raw
+        // marketplace.json link) is auto-resolved to .claude-plugin/marketplace.json
+        // on the repo's default branch, then synced like any marketplace.
+        $gitHub = new FakeGitHubClient(repos: [
+            'acme/market' => [
+                'sha'    => 'market-head',
+                'tree'   => [],
+                'bodies' => [
+                    '.claude-plugin/marketplace.json' => (string)json_encode(
+                        ['plugins' => [['source' => 'acme/plugin1']]],
+                    ),
+                ],
+            ],
+            'acme/plugin1' => [
+                'sha'    => 'plugin-head',
+                'tree'   => [self::SKILL_A_PATH],
+                'bodies' => [self::SKILL_A_PATH => $this->md('Resolved', 'from repo url')],
+            ],
+        ]);
+
+        $source = $this->marketplaceSource();
+        $source->setUrl('https://github.com/acme/market');
+
+        $result = $this->service($gitHub)->sync($source);
+
+        self::assertSame(SyncStatus::OK, $result->status);
+        self::assertSame(1, $result->created);
+        self::assertCount(1, $this->get(SkillRepository::class)->findAll());
+    }
+
+    #[Test]
+    public function marketplaceConvertsGithubBlobUrlToRawIndex(): void
+    {
+        // A github.com /blob/ view URL (copied from the browser) is converted to
+        // its raw equivalent and fetched as the index — not treated as a repo.
+        $rawIndex = 'https://raw.githubusercontent.com/acme/market/main/.claude-plugin/marketplace.json';
+        $gitHub   = new FakeGitHubClient(
+            repos: [
+                'acme/plugin1' => [
+                    'sha'    => 'plugin-head',
+                    'tree'   => [self::SKILL_A_PATH],
+                    'bodies' => [self::SKILL_A_PATH => $this->md('Blob', 'from blob url')],
+                ],
+            ],
+            indexes: [$rawIndex => (string)json_encode(['plugins' => [['source' => 'acme/plugin1']]])],
+        );
+
+        $source = $this->marketplaceSource();
+        $source->setUrl('https://github.com/acme/market/blob/main/.claude-plugin/marketplace.json');
+
+        $result = $this->service($gitHub)->sync($source);
+
+        self::assertSame(SyncStatus::OK, $result->status);
+        self::assertSame(1, $result->created);
+    }
+
+    #[Test]
+    public function marketplaceRejectsUrlThatIsNeitherRepoNorRawIndex(): void
+    {
+        $source = $this->marketplaceSource();
+        $source->setUrl('https://example.com/not-github');
+
+        $result = $this->service(new FakeGitHubClient())->sync($source);
+
+        self::assertSame(SyncStatus::ERROR, $result->status);
+        self::assertNotSame([], $result->errors);
+        self::assertStringContainsString('marketplace.json', implode("\n", $result->errors));
+    }
+
+    #[Test]
     public function repoSyncMaterializesSkillsDisabledByDefault(): void
     {
         $gitHub = new FakeGitHubClient(sha: 'sha1', tree: [self::SKILL_A_PATH, self::SKILL_B_PATH], bodies: [
