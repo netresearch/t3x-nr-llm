@@ -93,9 +93,11 @@ final readonly class SkillComposer
         // candidate before returning.
         $includedKeys = array_column($rendered, 'key');
         $includedIds  = array_column($rendered, 'id');
-        $droppedIds   = [];
+        // Keyed set for O(1) membership instead of in_array() per candidate.
+        $includedKeySet = array_fill_keys($includedKeys, true);
+        $droppedIds     = [];
         foreach ($candidates as $skill) {
-            if (!in_array($this->skillKey($skill), $includedKeys, true)) {
+            if (!isset($includedKeySet[$this->skillKey($skill)])) {
                 $droppedIds[] = $skill->getIdentifier();
             }
         }

@@ -249,17 +249,22 @@ final class SkillSyncService
         $discovered = [];
         $reachedPrefixes = [];
         $listedPrefixes = [];
+        // Keyed set mirroring $listedPrefixes: O(1) duplicate detection instead
+        // of in_array() over the growing list (the $listedPrefixes list is kept
+        // because it is part of this method's return contract).
+        $listedPrefixSet = [];
         foreach ($this->marketplaceParser->parse($index) as $entry) {
             // Namespace marketplace skills by repo to avoid path collisions across plugins.
             $prefix = $entry->owner . '/' . $entry->repo . '/';
             // Dedup duplicate plugin entries (same owner/repo): first wins.
-            if (in_array($prefix, $listedPrefixes, true)) {
+            if (isset($listedPrefixSet[$prefix])) {
                 $errors[] = sprintf('duplicate marketplace plugin "%s/%s", first wins', $entry->owner, $entry->repo);
                 continue;
             }
             // "Listed" = present in the parsed index this run, even if unreached below. A skill whose
             // prefix is no longer listed (plugin de-listed) IS orphaned; one listed-but-unreached is not.
-            $listedPrefixes[] = $prefix;
+            $listedPrefixes[]          = $prefix;
+            $listedPrefixSet[$prefix]  = true;
 
             // A bound hit leaves the remaining plugins listed (protected) but unvisited this run.
             if ($this->limitReached($errors)) {
