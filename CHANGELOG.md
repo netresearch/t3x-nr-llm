@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Function-calling tool runtime (agent loop) with an admin-curated, RBAC-gated built-in tool set and a backend tool playground (ADR-038).
+
+### Changed
+
+- **BREAKING:** `ToolInterface` now requires a `requiresAdmin(): bool` method. Every implementer must declare it — return `true` for tools exposing system/host/cross-user data (logs, environment, phpinfo, backend-user/group listings), `false` for tools that self-enforce the acting user's TYPO3 permissions. Without it, the tool fatals at runtime on instantiation.
+
+### Security
+
+- Gemini provider now sends the API key in the `x-goog-api-key` header instead of the URL query string, so it no longer leaks into server/proxy logs, browser history or the Referer header.
+
 ## [0.13.0] - 2026-06-26
 
 ### Changed
