@@ -42,7 +42,6 @@ use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
-use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
  * Backend controller for the Task execution pathway.
@@ -66,6 +65,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 final class TaskExecutionController extends ActionController
 {
     use RequiresBackendAdminTrait;
+    use DefensiveLocalizationTrait;
 
     private const TABLE_NAME = 'tx_nrllm_task';
 
@@ -92,8 +92,8 @@ final class TaskExecutionController extends ActionController
         $task = $this->taskRepository->findByUid($uid);
         if ($task === null) {
             $this->enqueueFlashMessage(
-                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.notFound', 'NrLlm') ?? 'Task not found.',
-                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.error', 'NrLlm') ?? 'Error',
+                $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.notFound', 'Task not found.'),
+                $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.error', 'Error'),
                 ContextualFeedbackSeverity::ERROR,
             );
             return new RedirectResponse($this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
@@ -191,11 +191,11 @@ final class TaskExecutionController extends ActionController
 
         $task = $this->taskRepository->findByUid($dto->uid);
         if ($task === null) {
-            return new JsonResponse((new ErrorResponse('Task not found'))->jsonSerialize(), 404);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.task.notFound', 'Task not found')))->jsonSerialize(), 404);
         }
 
         if (!$task->isActive()) {
-            return new JsonResponse((new ErrorResponse('Task is not active'))->jsonSerialize(), 400);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.task.notActive', 'Task is not active')))->jsonSerialize(), 400);
         }
 
         return new JsonResponse($this->runExecution($task, $dto->input));
@@ -265,7 +265,7 @@ final class TaskExecutionController extends ActionController
 
         $task = $this->taskRepository->findByUid($dto->uid);
         if ($task === null) {
-            return new JsonResponse((new ErrorResponse('Task not found'))->jsonSerialize(), 404);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.task.notFound', 'Task not found')))->jsonSerialize(), 404);
         }
 
         $inputData = $this->taskInputResolver->resolve($task);
@@ -274,10 +274,7 @@ final class TaskExecutionController extends ActionController
         // localized "no deprecation log file found" placeholder. Compare
         // against the *translated* string so non-English backends don't
         // see `isEmpty=false` for what is really a missing log.
-        $deprecationNotFound = LocalizationUtility::translate(
-            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.deprecationLog.notFound',
-            'NrLlm',
-        ) ?? 'No deprecation log file found.';
+        $deprecationNotFound = $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.deprecationLog.notFound', 'No deprecation log file found.');
 
         return new JsonResponse((new TaskInputResponse(
             inputData: $inputData,

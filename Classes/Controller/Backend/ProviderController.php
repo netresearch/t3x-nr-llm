@@ -36,7 +36,6 @@ use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
-use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
  * Backend controller for LLM Provider management.
@@ -48,6 +47,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 final class ProviderController extends ActionController
 {
     use RequiresBackendAdminTrait;
+    use DefensiveLocalizationTrait;
 
     private const TABLE_NAME = 'tx_nrllm_provider';
 
@@ -129,7 +129,7 @@ final class ProviderController extends ActionController
         $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
         $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
-            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.provider.new', 'NrLlm') ?? 'New Provider')
+            ->setTitle($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.provider.new', 'New Provider'))
             ->setShowLabelText(true)
             ->setHref($this->buildNewUrl());
         $buttonBar->addButton($createButton);
@@ -149,12 +149,12 @@ final class ProviderController extends ActionController
         $uid = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
-            return new JsonResponse((new ErrorResponse('No provider UID specified'))->jsonSerialize(), 400);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.noUid', 'No provider UID specified')))->jsonSerialize(), 400);
         }
 
         $provider = $this->providerRepository->findByUid($uid);
         if ($provider === null) {
-            return new JsonResponse((new ErrorResponse('Provider not found'))->jsonSerialize(), 404);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.notFound', 'Provider not found')))->jsonSerialize(), 404);
         }
 
         try {
@@ -172,7 +172,7 @@ final class ProviderController extends ActionController
                 'provider_uid' => $uid,
             ]);
             $response = new JsonResponse(
-                (new ErrorResponse('Database error while toggling provider status.'))->jsonSerialize(),
+                (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.toggleDbError', 'Database error while toggling provider status.')))->jsonSerialize(),
                 500,
             );
         } catch (Throwable $e) {
@@ -181,7 +181,7 @@ final class ProviderController extends ActionController
                 'provider_uid' => $uid,
             ]);
             $response = new JsonResponse(
-                (new ErrorResponse('Failed to toggle provider status. See system log for details.'))->jsonSerialize(),
+                (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.toggleFailed', 'Failed to toggle provider status. See system log for details.')))->jsonSerialize(),
                 500,
             );
         }
@@ -201,12 +201,12 @@ final class ProviderController extends ActionController
         $uid = $this->extractIntFromBody($body, 'uid');
 
         if ($uid === 0) {
-            return new JsonResponse((new ErrorResponse('No provider UID specified'))->jsonSerialize(), 400);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.noUid', 'No provider UID specified')))->jsonSerialize(), 400);
         }
 
         $provider = $this->providerRepository->findByUid($uid);
         if ($provider === null) {
-            return new JsonResponse((new ErrorResponse('Provider not found'))->jsonSerialize(), 404);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.notFound', 'Provider not found')))->jsonSerialize(), 404);
         }
 
         try {
@@ -223,7 +223,7 @@ final class ProviderController extends ActionController
                 'provider_uid' => $uid,
             ]);
             $response = new JsonResponse(
-                (new ErrorResponse('Upstream LLM provider returned an error during connection test.'))->jsonSerialize(),
+                (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.testUpstreamError', 'Upstream LLM provider returned an error during connection test.')))->jsonSerialize(),
                 502,
             );
         } catch (ProviderException $e) {
@@ -232,7 +232,7 @@ final class ProviderController extends ActionController
                 'provider_uid' => $uid,
             ]);
             $response = new JsonResponse(
-                (new ErrorResponse('LLM provider error during connection test. See system log for details.'))->jsonSerialize(),
+                (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.testProviderError', 'LLM provider error during connection test. See system log for details.')))->jsonSerialize(),
                 502,
             );
         } catch (Throwable $e) {
@@ -241,7 +241,7 @@ final class ProviderController extends ActionController
                 'provider_uid' => $uid,
             ]);
             $response = new JsonResponse(
-                (new ErrorResponse('Connection test failed. See system log for details.'))->jsonSerialize(),
+                (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.testFailed', 'Connection test failed. See system log for details.')))->jsonSerialize(),
                 500,
             );
         }

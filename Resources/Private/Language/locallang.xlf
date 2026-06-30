@@ -1145,6 +1145,98 @@
             <trans-unit id="help.faq.a4">
                 <source>&lt;strong&gt;Tasks&lt;/strong&gt; are simple one-shot prompts defined here in the LLM module. They appear as preset options in the Cowriter dialog. The &lt;strong&gt;Cowriter dialog&lt;/strong&gt; is the CKEditor plugin that editors use to interact with the AI. Editors can pick a task or write a custom instruction.</source>
             </trans-unit>
+
+            <!-- Backend AJAX error messages -->
+            <trans-unit id="error.provider.noUid">
+                <source>No provider UID specified</source>
+            </trans-unit>
+            <trans-unit id="error.provider.notFound">
+                <source>Provider not found</source>
+            </trans-unit>
+            <trans-unit id="error.provider.toggleDbError">
+                <source>Database error while toggling provider status.</source>
+            </trans-unit>
+            <trans-unit id="error.provider.toggleFailed">
+                <source>Failed to toggle provider status. See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="error.provider.testUpstreamError">
+                <source>Upstream LLM provider returned an error during connection test.</source>
+            </trans-unit>
+            <trans-unit id="error.provider.testProviderError">
+                <source>LLM provider error during connection test. See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="error.provider.testFailed">
+                <source>Connection test failed. See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="error.config.toggleDbError">
+                <source>Database error while toggling configuration status.</source>
+            </trans-unit>
+            <trans-unit id="error.config.toggleFailed">
+                <source>Failed to toggle configuration status. See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="error.config.setDefaultDbError">
+                <source>Database error while setting default configuration.</source>
+            </trans-unit>
+            <trans-unit id="error.config.setDefaultFailed">
+                <source>Failed to set default configuration. See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="error.config.noProvider">
+                <source>No provider specified</source>
+            </trans-unit>
+            <trans-unit id="error.config.providerNotAvailable">
+                <source>Provider not available</source>
+            </trans-unit>
+            <trans-unit id="error.config.modelsProviderError">
+                <source>LLM provider error while listing models. See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="error.config.modelsFailed">
+                <source>Failed to load models. See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="error.config.noModel">
+                <source>Configuration has no model assigned</source>
+            </trans-unit>
+            <trans-unit id="error.config.testProviderError">
+                <source>LLM provider error during configuration test. See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="error.config.testFailed">
+                <source>Configuration test failed. See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="error.wizard.endpointModelsRequired">
+                <source>Endpoint and models are required</source>
+            </trans-unit>
+            <trans-unit id="error.wizard.providerModelsRequired">
+                <source>Provider and models are required</source>
+            </trans-unit>
+            <trans-unit id="error.task.notFound">
+                <source>Task not found</source>
+            </trans-unit>
+            <trans-unit id="error.task.notActive">
+                <source>Task is not active</source>
+            </trans-unit>
+            <trans-unit id="error.records.listTablesDbError">
+                <source>Database error while listing tables.</source>
+            </trans-unit>
+            <trans-unit id="error.records.listTablesFailed">
+                <source>Failed to list tables. See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="error.records.noTable">
+                <source>No table specified</source>
+            </trans-unit>
+            <trans-unit id="error.records.fetchDbError">
+                <source>Database error while fetching records.</source>
+            </trans-unit>
+            <trans-unit id="error.records.fetchFailed">
+                <source>Failed to fetch records. See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="error.records.encodeFailed">
+                <source>Failed to encode record payload:</source>
+            </trans-unit>
+            <trans-unit id="error.records.loadDbError">
+                <source>Database error while loading records.</source>
+            </trans-unit>
+            <trans-unit id="error.records.loadFailed">
+                <source>Failed to load records. See system log for details.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

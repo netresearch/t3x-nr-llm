@@ -1510,6 +1510,128 @@
                 <source>&lt;strong&gt;Tasks&lt;/strong&gt; are simple one-shot prompts defined here in the LLM module. They appear as preset options in the Cowriter dialog. The &lt;strong&gt;Cowriter dialog&lt;/strong&gt; is the CKEditor plugin that editors use to interact with the AI. Editors can pick a task or write a custom instruction.</source>
                 <target>&lt;strong&gt;Aufgaben&lt;/strong&gt; sind einfache einmalige Prompts, die hier im LLM-Modul definiert werden. Sie erscheinen als vorgegebene Optionen im Cowriter-Dialog. Der &lt;strong&gt;Cowriter-Dialog&lt;/strong&gt; ist das CKEditor-Plugin, mit dem Redakteure mit der KI interagieren. Redakteure können eine Aufgabe auswählen oder eine eigene Anweisung schreiben.</target>
             </trans-unit>
+
+            <!-- Backend AJAX error messages -->
+            <trans-unit id="error.provider.noUid">
+                <source>No provider UID specified</source>
+                <target>Keine Provider-UID angegeben</target>
+            </trans-unit>
+            <trans-unit id="error.provider.notFound">
+                <source>Provider not found</source>
+                <target>Provider nicht gefunden</target>
+            </trans-unit>
+            <trans-unit id="error.provider.toggleDbError">
+                <source>Database error while toggling provider status.</source>
+                <target>Datenbankfehler beim Umschalten des Provider-Status.</target>
+            </trans-unit>
+            <trans-unit id="error.provider.toggleFailed">
+                <source>Failed to toggle provider status. See system log for details.</source>
+                <target>Provider-Status konnte nicht umgeschaltet werden. Siehe Systemprotokoll für Details.</target>
+            </trans-unit>
+            <trans-unit id="error.provider.testUpstreamError">
+                <source>Upstream LLM provider returned an error during connection test.</source>
+                <target>Der vorgelagerte LLM-Provider hat beim Verbindungstest einen Fehler zurückgegeben.</target>
+            </trans-unit>
+            <trans-unit id="error.provider.testProviderError">
+                <source>LLM provider error during connection test. See system log for details.</source>
+                <target>LLM-Provider-Fehler beim Verbindungstest. Siehe Systemprotokoll für Details.</target>
+            </trans-unit>
+            <trans-unit id="error.provider.testFailed">
+                <source>Connection test failed. See system log for details.</source>
+                <target>Verbindungstest fehlgeschlagen. Siehe Systemprotokoll für Details.</target>
+            </trans-unit>
+            <trans-unit id="error.config.toggleDbError">
+                <source>Database error while toggling configuration status.</source>
+                <target>Datenbankfehler beim Umschalten des Konfigurationsstatus.</target>
+            </trans-unit>
+            <trans-unit id="error.config.toggleFailed">
+                <source>Failed to toggle configuration status. See system log for details.</source>
+                <target>Konfigurationsstatus konnte nicht umgeschaltet werden. Siehe Systemprotokoll für Details.</target>
+            </trans-unit>
+            <trans-unit id="error.config.setDefaultDbError">
+                <source>Database error while setting default configuration.</source>
+                <target>Datenbankfehler beim Festlegen der Standardkonfiguration.</target>
+            </trans-unit>
+            <trans-unit id="error.config.setDefaultFailed">
+                <source>Failed to set default configuration. See system log for details.</source>
+                <target>Standardkonfiguration konnte nicht festgelegt werden. Siehe Systemprotokoll für Details.</target>
+            </trans-unit>
+            <trans-unit id="error.config.noProvider">
+                <source>No provider specified</source>
+                <target>Kein Provider angegeben</target>
+            </trans-unit>
+            <trans-unit id="error.config.providerNotAvailable">
+                <source>Provider not available</source>
+                <target>Provider nicht verfügbar</target>
+            </trans-unit>
+            <trans-unit id="error.config.modelsProviderError">
+                <source>LLM provider error while listing models. See system log for details.</source>
+                <target>LLM-Provider-Fehler beim Auflisten der Modelle. Siehe Systemprotokoll für Details.</target>
+            </trans-unit>
+            <trans-unit id="error.config.modelsFailed">
+                <source>Failed to load models. See system log for details.</source>
+                <target>Modelle konnten nicht geladen werden. Siehe Systemprotokoll für Details.</target>
+            </trans-unit>
+            <trans-unit id="error.config.noModel">
+                <source>Configuration has no model assigned</source>
+                <target>Der Konfiguration ist kein Modell zugewiesen</target>
+            </trans-unit>
+            <trans-unit id="error.config.testProviderError">
+                <source>LLM provider error during configuration test. See system log for details.</source>
+                <target>LLM-Provider-Fehler beim Konfigurationstest. Siehe Systemprotokoll für Details.</target>
+            </trans-unit>
+            <trans-unit id="error.config.testFailed">
+                <source>Configuration test failed. See system log for details.</source>
+                <target>Konfigurationstest fehlgeschlagen. Siehe Systemprotokoll für Details.</target>
+            </trans-unit>
+            <trans-unit id="error.wizard.endpointModelsRequired">
+                <source>Endpoint and models are required</source>
+                <target>Endpunkt und Modelle sind erforderlich</target>
+            </trans-unit>
+            <trans-unit id="error.wizard.providerModelsRequired">
+                <source>Provider and models are required</source>
+                <target>Provider und Modelle sind erforderlich</target>
+            </trans-unit>
+            <trans-unit id="error.task.notFound">
+                <source>Task not found</source>
+                <target>Aufgabe nicht gefunden</target>
+            </trans-unit>
+            <trans-unit id="error.task.notActive">
+                <source>Task is not active</source>
+                <target>Aufgabe ist nicht aktiv</target>
+            </trans-unit>
+            <trans-unit id="error.records.listTablesDbError">
+                <source>Database error while listing tables.</source>
+                <target>Datenbankfehler beim Auflisten der Tabellen.</target>
+            </trans-unit>
+            <trans-unit id="error.records.listTablesFailed">
+                <source>Failed to list tables. See system log for details.</source>
+                <target>Tabellen konnten nicht aufgelistet werden. Siehe Systemprotokoll für Details.</target>
+            </trans-unit>
+            <trans-unit id="error.records.noTable">
+                <source>No table specified</source>
+                <target>Keine Tabelle angegeben</target>
+            </trans-unit>
+            <trans-unit id="error.records.fetchDbError">
+                <source>Database error while fetching records.</source>
+                <target>Datenbankfehler beim Abrufen der Datensätze.</target>
+            </trans-unit>
+            <trans-unit id="error.records.fetchFailed">
+                <source>Failed to fetch records. See system log for details.</source>
+                <target>Datensätze konnten nicht abgerufen werden. Siehe Systemprotokoll für Details.</target>
+            </trans-unit>
+            <trans-unit id="error.records.encodeFailed">
+                <source>Failed to encode record payload:</source>
+                <target>Datensatz-Nutzdaten konnten nicht kodiert werden:</target>
+            </trans-unit>
+            <trans-unit id="error.records.loadDbError">
+                <source>Database error while loading records.</source>
+                <target>Datenbankfehler beim Laden der Datensätze.</target>
+            </trans-unit>
+            <trans-unit id="error.records.loadFailed">
+                <source>Failed to load records. See system log for details.</source>
+                <target>Datensätze konnten nicht geladen werden. Siehe Systemprotokoll für Details.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

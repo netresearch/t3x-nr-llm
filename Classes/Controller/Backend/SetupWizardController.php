@@ -42,7 +42,6 @@ use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
-use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
  * Backend controller for LLM Setup Wizard.
@@ -55,6 +54,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 final class SetupWizardController extends ActionController
 {
     use RequiresBackendAdminTrait;
+    use DefensiveLocalizationTrait;
 
     private const ERROR_ENDPOINT_REQUIRED = 'Endpoint URL is required';
 
@@ -111,7 +111,7 @@ final class SetupWizardController extends ActionController
         // Add refresh button
         $refreshButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-refresh', IconSize::SMALL))
-            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.refresh', 'NrLlm') ?? 'Refresh')
+            ->setTitle($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.refresh', 'Refresh'))
             ->setShowLabelText(true)
             ->setHref((string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'));
         $buttonBar->addButton($refreshButton);
@@ -240,7 +240,7 @@ final class SetupWizardController extends ActionController
 
         if ($endpoint === '' || $modelsData === []) {
             return new JsonResponse(
-                (new ErrorResponse('Endpoint and models are required'))->jsonSerialize(),
+                (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.wizard.endpointModelsRequired', 'Endpoint and models are required')))->jsonSerialize(),
                 400,
             );
         }
@@ -281,7 +281,7 @@ final class SetupWizardController extends ActionController
 
         if ($providerData === [] || $modelsData === []) {
             return new JsonResponse(
-                (new ErrorResponse('Provider and models are required'))->jsonSerialize(),
+                (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.wizard.providerModelsRequired', 'Provider and models are required')))->jsonSerialize(),
                 400,
             );
         }

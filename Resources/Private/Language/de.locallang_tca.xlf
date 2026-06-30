@@ -381,6 +381,42 @@
                 <source>The API protocol adapter to use</source>
                 <target>Der zu verwendende API-Protokolladapter</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.openai">
+                <source>OpenAI</source>
+                <target>OpenAI</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.anthropic">
+                <source>Anthropic (Claude)</source>
+                <target>Anthropic (Claude)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.gemini">
+                <source>Google Gemini</source>
+                <target>Google Gemini</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.openrouter">
+                <source>OpenRouter</source>
+                <target>OpenRouter</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.mistral">
+                <source>Mistral AI</source>
+                <target>Mistral AI</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.groq">
+                <source>Groq</source>
+                <target>Groq</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.ollama">
+                <source>Ollama (Local)</source>
+                <target>Ollama (lokal)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.azure_openai">
+                <source>Azure OpenAI</source>
+                <target>Azure OpenAI</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.custom">
+                <source>Custom (OpenAI-compatible)</source>
+                <target>Benutzerdefiniert (OpenAI-kompatibel)</target>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_provider.endpoint_url">
                 <source>Endpoint URL</source>

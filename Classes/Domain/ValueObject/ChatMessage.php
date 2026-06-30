@@ -103,10 +103,27 @@ final readonly class ChatMessage implements JsonSerializable
     /**
      * Create from array.
      *
-     * @param array{role: string, content: string} $data
+     * Guards the raw input: both keys must be present and `content` must be a
+     * string. An invalid `role` value is rejected by the constructor with the
+     * shared `InvalidArgumentException` code so downstream catches stay stable.
+     *
+     * @param array{role?: mixed, content?: mixed} $data
      */
     public static function fromArray(array $data): self
     {
+        if (!isset($data['role']) || !is_string($data['role'])) {
+            throw new InvalidArgumentException(
+                'ChatMessage::fromArray() requires a string "role" key.',
+                1736502002,
+            );
+        }
+        if (!isset($data['content']) || !is_string($data['content'])) {
+            throw new InvalidArgumentException(
+                'ChatMessage::fromArray() requires a string "content" key.',
+                1736502003,
+            );
+        }
+
         return new self(
             role: $data['role'],
             content: $data['content'],
