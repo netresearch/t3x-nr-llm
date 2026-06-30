@@ -24,6 +24,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 
@@ -144,6 +146,50 @@ class GeminiProviderTest extends AbstractUnitTestCase
         self::assertEquals('Gemini response content', $result->content);
         self::assertEquals('gemini-3-flash-preview', $result->model);
         self::assertEquals('stop', $result->finishReason);
+    }
+
+    #[Test]
+    public function chatCompletionNeverPutsApiKeyInTheUrl(): void
+    {
+        // Security regression guard: the Gemini API key must travel in the
+        // x-goog-api-key header, never the URL query string (which leaks into
+        // server/proxy logs, browser history and the Referer header).
+        $capturedUri = null;
+        $requestFactory = self::createStub(RequestFactoryInterface::class);
+        $requestFactory->method('createRequest')
+            ->willReturnCallback(function (string $method, string $uri) use (&$capturedUri): RequestInterface {
+                $capturedUri = $uri;
+
+                return $this->createRequestMock($method, $uri);
+            });
+
+        $subject = new GeminiProvider(
+            $requestFactory,
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gemini-3-flash-preview',
+            'baseUrl' => '',
+            'timeout' => 30,
+        ]);
+        $httpClientMock = $this->createHttpClientWithExpectations();
+        $httpClientMock->method('sendRequest')->willReturn($this->createJsonResponseMock([
+            'candidates' => [[
+                'content' => ['parts' => [['text' => 'ok']], 'role' => 'model'],
+                'finishReason' => 'STOP',
+            ]],
+            'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
+        ]));
+        $subject->setHttpClient($httpClientMock);
+
+        $subject->chatCompletion([['role' => 'user', 'content' => 'Hello']]);
+
+        self::assertIsString($capturedUri);
+        self::assertStringNotContainsString('key=', $capturedUri);
     }
 
     #[Test]
