@@ -186,7 +186,11 @@ final class ConfigurationController extends ActionController
     {
         $description = trim($description);
         if ($description === '') {
-            $this->addFlashMessage('Please describe what this configuration should do.', 'Missing description', ContextualFeedbackSeverity::WARNING);
+            $this->addFlashMessage(
+                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.configuration.missingDescription.body', 'NrLlm') ?? 'Please describe what this configuration should do.',
+                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.configuration.missingDescription.title', 'NrLlm') ?? 'Missing description',
+                ContextualFeedbackSeverity::WARNING,
+            );
             return $this->redirect('wizardForm');
         }
         if (mb_strlen($description) > 2000) {
@@ -209,10 +213,18 @@ final class ConfigurationController extends ActionController
             return $this->moduleTemplate->renderResponse('Backend/Configuration/WizardPreview');
         } catch (ProviderException $e) {
             $this->logger->error('Configuration wizard: provider error', ['exception' => $e]);
-            $this->addFlashMessage('Generation failed (LLM provider error). See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+            $this->addFlashMessage(
+                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.configuration.generationFailed.provider', 'NrLlm') ?? 'Generation failed (LLM provider error). See system log for details.',
+                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error', 'NrLlm') ?? 'Error',
+                ContextualFeedbackSeverity::ERROR,
+            );
         } catch (Throwable $e) {
             $this->logger->error('Configuration wizard: unexpected error', ['exception' => $e]);
-            $this->addFlashMessage('Generation failed. See system log for details.', 'Error', ContextualFeedbackSeverity::ERROR);
+            $this->addFlashMessage(
+                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.configuration.generationFailed.generic', 'NrLlm') ?? 'Generation failed. See system log for details.',
+                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error', 'NrLlm') ?? 'Error',
+                ContextualFeedbackSeverity::ERROR,
+            );
         }
 
         return $this->redirect('wizardForm');

@@ -29,8 +29,9 @@ sensitive — provider/model/configuration state mutations (toggle-active,
 set-default), provider and model *test* calls that decrypt vault-stored API
 keys and reach out to upstream LLMs, task execution (which spends budget and
 runs the configured prompt), reading of arbitrary TYPO3 records via the task
-record picker, and the setup wizard's *save* which creates providers and stores
-new API keys in the vault.
+record picker, the tool playground's *run* (which executes the agent loop,
+spending budget and invoking registered tools) and tool *toggle*, and the setup
+wizard's *save* which creates providers and stores new API keys in the vault.
 
 Only :php:`SkillSourceController` enforced an admin check, via a private
 ``denyNonAdmin()`` method duplicated nowhere else. Every other backend AJAX
@@ -56,9 +57,10 @@ Decision
    type-compatible. The guard covers
    :php:`LlmModuleController`, :php:`ProviderController`, :php:`ModelController`,
    :php:`ConfigurationController`, :php:`TaskRecordsController`,
-   :php:`TaskExecutionController`, :php:`SetupWizardController` and the
-   already-guarded :php:`SkillSourceController` — 27 actions in total, matching
-   the route table exactly.
+   :php:`TaskExecutionController`, :php:`SetupWizardController`,
+   :php:`ToolPlaygroundController` and the already-guarded
+   :php:`SkillSourceController` — 29 actions in total, matching the route table
+   exactly.
 
 3. **Non-AJAX module actions are left untouched.** Extbase module actions
    (``listAction``, ``indexAction``, ``executeFormAction``,

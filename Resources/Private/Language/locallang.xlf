@@ -226,6 +226,14 @@
                 <source>Refresh</source>
             </trans-unit>
 
+            <!-- Docheader tab menu -->
+            <trans-unit id="tab.dashboard">
+                <source>Dashboard</source>
+            </trans-unit>
+            <trans-unit id="tab.help">
+                <source>Help</source>
+            </trans-unit>
+
             <!-- Dashboard overview cards -->
             <trans-unit id="snippet.card.title">
                 <source>Prompt Snippets</source>
@@ -312,6 +320,18 @@
             <trans-unit id="configuration.notConfigured">
                 <source>(not configured)</source>
             </trans-unit>
+            <trans-unit id="flash.configuration.missingDescription.title">
+                <source>Missing description</source>
+            </trans-unit>
+            <trans-unit id="flash.configuration.missingDescription.body">
+                <source>Please describe what this configuration should do.</source>
+            </trans-unit>
+            <trans-unit id="flash.configuration.generationFailed.provider">
+                <source>Generation failed (LLM provider error). See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="flash.configuration.generationFailed.generic">
+                <source>Generation failed. See system log for details.</source>
+            </trans-unit>
 
             <!-- Model test results -->
             <trans-unit id="model.test.responded">
@@ -384,6 +404,9 @@
             </trans-unit>
             <trans-unit id="analytics.budget.of">
                 <source>of</source>
+            </trans-unit>
+            <trans-unit id="analytics.budget.barAria">
+                <source>Budget usage</source>
             </trans-unit>
             <trans-unit id="analytics.empty.title">
                 <source>No usage recorded</source>

@@ -28,6 +28,7 @@ use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
+use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 #[AsController]
 final class LlmModuleController extends ActionController
@@ -205,7 +206,7 @@ final class LlmModuleController extends ActionController
         $menu->setIdentifier('LlmModuleMenu');
 
         $dashboardItem = $menu->makeMenuItem()
-            ->setTitle('Dashboard')
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tab.dashboard', 'NrLlm') ?? 'Dashboard')
             ->setHref((string)$this->backendUriBuilder->buildUriFromRoute('nrllm_overview'));
         if ($activeTab === 'dashboard') {
             $dashboardItem->setActive(true);
@@ -213,7 +214,7 @@ final class LlmModuleController extends ActionController
         $menu->addMenuItem($dashboardItem);
 
         $helpItem = $menu->makeMenuItem()
-            ->setTitle('Help')
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tab.help', 'NrLlm') ?? 'Help')
             ->setHref($this->uriBuilder->reset()->uriFor('help'));
         if ($activeTab === 'help') {
             $helpItem->setActive(true);

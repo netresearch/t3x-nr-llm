@@ -297,6 +297,16 @@
                 <target>Aktualisieren</target>
             </trans-unit>
 
+            <!-- Docheader tab menu -->
+            <trans-unit id="tab.dashboard">
+                <source>Dashboard</source>
+                <target>Dashboard</target>
+            </trans-unit>
+            <trans-unit id="tab.help">
+                <source>Help</source>
+                <target>Hilfe</target>
+            </trans-unit>
+
             <!-- Dashboard overview cards -->
             <trans-unit id="snippet.card.title">
                 <source>Prompt Snippets</source>
@@ -410,6 +420,22 @@
                 <source>(not configured)</source>
                 <target>(nicht konfiguriert)</target>
             </trans-unit>
+            <trans-unit id="flash.configuration.missingDescription.title">
+                <source>Missing description</source>
+                <target>Beschreibung fehlt</target>
+            </trans-unit>
+            <trans-unit id="flash.configuration.missingDescription.body">
+                <source>Please describe what this configuration should do.</source>
+                <target>Bitte beschreiben Sie, was diese Konfiguration tun soll.</target>
+            </trans-unit>
+            <trans-unit id="flash.configuration.generationFailed.provider">
+                <source>Generation failed (LLM provider error). See system log for details.</source>
+                <target>Generierung fehlgeschlagen (LLM-Anbieterfehler). Details siehe Systemlog.</target>
+            </trans-unit>
+            <trans-unit id="flash.configuration.generationFailed.generic">
+                <source>Generation failed. See system log for details.</source>
+                <target>Generierung fehlgeschlagen. Details siehe Systemlog.</target>
+            </trans-unit>
 
             <!-- Model test results -->
             <trans-unit id="model.test.responded">
@@ -505,6 +531,10 @@
             <trans-unit id="analytics.budget.of">
                 <source>of</source>
                 <target>von</target>
+            </trans-unit>
+            <trans-unit id="analytics.budget.barAria">
+                <source>Budget usage</source>
+                <target>Budgetnutzung</target>
             </trans-unit>
             <trans-unit id="analytics.empty.title">
                 <source>No usage recorded</source>
