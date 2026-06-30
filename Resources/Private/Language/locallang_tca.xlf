@@ -827,6 +827,9 @@
             <trans-unit id="tx_nrllm_skill_source.url">
                 <source>URL</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.url.description">
+                <source>Single file: a raw SKILL.md URL. Repository: the GitHub repo URL (https://github.com/owner/repo). Marketplace: the repo URL (the .claude-plugin/marketplace.json index is resolved automatically) or a raw marketplace.json URL. The GitHub hosts must be in the TYPO3 HTTP allowed_hosts list.</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill_source.ref">
                 <source>Git ref (branch or tag)</source>
             </trans-unit>

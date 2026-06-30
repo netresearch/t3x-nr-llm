@@ -1061,6 +1061,10 @@
                 <source>URL</source>
                 <target>URL</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.url.description">
+                <source>Single file: a raw SKILL.md URL. Repository: the GitHub repo URL (https://github.com/owner/repo). Marketplace: the repo URL (the .claude-plugin/marketplace.json index is resolved automatically) or a raw marketplace.json URL. The GitHub hosts must be in the TYPO3 HTTP allowed_hosts list.</source>
+                <target>Einzeldatei: eine Raw-SKILL.md-URL. Repository: die GitHub-Repo-URL (https://github.com/owner/repo). Marketplace: die Repo-URL (der Index .claude-plugin/marketplace.json wird automatisch aufgelöst) oder eine Raw-marketplace.json-URL. Die GitHub-Hosts müssen in der TYPO3-Liste HTTP allowed_hosts stehen.</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_skill_source.ref">
                 <source>Git ref (branch or tag)</source>
                 <target>Git-Ref (Branch oder Tag)</target>

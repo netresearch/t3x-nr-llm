@@ -79,6 +79,7 @@ return [
         ],
         'url' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.url',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.url.description',
             'config' => [
                 'type' => 'input',
                 'size' => 50,
