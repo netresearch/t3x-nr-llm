@@ -78,34 +78,12 @@ final readonly class CompletionService implements CompletionServiceInterface
             );
         }
 
-        // Map stop_sequences to stop
-        if ($options->getStopSequences() !== null) {
-            $optionsArray = $options->toArray();
-            $optionsArray['stop'] = $optionsArray['stop_sequences'];
-            unset($optionsArray['stop_sequences']);
-
-            // Create temporary options with modified array. Every typed
-            // field that ChatOptions exposes must be copied across — the
-            // new constructor call would otherwise silently drop the
-            // budget pre-flight fields (REC #4) and let stop-sequence
-            // callers bypass the BudgetMiddleware. PHPStan won't catch
-            // this because every parameter is `?T = null`, so missing
-            // fields look like "use the default".
-            $tempOptions = new ChatOptions(
-                temperature: $options->getTemperature(),
-                maxTokens: $options->getMaxTokens(),
-                topP: $options->getTopP(),
-                frequencyPenalty: $options->getFrequencyPenalty(),
-                presencePenalty: $options->getPresencePenalty(),
-                responseFormat: $options->getResponseFormat(),
-                provider: $options->getProvider(),
-                model: $options->getModel(),
-                beUserUid: $options->getBeUserUid(),
-                plannedCost: $options->getPlannedCost(),
-            );
-            return $this->llmManager->chat($messages, $tempOptions);
-        }
-
+        // Pass the (immutable) options straight through: they already carry
+        // every typed field — including stopSequences, which toArray() emits as
+        // `stop_sequences` for the providers that read it. The previous
+        // stop-sequence branch rebuilt ChatOptions WITHOUT stopSequences and so
+        // silently dropped them for every provider; passing $options directly
+        // preserves them (and all budget pre-flight fields).
         return $this->llmManager->chat($messages, $options);
     }
 

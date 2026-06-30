@@ -62,7 +62,14 @@ final readonly class EmbeddingResponse
             $embeddings = [];
         }
 
-        /** @var array<int, array<int, float>> $embeddings */
+        // Validate the inner shape, not just the outer array, so the
+        // `array<int, array<int, float>>` annotation below is not a lie:
+        // every element must itself be an array of floats. A payload whose
+        // inner shape does not hold (e.g. an older/foreign cache entry)
+        // falls back to no embeddings rather than constructing an object
+        // that violates its own type contract.
+        $embeddings = self::normalizeEmbeddings($embeddings);
+
         $usageData = $data['usage'] ?? [];
         if (!\is_array($usageData)) {
             $usageData = [];
@@ -74,6 +81,40 @@ final readonly class EmbeddingResponse
             usage: UsageStatistics::fromArray($usageData),
             provider: \is_string($data['provider'] ?? null) ? $data['provider'] : '',
         );
+    }
+
+    /**
+     * Validate and reindex a decoded embeddings payload into the strict
+     * `list<list<float>>` shape this object promises.
+     *
+     * Every element must itself be an array whose values are numeric;
+     * numeric values are coerced to float (a vector component stored as the
+     * int `0` is still a valid `0.0`). If any element is not an array, or
+     * contains a non-numeric value, the whole payload is rejected (returns
+     * `[]`) rather than silently constructing a half-typed object.
+     *
+     * @param array<array-key, mixed> $embeddings
+     *
+     * @return array<int, array<int, float>>
+     */
+    private static function normalizeEmbeddings(array $embeddings): array
+    {
+        $normalized = [];
+        foreach ($embeddings as $vector) {
+            if (!\is_array($vector)) {
+                return [];
+            }
+            $floats = [];
+            foreach ($vector as $component) {
+                if (!\is_int($component) && !\is_float($component)) {
+                    return [];
+                }
+                $floats[] = (float)$component;
+            }
+            $normalized[] = $floats;
+        }
+
+        return $normalized;
     }
 
     /**
@@ -142,6 +183,13 @@ final readonly class EmbeddingResponse
         if (count($vectorA) !== count($vectorB)) {
             throw new InvalidArgumentException('Vectors must have the same dimensions', 5756353142);
         }
+
+        // Reindex both vectors to sequential 0..n-1 keys before pairing them.
+        // The count() guard only proves equal length, not matching/sequential
+        // keys; a sparse or non-aligned key set would otherwise pair mismatched
+        // components (or hit an undefined offset) in the loop below.
+        $vectorA = array_values($vectorA);
+        $vectorB = array_values($vectorB);
 
         $dotProduct = 0.0;
         $magnitudeA = 0.0;

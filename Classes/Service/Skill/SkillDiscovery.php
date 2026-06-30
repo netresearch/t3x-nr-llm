@@ -26,9 +26,13 @@ final class SkillDiscovery
     public function discover(array $treePaths): array
     {
         $matched = [];
+        // Keyed set for O(1) dedup membership instead of in_array() over the
+        // growing $matched list inside the nested pattern/path loop.
+        $seen = [];
         foreach (self::PATTERNS as $pattern) {
             foreach ($treePaths as $path) {
-                if (preg_match($pattern, $path) === 1 && !in_array($path, $matched, true)) {
+                if (preg_match($pattern, $path) === 1 && !isset($seen[$path])) {
+                    $seen[$path] = true;
                     $matched[] = $path;
                 }
             }

@@ -42,4 +42,41 @@ class UserBudgetRepository extends Repository
         $result = $query->execute()->getFirst();
         return $result;
     }
+
+    /**
+     * Batch-load budget records for a set of backend users in one query,
+     * keyed by their backend-user uid. Used by the analytics per-user view
+     * to avoid one findOneByBeUser() round-trip per row (N+1). When more
+     * than one budget exists for the same user, the first wins (mirrors
+     * findOneByBeUser()'s getFirst()).
+     *
+     * @param array<int, int> $beUsers
+     *
+     * @return array<int, UserBudget> beUser uid => budget
+     */
+    public function findByBeUsers(array $beUsers): array
+    {
+        $beUsers = array_values(array_unique(array_filter($beUsers, static fn(int $uid): bool => $uid > 0)));
+        if ($beUsers === []) {
+            return [];
+        }
+
+        $query = $this->createQuery();
+        $query->matching($query->in('beUser', $beUsers));
+
+        $map = [];
+        foreach ($query->execute() as $budget) {
+            // @phpstan-ignore instanceof.alwaysTrue (defensive type guard)
+            if (!$budget instanceof UserBudget) {
+                continue;
+            }
+            $uid = $budget->getBeUser();
+            // First budget per user wins (matches findOneByBeUser()'s getFirst()).
+            if (!isset($map[$uid])) {
+                $map[$uid] = $budget;
+            }
+        }
+
+        return $map;
+    }
 }

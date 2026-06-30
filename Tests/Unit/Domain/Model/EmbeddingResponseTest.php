@@ -243,6 +243,21 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function cosineSimilarityReindexesSparseKeyedVectors(): void
+    {
+        // Both vectors have equal length (passes the count() guard) but
+        // non-sequential / mismatched keys. Without reindexing, pairing by
+        // key would misalign components (or hit an undefined offset). After
+        // array_values() they pair positionally: identical → similarity 1.0.
+        $vectorA = [5 => 1.0, 9 => 2.0, 2 => 3.0];
+        $vectorB = ['a' => 1.0, 'b' => 2.0, 'c' => 3.0];
+
+        $similarity = EmbeddingResponse::cosineSimilarity($vectorA, $vectorB);
+
+        self::assertEqualsWithDelta(1.0, $similarity, 0.0001);
+    }
+
+    #[Test]
     public function cosineSimilarityCalculatesCorrectlyForRealVectors(): void
     {
         // Test with known vectors
@@ -378,5 +393,34 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
         self::assertSame(0, $restored->usage->promptTokens);
         self::assertSame(0, $restored->usage->totalTokens);
         self::assertNull($restored->usage->estimatedCost);
+    }
+
+    #[Test]
+    public function fromArrayRejectsEmbeddingsWhoseInnerElementIsNotAnArray(): void
+    {
+        // Outer is an array (passes the shallow check) but an element is a
+        // scalar — the inner shape does not hold, so the whole payload is
+        // dropped rather than constructing a `list<float>`-violating object.
+        $restored = EmbeddingResponse::fromArray(['embeddings' => [[0.1, 0.2], 'oops']]);
+
+        self::assertSame([], $restored->embeddings);
+    }
+
+    #[Test]
+    public function fromArrayRejectsEmbeddingsWithNonNumericComponents(): void
+    {
+        $restored = EmbeddingResponse::fromArray(['embeddings' => [[0.1, 'two', 0.3]]]);
+
+        self::assertSame([], $restored->embeddings);
+    }
+
+    #[Test]
+    public function fromArrayCoercesIntegerComponentsToFloat(): void
+    {
+        // A vector component stored as the int 0 is a valid 0.0; the codec
+        // normalises it so the resulting object honours its `float` contract.
+        $restored = EmbeddingResponse::fromArray(['embeddings' => [[0, 1, 2]]]);
+
+        self::assertSame([[0.0, 1.0, 2.0]], $restored->embeddings);
     }
 }

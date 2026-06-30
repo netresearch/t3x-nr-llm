@@ -282,6 +282,11 @@ class Provider extends AbstractEntity
      */
     public function getModels(): ?ObjectStorage
     {
+        // Extbase can reconstitute a relation-less entity without the constructor's
+        // ObjectStorage init, leaving this property unset/null.
+        if (!isset($this->models)) { // @phpstan-ignore isset.initializedProperty (Extbase reconstitution skips the constructor)
+            $this->models = new ObjectStorage();
+        }
         return $this->models;
     }
 

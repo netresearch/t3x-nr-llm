@@ -652,7 +652,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function completeWithStopSequencesCreatesNewOptionsWithoutStopSequences(): void
+    public function completeForwardsStopSequencesToTheProvider(): void
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
 
@@ -663,8 +663,8 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                // Should be ChatOptions instance (new tempOptions without stop_sequences)
-                self::isInstanceOf(ChatOptions::class),
+                // The stop sequences must reach the provider (not be stripped).
+                self::callback(static fn(ChatOptions $o): bool => $o->getStopSequences() === ['END', 'STOP']),
             )
             ->willReturn($mockResponse);
 
@@ -799,15 +799,14 @@ class CompletionServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function completePreservesBudgetFieldsThroughStopSequencesRebuild(): void
+    public function completePreservesStopSequencesAndBudgetFields(): void
     {
-        // Regression test for the Gemini high-priority finding on
-        // PR #177: when the caller supplies stopSequences, the service
-        // rebuilds a temporary ChatOptions from the typed getters.
-        // Earlier passes of slice 15a copied every typed field except
-        // the new beUserUid / plannedCost, silently dropping them and
-        // letting stop-sequence callers bypass BudgetMiddleware. The
-        // rebuild now copies all 12 typed fields.
+        // The service now forwards the (immutable) options straight through, so
+        // stopSequences AND the budget pre-flight fields (beUserUid/plannedCost)
+        // all reach the provider. A previous version rebuilt a temporary
+        // ChatOptions that dropped stopSequences entirely (it was the only path
+        // when stop sequences were set), silently losing them for every
+        // provider — this asserts they survive.
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $subject = new CompletionService($llmManagerMock);
 
@@ -817,9 +816,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
                 self::anything(),
                 self::callback(static fn(ChatOptions $forwarded): bool => $forwarded->getBeUserUid() === 13
                         && $forwarded->getPlannedCost() === 0.07
-                        // Sanity: the stop_sequences path itself still
-                        // works (the rebuild's job).
-                        && $forwarded->getStopSequences() === null),
+                        && $forwarded->getStopSequences() === ['END']),
             )
             ->willReturn($this->createMockResponse('ok'));
 

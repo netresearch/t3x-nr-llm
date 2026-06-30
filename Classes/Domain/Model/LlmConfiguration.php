@@ -352,6 +352,11 @@ class LlmConfiguration extends AbstractEntity
      */
     public function getBeGroups(): ?ObjectStorage
     {
+        // Extbase can reconstitute a relation-less entity without the constructor's
+        // ObjectStorage init, leaving this property unset/null.
+        if (!isset($this->beGroups)) { // @phpstan-ignore isset.initializedProperty (Extbase reconstitution skips the constructor)
+            $this->beGroups = new ObjectStorage();
+        }
         return $this->beGroups;
     }
 
