@@ -195,6 +195,42 @@ class ChatMessageTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function fromArrayThrowsWhenRoleKeyIsMissing(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1736502002);
+
+        ChatMessage::fromArray(['content' => 'content']);
+    }
+
+    #[Test]
+    public function fromArrayThrowsWhenRoleIsNotString(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1736502002);
+
+        ChatMessage::fromArray(['role' => 123, 'content' => 'content']);
+    }
+
+    #[Test]
+    public function fromArrayThrowsWhenContentKeyIsMissing(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1736502003);
+
+        ChatMessage::fromArray(['role' => 'user']);
+    }
+
+    #[Test]
+    public function fromArrayThrowsWhenContentIsNotString(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1736502003);
+
+        ChatMessage::fromArray(['role' => 'user', 'content' => ['not', 'a', 'string']]);
+    }
+
+    #[Test]
     public function toArrayReturnsCorrectStructure(): void
     {
         $content = $this->faker->sentence();
