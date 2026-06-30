@@ -1237,6 +1237,35 @@
             <trans-unit id="error.records.loadFailed">
                 <source>Failed to load records. See system log for details.</source>
             </trans-unit>
+
+            <!-- Task wizard flash messages -->
+            <trans-unit id="flash.task.missingDescription.body">
+                <source>Please describe what this task should do.</source>
+            </trans-unit>
+            <trans-unit id="flash.task.missingDescription.title">
+                <source>Missing description</source>
+            </trans-unit>
+            <trans-unit id="flash.task.generationFailed.provider">
+                <source>Generation failed (LLM provider error). See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="flash.task.generationFailed.generic">
+                <source>Generation failed. See system log for details.</source>
+            </trans-unit>
+            <trans-unit id="flash.task.error.title">
+                <source>Error</source>
+            </trans-unit>
+            <trans-unit id="flash.task.invalidRequest.body">
+                <source>Invalid request.</source>
+            </trans-unit>
+            <trans-unit id="flash.task.created.body">
+                <source>Task "%s" created successfully with dedicated configuration.</source>
+            </trans-unit>
+            <trans-unit id="flash.task.created.title">
+                <source>Task Created</source>
+            </trans-unit>
+            <trans-unit id="flash.task.creationFailed.body">
+                <source>Failed to create task. See system log for details.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>
