@@ -153,10 +153,13 @@ Consequences
 - ● The allow-list re-validation at both offer and execution time means a
   declared-but-unknown tool name is dropped and an injected prompt cannot
   reach a tool the skills did not grant.
-- ◐ The two shipped example tools (``fetch_logs``, ``read_fal_asset_meta``)
-  are admin-curated, **read-only**, input-bounded and scoped (limit cap + PII
-  redaction; storage-scoped lookup). They are reference implementations of the
-  security contract, not a general capability.
+- ◐ The shipped built-in tools (``fetch_logs``, ``read_fal_asset_meta``, and
+  the later diagnostic/record tools — ``get_php_info``, ``get_env``,
+  ``get_page_tree``, ``get_tca``, ``list_be_users``, ``list_be_groups`` and
+  their secret-redacted/raw variants) are admin-curated, **read-only**,
+  input-bounded and scoped (limit cap + PII redaction; storage-scoped lookup).
+  They are reference implementations of the security contract, not a general
+  capability.
 - ●● Authorization is **per-tool and enforced in the runtime against the
   acting backend user**, not merely the playground gate (§6): admin-only tools
   are filtered out for non-admins (fail-closed), and the user-scoped tools

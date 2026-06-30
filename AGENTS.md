@@ -101,7 +101,7 @@ Three-tier model: **Provider → Model → Configuration**. See `Documentation/A
 ### Directory Structure
 ```
 nr_llm/
-├── Classes/                    # 249 PHP source files
+├── Classes/                    # 264 PHP source files
 │   ├── Attribute/              # #[AsLlmProvider] auto-registration attribute
 │   ├── Controller/Backend/     # Backend controllers, DTOs, Response objects
 │   ├── DependencyInjection/    # Compiler passes (ProviderCompilerPass)

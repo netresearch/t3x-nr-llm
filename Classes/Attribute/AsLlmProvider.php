@@ -15,9 +15,11 @@ use Attribute;
  * Marks a class as an LLM provider for auto-registration with LlmServiceManager.
  *
  * Providers bearing this attribute are automatically tagged `nr_llm.provider`
- * AND made public by ProviderCompilerPass at container compile time. You no
- * longer need to add a `tags:` entry or set `public: true` in Services.yaml
- * for the provider when you use this attribute.
+ * by ProviderCompilerPass at container compile time, so you no longer need to
+ * add a `tags:` entry in Services.yaml. They are deliberately kept private —
+ * nothing resolves a provider by class name from the container; all access is
+ * via `LlmServiceManager::getProvider()` — which keeps the documented public
+ * service set stable (ADR-028 / PublicServicesPolicyTest).
  *
  * Higher priority providers are registered first with the service manager.
  * Priority is an ordering hint only; providers are still resolved by their
