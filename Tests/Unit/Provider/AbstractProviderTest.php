@@ -26,6 +26,9 @@ use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Client\ClientExceptionInterface;
+use Psr\Http\Client\NetworkExceptionInterface;
+use Psr\Http\Message\RequestInterface;
 use RuntimeException;
 
 /**
@@ -595,5 +598,82 @@ class AbstractProviderTest extends AbstractUnitTestCase
         $provider->complete('hello, do not leak me');
 
         self::assertSame(['LLM chat call to OpenAI (gpt-4o)'], $capturedReasons);
+    }
+
+    #[Test]
+    public function clientExceptionMapsToProviderConnectionExceptionWithSanitisedMessage(): void
+    {
+        // A PSR-18 ClientExceptionInterface raised by the HTTP client is a
+        // transport failure; sendRequest() exhausts its retries and rethrows the
+        // typed ProviderConnectionException, scrubbing any `?key=<secret>` the
+        // underlying message carried. This is the unit-suite counterpart of the
+        // mapping previously only exercised by the mutation suite.
+        $provider = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-5.2',
+            'maxRetries' => 1,
+        ]);
+
+        $clientException = new class ('Client error reaching https://api.openai.com/v1/chat/completions?key=sk-secret123', 1799990100) extends RuntimeException implements ClientExceptionInterface {};
+        $client = $this->createHttpClientMock();
+        $client->method('sendRequest')->willThrowException($clientException);
+        $provider->setHttpClient($client);
+
+        try {
+            $provider->complete('hello');
+            self::fail('Expected ProviderConnectionException was not thrown');
+        } catch (ProviderConnectionException $e) {
+            self::assertStringContainsString('key=***', $e->getMessage());
+            self::assertStringNotContainsString('sk-secret123', $e->getMessage());
+            // The transport failure is mapped, not swallowed: the original
+            // ClientException is preserved as the cause.
+            self::assertSame($clientException, $e->getPrevious());
+        }
+    }
+
+    #[Test]
+    public function networkExceptionMapsToProviderConnectionExceptionWithSanitisedMessage(): void
+    {
+        // A PSR-18 NetworkExceptionInterface (a connection-level failure that
+        // carries the originating request) follows the same retry/rethrow path
+        // as a ClientException: it maps to a sanitised ProviderConnectionException.
+        $provider = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-5.2',
+            'maxRetries' => 1,
+        ]);
+
+        $networkException = new class ('DNS lookup failed for https://api.openai.com/v1/chat/completions?token=sk-secret456', 1799990101) extends RuntimeException implements NetworkExceptionInterface {
+            public function getRequest(): RequestInterface
+            {
+                throw new RuntimeException('not needed for this test', 1799990102);
+            }
+        };
+        $client = $this->createHttpClientMock();
+        $client->method('sendRequest')->willThrowException($networkException);
+        $provider->setHttpClient($client);
+
+        try {
+            $provider->complete('hello');
+            self::fail('Expected ProviderConnectionException was not thrown');
+        } catch (ProviderConnectionException $e) {
+            self::assertStringContainsString('token=***', $e->getMessage());
+            self::assertStringNotContainsString('sk-secret456', $e->getMessage());
+            self::assertSame($networkException, $e->getPrevious());
+        }
     }
 }
