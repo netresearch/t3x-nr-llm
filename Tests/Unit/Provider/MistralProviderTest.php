@@ -737,4 +737,44 @@ class MistralProviderTest extends AbstractUnitTestCase
 
         self::assertEquals(['Test'], $chunks);
     }
+
+    #[Test]
+    public function testConnectionReturnsSuccessWithModelList(): void
+    {
+        $apiResponse = [
+            'object' => 'list',
+            'data' => [
+                ['id' => 'mistral-large-latest', 'object' => 'model'],
+                ['id' => 'mistral-small-latest', 'object' => 'model'],
+            ],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->testConnection();
+
+        self::assertTrue($result['success']);
+        self::assertStringContainsString('Connection successful', $result['message']);
+        self::assertStringContainsString('2 models', $result['message']);
+        self::assertArrayHasKey('models', $result);
+        assert(isset($result['models']));
+        self::assertArrayHasKey('mistral-large-latest', $result['models']);
+    }
+
+    #[Test]
+    public function testConnectionThrowsOnHttpError(): void
+    {
+        // A static-list provider must NOT silently report success on an
+        // unreachable / unauthorized endpoint: the real HTTP call surfaces
+        // the typed exception instead.
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createErrorResponseMock(401, 'Unauthorized'));
+
+        $this->expectException(ProviderResponseException::class);
+
+        $this->subject->testConnection();
+    }
 }

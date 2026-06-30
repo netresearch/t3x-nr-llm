@@ -14,10 +14,12 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -1422,5 +1424,83 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $result = $this->subject->chatCompletionWithTools($messages, $tools);
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertEquals('Hamburg is 12C.', $result->content);
+    }
+
+    /**
+     * A model id interpolated raw into the request path must be rejected when
+     * it could escape the endpoint (path traversal) or inject query parameters.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function maliciousModelIdProvider(): iterable
+    {
+        yield 'path traversal' => ['../../v1/models/secret'];
+        yield 'query injection' => ['gemini-3-flash-preview?evil=1'];
+        yield 'query ampersand' => ['gemini-3-flash-preview&key=leak'];
+        yield 'slash' => ['models/gemini-3-flash-preview'];
+        yield 'whitespace' => ['gemini 3 flash'];
+        yield 'empty' => [''];
+    }
+
+    #[Test]
+    #[DataProvider('maliciousModelIdProvider')]
+    public function chatCompletionRejectsInvalidModelId(string $model): void
+    {
+        // The guard fires before any HTTP call, so the default stub
+        // (which would otherwise return a stubbed JSON body) is never reached.
+        $this->expectException(ProviderConfigurationException::class);
+
+        $this->subject->chatCompletion(
+            [['role' => 'user', 'content' => 'hi']],
+            ['model' => $model],
+        );
+    }
+
+    #[Test]
+    public function embeddingsRejectsInvalidModelId(): void
+    {
+        $this->expectException(ProviderConfigurationException::class);
+
+        $this->subject->embeddings('hi', ['model' => '../../secret']);
+    }
+
+    #[Test]
+    public function testConnectionReturnsSuccessWithModelList(): void
+    {
+        $apiResponse = [
+            'models' => [
+                ['name' => 'models/gemini-3-flash-preview'],
+                ['name' => 'models/gemini-3-pro'],
+            ],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->testConnection();
+
+        self::assertTrue($result['success']);
+        self::assertStringContainsString('Connection successful', $result['message']);
+        self::assertStringContainsString('2 models', $result['message']);
+        self::assertArrayHasKey('models', $result);
+        assert(isset($result['models']));
+        // The `models/` prefix is stripped from the reported id.
+        self::assertArrayHasKey('gemini-3-flash-preview', $result['models']);
+    }
+
+    #[Test]
+    public function testConnectionThrowsOnHttpError(): void
+    {
+        // A static-list provider must NOT silently report success on an
+        // unreachable / unauthorized endpoint: the real HTTP call surfaces
+        // the typed exception instead.
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createErrorResponseMock(403, 'API key not valid'));
+
+        $this->expectException(ProviderResponseException::class);
+
+        $this->subject->testConnection();
     }
 }

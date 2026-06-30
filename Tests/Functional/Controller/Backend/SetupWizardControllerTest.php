@@ -22,6 +22,8 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
@@ -97,6 +99,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
             $llmConfigurationRepository,
             $persistenceManager,
             $vaultService,
+            new NullLogger(),
         );
     }
 
@@ -119,6 +122,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         LlmConfigurationRepository $llmConfigurationRepository,
         PersistenceManagerInterface $persistenceManager,
         VaultServiceInterface $vaultService,
+        LoggerInterface $logger,
     ): SetupWizardController {
         $reflection = new ReflectionClass(SetupWizardController::class);
         $controller = $reflection->newInstanceWithoutConstructor();
@@ -132,6 +136,7 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
         $this->setPrivateProperty($controller, 'llmConfigurationRepository', $llmConfigurationRepository);
         $this->setPrivateProperty($controller, 'persistenceManager', $persistenceManager);
         $this->setPrivateProperty($controller, 'vaultService', $vaultService);
+        $this->setPrivateProperty($controller, 'logger', $logger);
 
         return $controller;
     }

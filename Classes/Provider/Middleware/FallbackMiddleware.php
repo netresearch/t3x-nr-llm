@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Throwable;
 
 /**
@@ -35,7 +36,11 @@ use Throwable;
  *
  * Fallback is shallow: a fallback configuration's own chain is ignored to
  * prevent recursion and cycles.
+ *
+ * The default pipeline order is pinned via tag priority (Cache outermost at
+ * 100, then Budget at 75, Fallback at 50, Usage innermost at 25).
  */
+#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 50])]
 final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
 {
     public function __construct(

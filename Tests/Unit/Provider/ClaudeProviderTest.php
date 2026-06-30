@@ -1276,4 +1276,43 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertEquals('Response', $result->content);
     }
+
+    #[Test]
+    public function testConnectionReturnsSuccessWithModelList(): void
+    {
+        $apiResponse = [
+            'data' => [
+                ['id' => 'claude-opus-4-5-20251124', 'type' => 'model'],
+                ['id' => 'claude-sonnet-4-5-20250929', 'type' => 'model'],
+            ],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->testConnection();
+
+        self::assertTrue($result['success']);
+        self::assertStringContainsString('Connection successful', $result['message']);
+        self::assertStringContainsString('2 models', $result['message']);
+        self::assertArrayHasKey('models', $result);
+        assert(isset($result['models']));
+        self::assertArrayHasKey('claude-opus-4-5-20251124', $result['models']);
+    }
+
+    #[Test]
+    public function testConnectionThrowsOnHttpError(): void
+    {
+        // A static-list provider must NOT silently report success on an
+        // unreachable / unauthorized endpoint: the real HTTP call surfaces
+        // the typed exception instead.
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createErrorResponseMock(401, 'invalid x-api-key'));
+
+        $this->expectException(ProviderResponseException::class);
+
+        $this->subject->testConnection();
+    }
 }

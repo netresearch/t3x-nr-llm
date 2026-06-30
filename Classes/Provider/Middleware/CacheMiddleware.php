@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 /**
  * Array-payload cache middleware.
@@ -47,22 +48,24 @@ use Netresearch\NrLlm\Service\CacheManagerInterface;
  * opinion-free on response shape is what lets it work for any future
  * operation without a per-type codec.
  *
- * Pipeline ordering recommendation
- * --------------------------------
- * Outer of Fallback (so a cache hit skips even the fallback attempt)
- * and outer of Budget (so a free cache hit is not counted against a
- * user's budget):
+ * Pipeline ordering
+ * -----------------
+ * Cache must be the OUTERMOST layer so a cache hit skips even the fallback
+ * attempt and is NOT counted against a user's budget. This order is pinned
+ * via the tag priority below (highest priority = first in the autowired
+ * iterator = outermost in the pipeline):
  *
- *   CacheMiddleware          <-- outermost; short-circuits on hit
- *     BudgetMiddleware       <-- pre-flight only on miss
- *       FallbackMiddleware   <-- swaps config on retryable failure
- *         UsageMiddleware    <-- records the call that actually ran
+ *   CacheMiddleware          <-- outermost; short-circuits on hit (priority 100)
+ *     BudgetMiddleware       <-- pre-flight only on miss            (priority 75)
+ *       FallbackMiddleware   <-- swaps config on retryable failure  (priority 50)
+ *         UsageMiddleware    <-- records the call that actually ran (priority 25)
  *           <terminal>
  *
  * Callers who want cache accounting (count hits against budget / usage)
- * should put Cache *inside* those layers — it is a pipeline-assembly
- * choice, not a property of this middleware.
+ * should assemble a custom pipeline with Cache *inside* those layers — it is
+ * a pipeline-assembly choice, not a property of this middleware.
  */
+#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 100])]
 final readonly class CacheMiddleware implements ProviderMiddlewareInterface
 {
     public const METADATA_CACHE_KEY  = 'cacheKey';

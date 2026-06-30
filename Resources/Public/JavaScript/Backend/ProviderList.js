@@ -3,10 +3,13 @@
  *
  * Uses TYPO3 Backend Notification API and Bootstrap Modal.
  * Uses event delegation for reliable event handling in TYPO3 v14+ iframe modules.
+ * State-changing AJAX uses AjaxRequest, which injects TYPO3's CSRF token.
  */
+import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 import Notification from '@typo3/backend/notification.js';
 import Modal from '@typo3/backend/modal.js';
 import Severity from '@typo3/backend/severity.js';
+import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 
 class ProviderList {
     constructor() {
@@ -55,21 +58,19 @@ class ProviderList {
         const formData = new FormData();
         formData.append('uid', uid);
 
-        fetch(url, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                Notification.error('Error', data.error || 'Unknown error');
-            }
-        })
-        .catch(err => {
-            Notification.error('Error', err.message);
-        });
+        new AjaxRequest(url)
+            .post(formData)
+            .then(response => response.resolve())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    Notification.error('Error', data.error || 'Unknown error');
+                }
+            })
+            .catch(async err => {
+                Notification.error('Error', await readAjaxError(err));
+            });
     }
 
     handleTestConnection(btn) {
@@ -131,11 +132,9 @@ class ProviderList {
         const formData = new FormData();
         formData.append('uid', uid);
 
-        fetch(url, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
+        new AjaxRequest(url)
+        .post(formData)
+        .then(response => response.resolve())
         .then(data => {
             console.debug('[ProviderList] Test response:', data);
             // Use container reference instead of document.getElementById()
@@ -158,7 +157,7 @@ class ProviderList {
                 if (msgEl) msgEl.textContent = data.error || data.message || 'Unknown error';
             }
         })
-        .catch(err => {
+        .catch(async err => {
             console.error('[ProviderList] Test error:', err);
             // Use container reference instead of document.getElementById()
             const loadingDiv = container.querySelector('#provider-test-loading');
@@ -168,7 +167,7 @@ class ProviderList {
             if (errorDiv) {
                 errorDiv.style.display = 'block';
                 const msgEl = container.querySelector('#provider-test-error-message');
-                if (msgEl) msgEl.textContent = err.message;
+                if (msgEl) msgEl.textContent = await readAjaxError(err);
             }
         });
     }

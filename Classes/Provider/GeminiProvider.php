@@ -23,6 +23,8 @@ use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Psr\Http\Message\RequestInterface;
 
 #[AsLlmProvider(priority: 80)]
@@ -84,6 +86,44 @@ final class GeminiProvider extends AbstractProvider implements
     }
 
     /**
+     * Test the connection to Google Gemini.
+     *
+     * getAvailableModels() returns a static list and never touches the
+     * network, so the AbstractProvider default would report success even
+     * when the endpoint is unreachable or the key is invalid. Make a real
+     * lightweight GET to the models endpoint (Gemini carries the key in the
+     * URL) and let any failure surface as the typed exception sendRequest()
+     * raises.
+     *
+     * @throws ProviderConnectionException on connection failure
+     *
+     * @return array{success: bool, message: string, models?: array<string, string>}
+     */
+    public function testConnection(): array
+    {
+        // Real HTTP request to the models endpoint — do NOT catch exceptions.
+        $response = $this->sendRequest('models?key=' . $this->retrieveApiKey(), [], 'GET');
+        $list = $this->getList($response, 'models');
+
+        $models = [];
+        foreach ($list as $model) {
+            $modelArray = $this->asArray($model);
+            // Gemini reports names as `models/gemini-...`; strip the prefix.
+            $name = $this->getString($modelArray, 'name');
+            if ($name !== '') {
+                $id = str_starts_with($name, 'models/') ? substr($name, 7) : $name;
+                $models[$id] = $id;
+            }
+        }
+
+        return [
+            'success' => true,
+            'message' => sprintf('Connection successful. Found %d models.', count($models)),
+            'models' => $models,
+        ];
+    }
+
+    /**
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $options
      */
@@ -96,6 +136,7 @@ final class GeminiProvider extends AbstractProvider implements
         );
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
+        $this->assertValidModelId($model);
         $geminiContents = $this->convertToGeminiFormat($messages);
 
         $payload = [
@@ -162,6 +203,7 @@ final class GeminiProvider extends AbstractProvider implements
         );
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
+        $this->assertValidModelId($model);
         $geminiContents = $this->convertToGeminiFormat($messages);
 
         // Convert OpenAI-shaped ToolSpec into Gemini's `functionDeclarations` format.
@@ -246,6 +288,7 @@ final class GeminiProvider extends AbstractProvider implements
     {
         $inputs = is_array($input) ? $input : [$input];
         $model = $this->getString($options, 'model', self::EMBEDDING_MODEL);
+        $this->assertValidModelId($model);
 
         /** @var array<int, array<int, float>> $embeddings */
         $embeddings = [];
@@ -290,6 +333,7 @@ final class GeminiProvider extends AbstractProvider implements
     public function analyzeImage(array $content, array $options = []): VisionResponse
     {
         $model = $this->getString($options, 'model', 'gemini-3-flash-preview');
+        $this->assertValidModelId($model);
 
         $parts = [];
         foreach ($content as $item) {
@@ -419,6 +463,7 @@ final class GeminiProvider extends AbstractProvider implements
         );
 
         $model = $this->getString($options, 'model', $this->getDefaultModel());
+        $this->assertValidModelId($model);
         $geminiContents = $this->convertToGeminiFormat($messages);
 
         $payload = [
@@ -726,5 +771,27 @@ final class GeminiProvider extends AbstractProvider implements
             'RECITATION' => 'content_filter',
             default => strtolower($reason),
         };
+    }
+
+    /**
+     * Guard against path-traversal / query injection through the model id.
+     *
+     * The model id is interpolated raw into the request path
+     * (`models/{model}:generateContent`); without this guard a value such as
+     * `../../foo` or `gemini?evil=1&` would escape the intended endpoint or
+     * smuggle extra query parameters. All official Gemini model names match
+     * `[A-Za-z0-9._-]+`, so anything outside that alphabet is rejected.
+     *
+     * @throws ProviderConfigurationException when the model id is empty or
+     *                                        contains illegal characters
+     */
+    private function assertValidModelId(string $model): void
+    {
+        if ($model === '' || preg_match('/^[A-Za-z0-9._-]+$/', $model) !== 1) {
+            throw new ProviderConfigurationException(
+                sprintf('Invalid Gemini model identifier: %s', $model),
+                1751280000,
+            );
+        }
     }
 }

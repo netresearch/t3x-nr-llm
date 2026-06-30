@@ -3,10 +3,21 @@
  *
  * Uses TYPO3 Backend Notification API and Modal.
  * Uses event delegation for reliable event handling in TYPO3 v14+ iframe modules.
+ * State-changing AJAX uses AjaxRequest, which injects TYPO3's CSRF token.
  */
+import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 import Notification from '@typo3/backend/notification.js';
 import Modal from '@typo3/backend/modal.js';
 import Severity from '@typo3/backend/severity.js';
+import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
+
+/**
+ * Read the JSON error body from a rejected AjaxRequest response.
+ *
+ * AjaxRequest rejects with an AjaxResponse on HTTP error status; resolve it
+ * to recover the `{ success: false, error: ... }` payload the controllers
+ * emit. Falls back to a thrown Error's message for genuine network failures.
+ */
 
 class ConfigurationList {
     constructor() {
@@ -64,21 +75,19 @@ class ConfigurationList {
         const formData = new FormData();
         formData.append('uid', uid);
 
-        fetch(url, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                Notification.error('Error', data.error || 'Unknown error');
-            }
-        })
-        .catch(err => {
-            Notification.error('Error', err.message);
-        });
+        new AjaxRequest(url)
+            .post(formData)
+            .then(response => response.resolve())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    Notification.error('Error', data.error || 'Unknown error');
+                }
+            })
+            .catch(async err => {
+                Notification.error('Error', await readAjaxError(err));
+            });
     }
 
     handleSetDefault(btn) {
@@ -93,21 +102,19 @@ class ConfigurationList {
         const formData = new FormData();
         formData.append('uid', uid);
 
-        fetch(url, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                Notification.error('Error', data.error || 'Unknown error');
-            }
-        })
-        .catch(err => {
-            Notification.error('Error', err.message);
-        });
+        new AjaxRequest(url)
+            .post(formData)
+            .then(response => response.resolve())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    Notification.error('Error', data.error || 'Unknown error');
+                }
+            })
+            .catch(async err => {
+                Notification.error('Error', await readAjaxError(err));
+            });
     }
 
     handleTestConfig(btn) {
@@ -179,11 +186,9 @@ class ConfigurationList {
         const formData = new FormData();
         formData.append('uid', uid);
 
-        fetch(url, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
+        new AjaxRequest(url)
+        .post(formData)
+        .then(response => response.resolve())
         .then(data => {
             console.debug('[ConfigurationList] Test response:', data);
             // Use container reference instead of document.getElementById()
@@ -198,7 +203,7 @@ class ConfigurationList {
                 this.renderTestError(container, data.error || data.message || 'Unknown error');
             }
         })
-        .catch(err => {
+        .catch(async err => {
             console.error('[ConfigurationList] Test error:', err);
             // Use container reference instead of document.getElementById()
             const loadingDiv = container.querySelector('#config-test-loading');
@@ -208,7 +213,7 @@ class ConfigurationList {
             if (errorDiv) {
                 errorDiv.style.display = 'block';
                 const msgEl = container.querySelector('#config-test-error-message');
-                if (msgEl) msgEl.textContent = err.message;
+                if (msgEl) msgEl.textContent = await readAjaxError(err);
             }
         });
     }

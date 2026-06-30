@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 
 /**
  * Mistral AI Provider.
@@ -91,6 +92,24 @@ final class MistralProvider extends AbstractProvider implements
     public function getAvailableModels(): array
     {
         return self::MODELS;
+    }
+
+    /**
+     * Test the connection to Mistral AI.
+     *
+     * getAvailableModels() returns a static list and never touches the
+     * network, so the AbstractProvider default would report success even
+     * when the endpoint is unreachable or the key is invalid. Make a real
+     * lightweight GET to the OpenAI-compatible models endpoint and let any
+     * failure surface as the typed exception sendRequest() raises.
+     *
+     * @throws ProviderConnectionException on connection failure
+     *
+     * @return array{success: bool, message: string, models?: array<string, string>}
+     */
+    public function testConnection(): array
+    {
+        return $this->testConnectionViaModelsList();
     }
 
     /**

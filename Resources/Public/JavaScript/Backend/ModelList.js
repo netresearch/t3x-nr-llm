@@ -3,10 +3,13 @@
  *
  * Uses TYPO3 Backend Notification API and Modal.
  * Uses event delegation for reliable event handling in TYPO3 v14+ iframe modules.
+ * State-changing AJAX uses AjaxRequest, which injects TYPO3's CSRF token.
  */
+import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 import Notification from '@typo3/backend/notification.js';
 import Modal from '@typo3/backend/modal.js';
 import Severity from '@typo3/backend/severity.js';
+import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 
 class ModelList {
     constructor() {
@@ -64,21 +67,19 @@ class ModelList {
         const formData = new FormData();
         formData.append('uid', uid);
 
-        fetch(url, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                Notification.error('Error', data.error || 'Unknown error');
-            }
-        })
-        .catch(err => {
-            Notification.error('Error', err.message);
-        });
+        new AjaxRequest(url)
+            .post(formData)
+            .then(response => response.resolve())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    Notification.error('Error', data.error || 'Unknown error');
+                }
+            })
+            .catch(async err => {
+                Notification.error('Error', await readAjaxError(err));
+            });
     }
 
     handleSetDefault(btn) {
@@ -93,21 +94,19 @@ class ModelList {
         const formData = new FormData();
         formData.append('uid', uid);
 
-        fetch(url, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                Notification.error('Error', data.error || 'Unknown error');
-            }
-        })
-        .catch(err => {
-            Notification.error('Error', err.message);
-        });
+        new AjaxRequest(url)
+            .post(formData)
+            .then(response => response.resolve())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    Notification.error('Error', data.error || 'Unknown error');
+                }
+            })
+            .catch(async err => {
+                Notification.error('Error', await readAjaxError(err));
+            });
     }
 
     handleTestModel(btn) {
@@ -240,11 +239,9 @@ class ModelList {
         const formData = new FormData();
         formData.append('uid', uid);
 
-        fetch(url, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
+        new AjaxRequest(url)
+        .post(formData)
+        .then(response => response.resolve())
         .then(data => {
             clearInterval(timerInterval);
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -259,14 +256,14 @@ class ModelList {
                 this.showTestError(container, data.error || data.message || 'Unknown error', elapsed);
             }
         })
-        .catch(err => {
+        .catch(async err => {
             clearInterval(timerInterval);
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
 
             console.error('[ModelList] Test error:', err);
             // Use container reference instead of document.getElementById()
             this.hideTestLoading(container);
-            this.showTestError(container, err.message, elapsed);
+            this.showTestError(container, await readAjaxError(err), elapsed);
         });
     }
 
