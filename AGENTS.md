@@ -44,6 +44,7 @@ ALWAYS use the Docker test runner; never invoke `phpunit` / `phpstan` / `rector`
 | Task | Command |
 |------|---------|
 | Unit tests | `./Build/Scripts/runTests.sh -s unit` |
+| Integration tests | `./Build/Scripts/runTests.sh -s integration` |
 | Functional tests | `./Build/Scripts/runTests.sh -s functional` |
 | Static analysis (PHPStan level 10) | `./Build/Scripts/runTests.sh -s phpstan` |
 | Code style (fix) | `./Build/Scripts/runTests.sh -s cgl` |

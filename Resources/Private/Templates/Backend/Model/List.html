@@ -109,12 +109,13 @@
                                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.reassignProvider" default="Reassign Provider" />
                                                 </a>
                                             </f:if>
-                                            <a href="{editUrls.{model.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
+                                            <a href="{editUrls.{model.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}" aria-label="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
                                                 <core:icon identifier="actions-open" size="small" />
                                             </a>
                                             <button type="button" class="btn btn-secondary btn-sm js-toggle-active"
                                                     data-uid="{model.uid}"
-                                                    title="{f:if(condition: model.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
+                                                    title="{f:if(condition: model.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}"
+                                                    aria-label="{f:if(condition: model.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
                                                 <f:if condition="{model.isActive}">
                                                     <f:then><core:icon identifier="actions-toggle-on" size="small" /></f:then>
                                                     <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
@@ -123,13 +124,15 @@
                                             <button type="button" class="btn btn-secondary btn-sm js-set-default"
                                                     data-uid="{model.uid}"
                                                     title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setDefault')}"
+                                                    aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setDefault')}"
                                                     {f:if(condition: model.isDefault, then: 'disabled')}>
                                                 <core:icon identifier="actions-star" size="small" />
                                             </button>
                                             <button type="button" class="btn btn-secondary btn-sm js-test-model"
                                                     data-uid="{model.uid}"
                                                     data-name="{model.name}"
-                                                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testModel')}">
+                                                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testModel')}"
+                                                    aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testModel')}">
                                                 <core:icon identifier="actions-play" size="small" />
                                             </button>
                                         </div>

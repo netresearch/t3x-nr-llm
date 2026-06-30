@@ -91,14 +91,15 @@
                                     <td>{tokByConfig.{config.uid}}</td>
                                     <td class="col-control">
                                         <div class="btn-group" role="group">
-                                            <a href="{editUrls.{config.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
+                                            <a href="{editUrls.{config.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}" aria-label="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
                                                 <core:icon identifier="actions-open" size="small" />
                                             </a>
                                             <f:if condition="{config.llmModel}">
                                                 <f:then>
                                                     <button type="button" class="btn btn-secondary btn-sm js-toggle-active"
                                                             data-uid="{config.uid}"
-                                                            title="{f:if(condition: config.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
+                                                            title="{f:if(condition: config.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}"
+                                                            aria-label="{f:if(condition: config.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
                                                         <f:if condition="{config.isActive}">
                                                             <f:then><core:icon identifier="actions-toggle-on" size="small" /></f:then>
                                                             <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
@@ -107,7 +108,8 @@
                                                 </f:then>
                                                 <f:else>
                                                     <button type="button" class="btn btn-secondary btn-sm" disabled
-                                                            title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}">
+                                                            title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}"
+                                                            aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}">
                                                         <core:icon identifier="actions-toggle-off" size="small" />
                                                     </button>
                                                 </f:else>
@@ -115,14 +117,16 @@
                                             <f:if condition="!{config.isDefault}">
                                                 <button type="button" class="btn btn-secondary btn-sm js-set-default"
                                                         data-uid="{config.uid}"
-                                                        title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setDefault')}">
+                                                        title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setDefault')}"
+                                                        aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:setDefault')}">
                                                     <core:icon identifier="actions-star" size="small" />
                                                 </button>
                                             </f:if>
                                             <button type="button" class="btn btn-secondary btn-sm js-test-config"
                                                     data-uid="{config.uid}"
                                                     data-name="{config.name}"
-                                                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testConfiguration')}">
+                                                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testConfiguration')}"
+                                                    aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testConfiguration')}">
                                                 <core:icon identifier="actions-play" size="small" />
                                             </button>
                                         </div>

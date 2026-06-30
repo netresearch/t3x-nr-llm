@@ -92,12 +92,13 @@
                                     <td>{tokByProvider.{provider.adapterType}}</td>
                                     <td class="col-control">
                                         <div class="btn-group" role="group">
-                                            <a href="{editUrls.{provider.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
+                                            <a href="{editUrls.{provider.uid}}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}" aria-label="{f:translate(key: 'LLL:EXT:core/Resources/Private/Language/locallang_common.xlf:edit')}">
                                                 <core:icon identifier="actions-open" size="small" />
                                             </a>
                                             <button type="button" class="btn btn-secondary btn-sm js-toggle-active"
                                                     data-uid="{provider.uid}"
-                                                    title="{f:if(condition: provider.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
+                                                    title="{f:if(condition: provider.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}"
+                                                    aria-label="{f:if(condition: provider.isActive, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:deactivate\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:activate\')}')}">
                                                 <f:if condition="{provider.isActive}">
                                                     <f:then><core:icon identifier="actions-toggle-on" size="small" /></f:then>
                                                     <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
@@ -106,7 +107,8 @@
                                             <button type="button" class="btn btn-secondary btn-sm js-test-connection"
                                                     data-uid="{provider.uid}"
                                                     data-name="{provider.name}"
-                                                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testConnection')}">
+                                                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testConnection')}"
+                                                    aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:testConnection')}">
                                                 <core:icon identifier="actions-play" size="small" />
                                             </button>
                                         </div>

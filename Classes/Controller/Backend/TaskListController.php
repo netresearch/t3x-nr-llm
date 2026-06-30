@@ -25,6 +25,7 @@ use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
+use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
  * Backend controller for the Task catalog (list view).
@@ -109,7 +110,7 @@ final class TaskListController extends ActionController
         $buttonBar = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
         $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
-            ->setTitle('New Task')
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.task.new', 'NrLlm') ?? 'New Task')
             ->setShowLabelText(true)
             ->setHref($this->buildNewUrl());
         $buttonBar->addButton($createButton);
@@ -125,7 +126,7 @@ final class TaskListController extends ActionController
         ]);
         $aiButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-bolt', IconSize::SMALL))
-            ->setTitle('Create with AI')
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:taskAi.createWithAi', 'NrLlm') ?? 'Create with AI')
             ->setShowLabelText(true)
             ->setHref($wizardUrl);
         $buttonBar->addButton($aiButton, ButtonBar::BUTTON_POSITION_LEFT, 2);

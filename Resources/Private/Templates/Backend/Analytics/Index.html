@@ -23,7 +23,8 @@
         <div class="btn-group mb-3" role="group" aria-label="Date range">
             <f:for each="{presets}" as="p">
                 <a href="{rangeLinks.{p}}"
-                   class="btn btn-sm {f:if(condition: '{p} == {preset}', then: 'btn-primary', else: 'btn-default')}">
+                   class="btn btn-sm {f:if(condition: '{p} == {preset}', then: 'btn-primary', else: 'btn-default')}"
+                   aria-current="{f:if(condition: '{p} == {preset}', then: 'true', else: 'false')}">
                     <f:switch expression="{p}">
                         <f:case value="7d"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.range.7d" /></f:case>
                         <f:case value="30d"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.range.30d" /></f:case>
@@ -88,7 +89,12 @@
                                         <f:if condition="{u.budget}">
                                             <f:then>
                                                 <div class="d-flex align-items-center gap-2">
-                                                    <span class="nrllm-budget-bar"><span style="width: {u.budget.percent -> f:format.number(decimals: 0)}%"></span></span>
+                                                    <span class="nrllm-budget-bar"
+                                                          role="progressbar"
+                                                          aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.barAria')}"
+                                                          aria-valuenow="{u.budget.percent -> f:format.number(decimals: 0)}"
+                                                          aria-valuemin="0"
+                                                          aria-valuemax="100"><span style="width: {u.budget.percent -> f:format.number(decimals: 0)}%"></span></span>
                                                     <span>{u.budget.percent -> f:format.number(decimals: 0)}% <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.budget.of" /> ${u.budget.limitCost -> f:format.number(decimals: 2)}</span>
                                                 </div>
                                             </f:then>
