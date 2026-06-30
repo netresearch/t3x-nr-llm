@@ -448,6 +448,10 @@ final class ClaudeProvider extends AbstractProvider implements
      */
     public function streamChatCompletion(array $messages, array $options = []): Generator
     {
+        // Mirror the non-streaming path (sendRequest validates): fail fast with a
+        // typed ProviderConfigurationException instead of a cryptic stream error.
+        $this->validateConfiguration();
+
         $messages = array_map(
             static fn(ChatMessage|array $m): array
                 => $m instanceof ChatMessage ? $m->toArray() : $m,
