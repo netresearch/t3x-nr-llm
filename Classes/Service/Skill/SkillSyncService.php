@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SyncResult;
 use Netresearch\NrLlm\Service\Skill\Exception\GitHubApiException;
 use Netresearch\NrLlm\Service\Skill\Exception\HostNotAllowedException;
 use Netresearch\NrLlm\Service\Skill\Exception\SkillParseException;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Extbase\Persistence\Exception\UnknownObjectException;
@@ -50,6 +51,7 @@ final class SkillSyncService
         private readonly SkillRepository $skillRepository,
         private readonly SkillSourceRepository $sourceRepository,
         private readonly PersistenceManagerInterface $persistenceManager,
+        private readonly LoggerInterface $logger,
         private readonly int $maxFiles = 500,
         private readonly int $maxSeconds = 120,
     ) {}
@@ -123,6 +125,13 @@ final class SkillSyncService
             }
             $source->setSyncError(implode("\n", $errors));
         } catch (Throwable $e) {
+            // Keep the full stack trace server-side (GitHub rate limits, network
+            // timeouts, DBAL/persistence errors) — the user only sees getMessage().
+            $this->logger->error('Skill sync failed', [
+                'exception'  => $e,
+                'source_uid' => $source->getUid(),
+                'source_url' => $source->getUrl(),
+            ]);
             $status = SyncStatus::ERROR;
             $orphaned = 0;
             $errors[] = $e->getMessage();

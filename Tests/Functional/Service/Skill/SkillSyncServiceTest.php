@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Skill\Fixtures\FakeGitHubClient;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 #[CoversClass(SkillSyncService::class)]
@@ -50,6 +51,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
             $this->get(SkillRepository::class),
             $this->get(SkillSourceRepository::class),
             $this->get(PersistenceManagerInterface::class),
+            new NullLogger(),
             $maxFiles,
             $maxSeconds,
         );
