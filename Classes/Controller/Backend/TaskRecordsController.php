@@ -50,6 +50,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 final class TaskRecordsController extends ActionController
 {
     use RequiresBackendAdminTrait;
+    use DefensiveLocalizationTrait;
 
     public function __construct(
         private readonly RecordTableReaderInterface $recordTableReader,
@@ -71,10 +72,10 @@ final class TaskRecordsController extends ActionController
         } catch (DbalException $e) {
             // REC #8b: SQL error text leaks schema details — log + generic message.
             $this->logger->error('Task records: listAllowedTables failed', ['exception' => $e]);
-            return new JsonResponse((new ErrorResponse('Database error while listing tables.'))->jsonSerialize(), 500);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.records.listTablesDbError', 'Database error while listing tables.')))->jsonSerialize(), 500);
         } catch (Throwable $e) {
             $this->logger->error('Task records: listAllowedTables failed unexpectedly', ['exception' => $e]);
-            return new JsonResponse((new ErrorResponse('Failed to list tables. See system log for details.'))->jsonSerialize(), 500);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.records.listTablesFailed', 'Failed to list tables. See system log for details.')))->jsonSerialize(), 500);
         }
     }
 
@@ -89,7 +90,7 @@ final class TaskRecordsController extends ActionController
         $dto = FetchRecordsRequest::fromRequest($request);
 
         if (!$dto->isValid()) {
-            return new JsonResponse((new ErrorResponse('No table specified'))->jsonSerialize(), 400);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.records.noTable', 'No table specified')))->jsonSerialize(), 400);
         }
 
         try {
@@ -131,14 +132,14 @@ final class TaskRecordsController extends ActionController
                 'exception' => $e,
                 'table'     => $dto->table,
             ]);
-            $errorPayload = (new ErrorResponse('Database error while fetching records.'))->jsonSerialize();
+            $errorPayload = (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.records.fetchDbError', 'Database error while fetching records.')))->jsonSerialize();
             $status       = 500;
         } catch (Throwable $e) {
             $this->logger->error('Task records: fetchSampleRecords failed unexpectedly', [
                 'exception' => $e,
                 'table'     => $dto->table,
             ]);
-            $errorPayload = (new ErrorResponse('Failed to fetch records. See system log for details.'))->jsonSerialize();
+            $errorPayload = (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.records.fetchFailed', 'Failed to fetch records. See system log for details.')))->jsonSerialize();
             $status       = 500;
         }
 
@@ -166,7 +167,7 @@ final class TaskRecordsController extends ActionController
             $rows = $this->recordTableReader->loadRecordsByUids($dto->table, $dto->uidList);
             $encoded = json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             if ($encoded === false) {
-                $payload = (new ErrorResponse('Failed to encode record payload: ' . json_last_error_msg()))->jsonSerialize();
+                $payload = (new ErrorResponse(($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.records.encodeFailed', 'Failed to encode record payload:')) . ' ' . json_last_error_msg()))->jsonSerialize();
                 $status  = 500;
             } else {
                 $payload = (new RecordDataResponse(
@@ -186,14 +187,14 @@ final class TaskRecordsController extends ActionController
                 'exception' => $e,
                 'table'     => $dto->table,
             ]);
-            $errorPayload = (new ErrorResponse('Database error while loading records.'))->jsonSerialize();
+            $errorPayload = (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.records.loadDbError', 'Database error while loading records.')))->jsonSerialize();
             $errorStatus  = 500;
         } catch (Throwable $e) {
             $this->logger->error('Task records: loadRecordsByUids failed unexpectedly', [
                 'exception' => $e,
                 'table'     => $dto->table,
             ]);
-            $errorPayload = (new ErrorResponse('Failed to load records. See system log for details.'))->jsonSerialize();
+            $errorPayload = (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.records.loadFailed', 'Failed to load records. See system log for details.')))->jsonSerialize();
             $errorStatus  = 500;
         }
 

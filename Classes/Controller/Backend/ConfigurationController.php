@@ -44,7 +44,6 @@ use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
-use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
  * Backend controller for LLM configuration management.
@@ -56,6 +55,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 final class ConfigurationController extends ActionController
 {
     use RequiresBackendAdminTrait;
+    use DefensiveLocalizationTrait;
 
     private const TABLE_NAME = 'tx_nrllm_configuration';
 
@@ -146,14 +146,14 @@ final class ConfigurationController extends ActionController
         $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
         $createButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-plus', IconSize::SMALL))
-            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.configuration.new', 'NrLlm') ?? 'New Configuration')
+            ->setTitle($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:btn.configuration.new', 'New Configuration'))
             ->setShowLabelText(true)
             ->setHref($this->buildNewUrl());
         $buttonBar->addButton($createButton);
 
         $aiButton = $buttonBar->makeLinkButton()
             ->setIcon($this->iconFactory->getIcon('actions-bolt', IconSize::SMALL))
-            ->setTitle('Create with AI')
+            ->setTitle($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:taskAi.createWithAi', 'Create with AI'))
             ->setShowLabelText(true)
             ->setHref($this->uriBuilder->reset()->uriFor('wizardForm'));
         $buttonBar->addButton($aiButton, ButtonBar::BUTTON_POSITION_LEFT, 2);
@@ -187,8 +187,8 @@ final class ConfigurationController extends ActionController
         $description = trim($description);
         if ($description === '') {
             $this->addFlashMessage(
-                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.configuration.missingDescription.body', 'NrLlm') ?? 'Please describe what this configuration should do.',
-                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.configuration.missingDescription.title', 'NrLlm') ?? 'Missing description',
+                $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.configuration.missingDescription.body', 'Please describe what this configuration should do.'),
+                $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.configuration.missingDescription.title', 'Missing description'),
                 ContextualFeedbackSeverity::WARNING,
             );
             return $this->redirect('wizardForm');
@@ -214,15 +214,15 @@ final class ConfigurationController extends ActionController
         } catch (ProviderException $e) {
             $this->logger->error('Configuration wizard: provider error', ['exception' => $e]);
             $this->addFlashMessage(
-                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.configuration.generationFailed.provider', 'NrLlm') ?? 'Generation failed (LLM provider error). See system log for details.',
-                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error', 'NrLlm') ?? 'Error',
+                $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.configuration.generationFailed.provider', 'Generation failed (LLM provider error). See system log for details.'),
+                $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error', 'Error'),
                 ContextualFeedbackSeverity::ERROR,
             );
         } catch (Throwable $e) {
             $this->logger->error('Configuration wizard: unexpected error', ['exception' => $e]);
             $this->addFlashMessage(
-                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.configuration.generationFailed.generic', 'NrLlm') ?? 'Generation failed. See system log for details.',
-                LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error', 'NrLlm') ?? 'Error',
+                $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.configuration.generationFailed.generic', 'Generation failed. See system log for details.'),
+                $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error', 'Error'),
                 ContextualFeedbackSeverity::ERROR,
             );
         }
@@ -254,10 +254,10 @@ final class ConfigurationController extends ActionController
             ))->jsonSerialize());
         } catch (DbalException $e) {
             $this->logger->error('Configuration toggleActive: persistence failed', ['exception' => $e, 'config_uid' => $uid]);
-            $message = 'Database error while toggling configuration status.';
+            $message = $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.toggleDbError', 'Database error while toggling configuration status.');
         } catch (Throwable $e) {
             $this->logger->error('Configuration toggleActive: unexpected error', ['exception' => $e, 'config_uid' => $uid]);
-            $message = 'Failed to toggle configuration status. See system log for details.';
+            $message = $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.toggleFailed', 'Failed to toggle configuration status. See system log for details.');
         }
 
         return new JsonResponse((new ErrorResponse($message))->jsonSerialize(), 500);
@@ -284,10 +284,10 @@ final class ConfigurationController extends ActionController
             return new JsonResponse((new SuccessResponse())->jsonSerialize());
         } catch (DbalException $e) {
             $this->logger->error('Configuration setDefault: persistence failed', ['exception' => $e, 'config_uid' => $uid]);
-            $message = 'Database error while setting default configuration.';
+            $message = $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.setDefaultDbError', 'Database error while setting default configuration.');
         } catch (Throwable $e) {
             $this->logger->error('Configuration setDefault: unexpected error', ['exception' => $e, 'config_uid' => $uid]);
-            $message = 'Failed to set default configuration. See system log for details.';
+            $message = $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.setDefaultFailed', 'Failed to set default configuration. See system log for details.');
         }
 
         return new JsonResponse((new ErrorResponse($message))->jsonSerialize(), 500);
@@ -305,13 +305,13 @@ final class ConfigurationController extends ActionController
         $providerKey = $this->extractStringFromBody($body, 'provider');
 
         if ($providerKey === '') {
-            return new JsonResponse((new ErrorResponse('No provider specified'))->jsonSerialize(), 400);
+            return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.noProvider', 'No provider specified')))->jsonSerialize(), 400);
         }
 
         try {
             $providers = $this->llmServiceManager->getAvailableProviders();
             if (!isset($providers[$providerKey])) {
-                $response = new JsonResponse((new ErrorResponse('Provider not available'))->jsonSerialize(), 404);
+                $response = new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.providerNotAvailable', 'Provider not available')))->jsonSerialize(), 404);
             } else {
                 $provider = $providers[$providerKey];
                 $models = $provider->getAvailableModels();
@@ -326,13 +326,13 @@ final class ConfigurationController extends ActionController
         } catch (ProviderException $e) {
             $this->logger->warning('Configuration getModels: provider error', ['exception' => $e, 'provider' => $providerKey]);
             $response = new JsonResponse(
-                (new ErrorResponse('LLM provider error while listing models. See system log for details.'))->jsonSerialize(),
+                (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.modelsProviderError', 'LLM provider error while listing models. See system log for details.')))->jsonSerialize(),
                 502,
             );
         } catch (Throwable $e) {
             $this->logger->error('Configuration getModels: unexpected error', ['exception' => $e, 'provider' => $providerKey]);
             $response = new JsonResponse(
-                (new ErrorResponse('Failed to load models. See system log for details.'))->jsonSerialize(),
+                (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.modelsFailed', 'Failed to load models. See system log for details.')))->jsonSerialize(),
                 500,
             );
         }
@@ -359,7 +359,7 @@ final class ConfigurationController extends ActionController
         try {
             $model = $configuration->getLlmModel();
             if ($model === null || $model->getProvider() === null) {
-                $response = new JsonResponse((new ErrorResponse('Configuration has no model assigned'))->jsonSerialize(), 400);
+                $response = new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.noModel', 'Configuration has no model assigned')))->jsonSerialize(), 400);
             } else {
                 $testPrompt = $this->testPromptResolver->resolve();
                 $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
@@ -390,13 +390,13 @@ final class ConfigurationController extends ActionController
         } catch (ProviderException $e) {
             $this->logger->error('Configuration test: provider error', ['exception' => $e, 'config_uid' => $uid]);
             $response = new JsonResponse(
-                (new ErrorResponse('LLM provider error during configuration test. See system log for details.'))->jsonSerialize(),
+                (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.testProviderError', 'LLM provider error during configuration test. See system log for details.')))->jsonSerialize(),
                 502,
             );
         } catch (Throwable $e) {
             $this->logger->error('Configuration test: unexpected error', ['exception' => $e, 'config_uid' => $uid]);
             $response = new JsonResponse(
-                (new ErrorResponse('Configuration test failed. See system log for details.'))->jsonSerialize(),
+                (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.testFailed', 'Configuration test failed. See system log for details.')))->jsonSerialize(),
                 500,
             );
         }
@@ -562,7 +562,7 @@ final class ConfigurationController extends ActionController
 
         $options = [];
         foreach ($providers as $identifier => $name) {
-            $suffix = isset($available[$identifier]) ? '' : ' ' . (LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.notConfigured', 'NrLlm') ?? '(not configured)');
+            $suffix = isset($available[$identifier]) ? '' : ' ' . ($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.notConfigured', '(not configured)'));
             $options[$identifier] = $name . $suffix;
         }
 
