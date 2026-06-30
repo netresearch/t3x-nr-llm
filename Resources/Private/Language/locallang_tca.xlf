@@ -297,6 +297,33 @@
             <trans-unit id="tx_nrllm_provider.adapter_type.description">
                 <source>The API protocol adapter to use</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.openai">
+                <source>OpenAI</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.anthropic">
+                <source>Anthropic (Claude)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.gemini">
+                <source>Google Gemini</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.openrouter">
+                <source>OpenRouter</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.mistral">
+                <source>Mistral AI</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.groq">
+                <source>Groq</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.ollama">
+                <source>Ollama (Local)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.azure_openai">
+                <source>Azure OpenAI</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.custom">
+                <source>Custom (OpenAI-compatible)</source>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_provider.endpoint_url">
                 <source>Endpoint URL</source>

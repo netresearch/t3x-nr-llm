@@ -85,11 +85,13 @@
                                                     <f:then>
                                                         <span class="badge text-bg-success" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.active')}">
                                                             <core:icon identifier="actions-check" size="small" />
+                                                            <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.active" /></span>
                                                         </span>
                                                     </f:then>
                                                     <f:else>
                                                         <span class="badge text-bg-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.inactive')}">
                                                             <core:icon identifier="actions-close" size="small" />
+                                                            <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.inactive" /></span>
                                                         </span>
                                                     </f:else>
                                                 </f:if>

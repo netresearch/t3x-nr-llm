@@ -68,7 +68,7 @@
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
-                                                <a href="{sourceEditUrls.{source.uid}}" class="btn btn-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.source.edit', default: 'Edit source')}">
+                                                <a href="{sourceEditUrls.{source.uid}}" class="btn btn-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.source.edit', default: 'Edit source')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.source.edit', default: 'Edit source')}">
                                                     <core:icon identifier="actions-open" size="small" />
                                                 </a>
                                                 <button type="button" class="btn btn-secondary js-skill-sync"
@@ -137,10 +137,12 @@
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
+                                                <f:variable name="toggleLabel" value="{f:if(condition: skill.isEnabled, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.disable\', default: \'Disable\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.enable\', default: \'Enable\')}')}" />
                                                 <button type="button" class="btn btn-secondary js-skill-toggle"
                                                         data-skill="{skill.uid}"
                                                         data-enabled="{f:if(condition: skill.isEnabled, then: '1', else: '0')}"
-                                                        title="{f:if(condition: skill.isEnabled, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.disable\', default: \'Disable\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.action.enable\', default: \'Enable\')}')}">
+                                                        title="{toggleLabel}"
+                                                        aria-label="{toggleLabel}">
                                                     <f:if condition="{skill.isEnabled}">
                                                         <f:then><core:icon identifier="actions-toggle-on" size="small" /></f:then>
                                                         <f:else><core:icon identifier="actions-toggle-off" size="small" /></f:else>
