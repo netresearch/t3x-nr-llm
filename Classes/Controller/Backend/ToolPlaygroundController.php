@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -62,6 +63,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         private readonly ToolLoopService $toolLoopService,
         private readonly ToolAvailabilityServiceInterface $toolAvailability,
         private readonly ToolStateRepository $toolStateRepository,
+        private readonly AllowedToolsResolver $allowedToolsResolver,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -114,7 +116,16 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // The checked tool boxes restrict this run; absent any selection, fall
         // back to the globally-enabled set. The runtime gate is authoritative
         // regardless (a disabled tool stays off).
-        $allowed = $this->toolNamesFromBody($body) ?? $this->toolAvailability->enabledNames();
+        $selected = $this->toolNamesFromBody($body) ?? $this->toolAvailability->enabledNames();
+
+        // Stay faithful to production (ADR-038 §5): if the configuration's skills
+        // declare an allowed-tools allow-list, intersect the admin's selection
+        // with it so the playground offers only what the config would actually
+        // permit. null = no declaring skill ⇒ no skill-imposed restriction.
+        $skillAllowed = $this->allowedToolsResolver->resolve($config);
+        $allowed      = $skillAllowed !== null
+            ? array_values(array_intersect($selected, $skillAllowed))
+            : $selected;
 
         try {
             $result = $this->toolLoopService->runLoop([ChatMessage::user($prompt)], $config, $allowed, $options);
