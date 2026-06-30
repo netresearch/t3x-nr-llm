@@ -744,8 +744,9 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     private function discoverGemini(string $endpoint, string $apiKey): array
     {
         try {
-            $url = $endpoint . '/models?key=' . $apiKey;
-            $request = $this->requestFactory->createRequest('GET', $url);
+            $url = $endpoint . '/models';
+            $request = $this->requestFactory->createRequest('GET', $url)
+                ->withHeader('x-goog-api-key', $apiKey);
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {

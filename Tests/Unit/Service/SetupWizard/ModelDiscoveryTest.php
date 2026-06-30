@@ -21,6 +21,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
@@ -408,6 +409,38 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         self::assertNotEmpty($models);
         $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
         self::assertContains('gemini-3-flash', $modelIds);
+    }
+
+    #[Test]
+    public function discoverGeminiDoesNotLeakApiKeyInRequestUrl(): void
+    {
+        // The Gemini API key must travel in the `x-goog-api-key` request header,
+        // never as a `?key=<secret>` query parameter (which leaks into server,
+        // proxy and referrer logs). Capture the URL the request was built with.
+        $provider = new DetectedProvider(
+            adapterType: 'gemini',
+            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
+            suggestedName: 'Google Gemini',
+        );
+
+        $capturedUri = null;
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturnCallback(function (string $method, string $uri) use (&$capturedUri): RequestInterface {
+                $capturedUri = $uri;
+
+                return $this->createRequestMock($method, $uri);
+            });
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{"models": []}'));
+
+        $this->subject->discover($provider, 'AIzaSecretKey123');
+
+        self::assertIsString($capturedUri);
+        self::assertStringNotContainsString('key=', $capturedUri);
+        self::assertStringNotContainsString('AIzaSecretKey123', $capturedUri);
     }
 
     #[Test]
