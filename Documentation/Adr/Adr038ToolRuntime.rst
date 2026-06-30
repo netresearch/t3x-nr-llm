@@ -107,11 +107,25 @@ Decision
    execution time, so a model steered by injected skill prose cannot call a
    registered-but-not-offered tool.
 
-6. **The admin-only playground is the v1 consumer.** The only caller is the
-   ``nrllm_tools`` backend submodule (``access => admin``); its AJAX
-   ``runAction`` calls ``denyNonAdmin()`` first (:ref:`ADR-037 <adr-037>`).
-   Tools have **no per-record authorization** and run with full TYPO3
-   privileges — safe only because the caller is an authenticated admin.
+6. **Authorization is enforced in the runtime, against the acting backend
+   user — not only in the playground.** Because :php:`ToolLoopService` is a
+   public service (a future non-admin consumer could call it), every tool
+   declares :php:`requiresAdmin()`. The loop resolves the acting
+   ``$GLOBALS['BE_USER']`` and, when it is not an admin, **filters every
+   admin-only tool out of the offered set** (fail-closed: an unknown tool name
+   is treated as admin-only). Admin-only tools are those exposing system /
+   host / cross-user data — ``fetch_logs``, ``get_env`` / ``get_env_raw``,
+   ``get_php_info`` / ``get_php_info_raw``, ``list_be_users`` /
+   ``list_be_users_raw``, ``list_be_groups`` and ``read_fal_asset_meta``.
+   Tools that read user-scoped records and are usable by a non-admin instead
+   **self-enforce the acting user's own TYPO3 permissions** inside
+   ``execute()``: ``get_pagetree`` applies
+   ``getPagePermsClause(Permission::PAGE_SHOW)`` and ``get_tca`` filters tables
+   by ``check('tables_select', …)`` (an admin bypasses both — TYPO3 admins see
+   everything). Queries use the default restriction set (no blanket
+   ``removeAll()``) so soft-deleted rows never surface; the admin-only
+   ``be_users`` / ``be_groups`` listings keep ``removeAll()`` plus an explicit
+   ``deleted = 0`` so disabled users remain visible for auditing.
 
 7. **Generic error egress, detail logged server-side.** A thrown tool, an
    unknown or disallowed tool name, and any unexpected provider failure
@@ -143,12 +157,17 @@ Consequences
   are admin-curated, **read-only**, input-bounded and scoped (limit cap + PII
   redaction; storage-scoped lookup). They are reference implementations of the
   security contract, not a general capability.
-- ✕ This is an **authorization (admin-only)** control, not per-record access
-  control: a tool can read what the admin can read. ``allowed_tools``
-  defaulting to "all tools when no skill declares" is acceptable **only** while
-  the consumer is admin-only — **before any non-admin consumer the default
-  must flip to fail-closed and per-tool authorization must be added** (see
-  §6 of the design and :ref:`ADR-035 <adr-035>` for the escalation surface).
+- ●● Authorization is **per-tool and enforced in the runtime against the
+  acting backend user**, not merely the playground gate (§6): admin-only tools
+  are filtered out for non-admins (fail-closed), and the user-scoped tools
+  honour the acting user's page / table permissions. A future non-admin
+  consumer of :php:`ToolLoopService` therefore cannot reach system data or read
+  beyond the user's own TYPO3 rights — closing the escalation surface the
+  earlier admin-only-playground assumption relied on.
+- ◐ ``read_fal_asset_meta`` is gated **admin-only** rather than resolving
+  per-user file-storage permissions: file metadata can span storages a
+  non-admin cannot see, and per-storage resolution is brittle, so the simpler,
+  stricter gate was chosen (with the storage allow-list as a further bound).
 - ✕ Message role is not a trust boundary: a prompt injection in skill prose
   can still steer a tool's arguments. The mitigation is input validation +
   scoping in each tool, the offered allow-list, and the XSS-safe render of

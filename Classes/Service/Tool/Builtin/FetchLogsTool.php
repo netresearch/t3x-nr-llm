@@ -120,4 +120,10 @@ final readonly class FetchLogsTool implements ToolInterface
     {
         return true;
     }
+
+    public function requiresAdmin(): bool
+    {
+        // Admin-only: exposes system / host / cross-user data a non-admin must never reach.
+        return true;
+    }
 }

@@ -28,6 +28,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Throwable;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 #[CoversClass(ToolLoopService::class)]
 final class ToolLoopServiceTest extends TestCase
@@ -119,6 +120,11 @@ final class ToolLoopServiceTest extends TestCase
             {
                 return true;
             }
+
+            public function requiresAdmin(): bool
+            {
+                return false;
+            }
         };
 
         $mgr   = self::createStub(LlmServiceManagerInterface::class);
@@ -162,6 +168,11 @@ final class ToolLoopServiceTest extends TestCase
             public function isEnabledByDefault(): bool
             {
                 return true;
+            }
+
+            public function requiresAdmin(): bool
+            {
+                return false;
             }
         };
 
@@ -369,6 +380,11 @@ final class ToolLoopServiceTest extends TestCase
             {
                 return true;
             }
+
+            public function requiresAdmin(): bool
+            {
+                return false;
+            }
         };
 
         $mgr   = self::createStub(LlmServiceManagerInterface::class);
@@ -531,5 +547,38 @@ final class ToolLoopServiceTest extends TestCase
         self::assertIsArray($value);
 
         return $value;
+    }
+
+    #[Test]
+    public function adminOnlyToolIsNeverOfferedToNonAdmin(): void
+    {
+        $beUserBackup    = $GLOBALS['BE_USER'] ?? null;
+        $nonAdmin        = new BackendUserAuthentication();
+        $nonAdmin->user  = ['uid' => 2, 'admin' => 0];
+        $GLOBALS['BE_USER'] = $nonAdmin;
+
+        try {
+            $mgr = $this->createMock(LlmServiceManagerInterface::class);
+            // The admin-only tool is filtered out for a non-admin ⇒ no tools
+            // offered ⇒ exactly one plain completion, never the tools path.
+            $mgr->expects(self::once())
+                ->method('chatWithConfiguration')
+                ->willReturn($this->response('plain answer'));
+            $mgr->expects(self::never())->method('chatWithToolsForConfiguration');
+
+            // Tool is registered, globally enabled, AND explicitly allowed — but
+            // it requiresAdmin and the acting user is not an admin.
+            $service = new ToolLoopService(
+                $mgr,
+                new ToolRegistry([new FakeTool('fetch_logs', 'ok', true, true)]),
+                new FakeToolAvailability(['fetch_logs']),
+            );
+            $result = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ['fetch_logs']);
+
+            self::assertSame('plain answer', $result->finalContent);
+            self::assertSame([], $result->trace);
+        } finally {
+            $GLOBALS['BE_USER'] = $beUserBackup;
+        }
     }
 }

@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
  */
 final readonly class GetTcaTool implements ToolInterface
 {
+    use ResolvesActingBackendUserTrait;
     use SafeCastTrait;
 
     /** Upper bound on listed tables / columns to keep the egress bounded. */
@@ -70,12 +71,31 @@ final readonly class GetTcaTool implements ToolInterface
         return true;
     }
 
+    public function requiresAdmin(): bool
+    {
+        // Usable by non-admins; execute() self-enforces the acting user's TYPO3 permissions.
+        return false;
+    }
+
     /**
      * @param array<array-key, mixed> $tca
      */
     private function listTables(array $tca): string
     {
+        // Respect the acting user's table-select rights: a non-admin only sees
+        // tables they may read in the backend (admins pass every check). No
+        // backend user → no tables (fail-closed); return early so the whole TCA
+        // is not mapped/filtered for nothing.
+        $user = $this->actingBackendUser();
+        if ($user === null) {
+            return "TCA tables (0):\n";
+        }
+
         $names = array_map(static fn(int|string $name): string => (string)$name, array_keys($tca));
+        $names = array_values(array_filter(
+            $names,
+            static fn(string $name): bool => $user->check('tables_select', $name),
+        ));
         sort($names);
         $names = array_slice($names, 0, self::MAX_ITEMS);
 
@@ -87,6 +107,14 @@ final readonly class GetTcaTool implements ToolInterface
      */
     private function describeTable(array $tca, string $table): string
     {
+        // A non-admin may only describe tables they can read; an unreadable (or
+        // unknown) table returns the same neutral string so the tool never
+        // confirms a table's existence to someone without access.
+        $user = $this->actingBackendUser();
+        if ($user === null || !$user->check('tables_select', $table)) {
+            return 'Unknown TCA table.';
+        }
+
         $definition = $tca[$table] ?? null;
         if (!is_array($definition) || !isset($definition['columns']) || !is_array($definition['columns'])) {
             return 'Unknown TCA table.';

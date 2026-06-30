@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Tool\Builtin\ResolvesActingBackendUserTrait;
 use Psr\Log\LoggerInterface;
 use stdClass;
 use Throwable;
@@ -50,6 +51,8 @@ use Throwable;
  */
 final readonly class ToolLoopService
 {
+    use ResolvesActingBackendUserTrait;
+
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,
@@ -88,6 +91,20 @@ final readonly class ToolLoopService
         $effective = $allowedToolNames === null
             ? $enabled
             : array_values(array_intersect($allowedToolNames, $enabled));
+
+        // Fail-closed RBAC gate: admin-only tools (logs, environment, phpinfo,
+        // backend user/group listings) are never offered unless the ACTING
+        // backend user is an admin — enforced here in the runtime, not just the
+        // (admin-only) playground, so the public service cannot be invoked on a
+        // non-admin's behalf to reach them. An unknown tool name is treated as
+        // admin-only (fail-closed).
+        if (!$this->actingUserIsAdmin()) {
+            $effective = array_values(array_filter(
+                $effective,
+                fn(string $name): bool => $this->registry->get($name)?->requiresAdmin() === false,
+            ));
+        }
+
         $specs = $this->registry->specs($effective);
 
         // No tools offered (an empty allow-list, or nothing registered): a tools

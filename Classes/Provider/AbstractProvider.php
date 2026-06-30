@@ -367,20 +367,27 @@ abstract class AbstractProvider implements ProviderInterface
      */
     protected function extractErrorMessage(array $error): string
     {
-        // Try nested error.message first (OpenAI format)
-        $nestedError = $this->getArray($error, 'error');
-        $message = $nestedError !== [] ? $this->getNullableString($nestedError, 'message') : null;
+        $errorValue = $error['error'] ?? null;
 
-        // Sometimes error is just a string
-        if ($message === null && $nestedError !== []) {
-            $errorValue = $error['error'] ?? null;
-            if (is_string($errorValue)) {
-                return $errorValue;
+        // Nested {"error":{"message":...}} (OpenAI format).
+        if (is_array($errorValue)) {
+            $message = $this->getNullableString($this->asArray($errorValue), 'message');
+            if ($message !== null && $message !== '') {
+                return $message;
             }
         }
 
-        // Try direct message (some providers)
-        $message ??= $this->getNullableString($error, 'message');
+        // Flat {"error":"..."} string (Ollama and others). This must be checked
+        // independently of the nested branch above: when `error` is a string,
+        // getArray() yields [] for it, so guarding the flat case on a non-empty
+        // nested array (the previous bug) silently dropped the real message and
+        // degraded everything to "Unknown provider error".
+        if (is_string($errorValue) && $errorValue !== '') {
+            return $errorValue;
+        }
+
+        // Direct top-level {"message":...} (some providers).
+        $message = $this->getNullableString($error, 'message');
 
         return $message ?? 'Unknown provider error';
     }

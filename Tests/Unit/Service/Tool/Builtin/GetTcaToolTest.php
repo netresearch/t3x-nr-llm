@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\GetTcaTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Unit tests for GetTcaTool.
@@ -27,10 +28,20 @@ final class GetTcaToolTest extends TestCase
     /** @var array<array-key, mixed> */
     private array $tcaBackup = [];
 
+    private mixed $beUserBackup = null;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->tcaBackup = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+
+        // get_tca self-enforces the acting user's tables_select rights; an admin
+        // passes every check (isAdmin() short-circuits), so set one up to assert
+        // the schema-listing contract.
+        $this->beUserBackup = $GLOBALS['BE_USER'] ?? null;
+        $adminUser          = new BackendUserAuthentication();
+        $adminUser->user    = ['uid' => 1, 'admin' => 1];
+        $GLOBALS['BE_USER'] = $adminUser;
 
         $GLOBALS['TCA'] = [
             'pages' => [
@@ -51,6 +62,11 @@ final class GetTcaToolTest extends TestCase
     protected function tearDown(): void
     {
         $GLOBALS['TCA'] = $this->tcaBackup;
+        if ($this->beUserBackup === null) {
+            unset($GLOBALS['BE_USER']);
+        } else {
+            $GLOBALS['BE_USER'] = $this->beUserBackup;
+        }
         parent::tearDown();
     }
 
