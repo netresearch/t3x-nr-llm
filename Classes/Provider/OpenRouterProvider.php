@@ -181,6 +181,24 @@ final class OpenRouterProvider extends AbstractProvider implements
     }
 
     /**
+     * Test the connection to OpenRouter.
+     *
+     * getAvailableModels() returns a static list and never touches the
+     * network, so the AbstractProvider default would report success even
+     * when the endpoint is unreachable or the key is invalid. Make a real
+     * lightweight GET to the models endpoint and let any failure surface as
+     * the typed exception sendRequest() raises.
+     *
+     * @throws ProviderConnectionException on connection failure
+     *
+     * @return array{success: bool, message: string, models?: array<string, string>}
+     */
+    public function testConnection(): array
+    {
+        return $this->testConnectionViaModelsList();
+    }
+
+    /**
      * Fetch live model list from OpenRouter API.
      *
      * @param bool $forceRefresh Bypass cache and fetch fresh data

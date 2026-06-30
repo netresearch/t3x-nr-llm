@@ -4,8 +4,12 @@
  * Attaches click handler to ".js-fetch-models" buttons, fetches available
  * models from the provider's API, renders a rich dropdown showing model details
  * (context length, capabilities, cost), and auto-fills related fields on selection.
+ *
+ * State-changing AJAX uses AjaxRequest, which injects TYPO3's CSRF token.
  */
+import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 import Notification from '@typo3/backend/notification.js';
+import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 
 (function () {
     'use strict';
@@ -386,8 +390,9 @@ import Notification from '@typo3/backend/notification.js';
         const body = new FormData();
         body.append('providerUid', String(providerUid));
 
-        fetch(fetchUrl, { method: 'POST', body: body })
-            .then(function (response) { return response.json(); })
+        new AjaxRequest(fetchUrl)
+            .post(body)
+            .then(function (response) { return response.resolve(); })
             .then(function (data) {
                 if (!data.success) {
                     showStatus(button, 'Error: ' + (data.error || 'Unknown error'), 'error');
@@ -416,7 +421,9 @@ import Notification from '@typo3/backend/notification.js';
                 showStatus(button, models.length + ' models from ' + (data.providerName || 'provider'), 'success');
             })
             .catch(function (err) {
-                showStatus(button, 'Fetch failed: ' + err.message, 'error');
+                readAjaxError(err).then(function (message) {
+                    showStatus(button, 'Fetch failed: ' + message, 'error');
+                });
             })
             .finally(function () {
                 button.disabled = false;

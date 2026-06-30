@@ -5,9 +5,12 @@
  * skills, and storing a GitHub token (as a vault UUID) for a source.
  *
  * Uses TYPO3 Backend Notification API and event delegation for reliable
- * handling inside TYPO3 v14+ iframe modules.
+ * handling inside TYPO3 v14+ iframe modules. State-changing AJAX uses
+ * AjaxRequest, which injects TYPO3's CSRF token.
  */
+import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 import Notification from '@typo3/backend/notification.js';
+import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 
 class SkillList {
     constructor() {
@@ -59,8 +62,9 @@ class SkillList {
         formData.append('source', source);
 
         btn.disabled = true;
-        fetch(url, { method: 'POST', body: formData })
-            .then(response => response.json())
+        new AjaxRequest(url)
+            .post(formData)
+            .then(response => response.resolve())
             .then(data => {
                 if (data.success) {
                     Notification.success(
@@ -73,8 +77,8 @@ class SkillList {
                     btn.disabled = false;
                 }
             })
-            .catch(err => {
-                Notification.error('Error', err.message);
+            .catch(async err => {
+                Notification.error('Error', await readAjaxError(err));
                 btn.disabled = false;
             });
     }
@@ -92,8 +96,9 @@ class SkillList {
         formData.append('skill', skill);
         formData.append('enabled', String(enabled));
 
-        fetch(url, { method: 'POST', body: formData })
-            .then(response => response.json())
+        new AjaxRequest(url)
+            .post(formData)
+            .then(response => response.resolve())
             .then(data => {
                 if (data.success) {
                     location.reload();
@@ -101,8 +106,8 @@ class SkillList {
                     Notification.error('Error', data.error || 'Unknown error');
                 }
             })
-            .catch(err => {
-                Notification.error('Error', err.message);
+            .catch(async err => {
+                Notification.error('Error', await readAjaxError(err));
             });
     }
 
@@ -123,8 +128,9 @@ class SkillList {
         formData.append('source', source);
         formData.append('token', token);
 
-        fetch(url, { method: 'POST', body: formData })
-            .then(response => response.json())
+        new AjaxRequest(url)
+            .post(formData)
+            .then(response => response.resolve())
             .then(data => {
                 if (data.success) {
                     Notification.success('Token stored', 'The GitHub token was stored securely.');
@@ -132,8 +138,8 @@ class SkillList {
                     Notification.error('Error', data.error || 'Unknown error');
                 }
             })
-            .catch(err => {
-                Notification.error('Error', err.message);
+            .catch(async err => {
+                Notification.error('Error', await readAjaxError(err));
             });
     }
 }

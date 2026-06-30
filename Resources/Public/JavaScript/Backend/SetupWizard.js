@@ -3,8 +3,11 @@
  *
  * Handles the multi-step wizard flow for LLM provider configuration.
  * Uses TYPO3 Backend Notification API for user feedback.
+ * State-changing AJAX uses AjaxRequest, which injects TYPO3's CSRF token.
  */
+import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 import Notification from '@typo3/backend/notification.js';
+import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 
 class SetupWizard {
     currentStep = 1;
@@ -119,13 +122,12 @@ class SetupWizard {
 
     async detectProviderSilent(endpoint) {
         try {
-            const response = await fetch(TYPO3.settings.ajaxUrls['nrllm_wizard_detect'], {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ endpoint }),
-            });
+            const response = await new AjaxRequest(TYPO3.settings.ajaxUrls['nrllm_wizard_detect']).post(
+                new URLSearchParams({ endpoint }).toString(),
+                { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+            );
 
-            const result = await response.json();
+            const result = await response.resolve();
 
             if (result.success && result.provider) {
                 this.showDetectedProvider(result.provider);
@@ -202,13 +204,12 @@ class SetupWizard {
 
         try {
             // First detect provider
-            const detectResponse = await fetch(TYPO3.settings.ajaxUrls['nrllm_wizard_detect'], {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ endpoint }),
-            });
+            const detectResponse = await new AjaxRequest(TYPO3.settings.ajaxUrls['nrllm_wizard_detect']).post(
+                new URLSearchParams({ endpoint }).toString(),
+                { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+            );
 
-            const detectResult = await detectResponse.json();
+            const detectResult = await detectResponse.resolve();
 
             if (detectResult.success && detectResult.provider) {
                 this.data.provider = detectResult.provider;
@@ -216,17 +217,16 @@ class SetupWizard {
             }
 
             // Test connection
-            const testResponse = await fetch(TYPO3.settings.ajaxUrls['nrllm_wizard_test'], {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
+            const testResponse = await new AjaxRequest(TYPO3.settings.ajaxUrls['nrllm_wizard_test']).post(
+                new URLSearchParams({
                     endpoint: this.data.endpoint,
                     apiKey: this.data.apiKey,
                     adapterType: this.data.adapterType,
-                }),
-            });
+                }).toString(),
+                { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+            );
 
-            const testResult = await testResponse.json();
+            const testResult = await testResponse.resolve();
 
             document.getElementById('test-loading').style.display = 'none';
 
@@ -241,7 +241,7 @@ class SetupWizard {
         } catch (e) {
             document.getElementById('test-loading').style.display = 'none';
             document.getElementById('test-error').style.display = 'block';
-            document.getElementById('test-error-message').textContent = 'Network error: ' + e.message;
+            document.getElementById('test-error-message').textContent = 'Network error: ' + await readAjaxError(e);
         }
     }
 
@@ -254,17 +254,16 @@ class SetupWizard {
         document.getElementById('btn-generate').disabled = true;
 
         try {
-            const response = await fetch(TYPO3.settings.ajaxUrls['nrllm_wizard_discover'], {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
+            const response = await new AjaxRequest(TYPO3.settings.ajaxUrls['nrllm_wizard_discover']).post(
+                new URLSearchParams({
                     endpoint: this.data.endpoint,
                     apiKey: this.data.apiKey,
                     adapterType: this.data.adapterType,
-                }),
-            });
+                }).toString(),
+                { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+            );
 
-            const result = await response.json();
+            const result = await response.resolve();
 
             document.getElementById('models-loading').style.display = 'none';
             document.getElementById('models-list').style.display = 'block';
@@ -276,9 +275,10 @@ class SetupWizard {
             }
         } catch (e) {
             document.getElementById('models-loading').style.display = 'none';
-            // SECURITY: Escape error message to prevent XSS
+            // SECURITY: Escape error message to prevent XSS (unchanged pattern; transport-only change)
+            const discoverError = this.escapeHtml(await readAjaxError(e));
             document.getElementById('models-list').innerHTML =
-                '<div class="alert alert-danger">Failed to discover models: ' + this.escapeHtml(e.message) + '</div>';
+                '<div class="alert alert-danger">Failed to discover models: ' + discoverError + '</div>';
         }
     }
 
@@ -371,18 +371,17 @@ class SetupWizard {
         document.getElementById('configs-list').style.display = 'none';
 
         try {
-            const response = await fetch(TYPO3.settings.ajaxUrls['nrllm_wizard_generate'], {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            const response = await new AjaxRequest(TYPO3.settings.ajaxUrls['nrllm_wizard_generate']).post(
+                JSON.stringify({
                     endpoint: this.data.endpoint,
                     apiKey: this.data.apiKey,
                     adapterType: this.data.adapterType,
                     models: selectedModels,
                 }),
-            });
+                { headers: { 'Content-Type': 'application/json' } },
+            );
 
-            const result = await response.json();
+            const result = await response.resolve();
 
             document.getElementById('configs-loading').style.display = 'none';
             document.getElementById('configs-list').style.display = 'block';
@@ -393,9 +392,10 @@ class SetupWizard {
             }
         } catch (e) {
             document.getElementById('configs-loading').style.display = 'none';
-            // SECURITY: Escape error message to prevent XSS
+            // SECURITY: Escape error message to prevent XSS (unchanged pattern; transport-only change)
+            const generateError = this.escapeHtml(await readAjaxError(e));
             document.getElementById('configs-list').innerHTML =
-                '<div class="alert alert-danger">Failed to generate configurations: ' + this.escapeHtml(e.message) + '</div>';
+                '<div class="alert alert-danger">Failed to generate configurations: ' + generateError + '</div>';
         }
     }
 
@@ -546,18 +546,17 @@ class SetupWizard {
         document.getElementById('save-footer').style.display = 'none';
 
         try {
-            const response = await fetch(TYPO3.settings.ajaxUrls['nrllm_wizard_save'], {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            const response = await new AjaxRequest(TYPO3.settings.ajaxUrls['nrllm_wizard_save']).post(
+                JSON.stringify({
                     provider: providerData,
                     models: selectedModels,
                     configurations: selectedConfigs,
                     pid: pid,
                 }),
-            });
+                { headers: { 'Content-Type': 'application/json' } },
+            );
 
-            const result = await response.json();
+            const result = await response.resolve();
 
             document.getElementById('save-loading').style.display = 'none';
 
@@ -580,11 +579,12 @@ class SetupWizard {
                 Notification.error('Error', result.error, 10);
             }
         } catch (e) {
+            const saveError = await readAjaxError(e);
             document.getElementById('save-loading').style.display = 'none';
             document.getElementById('save-error').style.display = 'block';
-            document.getElementById('save-error-message').textContent = 'Network error: ' + e.message;
+            document.getElementById('save-error-message').textContent = 'Network error: ' + saveError;
             document.getElementById('save-footer').style.display = 'flex';
-            Notification.error('Network Error', e.message, 10);
+            Notification.error('Network Error', saveError, 10);
         }
     }
 

@@ -4,7 +4,11 @@
  * Watches model_uid select changes and adjusts parameter fields
  * (temperature, top_p, frequency_penalty, presence_penalty) based
  * on the adapter type and model characteristics.
+ *
+ * State-changing AJAX uses AjaxRequest, which injects TYPO3's CSRF token.
  */
+import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
+
 (function () {
     'use strict';
 
@@ -171,26 +175,20 @@
         }
 
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'modelUid=' + encodeURIComponent(modelUid),
-            });
+            const response = await new AjaxRequest(url).post(
+                'modelUid=' + encodeURIComponent(modelUid),
+                { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+            );
 
-            if (!response.ok) {
-                resetConstraints();
-                return;
-            }
-
-            const data = await response.json();
+            const data = await response.resolve();
             if (data.success && data.constraints) {
                 applyConstraints(data.constraints);
             } else {
                 resetConstraints();
             }
         } catch (e) {
+            // AjaxRequest rejects on a non-OK HTTP status — treat it the same
+            // as the previous `!response.ok` branch and reset the constraints.
             resetConstraints();
         }
     }

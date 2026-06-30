@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 /**
  * Pre-flight budget check middleware (ADR-025).
@@ -49,7 +50,11 @@ use Netresearch\NrLlm\Service\BudgetServiceInterface;
  *
  * No side effects. The budget record is not incremented here — that is
  * the job of UsageMiddleware after the call succeeds.
+ *
+ * The default pipeline order is pinned via tag priority (Cache outermost at
+ * 100, then Budget at 75, Fallback at 50, Usage innermost at 25).
  */
+#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 75])]
 final readonly class BudgetMiddleware implements ProviderMiddlewareInterface
 {
     public const METADATA_BE_USER_UID  = 'beUserUid';

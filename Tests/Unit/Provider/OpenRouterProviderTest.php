@@ -1333,4 +1333,43 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
 
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
+
+    #[Test]
+    public function testConnectionReturnsSuccessWithModelList(): void
+    {
+        $apiResponse = [
+            'data' => [
+                ['id' => 'anthropic/claude-sonnet-4-5', 'name' => 'Claude Sonnet 4.5'],
+                ['id' => 'openai/gpt-5.2', 'name' => 'GPT-5.2'],
+            ],
+        ];
+
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->testConnection();
+
+        self::assertTrue($result['success']);
+        self::assertStringContainsString('Connection successful', $result['message']);
+        self::assertStringContainsString('2 models', $result['message']);
+        self::assertArrayHasKey('models', $result);
+        assert(isset($result['models']));
+        self::assertArrayHasKey('anthropic/claude-sonnet-4-5', $result['models']);
+    }
+
+    #[Test]
+    public function testConnectionThrowsOnHttpError(): void
+    {
+        // A static-list provider must NOT silently report success on an
+        // unreachable / unauthorized endpoint: the real HTTP call surfaces
+        // the typed exception instead.
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createErrorResponseMock(401, 'No auth credentials found'));
+
+        $this->expectException(ProviderException::class);
+
+        $this->subject->testConnection();
+    }
 }

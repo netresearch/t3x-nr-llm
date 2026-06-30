@@ -10,6 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
@@ -209,22 +212,13 @@ class AbstractProviderTest extends AbstractUnitTestCase
     #[Test]
     public function testConnectionReturnsSuccessWithModelCount(): void
     {
-        // Use a provider with static model list (Gemini returns static list from getAvailableModels).
-        // AbstractProvider::testConnection() calls getAvailableModels() and wraps result.
-        $httpClientStub = $this->createHttpClientMock();
-
-        $provider = new GeminiProvider(
-            $this->createRequestFactoryMock(),
-            $this->createStreamFactoryMock(),
-            $this->createLoggerMock(),
-            $this->createVaultServiceMock(),
-            $this->createSecureHttpClientFactoryMock(),
-        );
-        $provider->configure([
-            'apiKeyIdentifier' => $this->randomApiKey(),
-            'defaultModel' => 'gemini-2.5-flash',
-        ]);
-        $provider->setHttpClient($httpClientStub);
+        // AbstractProvider::testConnection() default behaviour: it wraps the
+        // static getAvailableModels() list without performing any HTTP call.
+        // All bundled providers now OVERRIDE testConnection() with a real
+        // connectivity request (so an unreachable endpoint can no longer
+        // report success), so the abstract default is exercised here through
+        // a throwaway subclass that intentionally does NOT override it.
+        $provider = $this->makeStaticListProvider();
 
         $result = $provider->testConnection();
 
@@ -233,6 +227,71 @@ class AbstractProviderTest extends AbstractUnitTestCase
         self::assertArrayHasKey('models', $result);
         assert(isset($result['models']));
         self::assertNotEmpty($result['models']);
+    }
+
+    /**
+     * A minimal concrete AbstractProvider that returns a static model list and
+     * does NOT override testConnection() — used to test the abstract default.
+     */
+    private function makeStaticListProvider(): AbstractProvider
+    {
+        $provider = new class (
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        ) extends AbstractProvider {
+            public function getName(): string
+            {
+                return 'Static List Test Provider';
+            }
+
+            public function getIdentifier(): string
+            {
+                return 'static-list-test';
+            }
+
+            protected function getDefaultBaseUrl(): string
+            {
+                return 'https://example.invalid/v1';
+            }
+
+            /**
+             * @return array<string, string>
+             */
+            public function getAvailableModels(): array
+            {
+                return ['model-a' => 'Model A', 'model-b' => 'Model B'];
+            }
+
+            public function chatCompletion(array $messages, array $options = []): CompletionResponse
+            {
+                return new CompletionResponse(
+                    content: '',
+                    model: 'model-a',
+                    usage: new UsageStatistics(0, 0, 0),
+                    finishReason: 'stop',
+                    provider: $this->getIdentifier(),
+                );
+            }
+
+            public function embeddings(string|array $input, array $options = []): EmbeddingResponse
+            {
+                return new EmbeddingResponse(
+                    embeddings: [],
+                    model: 'model-a',
+                    usage: new UsageStatistics(0, 0, 0),
+                    provider: $this->getIdentifier(),
+                );
+            }
+        };
+
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+        ]);
+
+        return $provider;
     }
 
     #[Test]

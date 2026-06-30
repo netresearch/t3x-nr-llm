@@ -486,4 +486,34 @@ abstract class AbstractProvider implements ProviderInterface
             'models' => $models,
         ];
     }
+
+    /**
+     * Shared real-connectivity check for OpenAI-compatible providers: a GET to
+     * the `models` endpoint, parsing the `data[].id` list. Exceptions are NOT
+     * caught — a connection/HTTP failure must propagate so testConnection()
+     * reports failure per ProviderInterface. The static-model-list providers
+     * (Claude/Groq/Mistral/OpenRouter) override testConnection() to call this.
+     *
+     * @return array{success: bool, message: string, models: array<string, string>}
+     */
+    protected function testConnectionViaModelsList(): array
+    {
+        $response = $this->sendRequest('models', [], 'GET');
+        $data = $this->getList($response, 'data');
+
+        $models = [];
+        foreach ($data as $model) {
+            $modelArray = $this->asArray($model);
+            $id = $this->getString($modelArray, 'id');
+            if ($id !== '') {
+                $models[$id] = $id;
+            }
+        }
+
+        return [
+            'success' => true,
+            'message' => sprintf('Connection successful. Found %d models.', count($models)),
+            'models' => $models,
+        ];
+    }
 }

@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
@@ -72,6 +73,7 @@ final class SetupWizardController extends ActionController
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly IconFactory $iconFactory,
         private readonly VaultServiceInterface $vaultService,
+        private readonly LoggerInterface $logger,
     ) {}
 
     protected function initializeAction(): void
@@ -287,8 +289,9 @@ final class SetupWizardController extends ActionController
         try {
             return $this->persistWizardResult($providerData, $modelsData, $configurationsData, $pid);
         } catch (Throwable $e) {
+            $this->logger->error('Setup wizard: failed to persist wizard result', ['exception' => $e]);
             return new JsonResponse(
-                (new ErrorResponse('Failed to save: ' . $e->getMessage()))->jsonSerialize(),
+                (new ErrorResponse('Failed to save. See the system log for details.'))->jsonSerialize(),
                 500,
             );
         }
@@ -320,8 +323,9 @@ final class SetupWizardController extends ActionController
                     'source' => 'setup_wizard',
                 ]);
             } catch (Throwable $e) {
+                $this->logger->error('Setup wizard: failed to store API key in vault', ['exception' => $e]);
                 return new JsonResponse(
-                    (new ErrorResponse('Failed to store API key securely: ' . $e->getMessage()))->jsonSerialize(),
+                    (new ErrorResponse('Failed to store the API key securely. See the system log for details.'))->jsonSerialize(),
                     500,
                 );
             }

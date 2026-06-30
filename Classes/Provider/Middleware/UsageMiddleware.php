@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 /**
  * Records usage to tx_nrllm_service_usage after a successful provider call.
@@ -52,7 +53,11 @@ use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
  * The middleware never runs when $next throws: failed calls are not
  * tracked here. If failure-rate telemetry is needed later, a dedicated
  * middleware can wrap and record regardless of outcome.
+ *
+ * The default pipeline order is pinned via tag priority (Cache outermost at
+ * 100, then Budget at 75, Fallback at 50, Usage innermost at 25).
  */
+#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 25])]
 final readonly class UsageMiddleware implements ProviderMiddlewareInterface
 {
     public const METADATA_TASK_UID = 'task_uid';

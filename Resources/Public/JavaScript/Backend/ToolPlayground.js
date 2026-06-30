@@ -12,9 +12,14 @@
  * preview lives inside a fully sandboxed iframe whose srcdoc is built from
  * escapeHtml() output. This module never assigns a server/LLM string to
  * innerHTML.
+ *
+ * State-changing AJAX uses AjaxRequest, which injects TYPO3's CSRF token.
  */
+import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 import Notification from '@typo3/backend/notification.js';
+
 import { escapeHtml } from '@netresearch/nr-llm/Backend/HtmlEscape.js';
+import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 
 class ToolPlayground {
     constructor() {
@@ -71,12 +76,14 @@ class ToolPlayground {
         }
         this.renderStatus('Running…');
 
-        fetch(url, { method: 'POST', body: formData })
-            .then(response => response.json())
+        new AjaxRequest(url)
+            .post(formData)
+            .then(response => response.resolve())
             .then(data => this.renderResult(data))
-            .catch(err => {
-                this.renderError(err.message || 'Request failed');
-                Notification.error('Error', err.message || 'Request failed');
+            .catch(async err => {
+                const message = await readAjaxError(err);
+                this.renderError(message);
+                Notification.error('Error', message);
             })
             .finally(() => {
                 if (this.runButton) {

@@ -3,10 +3,12 @@
  *
  * Toggles the global enable/disable override of a single agent tool from the
  * Tool Playground module. Mirrors SkillList.js: event delegation on the body
- * and a CSRF-tokenised AJAX POST (the per-route token is embedded in
- * TYPO3.settings.ajaxUrls).
+ * and a state-changing AJAX POST via AjaxRequest, which injects TYPO3's CSRF
+ * token (and sets the request content-type) automatically.
  */
+import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 import Notification from '@typo3/backend/notification.js';
+import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 
 class ToolState {
     constructor() {
@@ -44,8 +46,9 @@ class ToolState {
         formData.append('enabled', String(enabled));
 
         btn.disabled = true;
-        fetch(url, { method: 'POST', body: formData })
-            .then(response => response.json())
+        new AjaxRequest(url)
+            .post(formData)
+            .then(response => response.resolve())
             .then(data => {
                 if (data.success) {
                     location.reload();
@@ -54,8 +57,8 @@ class ToolState {
                     btn.disabled = false;
                 }
             })
-            .catch(err => {
-                Notification.error('Error', err.message);
+            .catch(async err => {
+                Notification.error('Error', await readAjaxError(err));
                 btn.disabled = false;
             });
     }
