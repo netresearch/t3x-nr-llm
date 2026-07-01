@@ -286,8 +286,13 @@ final readonly class ToolLoopService
             return $result;
         }
 
-        return mb_strcut($result, 0, self::MAX_TOOL_RESULT_BYTES)
-            . "\n…[tool result truncated at " . self::MAX_TOOL_RESULT_BYTES . ' bytes]';
+        // Reserve the marker's bytes from the budget so the returned string
+        // (content + marker) never exceeds the cap. mb_strcut with an explicit
+        // UTF-8 encoding cuts on a byte boundary without splitting a character.
+        $marker = "\n…[tool result truncated at " . self::MAX_TOOL_RESULT_BYTES . ' bytes]';
+        $budget = self::MAX_TOOL_RESULT_BYTES - strlen($marker);
+
+        return mb_strcut($result, 0, max(0, $budget), 'UTF-8') . $marker;
     }
 
     /**
