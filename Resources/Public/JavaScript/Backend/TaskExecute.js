@@ -284,9 +284,9 @@ class TaskExecute {
                 this.renderOutput();
                 this.updateFormatToggle();
 
-                this.outputModel.textContent = response.model || '-';
-                this.outputTokens.textContent = response.usage?.totalTokens || '-';
-                this.outputResult.classList.remove('d-none');
+                if (this.outputModel) this.outputModel.textContent = response.model || '-';
+                if (this.outputTokens) this.outputTokens.textContent = response.usage?.totalTokens || '-';
+                this.outputResult?.classList.remove('d-none');
 
                 Notification.success('Task completed', 'The task has been executed successfully.');
             } else {
@@ -390,7 +390,7 @@ class TaskExecute {
         // With fully sandboxed iframe, contentDocument is inaccessible.
         // Use a generous default height; content scrolls within.
         iframe.style.height = '400px';
-        this.outputContent.appendChild(iframe);
+        this.outputContent?.appendChild(iframe);
     }
 
     /**
