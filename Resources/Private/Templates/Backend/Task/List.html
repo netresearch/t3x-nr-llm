@@ -37,7 +37,7 @@
         <f:if condition="{totalCount} &gt; 0 &amp;&amp; {activeCount} == 0">
             <div class="alert alert-warning">
                 <core:icon identifier="actions-exclamation-triangle" size="small" />
-                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.noActive.warning" default="No active tasks. Only active tasks appear in the CKEditor cowriter dialog and the API. Activate a task to make it available." />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.noActive.warning" default="No active tasks. Only active tasks are exposed to consuming extensions and the API. Activate a task to make it available." />
             </div>
         </f:if>
 
@@ -122,7 +122,7 @@
                                             <td>
                                                 <div class="btn-group btn-group-sm">
                                                     <f:if condition="{task.isActive}">
-                                                        <f:link.action action="executeForm" arguments="{uid: task.uid}" class="btn btn-success" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.execute')}">
+                                                        <f:link.action action="executeForm" controller="Backend\TaskExecution" arguments="{uid: task.uid}" class="btn btn-success" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.execute')}">
                                                             <core:icon identifier="actions-play" size="small" />
                                                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.action.run" default="Run" />
                                                         </f:link.action>

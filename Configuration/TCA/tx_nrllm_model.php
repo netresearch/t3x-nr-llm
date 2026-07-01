@@ -110,7 +110,7 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
                 'foreign_table' => 'tx_nrllm_provider',
-                'foreign_table_where' => 'AND {#tx_nrllm_provider}.{#hidden} = 0 AND {#tx_nrllm_provider}.{#deleted} = 0 ORDER BY {#tx_nrllm_provider}.{#priority} DESC, {#tx_nrllm_provider}.{#name}',
+                'foreign_table_where' => 'AND {#tx_nrllm_provider}.{#hidden} = 0 AND {#tx_nrllm_provider}.{#deleted} = 0 ORDER BY tx_nrllm_provider.priority DESC, tx_nrllm_provider.name',
                 'items' => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.provider_uid.select', 'value' => 0],
                 ],
