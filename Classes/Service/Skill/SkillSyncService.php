@@ -59,13 +59,7 @@ final class SkillSyncService
     public function sync(SkillSource $source): SyncResult
     {
         $now = time();
-        // Concurrency guard with stale-lock recovery: a SYNCING source is only treated as locked
-        // when its heartbeat (lastSynced) is recent; an old or never-set heartbeat is stale.
-        if (
-            $source->getSyncStatusEnum() === SyncStatus::SYNCING
-            && $source->getLastSynced() !== 0
-            && ($now - $source->getLastSynced()) <= self::STALE_LOCK_SECONDS
-        ) {
+        if ($this->isLockActive($source, $now)) {
             return new SyncResult(SyncStatus::SYNCING, errors: ['A sync is already running for this source.']);
         }
 
@@ -144,6 +138,22 @@ final class SkillSyncService
         $this->persistSource($source);
 
         return new SyncResult($status, $created, $updated, $disabledOnChange, $orphaned, $errors);
+    }
+
+    /**
+     * Concurrency guard with stale-lock recovery: a SYNCING source is only an
+     * active lock when its heartbeat (lastSynced) is within STALE_LOCK_SECONDS
+     * of now. An old or never-set (0) heartbeat is stale and reclaimable, so a
+     * crashed sync does not wedge the source forever. The window is measured
+     * with abs() so a heartbeat written under clock skew / a backwards NTP
+     * correction (a future timestamp) cannot lock the source indefinitely — a
+     * far-future timestamp is treated as stale, a small skew as still active.
+     */
+    private function isLockActive(SkillSource $source, int $now): bool
+    {
+        return $source->getSyncStatusEnum() === SyncStatus::SYNCING
+            && $source->getLastSynced() !== 0
+            && abs($now - $source->getLastSynced()) <= self::STALE_LOCK_SECONDS;
     }
 
     /**

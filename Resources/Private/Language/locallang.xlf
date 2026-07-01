@@ -1392,6 +1392,9 @@
             <trans-unit id="field.name">
                 <source>Name</source>
             </trans-unit>
+            <trans-unit id="field.status">
+                <source>Status</source>
+            </trans-unit>
             <trans-unit id="field.identifier">
                 <source>Identifier</source>
             </trans-unit>

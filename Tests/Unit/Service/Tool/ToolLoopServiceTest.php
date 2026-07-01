@@ -16,7 +16,9 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -26,6 +28,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use ReflectionClass;
 use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -657,5 +660,48 @@ final class ToolLoopServiceTest extends TestCase
         } finally {
             $GLOBALS['BE_USER'] = $beUserBackup;
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function budgetMetadata(?ToolOptions $options): array
+    {
+        $service = new ToolLoopService(
+            self::createStub(LlmServiceManagerInterface::class),
+            new ToolRegistry([]),
+            new FakeToolAvailability([]),
+        );
+        /** @var array<string, mixed> $result */
+        $result = (new ReflectionClass($service))->getMethod('budgetMetadata')->invoke($service, $options);
+
+        return $result;
+    }
+
+    #[Test]
+    public function budgetMetadataForwardsBeUserUidAndPlannedCost(): void
+    {
+        // The billing contract: ToolOptions budget fields must reach the
+        // BudgetMiddleware metadata that chatWithConfiguration() receives.
+        $meta = $this->budgetMetadata(new ToolOptions(beUserUid: 42, plannedCost: 0.05));
+
+        self::assertSame(42, $meta[BudgetMiddleware::METADATA_BE_USER_UID] ?? null);
+        self::assertSame(0.05, $meta[BudgetMiddleware::METADATA_PLANNED_COST] ?? null);
+    }
+
+    #[Test]
+    public function budgetMetadataIsEmptyForNullOptions(): void
+    {
+        self::assertSame([], $this->budgetMetadata(null));
+    }
+
+    #[Test]
+    public function budgetMetadataOmitsUnsetFields(): void
+    {
+        // Only beUserUid set → the plannedCost key must be absent, not null/0.
+        $meta = $this->budgetMetadata(new ToolOptions(beUserUid: 7));
+
+        self::assertSame(7, $meta[BudgetMiddleware::METADATA_BE_USER_UID] ?? null);
+        self::assertArrayNotHasKey(BudgetMiddleware::METADATA_PLANNED_COST, $meta);
     }
 }

@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
+use Netresearch\NrLlm\Domain\Enum\SyncStatus;
+use Netresearch\NrLlm\Domain\Model\SkillSource;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillSourceRepository;
 use Netresearch\NrLlm\Service\Skill\GitHubClientInterface;
@@ -74,6 +76,52 @@ final class SkillSyncServiceOrphanEligibilityTest extends AbstractUnitTestCase
         $method = (new ReflectionClass($this->subject))->getMethod('orphanEligible');
 
         return (bool)$method->invoke($this->subject, $identifier, $reachedPrefixes, $listedPrefixes);
+    }
+
+    private function isLockActive(SkillSource $source, int $now): bool
+    {
+        $method = (new ReflectionClass($this->subject))->getMethod('isLockActive');
+
+        return (bool)$method->invoke($this->subject, $source, $now);
+    }
+
+    private function sourceWith(SyncStatus $status, int $lastSynced): SkillSource
+    {
+        $source = new SkillSource();
+        $source->setSyncStatus($status->value);
+        $source->setLastSynced($lastSynced);
+
+        return $source;
+    }
+
+    #[Test]
+    public function recentSyncingHeartbeatIsAnActiveLock(): void
+    {
+        // SYNCING with a heartbeat inside the stale window => a concurrent sync is running.
+        self::assertTrue($this->isLockActive($this->sourceWith(SyncStatus::SYNCING, 1_000), 1_000));
+        self::assertTrue($this->isLockActive($this->sourceWith(SyncStatus::SYNCING, 1_000), 1_500));
+        // Small clock skew / backwards NTP nudge (heartbeat slightly in the
+        // future) is still an active lock, not a permanent wedge.
+        self::assertTrue($this->isLockActive($this->sourceWith(SyncStatus::SYNCING, 1_000), 995));
+    }
+
+    #[Test]
+    public function staleOrNeverSetSyncingHeartbeatIsReclaimable(): void
+    {
+        // Heartbeat older than STALE_LOCK_SECONDS (600) => a crashed sync, reclaimable.
+        self::assertFalse($this->isLockActive($this->sourceWith(SyncStatus::SYNCING, 1_000), 1_601));
+        // Never-set heartbeat (0) => reclaimable regardless of "now".
+        self::assertFalse($this->isLockActive($this->sourceWith(SyncStatus::SYNCING, 0), 1_000));
+        // Heartbeat FAR in the future (large clock correction / corruption) is
+        // treated as stale, so it cannot lock the source indefinitely.
+        self::assertFalse($this->isLockActive($this->sourceWith(SyncStatus::SYNCING, 1_000), 300));
+    }
+
+    #[Test]
+    public function nonSyncingStatusIsNeverALock(): void
+    {
+        self::assertFalse($this->isLockActive($this->sourceWith(SyncStatus::OK, 1_000), 1_000));
+        self::assertFalse($this->isLockActive($this->sourceWith(SyncStatus::ERROR, 1_000), 1_000));
     }
 
     /**

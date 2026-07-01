@@ -46,11 +46,11 @@
                         <table class="table table-striped table-hover mb-0">
                             <thead>
                                 <tr>
-                                    <th style="width: 40px;"></th>
-                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.col.name" default="Name" /></th>
-                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.col.identifier" default="Identifier" /></th>
-                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.col.tags" default="Tags" /></th>
-                                    <th style="width: 120px;"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
+                                    <th scope="col" style="width: 40px;"><span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.status" default="Status" /></span></th>
+                                    <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.col.name" default="Name" /></th>
+                                    <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.col.identifier" default="Identifier" /></th>
+                                    <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:snippet.col.tags" default="Tags" /></th>
+                                    <th scope="col" style="width: 120px;"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:actions" default="Actions" /></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -61,11 +61,13 @@
                                                 <f:then>
                                                     <span class="badge text-bg-success" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.active')}">
                                                         <core:icon identifier="actions-check" size="small" />
+                                                        <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.active" /></span>
                                                     </span>
                                                 </f:then>
                                                 <f:else>
                                                     <span class="badge text-bg-secondary" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.inactive')}">
                                                         <core:icon identifier="actions-close" size="small" />
+                                                        <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.title.inactive" /></span>
                                                     </span>
                                                 </f:else>
                                             </f:if>
