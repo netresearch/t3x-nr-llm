@@ -31,6 +31,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 final class SkillSourceController extends ActionController
 {
     use RequiresBackendAdminTrait;
+    use DefensiveLocalizationTrait;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -90,7 +91,7 @@ final class SkillSourceController extends ActionController
         $uid = $this->intFromBody($request->getParsedBody(), 'source');
         $source = $this->sourceRepository->findByUid($uid);
         if ($source === null) {
-            return new JsonResponse(['success' => false, 'error' => 'Unknown source'], 404);
+            return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.unknownSource', 'Unknown source')], 404);
         }
         $result = $this->syncService->sync($source);
         return new JsonResponse([
@@ -131,10 +132,10 @@ final class SkillSourceController extends ActionController
     {
         $skill = $this->skillRepository->findByUid($this->intFromBody($body, 'skill'));
         if ($skill === null) {
-            return [null, new JsonResponse(['success' => false, 'error' => 'Unknown skill'], 404)];
+            return [null, new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.unknownSkill', 'Unknown skill')], 404)];
         }
         if ($skill->isOrphaned()) {
-            return [null, new JsonResponse(['success' => false, 'error' => 'Cannot enable an orphaned skill'], 422)];
+            return [null, new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.orphaned', 'Cannot enable an orphaned skill')], 422)];
         }
         return [$skill, null];
     }
@@ -147,7 +148,7 @@ final class SkillSourceController extends ActionController
         $body = $request->getParsedBody();
         $source = $this->sourceRepository->findByUid($this->intFromBody($body, 'source'));
         if ($source === null) {
-            return new JsonResponse(['success' => false, 'error' => 'Unknown source'], 404);
+            return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.unknownSource', 'Unknown source')], 404);
         }
         $token = $this->stringFromBody($body, 'token');
         $uuid = $source->getGithubToken() !== '' ? $source->getGithubToken() : StringUtility::getUniqueId('ghtoken_');

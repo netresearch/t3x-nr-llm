@@ -48,6 +48,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             $this->llmServiceManager,
             $this->configurationRepository,
             $this->modelRepository,
+            $this->createLoggerMock(),
         );
     }
 
@@ -1293,6 +1294,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
                 $llmServiceManager,
                 $this->configurationRepository,
                 $this->modelRepository,
+                $this->createLoggerMock(),
             );
 
             $result = $subject->generateTask('test ' . $category, $config);
@@ -1328,6 +1330,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
                 $llmServiceManager,
                 $this->configurationRepository,
                 $this->modelRepository,
+                $this->createLoggerMock(),
             );
 
             $result = $subject->generateTask('test ' . $format, $config);

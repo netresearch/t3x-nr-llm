@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\SetupWizard;
 
+use JsonException;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
@@ -204,6 +205,31 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     }
 
     /**
+     * Decode a provider's models-listing JSON body. On malformed JSON, log a
+     * warning with the provider and a short body sample (so a broken upstream
+     * response is distinguishable from an empty one) and return null — callers
+     * then keep their existing fallback. Never includes the API key.
+     *
+     * @return array<int|string, mixed>|null
+     */
+    private function decodeModelListBody(string $adapterType, string $body): ?array
+    {
+        try {
+            $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            $this->logger->warning('LLM model discovery received a malformed JSON response', [
+                'provider' => $adapterType,
+                'message' => $e->getMessage(),
+                'sample' => substr($body, 0, 200),
+            ]);
+
+            return null;
+        }
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
      * Discover OpenAI models via API.
      *
      * @return array<DiscoveredModel>
@@ -223,7 +249,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 return $this->asFallback($this->getOpenAIFallbackModels());
             }
 
-            $data = json_decode($response->getBody()->getContents(), true);
+            $data = $this->decodeModelListBody('openai', $response->getBody()->getContents());
             $dataList = is_array($data) && isset($data['data']) && is_array($data['data'])
                 ? $data['data']
                 : [];
@@ -567,7 +593,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 return $this->asFallback($this->getAnthropicFallbackModels());
             }
 
-            $data = json_decode($response->getBody()->getContents(), true);
+            $data = $this->decodeModelListBody('anthropic', $response->getBody()->getContents());
             $modelList = is_array($data) && isset($data['data']) && is_array($data['data'])
                 ? $data['data']
                 : [];
@@ -755,7 +781,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 return $this->asFallback($this->getGeminiFallbackModels());
             }
 
-            $data = json_decode($response->getBody()->getContents(), true);
+            $data = $this->decodeModelListBody('gemini', $response->getBody()->getContents());
             $modelList = is_array($data) && isset($data['models']) && is_array($data['models'])
                 ? $data['models']
                 : [];

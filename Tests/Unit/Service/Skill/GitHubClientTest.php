@@ -19,6 +19,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
 use TYPO3\CMS\Core\Http\Response;
@@ -36,6 +37,7 @@ final class GitHubClientTest extends TestCase
         $client = new GitHubClient(
             self::createStub(VaultServiceInterface::class),
             new RequestFactory(new GuzzleClientFactory()),
+            new NullLogger(),
         );
         $stub = new class ($handler) implements ClientInterface {
             /** @var callable(RequestInterface): ResponseInterface */
@@ -87,6 +89,16 @@ final class GitHubClientTest extends TestCase
             ],
         ]));
         self::assertSame(['SKILL.md', 'skills/a/SKILL.md'], $client->listTree('o', 'r', 'sha', null));
+    }
+
+    #[Test]
+    public function listTreeThrowsOnMalformedTreeInsteadOfReportingEmpty(): void
+    {
+        // A 200 with a missing/non-array `tree` must NOT return [] — that would
+        // make the sync orphan (delete) every previously-synced skill.
+        $client = $this->clientReturning(fn(RequestInterface $r) => $this->json(['message' => 'ok but no tree']));
+        $this->expectException(GitHubApiException::class);
+        $client->listTree('o', 'r', 'sha', null);
     }
 
     #[Test]

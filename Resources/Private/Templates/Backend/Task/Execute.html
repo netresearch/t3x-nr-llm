@@ -11,18 +11,18 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1>
                 <core:icon identifier="actions-play" size="medium" />
-                Execute: {task.name}
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.title" default="Execute" />: {task.name}
             </h1>
             <div class="d-flex gap-2">
                 <f:if condition="{taskEditUrl}">
                     <a href="{taskEditUrl}" class="btn btn-secondary btn-sm">
                         <core:icon identifier="actions-open" size="small" />
-                        Edit Task
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.editTask" default="Edit Task" />
                     </a>
                 </f:if>
                 <f:link.action action="list" class="btn btn-secondary btn-sm">
                     <core:icon identifier="actions-view-go-back" size="small" />
-                    Back to List
+                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.backToList" default="Back to List" />
                 </f:link.action>
             </div>
         </div>
@@ -30,7 +30,7 @@
         <f:if condition="!{task.isActive}">
             <div class="alert alert-warning mb-4">
                 <core:icon identifier="actions-exclamation-triangle" size="small" />
-                <strong>This task is inactive.</strong> It will not appear in the CKEditor cowriter dialog or API. You can still test it here.
+                <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.inactive.title" default="This task is inactive." /></strong> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.inactive.message" default="It will not appear in the CKEditor cowriter dialog or API. You can still test it here." />
             </div>
         </f:if>
 
@@ -41,28 +41,28 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h2 class="card-title mb-0">
                     <core:icon identifier="actions-system-extension-configure" size="small" />
-                    Configuration &amp; Model
+                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.title" default="Configuration &amp; Model" />
                     <f:if condition="{isUsingDefaultConfig}">
-                        <span class="badge text-bg-warning ms-2">Using system default</span>
+                        <span class="badge text-bg-warning ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.usingDefault" default="Using system default" /></span>
                     </f:if>
                 </h2>
                 <div class="d-flex gap-1">
                     <f:if condition="{providerEditUrl}">
-                        <a href="{providerEditUrl}" class="btn btn-secondary btn-sm" title="Edit Provider">
+                        <a href="{providerEditUrl}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.editProvider', default: 'Edit Provider')}">
                             <core:icon identifier="actions-open" size="small" />
-                            Provider
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.provider" default="Provider" />
                         </a>
                     </f:if>
                     <f:if condition="{modelEditUrl}">
-                        <a href="{modelEditUrl}" class="btn btn-secondary btn-sm" title="Edit Model">
+                        <a href="{modelEditUrl}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.editModel', default: 'Edit Model')}">
                             <core:icon identifier="actions-open" size="small" />
-                            Model
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.model" default="Model" />
                         </a>
                     </f:if>
                     <f:if condition="{configEditUrl}">
-                        <a href="{configEditUrl}" class="btn btn-secondary btn-sm" title="Edit Configuration">
+                        <a href="{configEditUrl}" class="btn btn-secondary btn-sm" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.editConfiguration', default: 'Edit Configuration')}">
                             <core:icon identifier="actions-open" size="small" />
-                            Configuration
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.configuration" default="Configuration" />
                         </a>
                     </f:if>
                 </div>
@@ -73,7 +73,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <dl class="row mb-0">
-                                    <dt class="col-sm-5">Configuration</dt>
+                                    <dt class="col-sm-5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.configuration" default="Configuration" /></dt>
                                     <dd class="col-sm-7">
                                         <strong>{effectiveConfig.name}</strong>
                                         <f:if condition="{effectiveConfig.identifier}">
@@ -82,7 +82,7 @@
                                     </dd>
 
                                     <f:if condition="{effectiveConfig.llmModel}">
-                                        <dt class="col-sm-5">Provider</dt>
+                                        <dt class="col-sm-5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.provider" default="Provider" /></dt>
                                         <dd class="col-sm-7">
                                             <f:if condition="{effectiveConfig.llmModel.provider}">
                                                 <f:then>
@@ -93,35 +93,35 @@
                                             </f:if>
                                         </dd>
 
-                                        <dt class="col-sm-5">Model</dt>
+                                        <dt class="col-sm-5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.model" default="Model" /></dt>
                                         <dd class="col-sm-7">
                                             <strong>{effectiveConfig.llmModel.name}</strong>
                                             <br /><code class="small">{effectiveConfig.llmModel.modelId}</code>
                                         </dd>
                                     </f:if>
                                     <f:if condition="!{effectiveConfig.llmModel}">
-                                        <dt class="col-sm-5">Model</dt>
+                                        <dt class="col-sm-5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.model" default="Model" /></dt>
                                         <dd class="col-sm-7">
-                                            <span class="badge text-bg-danger">No model assigned</span>
+                                            <span class="badge text-bg-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.modelNotAssigned" default="No model assigned" /></span>
                                         </dd>
                                     </f:if>
                                 </dl>
                             </div>
                             <div class="col-md-6">
                                 <dl class="row mb-0">
-                                    <dt class="col-sm-5">Temperature</dt>
+                                    <dt class="col-sm-5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.temperature" default="Temperature" /></dt>
                                     <dd class="col-sm-7">{effectiveConfig.temperature}</dd>
 
-                                    <dt class="col-sm-5">Max Tokens</dt>
+                                    <dt class="col-sm-5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.maxTokens" default="Max Tokens" /></dt>
                                     <dd class="col-sm-7">{effectiveConfig.maxTokens}</dd>
 
-                                    <dt class="col-sm-5">Top P</dt>
+                                    <dt class="col-sm-5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.topP" default="Top P" /></dt>
                                     <dd class="col-sm-7">{effectiveConfig.topP}</dd>
 
-                                    <dt class="col-sm-5">Freq. Penalty</dt>
+                                    <dt class="col-sm-5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.freqPenalty" default="Freq. Penalty" /></dt>
                                     <dd class="col-sm-7">{effectiveConfig.frequencyPenalty}</dd>
 
-                                    <dt class="col-sm-5">Presence Penalty</dt>
+                                    <dt class="col-sm-5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.presencePenalty" default="Presence Penalty" /></dt>
                                     <dd class="col-sm-7">{effectiveConfig.presencePenalty}</dd>
                                 </dl>
                             </div>
@@ -130,7 +130,7 @@
                         <f:if condition="{effectiveConfig.systemPrompt}">
                             <hr class="my-3" />
                             <details>
-                                <summary class="mb-2"><strong>System Prompt</strong></summary>
+                                <summary class="mb-2"><strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:field.systemPrompt" default="System Prompt" /></strong></summary>
                                 <pre class="bg-body-tertiary p-3 rounded mb-0" style="white-space: pre-wrap; font-size: 0.85em; max-height: 200px; overflow-y: auto;">{effectiveConfig.systemPrompt}</pre>
                             </details>
                         </f:if>
@@ -138,8 +138,7 @@
                     <f:else>
                         <div class="alert alert-warning mb-0">
                             <core:icon identifier="actions-exclamation-triangle" size="small" />
-                            <strong>No configuration available.</strong> This task has no configuration assigned and no system default is set.
-                            Execution will use provider defaults.
+                            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.noConfig.title" default="No configuration available." /></strong> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.noConfig.message" default="This task has no configuration assigned and no system default is set. Execution will use provider defaults." />
                         </div>
                     </f:else>
                 </f:if>
@@ -152,7 +151,7 @@
                     <div class="card-header">
                         <h2 class="card-title mb-0">
                             <core:icon identifier="actions-upload" size="small" />
-                            Input
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.title" default="Input" />
                         </h2>
                     </div>
                     <div class="card-body">
@@ -169,7 +168,7 @@
                                                 data-bs-toggle="collapse" data-bs-target="#tablePickerCollapse"
                                                 aria-expanded="false" aria-controls="tablePickerCollapse">
                                             <core:icon identifier="actions-database" size="small" />
-                                            Load data from database table
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.loadFromDb" default="Load data from database table" />
                                             <span class="ms-1"><core:icon identifier="actions-chevron-down" size="small" /></span>
                                         </button>
                                     </div>
@@ -177,22 +176,22 @@
                                         <div class="card-body">
                                             <div class="row g-2">
                                                 <div class="col-md-5">
-                                                    <label class="form-label small">Select Table</label>
+                                                    <label class="form-label small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.selectTable" default="Select Table" /></label>
                                                     <select class="form-select form-select-sm" id="tableSelect">
-                                                        <option value="">-- Load tables --</option>
+                                                        <option value=""><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.loadTables" default="-- Load tables --" /></option>
                                                     </select>
                                                 </div>
                                                 <div class="col-md-5">
-                                                    <label class="form-label small">Select Records</label>
+                                                    <label class="form-label small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.selectRecords" default="Select Records" /></label>
                                                     <select class="form-select form-select-sm" id="recordSelect" multiple size="4" disabled>
-                                                        <option value="">Select a table first</option>
+                                                        <option value=""><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.selectTableFirst" default="Select a table first" /></option>
                                                     </select>
-                                                    <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
+                                                    <small class="text-muted"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.multiSelectHint" default="Hold Ctrl/Cmd to select multiple" /></small>
                                                 </div>
                                                 <div class="col-md-2 d-flex align-items-end">
                                                     <button type="button" class="btn btn-primary btn-sm w-100" id="loadRecordsBtn" disabled>
                                                         <core:icon identifier="actions-download" size="small" />
-                                                        Load
+                                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.load" default="Load" />
                                                     </button>
                                                 </div>
                                             </div>
@@ -205,36 +204,36 @@
                         <div class="mb-3">
                             <label for="taskInput" class="form-label">
                                 <f:if condition="{requiresManualInput}">
-                                    <f:then>Enter your input:</f:then>
+                                    <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.enterInput" default="Enter your input:" /></f:then>
                                     <f:else>
-                                        Auto-fetched data ({task.inputType}):
-                                        <span class="badge text-bg-info">Auto-populated</span>
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.autoFetched" default="Auto-fetched data" /> ({task.inputType}):
+                                        <span class="badge text-bg-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.autoPopulated" default="Auto-populated" /></span>
                                     </f:else>
                                 </f:if>
                             </label>
                             <textarea class="form-control font-monospace" id="taskInput" rows="15"
-                                      placeholder="Enter the data to analyze...">{inputData}</textarea>
+                                      placeholder="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.placeholder', default: 'Enter the data to analyze...')}">{inputData}</textarea>
 
                             <!-- Empty data feedback for auto-fetch tasks -->
                             <f:if condition="!{requiresManualInput}">
                                 <div id="emptyDataWarning" class="alert alert-warning mt-2 {f:if(condition: inputData, then: 'd-none')}">
                                     <core:icon identifier="actions-exclamation-triangle" size="small" />
-                                    <strong>No data available.</strong>
+                                    <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.noData" default="No data available." /></strong>
                                     <f:switch expression="{task.inputType}">
                                         <f:case value="syslog">
-                                            The system log (sys_log) contains no matching entries. This is normal for a fresh installation.
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.noData.syslog" default="The system log (sys_log) contains no matching entries. This is normal for a fresh installation." />
                                         </f:case>
                                         <f:case value="deprecation_log">
-                                            No deprecation log found. The file <code>var/log/typo3_deprecations.log</code> may not exist yet.
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.noData.deprecationLog" default="No deprecation log found. The file var/log/typo3_deprecations.log may not exist yet." />
                                         </f:case>
                                         <f:case value="table">
-                                            The configured table is empty or the table/field configuration is missing.
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.noData.table" default="The configured table is empty or the table/field configuration is missing." />
                                         </f:case>
                                         <f:defaultCase>
-                                            No data could be fetched automatically.
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.noData.default" default="No data could be fetched automatically." />
                                         </f:defaultCase>
                                     </f:switch>
-                                    You can still enter data manually above.
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.noData.manual" default="You can still enter data manually above." />
                                 </div>
                             </f:if>
                         </div>
@@ -243,17 +242,17 @@
                             <button type="button" class="btn btn-success btn-lg" id="executeBtn">
                                 <span class="btn-content">
                                     <core:icon identifier="actions-play" size="small" />
-                                    Execute Task
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.execute" default="Execute Task" />
                                 </span>
                                 <span class="btn-loading d-none">
                                     <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                                    Executing...
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.executing" default="Executing..." />
                                 </span>
                             </button>
                             <f:if condition="!{requiresManualInput}">
                                 <button type="button" class="btn btn-secondary" id="refreshInputBtn">
                                     <core:icon identifier="actions-refresh" size="small" />
-                                    Refresh Data
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.refreshData" default="Refresh Data" />
                                 </button>
                             </f:if>
                         </div>
@@ -264,13 +263,13 @@
                     <div class="card-header">
                         <h2 class="card-title mb-0">
                             <core:icon identifier="actions-code" size="small" />
-                            Prompt Template
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.promptTemplate.title" default="Prompt Template" />
                         </h2>
                     </div>
                     <div class="card-body">
                         <pre class="bg-light p-3 rounded" style="max-height: 200px; overflow-y: auto;"><code>{task.promptTemplate}</code></pre>
                         <small class="text-muted">
-                            <code>{"{{input}}"}</code> will be replaced with the input above.
+                            <code>{"{{input}}"}</code> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.promptTemplate.hint" default="will be replaced with the input above." />
                         </small>
                     </div>
                 </div>
@@ -281,28 +280,28 @@
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h2 class="card-title mb-0">
                             <core:icon identifier="actions-download" size="small" />
-                            Output
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.title" default="Output" />
                             <span class="badge text-bg-secondary ms-2">{task.outputFormat}</span>
                         </h2>
                         <div id="outputStatus" class="d-none">
                             <span class="spinner-border spinner-border-sm text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
+                                <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.processing" default="Processing..." /></span>
                             </span>
-                            Processing...
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.processing" default="Processing..." />
                         </div>
                     </div>
                     <div class="card-body">
                         <div id="outputPlaceholder" class="text-center text-muted py-5">
                             <core:icon identifier="actions-play" size="large" />
-                            <p class="mt-3">Click "Execute Task" to run this task</p>
+                            <p class="mt-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.placeholder" default="Click &quot;Execute Task&quot; to run this task" /></p>
                         </div>
 
                         <div id="outputLoading" class="d-none text-center py-5">
                             <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
-                                <span class="visually-hidden">Processing...</span>
+                                <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.processing" default="Processing..." /></span>
                             </div>
-                            <h4 class="text-primary">Processing request...</h4>
-                            <p class="text-muted mb-2">Sending to LLM and waiting for response</p>
+                            <h4 class="text-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.loading.title" default="Processing request..." /></h4>
+                            <p class="text-muted mb-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.loading.message" default="Sending to LLM and waiting for response" /></p>
                             <div class="progress mx-auto" style="width: 200px; height: 4px;">
                                 <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 100%"></div>
                             </div>
@@ -313,31 +312,31 @@
 
                         <div id="outputError" class="d-none">
                             <div class="alert alert-danger">
-                                <strong>Error:</strong>
+                                <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.error" default="Error:" /></strong>
                                 <span id="errorMessage"></span>
                             </div>
                         </div>
 
                         <div id="outputResult" class="d-none">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <div class="btn-group btn-group-sm" role="group" aria-label="Output format" id="outputFormatToggle">
-                                    <button type="button" class="btn btn-outline-secondary active" data-format="plain" title="Plain text">
+                                <div class="btn-group btn-group-sm" role="group" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.formatAria', default: 'Output format')}" id="outputFormatToggle">
+                                    <button type="button" class="btn btn-outline-secondary active" data-format="plain" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.plainTitle', default: 'Plain text')}">
                                         <core:icon identifier="actions-code" size="small" />
-                                        Plain
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.plain" default="Plain" />
                                     </button>
-                                    <button type="button" class="btn btn-outline-secondary" data-format="html" title="Rendered HTML">
+                                    <button type="button" class="btn btn-outline-secondary" data-format="html" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.htmlTitle', default: 'Rendered HTML')}">
                                         <core:icon identifier="actions-template-new" size="small" />
-                                        HTML
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.html" default="HTML" />
                                     </button>
-                                    <button type="button" class="btn btn-outline-secondary" data-format="markdown" title="Rendered Markdown">
+                                    <button type="button" class="btn btn-outline-secondary" data-format="markdown" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.markdownTitle', default: 'Rendered Markdown')}">
                                         <core:icon identifier="actions-file" size="small" />
-                                        Markdown
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.markdown" default="Markdown" />
                                     </button>
                                 </div>
                                 <small class="text-muted">
-                                    Model: <span id="outputModel">-</span>
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.modelLabel" default="Model:" /> <span id="outputModel">-</span>
                                     &middot;
-                                    Tokens: <span id="outputTokens">-</span>
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.tokensLabel" default="Tokens:" /> <span id="outputTokens">-</span>
                                 </small>
                             </div>
                             <div id="outputContent" class="bg-light p-3 rounded" style="max-height: 500px; overflow-y: auto;"></div>
@@ -345,7 +344,7 @@
                             <div class="mt-3">
                                 <button type="button" class="btn btn-sm btn-secondary" id="copyOutputBtn">
                                     <core:icon identifier="actions-clipboard" size="small" />
-                                    Copy to Clipboard
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.copy" default="Copy to Clipboard" />
                                 </button>
                             </div>
                         </div>

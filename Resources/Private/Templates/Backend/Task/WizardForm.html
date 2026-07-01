@@ -8,12 +8,12 @@
     <div>
         <h1>
             <core:icon identifier="actions-bolt" size="medium" />
-            Create Task with AI
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.title" default="Create Task with AI" />
         </h1>
 
         <f:be.infobox state="-2">
-            <p>Describe the action this task should perform. The AI will generate a complete task setup including prompt template, a dedicated configuration with optimized parameters, and model recommendation.</p>
-            <p class="mb-0"><strong>Examples:</strong> "Summarize long articles into 3 bullet points" or "Check text for grammar and spelling errors and suggest corrections"</p>
+            <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.intro" default="Describe the action this task should perform. The AI will generate a complete task setup including prompt template, a dedicated configuration with optimized parameters, and model recommendation." /></p>
+            <p class="mb-0"><strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.examples" default="Examples:" /></strong> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.examples" default="&quot;Summarize long articles into 3 bullet points&quot; or &quot;Check text for grammar and spelling errors and suggest corrections&quot;" /></p>
         </f:be.infobox>
 
         <div class="card">
@@ -22,16 +22,16 @@
                     <f:then>
                         <f:form action="wizardGenerateChain" method="post" id="wizard-form">
                             <div class="mb-3">
-                                <label for="wizard-description" class="form-label">What should this task do?</label>
+                                <label for="wizard-description" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.label" default="What should this task do?" /></label>
                                 <f:form.textarea id="wizard-description" name="description" rows="5"
                                     class="form-control"
                                     additionalAttributes="{maxlength: '2000', required: 'required'}"
-                                    placeholder="Describe what the task should do with the input data..." />
-                                <div class="invalid-feedback">Please enter a description of what this task should do.</div>
+                                    placeholder="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.placeholder', default: 'Describe what the task should do with the input data...')}" />
+                                <div class="invalid-feedback"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.invalidFeedback" default="Please enter a description of what this task should do." /></div>
                             </div>
 
                             <div class="mb-3">
-                                <label for="wizard-config" class="form-label">LLM Configuration</label>
+                                <label for="wizard-config" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.configLabel" default="LLM Configuration" /></label>
                                 <f:form.select id="wizard-config" name="configurationUid"
                                     class="form-select"
                                     options="{availableConfigs}"
@@ -43,14 +43,14 @@
                                 <div class="form-text">
                                     <f:if condition="{resolvedConfig.llmModel}">
                                         <f:then>
-                                            Currently using: <strong>{resolvedConfig.name}</strong>
-                                            via <strong>{resolvedConfig.llmModel.name}</strong>
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.currentlyUsing" default="Currently using:" /> <strong>{resolvedConfig.name}</strong>
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.preview.via" default="via" /> <strong>{resolvedConfig.llmModel.name}</strong>
                                             <f:if condition="{resolvedConfig.llmModel.provider}">
                                                 ({resolvedConfig.llmModel.provider.name})
                                             </f:if>
                                         </f:then>
                                         <f:else>
-                                            Currently using: <strong>{resolvedConfig.name}</strong>
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.currentlyUsing" default="Currently using:" /> <strong>{resolvedConfig.name}</strong>
                                         </f:else>
                                     </f:if>
                                 </div>
@@ -60,15 +60,15 @@
                                 <button type="submit" class="btn btn-primary" id="wizard-submit-btn">
                                     <span class="btn-text">
                                         <core:icon identifier="actions-bolt" size="small" />
-                                        Generate with AI
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.generateWithAi" default="Generate with AI" />
                                     </span>
                                     <span class="btn-loading d-none">
                                         <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                                        Generating... this may take a moment
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.generating" default="Generating... this may take a moment" />
                                     </span>
                                 </button>
                                 <f:link.action action="list" class="btn btn-secondary">
-                                    Cancel
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.cancel" default="Cancel" />
                                 </f:link.action>
                             </div>
                         </f:form>
@@ -76,9 +76,9 @@
                     <f:else>
                         <div class="alert alert-warning mb-0">
                             <core:icon identifier="actions-exclamation-triangle" size="small" />
-                            <strong>No LLM configuration available.</strong>
-                            You need at least one active configuration with a model assigned before you can use the AI wizard.
-                            <a href="{f:uri.action(action: 'list', controller: 'Configuration')}" class="alert-link">Go to Configurations</a>
+                            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.noConfig.title" default="No LLM configuration available." /></strong>
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.noConfig.hint" default="You need at least one active configuration with a model assigned before you can use the AI wizard." />
+                            <a href="{f:uri.action(action: 'list', controller: 'Configuration')}" class="alert-link"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.goToConfigurations" default="Go to Configurations" /></a>
                         </div>
                     </f:else>
                 </f:if>
@@ -90,10 +90,10 @@
             <div class="card mt-4">
                 <div class="card-body text-center py-5">
                     <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
-                        <span class="visually-hidden">Generating...</span>
+                        <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.generatingShort" default="Generating..." /></span>
                     </div>
-                    <h4 class="text-primary">Generating task...</h4>
-                    <p class="text-muted mb-2">The AI is creating your task. This usually takes 10-30 seconds.</p>
+                    <h4 class="text-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.loading.title" default="Generating task..." /></h4>
+                    <p class="text-muted mb-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.loading.message" default="The AI is creating your task. This usually takes 10-30 seconds." /></p>
                     <div class="progress mx-auto" style="width: 200px; height: 4px;">
                         <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 100%"></div>
                     </div>

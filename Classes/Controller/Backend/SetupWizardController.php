@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use JsonException;
 use Netresearch\NrLlm\Controller\Backend\Response\DiscoveredModelsResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\GeneratedConfigurationsResponse;
@@ -21,6 +22,7 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
@@ -232,7 +234,11 @@ final class SetupWizardController extends ActionController
         if (($deny = $this->denyNonAdmin()) !== null) {
             return $deny;
         }
-        $body = $this->parseRequestBody($request);
+        try {
+            $body = $this->parseRequestBody($request);
+        } catch (InvalidArgumentException $e) {
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 400);
+        }
         $endpoint = $this->extractStringFromBody($body, 'endpoint');
         $apiKey = $this->extractStringFromBody($body, 'apiKey');
         $adapterType = $this->extractStringFromBody($body, 'adapterType', 'openai');
@@ -273,7 +279,11 @@ final class SetupWizardController extends ActionController
         if (($deny = $this->denyNonAdmin()) !== null) {
             return $deny;
         }
-        $body = $this->parseRequestBody($request);
+        try {
+            $body = $this->parseRequestBody($request);
+        } catch (InvalidArgumentException $e) {
+            return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 400);
+        }
         $providerData = $this->extractArrayFromBody($body, 'provider');
         $modelsData = $this->extractArrayFromBody($body, 'models');
         $configurationsData = $this->extractArrayFromBody($body, 'configurations');
@@ -533,6 +543,8 @@ final class SetupWizardController extends ActionController
     /**
      * Parse request body, handling both JSON and form data.
      *
+     * @throws InvalidArgumentException when the request declares a JSON body that is not valid JSON
+     *
      * @return array<string, mixed>|null
      */
     private function parseRequestBody(ServerRequestInterface $request): ?array
@@ -549,7 +561,14 @@ final class SetupWizardController extends ActionController
         if (str_contains($contentType, 'application/json')) {
             $contents = $request->getBody()->getContents();
             if ($contents !== '') {
-                $decoded = json_decode($contents, true);
+                // A malformed JSON body is surfaced as a clear error instead of being
+                // silently treated as empty, so the AJAX client sees the real cause
+                // rather than a generic "fields required" message.
+                try {
+                    $decoded = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+                } catch (JsonException $e) {
+                    throw new InvalidArgumentException('Invalid JSON request body: ' . $e->getMessage(), 1751280101, $e);
+                }
                 if (is_array($decoded)) {
                     /** @var array<string, mixed> $decoded */
                     return $decoded;

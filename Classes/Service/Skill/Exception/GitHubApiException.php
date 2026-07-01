@@ -33,6 +33,16 @@ final class GitHubApiException extends RuntimeException
         return new self(sprintf('GitHub API request to "%s" failed with status %d', $url, $status), 1719500101, false, $status);
     }
 
+    /**
+     * A 2xx response whose body is not the expected JSON (malformed JSON or a
+     * non-object payload). Distinct from {@see forStatus()} so a broken/garbled
+     * upstream response is not mistaken for a transport status (e.g. a 404).
+     */
+    public static function forMalformedResponse(string $url): self
+    {
+        return new self(sprintf('GitHub API response from "%s" was not valid JSON', $url), 1751280201, false, 0);
+    }
+
     public static function forRateLimit(int $resetEpoch): self
     {
         return new self(sprintf('GitHub API rate limit exceeded; resets at %d', $resetEpoch), 1719500102, true, 429);

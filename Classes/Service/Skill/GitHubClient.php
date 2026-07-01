@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Skill;
 
+use JsonException;
 use Netresearch\NrLlm\Service\Skill\Exception\GitHubApiException;
 use Netresearch\NrLlm\Service\Skill\Exception\HostNotAllowedException;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -16,6 +17,7 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Minimal GitHub fetch client for skill ingestion.
@@ -35,6 +37,7 @@ final class GitHubClient implements GitHubClientInterface
     public function __construct(
         private readonly VaultServiceInterface $vault,
         private readonly RequestFactoryInterface $requestFactory,
+        private readonly LoggerInterface $logger,
     ) {}
 
     public function setHttpClient(ClientInterface $client): void
@@ -62,8 +65,15 @@ final class GitHubClient implements GitHubClientInterface
     {
         $url = sprintf('https://api.github.com/repos/%s/%s/git/trees/%s?recursive=1', rawurlencode($owner), rawurlencode($repo), rawurlencode($sha));
         $data = $this->getJson($url, $tokenUuid);
+        // A 200 response with a missing/non-array `tree` is malformed, not an
+        // empty repo: defaulting to [] here would make the sync conclude every
+        // skill was deleted upstream and orphan (delete) them all. Fail loudly.
+        if (!isset($data['tree']) || !is_array($data['tree'])) {
+            throw GitHubApiException::forMalformedResponse($url);
+        }
+        $tree = $data['tree'];
         $paths = [];
-        foreach ((array)($data['tree'] ?? []) as $node) {
+        foreach ($tree as $node) {
             if (is_array($node) && ($node['type'] ?? '') === 'blob' && isset($node['path']) && is_string($node['path'])) {
                 $paths[] = $node['path'];
             }
@@ -88,9 +98,28 @@ final class GitHubClient implements GitHubClientInterface
      */
     private function getJson(string $url, ?string $tokenUuid): array
     {
-        $decoded = json_decode($this->getBody($url, $tokenUuid), true);
+        $body = $this->getBody($url, $tokenUuid);
+        // A malformed/garbled JSON body is a distinct failure from a transport status
+        // (e.g. a 404): surface it as such with a body sample logged, instead of the
+        // misleading "failed with status 0" a generic forStatus() would produce.
+        try {
+            $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            $this->logger->warning('GitHub API response was not valid JSON', [
+                'url' => $url,
+                'message' => $e->getMessage(),
+                'sample' => substr($body, 0, 200),
+            ]);
+
+            throw GitHubApiException::forMalformedResponse($url);
+        }
         if (!is_array($decoded)) {
-            throw GitHubApiException::forStatus($url, 0);
+            $this->logger->warning('GitHub API response was not a JSON object', [
+                'url' => $url,
+                'sample' => substr($body, 0, 200),
+            ]);
+
+            throw GitHubApiException::forMalformedResponse($url);
         }
         /** @var array<string,mixed> $decoded */
         return $decoded;

@@ -9,11 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
+use JsonException;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
@@ -37,6 +39,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         private LlmServiceManagerInterface $llmServiceManager,
         private LlmConfigurationRepository $configurationRepository,
         private ModelRepository $modelRepository,
+        private LoggerInterface $logger,
     ) {}
 
     /**
@@ -362,30 +365,53 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     private function parseJsonResponse(string $content): ?array
     {
         $result = null;
+        $lastError = null;
 
         // Direct parse
-        $decoded = json_decode($content, true);
-        if (is_array($decoded)) {
-            /** @var array<string, mixed> $decoded */
-            $result = $decoded;
+        try {
+            $decoded = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+            if (is_array($decoded)) {
+                /** @var array<string, mixed> $decoded */
+                $result = $decoded;
+            }
+        } catch (JsonException $e) {
+            $lastError = $e;
         }
 
         // Extract from markdown code block
         if ($result === null && preg_match('/```(?:json)?\s*([\s\S]*?)```/', $content, $matches)) {
-            $decoded = json_decode(trim($matches[1]), true);
-            if (is_array($decoded)) {
-                /** @var array<string, mixed> $decoded */
-                $result = $decoded;
+            try {
+                $decoded = json_decode(trim($matches[1]), true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($decoded)) {
+                    /** @var array<string, mixed> $decoded */
+                    $result = $decoded;
+                }
+            } catch (JsonException $e) {
+                $lastError = $e;
             }
         }
 
         // Find JSON object in text
         if ($result === null && preg_match('/(\{[\s\S]*\})/', $content, $matches)) {
-            $decoded = json_decode($matches[1], true);
-            if (is_array($decoded)) {
-                /** @var array<string, mixed> $decoded */
-                $result = $decoded;
+            try {
+                $decoded = json_decode($matches[1], true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($decoded)) {
+                    /** @var array<string, mixed> $decoded */
+                    $result = $decoded;
+                }
+            } catch (JsonException $e) {
+                $lastError = $e;
             }
+        }
+
+        // Every strategy failed to yield a usable object: log the last parse error with a
+        // content sample so a malformed LLM response is distinguishable from an empty one.
+        // The caller still falls back to its defaults (behaviour unchanged on the happy path).
+        if ($result === null && $lastError !== null) {
+            $this->logger->warning('Wizard could not parse LLM JSON response', [
+                'exception' => $lastError->getMessage(),
+                'sample'    => substr($content, 0, 200),
+            ]);
         }
 
         return $result;

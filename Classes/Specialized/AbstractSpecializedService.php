@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized;
 
+use JsonException;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -659,10 +660,29 @@ abstract class AbstractSpecializedService
      * "..."}}` — used by every OpenAI-family service (DALL-E,
      * Whisper, TTS). Subclasses with a different shape (FAL uses
      * `detail`/`message`; DeepL uses `message`) override.
+     *
+     * A non-JSON error body (e.g. an HTML gateway/proxy error page) is logged
+     * with a short sample so it is distinguishable from an empty response, and
+     * surfaced as a clearer fallback than the generic unknown-error label.
      */
     protected function decodeErrorMessage(string $responseBody): string
     {
-        $error = $responseBody === '' ? null : json_decode($responseBody, true);
+        if ($responseBody === '') {
+            return $this->unknownErrorLabel();
+        }
+
+        try {
+            $error = json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            $this->logger->warning(sprintf('%s error response is not JSON', $this->getProviderLabel()), [
+                'provider' => $this->getServiceProvider(),
+                'message'  => $e->getMessage(),
+                'sample'   => substr($responseBody, 0, 200),
+            ]);
+
+            return sprintf('%s error response is not JSON', $this->getProviderLabel());
+        }
+
         if (is_array($error)) {
             $errorBranch = $error['error'] ?? null;
             if (is_array($errorBranch)) {

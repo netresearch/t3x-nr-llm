@@ -54,6 +54,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     use RequiresBackendAdminTrait;
     use LoggerAwareTrait;
     use ErrorMessageSanitizerTrait;
+    use DefensiveLocalizationTrait;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -108,7 +109,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         $config = $this->configurationRepository->findByUid($configUid);
         if ($config === null || $prompt === '') {
-            return new JsonResponse(['success' => false, 'error' => 'Invalid configuration or prompt'], 400);
+            return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.invalidInput', 'Invalid configuration or prompt')], 400);
         }
 
         $options = new ToolOptions(beUserUid: $this->currentBackendUserUid());
@@ -173,7 +174,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         $body     = $request->getParsedBody();
         $toolName = $this->stringFromBody($body, 'tool');
         if ($toolName === '' || $this->toolRegistry->get($toolName) === null) {
-            return new JsonResponse(['success' => false, 'error' => 'Unknown tool'], 404);
+            return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.unknownTool', 'Unknown tool')], 404);
         }
 
         $enabled = $this->boolFromBody($body, 'enabled');
