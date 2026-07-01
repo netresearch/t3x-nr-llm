@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\HiddenRestriction;
 use TYPO3\CMS\Extbase\Persistence\QueryInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 use TYPO3\CMS\Extbase\Persistence\Repository;
@@ -270,6 +271,11 @@ class ModelRepository extends Repository
         // Aggregate in a single grouped query on the provider FK rather than
         // hydrating every active model and lazy-loading its Provider (N+1).
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_model');
+        // Match findActive(): the repository ignores enable-fields
+        // (initializeObject → setIgnoreEnableFields), so hidden active models
+        // must still be counted. The DeletedRestriction stays (deleted rows are
+        // excluded there too).
+        $queryBuilder->getRestrictions()->removeByType(HiddenRestriction::class);
         $rows = $queryBuilder
             ->select('provider_uid')
             ->addSelectLiteral(

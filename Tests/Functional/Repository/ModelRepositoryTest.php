@@ -152,6 +152,30 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         }
     }
 
+    #[Test]
+    public function countByProviderCountsHiddenActiveModels(): void
+    {
+        // findActive() ignores enable-fields (initializeObject →
+        // setIgnoreEnableFields), so a hidden but active model must still be
+        // counted — the grouped query must not apply the HiddenRestriction.
+        $before = $this->repository->countByProvider()[1] ?? 0;
+
+        $this->getConnection()->insert('tx_nrllm_model', [
+            'pid'          => 0,
+            'identifier'   => 'hidden-active',
+            'name'         => 'Hidden Active',
+            'provider_uid' => 1,
+            'model_id'     => 'hidden-active',
+            'is_active'    => 1,
+            'hidden'       => 1,
+            'deleted'      => 0,
+        ]);
+
+        $after = $this->repository->countByProvider()[1] ?? 0;
+
+        self::assertSame($before + 1, $after);
+    }
+
     // =========================================================================
     // Pathway 3.3: Toggle Model Status
     // =========================================================================
