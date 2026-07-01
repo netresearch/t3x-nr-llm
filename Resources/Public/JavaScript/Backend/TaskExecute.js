@@ -285,7 +285,8 @@ class TaskExecute {
                 this.updateFormatToggle();
 
                 if (this.outputModel) this.outputModel.textContent = response.model || '-';
-                if (this.outputTokens) this.outputTokens.textContent = response.usage?.totalTokens || '-';
+                // Nullish-coalesce so a valid 0-token total is shown, not '-'.
+                if (this.outputTokens) this.outputTokens.textContent = response.usage?.totalTokens ?? '-';
                 this.outputResult?.classList.remove('d-none');
 
                 Notification.success('Task completed', 'The task has been executed successfully.');
@@ -346,6 +347,12 @@ class TaskExecute {
      *   script execution and blocks access to the parent page's DOM.
      */
     renderOutput() {
+        // All render helpers write into this.outputContent; guard once here so
+        // each of them can assume it is present.
+        if (!this.outputContent) {
+            return;
+        }
+
         const content = this._rawContent;
         const escaped = escapeHtml(content);
 
@@ -390,7 +397,7 @@ class TaskExecute {
         // With fully sandboxed iframe, contentDocument is inaccessible.
         // Use a generous default height; content scrolls within.
         iframe.style.height = '400px';
-        this.outputContent?.appendChild(iframe);
+        this.outputContent.appendChild(iframe);
     }
 
     /**
