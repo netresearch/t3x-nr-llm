@@ -423,12 +423,13 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         } catch (ServiceUnavailableException|ServiceConfigurationException $e) {
             throw $e;
         } catch (Throwable $e) {
-            $this->logger->error('Whisper API connection error', [
-                'exception' => $e->getMessage(),
-            ]);
+            // Log the full Throwable server-side (the chained cause below carries
+            // the detail); surface only a static message so connection details,
+            // endpoint URLs or SSL state never reach the caller.
+            $this->logger->error('Whisper API connection error', ['exception' => $e]);
 
             throw new ServiceUnavailableException(
-                'Failed to connect to Whisper API: ' . $e->getMessage(),
+                'Failed to connect to Whisper API',
                 'speech',
                 ['provider' => 'whisper'],
                 0,

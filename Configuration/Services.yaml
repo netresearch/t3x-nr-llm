@@ -145,20 +145,25 @@ services:
   # ========================================
   # Aliases that let consumers wire against the interface rather than the
   # concrete class. The concrete services are auto-registered as private
-  # by the namespace resource block above; these aliases match that
-  # visibility (REC #9b — supporting interface extraction).
+  # by the namespace resource block above; these aliases declare the same
+  # visibility explicitly (REC #9b — supporting interface extraction) so it
+  # stays private regardless of the target service's own visibility.
 
   Netresearch\NrLlm\Service\ModelSelectionServiceInterface:
     alias: Netresearch\NrLlm\Service\ModelSelectionService
+    public: false
 
   Netresearch\NrLlm\Service\CapabilityPermissionServiceInterface:
     alias: Netresearch\NrLlm\Service\CapabilityPermissionService
+    public: false
 
   Netresearch\NrLlm\Service\WizardGeneratorServiceInterface:
     alias: Netresearch\NrLlm\Service\WizardGeneratorService
+    public: false
 
   Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface:
     alias: Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator
+    public: false
 
   # ========================================
   # Repositories (PUBLIC)

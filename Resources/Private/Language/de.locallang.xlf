@@ -2154,6 +2154,190 @@
                 <source>Unknown tool</source>
                 <target>Unbekanntes Werkzeug</target>
             </trans-unit>
+            <trans-unit id="card.count.configurations">
+                <source>configuration(s) configured</source>
+                <target>Konfiguration(en) eingerichtet</target>
+            </trans-unit>
+            <trans-unit id="card.count.models">
+                <source>model(s) configured</source>
+                <target>Modell(e) eingerichtet</target>
+            </trans-unit>
+            <trans-unit id="card.count.none.configurations">
+                <source>No configurations configured</source>
+                <target>Keine Konfigurationen eingerichtet</target>
+            </trans-unit>
+            <trans-unit id="card.count.none.models">
+                <source>No models configured</source>
+                <target>Keine Modelle eingerichtet</target>
+            </trans-unit>
+            <trans-unit id="card.count.none.providers">
+                <source>No providers configured</source>
+                <target>Keine Provider eingerichtet</target>
+            </trans-unit>
+            <trans-unit id="card.count.none.tasks">
+                <source>No tasks yet</source>
+                <target>Noch keine Aufgaben</target>
+            </trans-unit>
+            <trans-unit id="card.count.providers">
+                <source>provider(s) configured</source>
+                <target>Provider eingerichtet</target>
+            </trans-unit>
+            <trans-unit id="card.count.tasks">
+                <source>task(s) configured</source>
+                <target>Aufgabe(n) eingerichtet</target>
+            </trans-unit>
+            <trans-unit id="configuration.card.button">
+                <source>Manage Configurations</source>
+                <target>Konfigurationen verwalten</target>
+            </trans-unit>
+            <trans-unit id="configuration.card.description">
+                <source>Create named configurations with prompts, parameters, and limits.</source>
+                <target>Erstellen Sie benannte Konfigurationen mit Prompts, Parametern und Limits.</target>
+            </trans-unit>
+            <trans-unit id="configuration.card.subtitle">
+                <source>Use-case specific presets</source>
+                <target>Anwendungsspezifische Voreinstellungen</target>
+            </trans-unit>
+            <trans-unit id="configuration.card.title">
+                <source>Configurations</source>
+                <target>Konfigurationen</target>
+            </trans-unit>
+            <trans-unit id="connectionSuccessful">
+                <source>Connection Successful</source>
+                <target>Verbindung erfolgreich</target>
+            </trans-unit>
+            <trans-unit id="discoveringModels">
+                <source>Discovering available models...</source>
+                <target>Verfügbare Modelle werden ermittelt …</target>
+            </trans-unit>
+            <trans-unit id="generatingConfigurations">
+                <source>Generating configurations...</source>
+                <target>Konfigurationen werden generiert …</target>
+            </trans-unit>
+            <trans-unit id="model.card.button">
+                <source>Manage Models</source>
+                <target>Modelle verwalten</target>
+            </trans-unit>
+            <trans-unit id="model.card.description">
+                <source>Configure model definitions, capabilities, and pricing per provider.</source>
+                <target>Konfigurieren Sie Modelldefinitionen, Fähigkeiten und Preise je Provider.</target>
+            </trans-unit>
+            <trans-unit id="model.card.subtitle">
+                <source>Define available models</source>
+                <target>Verfügbare Modelle definieren</target>
+            </trans-unit>
+            <trans-unit id="model.card.title">
+                <source>LLM Models</source>
+                <target>LLM-Modelle</target>
+            </trans-unit>
+            <trans-unit id="module.management">
+                <source>LLM Management</source>
+                <target>LLM-Verwaltung</target>
+            </trans-unit>
+            <trans-unit id="provider.card.button">
+                <source>Manage Providers</source>
+                <target>Provider verwalten</target>
+            </trans-unit>
+            <trans-unit id="provider.card.description">
+                <source>Configure endpoints, API keys, and timeouts for LLM services.</source>
+                <target>Konfigurieren Sie Endpunkte, API-Schlüssel und Timeouts für LLM-Dienste.</target>
+            </trans-unit>
+            <trans-unit id="provider.card.subtitle">
+                <source>Manage API connections</source>
+                <target>API-Verbindungen verwalten</target>
+            </trans-unit>
+            <trans-unit id="provider.card.title">
+                <source>API Providers</source>
+                <target>API-Provider</target>
+            </trans-unit>
+            <trans-unit id="reference.php.title">
+                <source>Usage in PHP</source>
+                <target>Verwendung in PHP</target>
+            </trans-unit>
+            <trans-unit id="reference.title">
+                <source>Quick Reference</source>
+                <target>Kurzreferenz</target>
+            </trans-unit>
+            <trans-unit id="saving">
+                <source>Saving...</source>
+                <target>Wird gespeichert …</target>
+            </trans-unit>
+            <trans-unit id="savingConfiguration">
+                <source>Saving configuration...</source>
+                <target>Konfiguration wird gespeichert …</target>
+            </trans-unit>
+            <trans-unit id="setupComplete">
+                <source>Setup Complete!</source>
+                <target>Einrichtung abgeschlossen!</target>
+            </trans-unit>
+            <trans-unit id="task.card.button">
+                <source>Manage Tasks</source>
+                <target>Aufgaben verwalten</target>
+            </trans-unit>
+            <trans-unit id="task.card.description">
+                <source>One-shot prompts for common operations. Not AI agents - limited capabilities.</source>
+                <target>Einmal-Prompts für gängige Vorgänge. Keine KI-Agenten – eingeschränkte Fähigkeiten.</target>
+            </trans-unit>
+            <trans-unit id="task.card.subtitle">
+                <source>Simple prompt templates</source>
+                <target>Einfache Prompt-Vorlagen</target>
+            </trans-unit>
+            <trans-unit id="task.card.title">
+                <source>Tasks (One-Shot)</source>
+                <target>Aufgaben (Einmal)</target>
+            </trans-unit>
+            <trans-unit id="wizard.callout.button">
+                <source>Start Setup Wizard</source>
+                <target>Einrichtungsassistenten starten</target>
+            </trans-unit>
+            <trans-unit id="wizard.callout.message">
+                <source>Use the Setup Wizard to auto-configure your provider, discover models, and generate configuration presets.</source>
+                <target>Nutzen Sie den Einrichtungsassistenten, um Ihren Provider automatisch zu konfigurieren, Modelle zu ermitteln und Konfigurationsvoreinstellungen zu generieren.</target>
+            </trans-unit>
+            <trans-unit id="wizard.callout.title">
+                <source>New to LLM Integration?</source>
+                <target>Neu bei der LLM-Integration?</target>
+            </trans-unit>
+            <trans-unit id="wizard.launch">
+                <source>Launch Setup Wizard</source>
+                <target>Einrichtungsassistenten öffnen</target>
+            </trans-unit>
+            <trans-unit id="wizard.selectModels.description">
+                <source>Select the models you want to add to your configuration. Recommended models are pre-selected.</source>
+                <target>Wählen Sie die Modelle aus, die Sie Ihrer Konfiguration hinzufügen möchten. Empfohlene Modelle sind vorausgewählt.</target>
+            </trans-unit>
+            <trans-unit id="wizard.step1.description">
+                <source>Enter your LLM provider's API endpoint and credentials. The wizard will auto-detect the provider type and configure everything for you.</source>
+                <target>Geben Sie den API-Endpunkt und die Zugangsdaten Ihres LLM-Providers ein. Der Assistent erkennt den Provider-Typ automatisch und konfiguriert alles für Sie.</target>
+            </trans-unit>
+            <trans-unit id="wizard.step1.title">
+                <source>Connect to LLM Provider</source>
+                <target>Mit LLM-Provider verbinden</target>
+            </trans-unit>
+            <trans-unit id="wizard.step2.title">
+                <source>Verify Connection</source>
+                <target>Verbindung überprüfen</target>
+            </trans-unit>
+            <trans-unit id="wizard.step3.title">
+                <source>Select Models</source>
+                <target>Modelle auswählen</target>
+            </trans-unit>
+            <trans-unit id="wizard.step4.description">
+                <source>The following configuration presets have been generated for common use cases. Select the ones you want to create.</source>
+                <target>Die folgenden Konfigurationsvoreinstellungen wurden für gängige Anwendungsfälle generiert. Wählen Sie die aus, die Sie erstellen möchten.</target>
+            </trans-unit>
+            <trans-unit id="wizard.step4.loading">
+                <source>Using AI to generate optimal configuration presets...</source>
+                <target>KI generiert optimale Konfigurationsvoreinstellungen …</target>
+            </trans-unit>
+            <trans-unit id="wizard.step4.title">
+                <source>Configuration Presets</source>
+                <target>Konfigurationsvoreinstellungen</target>
+            </trans-unit>
+            <trans-unit id="wizard.step5.title">
+                <source>Review &amp; Save</source>
+                <target>Prüfen &amp; Speichern</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

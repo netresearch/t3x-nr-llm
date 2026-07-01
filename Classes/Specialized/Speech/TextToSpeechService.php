@@ -469,12 +469,13 @@ final class TextToSpeechService extends AbstractSpecializedService
         } catch (ServiceUnavailableException|ServiceConfigurationException $e) {
             throw $e;
         } catch (Throwable $e) {
-            $this->logger->error('TTS API connection error', [
-                'exception' => $e->getMessage(),
-            ]);
+            // Log the full Throwable server-side (the chained cause below carries
+            // the detail); surface only a static message so connection details,
+            // endpoint URLs or SSL state never reach the caller.
+            $this->logger->error('TTS API connection error', ['exception' => $e]);
 
             throw new ServiceUnavailableException(
-                'Failed to connect to TTS API: ' . $e->getMessage(),
+                'Failed to connect to TTS API',
                 'speech',
                 ['provider' => 'tts'],
                 0,

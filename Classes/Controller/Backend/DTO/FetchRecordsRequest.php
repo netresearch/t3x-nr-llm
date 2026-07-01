@@ -37,7 +37,7 @@ final readonly class FetchRecordsRequest
 
         return new self(
             table: self::extractString($data, 'table'),
-            limit: min($rawLimit, self::MAX_LIMIT),
+            limit: max(1, min($rawLimit, self::MAX_LIMIT)),
             labelField: self::extractString($data, 'labelField'),
         );
     }

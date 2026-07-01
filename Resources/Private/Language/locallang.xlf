@@ -1629,6 +1629,144 @@
             <trans-unit id="error.tool.unknownTool">
                 <source>Unknown tool</source>
             </trans-unit>
+            <trans-unit id="card.count.configurations">
+                <source>configuration(s) configured</source>
+            </trans-unit>
+            <trans-unit id="card.count.models">
+                <source>model(s) configured</source>
+            </trans-unit>
+            <trans-unit id="card.count.none.configurations">
+                <source>No configurations configured</source>
+            </trans-unit>
+            <trans-unit id="card.count.none.models">
+                <source>No models configured</source>
+            </trans-unit>
+            <trans-unit id="card.count.none.providers">
+                <source>No providers configured</source>
+            </trans-unit>
+            <trans-unit id="card.count.none.tasks">
+                <source>No tasks yet</source>
+            </trans-unit>
+            <trans-unit id="card.count.providers">
+                <source>provider(s) configured</source>
+            </trans-unit>
+            <trans-unit id="card.count.tasks">
+                <source>task(s) configured</source>
+            </trans-unit>
+            <trans-unit id="configuration.card.button">
+                <source>Manage Configurations</source>
+            </trans-unit>
+            <trans-unit id="configuration.card.description">
+                <source>Create named configurations with prompts, parameters, and limits.</source>
+            </trans-unit>
+            <trans-unit id="configuration.card.subtitle">
+                <source>Use-case specific presets</source>
+            </trans-unit>
+            <trans-unit id="configuration.card.title">
+                <source>Configurations</source>
+            </trans-unit>
+            <trans-unit id="connectionSuccessful">
+                <source>Connection Successful</source>
+            </trans-unit>
+            <trans-unit id="discoveringModels">
+                <source>Discovering available models...</source>
+            </trans-unit>
+            <trans-unit id="generatingConfigurations">
+                <source>Generating configurations...</source>
+            </trans-unit>
+            <trans-unit id="model.card.button">
+                <source>Manage Models</source>
+            </trans-unit>
+            <trans-unit id="model.card.description">
+                <source>Configure model definitions, capabilities, and pricing per provider.</source>
+            </trans-unit>
+            <trans-unit id="model.card.subtitle">
+                <source>Define available models</source>
+            </trans-unit>
+            <trans-unit id="model.card.title">
+                <source>LLM Models</source>
+            </trans-unit>
+            <trans-unit id="module.management">
+                <source>LLM Management</source>
+            </trans-unit>
+            <trans-unit id="provider.card.button">
+                <source>Manage Providers</source>
+            </trans-unit>
+            <trans-unit id="provider.card.description">
+                <source>Configure endpoints, API keys, and timeouts for LLM services.</source>
+            </trans-unit>
+            <trans-unit id="provider.card.subtitle">
+                <source>Manage API connections</source>
+            </trans-unit>
+            <trans-unit id="provider.card.title">
+                <source>API Providers</source>
+            </trans-unit>
+            <trans-unit id="reference.php.title">
+                <source>Usage in PHP</source>
+            </trans-unit>
+            <trans-unit id="reference.title">
+                <source>Quick Reference</source>
+            </trans-unit>
+            <trans-unit id="saving">
+                <source>Saving...</source>
+            </trans-unit>
+            <trans-unit id="savingConfiguration">
+                <source>Saving configuration...</source>
+            </trans-unit>
+            <trans-unit id="setupComplete">
+                <source>Setup Complete!</source>
+            </trans-unit>
+            <trans-unit id="task.card.button">
+                <source>Manage Tasks</source>
+            </trans-unit>
+            <trans-unit id="task.card.description">
+                <source>One-shot prompts for common operations. Not AI agents - limited capabilities.</source>
+            </trans-unit>
+            <trans-unit id="task.card.subtitle">
+                <source>Simple prompt templates</source>
+            </trans-unit>
+            <trans-unit id="task.card.title">
+                <source>Tasks (One-Shot)</source>
+            </trans-unit>
+            <trans-unit id="wizard.callout.button">
+                <source>Start Setup Wizard</source>
+            </trans-unit>
+            <trans-unit id="wizard.callout.message">
+                <source>Use the Setup Wizard to auto-configure your provider, discover models, and generate configuration presets.</source>
+            </trans-unit>
+            <trans-unit id="wizard.callout.title">
+                <source>New to LLM Integration?</source>
+            </trans-unit>
+            <trans-unit id="wizard.launch">
+                <source>Launch Setup Wizard</source>
+            </trans-unit>
+            <trans-unit id="wizard.selectModels.description">
+                <source>Select the models you want to add to your configuration. Recommended models are pre-selected.</source>
+            </trans-unit>
+            <trans-unit id="wizard.step1.description">
+                <source>Enter your LLM provider's API endpoint and credentials. The wizard will auto-detect the provider type and configure everything for you.</source>
+            </trans-unit>
+            <trans-unit id="wizard.step1.title">
+                <source>Connect to LLM Provider</source>
+            </trans-unit>
+            <trans-unit id="wizard.step2.title">
+                <source>Verify Connection</source>
+            </trans-unit>
+            <trans-unit id="wizard.step3.title">
+                <source>Select Models</source>
+            </trans-unit>
+            <trans-unit id="wizard.step4.description">
+                <source>The following configuration presets have been generated for common use cases. Select the ones you want to create.</source>
+            </trans-unit>
+            <trans-unit id="wizard.step4.loading">
+                <source>Using AI to generate optimal configuration presets...</source>
+            </trans-unit>
+            <trans-unit id="wizard.step4.title">
+                <source>Configuration Presets</source>
+            </trans-unit>
+            <trans-unit id="wizard.step5.title">
+                <source>Review &amp; Save</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

@@ -23,6 +23,29 @@ use Netresearch\NrLlm\Exception\PromptTemplateNotFoundException;
  */
 final readonly class PromptTemplateService implements PromptTemplateServiceInterface
 {
+    /**
+     * Fields a new version may legitimately override via createVersion(). Guards
+     * the dynamic setter dispatch against mass-assignment to identity/metadata
+     * setters (uid, version, parentUid, usageCount, stats, …).
+     *
+     * @var list<string>
+     */
+    private const VERSIONABLE_FIELDS = [
+        'title',
+        'description',
+        'feature',
+        'systemPrompt',
+        'userPromptTemplate',
+        'provider',
+        'model',
+        'temperature',
+        'maxTokens',
+        'topP',
+        'variables',
+        'exampleOutput',
+        'tags',
+    ];
+
     public function __construct(
         private PromptTemplateRepository $repository,
     ) {}
@@ -131,8 +154,12 @@ final readonly class PromptTemplateService implements PromptTemplateServiceInter
             $newTemplate->setParentUid($parentUid);
         }
 
-        // Apply updates
+        // Apply updates — only whitelisted content fields, never identity or
+        // metadata setters (prevents mass-assignment via the dynamic dispatch).
         foreach ($updates as $field => $value) {
+            if (!in_array($field, self::VERSIONABLE_FIELDS, true)) {
+                continue;
+            }
             $setter = 'set' . ucfirst($field);
             if (method_exists($newTemplate, $setter)) {
                 $newTemplate->$setter($value);

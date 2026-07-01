@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend\Response;
 
 use JsonSerializable;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 
 /**
  * Response DTO for error AJAX responses.
@@ -18,10 +19,19 @@ use JsonSerializable;
  */
 final readonly class ErrorResponse implements JsonSerializable
 {
+    use ErrorMessageSanitizerTrait;
+
+    public string $error;
+
     public function __construct(
-        public string $error,
+        string $error,
         public bool $success = false,
-    ) {}
+    ) {
+        // Defence at the response boundary: controllers pass raw
+        // `$e->getMessage()` here, so redact credential-bearing URL params
+        // (e.g. a provider's `?key=…`) before the message reaches the client.
+        $this->error = $this->sanitizeErrorMessage($error);
+    }
 
     /**
      * @return array{success: bool, error: string}

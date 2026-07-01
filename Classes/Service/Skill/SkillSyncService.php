@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SyncResult;
 use Netresearch\NrLlm\Service\Skill\Exception\GitHubApiException;
 use Netresearch\NrLlm\Service\Skill\Exception\HostNotAllowedException;
 use Netresearch\NrLlm\Service\Skill\Exception\SkillParseException;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Throwable;
@@ -28,6 +29,8 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 final class SkillSyncService
 {
+    use ErrorMessageSanitizerTrait;
+
     /** A SYNCING lock older than this many seconds is considered stale and may be reclaimed. */
     private const STALE_LOCK_SECONDS = 600;
 
@@ -117,7 +120,7 @@ final class SkillSyncService
             if ($collected['rootSha'] !== null) {
                 $source->setPinnedSha($collected['rootSha']);
             }
-            $source->setSyncError(implode("\n", $errors));
+            $source->setSyncError($this->sanitizeErrorMessage(implode("\n", $errors)));
         } catch (Throwable $e) {
             // Keep the full stack trace server-side (GitHub rate limits, network
             // timeouts, DBAL/persistence errors) — the user only sees getMessage().
@@ -129,7 +132,7 @@ final class SkillSyncService
             $status = SyncStatus::ERROR;
             $orphaned = 0;
             $errors[] = $e->getMessage();
-            $source->setSyncError($e->getMessage());
+            $source->setSyncError($this->sanitizeErrorMessage($e->getMessage()));
         }
 
         // Always persist the final state so the lock is never left stuck.

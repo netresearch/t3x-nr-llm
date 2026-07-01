@@ -89,8 +89,10 @@ class RefreshInputRequestTest extends AbstractUnitTestCase
             'array' => [['test'], 0],
             'float' => [12.5, 12],
             'float string' => ['12.5', 12],
-            'negative' => [-5, -5],
-            'negative string' => ['-10', -10],
+            // Negative uids are invalid (never a real record id) and reject to
+            // the default, matching the other invalid inputs.
+            'negative' => [-5, 0],
+            'negative string' => ['-10', 0],
             'empty string' => ['', 0],
             'boolean true' => [true, 0],
             'boolean false' => [false, 0],

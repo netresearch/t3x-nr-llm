@@ -211,7 +211,7 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectMultipleSideBySide',
                 'foreign_table' => 'tx_nrllm_skill',
-                'foreign_table_where' => 'AND tx_nrllm_skill.enabled = 1 AND tx_nrllm_skill.orphaned = 0 ORDER BY tx_nrllm_skill.name',
+                'foreign_table_where' => 'AND {#tx_nrllm_skill}.{#enabled} = 1 AND {#tx_nrllm_skill}.{#orphaned} = 0 ORDER BY {#tx_nrllm_skill}.{#name}',
                 'MM' => 'tx_nrllm_task_skill_mm',
                 'size' => 5,
                 'minitems' => 0,

@@ -87,8 +87,9 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
             if ($parsed !== null) {
                 return $this->normalizeConfigurationResult($parsed, $description);
             }
-        } catch (Throwable) {
-            // Fall through to fallback
+        } catch (Throwable $e) {
+            // Fall through to fallback, but keep the cause for debugging.
+            $this->logger->warning('Wizard configuration generation failed; using fallback', ['exception' => $e]);
         }
 
         return $this->fallbackConfiguration($description);
@@ -122,8 +123,9 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
             if ($parsed !== null) {
                 return $this->normalizeTaskResult($parsed, $description);
             }
-        } catch (Throwable) {
-            // Fall through to fallback
+        } catch (Throwable $e) {
+            // Fall through to fallback, but keep the cause for debugging.
+            $this->logger->warning('Wizard task generation failed; using fallback', ['exception' => $e]);
         }
 
         return $this->fallbackTask($description);
@@ -160,8 +162,9 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
             if ($parsed !== null) {
                 return $this->normalizeFullChainResult($parsed, $description);
             }
-        } catch (Throwable) {
-            // Fall through to fallback
+        } catch (Throwable $e) {
+            // Fall through to fallback, but keep the cause for debugging.
+            $this->logger->warning('Wizard task-chain generation failed; using fallback', ['exception' => $e]);
         }
 
         return $this->fallbackTaskChain($description);

@@ -29,7 +29,6 @@ use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
@@ -313,13 +312,8 @@ final class TaskWizardController extends ActionController
         string $title,
         ContextualFeedbackSeverity $severity,
     ): void {
-        $flashMessage = GeneralUtility::makeInstance(
-            FlashMessage::class,
-            $message,
-            $title,
-            $severity,
-            true,
-        );
+        // FlashMessage is a plain value object, not a service — instantiate directly.
+        $flashMessage = new FlashMessage($message, $title, $severity, true);
         $this->flashMessageService
             ->getMessageQueueByIdentifier()
             ->addMessage($flashMessage);
