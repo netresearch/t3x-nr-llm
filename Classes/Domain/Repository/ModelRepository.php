@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Domain\Repository;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Persistence\QueryInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 use TYPO3\CMS\Extbase\Persistence\Repository;
@@ -27,6 +29,13 @@ class ModelRepository extends Repository
         'sorting' => QueryInterface::ORDER_ASCENDING,
         'name' => QueryInterface::ORDER_ASCENDING,
     ];
+
+    private ConnectionPool $connectionPool;
+
+    public function injectConnectionPool(ConnectionPool $connectionPool): void
+    {
+        $this->connectionPool = $connectionPool;
+    }
 
     /**
      * Initialize repository for backend module use.
@@ -258,20 +267,32 @@ class ModelRepository extends Repository
      */
     public function countByProvider(): array
     {
-        $counts = [];
-        $models = $this->findActive();
+        // Aggregate in a single grouped query on the provider FK rather than
+        // hydrating every active model and lazy-loading its Provider (N+1).
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_nrllm_model');
+        $rows = $queryBuilder
+            ->select('provider_uid')
+            ->addSelectLiteral(
+                $queryBuilder->expr()->count('*', 'model_count'),
+            )
+            ->from('tx_nrllm_model')
+            ->where(
+                $queryBuilder->expr()->eq(
+                    'is_active',
+                    $queryBuilder->createNamedParameter(1, Connection::PARAM_INT),
+                ),
+            )
+            ->groupBy('provider_uid')
+            ->executeQuery()
+            ->fetchAllAssociative();
 
-        foreach ($models as $model) {
-            // @phpstan-ignore instanceof.alwaysTrue (defensive check for QueryResult)
-            if (!$model instanceof Model) {
-                continue;
+        $counts = [];
+        foreach ($rows as $row) {
+            $providerUid = $row['provider_uid'];
+            $modelCount = $row['model_count'];
+            if (is_numeric($providerUid) && is_numeric($modelCount)) {
+                $counts[(int)$providerUid] = (int)$modelCount;
             }
-            $provider = $model->getProvider();
-            $providerUid = $provider?->getUid() ?? 0;
-            if (!isset($counts[$providerUid])) {
-                $counts[$providerUid] = 0;
-            }
-            $counts[$providerUid]++;
         }
 
         return $counts;
