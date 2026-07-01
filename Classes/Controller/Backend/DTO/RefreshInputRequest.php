@@ -39,6 +39,9 @@ final readonly class RefreshInputRequest
     private static function extractInt(array $data, string $key, int $default = 0): int
     {
         $value = $data[$key] ?? $default;
-        return is_numeric($value) ? (int)$value : $default;
+        // The only field extracted here is the record uid, which must be a
+        // positive identifier — reject non-positive values so a negative id
+        // never reaches findByUid().
+        return (is_numeric($value) && (int)$value > 0) ? (int)$value : $default;
     }
 }

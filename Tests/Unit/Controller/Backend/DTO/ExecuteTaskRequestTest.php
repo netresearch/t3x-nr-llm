@@ -101,7 +101,9 @@ class ExecuteTaskRequestTest extends AbstractUnitTestCase
             'non-numeric string' => ['abc', 0],
             'array' => [['test'], 0],
             'float string' => ['12.5', 12],
-            'negative' => [-5, -5],
+            // A negative uid is invalid (never a real record id) and is rejected
+            // to the default, matching the other invalid inputs above.
+            'negative' => [-5, 0],
         ];
     }
 

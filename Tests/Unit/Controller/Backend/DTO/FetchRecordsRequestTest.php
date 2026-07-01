@@ -201,8 +201,10 @@ class FetchRecordsRequestTest extends AbstractUnitTestCase
         return [
             'non-numeric string' => ['abc', 50],
             'array' => [['test'], 50],
-            'zero' => [0, 0],
-            'negative' => [-10, -10],
+            // Zero and negative limits are clamped up to the minimum of 1 so an
+            // invalid bound can never reach the query.
+            'zero' => [0, 1],
+            'negative' => [-10, 1],
         ];
     }
 
