@@ -53,6 +53,13 @@ final readonly class ToolLoopService
 {
     use ResolvesActingBackendUserTrait;
 
+    /**
+     * Hard cap on a single tool result appended to the message list. A buggy or
+     * malicious tool returning multi-megabyte output would otherwise blow the
+     * provider payload limit, bypass the token budget and pressure memory.
+     */
+    private const MAX_TOOL_RESULT_BYTES = 50000;
+
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,
@@ -253,15 +260,34 @@ final readonly class ToolLoopService
         }
 
         try {
-            return [$tool->execute($call->arguments), false];
+            return [$this->capResult($tool->execute($call->arguments)), false];
         } catch (Throwable $e) {
+            // Keep the logged summary generic — the exception body may embed
+            // DBAL/PDO credentials that URL-sanitising would not strip. The full
+            // Throwable (message + trace) is preserved in the log context for
+            // server-side forensics.
             $this->logger?->error(
-                sprintf('Tool "%s" failed: %s', $call->name, $e->getMessage()),
+                sprintf('Tool "%s" failed.', $call->name),
                 ['exception' => $e],
             );
 
             return [sprintf('Error: tool "%s" failed.', $call->name), true];
         }
+    }
+
+    /**
+     * Bound a tool result to {@see self::MAX_TOOL_RESULT_BYTES}. Uses mb_strcut
+     * so the byte cap never splits a multibyte character (which would corrupt
+     * the later JSON encoding), and appends a visible truncation marker.
+     */
+    private function capResult(string $result): string
+    {
+        if (strlen($result) <= self::MAX_TOOL_RESULT_BYTES) {
+            return $result;
+        }
+
+        return mb_strcut($result, 0, self::MAX_TOOL_RESULT_BYTES)
+            . "\n…[tool result truncated at " . self::MAX_TOOL_RESULT_BYTES . ' bytes]';
     }
 
     /**
