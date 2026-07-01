@@ -62,7 +62,7 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
                 'foreign_table' => 'be_users',
-                'foreign_table_where' => 'AND {#be_users}.{#hidden} = 0 AND {#be_users}.{#deleted} = 0 ORDER BY be_users.username',
+                'foreign_table_where' => 'AND {#be_users}.{#hidden} = 0 AND {#be_users}.{#deleted} = 0 ORDER BY {#be_users}.{#username}',
                 'minitems' => 1,
                 'maxitems' => 1,
                 'required' => true,
