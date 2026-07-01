@@ -94,21 +94,25 @@ class LlmConfigurationRepository extends Repository
     {
         $query = $this->createQuery();
 
-        if (empty($groupUids)) {
-            // No groups: only return configurations without access restrictions
+        // "Unrestricted" = no be-group linked. The beGroups MM relation is
+        // LEFT-joined, so an unlinked configuration has a NULL relation uid.
+        $noRestriction = $query->equals('beGroups.uid', null);
+
+        if ($groupUids === []) {
+            // No groups: only configurations without access restrictions.
             $query->matching(
                 $query->logicalAnd(
                     $query->equals('isActive', true),
-                    $query->equals('allowedGroups', 0),
+                    $noRestriction,
                 ),
             );
         } else {
-            // Return configurations without restrictions OR with matching groups
+            // Configurations without restrictions OR restricted to a matching group.
             $query->matching(
                 $query->logicalAnd(
                     $query->equals('isActive', true),
                     $query->logicalOr(
-                        $query->equals('allowedGroups', 0),
+                        $noRestriction,
                         $query->in('beGroups.uid', $groupUids),
                     ),
                 ),

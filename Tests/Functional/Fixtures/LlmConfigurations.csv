@@ -8,3 +8,9 @@
 ,6,0,"restricted-config","Restricted Configuration","Configuration with group access restrictions",1,"","",0.70,1000,1.00,0.00,0.00,"{}",0,0,0.00,1,0,1,1703347200,1703347200,0,0,6
 ,7,0,"reasoning-config","Reasoning Configuration","Configuration using O4 Mini for reasoning tasks",2,"","You are a reasoning assistant. Think step by step.",0.20,8000,1.00,0.00,0.00,"{}",0,0,0.00,1,0,0,1703347200,1703347200,0,0,7
 ,8,0,"no-model-config","No Model Configuration","Configuration without a model assigned",0,"","System prompt.",0.70,1000,1.00,0.00,0.00,"{}",0,0,0.00,1,0,0,1703347200,1703347200,0,0,8
+"be_groups"
+,"uid","pid","title"
+,100,0,"Restricted Access Group"
+"tx_nrllm_configuration_begroups_mm"
+,"uid_local","uid_foreign","sorting","sorting_foreign"
+,6,100,1,0

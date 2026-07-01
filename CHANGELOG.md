@@ -14,6 +14,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **BREAKING:** `ToolInterface` now requires a `requiresAdmin(): bool` method. Every implementer must declare it — return `true` for tools exposing system/host/cross-user data (logs, environment, phpinfo, backend-user/group listings), `false` for tools that self-enforce the acting user's TYPO3 permissions. Without it, the tool fatals at runtime on instantiation.
 
+### Fixed
+
+- Per-configuration backend-group access control now works. The `beGroups` MM relation on `LlmConfiguration` had no Extbase mapping, so `LlmConfigurationRepository::findAccessibleForGroups()` raised `MissingColumnMapException` for any backend user in a group, and the in-PHP fallback check always saw an empty group list. The relation is now hydrated via a minimal `be_groups` domain model, and `getAllowedGroups()` is derived from it (the single source of truth). Present since at least v0.13.0.
+
 ### Security
 
 - Gemini provider now sends the API key in the `x-goog-api-key` header instead of the URL query string, so it no longer leaks into server/proxy logs, browser history or the Referer header.

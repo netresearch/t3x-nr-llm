@@ -71,13 +71,14 @@ class LlmConfiguration extends AbstractEntity
 
     protected bool $isActive = true;
     protected bool $isDefault = false;
-    protected int $allowedGroups = 0;
     protected int $tstamp = 0;
     protected int $crdate = 0;
     /**
-     * Allowed backend groups (MM relation).
+     * Allowed backend groups (MM relation) — the single source of truth for the
+     * per-group access restriction. Its TCA config lives on the `allowed_groups`
+     * column, where TYPO3 also maintains the relation count.
      *
-     * @var ObjectStorage<AbstractEntity>|null
+     * @var ObjectStorage<BackendUserGroup>|null
      */
     protected ?ObjectStorage $beGroups = null;
 
@@ -342,13 +343,19 @@ class LlmConfiguration extends AbstractEntity
         return $this->getIsDefault();
     }
 
+    /**
+     * Number of backend groups this configuration is restricted to (0 = no
+     * restriction). Derived from the beGroups MM relation, the single source of
+     * truth; TYPO3 also stores this count in the `allowed_groups` column but
+     * Extbase surfaces the relation, not that scalar.
+     */
     public function getAllowedGroups(): int
     {
-        return $this->allowedGroups;
+        return $this->getBeGroups()->count();
     }
 
     /**
-     * @return ObjectStorage<AbstractEntity>
+     * @return ObjectStorage<BackendUserGroup>
      */
     public function getBeGroups(): ObjectStorage
     {
@@ -567,11 +574,6 @@ class LlmConfiguration extends AbstractEntity
         $this->isDefault = $isDefault;
     }
 
-    public function setAllowedGroups(int $allowedGroups): void
-    {
-        $this->allowedGroups = $allowedGroups;
-    }
-
     /**
      * Set fallback chain from raw JSON (used by Extbase when hydrating from DB).
      *
@@ -602,7 +604,7 @@ class LlmConfiguration extends AbstractEntity
     }
 
     /**
-     * @param ObjectStorage<AbstractEntity>|null $beGroups
+     * @param ObjectStorage<BackendUserGroup>|null $beGroups
      */
     public function setBeGroups(?ObjectStorage $beGroups): void
     {
@@ -648,8 +650,7 @@ class LlmConfiguration extends AbstractEntity
      */
     public function hasAccessRestrictions(): bool
     {
-        return $this->allowedGroups > 0
-            || ($this->beGroups !== null && $this->beGroups->count() > 0);
+        return $this->getBeGroups()->count() > 0;
     }
 
     /**

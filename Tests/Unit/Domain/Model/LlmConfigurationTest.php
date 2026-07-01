@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Domain\Model;
 
 use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
+use Netresearch\NrLlm\Domain\Model\BackendUserGroup;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
@@ -671,10 +672,15 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function hasAccessRestrictionsReturnsTrueWhenAllowedGroupsSet(): void
+    public function hasAccessRestrictionsReturnsTrueWhenBeGroupAttached(): void
     {
-        $this->subject->setAllowedGroups(1);
+        $groups = new ObjectStorage();
+        $groups->attach(new BackendUserGroup());
+        $this->subject->setBeGroups($groups);
+
         self::assertTrue($this->subject->hasAccessRestrictions());
+        // getAllowedGroups() is derived from the relation, not a separate scalar.
+        self::assertSame(1, $this->subject->getAllowedGroups());
     }
 
     // ========================================

@@ -7,6 +7,7 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Domain\Model\BackendUserGroup;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
@@ -25,6 +26,9 @@ use Netresearch\NrLlm\Domain\Model\UserBudget;
 return [
     Provider::class => [
         'tableName' => 'tx_nrllm_provider',
+    ],
+    BackendUserGroup::class => [
+        'tableName' => 'be_groups',
     ],
     Skill::class => [
         'tableName' => 'tx_nrllm_skill',
@@ -76,7 +80,15 @@ return [
             'isDefault' => [
                 'fieldName' => 'is_default',
             ],
-            'allowedGroups' => [
+            // The be-group access-control MM relation. Its TCA config lives on
+            // the `allowed_groups` column (type=select, MM=…begroups_mm); TYPO3
+            // stores the relation count in that column while the rows live in
+            // tx_nrllm_configuration_begroups_mm. Mapping `beGroups` here gives
+            // the ObjectStorage its ColumnMap so Extbase hydrates the relation
+            // and findAccessibleForGroups() can constrain on `beGroups.uid`.
+            // Without it the relation resolves to a non-existent `be_groups`
+            // column and every group-scoped query raised MissingColumnMapException.
+            'beGroups' => [
                 'fieldName' => 'allowed_groups',
             ],
         ],
