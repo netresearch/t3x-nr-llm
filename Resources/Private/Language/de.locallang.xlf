@@ -927,8 +927,8 @@
                 <target>Anbieter neu zuweisen</target>
             </trans-unit>
             <trans-unit id="task.noActive.warning">
-                <source>No active tasks. Only active tasks appear in the CKEditor cowriter dialog and the API. Activate a task to make it available.</source>
-                <target>Keine aktiven Aufgaben. Nur aktive Aufgaben erscheinen im CKEditor-Cowriter-Dialog und in der API. Aktivieren Sie eine Aufgabe, um sie verfügbar zu machen.</target>
+                <source>No active tasks. Only active tasks are exposed to consuming extensions and the API. Activate a task to make it available.</source>
+                <target>Keine aktiven Aufgaben. Nur aktive Aufgaben werden nutzenden Erweiterungen und der API bereitgestellt. Aktivieren Sie eine Aufgabe, um sie verfügbar zu machen.</target>
             </trans-unit>
             <trans-unit id="skill.syncStatus.never">
                 <source>Never synced</source>
@@ -1395,16 +1395,16 @@
                 <target>Schritt 4 — Konfigurationen erstellen</target>
             </trans-unit>
             <trans-unit id="help.step4.text">
-                <source>A configuration ties a provider and model together with default parameters (temperature, max tokens, system prompt). Extensions like Cowriter reference configurations by identifier.</source>
-                <target>Eine Konfiguration verknüpft einen Anbieter und ein Modell mit Standardparametern (Temperatur, max. Token, System-Prompt). Erweiterungen wie Cowriter verweisen über den Bezeichner auf Konfigurationen.</target>
+                <source>A configuration ties a provider and model together with default parameters (temperature, max tokens, system prompt). Consuming extensions reference configurations by identifier.</source>
+                <target>Eine Konfiguration verknüpft einen Anbieter und ein Modell mit Standardparametern (Temperatur, max. Token, System-Prompt). Nutzende Erweiterungen verweisen über den Bezeichner auf Konfigurationen.</target>
             </trans-unit>
             <trans-unit id="help.step5.title">
                 <source>Step 5 — Define Tasks (optional)</source>
                 <target>Schritt 5 — Aufgaben definieren (optional)</target>
             </trans-unit>
             <trans-unit id="help.step5.text">
-                <source>Tasks are one-shot prompt templates that appear in the Cowriter dialog. They are simple utility prompts — not multi-step AI agents.</source>
-                <target>Aufgaben sind einmalige Prompt-Vorlagen, die im Cowriter-Dialog erscheinen. Es sind einfache Hilfs-Prompts — keine mehrstufigen KI-Agenten.</target>
+                <source>Tasks are one-shot prompt templates exposed to consuming extensions and the API. They are simple utility prompts — not multi-step AI agents.</source>
+                <target>Aufgaben sind einmalige Prompt-Vorlagen, die nutzenden Erweiterungen und der API bereitgestellt werden. Es sind einfache Hilfs-Prompts — keine mehrstufigen KI-Agenten.</target>
             </trans-unit>
             <trans-unit id="help.arch.title">
                 <source>Architecture overview</source>
@@ -1503,12 +1503,12 @@
                 <target>Ja. Der Ollama-Adapter unterstützt lokale LLM-Instanzen. Setzen Sie den Endpunkt auf die URL Ihres Ollama-Servers (z. B. &lt;code&gt;http://localhost:11434&lt;/code&gt;), und der Assistent erkennt ihn automatisch. Für lokale Instanzen ist kein API-Schlüssel erforderlich.</target>
             </trans-unit>
             <trans-unit id="help.faq.q4">
-                <source>What is the difference between tasks and the Cowriter dialog?</source>
-                <target>Was ist der Unterschied zwischen Aufgaben und dem Cowriter-Dialog?</target>
+                <source>How are tasks exposed to editors?</source>
+                <target>Wie werden Aufgaben Redakteuren bereitgestellt?</target>
             </trans-unit>
             <trans-unit id="help.faq.a4">
-                <source>&lt;strong&gt;Tasks&lt;/strong&gt; are simple one-shot prompts defined here in the LLM module. They appear as preset options in the Cowriter dialog. The &lt;strong&gt;Cowriter dialog&lt;/strong&gt; is the CKEditor plugin that editors use to interact with the AI. Editors can pick a task or write a custom instruction.</source>
-                <target>&lt;strong&gt;Aufgaben&lt;/strong&gt; sind einfache einmalige Prompts, die hier im LLM-Modul definiert werden. Sie erscheinen als vorgegebene Optionen im Cowriter-Dialog. Der &lt;strong&gt;Cowriter-Dialog&lt;/strong&gt; ist das CKEditor-Plugin, mit dem Redakteure mit der KI interagieren. Redakteure können eine Aufgabe auswählen oder eine eigene Anweisung schreiben.</target>
+                <source>&lt;strong&gt;Tasks&lt;/strong&gt; are simple one-shot prompts defined here in the LLM module. They are exposed to consuming extensions and the API as preset options. A consuming extension provides the editor-facing UI where editors pick a task or write a custom instruction.</source>
+                <target>&lt;strong&gt;Aufgaben&lt;/strong&gt; sind einfache einmalige Prompts, die hier im LLM-Modul definiert werden. Sie werden nutzenden Erweiterungen und der API als vorgegebene Optionen bereitgestellt. Eine nutzende Erweiterung stellt die redakteursseitige Oberfläche bereit, in der Redakteure eine Aufgabe auswählen oder eine eigene Anweisung schreiben.</target>
             </trans-unit>
 
             <!-- Backend AJAX error messages -->
@@ -1895,8 +1895,8 @@
                 <target>Diese Aufgabe ist inaktiv.</target>
             </trans-unit>
             <trans-unit id="task.execute.inactive.message">
-                <source>It will not appear in the CKEditor cowriter dialog or API. You can still test it here.</source>
-                <target>Sie erscheint nicht im CKEditor-Cowriter-Dialog oder in der API. Sie können sie hier dennoch testen.</target>
+                <source>It will not be exposed to consuming extensions or the API. You can still test it here.</source>
+                <target>Sie wird nutzenden Erweiterungen oder der API nicht bereitgestellt. Sie können sie hier dennoch testen.</target>
             </trans-unit>
             <trans-unit id="task.execute.config.title">
                 <source>Configuration &amp; Model</source>

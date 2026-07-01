@@ -34,7 +34,7 @@
         <f:if condition="!{task.isActive}">
             <div class="alert alert-warning mb-4">
                 <core:icon identifier="actions-exclamation-triangle" size="small" />
-                <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.inactive.title" default="This task is inactive." /></strong> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.inactive.message" default="It will not appear in the CKEditor cowriter dialog or API. You can still test it here." />
+                <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.inactive.title" default="This task is inactive." /></strong> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.inactive.message" default="It will not be exposed to consuming extensions or the API. You can still test it here." />
             </div>
         </f:if>
 

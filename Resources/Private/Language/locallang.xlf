@@ -704,7 +704,7 @@
                 <source>Reassign Provider</source>
             </trans-unit>
             <trans-unit id="task.noActive.warning">
-                <source>No active tasks. Only active tasks appear in the CKEditor cowriter dialog and the API. Activate a task to make it available.</source>
+                <source>No active tasks. Only active tasks are exposed to consuming extensions and the API. Activate a task to make it available.</source>
             </trans-unit>
             <trans-unit id="skill.syncStatus.never">
                 <source>Never synced</source>
@@ -1059,13 +1059,13 @@
                 <source>Step 4 — Create Configurations</source>
             </trans-unit>
             <trans-unit id="help.step4.text">
-                <source>A configuration ties a provider and model together with default parameters (temperature, max tokens, system prompt). Extensions like Cowriter reference configurations by identifier.</source>
+                <source>A configuration ties a provider and model together with default parameters (temperature, max tokens, system prompt). Consuming extensions reference configurations by identifier.</source>
             </trans-unit>
             <trans-unit id="help.step5.title">
                 <source>Step 5 — Define Tasks (optional)</source>
             </trans-unit>
             <trans-unit id="help.step5.text">
-                <source>Tasks are one-shot prompt templates that appear in the Cowriter dialog. They are simple utility prompts — not multi-step AI agents.</source>
+                <source>Tasks are one-shot prompt templates exposed to consuming extensions and the API. They are simple utility prompts — not multi-step AI agents.</source>
             </trans-unit>
             <trans-unit id="help.arch.title">
                 <source>Architecture overview</source>
@@ -1140,10 +1140,10 @@
                 <source>Yes. The Ollama adapter supports local LLM instances. Set the endpoint to your Ollama server URL (e.g., &lt;code&gt;http://localhost:11434&lt;/code&gt;) and the wizard will auto-detect it. No API key is needed for local instances.</source>
             </trans-unit>
             <trans-unit id="help.faq.q4">
-                <source>What is the difference between tasks and the Cowriter dialog?</source>
+                <source>How are tasks exposed to editors?</source>
             </trans-unit>
             <trans-unit id="help.faq.a4">
-                <source>&lt;strong&gt;Tasks&lt;/strong&gt; are simple one-shot prompts defined here in the LLM module. They appear as preset options in the Cowriter dialog. The &lt;strong&gt;Cowriter dialog&lt;/strong&gt; is the CKEditor plugin that editors use to interact with the AI. Editors can pick a task or write a custom instruction.</source>
+                <source>&lt;strong&gt;Tasks&lt;/strong&gt; are simple one-shot prompts defined here in the LLM module. They are exposed to consuming extensions and the API as preset options. A consuming extension provides the editor-facing UI where editors pick a task or write a custom instruction.</source>
             </trans-unit>
 
             <!-- Backend AJAX error messages -->
@@ -1435,7 +1435,7 @@
                 <source>This task is inactive.</source>
             </trans-unit>
             <trans-unit id="task.execute.inactive.message">
-                <source>It will not appear in the CKEditor cowriter dialog or API. You can still test it here.</source>
+                <source>It will not be exposed to consuming extensions or the API. You can still test it here.</source>
             </trans-unit>
             <trans-unit id="task.execute.config.title">
                 <source>Configuration &amp; Model</source>
