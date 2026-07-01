@@ -47,8 +47,13 @@ Decision
 ========
 
 1. **A DI-tagged tool registry.** :php:`ToolInterface`
-   (``Classes/Service/Tool/``) declares ``getSpec(): ToolSpec`` and
-   ``execute(array $arguments): string`` and carries
+   (``Classes/Service/Tool/``) declares four methods —
+   ``getSpec(): ToolSpec``, ``execute(array $arguments): string``,
+   ``isEnabledByDefault(): bool`` (curated low-risk tools return ``true``;
+   secret- or system-exposing tools return ``false`` so they are opt-in) and
+   ``requiresAdmin(): bool`` (admin-only gating for tools surfacing
+   system/host/cross-user data) — both central to the fail-open/fail-closed
+   security model below. It carries
    ``#[AutoconfigureTag('nr_llm.tool')]``. :php:`ToolRegistry` collects every
    tagged tool through an autowired iterator and indexes it by spec name (a
    duplicate name is a developer error → :php:`LogicException` at
