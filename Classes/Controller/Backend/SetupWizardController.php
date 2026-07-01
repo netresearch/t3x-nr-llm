@@ -400,7 +400,12 @@ final class SetupWizardController extends ActionController
             $modelName = is_string($modelData['name'] ?? null) ? $modelData['name'] : 'model';
             $modelId = is_string($modelData['modelId'] ?? null) ? $modelData['modelId'] : '';
             $modelDescription = is_string($modelData['description'] ?? null) ? $modelData['description'] : '';
-            $modelCapabilities = is_array($modelData['capabilities'] ?? null) ? $modelData['capabilities'] : ['chat'];
+            // Keep only string capabilities so a malformed payload (nested or
+            // non-string entries) can never reach the model as a bad list.
+            $modelCapabilities = array_values(array_filter(
+                is_array($modelData['capabilities'] ?? null) ? $modelData['capabilities'] : ['chat'],
+                is_string(...),
+            ));
             $contextLength = is_numeric($modelData['contextLength'] ?? null) ? (int)$modelData['contextLength'] : 0;
             $maxOutputTokens = is_numeric($modelData['maxOutputTokens'] ?? null) ? (int)$modelData['maxOutputTokens'] : 0;
 
@@ -462,7 +467,9 @@ final class SetupWizardController extends ActionController
             }
 
             $recommendedModelId = is_string($configData['recommendedModelId'] ?? null) ? $configData['recommendedModelId'] : '';
-            $model = $savedModels[$recommendedModelId] ?? reset($savedModels) ?: null;
+            // Prefer the recommended model; otherwise fall back to the first
+            // saved model, or null when none were saved.
+            $model = $savedModels[$recommendedModelId] ?? (empty($savedModels) ? null : reset($savedModels));
 
             if ($model === null) {
                 continue;
