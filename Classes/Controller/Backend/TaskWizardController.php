@@ -78,9 +78,17 @@ final class TaskWizardController extends ActionController
         $resolvedConfig   = $this->wizardGeneratorService->resolveConfiguration();
 
         $moduleTemplate->assignMultiple([
-            'wizardType'       => 'task',
-            'availableConfigs' => $availableConfigs,
-            'resolvedConfig'   => $resolvedConfig,
+            'wizardType'        => 'task',
+            'availableConfigs'  => $availableConfigs,
+            'resolvedConfig'    => $resolvedConfig,
+            // Cross-module link to the Configuration module (its own backend
+            // route); f:uri.action cannot reach another module's route. The
+            // controller/action are stated explicitly so the link does not
+            // depend on the module's default-action order.
+            'configurationsUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_configurations', [
+                'controller' => 'Backend\\Configuration',
+                'action'     => 'list',
+            ]),
         ]);
         return $moduleTemplate->renderResponse('Backend/Task/WizardForm');
     }

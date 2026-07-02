@@ -82,7 +82,7 @@
                             <core:icon identifier="actions-exclamation-triangle" size="small" />
                             <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.noConfig.title" default="No LLM configuration available." /></strong>
                             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.shared.noConfig.hint" default="You need at least one active configuration with a model assigned before you can use the AI wizard." />
-                            <a href="{f:uri.action(action: 'list', controller: 'Configuration')}" class="alert-link"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.goToConfigurations" default="Go to Configurations" /></a>
+                            <a href="{configurationsUrl}" class="alert-link"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:wizard.task.goToConfigurations" default="Go to Configurations" /></a>
                         </div>
                     </f:else>
                 </f:if>
