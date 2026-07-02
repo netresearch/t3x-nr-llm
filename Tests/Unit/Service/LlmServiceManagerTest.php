@@ -618,6 +618,95 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         self::assertSame($expectedResponse, $result);
     }
 
+    /**
+     * A configuration's stored system prompt must reach the adapter as a
+     * leading system message — the adapters read the system instruction from
+     * the message list, not from options['system_prompt'].
+     */
+    #[Test]
+    public function chatWithConfigurationInjectsConfiguredSystemPrompt(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn(['temperature' => 0.7, 'system_prompt' => 'You are helpful']);
+
+        $expectedResponse = new CompletionResponse(
+            content: 'ok',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(10, 5, 15),
+            finishReason: 'stop',
+            provider: 'test',
+        );
+
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->expects(self::once())
+            ->method('chatCompletion')
+            ->with(
+                [
+                    ChatMessage::system('You are helpful'),
+                    ChatMessage::fromArray(['role' => 'user', 'content' => 'Hello']),
+                ],
+                ['temperature' => 0.7, 'system_prompt' => 'You are helpful'],
+            )
+            ->willReturn($expectedResponse);
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->chatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config);
+    }
+
+    /**
+     * An explicit system message supplied by the caller wins over the
+     * configuration's stored system prompt (per-call precedence).
+     */
+    #[Test]
+    public function chatWithConfigurationKeepsExplicitSystemMessageOverConfigPrompt(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn(['system_prompt' => 'Config prompt']);
+
+        $expectedResponse = new CompletionResponse(
+            content: 'ok',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(10, 5, 15),
+            finishReason: 'stop',
+            provider: 'test',
+        );
+
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->expects(self::once())
+            ->method('chatCompletion')
+            ->with(
+                [
+                    ChatMessage::fromArray(['role' => 'system', 'content' => 'Caller prompt']),
+                    ChatMessage::fromArray(['role' => 'user', 'content' => 'Hello']),
+                ],
+                ['system_prompt' => 'Config prompt'],
+            )
+            ->willReturn($expectedResponse);
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->chatWithConfiguration(
+            [
+                ['role' => 'system', 'content' => 'Caller prompt'],
+                ['role' => 'user', 'content' => 'Hello'],
+            ],
+            $config,
+        );
+    }
+
     #[Test]
     public function completeWithConfigurationUsesAdapter(): void
     {

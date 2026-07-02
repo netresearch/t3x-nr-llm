@@ -108,9 +108,22 @@ abstract class AbstractProvider implements ProviderInterface
 
     public function complete(string $prompt, array $options = []): CompletionResponse
     {
-        return $this->chatCompletion([
-            ['role' => 'user', 'content' => $prompt],
-        ], $options);
+        $messages = [];
+
+        // The configuration's system prompt reaches this method via
+        // `options['system_prompt']` (see LlmConfiguration::toOptionsArray()).
+        // chatCompletion() reads the system instruction from the message list,
+        // not from the options, so surface it as a leading system message here
+        // — otherwise a configuration's system prompt is silently dropped on
+        // every single-prompt completion (incl. task execution).
+        $systemPrompt = $options['system_prompt'] ?? null;
+        if (is_string($systemPrompt) && $systemPrompt !== '') {
+            $messages[] = ['role' => 'system', 'content' => $systemPrompt];
+        }
+
+        $messages[] = ['role' => 'user', 'content' => $prompt];
+
+        return $this->chatCompletion($messages, $options);
     }
 
     public function getDefaultModel(): string

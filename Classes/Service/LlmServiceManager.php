@@ -268,7 +268,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Chat, $providerKey),
             ProviderOperation::Chat,
-            fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($normalisedMessages, $optionsArray),
+            fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($this->applySystemPrompt($normalisedMessages, $optionsArray), $optionsArray),
             $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
         );
     }
@@ -484,7 +484,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                     );
                 }
 
-                return $provider->chatCompletionWithTools($normalisedMessages, $normalisedTools, $optionsArray);
+                return $provider->chatCompletionWithTools($this->applySystemPrompt($normalisedMessages, $optionsArray), $normalisedTools, $optionsArray);
             },
             $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
         );
@@ -538,7 +538,11 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                 $callOptions = array_merge($config->toOptionsArray(), $optionOverrides);
                 unset($callOptions['provider']);
 
-                return $adapter->chatCompletionWithTools($normalisedMessages, $normalisedTools, $callOptions);
+                return $adapter->chatCompletionWithTools(
+                    $this->applySystemPrompt($normalisedMessages, $callOptions),
+                    $normalisedTools,
+                    $callOptions,
+                );
             },
             $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
         );
@@ -638,7 +642,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                 $adapter = $this->getAdapterFromConfiguration($config);
                 $options = array_merge($config->toOptionsArray(), $optionOverrides);
                 unset($options['provider']);
-                return $adapter->chatCompletion($normalisedMessages, $options);
+                return $adapter->chatCompletion($this->applySystemPrompt($normalisedMessages, $options), $options);
             },
             $metadata,
         );
@@ -734,6 +738,43 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         }
 
         return $metadata;
+    }
+
+    /**
+     * Prepend the effective system prompt (from the merged call options) as a
+     * system message when the caller has not already supplied one.
+     *
+     * The provider adapters read the system instruction from the message list,
+     * NOT from `options['system_prompt']`. A configuration's stored system
+     * prompt is surfaced via {@see LlmConfiguration::toOptionsArray()} under
+     * that option key, so without this step it would be silently dropped on
+     * every chat and tool-loop call. An explicit system message already present
+     * in $messages always wins (per-call precedence over the configuration).
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $options
+     *
+     * @return list<ChatMessage|array<string, mixed>>
+     */
+    private function applySystemPrompt(array $messages, array $options): array
+    {
+        $systemPrompt = $options['system_prompt'] ?? null;
+        if (!is_string($systemPrompt) || $systemPrompt === '') {
+            return $messages;
+        }
+
+        foreach ($messages as $message) {
+            $isSystem = $message instanceof ChatMessage
+                ? $message->isSystem()
+                : (is_array($message) && ($message['role'] ?? null) === 'system');
+            if ($isSystem) {
+                return $messages;
+            }
+        }
+
+        array_unshift($messages, ChatMessage::system($systemPrompt));
+
+        return $messages;
     }
 
     /**
