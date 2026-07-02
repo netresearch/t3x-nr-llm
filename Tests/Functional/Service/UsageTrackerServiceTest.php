@@ -131,6 +131,32 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function trackUsageKeepsSeparateRecordsForDifferentConfigurations(): void
+    {
+        // Two configurations on the same model (same everything else) must yield
+        // two rows so per-configuration analytics are not misattributed.
+        $this->service->trackUsage('completion', 'openai', ['tokens' => 10, 'cost' => 0.01], configurationUid: 1, modelId: 'gpt-4o');
+        $this->service->trackUsage('completion', 'openai', ['tokens' => 20, 'cost' => 0.02], configurationUid: 2, modelId: 'gpt-4o');
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $count = $connection->count('*', self::TABLE, ['service_type' => 'completion', 'model_id' => 'gpt-4o']);
+        self::assertSame(2, $count);
+
+        // A repeat call on configuration 1 aggregates into ITS row only.
+        $this->service->trackUsage('completion', 'openai', ['tokens' => 5, 'cost' => 0.01], configurationUid: 1, modelId: 'gpt-4o');
+        $count = $connection->count('*', self::TABLE, ['service_type' => 'completion', 'model_id' => 'gpt-4o']);
+        self::assertSame(2, $count);
+
+        $row = $connection->select(
+            ['request_count'],
+            self::TABLE,
+            ['service_type' => 'completion', 'model_id' => 'gpt-4o', 'configuration_uid' => 1],
+        )->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertSame(2, (int)$row['request_count']);
+    }
+
+    #[Test]
     public function trackUsageKeepsSeparateRecordsForDifferentProviders(): void
     {
         $this->service->trackUsage('translation', 'deepl', ['characters' => 100]);
