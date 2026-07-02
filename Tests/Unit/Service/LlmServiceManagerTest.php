@@ -1032,6 +1032,36 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         self::assertEquals(['Streaming', ' response'], $chunks);
     }
 
+    /**
+     * The streaming path must apply the configuration's system prompt too —
+     * the adapters read the system instruction from the message list.
+     */
+    #[Test]
+    public function streamChatWithConfigurationInjectsConfiguredSystemPrompt(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn(['system_prompt' => 'You are helpful']);
+
+        $adapter = new StubStreamingProvider();
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($adapter);
+
+        $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        iterator_to_array($manager->streamChatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config));
+
+        self::assertEquals(
+            [
+                ChatMessage::system('You are helpful'),
+                ChatMessage::fromArray(['role' => 'user', 'content' => 'Hello']),
+            ],
+            $adapter->capturedMessages,
+        );
+    }
+
     #[Test]
     public function streamChatRoutesThroughDefaultConfigurationWithOptionOverrides(): void
     {
@@ -1647,6 +1677,9 @@ class StubStreamingProvider extends TestableProvider implements StreamingCapable
     /** @var array<string, mixed> */
     public array $capturedOptions = [];
 
+    /** @var list<ChatMessage|array<string, mixed>> */
+    public array $capturedMessages = [];
+
     public function __construct()
     {
         parent::__construct('mock', 'Mock', true);
@@ -1654,6 +1687,7 @@ class StubStreamingProvider extends TestableProvider implements StreamingCapable
 
     public function streamChatCompletion(array $messages, array $options = []): Generator
     {
+        $this->capturedMessages = $messages;
         $this->capturedOptions = $options;
         yield 'Streaming';
         yield ' response';

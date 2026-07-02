@@ -445,7 +445,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             );
         }
 
-        return $provider->streamChatCompletion($this->normaliseMessages($messages), $optionsArray);
+        return $provider->streamChatCompletion($this->applySystemPrompt($this->normaliseMessages($messages), $optionsArray), $optionsArray);
     }
 
     /**
@@ -880,7 +880,10 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             );
         }
 
-        return $adapter->streamChatCompletion($this->normaliseMessages($messages), $options);
+        return $adapter->streamChatCompletion(
+            $this->applySystemPrompt($this->normaliseMessages($messages), $options),
+            $options,
+        );
     }
 
     /**

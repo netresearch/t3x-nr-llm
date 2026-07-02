@@ -29,6 +29,8 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\NetworkExceptionInterface;
 use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Http\Message\StreamInterface;
 use RuntimeException;
 
 /**
@@ -178,6 +180,58 @@ class AbstractProviderTest extends AbstractUnitTestCase
         $result = $provider->complete('Hello world');
 
         self::assertEquals('Test reply', $result->content);
+    }
+
+    /**
+     * complete() must surface options['system_prompt'] (how a configuration's
+     * system prompt reaches this method) as a leading system message, since the
+     * adapters read the system instruction from the message list.
+     */
+    #[Test]
+    public function completePrependsConfiguredSystemPromptAsSystemMessage(): void
+    {
+        $capturedBody = null;
+        $streamFactory = self::createStub(StreamFactoryInterface::class);
+        $streamFactory->method('createStream')->willReturnCallback(
+            function (string $content) use (&$capturedBody): StreamInterface {
+                $capturedBody = $content;
+                $stream = self::createStub(StreamInterface::class);
+                $stream->method('__toString')->willReturn($content);
+                $stream->method('getContents')->willReturn($content);
+                return $stream;
+            },
+        );
+
+        $apiResponse = [
+            'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
+            'model' => 'mistral-large-latest',
+            'usage' => ['prompt_tokens' => 5, 'completion_tokens' => 3, 'total_tokens' => 8],
+        ];
+        $httpClientMock = $this->createHttpClientMock();
+        $httpClientMock->method('sendRequest')->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $provider = new MistralProvider(
+            $this->createRequestFactoryMock(),
+            $streamFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'mistral-large-latest',
+            'maxRetries' => 1,
+        ]);
+        $provider->setHttpClient($httpClientMock);
+
+        $provider->complete('Hello world', ['system_prompt' => 'You are helpful']);
+
+        self::assertIsString($capturedBody);
+        /** @var array<string, mixed> $payload */
+        $payload = json_decode($capturedBody, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload['messages'] ?? null);
+        self::assertSame(['role' => 'system', 'content' => 'You are helpful'], $payload['messages'][0]);
+        self::assertSame('user', $payload['messages'][1]['role']);
     }
 
     #[Test]
