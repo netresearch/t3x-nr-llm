@@ -188,7 +188,10 @@ CREATE TABLE tx_nrllm_user_budget (
 
     PRIMARY KEY (uid),
     KEY parent (pid),
-    UNIQUE KEY be_user (be_user)
+    -- No DB UNIQUE on be_user: a soft-deleted row keeps its be_user value in
+    -- the index and would block re-creating a budget for that user. One budget
+    -- per user is enforced in application logic (repository getFirst()).
+    KEY be_user (be_user)
 );
 
 #
@@ -251,7 +254,10 @@ CREATE TABLE tx_nrllm_task (
     PRIMARY KEY (uid),
     KEY parent (pid),
     KEY configuration_uid (configuration_uid),
-    UNIQUE KEY identifier (identifier),
+    -- No DB UNIQUE on identifier: a soft-deleted row keeps its identifier in
+    -- the index and would block recreating/re-seeding a task with the same
+    -- identifier. Uniqueness is enforced (delete-aware) via TCA eval=unique.
+    KEY identifier (identifier),
     KEY category (category)
 );
 
@@ -388,8 +394,10 @@ CREATE TABLE tx_nrllm_service_usage (
     audio_seconds_used int(11) unsigned DEFAULT '0' NOT NULL,
     images_generated int(11) unsigned DEFAULT '0' NOT NULL,
 
-    -- Cost tracking
-    estimated_cost decimal(10,6) DEFAULT '0.000000' NOT NULL,
+    -- Cost tracking. Width aligned with the budget-ceiling columns
+    -- (max_cost_per_day/month) so an aggregated daily cost cannot overflow the
+    -- column before it can be compared against a configured budget ceiling.
+    estimated_cost decimal(14,6) DEFAULT '0.000000' NOT NULL,
 
     -- Time tracking
     request_date int(11) unsigned DEFAULT '0' NOT NULL,
@@ -404,7 +412,11 @@ CREATE TABLE tx_nrllm_service_usage (
     KEY user_lookup (be_user, service_type, request_date),
     KEY config_lookup (configuration_uid, request_date),
     KEY model_lookup (model_uid, request_date),
-    KEY task_lookup (task_uid, request_date)
+    KEY task_lookup (task_uid, request_date),
+    -- Leading request_date index for the analytics/dashboard read paths that
+    -- filter by a date-range window only (no leading dimension) — the other
+    -- composite indexes cannot serve those range scans.
+    KEY request_date (request_date)
 );
 
 #
