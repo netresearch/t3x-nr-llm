@@ -160,8 +160,8 @@ The **Admin Tools > LLM** backend module gives you full control:
 
 ### Security by default
 
-- **Encrypted API keys** — All keys stored with sodium_crypto_secretbox (XSalsa20-Poly1305),
-  optionally via [nr-vault](https://github.com/netresearch/t3x-nr-vault) envelope encryption
+- **Encrypted API keys** — All keys stored as vault identifiers (UUIDs) via
+  [nr-vault](https://github.com/netresearch/t3x-nr-vault) envelope encryption; nr-llm never stores raw keys
 - **Admin-only access** — Backend module restricted to administrators
 - **No plaintext secrets** — Keys never stored or logged in plain text
 

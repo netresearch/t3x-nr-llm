@@ -42,7 +42,7 @@ Ensure your system meets these requirements:
 - PHP 8.2 or higher.
 - TYPO3 v13.4 LTS or v14.3 LTS.
 - Composer 2.x.
-- :composer:`netresearch/nr-vault` ^0.6.0 (required for
+- :composer:`netresearch/nr-vault` ^0.10.0 (required for
   API key encryption; installed automatically via
   Composer).
 
