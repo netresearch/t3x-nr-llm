@@ -320,6 +320,33 @@ final class ToolLoopServiceTest extends TestCase
     }
 
     #[Test]
+    public function budgetExceededIsLoggedServerSide(): void
+    {
+        // A budget stop and an iteration-cap stop both surface as
+        // truncated=true with an empty answer; the denial must be logged so
+        // operators can tell them apart (and see which bucket tripped).
+        $budgetException = new BudgetExceededException(
+            BudgetCheckResult::denied(BudgetCheckResult::LIMIT_MONTHLY_COST, 10.0, 5.0),
+        );
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willThrowException($budgetException);
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())
+            ->method('warning')
+            ->with(
+                self::stringContains('budget'),
+                self::callback(static fn(array $ctx): bool => ($ctx['exception'] ?? null) instanceof BudgetExceededException),
+            );
+
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]), $logger);
+        $result  = $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), null);
+
+        self::assertTrue($result->truncated);
+    }
+
+    #[Test]
     public function usageTokensSummedAcrossIterations(): void
     {
         $mgr   = self::createStub(LlmServiceManagerInterface::class);

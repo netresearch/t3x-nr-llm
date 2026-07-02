@@ -187,9 +187,17 @@ final readonly class ToolLoopService
                 true,
                 UsageStatistics::fromTokens($promptTokens, $completionTokens),
             );
-        } catch (BudgetExceededException) {
+        } catch (BudgetExceededException $e) {
             // Budget fires pre-flight and tools are read-only, so the partial
-            // trace is consistent. Surface what ran rather than aborting.
+            // trace is consistent. Surface what ran rather than aborting — but
+            // log the denial (with the tripped bucket) so operators can tell a
+            // budget stop from an iteration cap, since both surface as
+            // truncated=true with an empty final answer.
+            $this->logger?->warning(
+                'Tool loop stopped: budget pre-flight denied the call.',
+                ['exception' => $e],
+            );
+
             return new ToolLoopResult(
                 '',
                 $trace,
