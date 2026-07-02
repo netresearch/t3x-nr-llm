@@ -261,6 +261,22 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function syncSplitsStringFormAllowedToolsIntoList(): void
+    {
+        // A string-form declaration ("A, B") is a real list, not the
+        // declared-empty (all-tools-off) list — it must be split into a list,
+        // not silently collapsed to '[]'.
+        $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH], [
+            self::SKILL_A_PATH => $this->mdWithTools('A', '"GetTca, GetEnv"', 'body a'),
+        ]);
+        $this->service($gitHub)->sync($this->repoSource());
+
+        $skill = $this->get(SkillRepository::class)->findBySourceAndIdentifier(10, self::SKILL_A_ID);
+        self::assertNotNull($skill);
+        self::assertSame('["GetTca","GetEnv"]', $skill->getAllowedTools(), 'string-form allowed-tools splits into a list');
+    }
+
+    #[Test]
     public function resyncAutoDisablesEnabledSkillWhenBodyChanged(): void
     {
         $source = $this->repoSource();

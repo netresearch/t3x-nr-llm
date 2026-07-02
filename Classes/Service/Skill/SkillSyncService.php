@@ -398,7 +398,14 @@ final class SkillSyncService
             $skill->setAllowedTools('');
         } else {
             $tools = $frontmatter['allowed-tools'] ?? $frontmatter['allowed_tools'] ?? [];
-            $skill->setAllowedTools((string)json_encode(is_array($tools) ? $tools : []));
+            // A string form ("GetTca, GetEnv" / "GetTca GetEnv" / a single name)
+            // is a real declaration, not "no tools": split it into a list rather
+            // than collapsing to the declared-empty (fail-closed, all-tools-off)
+            // list. Only a genuinely empty/whitespace value stays empty.
+            if (is_string($tools)) {
+                $tools = preg_split('/[\s,]+/', trim($tools), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            }
+            $skill->setAllowedTools((string)json_encode(is_array($tools) ? array_values($tools) : []));
         }
     }
 
