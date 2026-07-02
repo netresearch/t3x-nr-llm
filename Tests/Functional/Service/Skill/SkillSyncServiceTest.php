@@ -267,7 +267,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         // declared-empty (all-tools-off) list — it must be split into a list,
         // not silently collapsed to '[]'.
         $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH], [
-            self::SKILL_A_PATH => $this->mdWithTools('A', '"GetTca, GetEnv"', 'body a'),
+            self::SKILL_A_PATH => $this->mdWithTools('A', '"GetTca, GetEnv"', 'string-tools body content'),
         ]);
         $this->service($gitHub)->sync($this->repoSource());
 

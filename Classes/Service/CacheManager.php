@@ -118,7 +118,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
      */
     private function sanitizeTagValue(string $value): string
     {
-        return preg_replace('/[^a-zA-Z0-9_]/', '_', $value) ?? '';
+        return preg_replace('/\W/', '_', $value) ?? '';
     }
 
     /**
