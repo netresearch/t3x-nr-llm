@@ -158,8 +158,16 @@ abstract class AbstractProvider implements ProviderInterface
             return $this->configuredHttpClient;
         }
 
-        // For providers without API key, use httpClientFactory directly
+        // For providers without API key, use httpClientFactory directly.
+        // The authenticated path is gated by VaultHttpClient::sendRequest(),
+        // which rejects disallowed hosts via isHostAllowed(); the raw factory
+        // client has no such per-request gate, and the SSRF DNS-pin middleware
+        // deliberately skips IP-literal targets (trusting an isHostAllowed()
+        // call that never runs on this path). Gate the configured endpoint
+        // host here so an api-key-less provider (e.g. Ollama) pointed at a
+        // private/metadata IP literal cannot bypass the private-range filter.
         if ($this->apiKeyIdentifier === '') {
+            $this->assertEndpointHostAllowed();
             return $this->httpClientFactory->create();
         }
 
@@ -168,6 +176,32 @@ abstract class AbstractProvider implements ProviderInterface
             $this->getSecretPlacement(),
             $this->getSecretPlacementOptions(),
         );
+    }
+
+    /**
+     * Reject an api-key-less provider whose configured endpoint host is not
+     * permitted by nr-vault's SSRF host filter (private / link-local /
+     * loopback / carrier-grade-NAT / cloud-metadata ranges, unless the
+     * operator has opted the host into `allowed_hosts`). This mirrors the gate
+     * {@see VaultHttpClientInterface::sendRequest()} applies to every
+     * authenticated request, closing the IP-literal bypass on the raw
+     * factory-client path.
+     *
+     * @throws ProviderConfigurationException
+     */
+    private function assertEndpointHostAllowed(): void
+    {
+        $host = parse_url($this->baseUrl, PHP_URL_HOST);
+        if (!is_string($host) || $host === '') {
+            return;
+        }
+
+        if (!$this->httpClientFactory->isHostAllowed($host)) {
+            throw new ProviderConfigurationException(
+                sprintf('Provider endpoint host "%s" is not allowed by the SSRF host filter.', $host),
+                1751452800,
+            );
+        }
     }
 
     /**

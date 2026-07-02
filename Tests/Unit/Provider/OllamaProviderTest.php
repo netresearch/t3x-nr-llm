@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\OllamaProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -90,6 +91,37 @@ class OllamaProviderTest extends AbstractUnitTestCase
     public function getNameReturnsOllama(): void
     {
         self::assertEquals('Ollama', $this->subject->getName());
+    }
+
+    /**
+     * An api-key-less provider (Ollama) pointed at a cloud-metadata / private
+     * IP literal must be rejected by the SSRF host gate before any request is
+     * dispatched — the raw factory-client path used for keyless providers has
+     * no per-request isHostAllowed() gate, and the DNS-pin middleware skips IP
+     * literals. Without the endpoint-host gate this SSRF target would slip
+     * through. No HTTP client is injected here so the real keyless code path
+     * (getHttpClient → assertEndpointHostAllowed) runs.
+     */
+    #[Test]
+    public function keylessProviderRejectsMetadataIpEndpoint(): void
+    {
+        $subject = new OllamaProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => '',
+            'defaultModel' => 'llama3.2',
+            'baseUrl' => 'http://169.254.169.254:11434',
+            'timeout' => 30,
+        ]);
+
+        $this->expectException(ProviderConfigurationException::class);
+
+        $subject->complete('hello');
     }
 
     #[Test]
