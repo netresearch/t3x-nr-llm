@@ -24,6 +24,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 
 #[CoversClass(ClaudeProvider::class)]
@@ -760,6 +761,125 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $result = $this->subject->chatCompletion($messages, $options);
 
         self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    /**
+     * Anthropic rejects temperature > 1.0 with an HTTP 400, but the
+     * configuration layer clamps to the OpenAI-style [0.0, 2.0] range. A
+     * configured value in (1.0, 2.0] must therefore be clamped down to 1.0
+     * before it reaches the API.
+     */
+    #[Test]
+    public function chatCompletionClampsTemperatureToAnthropicMaximum(): void
+    {
+        $payload = $this->captureChatPayload(['temperature' => 1.8]);
+
+        $this->assertPayloadTemperature($payload, 1.0);
+    }
+
+    #[Test]
+    public function chatCompletionKeepsInRangeTemperatureUnchanged(): void
+    {
+        $payload = $this->captureChatPayload(['temperature' => 0.3]);
+
+        $this->assertPayloadTemperature($payload, 0.3);
+    }
+
+    /**
+     * The tool-calling path must honour the configured sampling parameters,
+     * just like the plain chat path (a Claude tool run previously ignored the
+     * configuration's temperature entirely).
+     */
+    #[Test]
+    public function chatCompletionWithToolsAppliesClampedTemperature(): void
+    {
+        $payload = $this->captureChatPayload(
+            ['temperature' => 1.8],
+            [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])],
+        );
+
+        $this->assertPayloadTemperature($payload, 1.0);
+    }
+
+    /**
+     * Assert the (JSON-decoded) payload carries the expected temperature.
+     * json_encode() serialises a whole float such as 1.0 as `1`, so the
+     * decoded value may be an int — compare numerically after narrowing.
+     *
+     * @param array<string, mixed> $payload
+     */
+    private function assertPayloadTemperature(array $payload, float $expected): void
+    {
+        self::assertArrayHasKey('temperature', $payload);
+        $temperature = $payload['temperature'];
+        self::assertIsNumeric($temperature);
+        self::assertEqualsWithDelta($expected, (float)$temperature, 1e-9);
+    }
+
+    /**
+     * Run a Claude completion with a stream factory that captures the encoded
+     * request payload and return it decoded. When $tools is non-empty the
+     * tool-calling path is exercised instead of plain chat.
+     *
+     * @param array<string, mixed> $options
+     * @param list<ToolSpec>       $tools
+     *
+     * @return array<string, mixed>
+     */
+    private function captureChatPayload(array $options, array $tools = []): array
+    {
+        $capturedBody = null;
+        $streamFactory = self::createStub(StreamFactoryInterface::class);
+        $streamFactory->method('createStream')->willReturnCallback(
+            function (string $content) use (&$capturedBody): StreamInterface {
+                $capturedBody = $content;
+                $stream = self::createStub(StreamInterface::class);
+                $stream->method('__toString')->willReturn($content);
+                $stream->method('getContents')->willReturn($content);
+                return $stream;
+            },
+        );
+
+        $subject = new ClaudeProvider(
+            $this->createRequestFactoryMock(),
+            $streamFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'claude-sonnet-4-20250514',
+            'baseUrl' => '',
+            'timeout' => 30,
+        ]);
+        $subject->setHttpClient($this->httpClientStub);
+
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [['type' => 'text', 'text' => 'Response']],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+        ];
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $messages = [['role' => 'user', 'content' => 'test']];
+        if ($tools === []) {
+            $subject->chatCompletion($messages, $options);
+        } else {
+            $subject->chatCompletionWithTools($messages, $tools, $options);
+        }
+
+        self::assertIsString($capturedBody);
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode($capturedBody, true, 512, JSON_THROW_ON_ERROR);
+
+        return $decoded;
     }
 
     #[Test]
