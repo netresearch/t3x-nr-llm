@@ -49,7 +49,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 ['tokens' => 150, 'promptTokens' => 100, 'completionTokens' => 50, 'cost' => 0.0012],
                 7,
                 0,
-                '',
+                'gpt-4o-mini',
                 0,
             );
 
@@ -81,7 +81,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 ['tokens' => 42, 'promptTokens' => 42, 'completionTokens' => 0],
                 null,
                 0,
-                '',
+                'claude-embed',
                 0,
             );
 
@@ -110,7 +110,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 ['tokens' => 300, 'promptTokens' => 200, 'completionTokens' => 100, 'cost' => 0.003],
                 12,
                 0,
-                '',
+                'gemini-vision',
                 0,
             );
 
@@ -139,7 +139,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 ['tokens' => 10, 'promptTokens' => 5, 'completionTokens' => 5],
                 null,
                 0,
-                '',
+                'm',
                 0,
             );
 
@@ -238,7 +238,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 ['tokens' => 42, 'promptTokens' => 42, 'completionTokens' => 0, 'cost' => 0.0015],
                 null,
                 0,
-                '',
+                'text-embedding-3-small',
                 0,
             );
 
@@ -406,7 +406,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 ['tokens' => 10, 'promptTokens' => 5, 'completionTokens' => 5],
                 null,
                 0,
-                '',
+                'm',
                 42,
             );
 

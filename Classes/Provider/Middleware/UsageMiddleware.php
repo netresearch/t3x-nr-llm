@@ -86,14 +86,21 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         LlmConfiguration $configuration,
         mixed $result,
     ): void {
-        [$usage, $provider] = $this->extractUsage($result);
+        [$usage, $provider, $responseModel] = $this->extractUsage($result);
         if ($usage === null) {
             return;
         }
 
         $model    = $configuration->getLlmModel();
         $modelUid = $model?->getUid() ?? 0;
+        // Ad-hoc/transient configurations (e.g. the embeddings path) carry no
+        // model, so getModelId() is ''. Fall back to the model the provider
+        // actually reported on the response so per-model analytics attribute
+        // the usage instead of dropping it into an empty-model bucket.
         $modelId  = $configuration->getModelId();
+        if ($modelId === '' && $responseModel !== '') {
+            $modelId = $responseModel;
+        }
 
         // Cost: prefer a cost the provider already computed; otherwise derive
         // it from the model's pricing and the prompt/completion token split.
@@ -137,10 +144,10 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
      * payloads (CacheMiddleware codec shape) carry the same information
      * under `usage` / `provider` keys — the middleware reconstructs a
      * `UsageStatistics` from those so recording happens identically on
-     * both paths. Unrecognised shapes return `[null, '']` so the
+     * both paths. Unrecognised shapes return `[null, '', '']` so the
      * middleware silently skips.
      *
-     * @return array{0: ?UsageStatistics, 1: string}
+     * @return array{0: ?UsageStatistics, 1: string, 2: string}
      */
     private function extractUsage(mixed $result): array
     {
@@ -149,7 +156,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             || $result instanceof EmbeddingResponse
             || $result instanceof VisionResponse
         ) {
-            return [$result->usage, $result->provider];
+            return [$result->usage, $result->provider, $result->model];
         }
 
         if (
@@ -160,10 +167,11 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         ) {
             /** @var array<string, mixed> $usageData */
             $usageData = $result['usage'];
+            $model     = isset($result['model']) && \is_string($result['model']) ? $result['model'] : '';
 
-            return [UsageStatistics::fromArray($usageData), $result['provider']];
+            return [UsageStatistics::fromArray($usageData), $result['provider'], $model];
         }
 
-        return [null, ''];
+        return [null, '', ''];
     }
 }
