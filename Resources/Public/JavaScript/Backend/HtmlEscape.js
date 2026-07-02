@@ -19,13 +19,20 @@ const escapeElement = document.createElement('div');
  * Escape HTML entities to prevent XSS attacks.
  * LLM responses are untrusted external content.
  *
+ * The textContent -> innerHTML round-trip escapes `&`, `<` and `>` but NOT
+ * quotes, so the result is unsafe when interpolated into a quoted HTML
+ * attribute value. Escape `"` and `'` as well so the output is safe in both
+ * text and attribute contexts.
+ *
  * @param {string} text - The text to escape
- * @returns {string} - HTML-escaped text
+ * @returns {string} - HTML-escaped text, safe for text and attribute contexts
  */
 export function escapeHtml(text) {
     if (typeof text !== 'string') {
         return '';
     }
     escapeElement.textContent = text;
-    return escapeElement.innerHTML;
+    return escapeElement.innerHTML
+        .replaceAll('"', '&quot;')
+        .replaceAll('\'', '&#39;');
 }
