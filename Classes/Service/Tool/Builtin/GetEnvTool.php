@@ -33,8 +33,8 @@ final readonly class GetEnvTool implements ToolInterface
 
     /**
      * Matches the `user:password@` userinfo of a URL/URI value so credentials
-     * embedded in a non-secret-named connection string (e.g.
-     * REDIS_URL=redis://user:s3cret@host) are redacted while the host/path
+     * embedded in a non-secret-named connection-string variable (a scheme URL
+     * carrying a password before the `@`) are redacted while the host/path
      * stays visible for context.
      */
     private const INLINE_CREDENTIAL_PATTERN = '#([a-z][a-z0-9+.\-]*://)[^:@/\s]+:[^@/\s]+@#i';
@@ -68,8 +68,10 @@ final readonly class GetEnvTool implements ToolInterface
                 $masked = self::REDACTED;
             } else {
                 // Even a non-secret-named variable may carry credentials inside
-                // a connection-string value; strip any inline userinfo.
-                $masked = preg_replace(self::INLINE_CREDENTIAL_PATTERN, '$1' . self::REDACTED . '@', $value) ?? $value;
+                // a connection-string value; strip any inline userinfo. Fail
+                // closed: a PCRE error (null) redacts the whole value rather
+                // than egressing a possibly-credential-bearing string.
+                $masked = preg_replace(self::INLINE_CREDENTIAL_PATTERN, '$1' . self::REDACTED . '@', $value) ?? self::REDACTED;
             }
             $lines[] = $name . '=' . $masked;
         }

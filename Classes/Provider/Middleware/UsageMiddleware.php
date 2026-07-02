@@ -30,8 +30,12 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  *  - `array{usage: array, provider: string, ...}` (array payload emitted by
  *    feature services that opt in to CacheMiddleware — CacheMiddleware
  *    stores `array<string, mixed>`, so the terminal is wrapped with a
- *    `$response->toArray()` codec. UsageMiddleware sees the array on both
- *    cache-hit and cache-miss paths and records consistently either way.)
+ *    `$response->toArray()` codec, and UsageMiddleware records from the array
+ *    shape on the cache-MISS path just as it does from a typed response.)
+ *
+ * A cache HIT is NOT recorded here: CacheMiddleware is the outermost layer
+ * (priority 100) and short-circuits with the cached value before Budget/Usage
+ * run, so a served-from-cache response is deliberately not re-billed.
  *
  * Streaming Generator, translation result, raw string, plain array without
  * `usage` / `provider` — silently skipped. Nothing reliable to record for
