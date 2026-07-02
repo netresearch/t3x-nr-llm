@@ -28,22 +28,42 @@ final class GetEnvToolTest extends TestCase
     private const PLAIN_VALUE = 'web-01.example.test';
     private const SECRET_KEY = 'NRLLM_TEST_DB_PASSWORD';
     private const SECRET_VALUE = 'sup3r-s3cr3t-value';
+    // Name uses PWD (not PASS), matched by the secret-name pattern.
+    private const PWD_KEY = 'NRLLM_TEST_MYSQL_PWD';
+    private const PWD_VALUE = 'dbpass123';
+    // Non-secret NAME whose VALUE embeds credentials in a connection URL.
+    private const URL_KEY = 'NRLLM_TEST_REDIS_URL';
+    private const URL_VALUE = 'redis://cacheuser:s3cr3turl@cache-01:6379/0';
 
     protected function setUp(): void
     {
         parent::setUp();
-        putenv(self::PLAIN_KEY . '=' . self::PLAIN_VALUE);
-        putenv(self::SECRET_KEY . '=' . self::SECRET_VALUE);
-        $_ENV[self::PLAIN_KEY]  = self::PLAIN_VALUE;
-        $_ENV[self::SECRET_KEY] = self::SECRET_VALUE;
+        foreach ($this->fixtureEnv() as $name => $value) {
+            putenv($name . '=' . $value);
+            $_ENV[$name] = $value;
+        }
     }
 
     protected function tearDown(): void
     {
-        putenv(self::PLAIN_KEY);
-        putenv(self::SECRET_KEY);
-        unset($_ENV[self::PLAIN_KEY], $_ENV[self::SECRET_KEY]);
+        foreach (array_keys($this->fixtureEnv()) as $name) {
+            putenv($name);
+            unset($_ENV[$name]);
+        }
         parent::tearDown();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function fixtureEnv(): array
+    {
+        return [
+            self::PLAIN_KEY  => self::PLAIN_VALUE,
+            self::SECRET_KEY => self::SECRET_VALUE,
+            self::PWD_KEY    => self::PWD_VALUE,
+            self::URL_KEY    => self::URL_VALUE,
+        ];
     }
 
     #[Test]
@@ -64,5 +84,35 @@ final class GetEnvToolTest extends TestCase
         // The secret variable appears, but its value is masked.
         self::assertStringContainsString(self::SECRET_KEY . '=***redacted***', $output);
         self::assertStringNotContainsString(self::SECRET_VALUE, $output);
+    }
+
+    #[Test]
+    public function pwdStyleSecretNameIsRedacted(): void
+    {
+        $output = (new GetEnvTool())->execute([]);
+
+        // MYSQL_PWD uses PWD, not PASS — it must still be caught.
+        self::assertStringContainsString(self::PWD_KEY . '=***redacted***', $output);
+        self::assertStringNotContainsString(self::PWD_VALUE, $output);
+    }
+
+    #[Test]
+    public function inlineUrlCredentialsAreRedactedWhileHostRemains(): void
+    {
+        $output = (new GetEnvTool())->execute([]);
+
+        // The variable NAME is not secret-looking, but its VALUE embeds
+        // credentials: the userinfo is stripped, the host/port kept for context.
+        self::assertStringNotContainsString('s3cr3turl', $output);
+        self::assertStringNotContainsString('cacheuser', $output);
+        self::assertStringContainsString(self::URL_KEY . '=redis://***redacted***@cache-01:6379/0', $output);
+    }
+
+    #[Test]
+    public function requiresAdminIsTrue(): void
+    {
+        // Security invariant: get_env egresses host/cross-user data and must
+        // stay admin-gated. Pin it so a refactor cannot silently flip it.
+        self::assertTrue((new GetEnvTool())->requiresAdmin());
     }
 }
