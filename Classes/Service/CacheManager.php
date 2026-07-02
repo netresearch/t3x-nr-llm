@@ -107,9 +107,10 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
-     * Reduce an arbitrary value to the character set TYPO3 accepts for cache
-     * tags (`[a-zA-Z0-9_%\-&]`). Model identifiers legitimately contain `/`
-     * and `:` (e.g. the OpenRouter `anthropic/claude-3.5` or Ollama
+     * Reduce an arbitrary value to the strict `[A-Za-z0-9_]` subset of TYPO3's
+     * allowed cache-tag charset (`[a-zA-Z0-9_%\-&]`) — a deliberately narrower
+     * set that avoids any escaping ambiguity. Model identifiers legitimately
+     * contain `/` and `:` (e.g. the OpenRouter `anthropic/claude-3.5` or Ollama
      * `llama3:8b` form); left unescaped, the TYPO3 cache frontend rejects the
      * whole `set()` call with an InvalidArgumentException, which would abort
      * caching for every affected provider. Any non-conforming byte collapses
@@ -154,7 +155,9 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
         ];
 
         if (isset($options['model']) && is_string($options['model'])) {
-            $tags[] = 'nrllm_model_' . $this->sanitizeTagValue($options['model']);
+            // Cap at TYPO3's 250-char tag limit (prefix included) so an
+            // unusually long model id cannot make the cache frontend reject set().
+            $tags[] = substr('nrllm_model_' . $this->sanitizeTagValue($options['model']), 0, 250);
         }
 
         $this->set($cacheKey, $response, $lifetime, $tags);
