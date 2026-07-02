@@ -28,14 +28,14 @@ return [
     'types' => [
         '0' => [
             'showitem' => '
-                --div--;core.form.tabs:general,
+                --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:general,
                     be_user,
                     is_active,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.daily_limits,
                     --palette--;;daily_limits,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.monthly_limits,
                     --palette--;;monthly_limits,
-                --div--;core.form.tabs:access,
+                --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     hidden
             ',
         ],

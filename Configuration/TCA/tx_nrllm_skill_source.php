@@ -29,17 +29,17 @@ return [
     'types' => [
         '0' => [
             'showitem' => '
-                --div--;core.form.tabs:general,
+                --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:general,
                     title,
                     type,
                     url,
                     ref,
-                --div--;core.form.tabs:metadata,
+                --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:metadata,
                     pinned_sha,
                     sync_status,
                     sync_error,
                     last_synced,
-                --div--;core.form.tabs:access,
+                --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     enabled,
                     hidden,
             ',

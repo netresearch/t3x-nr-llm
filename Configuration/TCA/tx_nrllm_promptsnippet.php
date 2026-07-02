@@ -30,12 +30,12 @@ return [
     'types' => [
         '0' => [
             'showitem' => '
-                --div--;core.form.tabs:general,
+                --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:general,
                     --palette--;;identity,
                     tags,
                     snippet,
                     metadata,
-                --div--;core.form.tabs:access,
+                --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     --palette--;;status,
             ',
         ],

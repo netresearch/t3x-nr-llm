@@ -30,7 +30,7 @@ return [
     'types' => [
         '0' => [
             'showitem' => '
-                --div--;core.form.tabs:general,
+                --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:general,
                     --palette--;;identity,
                     --palette--;;settings,
                     prompt_template,
@@ -38,7 +38,7 @@ return [
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.tab.input_output,
                     --palette--;;input,
                     --palette--;;output,
-                --div--;core.form.tabs:access,
+                --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     --palette--;;status,
             ',
         ],
@@ -81,7 +81,7 @@ return [
                 'size' => 30,
                 'max' => 100,
                 'trim' => true,
-                'eval' => 'alphanum_x,lower',
+                'eval' => 'alphanum_x,lower,unique',
                 'required' => true,
                 'placeholder' => 'analyze-syslog',
             ],
@@ -128,7 +128,7 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
                 'foreign_table' => 'tx_nrllm_configuration',
-                'foreign_table_where' => 'AND {#tx_nrllm_configuration}.{#deleted} = 0 ORDER BY tx_nrllm_configuration.name',
+                'foreign_table_where' => 'AND {#tx_nrllm_configuration}.{#hidden} = 0 AND {#tx_nrllm_configuration}.{#deleted} = 0 ORDER BY tx_nrllm_configuration.name',
                 'items' => [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_task.configuration_uid.default', 'value' => 0],
                 ],
