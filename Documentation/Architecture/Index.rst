@@ -116,7 +116,7 @@ Database table: :sql:`tx_nrllm_provider`
    "name", "string", "Display name (e.g., ``OpenAI Production``)"
    "adapter_type", "string", "Protocol: ``openai``, ``anthropic``, ``gemini``, ``ollama``, etc."
    "endpoint_url", "string", "Custom endpoint (empty = default)"
-   "api_key", "string", "Encrypted API key (using sodium_crypto_secretbox)"
+   "api_key", "string", "nr-vault identifier (UUID) for the encrypted key"
    "organization_id", "string", "Optional organization ID (OpenAI)"
    "timeout", "int", "Request timeout in seconds"
    "max_retries", "int", "Retry count on failure"
@@ -127,7 +127,8 @@ Database table: :sql:`tx_nrllm_provider`
 - One provider = one API key = one billing relationship.
 - Same adapter type can have multiple providers (prod/dev accounts).
 - Adapter type determines the protocol/client class used.
-- API keys are encrypted at rest using sodium.
+- API keys are stored as nr-vault identifiers (UUIDs); the raw key never
+  touches nr-llm's tables.
 
 .. _architecture-model-layer:
 
@@ -265,16 +266,17 @@ Security
 API key encryption
 ------------------
 
-API keys are encrypted at rest in the database
-using :php:`sodium_crypto_secretbox`
-(XSalsa20-Poly1305).
+API keys are never stored as plaintext in nr-llm's own tables. Each provider
+record holds a vault identifier (UUID) issued by the `nr-vault
+<https://github.com/netresearch/t3x-nr-vault>`__ extension, which performs
+envelope encryption with audited access.
 
-- Keys are derived from TYPO3's :php:`encryptionKey` with domain separation.
-- Nonce is randomly generated per encryption (24 bytes).
-- Encrypted values are prefixed with ``enc:`` for detection.
-- Legacy plaintext values are automatically encrypted on first access.
+- The database stores only the vault UUID, never a raw key.
+- Retrieval and injection into outbound requests go through nr-vault's
+  secure, SSRF-guarded HTTP client.
+- Key rotation is handled by nr-vault.
 
-For details, see :ref:`adr-012`.
+For the historical sodium-based design that this replaced, see :ref:`adr-012`.
 
 .. _architecture-adapter-types:
 

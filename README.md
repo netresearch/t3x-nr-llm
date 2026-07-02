@@ -92,7 +92,7 @@ That's it. Provider selection, API keys, caching, error handling — all managed
 | Capability | Without nr-llm | With nr-llm |
 |---|---|---|
 | Provider switching | Rewrite HTTP calls | Change one admin setting |
-| API key storage | `$GLOBALS` or plaintext | Encrypted (sodium / nr-vault) |
+| API key storage | `$GLOBALS` or plaintext | nr-vault UUIDs (envelope encryption) |
 | Response caching | Build your own | Built-in, TYPO3 caching framework |
 | Streaming (SSE) | Implement per provider | `foreach ($llm->streamChat($msg) as $chunk)` |
 | Error handling | Parse each provider's errors | Typed exceptions with provider context |

@@ -39,8 +39,8 @@ The extension enables developers to:
   AI tasks (translation, vision, embeddings).
 - **Cache responses** to reduce API costs and improve performance.
 - **Stream responses** for real-time user experiences.
-- **Store API keys securely** with sodium
-  encryption or nr-vault envelope encryption.
+- **Store API keys securely** as nr-vault
+  identifiers (envelope encryption).
 
 .. _introduction-supported-providers:
 
