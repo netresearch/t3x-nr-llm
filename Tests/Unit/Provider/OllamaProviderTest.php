@@ -124,6 +124,33 @@ class OllamaProviderTest extends AbstractUnitTestCase
         $subject->complete('hello');
     }
 
+    /**
+     * A schemeless endpoint (no http:// prefix) must not slip past the SSRF
+     * gate: parse_url yields no host without a scheme, so the gate normalises
+     * one before parsing and still rejects the metadata IP.
+     */
+    #[Test]
+    public function keylessProviderRejectsSchemelessMetadataIpEndpoint(): void
+    {
+        $subject = new OllamaProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => '',
+            'defaultModel' => 'llama3.2',
+            'baseUrl' => '169.254.169.254:11434',
+            'timeout' => 30,
+        ]);
+
+        $this->expectException(ProviderConfigurationException::class);
+
+        $subject->complete('hello');
+    }
+
     #[Test]
     public function getIdentifierReturnsOllama(): void
     {

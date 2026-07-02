@@ -34,6 +34,9 @@ final class GetEnvToolTest extends TestCase
     // Non-secret NAME whose VALUE embeds credentials in a connection URL.
     private const URL_KEY = 'NRLLM_TEST_REDIS_URL';
     private const URL_VALUE = 'redis://cacheuser:s3cr3turl@cache-01:6379/0';
+    // Same, but with an EMPTY username (redis://:password@host).
+    private const NOUSER_URL_KEY = 'NRLLM_TEST_NOUSER_URL';
+    private const NOUSER_URL_VALUE = 'redis://:s3cr3tnouser@cache-02:6379/0';
 
     protected function setUp(): void
     {
@@ -59,10 +62,11 @@ final class GetEnvToolTest extends TestCase
     private function fixtureEnv(): array
     {
         return [
-            self::PLAIN_KEY  => self::PLAIN_VALUE,
-            self::SECRET_KEY => self::SECRET_VALUE,
-            self::PWD_KEY    => self::PWD_VALUE,
-            self::URL_KEY    => self::URL_VALUE,
+            self::PLAIN_KEY       => self::PLAIN_VALUE,
+            self::SECRET_KEY      => self::SECRET_VALUE,
+            self::PWD_KEY         => self::PWD_VALUE,
+            self::URL_KEY         => self::URL_VALUE,
+            self::NOUSER_URL_KEY  => self::NOUSER_URL_VALUE,
         ];
     }
 
@@ -106,6 +110,17 @@ final class GetEnvToolTest extends TestCase
         self::assertStringNotContainsString('s3cr3turl', $output);
         self::assertStringNotContainsString('cacheuser', $output);
         self::assertStringContainsString(self::URL_KEY . '=redis://***redacted***@cache-01:6379/0', $output);
+    }
+
+    #[Test]
+    public function inlineUrlCredentialsWithEmptyUsernameAreRedacted(): void
+    {
+        $output = (new GetEnvTool())->execute([]);
+
+        // redis://:password@host has no username — the password must still be
+        // stripped rather than leaking to the provider.
+        self::assertStringNotContainsString('s3cr3tnouser', $output);
+        self::assertStringContainsString(self::NOUSER_URL_KEY . '=redis://***redacted***@cache-02:6379/0', $output);
     }
 
     #[Test]

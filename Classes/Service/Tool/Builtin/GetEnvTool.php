@@ -37,7 +37,7 @@ final readonly class GetEnvTool implements ToolInterface
      * carrying a password before the `@`) are redacted while the host/path
      * stays visible for context.
      */
-    private const INLINE_CREDENTIAL_PATTERN = '#([a-z][a-z0-9+.\-]*://)[^:@/\s]+:[^@/\s]+@#i';
+    private const INLINE_CREDENTIAL_PATTERN = '#([a-z][a-z0-9+.\-]*://)[^:@/\s]*:[^@/\s]+@#i';
 
     private const REDACTED = '***redacted***';
 

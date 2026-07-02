@@ -191,9 +191,28 @@ abstract class AbstractProvider implements ProviderInterface
      */
     private function assertEndpointHostAllowed(): void
     {
-        $host = parse_url($this->baseUrl, PHP_URL_HOST);
-        if (!is_string($host) || $host === '') {
+        $baseUrl = trim($this->baseUrl);
+        if ($baseUrl === '') {
+            // Nothing configured; no absolute request URL can be formed.
             return;
+        }
+
+        // parse_url only populates the host when a scheme is present, so a
+        // schemeless endpoint like "169.254.169.254:11434" would yield a null
+        // host and slip past the gate. Prepend a scheme for parsing when none
+        // is present.
+        $forParsing = preg_match('#^[a-z][a-z0-9+.\-]*://#i', $baseUrl) === 1
+            ? $baseUrl
+            : 'http://' . $baseUrl;
+        $host = parse_url($forParsing, PHP_URL_HOST);
+
+        if (!is_string($host) || $host === '') {
+            // A non-empty but unparseable endpoint is malformed; fail closed
+            // rather than dispatch an unchecked request.
+            throw new ProviderConfigurationException(
+                sprintf('Could not determine the host of provider endpoint "%s".', $this->baseUrl),
+                1751452801,
+            );
         }
 
         if (!$this->httpClientFactory->isHostAllowed($host)) {
