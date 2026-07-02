@@ -107,6 +107,21 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
+     * Reduce an arbitrary value to the character set TYPO3 accepts for cache
+     * tags (`[a-zA-Z0-9_%\-&]`). Model identifiers legitimately contain `/`
+     * and `:` (e.g. the OpenRouter `anthropic/claude-3.5` or Ollama
+     * `llama3:8b` form); left unescaped, the TYPO3 cache frontend rejects the
+     * whole `set()` call with an InvalidArgumentException, which would abort
+     * caching for every affected provider. Any non-conforming byte collapses
+     * to `_`; collisions only ever widen a tag's invalidation group, never
+     * corrupt cached data.
+     */
+    private function sanitizeTagValue(string $value): string
+    {
+        return preg_replace('/[^a-zA-Z0-9_]/', '_', $value) ?? '';
+    }
+
+    /**
      * Flush cache entries by provider.
      */
     public function flushByProvider(string $provider): void
@@ -139,7 +154,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
         ];
 
         if (isset($options['model']) && is_string($options['model'])) {
-            $tags[] = 'nrllm_model_' . str_replace(['.', '-'], '_', $options['model']);
+            $tags[] = 'nrllm_model_' . $this->sanitizeTagValue($options['model']);
         }
 
         $this->set($cacheKey, $response, $lifetime, $tags);
