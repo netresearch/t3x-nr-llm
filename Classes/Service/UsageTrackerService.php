@@ -71,6 +71,10 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
         // the aggregation key: specialized calls carry model_uid=0 with only the
         // model_id string, so without it different models (gpt-image-2 vs dall-e-3)
         // would collide into one daily row and break the per-model breakdowns.
+        // configuration_uid is part of the key too — it is stored on the row,
+        // indexed (config_lookup) and grouped on by the analytics module, so two
+        // configurations on the same model must not merge into one row (which
+        // would keep only the first configuration_uid and misattribute usage).
         $existingUid = $queryBuilder
             ->select('uid')
             ->from(self::TABLE)
@@ -78,6 +82,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 $queryBuilder->expr()->eq('service_type', $queryBuilder->createNamedParameter($serviceType)),
                 $queryBuilder->expr()->eq('service_provider', $queryBuilder->createNamedParameter($provider)),
                 $queryBuilder->expr()->eq('be_user', $beUser),
+                $queryBuilder->expr()->eq('configuration_uid', $configurationUid ?? 0),
                 $queryBuilder->expr()->eq('model_uid', $modelUid),
                 $queryBuilder->expr()->eq('model_id', $queryBuilder->createNamedParameter($modelId)),
                 $queryBuilder->expr()->eq('task_uid', $taskUid),

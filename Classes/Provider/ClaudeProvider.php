@@ -129,6 +129,38 @@ final class ClaudeProvider extends AbstractProvider implements
     }
 
     /**
+     * Build the Anthropic sampling parameters shared by the chat, tool and
+     * streaming payloads.
+     *
+     * Anthropic accepts `temperature` in [0.0, 1.0] and rejects anything above
+     * 1.0 with an HTTP 400. The configuration layer clamps temperature to the
+     * OpenAI-style [0.0, 2.0] range, so a configured value in (1.0, 2.0] must be
+     * clamped down here before it reaches the API. Anthropic also disallows
+     * sending `temperature` and `top_p` together, so prefer the (more commonly
+     * configured) temperature when both are present.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private function buildSamplingParams(array $options): array
+    {
+        $params = [];
+
+        if (isset($options['temperature'])) {
+            $params['temperature'] = max(0.0, min(1.0, $this->getFloat($options, 'temperature')));
+        } elseif (isset($options['top_p'])) {
+            $params['top_p'] = max(0.0, min(1.0, $this->getFloat($options, 'top_p')));
+        }
+
+        if (isset($options['stop_sequences'])) {
+            $params['stop_sequences'] = $options['stop_sequences'];
+        }
+
+        return $params;
+    }
+
+    /**
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $options
      */
@@ -153,17 +185,7 @@ final class ClaudeProvider extends AbstractProvider implements
             $payload['system'] = $converted['systemMessage'];
         }
 
-        // Anthropic does not allow both temperature and top_p simultaneously.
-        // If both are set, prefer temperature (the more commonly configured one).
-        if (isset($options['temperature'])) {
-            $payload['temperature'] = $this->getFloat($options, 'temperature');
-        } elseif (isset($options['top_p'])) {
-            $payload['top_p'] = $this->getFloat($options, 'top_p');
-        }
-
-        if (isset($options['stop_sequences'])) {
-            $payload['stop_sequences'] = $options['stop_sequences'];
-        }
+        $payload = array_merge($payload, $this->buildSamplingParams($options));
 
         $response = $this->sendRequest('messages', $payload);
 
@@ -232,6 +254,8 @@ final class ClaudeProvider extends AbstractProvider implements
         if ($converted['systemMessage'] !== null) {
             $payload['system'] = $converted['systemMessage'];
         }
+
+        $payload = array_merge($payload, $this->buildSamplingParams($options));
 
         if (isset($options['tool_choice'])) {
             $payload['tool_choice'] = $this->mapToolChoice($options['tool_choice']);
@@ -470,6 +494,8 @@ final class ClaudeProvider extends AbstractProvider implements
         if ($converted['systemMessage'] !== null) {
             $payload['system'] = $converted['systemMessage'];
         }
+
+        $payload = array_merge($payload, $this->buildSamplingParams($options));
 
         $url = rtrim($this->baseUrl, '/') . '/messages';
 

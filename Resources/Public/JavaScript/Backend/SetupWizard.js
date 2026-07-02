@@ -42,16 +42,22 @@ class SetupWizard {
     /**
      * Escape HTML entities to prevent XSS attacks.
      * External API data (model names, descriptions, etc.) is untrusted content.
+     * The escaped value is also interpolated into quoted HTML attributes (e.g.
+     * aria-label), so `"` and `'` must be escaped too — the textContent ->
+     * innerHTML round-trip alone leaves quotes intact and would allow attribute
+     * breakout.
      *
      * @param {string} text - The text to escape
-     * @returns {string} - HTML-escaped text
+     * @returns {string} - HTML-escaped text, safe for text and attribute contexts
      */
     escapeHtml(text) {
         if (typeof text !== 'string') {
             return '';
         }
         this._escapeEl.textContent = text;
-        return this._escapeEl.innerHTML;
+        return this._escapeEl.innerHTML
+            .replaceAll('"', '&quot;')
+            .replaceAll('\'', '&#39;');
     }
 
     init() {

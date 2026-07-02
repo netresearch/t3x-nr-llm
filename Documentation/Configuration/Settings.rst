@@ -43,9 +43,6 @@ Environment variables
    # TYPO3 encryption key (used for API key encryption)
    TYPO3_CONF_VARS__SYS__encryptionKey=your-key
 
-   # Optional: Override default timeout
-   TYPO3_NR_LLM_DEFAULT_TIMEOUT=60
-
 .. _configuration-security:
 
 Security
@@ -79,11 +76,10 @@ Sanitize user input before sending to providers:
 .. code-block:: php
    :caption: Example: Sanitizing user input
 
-   use TYPO3\CMS\Core\Utility\GeneralUtility;
-
-   $sanitizedInput = GeneralUtility::removeXSS(
-       $userInput
-   );
+   // Strip markup and control characters from free-text input before it is
+   // sent to a provider. (GeneralUtility::removeXSS() was removed from the
+   // TYPO3 core and must not be used.)
+   $sanitizedInput = trim(strip_tags($userInput));
 
    $response = $adapter->chatCompletion([
        ['role' => 'user', 'content' => $sanitizedInput],

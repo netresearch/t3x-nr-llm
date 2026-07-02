@@ -73,6 +73,10 @@
                 <source>Access Control</source>
                 <target>Zugriffskontrolle</target>
             </trans-unit>
+            <trans-unit id="tab.metadata">
+                <source>Metadata</source>
+                <target>Metadaten</target>
+            </trans-unit>
             <trans-unit id="tab.fallback">
                 <source>Fallback Chain</source>
                 <target>Fallback-Kette</target>

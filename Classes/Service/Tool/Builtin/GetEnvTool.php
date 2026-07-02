@@ -29,7 +29,15 @@ final readonly class GetEnvTool implements ToolInterface
     use CollectsEnvironmentTrait;
     use SafeCastTrait;
 
-    private const SECRET_PATTERN = '/PASS|PASSWORD|SECRET|TOKEN|KEY|SALT|CREDENTIAL|AUTH|PRIVATE|MASTER|ENCRYPT|DSN|DATABASE_URL|APIKEY|API_KEY/i';
+    private const SECRET_PATTERN = '/PASS|PASSWORD|PWD|SECRET|TOKEN|KEY|SALT|CREDENTIAL|AUTH|PRIVATE|MASTER|ENCRYPT|DSN|DATABASE_URL|APIKEY|API_KEY/i';
+
+    /**
+     * Matches the `user:password@` userinfo of a URL/URI value so credentials
+     * embedded in a non-secret-named connection-string variable (a scheme URL
+     * carrying a password before the `@`) are redacted while the host/path
+     * stays visible for context.
+     */
+    private const INLINE_CREDENTIAL_PATTERN = '#([a-z][a-z0-9+.\-]*://)[^:@/\s]*:[^@/\s]+@#i';
 
     private const REDACTED = '***redacted***';
 
@@ -56,7 +64,15 @@ final readonly class GetEnvTool implements ToolInterface
         ksort($env);
         $lines = [];
         foreach ($env as $name => $value) {
-            $masked  = preg_match(self::SECRET_PATTERN, $name) === 1 ? self::REDACTED : $value;
+            if (preg_match(self::SECRET_PATTERN, $name) === 1) {
+                $masked = self::REDACTED;
+            } else {
+                // Even a non-secret-named variable may carry credentials inside
+                // a connection-string value; strip any inline userinfo. Fail
+                // closed: a PCRE error (null) redacts the whole value rather
+                // than egressing a possibly-credential-bearing string.
+                $masked = preg_replace(self::INLINE_CREDENTIAL_PATTERN, '$1' . self::REDACTED . '@', $value) ?? self::REDACTED;
+            }
             $lines[] = $name . '=' . $masked;
         }
 

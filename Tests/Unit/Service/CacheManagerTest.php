@@ -346,6 +346,45 @@ class CacheManagerTest extends AbstractUnitTestCase
         $subject->cacheCompletion('openai', $messages, $options, $response);
     }
 
+    /**
+     * Model identifiers with `/` (OpenRouter) or `:` (Ollama) must be reduced
+     * to the TYPO3 cache-tag charset; an unescaped `/` or `:` makes the cache
+     * frontend reject the whole set() call with an InvalidArgumentException.
+     */
+    #[Test]
+    public function cacheCompletionSanitizesModelTagWithSlashAndColon(): void
+    {
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
+
+        $messages = [['role' => 'user', 'content' => 'Hello']];
+        $options = ['model' => 'anthropic/claude-3.5:beta'];
+        $response = ['content' => 'Hi'];
+
+        $cacheFrontendMock
+            ->expects(self::once())
+            ->method('set')
+            ->with(
+                self::anything(),
+                self::anything(),
+                self::callback(
+                    static function (array $tags): bool {
+                        foreach ($tags as $tag) {
+                            self::assertIsString($tag);
+                            self::assertMatchesRegularExpression('/^[a-zA-Z0-9_%\-&]{1,250}$/', $tag);
+                        }
+
+                        return in_array('nrllm_model_anthropic_claude_3_5_beta', $tags, true);
+                    },
+                ),
+                self::anything(),
+            );
+
+        $subject->cacheCompletion('openrouter', $messages, $options, $response);
+    }
+
     #[Test]
     public function getCachedCompletionReturnsNullWhenNotCached(): void
     {

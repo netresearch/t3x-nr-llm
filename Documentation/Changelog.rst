@@ -11,6 +11,37 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-13-0:
+
+Version 0.13.0 (2026-06-26)
+===========================
+
+Provider selection is now database-driven end to end. **Breaking:** the
+extension-configuration ``defaultProvider`` fallback is removed — select a
+provider per call (the options object's ``provider`` field) or mark a
+Configuration active and default in the backend module; otherwise
+``getProvider(null)`` throws (ADR-034). The dead ``plugin.tx_nrllm`` TypoScript
+constants/setup were removed and the "no provider specified" error now carries
+actionable backend-module guidance (#254, #255).
+
+For the complete, itemised list see the canonical
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-llm/blob/main/CHANGELOG.md>`__.
+
+.. _version-0-12-0:
+
+Version 0.12.0 (2026-06-11)
+===========================
+
+Specialized services (image, text-to-speech, transcription) gain full usage and
+cost tracking, join the model registry with ``image``/``text_to_speech``/
+``transcription`` capabilities, and resolve their model and system prompt from
+Configuration records (ADR-032, ADR-033). Adds a prompt-snippet library
+(``tx_nrllm_promptsnippet``, ADR-031), per-request timeouts on the secure HTTP
+client, and arbitrary gpt-image sizes. **Requires nr-vault ^0.10.0.**
+
+For the complete, itemised list see the canonical
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-llm/blob/main/CHANGELOG.md>`__.
+
 .. _version-0-11-1:
 
 Version 0.11.1 (2026-06-10)

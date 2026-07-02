@@ -107,6 +107,22 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     }
 
     /**
+     * Reduce an arbitrary value to the strict `[A-Za-z0-9_]` subset of TYPO3's
+     * allowed cache-tag charset (`[a-zA-Z0-9_%\-&]`) — a deliberately narrower
+     * set that avoids any escaping ambiguity. Model identifiers legitimately
+     * contain `/` and `:` (e.g. the OpenRouter `anthropic/claude-3.5` or Ollama
+     * `llama3:8b` form); left unescaped, the TYPO3 cache frontend rejects the
+     * whole `set()` call with an InvalidArgumentException, which would abort
+     * caching for every affected provider. Any non-conforming byte collapses
+     * to `_`; collisions only ever widen a tag's invalidation group, never
+     * corrupt cached data.
+     */
+    private function sanitizeTagValue(string $value): string
+    {
+        return preg_replace('/\W/', '_', $value) ?? '';
+    }
+
+    /**
      * Flush cache entries by provider.
      */
     public function flushByProvider(string $provider): void
@@ -139,7 +155,9 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
         ];
 
         if (isset($options['model']) && is_string($options['model'])) {
-            $tags[] = 'nrllm_model_' . str_replace(['.', '-'], '_', $options['model']);
+            // Cap at TYPO3's 250-char tag limit (prefix included) so an
+            // unusually long model id cannot make the cache frontend reject set().
+            $tags[] = substr('nrllm_model_' . $this->sanitizeTagValue($options['model']), 0, 250);
         }
 
         $this->set($cacheKey, $response, $lifetime, $tags);

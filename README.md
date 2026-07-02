@@ -92,7 +92,7 @@ That's it. Provider selection, API keys, caching, error handling — all managed
 | Capability | Without nr-llm | With nr-llm |
 |---|---|---|
 | Provider switching | Rewrite HTTP calls | Change one admin setting |
-| API key storage | `$GLOBALS` or plaintext | Encrypted (sodium / nr-vault) |
+| API key storage | `$GLOBALS` or plaintext | nr-vault UUIDs (envelope encryption) |
 | Response caching | Build your own | Built-in, TYPO3 caching framework |
 | Streaming (SSE) | Implement per provider | `foreach ($llm->streamChat($msg) as $chunk)` |
 | Error handling | Parse each provider's errors | Typed exceptions with provider context |
@@ -160,8 +160,8 @@ The **Admin Tools > LLM** backend module gives you full control:
 
 ### Security by default
 
-- **Encrypted API keys** — All keys stored with sodium_crypto_secretbox (XSalsa20-Poly1305),
-  optionally via [nr-vault](https://github.com/netresearch/t3x-nr-vault) envelope encryption
+- **Encrypted API keys** — All keys stored as vault identifiers (UUIDs) via
+  [nr-vault](https://github.com/netresearch/t3x-nr-vault) envelope encryption; nr-llm never stores raw keys
 - **Admin-only access** — Backend module restricted to administrators
 - **No plaintext secrets** — Keys never stored or logged in plain text
 

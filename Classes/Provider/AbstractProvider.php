@@ -108,9 +108,22 @@ abstract class AbstractProvider implements ProviderInterface
 
     public function complete(string $prompt, array $options = []): CompletionResponse
     {
-        return $this->chatCompletion([
-            ['role' => 'user', 'content' => $prompt],
-        ], $options);
+        $messages = [];
+
+        // The configuration's system prompt reaches this method via
+        // `options['system_prompt']` (see LlmConfiguration::toOptionsArray()).
+        // chatCompletion() reads the system instruction from the message list,
+        // not from the options, so surface it as a leading system message here
+        // — otherwise a configuration's system prompt is silently dropped on
+        // every single-prompt completion (incl. task execution).
+        $systemPrompt = $options['system_prompt'] ?? null;
+        if (is_string($systemPrompt) && $systemPrompt !== '') {
+            $messages[] = ['role' => 'system', 'content' => $systemPrompt];
+        }
+
+        $messages[] = ['role' => 'user', 'content' => $prompt];
+
+        return $this->chatCompletion($messages, $options);
     }
 
     public function getDefaultModel(): string
@@ -145,8 +158,16 @@ abstract class AbstractProvider implements ProviderInterface
             return $this->configuredHttpClient;
         }
 
-        // For providers without API key, use httpClientFactory directly
+        // For providers without API key, use httpClientFactory directly.
+        // The authenticated path is gated by VaultHttpClient::sendRequest(),
+        // which rejects disallowed hosts via isHostAllowed(); the raw factory
+        // client has no such per-request gate, and the SSRF DNS-pin middleware
+        // deliberately skips IP-literal targets (trusting an isHostAllowed()
+        // call that never runs on this path). Gate the configured endpoint
+        // host here so an api-key-less provider (e.g. Ollama) pointed at a
+        // private/metadata IP literal cannot bypass the private-range filter.
         if ($this->apiKeyIdentifier === '') {
+            $this->assertEndpointHostAllowed();
             return $this->httpClientFactory->create();
         }
 
@@ -155,6 +176,52 @@ abstract class AbstractProvider implements ProviderInterface
             $this->getSecretPlacement(),
             $this->getSecretPlacementOptions(),
         );
+    }
+
+    /**
+     * Reject an api-key-less provider whose configured endpoint host is not
+     * permitted by nr-vault's SSRF host filter (private / link-local /
+     * loopback / carrier-grade-NAT / cloud-metadata ranges, unless the
+     * operator has opted the host into `allowed_hosts`). This mirrors the gate
+     * {@see VaultHttpClientInterface::sendRequest()} applies to every
+     * authenticated request, closing the IP-literal bypass on the raw
+     * factory-client path.
+     *
+     * @throws ProviderConfigurationException
+     */
+    private function assertEndpointHostAllowed(): void
+    {
+        $baseUrl = trim($this->baseUrl);
+        if ($baseUrl === '') {
+            // Nothing configured; no absolute request URL can be formed.
+            return;
+        }
+
+        // parse_url only populates the host when an authority is present, so a
+        // schemeless endpoint like "169.254.169.254:11434" would yield a null
+        // host and slip past the gate. Prepend a protocol-relative "//" for
+        // parsing when no scheme is present — this exposes the authority to
+        // parse_url without asserting any concrete protocol.
+        $forParsing = preg_match('#^[a-z][a-z0-9+.\-]*://#i', $baseUrl) === 1
+            ? $baseUrl
+            : '//' . $baseUrl;
+        $host = parse_url($forParsing, PHP_URL_HOST);
+
+        if (!is_string($host) || $host === '') {
+            // A non-empty but unparseable endpoint is malformed; fail closed
+            // rather than dispatch an unchecked request.
+            throw new ProviderConfigurationException(
+                sprintf('Could not determine the host of provider endpoint "%s".', $this->baseUrl),
+                1751452801,
+            );
+        }
+
+        if (!$this->httpClientFactory->isHostAllowed($host)) {
+            throw new ProviderConfigurationException(
+                sprintf('Provider endpoint host "%s" is not allowed by the SSRF host filter.', $host),
+                1751452800,
+            );
+        }
     }
 
     /**

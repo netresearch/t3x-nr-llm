@@ -29,19 +29,19 @@ return [
     'types' => [
         '0' => [
             'showitem' => '
-                --div--;core.form.tabs:general,
+                --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:general,
                     name,
                     identifier,
                     description,
                     body,
-                --div--;core.form.tabs:metadata,
+                --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.metadata,
                     support_status,
                     unsupported_notes,
                     allowed_tools,
                     source_sha,
                     body_checksum,
                     raw_frontmatter,
-                --div--;core.form.tabs:access,
+                --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     enabled,
                     orphaned,
                     hidden,

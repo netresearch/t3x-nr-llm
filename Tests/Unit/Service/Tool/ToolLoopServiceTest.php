@@ -320,6 +320,56 @@ final class ToolLoopServiceTest extends TestCase
     }
 
     #[Test]
+    public function budgetExceededIsLoggedServerSide(): void
+    {
+        // A budget stop and an iteration-cap stop both surface as
+        // truncated=true with an empty answer; the denial must be logged so
+        // operators can tell them apart (and see which bucket tripped).
+        $budgetException = new BudgetExceededException(
+            BudgetCheckResult::denied(BudgetCheckResult::LIMIT_MONTHLY_COST, 10.0, 5.0),
+        );
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willThrowException($budgetException);
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())
+            ->method('warning')
+            ->with(
+                self::stringContains('budget'),
+                self::callback(static fn(array $ctx): bool => ($ctx['exception'] ?? null) instanceof BudgetExceededException),
+            );
+
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]), $logger);
+        $result  = $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), null);
+
+        self::assertTrue($result->truncated);
+    }
+
+    #[Test]
+    public function oversizedToolResultIsCappedToMaxBytes(): void
+    {
+        // A tool returning more than the byte cap must be truncated before it is
+        // fed back to the model, with a visible marker.
+        $big = str_repeat('x', 60000);
+
+        $mgr   = self::createStub(LlmServiceManagerInterface::class);
+        $queue = [
+            $this->response('', [new ToolCall('call_1', 'big_tool', [])]),
+            $this->response('done'),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue));
+
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('big_tool', $big)]));
+        $result  = $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), null);
+
+        self::assertCount(1, $result->trace);
+        $toolResult = $result->trace[0]->result;
+        self::assertLessThanOrEqual(50000, strlen($toolResult));
+        self::assertStringContainsString('tool result truncated', $toolResult);
+    }
+
+    #[Test]
     public function usageTokensSummedAcrossIterations(): void
     {
         $mgr   = self::createStub(LlmServiceManagerInterface::class);

@@ -45,7 +45,10 @@ final class GeminiProvider extends AbstractProvider implements
     ];
 
     private const DEFAULT_MODEL = 'gemini-3-flash-preview';
-    private const EMBEDDING_MODEL = 'text-embedding-004';
+    // text-embedding-004 was shut down 2026-01-14 and gemini-embedding-001
+    // retires 2026-07-14; gemini-embedding-2 is the current GA default and
+    // remains compatible with the text-only embedContent request below.
+    private const EMBEDDING_MODEL = 'gemini-embedding-2';
 
     public function getName(): string
     {
