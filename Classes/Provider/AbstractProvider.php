@@ -197,13 +197,14 @@ abstract class AbstractProvider implements ProviderInterface
             return;
         }
 
-        // parse_url only populates the host when a scheme is present, so a
+        // parse_url only populates the host when an authority is present, so a
         // schemeless endpoint like "169.254.169.254:11434" would yield a null
-        // host and slip past the gate. Prepend a scheme for parsing when none
-        // is present.
+        // host and slip past the gate. Prepend a protocol-relative "//" for
+        // parsing when no scheme is present — this exposes the authority to
+        // parse_url without asserting any concrete protocol.
         $forParsing = preg_match('#^[a-z][a-z0-9+.\-]*://#i', $baseUrl) === 1
             ? $baseUrl
-            : 'http://' . $baseUrl;
+            : '//' . $baseUrl;
         $host = parse_url($forParsing, PHP_URL_HOST);
 
         if (!is_string($host) || $host === '') {
