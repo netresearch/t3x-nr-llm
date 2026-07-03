@@ -81,12 +81,10 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         $controller = new ToolPlaygroundController(
             $moduleTemplateFactory,
-            $toolRegistry,
             $configurationRepository,
             $pageRenderer,
             new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([]), $availability),
             $availability,
-            new ToolStateRepository($this->toolConnectionPool()),
             $this->get(AllowedToolsResolver::class),
         );
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
@@ -103,9 +101,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('id="nrllm-tool-prompt"', $body);
         self::assertStringContainsString('id="nrllm-tool-run"', $body);
         self::assertStringContainsString('id="nrllm-tool-output"', $body);
-        // Tools panel lists the registered tool (name + description).
+        // The per-run tool selection lists the registered tool by name (the
+        // enable/disable management list — with descriptions — now lives in the
+        // separate Tools module, {@see ToolControllerTest}).
         self::assertStringContainsString('fetch_logs', $body);
-        self::assertStringContainsString('desc of fetch_logs', $body);
+        self::assertStringContainsString('js-tool-select', $body);
     }
 
     #[Test]
@@ -229,12 +229,10 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         return new ToolPlaygroundController(
             $moduleTemplateFactory,
-            $toolRegistry,
             $configurationRepository,
             $pageRenderer,
             $toolLoopService,
             $this->availabilityFor($toolRegistry),
-            new ToolStateRepository($this->toolConnectionPool()),
             $this->get(AllowedToolsResolver::class),
         );
     }
@@ -269,7 +267,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         $serverRequest = (new ServerRequest('https://typo3-testing.local/typo3/', 'GET'))
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
-            ->withAttribute('route', new Route('/module/nrllm/tools', ['packageName' => 'netresearch/nr-llm']))
+            ->withAttribute('route', new Route('/module/nrllm/playground', ['packageName' => 'netresearch/nr-llm']))
             ->withAttribute('extbase', $extbaseParameters);
         $serverRequest = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;

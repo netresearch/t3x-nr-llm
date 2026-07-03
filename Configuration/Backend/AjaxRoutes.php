@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Controller\Backend\TaskRecordsController;
+use Netresearch\NrLlm\Controller\Backend\ToolController;
 use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
 
 /**
@@ -131,14 +132,15 @@ return [
         'target' => SkillSourceController::class . '::setTokenAction',
     ],
 
-    // Tool playground route
+    // Tool playground route (interactive agent loop)
     'nrllm_tool_run' => [
         'path' => '/nrllm/tool/run',
         'target' => ToolPlaygroundController::class . '::runAction',
     ],
+    // Tool management route (global enable/disable)
     'nrllm_tool_toggle' => [
         'path' => '/nrllm/tool/toggle',
-        'target' => ToolPlaygroundController::class . '::toggleToolAction',
+        'target' => ToolController::class . '::toggleToolAction',
     ],
 
     // Setup Wizard routes
