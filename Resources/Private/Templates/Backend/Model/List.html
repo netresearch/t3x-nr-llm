@@ -27,11 +27,13 @@
 
         <f:render partial="Backend/Glossary" />
 
-        <f:if condition="{models -> f:count()} &gt; 0 &amp;&amp; !{hasDefaultModel}">
-            <div class="alert alert-warning">
-                <core:icon identifier="actions-exclamation-triangle" size="small" />
-                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.noDefault.warning" default="No default model is set. Tasks and features that do not specify a model will fail until you mark one model as default." />
-            </div>
+        <f:if condition="{models -> f:count()} &gt; 0">
+            <f:if condition="!{hasDefaultModel}">
+                <div class="alert alert-warning">
+                    <core:icon identifier="actions-exclamation-triangle" size="small" />
+                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.noDefault.warning" default="No default model is set. Tasks and features that do not specify a model will fail until you mark one model as default." />
+                </div>
+            </f:if>
         </f:if>
 
         <f:if condition="{models -> f:count()}">
