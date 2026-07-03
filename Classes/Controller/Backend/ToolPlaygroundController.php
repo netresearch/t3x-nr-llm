@@ -17,8 +17,6 @@ use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
-use Netresearch\NrLlm\Service\Tool\ToolRegistry;
-use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -58,19 +56,16 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
-        private readonly ToolRegistry $toolRegistry,
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly PageRenderer $pageRenderer,
         private readonly ToolLoopService $toolLoopService,
         private readonly ToolAvailabilityServiceInterface $toolAvailability,
-        private readonly ToolStateRepository $toolStateRepository,
         private readonly AllowedToolsResolver $allowedToolsResolver,
     ) {}
 
     public function listAction(): ResponseInterface
     {
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/ToolPlayground.js');
-        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/ToolState.js');
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->makeDocHeaderModuleMenu();
         $moduleTemplate->assignMultiple([
@@ -78,7 +73,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             'toolStates' => $this->toolAvailability->states(),
             'ajaxRoute' => 'nrllm_tool_run',
         ]);
-        return $moduleTemplate->renderResponse('Backend/ToolPlayground/List');
+        return $moduleTemplate->renderResponse('Backend/Playground/List');
     }
 
     /**
@@ -157,33 +152,6 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     }
 
     /**
-     * Toggle the global enable state of a single tool (AJAX, admin-gated).
-     *
-     * Admin-gated via {@see denyNonAdmin()} FIRST (ADR-037). The override is
-     * persisted to `tx_nrllm_tool_state` via {@see ToolStateRepository}; the
-     * fail-closed runtime gate then refuses a disabled tool on every later run.
-     * Only a registered tool name is accepted so the table cannot accumulate
-     * orphan rows.
-     */
-    public function toggleToolAction(ServerRequestInterface $request): ResponseInterface
-    {
-        if (($deny = $this->denyNonAdmin()) !== null) {
-            return $deny;
-        }
-
-        $body     = $request->getParsedBody();
-        $toolName = $this->stringFromBody($body, 'tool');
-        if ($toolName === '' || $this->toolRegistry->get($toolName) === null) {
-            return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.unknownTool', 'Unknown tool')], 404);
-        }
-
-        $enabled = $this->boolFromBody($body, 'enabled');
-        $this->toolStateRepository->setEnabled($toolName, $enabled);
-
-        return new JsonResponse(['success' => true, 'enabled' => $enabled]);
-    }
-
-    /**
      * Resolve the current backend user's uid for the budget pre-flight (0 when
      * no real BE user is present — the budget check then treats it as anonymous).
      */
@@ -215,15 +183,6 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         }
         $value = $body[$key] ?? '';
         return is_scalar($value) ? (string)$value : '';
-    }
-
-    private function boolFromBody(mixed $body, string $key): bool
-    {
-        if (!is_array($body)) {
-            return false;
-        }
-        // filter_var (not a plain cast) so the string "false"/"0" from form bodies is correctly false.
-        return filter_var($body[$key] ?? false, FILTER_VALIDATE_BOOLEAN);
     }
 
     /**

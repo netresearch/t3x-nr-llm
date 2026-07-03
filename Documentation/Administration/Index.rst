@@ -41,7 +41,8 @@ left-hand navigation:
 - **Tasks** — one-shot prompt templates
 - **Snippets** — tagged reusable prompt fragments
 - **Skills** — GitHub-hosted ``SKILL.md`` sources (admin-only)
-- **Tool Playground** — run the agent tool loop (admin-only)
+- **Tools** — enable or disable the agent tools (admin-only)
+- **Playground** — run the agent tool loop interactively (admin-only)
 
 .. toctree::
    :maxdepth: 2

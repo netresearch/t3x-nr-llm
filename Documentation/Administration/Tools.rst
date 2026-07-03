@@ -77,13 +77,29 @@ attacker-influenced (the model is steerable by injected skill prose),
 **validate and scope** every input (cap volumes, scope identifier lookups),
 and never return secrets — the result leaves the instance.
 
+.. _administration-tools-manage:
+
+Managing tools
+==============
+
+The :guilabel:`Admin Tools > LLM > Tools` module lists every registered tool
+with its global enable state and lets an admin toggle it. A **disabled** tool
+is refused on every run, everywhere — the runtime gate is fail-closed, so a
+disabled tool can never be offered to the model regardless of a skill's
+``allowed-tools`` or the per-run selection in the playground. Some built-in
+tools (for example ``get_env_raw`` and ``get_php_info_raw``) ship **disabled
+by default** because they return unredacted, secret-bearing output; enable
+them only deliberately.
+
 .. _administration-tools-playground:
 
 Using the Tool Playground
 =========================
 
-The playground lives in :guilabel:`Admin Tools > LLM > Tool Playground` and
-is admin-only.
+The playground lives in :guilabel:`Admin Tools > LLM > Playground` and is
+admin-only. It is a sibling of the :ref:`Tools
+<administration-tools-manage>` management module: the playground *runs* the
+loop, while the Tools module governs *which* tools exist and are enabled.
 
 .. figure:: /Images/ToolPlaygroundShell.png
    :alt: The Tool Playground module with the LLM configuration picker, an
@@ -113,10 +129,13 @@ is admin-only.
    ``fetch_logs`` (arguments ``{"limit": 20}``); the redacted ``sys_log``
    result is fed back and the model's final answer closes the trace.
 
-The :guilabel:`Available tools` panel lists every registered tool. Every
-displayed string — tool arguments, tool results (which may include
-``sys_log`` content), and the final answer — is rendered escaped; HTML is
-only ever shown inside a sandboxed preview, never injected into the page.
+The :guilabel:`Tools available to this run` list lets you narrow a single run
+to a subset of the globally-enabled tools (the full list and the global
+enable/disable controls live in the :ref:`Tools
+<administration-tools-manage>` module). Every displayed string — tool
+arguments, tool results (which may include ``sys_log`` content), and the
+final answer — is rendered escaped; HTML is only ever shown inside a
+sandboxed preview, never injected into the page.
 
 Each run is bounded by the iteration cap (default 5) and, when the
 configuration's backend user has a budget, by the per-iteration budget

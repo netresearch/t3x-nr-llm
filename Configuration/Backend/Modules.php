@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Controller\Backend\TaskListController;
 use Netresearch\NrLlm\Controller\Backend\TaskWizardController;
+use Netresearch\NrLlm\Controller\Backend\ToolController;
 use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
 
 /**
@@ -200,16 +201,35 @@ return [
             ],
         ],
     ],
-    // Tool playground - child of main module
-    // Admin-only interactive playground for the tool runtime (PR-A).
-    // Note: the AJAX runAction is registered via AjaxRoutes.php (nrllm_tool_run)
-    // and additionally guards itself with RequiresBackendAdminTrait (ADR-037).
+    // Tool management - child of main module
+    // Admin-only: list every registered tool and toggle its global enable state.
+    // Note: the AJAX toggleToolAction is registered via AjaxRoutes.php
+    // (nrllm_tool_toggle) and additionally guards itself with
+    // RequiresBackendAdminTrait (ADR-037).
     'nrllm_tools' => [
         'parent' => 'nrllm',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-tool',
         'path' => '/module/nrllm/tools',
         'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf',
+        'extensionName' => 'NrLlm',
+        'controllerActions' => [
+            ToolController::class => [
+                'list',
+            ],
+        ],
+    ],
+    // Tool playground - child of main module
+    // Admin-only interactive playground for the tool runtime (ADR-037/038):
+    // pick a configuration, enter a prompt and run the bounded agent loop.
+    // Note: the AJAX runAction is registered via AjaxRoutes.php (nrllm_tool_run)
+    // and additionally guards itself with RequiresBackendAdminTrait.
+    'nrllm_playground' => [
+        'parent' => 'nrllm',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-tool',
+        'path' => '/module/nrllm/playground',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_playground.xlf',
         'extensionName' => 'NrLlm',
         'controllerActions' => [
             ToolPlaygroundController::class => [

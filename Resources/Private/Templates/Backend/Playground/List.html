@@ -1,0 +1,100 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div id="nrllm-tool-playground" data-ajax-route="{ajaxRoute}">
+        <h1>
+            <core:icon identifier="module-nrllm-tool" size="medium" />
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.title" default="Tool Playground" />
+        </h1>
+
+        <f:be.infobox state="-2">
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.intro" default="Pick an LLM configuration, enter a prompt and run the agent loop. Each tool call, its result and the final answer are shown below. Tools run with full backend privileges and their results egress to the configured provider — this module is admin-only." /></p>
+        </f:be.infobox>
+
+        <div class="mb-3">
+            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
+            <a href="{be:moduleLink(route: 'nrllm_tools')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.manageTools" default="Manage tools" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_configurations')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="Configurations" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_skills')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.list.title" default="Skills" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.help" default="Open Help" /></a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
+        </div>
+
+        <f:render partial="Backend/Glossary" />
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label" for="nrllm-tool-config">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.config" default="LLM configuration" />
+                            </label>
+                            <select id="nrllm-tool-config" class="form-select">
+                                <f:for each="{configurations}" as="configuration">
+                                    <option value="{configuration.uid}">{configuration.name}</option>
+                                </f:for>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="nrllm-tool-prompt">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.prompt" default="Prompt" />
+                            </label>
+                            <textarea id="nrllm-tool-prompt" class="form-control" rows="4"></textarea>
+                        </div>
+
+                        <f:if condition="{f:count(subject: toolStates)}">
+                            <f:then>
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.run.tools" default="Tools available to this run" />
+                                    </label>
+                                    <f:for each="{toolStates}" as="tool">
+                                        <div class="form-check">
+                                            <f:if condition="{tool.enabled}">
+                                                <f:then>
+                                                    <input class="form-check-input js-tool-select" type="checkbox" id="nrllm-tool-select-{tool.name}" value="{tool.name}" checked="checked" />
+                                                </f:then>
+                                                <f:else>
+                                                    <input class="form-check-input js-tool-select" type="checkbox" id="nrllm-tool-select-{tool.name}" value="{tool.name}" />
+                                                </f:else>
+                                            </f:if>
+                                            <label class="form-check-label" for="nrllm-tool-select-{tool.name}">
+                                                <code>{tool.name}</code>
+                                            </label>
+                                        </div>
+                                    </f:for>
+                                </div>
+                            </f:then>
+                            <f:else>
+                                <f:be.infobox state="-1">
+                                    <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.empty" default="No tools are registered. Add a tool by tagging a ToolInterface implementation with nr_llm.tool." /></p>
+                                </f:be.infobox>
+                            </f:else>
+                        </f:if>
+
+                        <button type="button" id="nrllm-tool-run" class="btn btn-primary">
+                            <core:icon identifier="actions-play" size="small" />
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.run" default="Run" />
+                        </button>
+                    </div>
+                </div>
+
+                <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.output" default="Output" /></h2>
+                <div id="nrllm-tool-output" class="card mb-4"></div>
+            </div>
+        </div>
+    </div>
+</f:section>
+
+</html>
