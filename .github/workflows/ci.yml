@@ -21,5 +21,10 @@ jobs:
       php-versions: '["8.2","8.3","8.4","8.5"]'
       typo3-versions: '["^13.4","^14.3"]'
       upload-coverage: true
+      # Run PHPUnit functional tests (default is false in the reusable workflow).
+      # composer ci:test:php:functional invokes the full Build/FunctionalTests.xml,
+      # which covers BOTH the `functional` and `e2e-backend` testsuites — without
+      # this the whole functional job was skipped and both suites rotted (#272).
+      run-functional-tests: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
