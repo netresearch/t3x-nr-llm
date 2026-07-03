@@ -68,6 +68,9 @@ final class SkillSourceController extends ActionController
         /** @var array<int, string> $sourceEditUrls */
         $sourceEditUrls = [];
         foreach ($sources as $source) {
+            // Surface an interrupted sync (a stale SYNCING lock) as a retryable ERROR here, so the
+            // list never shows a source wedged on "Syncing" after a crash; a live sync is untouched.
+            $this->syncService->reclaimStaleLock($source);
             $uid = $source->getUid();
             if ($uid === null) {
                 continue;

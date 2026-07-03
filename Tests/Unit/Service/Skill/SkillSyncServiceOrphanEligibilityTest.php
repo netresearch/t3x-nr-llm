@@ -97,9 +97,9 @@ final class SkillSyncServiceOrphanEligibilityTest extends AbstractUnitTestCase
     #[Test]
     public function recentSyncingHeartbeatIsAnActiveLock(): void
     {
-        // SYNCING with a heartbeat inside the stale window => a concurrent sync is running.
+        // SYNCING with a heartbeat inside the stale window (180s) => a concurrent sync is running.
         self::assertTrue($this->isLockActive($this->sourceWith(SyncStatus::SYNCING, 1_000), 1_000));
-        self::assertTrue($this->isLockActive($this->sourceWith(SyncStatus::SYNCING, 1_000), 1_500));
+        self::assertTrue($this->isLockActive($this->sourceWith(SyncStatus::SYNCING, 1_000), 1_150));
         // Small clock skew / backwards NTP nudge (heartbeat slightly in the
         // future) is still an active lock, not a permanent wedge.
         self::assertTrue($this->isLockActive($this->sourceWith(SyncStatus::SYNCING, 1_000), 995));
@@ -108,8 +108,8 @@ final class SkillSyncServiceOrphanEligibilityTest extends AbstractUnitTestCase
     #[Test]
     public function staleOrNeverSetSyncingHeartbeatIsReclaimable(): void
     {
-        // Heartbeat older than STALE_LOCK_SECONDS (600) => a crashed sync, reclaimable.
-        self::assertFalse($this->isLockActive($this->sourceWith(SyncStatus::SYNCING, 1_000), 1_601));
+        // Heartbeat older than STALE_LOCK_SECONDS (180) => a crashed sync, reclaimable.
+        self::assertFalse($this->isLockActive($this->sourceWith(SyncStatus::SYNCING, 1_000), 1_181));
         // Never-set heartbeat (0) => reclaimable regardless of "now".
         self::assertFalse($this->isLockActive($this->sourceWith(SyncStatus::SYNCING, 0), 1_000));
         // Heartbeat FAR in the future (large clock correction / corruption) is

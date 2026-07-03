@@ -54,15 +54,15 @@
                                 <f:for each="{sources}" as="source">
                                     <tr data-source-uid="{source.uid}">
                                         <td><strong>{source.title}</strong></td>
-                                        <td><span class="badge text-bg-info">{source.type.value}</span></td>
+                                        <td><span class="badge text-bg-info">{source.type}</span></td>
                                         <td>
-                                            <f:switch expression="{source.syncStatus.value}">
+                                            <f:switch expression="{source.syncStatus}">
                                                 <f:case value="ok"><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.ok" default="Synced" /></span></f:case>
                                                 <f:case value="never_synced"><span class="badge text-bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.never" default="Never synced" /></span></f:case>
                                                 <f:case value="syncing"><span class="badge text-bg-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.syncing" default="Syncing" /></span></f:case>
                                                 <f:case value="partial"><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.partial" default="Partial" /></span></f:case>
                                                 <f:case value="error"><span class="badge text-bg-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.error" default="Failed" /></span></f:case>
-                                                <f:defaultCase><code>{source.syncStatus.value}</code></f:defaultCase>
+                                                <f:defaultCase><code>{source.syncStatus}</code></f:defaultCase>
                                             </f:switch>
                                         </td>
                                         <td>
@@ -126,7 +126,7 @@
                                             </f:if>
                                         </td>
                                         <td>
-                                            <f:if condition="{skill.supportStatus.value} == 'full'">
+                                            <f:if condition="{skill.supportStatus} == 'full'">
                                                 <f:then><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.support.full" default="Full" /></span></f:then>
                                                 <f:else><span class="badge text-bg-warning" title="{skill.unsupportedNotes}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.support.partial" default="Partial" /></span></f:else>
                                             </f:if>

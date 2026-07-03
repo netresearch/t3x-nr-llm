@@ -41,7 +41,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     private const MARKET_A_ID = '30:' . self::PLUGIN_A . '/' . self::SKILL_A_PATH;
     private const MARKET_B_ID = '30:' . self::PLUGIN_B . '/' . self::SKILL_A_PATH;
 
-    private function service(FakeGitHubClient $gitHub, int $maxFiles = 500, int $maxSeconds = 120): SkillSyncService
+    private function service(FakeGitHubClient $gitHub, int $maxFiles = 500, int $maxSeconds = 120, int $heartbeatSeconds = 30): SkillSyncService
     {
         return new SkillSyncService(
             $gitHub,
@@ -54,6 +54,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
             new NullLogger(),
             $maxFiles,
             $maxSeconds,
+            $heartbeatSeconds,
         );
     }
 
@@ -358,6 +359,70 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $result = $this->service($gitHub)->sync($source);
         self::assertSame(SyncStatus::OK, $result->status);
         self::assertSame(1, $result->created);
+    }
+
+    #[Test]
+    public function reclaimStaleLockFlipsInterruptedSyncToRetryableError(): void
+    {
+        // A SYNCING lock whose heartbeat is older than the stale window is an interrupted (crashed)
+        // sync: reclaim flips it to ERROR so the list stops showing a wedged "Syncing" and a retry
+        // is unblocked.
+        $source = $this->repoSource();
+        $source->setSyncStatus(SyncStatus::SYNCING->value);
+        $source->setLastSynced(time() - 3600);
+
+        $reclaimed = $this->service(new FakeGitHubClient())->reclaimStaleLock($source);
+
+        self::assertTrue($reclaimed);
+        self::assertSame(SyncStatus::ERROR, $source->getSyncStatusEnum());
+        self::assertStringContainsString('interrupted', $source->getSyncError());
+    }
+
+    #[Test]
+    public function reclaimStaleLockLeavesAGenuinelyRunningSyncUntouched(): void
+    {
+        // A fresh heartbeat means a sync is actually in progress; reclaim must not steal its lock.
+        $source = $this->repoSource();
+        $source->setSyncStatus(SyncStatus::SYNCING->value);
+        $source->setLastSynced(time());
+
+        $reclaimed = $this->service(new FakeGitHubClient())->reclaimStaleLock($source);
+
+        self::assertFalse($reclaimed);
+        self::assertSame(SyncStatus::SYNCING, $source->getSyncStatusEnum());
+    }
+
+    #[Test]
+    public function reclaimStaleLockIgnoresACompletedSource(): void
+    {
+        // An OK source with an old lastSynced is a finished sync, not a stale lock: it must not be
+        // flipped to ERROR just because its last-synced timestamp is old.
+        $source = $this->repoSource();
+        $source->setSyncStatus(SyncStatus::OK->value);
+        $source->setLastSynced(time() - 3600);
+
+        $reclaimed = $this->service(new FakeGitHubClient())->reclaimStaleLock($source);
+
+        self::assertFalse($reclaimed);
+        self::assertSame(SyncStatus::OK, $source->getSyncStatusEnum());
+    }
+
+    #[Test]
+    public function heartbeatDuringCollectDoesNotDisturbTheSyncFlow(): void
+    {
+        // With a zero heartbeat interval the lock is re-persisted on every file mid-collect; the
+        // create/persist flow must still complete correctly (the mid-collect flush of the source row
+        // must not leak partial state or disturb the later skill upserts).
+        $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH, self::SKILL_B_PATH], [
+            self::SKILL_A_PATH => $this->md('A', 'body a'),
+            self::SKILL_B_PATH => $this->md('B', 'body b'),
+        ]);
+
+        $result = $this->service($gitHub, heartbeatSeconds: 0)->sync($this->repoSource());
+
+        self::assertSame(SyncStatus::OK, $result->status);
+        self::assertSame(2, $result->created);
+        self::assertCount(2, $this->get(SkillRepository::class)->findBySource(10));
     }
 
     #[Test]

@@ -31,8 +31,13 @@ final class SkillSyncService
 {
     use ErrorMessageSanitizerTrait;
 
-    /** A SYNCING lock older than this many seconds is considered stale and may be reclaimed. */
-    private const STALE_LOCK_SECONDS = 600;
+    /**
+     * A SYNCING lock whose heartbeat (lastSynced) is older than this many seconds is considered
+     * stale and may be reclaimed. A live sync renews its heartbeat every {@see $heartbeatSeconds}
+     * while collecting, so this window only has to outlast one heartbeat gap plus a single slow
+     * HTTP fetch — not the whole sync — which is why it can be well below the per-sync time bound.
+     */
+    private const STALE_LOCK_SECONDS = 180;
 
     /** Claude Code convention path of a marketplace index inside a repository. */
     private const MARKETPLACE_INDEX_PATH = '.claude-plugin/marketplace.json';
@@ -40,11 +45,15 @@ final class SkillSyncService
     private int $syncDeadline = 0;
     private int $filesProcessed = 0;
     private bool $boundsExceeded = false;
+    private int $lastHeartbeat = 0;
 
     /**
-     * @param int $maxFiles   Hard ceiling on files fetched per sync; prevents a huge repo/marketplace
-     *                        from running unbounded (constructor-injectable so tests can lower it).
-     * @param int $maxSeconds Hard ceiling on wall-clock seconds spent collecting per sync.
+     * @param int $maxFiles         Hard ceiling on files fetched per sync; prevents a huge repo/marketplace
+     *                              from running unbounded (constructor-injectable so tests can lower it).
+     * @param int $maxSeconds       Hard ceiling on wall-clock seconds spent collecting per sync.
+     * @param int $heartbeatSeconds Minimum seconds between lock heartbeats written while collecting;
+     *                              renewing the lock this often keeps a long but healthy sync from being
+     *                              mistaken for a stale one (constructor-injectable so tests can force it).
      */
     public function __construct(
         private readonly GitHubClientInterface $gitHub,
@@ -57,6 +66,7 @@ final class SkillSyncService
         private readonly LoggerInterface $logger,
         private readonly int $maxFiles = 500,
         private readonly int $maxSeconds = 120,
+        private readonly int $heartbeatSeconds = 30,
     ) {}
 
     public function sync(SkillSource $source): SyncResult
@@ -71,6 +81,7 @@ final class SkillSyncService
         $source->setLastSynced($now);
         $this->persistSource($source);
 
+        $this->lastHeartbeat = $now;
         $this->syncDeadline = $now + $this->maxSeconds;
         $this->filesProcessed = 0;
         $this->boundsExceeded = false;
@@ -160,6 +171,26 @@ final class SkillSyncService
     }
 
     /**
+     * Reclaim a source whose SYNCING lock is stale: the previous sync was interrupted (the process
+     * was killed / timed out before {@see sync()} could release the lock), so the source would
+     * otherwise display a perpetual "Syncing" badge and reject a retry until the window elapses on
+     * the next manual attempt. Flip it to ERROR — but only when the lock is provably NOT active, so
+     * a genuinely running sync (fresh heartbeat) and an already-terminal source are left untouched.
+     * Intended to be called when listing sources, turning an invisible auto-reclaim into a visible,
+     * retryable state. Returns true if it reclaimed the lock.
+     */
+    public function reclaimStaleLock(SkillSource $source): bool
+    {
+        if ($source->getSyncStatusEnum() !== SyncStatus::SYNCING || $this->isLockActive($source, time())) {
+            return false;
+        }
+        $source->setSyncStatus(SyncStatus::ERROR->value);
+        $source->setSyncError('The previous sync was interrupted before it finished. Trigger a new sync to retry.');
+        $this->persistSource($source);
+        return true;
+    }
+
+    /**
      * @param list<string> $errors
      *
      * @return array{
@@ -237,7 +268,7 @@ final class SkillSyncService
         // Discovered = every path the tree listing surfaced, even if its body fetch/parse fails below.
         $parsed = [];
         foreach ($paths as $path) {
-            if ($this->limitReached($errors)) {
+            if ($this->limitReached($source, $errors)) {
                 break;
             }
             $this->filesProcessed++;
@@ -289,7 +320,7 @@ final class SkillSyncService
             $listedPrefixSet[$prefix]  = true;
 
             // A bound hit leaves the remaining plugins listed (protected) but unvisited this run.
-            if ($this->limitReached($errors)) {
+            if ($this->limitReached($source, $errors)) {
                 continue;
             }
             try {
@@ -328,12 +359,14 @@ final class SkillSyncService
     }
 
     /**
-     * Stop collecting once the per-sync file or wall-time bound is exceeded.
+     * Stop collecting once the per-sync file or wall-time bound is exceeded. Called once per unit of
+     * work (per file / per plugin), so it is also where the lock heartbeat is renewed.
      *
      * @param list<string> $errors
      */
-    private function limitReached(array &$errors): bool
+    private function limitReached(SkillSource $source, array &$errors): bool
     {
+        $this->heartbeat($source);
         if ($this->boundsExceeded) {
             return true;
         }
@@ -347,6 +380,24 @@ final class SkillSyncService
             return true;
         }
         return false;
+    }
+
+    /**
+     * Renew the SYNCING lock by re-stamping the heartbeat (lastSynced), throttled to at most once
+     * per {@see $heartbeatSeconds}. This keeps a long but healthy sync from ageing past
+     * STALE_LOCK_SECONDS and being reclaimed as stale, while a crashed sync stops renewing and
+     * becomes reclaimable within one window. Only the source row is flushed here (skills are
+     * upserted after collection), so the mid-collect persist cannot leak partial skill state.
+     */
+    private function heartbeat(SkillSource $source): void
+    {
+        $now = time();
+        if ($now - $this->lastHeartbeat < $this->heartbeatSeconds) {
+            return;
+        }
+        $this->lastHeartbeat = $now;
+        $source->setLastSynced($now);
+        $this->persistSource($source);
     }
 
     /**
