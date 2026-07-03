@@ -49,8 +49,16 @@
         </div>
 
         <f:comment>Setup readiness checklist (Provider → Model → Configuration)</f:comment>
-        <f:comment>Attribute-form f:if so the &amp;&amp; entities decode — inline {f:if(...)} does not decode them.</f:comment>
-        <f:variable name="setupReady"><f:if condition="{dbProviderCount} > 0 &amp;&amp; {dbModelCount} > 0 &amp;&amp; {dbConfigurationCount} > 0"><f:then>1</f:then><f:else>0</f:else></f:if></f:variable>
+        <f:comment>Nested f:if (not a single compound condition): Fluid 5 mis-evaluates a mixed
+        count-and-negation compound in one condition, so each check is its own block.</f:comment>
+        <f:variable name="setupReady">0</f:variable>
+        <f:if condition="{dbProviderCount} &gt; 0">
+            <f:if condition="{dbModelCount} &gt; 0">
+                <f:if condition="{dbConfigurationCount} &gt; 0">
+                    <f:variable name="setupReady">1</f:variable>
+                </f:if>
+            </f:if>
+        </f:if>
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h2 class="card-title mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:readiness.title" default="Setup readiness" /></h2>
