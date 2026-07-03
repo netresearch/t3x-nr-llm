@@ -106,6 +106,14 @@ return [
                 'readOnly' => true,
             ],
         ],
+        // Vault UUID of the GitHub token; written by SkillSourceController::setTokenAction (never edited in
+        // FormEngine). MUST be declared here so Extbase hydrates SkillSource::$githubToken — without a TCA
+        // column the DataMapper leaves it '', so every sync runs unauthenticated and hits the 60/hour limit.
+        'github_token' => [
+            'config' => [
+                'type' => 'passthrough',
+            ],
+        ],
         'sync_status' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.sync_status',
             'config' => [
