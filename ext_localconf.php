@@ -10,6 +10,7 @@ declare(strict_types=1);
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Form\Element\ModelIdElement;
 use Netresearch\NrLlm\Form\FieldWizard\ModelConstraintsWizard;
+use Netresearch\NrLlm\Hook\ProviderEndpointNormalizationHook;
 use Netresearch\NrLlm\Service\CapabilityPermissionService;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 
@@ -74,4 +75,11 @@ defined('TYPO3') or die();
         'header' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_be.xlf:permissions.header',
         'items' => $capabilityItems,
     ];
+
+    // Normalize tx_nrllm_provider.endpoint_url to the adapter's canonical base URL
+    // when a provider is created/edited through the TCA record editor, so the
+    // manual write path stores a working base URL just like the Setup Wizard (#300).
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][]
+        = ProviderEndpointNormalizationHook::class;
 })();
