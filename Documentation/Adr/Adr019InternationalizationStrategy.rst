@@ -55,20 +55,21 @@ One XLIFF file per backend module, plus German translations:
 Locale-aware LLM features
 --------------------------
 
-The :php:`TestPromptTrait` resolves the backend user's
-language and substitutes a ``{lang}`` placeholder in
+The :php:`TestPromptResolverService` (a :php:`final readonly class` implementing
+:php:`TestPromptResolverInterface`, injected via DI — it replaced the former
+``TestPromptTrait`` when the logic was extracted out of the controller) resolves
+the backend user's language and substitutes a ``{lang}`` placeholder in
 configurable test prompts:
 
 .. code-block:: php
-   :caption: TestPromptTrait locale resolution
+   :caption: TestPromptResolverService locale resolution
 
-   private function resolveTestPrompt(): string
+   public function resolve(): string
    {
-       $default = 'Say hello and introduce yourself in one sentence. Respond in {lang}.';
-       // ... resolve from extension configuration ...
-
-       $lang = $uc['lang'] ?? 'default';
-       $languageName = $this->mapLanguageCodeToName($lang);
+       // Reads the configurable prompt (default: "Say hello and introduce
+       // yourself in one sentence. Respond in {lang}.") and the BE user's language.
+       $prompt       = $this->loadConfiguredPrompt();
+       $languageName = self::LANGUAGE_MAP[$this->resolveBackendUserLanguage()] ?? 'English';
 
        return str_replace('{lang}', $languageName, $prompt);
    }
@@ -121,4 +122,5 @@ Files changed
 - :file:`Resources/Private/Language/locallang_mod_task.xlf` and ``de.*``
 - :file:`Resources/Private/Language/locallang_mod_wizard.xlf` and ``de.*``
 - :file:`Resources/Private/Language/locallang_mod_overview.xlf` and ``de.*``
-- :file:`Classes/Controller/Backend/TestPromptTrait.php`
+- :file:`Classes/Service/TestPromptResolverService.php` and
+  :file:`Classes/Service/TestPromptResolverInterface.php`

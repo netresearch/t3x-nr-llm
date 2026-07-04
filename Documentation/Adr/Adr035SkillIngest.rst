@@ -59,8 +59,10 @@ Decision
    guard, :php:`GitHubClient` enforces an **app-level GitHub host
    allowlist**: ``scheme = https`` AND host ∈ ``{github.com,
    raw.githubusercontent.com, api.github.com, codeload.github.com}`` on
-   the initial URL and every redirect target. A rejected URL raises a
-   typed :php:`HostNotAllowedException` — never a silent skip.
+   the **initial request URL**. The transport does **not follow redirects**
+   (any 3xx is treated as an error), so there is no redirect target to
+   escape the allowlist. A rejected URL raises a typed
+   :php:`HostNotAllowedException` — never a silent skip.
 
 4. **Fetch by immutable commit SHA + checksum.** A source ``ref``
    (branch/tag) is resolved once to a commit SHA via

@@ -161,7 +161,7 @@ Consequences
   reach a tool the skills did not grant.
 - ◐ The shipped built-in tools (``fetch_logs``, ``read_fal_asset_meta``, and
   the later diagnostic/record tools — ``get_php_info``, ``get_env``,
-  ``get_page_tree``, ``get_tca``, ``list_be_users``, ``list_be_groups`` and
+  ``get_pagetree``, ``get_tca``, ``list_be_users``, ``list_be_groups`` and
   their secret-redacted/raw variants) are admin-curated, **read-only**,
   input-bounded and scoped (limit cap + PII redaction; storage-scoped lookup).
   They are reference implementations of the security contract, not a general

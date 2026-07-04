@@ -50,9 +50,10 @@ Support **OpenAI-compatible tool format**:
 
 Tool calls returned in :php:`CompletionResponse::$toolCalls`:
 
-- Array of tool call objects.
-- Includes function name and arguments.
-- JSON-encoded arguments for parsing.
+- A typed ``list<ToolCall>`` (nullable) of :php:`ToolCall` value objects —
+  each with the tool ``id``, ``name`` and its arguments as an already
+  **JSON-decoded** associative array (not an encoded string). A full
+  tool-execution runtime was added later in :ref:`ADR-038 <adr-038>`.
 
 .. _adr-010-consequences:
 

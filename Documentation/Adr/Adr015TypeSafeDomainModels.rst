@@ -67,7 +67,7 @@ Enums implemented:
    :widths: 30, 40, 30
 
    "AdapterType", "LLM provider protocol type", "9 cases (OpenAI through Custom)"
-   "ModelCapability", "Model feature flags", "8 cases (chat, vision, tools...)"
+   "ModelCapability", "Model feature flags", "11 cases (chat, completion, embeddings, vision, streaming, tools, json_mode, audio, image, text_to_speech, transcription)"
    "TaskCategory", "Task organization", "5 cases (content, log_analysis...)"
    "TaskInputType", "Task input source", "5 cases (manual, syslog, file...)"
    "TaskOutputFormat", "Response rendering format", "4 cases (markdown, json...)"

@@ -37,11 +37,14 @@ deliberate: overrides should be explicit, not silently merged.
 
 The shipped providers now declare their priority via the attribute, and the
 ``tags:`` entries have been removed from :file:`Configuration/Services.yaml`.
-Attribute-tagged providers are also made public automatically by
-:php:`ProviderCompilerPass` so that backend diagnostics can resolve them by
-class name. The legacy yaml-tagging path still works for third-party
-providers, but yaml-tagged services remain private unless the yaml entry
-sets ``public: true`` explicitly.
+:php:`ProviderCompilerPass` collects every ``nr_llm.provider``-tagged service
+(from the attribute or a legacy yaml tag), sorts them by priority, and wires
+each one into :php:`LlmServiceManager` with a ``registerProvider()`` method
+call. The providers stay **private** — they are never individually resolved
+from the container (which keeps the public-services set locked by
+:ref:`ADR-028 <adr-028>`); the backend instantiates the concrete adapter for a
+provider record directly through :php:`ProviderAdapterRegistry`. The legacy
+yaml-tagging path still works for third-party providers.
 
 .. _adr-022-tradeoffs:
 

@@ -31,22 +31,29 @@ Decision
 Implement **hierarchical exception system**:
 
 .. code-block:: text
-   :caption: Exception hierarchy
+   :caption: Exception hierarchy (Classes/Provider/Exception/ + Classes/Exception/)
 
-   Exception
-   └── ProviderException (base for provider errors)
-       ├── AuthenticationException (invalid API key)
-       ├── RateLimitException (quota exceeded)
-       └── ContentFilteredException (blocked content)
-   └── InvalidArgumentException (bad inputs)
-   └── ConfigurationNotFoundException (missing config)
+   \RuntimeException
+   ├── Netresearch\NrLlm\Provider\Exception\ProviderException (base for provider errors)
+   │   ├── ProviderConnectionException (transport / network failure)
+   │   ├── ProviderResponseException (non-2xx / malformed API response)
+   │   ├── ProviderConfigurationException (missing/invalid provider setup)
+   │   ├── UnsupportedFeatureException (capability not implemented)
+   │   └── FallbackChainExhaustedException (all providers in the chain failed)
+   └── Netresearch\NrLlm\Exception\ConfigurationNotFoundException (missing configuration record)
+   \InvalidArgumentException
+   └── Netresearch\NrLlm\Exception\InvalidArgumentException (bad inputs)
 
 Key features:
 
-- All provider errors extend :php:`ProviderException`.
-- :php:`RateLimitException` includes :php:`getRetryAfter()`.
+- All provider errors extend :php:`ProviderException` (itself a
+  :php:`\RuntimeException`).
+- :php:`FallbackChainExhaustedException` is raised by
+  :php:`FallbackMiddleware` when every provider in the chain fails
+  (:ref:`ADR-021 <adr-021>`, :ref:`ADR-026 <adr-026>`).
+- :php:`ProviderResponseException` carries the offending HTTP status and a
+  sanitised message (secrets stripped by ``ErrorMessageSanitizerTrait``).
 - Exceptions include provider context.
-- HTTP status code mapping.
 
 .. _adr-008-consequences:
 

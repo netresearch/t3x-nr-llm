@@ -61,9 +61,10 @@ Decision
    ``enabled`` and non-``orphaned`` skills. The configuration block renders
    first.
 
-5. **Conservative character budget, deterministic drop.** Because no
-   tokenizer exists, the budget is a conservative **character** cap
-   (default 24 000, constructor-injectable). When exceeded, skills are
+5. **Conservative byte budget, deterministic drop.** Because no
+   tokenizer exists, the budget is a conservative **byte** cap
+   (:php:`strlen`, default 24 000, constructor-injectable — a byte count is a
+   safe over-estimate of tokens for any encoding). When exceeded, skills are
    dropped **from the tail first** (task-additive before configuration
    baseline), each drop logged as a warning. This is intentionally an
    over-estimate set well below the smallest expected context window; with
@@ -98,7 +99,7 @@ Consequences
 - ● Fail-closed checksum verification means a tampered or stale skill row
   is dropped, not silently injected — the ingest-time pin (ADR-035) is
   enforced again at the moment of use.
-- ◐ The budget is a character heuristic, not a token guarantee; it is
+- ◐ The budget is a byte heuristic, not a token guarantee; it is
   deliberately conservative and logs every drop, but very large skills on
   tiny-context local models may still be trimmed.
 - ◐ Injection touches the live text-generation path; it is scoped to

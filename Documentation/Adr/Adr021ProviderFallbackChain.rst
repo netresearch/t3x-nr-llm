@@ -28,8 +28,9 @@ Decision
 A configuration's ``fallback_chain`` column stores an ordered JSON list of
 other :php:`LlmConfiguration` identifiers. On retryable failures during
 :php:`LlmServiceManager::chatWithConfiguration()` or
-:php:`completeWithConfiguration()`, a :php:`FallbackChainExecutor` walks the
-chain and returns the first successful response — or throws
+:php:`completeWithConfiguration()`, :php:`FallbackMiddleware` (a stage of the
+provider middleware pipeline, :ref:`ADR-026 <adr-026>`) walks the chain and
+returns the first successful response — or throws
 :php:`FallbackChainExhaustedException` carrying every attempt error.
 
 "Retryable" is narrowly defined: the request *might* succeed against a

@@ -124,5 +124,6 @@ Files changed
 
 - :file:`Classes/Service/WizardGeneratorService.php` --
   Uses :php:`SafeCastTrait` for JSON normalization.
-- :file:`Classes/Controller/Backend/TaskController.php`
-  -- Uses :php:`SafeCastTrait` for form data casting.
+- :file:`Classes/Controller/Backend/TaskWizardController.php`
+  -- Uses :php:`SafeCastTrait` for form data casting (the monolithic
+  ``TaskController`` was split per :ref:`ADR-027 <adr-027>`).
