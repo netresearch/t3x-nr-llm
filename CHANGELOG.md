@@ -6,21 +6,41 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-07-04
+
 ### Added
 
-- Function-calling tool runtime (agent loop) with an admin-curated, RBAC-gated built-in tool set and a backend tool playground (ADR-038).
+- **Skills.** Ingest `SKILL.md` from GitHub sources with SHA-pinned sync, disabled-by-default and orphan/auto-disable lifecycle, and an admin backend module for sources and review; marketplace `marketplace.json` / `{source: git, url}` parsing; attach skills to tasks and configurations and inject them into text-generation prompts with a token budget and integrity verification (ADR-035, ADR-036) (#259, #261, #263, #273, #277, #295, #297).
+- **Tools.** Function-calling tool runtime — a bounded agent loop, a DI-tagged tool registry, Ollama tool support and per-run allow-list gating; per-tool enable/disable with a built-in system tool set; an interactive admin tool playground; the Playground and Tools backend modules are separate (ADR-038) (#262, #264, #265, #274, #276, #296).
+- Together AI, Fireworks AI and Perplexity are now first-class OpenAI-compatible adapter types with canonical endpoints (#300, #304).
+- Backend module UX overhaul (help, glossary, readiness checks, enablement flow), accessibility text alternatives and screen-reader status text, and EN/DE translations across backend/AJAX/wizard strings (#275, #280, #288).
 
 ### Changed
 
-- **BREAKING:** `ToolInterface` now requires a `requiresAdmin(): bool` method. Every implementer must declare it — return `true` for tools exposing system/host/cross-user data (logs, environment, phpinfo, backend-user/group listings), `false` for tools that self-enforce the acting user's TYPO3 permissions. Without it, the tool fatals at runtime on instantiation.
+- **BREAKING:** `ToolInterface` now requires a `requiresAdmin(): bool` method. Every implementer must declare it — return `true` for tools exposing system/host/cross-user data (logs, environment, phpinfo, backend-user/group listings), `false` for tools that self-enforce the acting user's TYPO3 permissions. Without it, the tool fatals at runtime on instantiation (ADR-038, #262).
+- CI now runs the functional + e2e-backend suites on every event, so they gate merges (previously skipped entirely; closes #272) (#298).
+- TYPO3 v15 forward-compatibility declared via composer package metadata, with a version-drift guard (#271).
+- Dependencies upgraded (non-framework); `symfony/yaml` to v8; Node/Playwright/axe-core bumps (#251, #252, #253, #260, #301).
+- ADRs audited against the code — drift corrected, ADR-039 added (#302).
 
 ### Fixed
 
-- Per-configuration backend-group access control now works. The `beGroups` MM relation on `LlmConfiguration` had no Extbase mapping, so `LlmConfigurationRepository::findAccessibleForGroups()` raised `MissingColumnMapException` for any backend user in a group, and the in-PHP fallback check always saw an empty group list. The relation is now hydrated via a minimal `be_groups` domain model, and `getAllowedGroups()` is derived from it (the single source of truth). Present since at least v0.13.0.
+- Provider endpoints are canonicalized on save on both write paths — the Setup Wizard (#98, #299) and the manual TCA record editor via a DataHandler hook (#300, #303) — so a bare host gains the adapter's API version path (e.g. OpenAI `/v1`) instead of breaking unversioned.
+- The configuration system prompt is now applied on all completion paths, including streaming (#292).
+- Per-configuration backend-group access control now works. The `beGroups` MM relation on `LlmConfiguration` had no Extbase mapping, so `LlmConfigurationRepository::findAccessibleForGroups()` raised `MissingColumnMapException` for any backend user in a group, and the in-PHP fallback check always saw an empty group list. Present since at least v0.13.0 (#289).
+- Skill sync no longer wedges on a crashed run (stale-lock recovery), the skill-source list status/type badges render again, and `SkillSource.githubToken` is hydrated so sync can authenticate (#295, #297).
+- Fluid 5 strict compound-condition mis-evaluation in backend status warnings (#294).
+- Backend TCA `ORDER BY` SQL error, the task Run button target, and the wizard "Go to Configurations" link (#291, #293).
+- Functional test debt cleared — backend controller test construction repaired after the #256 refactor, and the remaining assertion failures resolved (#267, #269).
+- Model/completion cache tags sanitized and capped to TYPO3's 250-char limit; usage keyed on configuration and the response model recorded when the configuration carries none (#292).
 
 ### Security
 
-- Gemini provider now sends the API key in the `x-goog-api-key` header instead of the URL query string, so it no longer leaks into server/proxy logs, browser history or the Referer header.
+- Gemini API key sent via the `x-goog-api-key` header on all calls instead of the URL query string, so it no longer leaks into logs, history or the Referer header (#286, #292).
+- CSRF tokens required on backend AJAX endpoints; middleware order pinned; all backend AJAX endpoints require an admin backend user (#262, #278).
+- SSRF hardening — schemeless-endpoint bypass closed, empty-username credential leak fixed, api-key-less provider endpoints gated against the host filter (#292).
+- Acting-user RBAC enforced on tool execution; surfaced exception messages redacted; tool-result size bounded (#276, #292).
+- Input clamps (temperature, maxTokens, token counts, retry backoff) across providers and the wizard; API key cleared from Setup Wizard memory after save (#285, #286, #292).
 
 ## [0.13.0] - 2026-06-26
 
@@ -909,7 +929,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.13.0...v0.14.0
+[0.13.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.10.0...v0.11.0

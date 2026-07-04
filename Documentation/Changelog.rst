@@ -11,6 +11,34 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-14-0:
+
+Version 0.14.0 (2026-07-04)
+===========================
+
+This release adds a **Skills and Tools** system: extensions and editors can
+ingest ``SKILL.md`` files from GitHub (SHA-pinned, admin-reviewed) and attach
+them to tasks and configurations, and a function-calling **tool runtime** lets a
+model run an agent loop over an admin-curated, permission-gated set of tools —
+with an interactive tool playground in the backend. It also lands a broad
+security and accessibility hardening pass (SSRF/CSRF fixes, API keys moved out of
+URLs, RBAC on tool execution, EN/DE translations, WCAG text alternatives), and
+the CI now actually runs the functional and backend end-to-end suites so they
+gate merges.
+
+**Breaking:** custom ``ToolInterface`` implementations must now declare a
+``requiresAdmin(): bool`` method — ``true`` for tools that expose system,
+host, or cross-user data, ``false`` for tools that self-enforce the acting
+user's TYPO3 permissions. Without it the tool fails at runtime (ADR-038).
+
+Together AI, Fireworks AI and Perplexity are now first-class OpenAI-compatible
+providers, and provider endpoints entered in the wizard or the record editor are
+canonicalized on save so they no longer break when saved without an API version
+path.
+
+For the complete, itemised list see the canonical
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-llm/blob/main/CHANGELOG.md>`__.
+
 .. _version-0-13-0:
 
 Version 0.13.0 (2026-06-26)
