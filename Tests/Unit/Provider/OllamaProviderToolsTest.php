@@ -184,6 +184,42 @@ class OllamaProviderToolsTest extends AbstractUnitTestCase
         self::assertSame('LOGS', $toolTurn['content'] ?? null);
     }
 
+    /**
+     * A parameterless tool call is replayed with empty `{}` arguments. On the
+     * wire this must stay a JSON object `{}`, not become the array `[]`:
+     * `json_decode('{}', true) === []`, and Ollama rejects a tool call whose
+     * arguments serialise as `[]` ("Value looks like object, but can't find
+     * closing '}' symbol"). Asserted against the raw body because the decoded
+     * form cannot distinguish `{}` from `[]`.
+     */
+    #[Test]
+    public function replayedEmptyToolCallArgumentsSerialiseAsObject(): void
+    {
+        $subject = $this->buildSubject($this->plainAssistantResponse('ok'));
+
+        $messages = [
+            ['role' => 'user', 'content' => 'list users'],
+            [
+                'role'       => 'assistant',
+                'content'    => '',
+                'tool_calls' => [
+                    [
+                        'id'       => 'call_0',
+                        'type'     => 'function',
+                        'function' => ['name' => 'list_be_users', 'arguments' => '{}'],
+                    ],
+                ],
+            ],
+            ['role' => 'tool', 'tool_call_id' => 'call_0', 'content' => 'USERS'],
+        ];
+
+        $subject->chatCompletionWithTools($messages, []);
+
+        self::assertIsString($this->capturedBody);
+        self::assertStringContainsString('"arguments":{}', $this->capturedBody);
+        self::assertStringNotContainsString('"arguments":[]', $this->capturedBody);
+    }
+
     #[Test]
     public function nonToolResponseReturnsPlainContent(): void
     {

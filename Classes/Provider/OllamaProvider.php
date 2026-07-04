@@ -364,8 +364,13 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             return $call;
         }
 
-        $decoded = json_decode($arguments, true);
-        if (is_array($decoded)) {
+        // Decode WITHOUT associative arrays. json_decode('{}', true) === [],
+        // which would re-encode a parameterless tool call's empty arguments as
+        // the array [] and make Ollama reject the replayed turn with
+        // "Value looks like object, but can't find closing '}' symbol".
+        // Decoding to a stdClass preserves the empty object as {}.
+        $decoded = json_decode($arguments);
+        if (is_object($decoded) || is_array($decoded)) {
             $function['arguments'] = $decoded;
             $call['function']      = $function;
         }
