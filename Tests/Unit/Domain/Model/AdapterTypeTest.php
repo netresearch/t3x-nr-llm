@@ -88,7 +88,7 @@ class AdapterTypeTest extends AbstractUnitTestCase
             'OpenRouter' => [AdapterType::OpenRouter, 'https://openrouter.ai/api/v1'],
             'Mistral' => [AdapterType::Mistral, 'https://api.mistral.ai/v1'],
             'Groq' => [AdapterType::Groq, 'https://api.groq.com/openai/v1'],
-            'Ollama' => [AdapterType::Ollama, 'http://localhost:11434/api'],
+            'Ollama' => [AdapterType::Ollama, 'http://localhost:11434'],
             'AzureOpenAI' => [AdapterType::AzureOpenAI, ''],
             'Custom' => [AdapterType::Custom, ''],
         ];
