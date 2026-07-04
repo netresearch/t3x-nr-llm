@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
 
 use InvalidArgumentException;
 use JsonSerializable;
+use stdClass;
 
 /**
  * Value Object describing a tool the model is allowed to call.
@@ -43,6 +44,13 @@ final readonly class ToolSpec implements JsonSerializable
     public const TYPE_FUNCTION = 'function';
 
     /**
+     * @var array<string, mixed> JSON-Schema-shaped parameter description;
+     *                           passed verbatim to the provider (with the
+     *                           empty-`properties` normalisation below applied).
+     */
+    public array $parameters;
+
+    /**
      * @param array<string, mixed> $parameters JSON-Schema-shaped parameter
      *                                         description; passed verbatim
      *                                         to the provider.
@@ -50,7 +58,7 @@ final readonly class ToolSpec implements JsonSerializable
     public function __construct(
         public string $name,
         public string $description,
-        public array $parameters,
+        array $parameters,
         public string $type = self::TYPE_FUNCTION,
     ) {
         if ($this->name === '') {
@@ -65,6 +73,30 @@ final readonly class ToolSpec implements JsonSerializable
                 1745410002,
             );
         }
+
+        $this->parameters = self::normaliseParameters($parameters);
+    }
+
+    /**
+     * JSON Schema requires `properties` to be an object. A parameterless tool
+     * declares it as an empty PHP array, which `json_encode` renders as `[]` —
+     * and strict providers (Ollama) then reject the whole request with
+     * "Value looks like object, but can't find closing '}' symbol". Force the
+     * empty case to a `stdClass` so it serialises as `{}`. Applied at
+     * construction so the stored value is already correct and
+     * `fromArray(toArray())` stays idempotent.
+     *
+     * @param array<string, mixed> $parameters
+     *
+     * @return array<string, mixed>
+     */
+    private static function normaliseParameters(array $parameters): array
+    {
+        if (($parameters['properties'] ?? null) === []) {
+            $parameters['properties'] = new stdClass();
+        }
+
+        return $parameters;
     }
 
     /**

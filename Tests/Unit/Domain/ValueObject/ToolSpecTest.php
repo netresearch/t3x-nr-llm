@@ -172,4 +172,44 @@ final class ToolSpecTest extends TestCase
 
         self::assertSame($spec->toArray(), $spec->jsonSerialize());
     }
+
+    /**
+     * A parameterless tool declares `properties => []`. JSON Schema requires
+     * `properties` to be an object, and `json_encode([])` produces `[]`, which
+     * strict providers (Ollama) reject with "Value looks like object, but can't
+     * find closing '}' symbol". The empty case must serialise as `{}`.
+     */
+    #[Test]
+    public function emptyPropertiesSerialiseAsJsonObjectNotArray(): void
+    {
+        $spec = ToolSpec::function('get_env', 'no params', [
+            'type'       => 'object',
+            'properties' => [],
+        ]);
+
+        $json = json_encode($spec->toArray(), JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('"properties":{}', $json);
+        self::assertStringNotContainsString('"properties":[]', $json);
+    }
+
+    /**
+     * The empty-properties normalisation must not disturb the idempotency
+     * contract: a spec built from an empty-properties schema round-trips
+     * unchanged through `fromArray(toArray())`.
+     */
+    #[Test]
+    public function emptyPropertiesRoundTripIsIdempotent(): void
+    {
+        $spec = ToolSpec::function('get_env', 'no params', [
+            'type'       => 'object',
+            'properties' => [],
+        ]);
+
+        self::assertEquals($spec, ToolSpec::fromArray($spec->toArray()));
+        self::assertSame(
+            json_encode($spec->toArray(), JSON_THROW_ON_ERROR),
+            json_encode(ToolSpec::fromArray($spec->toArray())->toArray(), JSON_THROW_ON_ERROR),
+        );
+    }
 }
