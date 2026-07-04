@@ -23,6 +23,9 @@ enum AdapterType: string
     case OpenRouter = 'openrouter';
     case Mistral = 'mistral';
     case Groq = 'groq';
+    case Together = 'together';
+    case Fireworks = 'fireworks';
+    case Perplexity = 'perplexity';
     case Ollama = 'ollama';
     case AzureOpenAI = 'azure_openai';
     case Custom = 'custom';
@@ -39,6 +42,9 @@ enum AdapterType: string
             self::OpenRouter => 'OpenRouter',
             self::Mistral => 'Mistral AI',
             self::Groq => 'Groq',
+            self::Together => 'Together AI',
+            self::Fireworks => 'Fireworks AI',
+            self::Perplexity => 'Perplexity',
             self::Ollama => 'Ollama (Local)',
             self::AzureOpenAI => 'Azure OpenAI',
             self::Custom => 'Custom (OpenAI-compatible)',
@@ -57,6 +63,11 @@ enum AdapterType: string
             self::OpenRouter => 'https://openrouter.ai/api/v1',
             self::Mistral => 'https://api.mistral.ai/v1',
             self::Groq => 'https://api.groq.com/openai/v1',
+            self::Together => 'https://api.together.xyz/v1',
+            self::Fireworks => 'https://api.fireworks.ai/inference/v1',
+            // Bare host: Perplexity's OpenAI-compatible base has no version segment
+            // (the client appends "/chat/completions" directly).
+            self::Perplexity => 'https://api.perplexity.ai',
             // Bare host: OllamaProvider adds the "api/" segment to each request path
             // itself, so its base URL must NOT include it (otherwise "/api/api/tags").
             self::Ollama => 'http://localhost:11434',

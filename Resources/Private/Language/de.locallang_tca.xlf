@@ -409,6 +409,18 @@
                 <source>Groq</source>
                 <target>Groq</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.together">
+                <source>Together AI</source>
+                <target>Together AI</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.fireworks">
+                <source>Fireworks AI</source>
+                <target>Fireworks AI</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.perplexity">
+                <source>Perplexity</source>
+                <target>Perplexity</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_provider.adapter_type.ollama">
                 <source>Ollama (Local)</source>
                 <target>Ollama (lokal)</target>

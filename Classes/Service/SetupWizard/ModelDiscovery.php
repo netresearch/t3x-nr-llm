@@ -157,6 +157,10 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             'ollama' => $this->discoverOllama($endpoint),
             'mistral' => $this->discoverMistral($endpoint, $apiKey),
             'groq' => $this->discoverGroq($endpoint, $apiKey),
+            // Together/Fireworks/Perplexity resolve to the OpenAI-compatible provider
+            // for chat, but discoverOpenAI() filters to OpenAI-specific model IDs, so
+            // routing them there would surface OpenAI's catalog. Until per-provider
+            // discovery exists their model ID is entered manually (generic placeholder).
             default => $this->getDefaultModels($provider->adapterType),
         };
     }

@@ -55,6 +55,9 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
         AdapterType::OpenRouter->value => OpenRouterProvider::class,
         AdapterType::Mistral->value => MistralProvider::class,
         AdapterType::Groq->value => GroqProvider::class,
+        AdapterType::Together->value => OpenAiProvider::class, // Together AI is OpenAI-compatible
+        AdapterType::Fireworks->value => OpenAiProvider::class, // Fireworks AI is OpenAI-compatible
+        AdapterType::Perplexity->value => OpenAiProvider::class, // OpenAI-compatible chat; no /models listing endpoint
         AdapterType::Ollama->value => OllamaProvider::class,
         AdapterType::AzureOpenAI->value => OpenAiProvider::class, // Azure uses OpenAI-compatible API
         AdapterType::Custom->value => OpenAiProvider::class, // Custom assumes OpenAI-compatible API

@@ -393,6 +393,11 @@ class ProviderDetectorTest extends AbstractUnitTestCase
             'groq bare gains /openai/v1'        => ['https://api.groq.com', 'groq', 'https://api.groq.com/openai/v1'],
             'mistral bare gains /v1'            => ['https://api.mistral.ai', 'mistral', 'https://api.mistral.ai/v1'],
             'openrouter bare gains /api/v1'     => ['https://openrouter.ai', 'openrouter', 'https://openrouter.ai/api/v1'],
+            // OpenAI-compatible providers that are now real enum cases (#300 gap 2).
+            'together bare gains /v1'           => ['https://api.together.xyz', 'together', 'https://api.together.xyz/v1'],
+            'fireworks bare gains /inference/v1' => ['https://api.fireworks.ai', 'fireworks', 'https://api.fireworks.ai/inference/v1'],
+            // Perplexity's canonical base has no version segment, so it stays a bare host.
+            'perplexity bare stays bare'        => ['https://api.perplexity.ai', 'perplexity', 'https://api.perplexity.ai'],
             // Ollama's adapter adds "api/" itself, so its base URL must stay a bare host.
             'ollama bare stays bare'            => ['http://localhost:11434', 'ollama', 'http://localhost:11434'],
             'ollama scheme-less stays bare'     => ['localhost:11434', 'ollama', 'http://localhost:11434'],
