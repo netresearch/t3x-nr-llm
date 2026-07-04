@@ -30,7 +30,7 @@ hooks:
         echo "📋 Git info updated: Branch=$BRANCH, Commit=$COMMIT, PR=$PR"
     - exec-host: |
         # Auto-pull Ollama model in background (if not already present)
-        OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3:0.6b}"
+        OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3:4b}"
         OLLAMA_CONTAINER="ddev-${DDEV_SITENAME}-ollama"
 
         # Wait for Ollama container to be ready (use ollama list, no curl in image)

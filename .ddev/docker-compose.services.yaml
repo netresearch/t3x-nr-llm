@@ -19,7 +19,7 @@ services:
       com.ddev.approot: $DDEV_APPROOT
 
   # Ollama for local LLM inference
-  # Configure model via OLLAMA_MODEL env var (default: qwen2.5:0.5b)
+  # Configure model via OLLAMA_MODEL env var (default: qwen3:4b)
   ollama:
     container_name: ddev-${DDEV_SITENAME}-ollama
     image: ollama/ollama:latest
@@ -31,8 +31,9 @@ services:
     environment:
       - OLLAMA_HOST=0.0.0.0
       # Model to pull on startup (override in .env or .ddev/.env)
-      # Options: qwen3:0.6b, gemma3:1b, smollm2:360m, qwen2.5:0.5b
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:0.6b}
+      # Default qwen3:4b is tool-capable (~2.5GB, needs ~4GB RAM/VRAM).
+      # Low-resource fallbacks: qwen3:0.6b, gemma3:1b, smollm2:360m, qwen2.5:0.5b
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:4b}
     labels:
       com.ddev.site-name: ${DDEV_SITENAME}
       com.ddev.approot: $DDEV_APPROOT

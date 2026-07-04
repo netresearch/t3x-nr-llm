@@ -29,7 +29,7 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "Pre-configured LLM setup:"
     echo "  Provider: Local Ollama (http://ollama:11434)"
-    echo "  Models:   qwen3:0.6b (default), gemma3:1b, smollm2:360m"
+    echo "  Models:   qwen3:4b (default), qwen3:0.6b, gemma3:1b, smollm2:360m"
     echo "  Configs:  General Purpose, Summarizer, Creative, Code Assistant"
     echo ""
     echo "You can now:"

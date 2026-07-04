@@ -104,7 +104,7 @@ $claude = $ensureProvider($pdo, $ensure, 'demo-anthropic', 'Demo Anthropic', 'cl
 $google = $ensureProvider($pdo, $ensure, 'demo-google', 'Demo Google', 'gemini');
 
 // Free Ollama stream — reuse whatever seed-ollama created (fallback: skip).
-$ollamaModelUid = (int)($pdo->query("SELECT uid FROM tx_nrllm_model WHERE model_id = 'qwen3:0.6b' AND deleted = 0 ORDER BY uid ASC LIMIT 1")->fetchColumn() ?: 0);
+$ollamaModelUid = (int)($pdo->query("SELECT uid FROM tx_nrllm_model WHERE model_id = 'qwen3:4b' AND deleted = 0 ORDER BY uid ASC LIMIT 1")->fetchColumn() ?: 0);
 $ollamaConfigUid = (int)($pdo->query("SELECT uid FROM tx_nrllm_configuration WHERE identifier = 'local-general' AND deleted = 0 ORDER BY uid ASC LIMIT 1")->fetchColumn() ?: 0);
 
 /** @var list<array{adapter:string,modelUid:int,modelId:string,costIn:int,costOut:int,configUid:int,taskUid:int,service:string}> $streams */
@@ -140,7 +140,7 @@ $streams[] = $build('gemini', $m, 'gemini-2.5-flash', 30, 120, $c, $t, 'translat
 // Stream 5 — free local Ollama, embeddings (reuse real seed-ollama records).
 if ($ollamaModelUid > 0 && $ollamaConfigUid > 0) {
     $t = $ensureTask($pdo, $ensure, 'demo-analyze-syslog', 'Analyze Syslog', 'log_analysis', $ollamaConfigUid);
-    $streams[] = $build('ollama', $ollamaModelUid, 'qwen3:0.6b', 0, 0, $ollamaConfigUid, $t, 'embed');
+    $streams[] = $build('ollama', $ollamaModelUid, 'qwen3:4b', 0, 0, $ollamaConfigUid, $t, 'embed');
 }
 
 // ---------------------------------------------------------------------------
