@@ -64,7 +64,14 @@ final class ListBeUsersToolTest extends AbstractFunctionalTestCase
         $spec = $this->tool->getSpec();
 
         self::assertSame('list_be_users', $spec->name);
-        self::assertSame([], $spec->parameters['properties'] ?? null);
+        // A parameterless tool must expose its (empty) `properties` as a JSON
+        // object `{}`, not an array `[]` — strict providers (Ollama) reject
+        // `[]`. ToolSpec normalises the empty case to a stdClass at construction.
+        self::assertEquals(new \stdClass(), $spec->parameters['properties'] ?? null);
+        self::assertStringContainsString(
+            '"properties":{}',
+            json_encode($spec->toArray(), JSON_THROW_ON_ERROR),
+        );
     }
 
     #[Test]
