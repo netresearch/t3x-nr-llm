@@ -32,7 +32,7 @@
     },
     "require": {
         "php": "^8.2",
-        "netresearch/nr-vault": "^0.10.0",
+        "netresearch/nr-vault": "^0.10.1",
         "psr/http-client": "^1.0",
         "psr/http-factory": "^1.0",
         "psr/log": "^2.0 || ^3.0",
@@ -40,10 +40,10 @@
         "typo3/cms-core": "^13.4 || ^14.3"
     },
     "require-dev": {
-        "ergebnis/composer-normalize": "^2.0",
+        "ergebnis/composer-normalize": "^2.52",
         "fakerphp/faker": "^1.24",
-        "giorgiosironi/eris": "^1.0",
-        "netresearch/typo3-ci-workflows": "^1.2",
+        "giorgiosironi/eris": "^1.1",
+        "netresearch/typo3-ci-workflows": "^1.3",
         "typo3/cms-dashboard": "^13.4 || ^14.3",
         "typo3/cms-install": "^13.4 || ^14.3"
     },
@@ -79,12 +79,12 @@
             "config": "Build/captainhook.json"
         },
         "typo3/cms": {
-            "extension-key": "nr_llm",
-            "web-dir": ".Build/Web",
-            "version": "0.13.0",
             "Package": {
                 "providesPackages": {}
-            }
+            },
+            "extension-key": "nr_llm",
+            "version": "0.13.0",
+            "web-dir": ".Build/Web"
         }
     },
     "scripts": {
@@ -96,28 +96,28 @@
             "@ci:test:php:fuzzy"
         ],
         "ci:cgl": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then php-cs-fixer fix; else ./Build/Scripts/runTests.sh -s cgl; fi'",
-        "cs:fix": "@ci:cgl",
-        "phpstan": "@ci:test:php:phpstan",
         "ci:full": [
             "@ci",
             "@ci:test:php:functional"
         ],
         "ci:test:php:cgl": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then php-cs-fixer fix --dry-run --diff; else ./Build/Scripts/runTests.sh -s cgl -n; fi'",
-        "ci:test:php:lint": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then find Classes Configuration Tests -name \"*.php\" -print0 | xargs -0 -n1 -P$(nproc 2>/dev/null || echo 4) php -l >/dev/null; else ./Build/Scripts/runTests.sh -s lint; fi'",
         "ci:test:php:functional": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/FunctionalTests.xml; else ./Build/Scripts/runTests.sh -s functional; fi'",
         "ci:test:php:fuzzy": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite fuzzy; else ./Build/Scripts/runTests.sh -s fuzzy; fi'",
         "ci:test:php:integration": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite integration; else ./Build/Scripts/runTests.sh -s integration; fi'",
+        "ci:test:php:lint": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then find Classes Configuration Tests -name \"*.php\" -print0 | xargs -0 -n1 -P$(nproc 2>/dev/null || echo 4) php -l >/dev/null; else ./Build/Scripts/runTests.sh -s lint; fi'",
         "ci:test:php:mutation": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then infection --configuration=infection.json.dist --threads=4 -s --no-progress; else ./Build/Scripts/runTests.sh -s mutation; fi'",
         "ci:test:php:mutation:ci": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then infection --configuration=infection.json.dist --threads=4 --no-progress; else ./Build/Scripts/runTests.sh -s mutation; fi'",
         "ci:test:php:phpstan": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpstan analyse -c Build/phpstan/phpstan.neon; else ./Build/Scripts/runTests.sh -s phpstan; fi'",
         "ci:test:php:phpstan:baseline": "phpstan analyse -c Build/phpstan/phpstan.neon --generate-baseline Build/phpstan-baseline.neon",
         "ci:test:php:rector": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then rector process --config Build/rector/rector.php --dry-run; else ./Build/Scripts/runTests.sh -s rector -n; fi'",
         "ci:test:php:unit": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite unit; else ./Build/Scripts/runTests.sh -s unit; fi'",
+        "cs:fix": "@ci:cgl",
         "ddev:ci:full": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer ci:full'",
         "ddev:test": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer test'",
         "ddev:test:functional": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer ci:test:php:functional'",
         "fractor": "fractor process --config Build/fractor/fractor.php",
         "fractor:dry": "fractor process --config Build/fractor/fractor.php --dry-run",
+        "phpstan": "@ci:test:php:phpstan",
         "rector": "rector process --config Build/rector/rector.php",
         "test": "phpunit -c Build/phpunit.xml",
         "test:e2e": "npm run test:e2e"
