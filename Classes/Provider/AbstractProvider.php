@@ -274,7 +274,16 @@ abstract class AbstractProvider implements ProviderInterface
         $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
 
         $request = $this->requestFactory->createRequest($method, $url)
-            ->withHeader('Content-Type', 'application/json');
+            ->withHeader('Content-Type', 'application/json')
+            // Force a fresh connection per request. The tool agent loop fires
+            // several POSTs to the same host in rapid succession; a pooled
+            // keep-alive connection the upstream (e.g. Ollama) has since
+            // half-closed can drop the tail of a larger request body mid-send,
+            // and the provider then rejects the truncated JSON with a 4xx that
+            // is (correctly) not retried. Disabling keep-alive trades a
+            // negligible TCP handshake — dwarfed by generation latency — for a
+            // reliable body delivery. See ADR-026 / the middleware pipeline.
+            ->withHeader('Connection', 'close');
 
         $request = $this->addProviderSpecificHeaders($request);
 

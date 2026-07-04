@@ -697,6 +697,49 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         self::assertEmpty($capturedBody);
     }
 
+    /**
+     * Every outgoing provider request must carry `Connection: close`. The tool
+     * agent loop fires several POSTs to the same host in rapid succession; a
+     * pooled keep-alive connection the upstream has half-closed can drop the
+     * tail of a larger request body, and the provider then rejects the
+     * truncated JSON with an un-retried 4xx. Disabling keep-alive per request
+     * defeats that reuse race — this test pins the header so it cannot be
+     * dropped silently.
+     */
+    #[Test]
+    public function sendRequestDisablesConnectionKeepAlive(): void
+    {
+        $capturedConnection = null;
+        $httpFactory        = new HttpFactory();
+
+        $httpClient = self::createStub(ClientInterface::class);
+        $httpClient
+            ->method('sendRequest')
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedConnection) {
+                $capturedConnection = $request->getHeaderLine('Connection');
+
+                return $this->createJsonResponseMock(['ok' => true]);
+            });
+
+        $provider = new GeminiProvider(
+            $httpFactory,
+            $httpFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+        ]);
+        $provider->setHttpClient($httpClient);
+
+        $reflection = new ReflectionClass($provider);
+        $method     = $reflection->getMethod('sendRequest');
+        $method->invoke($provider, '/test', ['data' => 'value']);
+
+        self::assertSame('close', $capturedConnection);
+    }
+
     #[Test]
     public function sendRequestSetsBodyForPostWithPayload(): void
     {
