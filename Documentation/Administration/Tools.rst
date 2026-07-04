@@ -31,7 +31,7 @@ only because the caller is an authenticated backend administrator.
 The built-in tools
 ==================
 
-nr_llm ships eleven read-only, admin-only introspection tools. Each is a
+nr-llm ships eleven read-only, admin-only introspection tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Eight ship **enabled**;
@@ -171,7 +171,7 @@ loop, while the Tools module governs *which* tools exist and are enabled.
    :zoom: lightbox
 
    A completed run — a two-iteration loop in which the model called
-   ``fetch_logs`` (arguments ``{"limit": "5"}``); the redacted ``sys_log``
+   ``fetch_logs`` (arguments ``{"limit": 3}``); the redacted ``sys_log``
    result is fed back and the model's final answer closes the trace.
 
 The :guilabel:`Tools available to this run` list lets you narrow a single run
