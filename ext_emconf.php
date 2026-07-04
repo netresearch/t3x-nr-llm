@@ -13,7 +13,7 @@ $EM_CONF[$_EXTKEY] = [
     'author_email' => '',
     'author_company' => 'Netresearch DTT GmbH',
     'state' => 'beta',
-    'version' => '0.13.0',
+    'version' => '0.14.0',
     'constraints' => [
         // composer.json is the authoritative dependency constraint
         // ("typo3/cms-core": "^13.4 || ^14.3"). The TER `depends` format only
