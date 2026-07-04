@@ -164,8 +164,8 @@ Each skill carries a support badge:
    the referenced scripts and assets are **not executed** by nr-llm
    (which is true for every skill in this release). The prose itself is
    fully untrusted regardless of the badge. Asset references are stripped
-   from injected prose in a later release purely to avoid dangling
-   instructions, not as a security control.
+   from injected prose purely to avoid dangling instructions, not as a
+   security control.
 
 See :ref:`ADR-035 <adr-035>` for the full design and security rationale.
 
