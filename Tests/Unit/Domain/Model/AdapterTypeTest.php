@@ -38,6 +38,9 @@ class AdapterTypeTest extends AbstractUnitTestCase
             'OpenRouter' => [AdapterType::OpenRouter, 'openrouter'],
             'Mistral' => [AdapterType::Mistral, 'mistral'],
             'Groq' => [AdapterType::Groq, 'groq'],
+            'Together' => [AdapterType::Together, 'together'],
+            'Fireworks' => [AdapterType::Fireworks, 'fireworks'],
+            'Perplexity' => [AdapterType::Perplexity, 'perplexity'],
             'Ollama' => [AdapterType::Ollama, 'ollama'],
             'AzureOpenAI' => [AdapterType::AzureOpenAI, 'azure_openai'],
             'Custom' => [AdapterType::Custom, 'custom'],
@@ -63,6 +66,9 @@ class AdapterTypeTest extends AbstractUnitTestCase
             'OpenRouter' => [AdapterType::OpenRouter, 'OpenRouter'],
             'Mistral' => [AdapterType::Mistral, 'Mistral AI'],
             'Groq' => [AdapterType::Groq, 'Groq'],
+            'Together' => [AdapterType::Together, 'Together AI'],
+            'Fireworks' => [AdapterType::Fireworks, 'Fireworks AI'],
+            'Perplexity' => [AdapterType::Perplexity, 'Perplexity'],
             'Ollama' => [AdapterType::Ollama, 'Ollama (Local)'],
             'AzureOpenAI' => [AdapterType::AzureOpenAI, 'Azure OpenAI'],
             'Custom' => [AdapterType::Custom, 'Custom (OpenAI-compatible)'],
@@ -88,6 +94,9 @@ class AdapterTypeTest extends AbstractUnitTestCase
             'OpenRouter' => [AdapterType::OpenRouter, 'https://openrouter.ai/api/v1'],
             'Mistral' => [AdapterType::Mistral, 'https://api.mistral.ai/v1'],
             'Groq' => [AdapterType::Groq, 'https://api.groq.com/openai/v1'],
+            'Together' => [AdapterType::Together, 'https://api.together.xyz/v1'],
+            'Fireworks' => [AdapterType::Fireworks, 'https://api.fireworks.ai/inference/v1'],
+            'Perplexity' => [AdapterType::Perplexity, 'https://api.perplexity.ai'],
             'Ollama' => [AdapterType::Ollama, 'http://localhost:11434'],
             'AzureOpenAI' => [AdapterType::AzureOpenAI, ''],
             'Custom' => [AdapterType::Custom, ''],
@@ -113,6 +122,9 @@ class AdapterTypeTest extends AbstractUnitTestCase
             'OpenRouter requires key' => [AdapterType::OpenRouter, true],
             'Mistral requires key' => [AdapterType::Mistral, true],
             'Groq requires key' => [AdapterType::Groq, true],
+            'Together requires key' => [AdapterType::Together, true],
+            'Fireworks requires key' => [AdapterType::Fireworks, true],
+            'Perplexity requires key' => [AdapterType::Perplexity, true],
             'Ollama does not require key' => [AdapterType::Ollama, false],
             'AzureOpenAI requires key' => [AdapterType::AzureOpenAI, true],
             'Custom requires key' => [AdapterType::Custom, true],
@@ -124,13 +136,16 @@ class AdapterTypeTest extends AbstractUnitTestCase
     {
         $result = AdapterType::toSelectArray();
 
-        self::assertCount(9, $result);
+        self::assertCount(12, $result);
         self::assertArrayHasKey('openai', $result);
         self::assertArrayHasKey('anthropic', $result);
         self::assertArrayHasKey('gemini', $result);
         self::assertArrayHasKey('openrouter', $result);
         self::assertArrayHasKey('mistral', $result);
         self::assertArrayHasKey('groq', $result);
+        self::assertArrayHasKey('together', $result);
+        self::assertArrayHasKey('fireworks', $result);
+        self::assertArrayHasKey('perplexity', $result);
         self::assertArrayHasKey('ollama', $result);
         self::assertArrayHasKey('azure_openai', $result);
         self::assertArrayHasKey('custom', $result);
@@ -168,13 +183,16 @@ class AdapterTypeTest extends AbstractUnitTestCase
     {
         $cases = AdapterType::cases();
 
-        self::assertCount(9, $cases);
+        self::assertCount(12, $cases);
         self::assertContains(AdapterType::OpenAI, $cases);
         self::assertContains(AdapterType::Anthropic, $cases);
         self::assertContains(AdapterType::Gemini, $cases);
         self::assertContains(AdapterType::OpenRouter, $cases);
         self::assertContains(AdapterType::Mistral, $cases);
         self::assertContains(AdapterType::Groq, $cases);
+        self::assertContains(AdapterType::Together, $cases);
+        self::assertContains(AdapterType::Fireworks, $cases);
+        self::assertContains(AdapterType::Perplexity, $cases);
         self::assertContains(AdapterType::Ollama, $cases);
         self::assertContains(AdapterType::AzureOpenAI, $cases);
         self::assertContains(AdapterType::Custom, $cases);

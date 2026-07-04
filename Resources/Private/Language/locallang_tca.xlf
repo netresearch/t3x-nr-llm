@@ -318,6 +318,15 @@
             <trans-unit id="tx_nrllm_provider.adapter_type.groq">
                 <source>Groq</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.together">
+                <source>Together AI</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.fireworks">
+                <source>Fireworks AI</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.adapter_type.perplexity">
+                <source>Perplexity</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_provider.adapter_type.ollama">
                 <source>Ollama (Local)</source>
             </trans-unit>
