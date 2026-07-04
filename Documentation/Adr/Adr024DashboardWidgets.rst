@@ -39,11 +39,13 @@ up with nr-llm-specific data providers:
   type (chat, vision, translation, speech, image) by ``service_provider``
   over the last seven days.
 
-Both are registered in a dedicated :file:`Configuration/Services.Dashboard.yaml`
-imported conditionally from :file:`Configuration/Services.php` when
-:php:`TYPO3\\CMS\\Dashboard\\Widgets\\WidgetInterface` exists. Without that
-guard, TYPO3 instances that do not have :code:`typo3/cms-dashboard` installed
-would fail at container compile time on the unresolved widget class.
+Both are registered in a dedicated :file:`Configuration/Services.Dashboard.php`
+imported conditionally from :file:`Configuration/Services.php` only when
+:php:`interface_exists(TYPO3\\CMS\\Dashboard\\Widgets\\WidgetInterface::class)`.
+A PHP config file (not YAML) is used so the import can be guarded by that
+runtime :php:`interface_exists()` check. Without the guard, TYPO3 instances that
+do not have :code:`typo3/cms-dashboard` installed would fail at container
+compile time on the unresolved widget class.
 
 Classes/Widgets/* is excluded from the global auto-registration in
 :file:`Services.yaml` for the same reason — the data provider classes

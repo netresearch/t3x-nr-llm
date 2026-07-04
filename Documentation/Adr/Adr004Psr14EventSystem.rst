@@ -10,7 +10,20 @@ ADR-004: PSR-14 Event System
 
 Status
 ======
-**Accepted** (2024-02)
+**Superseded by** :ref:`ADR-026 <adr-026>` (2024-02, superseded 2026)
+
+.. note::
+
+   The PSR-14 events described below (:php:`BeforeRequestEvent` /
+   :php:`AfterResponseEvent`) were **never implemented** and no longer reflect
+   the code — there is no ``Classes/Event/`` directory and
+   :php:`LlmServiceManager` dispatches no events. The extension points this ADR
+   set out to provide (request modification, response processing, cost tracking,
+   rate limiting) are delivered instead by the **provider middleware pipeline**
+   (:ref:`ADR-026 <adr-026>`): ``FallbackMiddleware``, ``BudgetMiddleware``,
+   ``UsageMiddleware`` and ``CacheMiddleware`` wrap every provider call. New
+   cross-cutting behaviour should be added as a middleware, not an event
+   listener. The original decision is kept below for historical context.
 
 .. _adr-004-context:
 

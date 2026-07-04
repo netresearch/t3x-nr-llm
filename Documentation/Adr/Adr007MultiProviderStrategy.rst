@@ -43,12 +43,23 @@ Use **tagged service collection** with priority:
        - name: nr_llm.provider
          priority: 90
 
-Provider selection hierarchy:
+.. note::
 
-1. Explicit provider in options.
-2. Default provider from configuration.
-3. First configured provider by priority.
-4. Throw exception if none available.
+   The shipped providers no longer carry an explicit ``tags:`` entry — they
+   self-register via the :php:`#[AsLlmProvider]` attribute collected by
+   :php:`ProviderCompilerPass` (:ref:`ADR-022 <adr-022>`). The ``tags:`` form
+   above still works for third-party providers.
+
+Provider selection:
+
+1. Explicit provider in the per-call options.
+2. Otherwise the active DB-backed default configuration's provider.
+3. Otherwise :php:`getProvider(null)` **throws** a :php:`ProviderException`.
+
+There is deliberately **no** "first provider by priority" fallback: the
+implicit default-provider fallback was removed in :ref:`ADR-034 <adr-034>`, so
+provider selection is always explicit (per-call option or the active
+configuration).
 
 .. _adr-007-consequences:
 

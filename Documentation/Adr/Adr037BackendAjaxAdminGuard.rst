@@ -45,9 +45,10 @@ Decision
 1. **One shared guard trait.** :php:`RequiresBackendAdminTrait`
    (``Classes/Controller/Backend/``) exposes a single private
    ``denyNonAdmin(): ?ResponseInterface`` that returns ``null`` for an admin
-   and a ``403`` ``{"success": false, "error": "Forbidden"}`` JSON response
-   otherwise. :php:`SkillSourceController` now uses the trait; its identical
-   private copy was deleted.
+   and a ``403`` ``{"success": false, "error": "<message>"}`` JSON response
+   otherwise, where ``<message>`` is the localised
+   ``error.adminRequired`` label. :php:`SkillSourceController` now uses the
+   trait; its identical private copy was deleted.
 
 2. **Guard every AJAX-routed action, at the very top.** Each action listed in
    ``AjaxRoutes.php`` begins with
@@ -58,9 +59,10 @@ Decision
    :php:`LlmModuleController`, :php:`ProviderController`, :php:`ModelController`,
    :php:`ConfigurationController`, :php:`TaskRecordsController`,
    :php:`TaskExecutionController`, :php:`SetupWizardController`,
-   :php:`ToolPlaygroundController` and the already-guarded
-   :php:`SkillSourceController` — 29 actions in total, matching the route table
-   exactly.
+   :php:`ToolPlaygroundController`, :php:`ToolController` (the tool-management
+   module split out later — :ref:`ADR-039 <adr-039>`) and the already-guarded
+   :php:`SkillSourceController` — every AJAX-routed action, matching the route
+   table exactly.
 
 3. **Non-AJAX module actions are left untouched.** Extbase module actions
    (``listAction``, ``indexAction``, ``executeFormAction``,

@@ -33,12 +33,13 @@ Decision
 Implement a **provider abstraction layer** with:
 
 1. :php:`ProviderInterface` as the core contract.
-2. Capability interfaces for optional features:
+2. Capability interfaces for optional features (embeddings are a core
+   :php:`ProviderInterface` method, not an opt-in capability):
 
-   - :php:`EmbeddingCapableInterface`.
    - :php:`VisionCapableInterface`.
    - :php:`StreamingCapableInterface`.
    - :php:`ToolCapableInterface`.
+   - :php:`DocumentCapableInterface`.
 
 3. :php:`AbstractProvider` base class with shared functionality.
 4. :php:`LlmServiceManager` as the unified entry point.

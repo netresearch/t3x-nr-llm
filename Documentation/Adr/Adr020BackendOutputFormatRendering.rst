@@ -134,7 +134,8 @@ Files changed
 
 - :file:`Resources/Private/Templates/Backend/Task/Execute.html`
   -- Format toggle UI and output container.
-- :file:`Classes/Controller/Backend/TaskController.php`
-  -- Returns ``outputFormat`` in AJAX response.
+- :file:`Classes/Controller/Backend/TaskExecutionController.php`
+  -- Returns ``outputFormat`` in the AJAX response (the monolithic
+  ``TaskController`` was split per :ref:`ADR-027 <adr-027>`).
 - :file:`Classes/Domain/Enum/TaskOutputFormat.php`
   -- Defines valid output formats with content types.

@@ -287,6 +287,15 @@ Tools
       .. card-footer:: :ref:`Read <adr-038>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: ADR-039: Global tool availability
+
+      Site-wide per-tool enable/disable override
+      (``tx_nrllm_tool_state``, no TCA) intersected with every
+      run's allow-list — a hard admin kill switch.
+
+      .. card-footer:: :ref:`Read <adr-039>`
+         :button-style: btn btn-secondary stretched-link
+
 .. toctree::
    :hidden:
 
@@ -328,3 +337,4 @@ Tools
    Adr036SkillInjection
    Adr037BackendAjaxAdminGuard
    Adr038ToolRuntime
+   Adr039GlobalToolAvailabilityState

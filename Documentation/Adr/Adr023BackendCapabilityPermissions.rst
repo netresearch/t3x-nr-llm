@@ -32,8 +32,9 @@ Decision
 Register every :php:`ModelCapability` enum value as a native TYPO3 BE group
 permission under
 :code:`$TYPO3_CONF_VARS['BE']['customPermOptions']['nrllm']`. The BE group
-edit view now shows a checkbox per capability (chat, completion,
-embeddings, vision, streaming, tools, json_mode, audio). A new service,
+edit view now shows a checkbox for every :php:`ModelCapability` case (11 today:
+chat, completion, embeddings, vision, streaming, tools, json_mode, audio, image,
+text_to_speech, transcription). A new service,
 :php:`CapabilityPermissionService`, resolves the check against the
 currently logged-in backend user.
 
