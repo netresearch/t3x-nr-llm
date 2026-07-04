@@ -80,7 +80,10 @@ final class ModelDiscovery implements ModelDiscoveryInterface
         try {
             $base = rtrim($provider->endpoint, '/');
             $endpoint = match ($provider->adapterType) {
-                'ollama' => $base . '/tags',
+                // Ollama's base URL is a bare host (OllamaProvider adds "api/" per
+                // request); model discovery must do the same to hit /api/tags. A legacy
+                // or user-entered trailing "/api" is stripped first to avoid /api/api.
+                'ollama' => $this->ollamaBaseUrl($base) . '/api/tags',
                 default => $base . self::MODELS_PATH,
             };
 
@@ -951,6 +954,16 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     }
 
     /**
+     * Ollama's base URL is a bare host (OllamaProvider prefixes every request path with
+     * "api/"); strip a trailing "/api" (a legacy default or user-entered value) so
+     * appended discovery paths do not become "/api/api/...".
+     */
+    private function ollamaBaseUrl(string $endpoint): string
+    {
+        return (string)preg_replace('#/api/*$#', '', rtrim($endpoint, '/'));
+    }
+
+    /**
      * Discover Ollama models via API.
      *
      * @return array<DiscoveredModel>
@@ -958,7 +971,8 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     private function discoverOllama(string $endpoint): array
     {
         try {
-            $request = $this->requestFactory->createRequest('GET', $endpoint . '/tags');
+            $endpoint = $this->ollamaBaseUrl($endpoint);
+            $request = $this->requestFactory->createRequest('GET', $endpoint . '/api/tags');
             $response = $this->dispatch($request, self::VAULT_DISPATCH_REASON);
 
             if ($response->getStatusCode() !== 200) {
@@ -1026,7 +1040,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             $body = json_encode(['name' => $modelId], JSON_THROW_ON_ERROR);
             $stream = $this->streamFactory->createStream($body);
 
-            $request = $this->requestFactory->createRequest('POST', $endpoint . '/show')
+            $request = $this->requestFactory->createRequest('POST', $this->ollamaBaseUrl($endpoint) . '/api/show')
                 ->withHeader('Content-Type', 'application/json')
                 ->withBody($stream);
 

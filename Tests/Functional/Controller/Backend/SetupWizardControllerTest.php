@@ -501,6 +501,56 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function saveActionNormalizesBareOpenAiEndpointToIncludeV1(): void
+    {
+        // #98: a bare OpenAI host entered in the wizard must be stored WITH the /v1
+        // version path — OpenAiProvider expects it in the base URL and does not add
+        // it — otherwise every request hits /models instead of /v1/models.
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_SAVE);
+        $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
+        $request = $request->withBody(Utils::streamFor(json_encode([
+            'provider' => [
+                'suggestedName' => 'Bare OpenAI',
+                'adapterType' => 'openai',
+                'endpoint' => 'https://api.openai.com',
+                'apiKey' => 'sk-test-key-12345',
+            ],
+            'models' => [
+                [
+                    'modelId' => 'gpt-5',
+                    'name' => 'GPT-5',
+                    'capabilities' => ['chat'],
+                    'contextLength' => 128000,
+                    'selected' => true,
+                ],
+            ],
+            'configurations' => [],
+            'pid' => 0,
+        ])));
+
+        $response = $this->controller->saveAction($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $body = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($body);
+        self::assertArrayHasKey('provider', $body);
+        $provider = $body['provider'];
+        self::assertIsArray($provider);
+        self::assertArrayHasKey('uid', $provider);
+        $uid = (int)$provider['uid'];
+
+        $providerRepository = $this->get(ProviderRepository::class);
+        self::assertInstanceOf(ProviderRepository::class, $providerRepository);
+        $saved = $providerRepository->findByUid($uid);
+        self::assertNotNull($saved);
+        self::assertSame(
+            'https://api.openai.com/v1',
+            $saved->getEndpointUrl(),
+            'the wizard must persist the canonical /v1 base URL for OpenAI',
+        );
+    }
+
+    #[Test]
     public function saveActionCreatesProviderWithConfigurations(): void
     {
         // The admin backend user (required by both the admin guard and the

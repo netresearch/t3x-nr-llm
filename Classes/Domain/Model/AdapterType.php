@@ -57,7 +57,9 @@ enum AdapterType: string
             self::OpenRouter => 'https://openrouter.ai/api/v1',
             self::Mistral => 'https://api.mistral.ai/v1',
             self::Groq => 'https://api.groq.com/openai/v1',
-            self::Ollama => 'http://localhost:11434/api',
+            // Bare host: OllamaProvider adds the "api/" segment to each request path
+            // itself, so its base URL must NOT include it (otherwise "/api/api/tags").
+            self::Ollama => 'http://localhost:11434',
             self::AzureOpenAI, self::Custom => '',
         };
     }

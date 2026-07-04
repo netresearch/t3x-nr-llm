@@ -629,7 +629,7 @@ final class ProviderTest extends AbstractUnitTestCase
             'openrouter' => ['openrouter', 'https://openrouter.ai/api/v1'],
             'mistral' => ['mistral', 'https://api.mistral.ai/v1'],
             'groq' => ['groq', 'https://api.groq.com/openai/v1'],
-            'ollama' => ['ollama', 'http://localhost:11434/api'],
+            'ollama' => ['ollama', 'http://localhost:11434'],
         ];
     }
 

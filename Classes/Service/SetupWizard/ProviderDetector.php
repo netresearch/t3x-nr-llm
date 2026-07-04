@@ -107,6 +107,61 @@ final class ProviderDetector
     }
 
     /**
+     * Normalize a user-entered endpoint into the canonical base URL for the given
+     * adapter, so a stored provider's base URL matches what the provider adapter
+     * expects at runtime.
+     *
+     * The provider adapters build request URLs as `baseUrl + '/' + path` and do NOT
+     * add the API version segment themselves — e.g. OpenAiProvider posts to
+     * `chat/completions`, so its base URL must already end in `/v1`. A user who
+     * enters just `https://api.openai.com` in the wizard would otherwise have that
+     * bare host stored and every request would hit `/models` instead of `/v1/models`.
+     *
+     * A bare host (no path) gains the adapter's canonical version-path suffix (taken
+     * from {@see AdapterType::defaultEndpoint()}); an endpoint that already carries a
+     * path is the user's explicit choice and is left untouched, which also makes this
+     * idempotent (`https://api.openai.com/v1` stays as-is). Adapters whose base URL is
+     * a bare host (e.g. Ollama, which adds `api/` in the request path) get no suffix.
+     */
+    public function normalizeEndpointForAdapter(string $endpoint, string $adapterType): string
+    {
+        if (trim($endpoint) === '') {
+            return '';
+        }
+
+        $normalized = $this->normalizeEndpoint($endpoint);
+
+        // Ollama's base URL is a bare host (OllamaProvider adds "api/" to every request
+        // path itself); strip a user-entered or legacy trailing "/api" so it is not later
+        // doubled into "/api/api/...".
+        if ($adapterType === 'ollama') {
+            $normalized = (string)preg_replace('#/api/*$#', '', $normalized);
+        }
+
+        // Only a truly bare host (no path, query or fragment) gains the adapter's version
+        // path. Anything more specific is the user's explicit choice and is returned
+        // untouched — idempotent for already-versioned endpoints, and it never appends the
+        // suffix into a query string (which naive concatenation would mangle).
+        $parts = parse_url($normalized);
+        if (!is_array($parts)
+            || isset($parts['query'])
+            || isset($parts['fragment'])
+            || trim($parts['path'] ?? '', '/') !== ''
+        ) {
+            return $normalized;
+        }
+
+        $default = AdapterType::tryFrom($adapterType)?->defaultEndpoint() ?? '';
+        $suffix = $default !== '' ? parse_url($default, PHP_URL_PATH) : null;
+        if (!is_string($suffix) || trim($suffix, '/') === '') {
+            // Adapter has no canonical version path (e.g. Ollama, Custom): keep the host.
+            return $normalized;
+        }
+
+        return $normalized . '/' . trim($suffix, '/');
+    }
+
+    /**
      * Detect provider from known host patterns, falling back to OpenAI-compatible
      * and finally to an unknown/custom provider.
      */

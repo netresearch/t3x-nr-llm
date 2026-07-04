@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\SetupWizard;
 use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
 #[CoversClass(ProviderDetector::class)]
@@ -373,5 +374,47 @@ class ProviderDetectorTest extends AbstractUnitTestCase
         self::assertEquals('OpenAI', $types['openai']);
         self::assertEquals('Anthropic', $types['anthropic']);
         self::assertEquals('Ollama (Local)', $types['ollama']);
+    }
+
+    // ==================== normalizeEndpointForAdapter ====================
+
+    /**
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function normalizeEndpointForAdapterProvider(): array
+    {
+        return [
+            // A bare host gains the adapter's canonical version path (the bug in #98).
+            'openai bare host gains /v1'        => ['https://api.openai.com', 'openai', 'https://api.openai.com/v1'],
+            'openai scheme-less gains https+/v1' => ['api.openai.com', 'openai', 'https://api.openai.com/v1'],
+            'openai trailing slash gains /v1'   => ['https://api.openai.com/', 'openai', 'https://api.openai.com/v1'],
+            'anthropic bare gains /v1'          => ['https://api.anthropic.com', 'anthropic', 'https://api.anthropic.com/v1'],
+            'gemini bare gains /v1beta'         => ['https://generativelanguage.googleapis.com', 'gemini', 'https://generativelanguage.googleapis.com/v1beta'],
+            'groq bare gains /openai/v1'        => ['https://api.groq.com', 'groq', 'https://api.groq.com/openai/v1'],
+            'mistral bare gains /v1'            => ['https://api.mistral.ai', 'mistral', 'https://api.mistral.ai/v1'],
+            'openrouter bare gains /api/v1'     => ['https://openrouter.ai', 'openrouter', 'https://openrouter.ai/api/v1'],
+            // Ollama's adapter adds "api/" itself, so its base URL must stay a bare host.
+            'ollama bare stays bare'            => ['http://localhost:11434', 'ollama', 'http://localhost:11434'],
+            'ollama scheme-less stays bare'     => ['localhost:11434', 'ollama', 'http://localhost:11434'],
+            // A legacy/user-entered trailing "/api" for Ollama is stripped (else /api/api/...).
+            'ollama trailing /api stripped'     => ['http://localhost:11434/api', 'ollama', 'http://localhost:11434'],
+            'ollama trailing /api/ stripped'    => ['http://localhost:11434/api/', 'ollama', 'http://localhost:11434'],
+            // An explicit path is the user's choice: idempotent and non-destructive.
+            'openai already versioned is idempotent' => ['https://api.openai.com/v1', 'openai', 'https://api.openai.com/v1'],
+            'custom host with explicit path kept'    => ['https://llm.example.com/v1', 'openai', 'https://llm.example.com/v1'],
+            // A query string is never mangled by suffix concatenation: left untouched.
+            'endpoint with query string untouched'   => ['https://api.openai.com?x=1', 'openai', 'https://api.openai.com?x=1'],
+            // Adapters without a canonical version path keep the host untouched.
+            'custom adapter keeps bare host'    => ['https://llm.example.com', 'custom', 'https://llm.example.com'],
+            'unknown adapter keeps bare host'   => ['https://llm.example.com', 'not-an-adapter', 'https://llm.example.com'],
+            'empty endpoint stays empty'        => ['', 'openai', ''],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('normalizeEndpointForAdapterProvider')]
+    public function normalizeEndpointForAdapterYieldsCanonicalBaseUrl(string $endpoint, string $adapterType, string $expected): void
+    {
+        self::assertSame($expected, $this->subject->normalizeEndpointForAdapter($endpoint, $adapterType));
     }
 }

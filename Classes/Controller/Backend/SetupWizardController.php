@@ -320,6 +320,11 @@ final class SetupWizardController extends ActionController
         $providerName = is_string($providerData['suggestedName'] ?? null) ? $providerData['suggestedName'] : 'provider';
         $providerAdapter = is_string($providerData['adapterType'] ?? null) ? $providerData['adapterType'] : 'openai';
         $providerEndpoint = is_string($providerData['endpoint'] ?? null) ? $providerData['endpoint'] : '';
+        // Store the canonical base URL for the adapter (e.g. append "/v1" for OpenAI) so
+        // the saved provider works even if the client sent the raw, un-versioned host.
+        if ($providerEndpoint !== '') {
+            $providerEndpoint = $this->providerDetector->normalizeEndpointForAdapter($providerEndpoint, $providerAdapter);
+        }
         $providerApiKey = is_string($providerData['apiKey'] ?? null) ? $providerData['apiKey'] : '';
 
         // Store the API key in the vault and use the vault identifier
