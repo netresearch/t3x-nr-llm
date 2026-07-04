@@ -45,7 +45,7 @@ INSERT INTO tx_nrllm_model (
     'qwen3:4b',
     32768,
     4096,
-    'chat,completion,streaming',
+    'chat,completion,streaming,tools',
     90,
     0,
     0,
