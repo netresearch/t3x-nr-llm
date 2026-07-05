@@ -10,14 +10,14 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
-    <div id="nrllm-tool-playground" data-ajax-route="{ajaxRoute}">
+    <div id="nrllm-tool-playground" class="nrllm-pg" data-ajax-route="{ajaxRoute}">
         <h1>
             <core:icon identifier="module-nrllm-tool" size="medium" />
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.title" default="Tool Playground" />
         </h1>
 
         <f:be.infobox state="-2">
-            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.intro" default="Pick an LLM configuration, enter a prompt and run the agent loop. Each tool call, its result and the final answer are shown below. Tools run with full backend privileges and their results egress to the configured provider — this module is admin-only." /></p>
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.intro" default="Pick an LLM configuration, enter a prompt and run the agent loop. Every step of the nr_llm ↔ LLM dialog — the assembled prompt, each model round-trip and each tool call — is shown in the inspector, with timings, tokens and the raw response. Tools run with full backend privileges and their results egress to the configured provider; this module is admin-only." /></p>
         </f:be.infobox>
 
         <div class="mb-3">
@@ -32,9 +32,9 @@
         <f:render partial="Backend/Glossary" />
 
         <div class="row">
-            <div class="col-md-8">
+            <div class="col-lg-4">
                 <div class="card mb-4">
-                    <div class="card-body">
+                    <div class="card-body nrllm-pg-controls">
                         <div class="mb-3">
                             <label class="form-label" for="nrllm-tool-config">
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.config" default="LLM configuration" />
@@ -53,28 +53,27 @@
                             <textarea id="nrllm-tool-prompt" class="form-control" rows="4"></textarea>
                         </div>
 
+                        <f:comment>=== Tools override ===</f:comment>
                         <f:if condition="{f:count(subject: toolStates)}">
                             <f:then>
-                                <div class="mb-3">
-                                    <label class="form-label">
-                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.run.tools" default="Tools available to this run" />
-                                    </label>
-                                    <f:for each="{toolStates}" as="tool">
-                                        <div class="form-check">
-                                            <f:if condition="{tool.enabled}">
-                                                <f:then>
-                                                    <input class="form-check-input js-tool-select" type="checkbox" id="nrllm-tool-select-{tool.name}" value="{tool.name}" checked="checked" />
-                                                </f:then>
-                                                <f:else>
-                                                    <input class="form-check-input js-tool-select" type="checkbox" id="nrllm-tool-select-{tool.name}" value="{tool.name}" />
-                                                </f:else>
-                                            </f:if>
-                                            <label class="form-check-label" for="nrllm-tool-select-{tool.name}">
-                                                <code>{tool.name}</code>
-                                            </label>
-                                        </div>
-                                    </f:for>
-                                </div>
+                                <details class="nrllm-pg-ov mb-2" open="open">
+                                    <summary><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.run.tools" default="Tools available to this run" /></summary>
+                                    <div class="nrllm-pg-ov-b">
+                                        <f:for each="{toolStates}" as="tool">
+                                            <div class="form-check">
+                                                <f:if condition="{tool.enabled}">
+                                                    <f:then>
+                                                        <input class="form-check-input js-tool-select" type="checkbox" id="nrllm-tool-select-{tool.name}" value="{tool.name}" checked="checked" />
+                                                    </f:then>
+                                                    <f:else>
+                                                        <input class="form-check-input js-tool-select" type="checkbox" id="nrllm-tool-select-{tool.name}" value="{tool.name}" />
+                                                    </f:else>
+                                                </f:if>
+                                                <label class="form-check-label" for="nrllm-tool-select-{tool.name}"><code>{tool.name}</code></label>
+                                            </div>
+                                        </f:for>
+                                    </div>
+                                </details>
                             </f:then>
                             <f:else>
                                 <f:be.infobox state="-1">
@@ -83,15 +82,74 @@
                             </f:else>
                         </f:if>
 
-                        <button type="button" id="nrllm-tool-run" class="btn btn-primary">
-                            <core:icon identifier="actions-play" size="small" />
-                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.run" default="Run" />
-                        </button>
+                        <f:comment>=== Skills force-inject ===</f:comment>
+                        <f:if condition="{skills}">
+                            <details class="nrllm-pg-ov mb-2">
+                                <summary><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.skills" default="Force-inject skills" /></summary>
+                                <div class="nrllm-pg-ov-b">
+                                    <p class="nrllm-pg-hint"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.skills.hint" default="Inject these skills into the prompt for this run, on top of the configuration's own." /></p>
+                                    <f:for each="{skills}" as="skill">
+                                        <div class="form-check">
+                                            <input class="form-check-input js-skill-select" type="checkbox" id="nrllm-skill-{skill.uid}" value="{skill.uid}" />
+                                            <label class="form-check-label" for="nrllm-skill-{skill.uid}">{skill.name} <code class="nrllm-pg-ident">{skill.identifier}</code></label>
+                                        </div>
+                                    </f:for>
+                                </div>
+                            </details>
+                        </f:if>
+
+                        <f:comment>=== Snippets force-add ===</f:comment>
+                        <f:if condition="{snippets}">
+                            <details class="nrllm-pg-ov mb-2">
+                                <summary><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.snippets" default="Force-add snippets" /></summary>
+                                <div class="nrllm-pg-ov-b">
+                                    <p class="nrllm-pg-hint"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.snippets.hint" default="Add these prompt snippets as leading system messages, one per snippet." /></p>
+                                    <f:for each="{snippets}" as="snippet">
+                                        <div class="form-check">
+                                            <input class="form-check-input js-snippet-select" type="checkbox" id="nrllm-snippet-{snippet.uid}" value="{snippet.uid}" />
+                                            <label class="form-check-label" for="nrllm-snippet-{snippet.uid}">{snippet.name}</label>
+                                        </div>
+                                    </f:for>
+                                </div>
+                            </details>
+                        </f:if>
+
+                        <f:comment>=== Advanced ===</f:comment>
+                        <details class="nrllm-pg-ov mb-3">
+                            <summary><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.advanced" default="Advanced" /></summary>
+                            <div class="nrllm-pg-ov-b">
+                                <div class="mb-2">
+                                    <label class="form-label" for="nrllm-pg-system"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.systemOverride" default="System prompt override" /></label>
+                                    <textarea id="nrllm-pg-system" class="form-control" rows="2" placeholder="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.systemOverride.placeholder', default: 'Leave empty to use the configuration''s system prompt')}"></textarea>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label" for="nrllm-pg-rounds"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.maxRounds" default="Max rounds" /></label>
+                                    <input type="number" min="1" max="20" id="nrllm-pg-rounds" class="form-control" placeholder="5" />
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="nrllm-pg-raw" />
+                                    <label class="form-check-label" for="nrllm-pg-raw"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.captureRaw" default="Capture raw provider response" /></label>
+                                </div>
+                            </div>
+                        </details>
+
+                        <div class="nrllm-pg-actions">
+                            <button type="button" id="nrllm-tool-run" class="btn btn-primary">
+                                <core:icon identifier="actions-play" size="small" />
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.run" default="Run" />
+                            </button>
+                            <button type="button" id="nrllm-tool-dryrun" class="btn btn-default">
+                                <core:icon identifier="actions-cog" size="small" />
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.dryRun" default="Dry run — assemble only" />
+                            </button>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.output" default="Output" /></h2>
-                <div id="nrllm-tool-output" class="card mb-4"></div>
+            <div class="col-lg-8">
+                <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.inspector" default="Inspector" /></h2>
+                <div id="nrllm-tool-output" class="nrllm-pg-inspector"></div>
             </div>
         </div>
     </div>

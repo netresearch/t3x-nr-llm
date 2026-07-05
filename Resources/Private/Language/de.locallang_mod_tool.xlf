@@ -114,6 +114,50 @@
                 <source>A tool runs with full backend privileges and its result egresses to the LLM provider. Keep it admin-only and read-only, scope and validate every argument, and never expose secrets.</source>
                 <target>Ein Tool läuft mit vollen Backend-Rechten und sein Ergebnis wird an den LLM-Provider übertragen. Es muss nur für Administratoren und lesend bleiben, jedes Argument prüfen und eingrenzen und darf niemals Geheimnisse preisgeben.</target>
             </trans-unit>
+            <trans-unit id="playground.inspector">
+                <source>Inspector</source>
+                <target>Inspektor</target>
+            </trans-unit>
+            <trans-unit id="playground.skills">
+                <source>Force-inject skills</source>
+                <target>Skills erzwingen</target>
+            </trans-unit>
+            <trans-unit id="playground.skills.hint">
+                <source>Inject these skills into the prompt for this run, on top of the configuration's own.</source>
+                <target>Diese Skills für diesen Lauf zusätzlich zu denen der Konfiguration in den Prompt einfügen.</target>
+            </trans-unit>
+            <trans-unit id="playground.snippets">
+                <source>Force-add snippets</source>
+                <target>Snippets erzwingen</target>
+            </trans-unit>
+            <trans-unit id="playground.snippets.hint">
+                <source>Add these prompt snippets as leading system messages, one per snippet.</source>
+                <target>Diese Prompt-Snippets als vorangestellte System-Nachrichten einfügen, je Snippet eine.</target>
+            </trans-unit>
+            <trans-unit id="playground.advanced">
+                <source>Advanced</source>
+                <target>Erweitert</target>
+            </trans-unit>
+            <trans-unit id="playground.systemOverride">
+                <source>System prompt override</source>
+                <target>System-Prompt überschreiben</target>
+            </trans-unit>
+            <trans-unit id="playground.systemOverride.placeholder">
+                <source>Leave empty to use the configuration's system prompt</source>
+                <target>Leer lassen, um den System-Prompt der Konfiguration zu verwenden</target>
+            </trans-unit>
+            <trans-unit id="playground.maxRounds">
+                <source>Max rounds</source>
+                <target>Maximale Runden</target>
+            </trans-unit>
+            <trans-unit id="playground.captureRaw">
+                <source>Capture raw provider response</source>
+                <target>Rohe Provider-Antwort erfassen</target>
+            </trans-unit>
+            <trans-unit id="playground.dryRun">
+                <source>Dry run — assemble only</source>
+                <target>Trockenlauf — nur zusammenstellen</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

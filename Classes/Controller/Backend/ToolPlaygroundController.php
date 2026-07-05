@@ -73,6 +73,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     public function listAction(): ResponseInterface
     {
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/ToolPlayground.js');
+        $this->pageRenderer->addCssFile('EXT:nr_llm/Resources/Public/Css/Backend/Playground.css');
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->makeDocHeaderModuleMenu();
         $moduleTemplate->assignMultiple([
@@ -116,9 +117,15 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.invalidInput', 'Invalid configuration or prompt')], 400);
         }
 
-        $captureRaw = $this->boolFromBody($body, 'captureRaw');
-        $dryRun     = $this->boolFromBody($body, 'dryRun');
-        $options    = new ToolOptions(beUserUid: $this->currentBackendUserUid(), captureRaw: $captureRaw);
+        $captureRaw   = $this->boolFromBody($body, 'captureRaw');
+        $dryRun       = $this->boolFromBody($body, 'dryRun');
+        $systemPrompt = trim($this->stringFromBody($body, 'systemPrompt'));
+        $maxRounds    = $this->intFromBody($body, 'maxRounds');
+        $options      = new ToolOptions(
+            systemPrompt: $systemPrompt !== '' ? $systemPrompt : null,
+            beUserUid: $this->currentBackendUserUid(),
+            captureRaw: $captureRaw,
+        );
 
         // The checked tool boxes restrict this run; absent any selection, fall
         // back to the globally-enabled set. The runtime gate is authoritative
@@ -147,7 +154,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 $config,
                 $allowed,
                 $options,
-                null,
+                $maxRounds > 0 ? $maxRounds : null,
                 $trace,
                 $augmentation,
             );
