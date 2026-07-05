@@ -418,9 +418,18 @@
 }
 
 /* Locked = visual only. pointer-events stays enabled so the card and its
-   links still work. */
+   links still work. Dim the decorative icon and neutralise the chrome, but
+   never drop card opacity — that would blend the text below the WCAG 1.4.3
+   4.5:1 contrast floor (the muted text already sits at ~4.8:1 at full
+   opacity, like the active cards). */
 .nrllm-ov-card.is-locked {
-    opacity: .66;
+    background: var(--nrllm-ov-surface-2);
+    border-left-color: var(--nrllm-ov-border);
+}
+
+.nrllm-ov-card.is-locked .nrllm-ov-icon {
+    opacity: .45;
+    filter: grayscale(1);
 }
 
 /* ---------- Reachability dots ---------- */
