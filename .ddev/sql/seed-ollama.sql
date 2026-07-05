@@ -31,6 +31,11 @@ INSERT INTO tx_nrllm_provider (
 -- Get the provider UID for the model relation
 SET @ollama_provider_uid = (SELECT uid FROM tx_nrllm_provider WHERE identifier = 'ollama-local' AND deleted = 0 LIMIT 1);
 
+-- Clear any previous default for this provider so re-seeding stays
+-- deterministic (a stale is_default=1 row would make "default model"
+-- selection ambiguous by UID ordering).
+UPDATE tx_nrllm_model SET is_default = 0 WHERE provider_uid = @ollama_provider_uid AND deleted = 0;
+
 -- Model: Qwen 3 4B (default model)
 INSERT INTO tx_nrllm_model (
     pid, identifier, name, description, provider_uid, model_id,
@@ -59,6 +64,9 @@ INSERT INTO tx_nrllm_model (
     description = VALUES(description),
     provider_uid = @ollama_provider_uid,
     model_id = VALUES(model_id),
+    capabilities = VALUES(capabilities),
+    default_timeout = VALUES(default_timeout),
+    is_default = VALUES(is_default),
     tstamp = UNIX_TIMESTAMP();
 
 -- Model: Gemma 3 1B (alternative small model)

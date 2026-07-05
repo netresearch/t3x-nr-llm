@@ -106,7 +106,7 @@ $google = $ensureProvider($pdo, $ensure, 'demo-google', 'Demo Google', 'gemini')
 // Free Ollama stream — reuse whatever seed-ollama created (fallback: skip).
 // Resolve the default local Ollama model by provider + is_default so this
 // stays correct when the seeded default model changes.
-$ollamaRow      = $pdo->query("SELECT m.uid, m.model_id FROM tx_nrllm_model m JOIN tx_nrllm_provider p ON p.uid = m.provider_uid AND p.identifier = 'ollama-local' WHERE m.is_default = 1 AND m.deleted = 0 ORDER BY m.uid ASC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: [];
+$ollamaRow      = $pdo->query("SELECT m.uid, m.model_id FROM tx_nrllm_model m JOIN tx_nrllm_provider p ON p.uid = m.provider_uid AND p.identifier = 'ollama-local' AND p.deleted = 0 WHERE m.is_default = 1 AND m.deleted = 0 ORDER BY m.uid ASC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: [];
 $ollamaModelUid = (int)($ollamaRow['uid'] ?? 0);
 $ollamaModelId  = (string)($ollamaRow['model_id'] ?? '');
 $ollamaConfigUid = (int)($pdo->query("SELECT uid FROM tx_nrllm_configuration WHERE identifier = 'local-general' AND deleted = 0 ORDER BY uid ASC LIMIT 1")->fetchColumn() ?: 0);
