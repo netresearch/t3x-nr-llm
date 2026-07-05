@@ -89,7 +89,18 @@ class ToolPlayground {
         new AjaxRequest(url)
             .post(formData)
             .then(response => response.resolve())
-            .then(data => this.renderResult(data))
+            .then(data => {
+                // Keep a rendering exception out of the AJAX catch below, whose
+                // readAjaxError() only understands transport errors and would
+                // otherwise mask a client-side bug as a bare "Unknown error".
+                try {
+                    this.renderResult(data);
+                } catch (e) {
+                    const message = `Could not render the run result: ${e && e.message ? e.message : e}`;
+                    this.renderError(message);
+                    Notification.error('Error', message);
+                }
+            })
             .catch(async err => {
                 const message = await readAjaxError(err);
                 this.renderError(message);

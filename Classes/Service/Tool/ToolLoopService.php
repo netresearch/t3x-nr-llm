@@ -384,6 +384,14 @@ final readonly class ToolLoopService
      */
     private function capResult(string $result): string
     {
+        // Tool output is untrusted bytes (logs, phpinfo, env, DB rows) and may
+        // not be valid UTF-8. It is appended to the message list and re-encoded
+        // as JSON on the next provider request — and serialised into the
+        // inspector trace — where a single invalid byte makes json_encode()
+        // throw a JsonException ("Malformed UTF-8"). Coerce to valid UTF-8 first
+        // so neither path can crash on a misbehaving tool.
+        $result = $this->toValidUtf8($result);
+
         if (strlen($result) <= self::MAX_TOOL_RESULT_BYTES) {
             return $result;
         }
@@ -395,6 +403,20 @@ final readonly class ToolLoopService
         $budget = self::MAX_TOOL_RESULT_BYTES - strlen($marker);
 
         return mb_strcut($result, 0, max(0, $budget), 'UTF-8') . $marker;
+    }
+
+    /**
+     * Coerce a byte string to valid UTF-8, replacing invalid sequences (the
+     * substitution is visible in the inspector rather than silently dropped).
+     * A no-op for already-valid input.
+     */
+    private function toValidUtf8(string $result): string
+    {
+        if (mb_check_encoding($result, 'UTF-8')) {
+            return $result;
+        }
+
+        return mb_convert_encoding($result, 'UTF-8', 'UTF-8');
     }
 
     /**
