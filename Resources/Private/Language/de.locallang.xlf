@@ -885,12 +885,12 @@
                 <target>Werkzeuge für Funktionsaufrufe</target>
             </trans-unit>
             <trans-unit id="tool.card.description">
-                <source>Function-calling tools available to the agent, with an admin playground to test them.</source>
-                <target>Werkzeuge für Funktionsaufrufe, die dem Agenten zur Verfügung stehen, mit einem Administrator-Playground zum Testen.</target>
+                <source>Function-calling tools available to the agent — enable or disable each one.</source>
+                <target>Werkzeuge für Funktionsaufrufe, die dem Agenten zur Verfügung stehen — einzeln aktivierbar oder deaktivierbar.</target>
             </trans-unit>
             <trans-unit id="tool.card.button">
-                <source>Open Tool Playground</source>
-                <target>Werkzeug-Playground öffnen</target>
+                <source>Manage tools</source>
+                <target>Werkzeuge verwalten</target>
             </trans-unit>
             <trans-unit id="help.card.description">
                 <source>Read the in-module help and the online documentation for setup guidance and troubleshooting.</source>
@@ -2337,6 +2337,150 @@
             <trans-unit id="wizard.step5.title">
                 <source>Review &amp; Save</source>
                 <target>Prüfen &amp; Speichern</target>
+            </trans-unit>
+            <trans-unit id="overview.analytics.title">
+                <source>Usage &amp; cost</source>
+                <target>Nutzung &amp; Kosten</target>
+            </trans-unit>
+            <trans-unit id="overview.analytics.range">
+                <source>last 30 days</source>
+                <target>letzte 30 Tage</target>
+            </trans-unit>
+            <trans-unit id="overview.analytics.full">
+                <source>Full analytics</source>
+                <target>Vollständige Auswertung</target>
+            </trans-unit>
+            <trans-unit id="overview.analytics.byProvider">
+                <source>Requests by provider</source>
+                <target>Anfragen nach Anbieter</target>
+            </trans-unit>
+            <trans-unit id="overview.analytics.emptyTitle">
+                <source>No usage in the last 30 days</source>
+                <target>Keine Nutzung in den letzten 30 Tagen</target>
+            </trans-unit>
+            <trans-unit id="overview.analytics.empty">
+                <source>Cost, tokens and provider trends appear here once there are requests in this period.</source>
+                <target>Kosten, Tokens und Anbieter-Trends erscheinen hier, sobald es in diesem Zeitraum Anfragen gibt.</target>
+            </trans-unit>
+            <trans-unit id="overview.kpi.cost">
+                <source>Cost</source>
+                <target>Kosten</target>
+            </trans-unit>
+            <trans-unit id="overview.kpi.requests">
+                <source>Requests</source>
+                <target>Anfragen</target>
+            </trans-unit>
+            <trans-unit id="overview.kpi.tokens">
+                <source>Tokens</source>
+                <target>Tokens</target>
+            </trans-unit>
+            <trans-unit id="overview.kpi.active">
+                <source>Active</source>
+                <target>Aktiv</target>
+            </trans-unit>
+            <trans-unit id="overview.kpi.models">
+                <source>models</source>
+                <target>Modelle</target>
+            </trans-unit>
+            <trans-unit id="overview.manage.title">
+                <source>Set up &amp; manage</source>
+                <target>Einrichten &amp; verwalten</target>
+            </trans-unit>
+            <trans-unit id="overview.legend.ready">
+                <source>ready</source>
+                <target>bereit</target>
+            </trans-unit>
+            <trans-unit id="overview.legend.next">
+                <source>next / empty</source>
+                <target>nächster Schritt / leer</target>
+            </trans-unit>
+            <trans-unit id="overview.legend.link">
+                <source>every card links to its module</source>
+                <target>jede Karte verlinkt auf ihr Modul</target>
+            </trans-unit>
+            <trans-unit id="overview.flag.ready">
+                <source>Ready</source>
+                <target>Bereit</target>
+            </trans-unit>
+            <trans-unit id="overview.flag.next">
+                <source>Next</source>
+                <target>Nächster Schritt</target>
+            </trans-unit>
+            <trans-unit id="overview.flag.empty">
+                <source>Empty</source>
+                <target>Leer</target>
+            </trans-unit>
+            <trans-unit id="overview.flag.locked">
+                <source>Locked</source>
+                <target>Gesperrt</target>
+            </trans-unit>
+            <trans-unit id="overview.default.has">
+                <source>has default</source>
+                <target>Standard gesetzt</target>
+            </trans-unit>
+            <trans-unit id="overview.default.none">
+                <source>no default</source>
+                <target>kein Standard</target>
+            </trans-unit>
+            <trans-unit id="overview.count.on">
+                <source>on</source>
+                <target>aktiv</target>
+            </trans-unit>
+            <trans-unit id="overview.count.skills">
+                <source>synced</source>
+                <target>synchronisiert</target>
+            </trans-unit>
+            <trans-unit id="overview.tryit.title">
+                <source>Try it out</source>
+                <target>Ausprobieren</target>
+            </trans-unit>
+            <trans-unit id="overview.tryit.subtitle">
+                <source>Playground · run a prompt</source>
+                <target>Playground · Prompt ausführen</target>
+            </trans-unit>
+            <trans-unit id="overview.tryit.description">
+                <source>Run a prompt in the Playground and watch the agent loop and tool calls live.</source>
+                <target>Führen Sie im Playground einen Prompt aus und verfolgen Sie die Agent-Schleife und Tool-Aufrufe live.</target>
+            </trans-unit>
+            <trans-unit id="overview.tryit.button">
+                <source>Open Playground</source>
+                <target>Playground öffnen</target>
+            </trans-unit>
+            <trans-unit id="overview.reach.label">
+                <source>Reachability (live, no tokens):</source>
+                <target>Erreichbarkeit (live, ohne Tokens):</target>
+            </trans-unit>
+            <trans-unit id="overview.reach.recheck">
+                <source>Re-check</source>
+                <target>Neu prüfen</target>
+            </trans-unit>
+            <trans-unit id="overview.reach.up">
+                <source>reachable</source>
+                <target>erreichbar</target>
+            </trans-unit>
+            <trans-unit id="overview.reach.down">
+                <source>unreachable</source>
+                <target>nicht erreichbar</target>
+            </trans-unit>
+            <trans-unit id="overview.reach.unknown">
+                <source>status unknown</source>
+                <target>Status unbekannt</target>
+            </trans-unit>
+            <trans-unit id="overview.analytics.daily">
+                <source>Daily requests</source>
+                <target>Anfragen pro Tag</target>
+            </trans-unit>
+            <trans-unit id="overview.dev.title">
+                <source>For developers</source>
+                <target>Für Entwickler</target>
+            </trans-unit>
+            <trans-unit id="overview.dev.subtitle">
+                <source>nr_llm is an API layer, not just this UI</source>
+                <target>nr_llm ist eine API-Schicht, nicht nur diese Oberfläche</target>
+            </trans-unit>
+            <trans-unit id="overview.dev.description">
+                <source>Everything you configure here is reachable from PHP via LlmServiceManager. Your extension inherits the providers, models, configurations, budgets and the middleware pipeline — no per-extension API wiring.</source>
+                <target>Alles, was Sie hier konfigurieren, ist aus PHP über den LlmServiceManager erreichbar. Ihre Extension erbt Anbieter, Modelle, Konfigurationen, Budgets und die Middleware-Pipeline – ohne eigene API-Anbindung.</target>
             </trans-unit>
         </body>
     </file>

@@ -9,16 +9,16 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
-use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
-use Netresearch\NrLlm\Domain\Repository\ModelRepository;
-use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
+use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
-use Netresearch\NrLlm\Domain\Repository\TaskRepository;
-use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
+use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
+use Netresearch\NrLlm\Service\Overview\ProviderReachabilityService;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
+use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -27,6 +27,7 @@ use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
+use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
@@ -40,13 +41,13 @@ final class LlmModuleController extends ActionController
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly LlmServiceManagerInterface $llmServiceManager,
         private readonly ProviderRepository $providerRepository,
-        private readonly ModelRepository $modelRepository,
-        private readonly LlmConfigurationRepository $configurationRepository,
-        private readonly TaskRepository $taskRepository,
-        private readonly PromptSnippetRepository $promptSnippetRepository,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly FormEngineUrlBuilder $formEngineUrlBuilder,
         private readonly TestPromptResolverInterface $testPromptResolver,
+        private readonly OverviewReadinessService $readinessService,
+        private readonly ProviderReachabilityService $reachabilityService,
+        private readonly UsageAnalyticsServiceInterface $analytics,
+        private readonly PageRenderer $pageRenderer,
         private readonly LoggerInterface $logger,
     ) {}
 
@@ -65,38 +66,74 @@ final class LlmModuleController extends ActionController
             );
         }
 
-        $providers = $this->llmServiceManager->getProviderList();
-        $availableProviders = $this->llmServiceManager->getAvailableProviders();
+        // Overview-specific styling and the async (token-free) reachability probe.
+        $this->pageRenderer->addCssFile('EXT:nr_llm/Resources/Public/Css/Backend/Overview.css');
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/OverviewReachability.js');
 
-        $providerDetails = [];
-        foreach ($providers as $identifier => $name) {
-            $isAvailable = isset($availableProviders[$identifier]);
-            $provider = $isAvailable ? $availableProviders[$identifier] : null;
+        // Per-module setup state, folded onto the cards (green / next / empty / locked).
+        $statuses = $this->readinessService->buildStatuses();
 
-            $providerDetails[$identifier] = [
-                'name' => $name,
-                'identifier' => $identifier,
-                'available' => $isAvailable,
-                'models' => $provider?->getAvailableModels() ?? [],
-                'defaultModel' => $provider?->getDefaultModel() ?? '',
-                'features' => $this->getProviderFeatures($provider),
+        // Analytics band: 30-day KPI totals + 7-day per-provider request mix.
+        $now = new DateTimeImmutable();
+        $kpiPeriod = AnalyticsPeriod::fromPreset('30d', $now);
+        $providerPeriod = AnalyticsPeriod::fromPreset('7d', $now);
+        $kpi = $this->analytics->getKpiTotals($kpiPeriod->from, $kpiPeriod->to);
+        $providerBreakdown = $this->analytics->getBreakdownByProvider($providerPeriod->from, $providerPeriod->to);
+        // Rank by request volume so the "Requests by provider" bars read as a
+        // descending top-list, then keep the top three.
+        usort($providerBreakdown, static fn(array $a, array $b): int => $b['requests'] <=> $a['requests']);
+        $providerBreakdown = array_slice($providerBreakdown, 0, 3);
+        // Pre-compute the bar width per provider here so the template stays
+        // logic-free and can never divide by zero.
+        $maxProviderRequests = 0;
+        foreach ($providerBreakdown as $row) {
+            $maxProviderRequests = max($maxProviderRequests, $row['requests']);
+        }
+        foreach ($providerBreakdown as &$providerRow) {
+            $providerRow['percentage'] = $maxProviderRequests > 0
+                ? (int)round($providerRow['requests'] * 100 / $maxProviderRequests)
+                : 0;
+        }
+        unset($providerRow);
+
+        // 30-day daily request history for the sparkline. Bar heights are
+        // pre-computed here (percentage of the busiest day) so the template
+        // stays logic-free and cannot divide by zero.
+        $dailyTrend = $this->analytics->getDailyTrend($kpiPeriod->from, $kpiPeriod->to);
+        $maxDailyRequests = 0;
+        foreach ($dailyTrend as $day) {
+            $maxDailyRequests = max($maxDailyRequests, $day['requests']);
+        }
+        $dailyBars = [];
+        foreach ($dailyTrend as $day) {
+            $dailyBars[] = [
+                'date'     => $day['date'],
+                'requests' => $day['requests'],
+                'height'   => $maxDailyRequests > 0 ? max(3, (int)round($day['requests'] * 100 / $maxDailyRequests)) : 0,
             ];
         }
 
-        // Get counts from database repositories (non-deleted records only)
-        $dbProviderCount = $this->providerRepository->countActive();
-        $dbModelCount = $this->modelRepository->countActive();
-        $dbConfigurationCount = $this->configurationRepository->countActive();
-        $dbTaskCount = $this->taskRepository->countActive();
-        $dbSnippetCount = $this->promptSnippetRepository->countActive();
+        // Configured provider records drive the reachability dots (keyed by the
+        // record identifier the AJAX probe reports on); the async JS fills them.
+        $configuredProviders = [];
+        foreach ($this->providerRepository->findActive() as $providerRecord) {
+            $configuredProviders[] = [
+                'identifier' => $providerRecord->getIdentifier(),
+                'name'       => $providerRecord->getName(),
+            ];
+        }
 
         $moduleTemplate->assignMultiple([
-            'providers' => $providerDetails,
-            'dbProviderCount' => $dbProviderCount,
-            'dbModelCount' => $dbModelCount,
-            'dbConfigurationCount' => $dbConfigurationCount,
-            'dbTaskCount' => $dbTaskCount,
-            'dbSnippetCount' => $dbSnippetCount,
+            'configuredProviders' => $configuredProviders,
+            'statuses' => $statuses,
+            'kpi' => $kpi,
+            'hasUsage' => $kpi['requests'] > 0,
+            'providerBreakdown' => $providerBreakdown,
+            'dailyBars' => $dailyBars,
+            'analyticsUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_analytics', [
+                'controller' => 'Backend\\Analytics',
+                'action'     => 'index',
+            ]),
             'taskWizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
                 'controller' => 'Backend\\TaskWizard',
                 'action'     => 'wizardForm',
@@ -110,6 +147,22 @@ final class LlmModuleController extends ActionController
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Index');
+    }
+
+    /**
+     * AJAX: token-free reachability of the configured providers.
+     *
+     * Admin-only (the module is admin-only, but AJAX routes bypass the module
+     * access check — see {@see RequiresBackendAdminTrait}). Performs no LLM
+     * inference, so it consumes no tokens.
+     */
+    public function reachabilityAction(): ResponseInterface
+    {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
+
+        return new JsonResponse($this->reachabilityService->check());
     }
 
     public function testAction(): ResponseInterface
@@ -237,25 +290,6 @@ final class LlmModuleController extends ActionController
         $value = $body[$key] ?? $default;
 
         return is_string($value) || is_numeric($value) ? (string)$value : $default;
-    }
-
-    /**
-     * @return array<string, bool>
-     */
-    private function getProviderFeatures(?ProviderInterface $provider): array
-    {
-        if ($provider === null) {
-            return [];
-        }
-
-        return [
-            'chat' => $provider->supportsFeature('chat'),
-            'completion' => $provider->supportsFeature('completion'),
-            'embeddings' => $provider->supportsFeature('embeddings'),
-            'vision' => $provider->supportsFeature('vision'),
-            'streaming' => $provider->supportsFeature('streaming'),
-            'tools' => $provider->supportsFeature('tools'),
-        ];
     }
 
 }

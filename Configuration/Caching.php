@@ -25,4 +25,13 @@ return [
         ],
         'groups' => ['nrllm'],
     ],
+    // Short-lived cache for the overview's token-free provider reachability
+    // probe, so a backend page load never storms the providers.
+    'nrllm_reachability' => [
+        'frontend' => VariableFrontend::class,
+        'options' => [
+            'defaultLifetime' => 60,
+        ],
+        'groups' => ['nrllm'],
+    ],
 ];

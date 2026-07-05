@@ -17,7 +17,6 @@ use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
-use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
@@ -217,23 +216,14 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $llmServiceManager = $this->get(LlmServiceManager::class);
         self::assertInstanceOf(LlmServiceManager::class, $llmServiceManager);
 
-        $modelRepository = $this->get(ModelRepository::class);
-        self::assertInstanceOf(ModelRepository::class, $modelRepository);
-
-        $taskRepository = $this->get(TaskRepository::class);
-        self::assertInstanceOf(TaskRepository::class, $taskRepository);
-
         $testPromptResolver = $this->get(TestPromptResolverInterface::class);
         self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
         $reflection = new ReflectionClass(LlmModuleController::class);
         $controller = $reflection->newInstanceWithoutConstructor();
 
+        // executeTestAction only needs these three; it does not touch repositories.
         $this->setPrivateProperty($controller, 'llmServiceManager', $llmServiceManager);
-        $this->setPrivateProperty($controller, 'providerRepository', $this->providerRepository);
-        $this->setPrivateProperty($controller, 'modelRepository', $modelRepository);
-        $this->setPrivateProperty($controller, 'configurationRepository', $this->configurationRepository);
-        $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
         $this->setPrivateProperty($controller, 'testPromptResolver', $testPromptResolver);
         $this->setPrivateProperty($controller, 'logger', new NullLogger());
 

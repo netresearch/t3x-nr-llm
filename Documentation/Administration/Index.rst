@@ -17,24 +17,36 @@ The LLM backend module
 ======================
 
 All AI management happens in
-:guilabel:`Admin Tools > LLM`. The dashboard shows
-your current setup status, quick links to each
-section, and AI wizard buttons.
+:guilabel:`Admin Tools > LLM`. The **Overview** is a guided starting point:
+
+- a **usage & cost** band across the top — 30-day cost, requests and tokens,
+  the per-provider request mix, and a daily-requests sparkline (empty until the
+  first request);
+- a unified **Set up & manage** grid where each module card carries its own
+  setup state — *green* when it is configured, a blue *Next* flag on the single
+  recommended step, and *Empty* on an optional module with no entries yet — so
+  the next action is always visible without a separate wizard. Each card links
+  to its module;
+- the **Providers** card shows a live, **token-free** reachability indicator per
+  configured provider (a model-list/health ping, never a completion);
+- a **For developers** section showing how to call the same configuration from
+  PHP via ``LlmServiceManager``.
 
 .. figure:: /Images/backend-dashboard.png
-   :alt: LLM backend module dashboard showing
-       provider count, model count, configuration
-       count, and AI wizard buttons
+   :alt: The LLM Overview — a usage-and-cost band, a status-coloured module
+       card grid, and a developer section
    :class: with-border with-shadow
    :zoom: lightbox
 
-   The LLM dashboard with setup progress, wizard
-   buttons, and quick-reference PHP snippets.
+   The LLM Overview: the usage & cost band, the state-coloured
+   :guilabel:`Set up & manage` grid, and the :guilabel:`For developers`
+   section.
 
 The module has eleven sections accessible from the
 left-hand navigation:
 
-- **Dashboard** — overview and wizards
+- **Overview** — guided dashboard: usage & cost, per-module setup state, and
+  the developer guide
 - **Providers** — API connections
 - **Models** — available LLM models
 - **Configurations** — use-case presets

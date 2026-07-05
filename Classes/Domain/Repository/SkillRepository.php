@@ -16,7 +16,7 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
 /**
  * @extends Repository<Skill>
  */
-final class SkillRepository extends Repository
+class SkillRepository extends Repository
 {
     protected $defaultOrderings = [
         'name' => QueryInterface::ORDER_ASCENDING,
@@ -54,5 +54,24 @@ final class SkillRepository extends Repository
         /** @var list<Skill> $skills */
         $skills = $query->execute()->toArray();
         return array_values($skills);
+    }
+
+    /**
+     * Count all synced (non-deleted) skills, regardless of enabled state.
+     */
+    public function countAll(): int
+    {
+        return $this->createQuery()->count();
+    }
+
+    /**
+     * Count skills that are currently enabled.
+     */
+    public function countEnabled(): int
+    {
+        $query = $this->createQuery();
+        $query->matching($query->equals('enabled', true));
+
+        return $query->count();
     }
 }

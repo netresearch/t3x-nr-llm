@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Backend overview facelift.** The LLM module landing page is now a real starting point: a usage-and-cost band on top (30-day KPIs + a 7-day provider breakdown), a single unified "Set up & manage" card grid, and a "For developers" teaser. Setup guidance is folded onto the module cards themselves — each card shows its state (ready / next / empty / locked) so the recommended next step is always visible, without a separate stepper. The Providers card carries live, **token-free** reachability dots (a cached model-list/health ping, never a completion). Cards are whole-card links. New `OverviewReadinessService` (state matrix) and `ProviderReachabilityService` (cached probe over configured provider records).
+
 ## [0.14.1] - 2026-07-05
 
 ### Fixed

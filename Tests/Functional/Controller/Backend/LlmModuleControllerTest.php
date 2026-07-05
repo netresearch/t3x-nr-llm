@@ -10,10 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
-use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
-use Netresearch\NrLlm\Domain\Repository\ModelRepository;
-use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
-use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -61,26 +57,9 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
         $llmServiceManager = $this->get(LlmServiceManager::class);
         self::assertInstanceOf(LlmServiceManager::class, $llmServiceManager);
 
-        $providerRepository = $this->get(ProviderRepository::class);
-        self::assertInstanceOf(ProviderRepository::class, $providerRepository);
-
-        $modelRepository = $this->get(ModelRepository::class);
-        self::assertInstanceOf(ModelRepository::class, $modelRepository);
-
-        $configurationRepository = $this->get(LlmConfigurationRepository::class);
-        self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
-
-        $taskRepository = $this->get(TaskRepository::class);
-        self::assertInstanceOf(TaskRepository::class, $taskRepository);
-
-        // Create controller via reflection to inject only required dependencies
-        $this->controller = $this->createControllerWithDependencies(
-            $llmServiceManager,
-            $providerRepository,
-            $modelRepository,
-            $configurationRepository,
-            $taskRepository,
-        );
+        // Create controller via reflection to inject only the dependencies
+        // executeTestAction needs (it does not touch the repositories).
+        $this->controller = $this->createControllerWithDependencies($llmServiceManager);
     }
 
     /**
@@ -89,20 +68,12 @@ final class LlmModuleControllerTest extends AbstractFunctionalTestCase
      */
     private function createControllerWithDependencies(
         LlmServiceManager $llmServiceManager,
-        ProviderRepository $providerRepository,
-        ModelRepository $modelRepository,
-        LlmConfigurationRepository $configurationRepository,
-        TaskRepository $taskRepository,
     ): LlmModuleController {
         $reflection = new ReflectionClass(LlmModuleController::class);
         $controller = $reflection->newInstanceWithoutConstructor();
 
         // Set only the properties needed for executeTestAction
         $this->setPrivateProperty($controller, 'llmServiceManager', $llmServiceManager);
-        $this->setPrivateProperty($controller, 'providerRepository', $providerRepository);
-        $this->setPrivateProperty($controller, 'modelRepository', $modelRepository);
-        $this->setPrivateProperty($controller, 'configurationRepository', $configurationRepository);
-        $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
 
         // executeTestAction resolves a default prompt and logs provider
         // errors via LoggerInterface — initialise both typed properties.
