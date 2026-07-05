@@ -300,6 +300,7 @@ final class ClaudeProvider extends AbstractProvider implements
             finishReason: $this->mapStopReason($this->getString($response, 'stop_reason', 'end_turn')),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls !== [] ? $toolCalls : null,
+            metadata: $this->rawResponseMetadata($options, $response),
             thinking: $allThinking !== '' ? $allThinking : null,
         );
     }

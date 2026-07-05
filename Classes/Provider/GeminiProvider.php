@@ -279,6 +279,7 @@ final class GeminiProvider extends AbstractProvider implements
             finishReason: $this->mapFinishReason($this->getString($candidate, 'finishReason', 'STOP')),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls !== [] ? $toolCalls : null,
+            metadata: $this->rawResponseMetadata($options, $response),
             thinking: $thinking,
         );
     }

@@ -416,10 +416,10 @@ final class OpenRouterProvider extends AbstractProvider implements
             finishReason: $this->getString($choice, 'finish_reason', 'stop'),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls,
-            metadata: [
+            metadata: $this->rawResponseMetadata($options, $response, [
                 'actual_provider' => $this->getString($response, 'provider', 'unknown'),
                 'cost' => $response['total_cost'] ?? null,
-            ],
+            ]),
             thinking: $thinking,
         );
     }

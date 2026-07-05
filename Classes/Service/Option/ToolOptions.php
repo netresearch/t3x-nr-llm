@@ -38,6 +38,7 @@ class ToolOptions extends ChatOptions
         ?float $plannedCost = null,
         private ?string $toolChoice = null,
         private ?bool $parallelToolCalls = null,
+        private bool $captureRaw = false,
     ) {
         parent::__construct(
             $temperature,
@@ -138,19 +139,42 @@ class ToolOptions extends ChatOptions
         return $this->parallelToolCalls;
     }
 
+    /**
+     * Whether the adapter should retain the decoded raw provider response in
+     * the completion metadata (admin playground inspector only — off in
+     * production so raw payloads are never kept).
+     */
+    public function getCaptureRaw(): bool
+    {
+        return $this->captureRaw;
+    }
+
+    public function withCaptureRaw(bool $captureRaw): static
+    {
+        $clone = clone $this;
+        $clone->captureRaw = $captureRaw;
+        return $clone;
+    }
+
     // ========================================
     // Array Conversion
     // ========================================
 
     public function toArray(): array
     {
-        return array_merge(
-            parent::toArray(),
-            $this->filterNull([
-                'tool_choice' => $this->toolChoice,
-                'parallel_tool_calls' => $this->parallelToolCalls,
-            ]),
-        );
+        $extra = $this->filterNull([
+            'tool_choice' => $this->toolChoice,
+            'parallel_tool_calls' => $this->parallelToolCalls,
+        ]);
+
+        // Private, out-of-band directive read by the adapters (never a provider
+        // API field): retain the decoded raw response. Emitted only when set so
+        // production payloads stay unchanged.
+        if ($this->captureRaw) {
+            $extra['_capture_raw'] = true;
+        }
+
+        return array_merge(parent::toArray(), $extra);
     }
 
     // ========================================
