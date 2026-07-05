@@ -35,7 +35,7 @@ use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
  * Pure and deterministic given the injected repositories/services, so the
  * state matrix is fully unit-testable.
  */
-final class OverviewReadinessService
+final readonly class OverviewReadinessService
 {
     /**
      * How far back "has this instance ever been used?" looks when deciding
@@ -44,15 +44,15 @@ final class OverviewReadinessService
     private const USAGE_LOOKBACK_DAYS = 90;
 
     public function __construct(
-        private readonly ProviderRepository $providerRepository,
-        private readonly ModelRepository $modelRepository,
-        private readonly LlmConfigurationRepository $configurationRepository,
-        private readonly TaskRepository $taskRepository,
-        private readonly PromptSnippetRepository $promptSnippetRepository,
-        private readonly SkillRepository $skillRepository,
-        private readonly ToolRegistry $toolRegistry,
-        private readonly ToolAvailabilityServiceInterface $toolAvailability,
-        private readonly UsageAnalyticsServiceInterface $analytics,
+        private ProviderRepository $providerRepository,
+        private ModelRepository $modelRepository,
+        private LlmConfigurationRepository $configurationRepository,
+        private TaskRepository $taskRepository,
+        private PromptSnippetRepository $promptSnippetRepository,
+        private SkillRepository $skillRepository,
+        private ToolRegistry $toolRegistry,
+        private ToolAvailabilityServiceInterface $toolAvailability,
+        private UsageAnalyticsServiceInterface $analytics,
     ) {}
 
     /**

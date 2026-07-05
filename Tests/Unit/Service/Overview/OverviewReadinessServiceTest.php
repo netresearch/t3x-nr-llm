@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Service\Overview\OverviewCardStatus;
 use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -27,7 +28,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(OverviewReadinessService::class)]
-#[CoversClass(\Netresearch\NrLlm\Service\Overview\OverviewCardStatus::class)]
+#[CoversClass(OverviewCardStatus::class)]
 final class OverviewReadinessServiceTest extends TestCase
 {
     #[Test]
@@ -110,7 +111,7 @@ final class OverviewReadinessServiceTest extends TestCase
     }
 
     /**
-     * @return array<string, \Netresearch\NrLlm\Service\Overview\OverviewCardStatus>
+     * @return array<string, OverviewCardStatus>
      */
     private function buildStatuses(
         int $providers = 0,
