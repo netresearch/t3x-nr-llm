@@ -1824,8 +1824,11 @@
             <trans-unit id="overview.flag.locked">
                 <source>Locked</source>
             </trans-unit>
-            <trans-unit id="overview.config.default">
-                <source>default set</source>
+            <trans-unit id="overview.default.has">
+                <source>has default</source>
+            </trans-unit>
+            <trans-unit id="overview.default.none">
+                <source>no default</source>
             </trans-unit>
             <trans-unit id="overview.count.on">
                 <source>on</source>

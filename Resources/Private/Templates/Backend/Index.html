@@ -24,6 +24,21 @@
     </f:if>
 </f:section>
 
+<f:comment>Default badge: green "has default" when one exists; amber "no default"
+when the module has entries but none is the default; nothing when empty.</f:comment>
+<f:section name="defaultBadge">
+    <f:if condition="{status.hasDefault}">
+        <f:then>
+            <span class="badge text-bg-success"><core:icon identifier="actions-check" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.default.has" default="has default" /></span>
+        </f:then>
+        <f:else>
+            <f:if condition="{status.count} > 0">
+                <span class="badge text-bg-warning"><core:icon identifier="actions-exclamation-triangle" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.default.none" default="no default" /></span>
+            </f:if>
+        </f:else>
+    </f:if>
+</f:section>
+
 <f:section name="Content">
     <div class="nrllm-ov">
         <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.title" /></h1>
@@ -156,7 +171,7 @@
                         <div class="nrllm-ov-tt"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.card.title" default="LLM Models" /></div>
                         <div class="nrllm-ov-st">
                             {statuses.models.count} <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.models" default="model(s) configured" />
-                            <f:if condition="{statuses.models.hasDefault}"><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.config.default" default="default set" /></span></f:if>
+                            <f:render section="defaultBadge" arguments="{status: statuses.models}" />
                         </div>
                     </div>
                 </div>
@@ -176,7 +191,7 @@
                         <div class="nrllm-ov-tt"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.card.title" default="Configurations" /></div>
                         <div class="nrllm-ov-st">
                             {statuses.configurations.count} <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.configurations" default="configuration(s) configured" />
-                            <f:if condition="{statuses.configurations.hasDefault}"><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.config.default" default="default set" /></span></f:if>
+                            <f:render section="defaultBadge" arguments="{status: statuses.configurations}" />
                         </div>
                     </div>
                 </div>
@@ -293,14 +308,11 @@
         </div>
 
         <f:comment>=================== For developers ===================</f:comment>
+        <h2 class="mt-4">
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.dev.title" default="For developers" />
+            <span class="nrllm-ov-sub"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.dev.subtitle" default="nr_llm is an API layer, not just this UI" /></span>
+        </h2>
         <div class="nrllm-ov-dev">
-            <div class="nrllm-ov-dev-h">
-                <span class="nrllm-ov-dev-icon"><core:icon identifier="actions-code" size="medium" /></span>
-                <div>
-                    <div class="nrllm-ov-dev-tt"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.dev.title" default="For developers" /></div>
-                    <div class="nrllm-ov-dev-sub"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.dev.subtitle" default="nr_llm is an API layer, not just this UI" /></div>
-                </div>
-            </div>
             <div class="nrllm-ov-dev-b">
                 <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.dev.description" default="Everything you configure here is reachable from PHP via LlmServiceManager. Your extension inherits the providers, models, configurations, budgets and the middleware pipeline — no per-extension API wiring." /></p>
                 <pre><code class="language-php">use Netresearch\NrLlm\Service\LlmServiceManagerInterface;

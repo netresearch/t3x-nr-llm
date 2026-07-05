@@ -2414,9 +2414,13 @@
                 <source>Locked</source>
                 <target>Gesperrt</target>
             </trans-unit>
-            <trans-unit id="overview.config.default">
-                <source>default set</source>
+            <trans-unit id="overview.default.has">
+                <source>has default</source>
                 <target>Standard gesetzt</target>
+            </trans-unit>
+            <trans-unit id="overview.default.none">
+                <source>no default</source>
+                <target>kein Standard</target>
             </trans-unit>
             <trans-unit id="overview.count.on">
                 <source>on</source>

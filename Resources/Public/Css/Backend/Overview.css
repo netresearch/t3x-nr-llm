@@ -263,8 +263,19 @@
     transform: translateY(-1px);
 }
 
-/* The whole card is a link (Bootstrap stretched-link); only the footer actions
-   sit above the stretched ::after so they remain independently clickable. */
+/* The whole card is a link. The anchor is empty, so define the stretched-link
+   overlay explicitly rather than relying on the backend Bootstrap build (which
+   does not reach the module iframe): its ::after covers the position:relative
+   card, making the whole card clickable. */
+.nrllm-ov-card .stretched-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+/* Only the footer actions sit above the stretched ::after so they remain
+   independently clickable. */
 .nrllm-ov-card .nrllm-ov-card-f {
     position: relative;
     z-index: 2;
@@ -471,49 +482,14 @@
 
 /* ---------- Developer teaser ---------- */
 .nrllm-ov-dev {
-    margin-top: 24px;
     background: var(--nrllm-ov-surface);
     border: 1px solid var(--nrllm-ov-border);
     border-radius: var(--nrllm-ov-radius);
     overflow: hidden;
 }
 
-.nrllm-ov-dev-h {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    padding: 14px 16px 10px;
-}
-
-.nrllm-ov-dev-icon {
-    flex: 0 0 auto;
-    width: 34px;
-    height: 34px;
-    border-radius: 7px;
-    display: grid;
-    place-items: center;
-    background: var(--nrllm-ov-info-bd);
-    color: #fff;
-    line-height: 0;
-}
-
-.nrllm-ov-dev-icon .t3js-icon,
-.nrllm-ov-dev-icon .icon {
-    color: #fff;
-}
-
-.nrllm-ov-dev-tt {
-    font-weight: 600;
-    font-size: 15px;
-}
-
-.nrllm-ov-dev-sub {
-    font-size: 12.5px;
-    color: var(--nrllm-ov-muted);
-}
-
 .nrllm-ov-dev-b {
-    padding: 0 16px;
+    padding: 14px 16px 0;
 }
 
 .nrllm-ov-dev-b > p {
