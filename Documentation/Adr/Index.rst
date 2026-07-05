@@ -338,3 +338,4 @@ Tools
    Adr037BackendAjaxAdminGuard
    Adr038ToolRuntime
    Adr039GlobalToolAvailabilityState
+   Adr040PlaygroundRunTrace
