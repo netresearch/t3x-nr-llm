@@ -16,6 +16,11 @@ import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 
 class OverviewReachability {
   constructor() {
+    // Status words for the aria-label (screen-reader status, not colour-only).
+    // English fallbacks; the template may override with localized values via
+    // data-label-* on the reachability container.
+    this.labels = { up: 'reachable', down: 'unreachable', unknown: 'status unknown' };
+
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => this.init());
     } else {
@@ -24,6 +29,15 @@ class OverviewReachability {
   }
 
   init() {
+    const container = document.querySelector('.nrllm-ov-reach');
+    if (container !== null) {
+      this.labels = {
+        up: container.dataset.labelUp || this.labels.up,
+        down: container.dataset.labelDown || this.labels.down,
+        unknown: container.dataset.labelUnknown || this.labels.unknown,
+      };
+    }
+
     this.load();
 
     const recheck = document.querySelector('[data-nrllm-recheck]');
@@ -61,37 +75,45 @@ class OverviewReachability {
         return;
       }
       // Attribute-selector-safe lookup: identifiers are [a-z0-9_-] tokens.
-      const dot = document.querySelector(
+      const badge = document.querySelector(
         `[data-nrllm-provider="${CSS.escape(provider.identifier)}"]`,
       );
-      this.setDot(dot, provider.status);
+      this.setBadge(badge, provider.status);
     });
   }
 
   /**
-   * @param {Element|null} dot
+   * Set a provider badge's state. Status is reflected by the glyph (via the
+   * state class) AND announced to assistive tech via aria-label, so it never
+   * relies on colour alone (WCAG 1.4.1).
+   *
+   * @param {Element|null} badge
    * @param {string} status
    */
-  setDot(dot, status) {
-    if (dot === null) {
+  setBadge(badge, status) {
+    if (badge === null) {
       return;
     }
-    dot.classList.remove('nrllm-ov-dot-unknown', 'nrllm-ov-dot-up', 'nrllm-ov-dot-down');
-    // up = reachable, down = configured-with-key but unreachable, anything
-    // else (e.g. "unconfigured") stays the neutral unknown dot.
+    const name = badge.textContent.trim();
+    const word = this.labels[status] || this.labels.unknown;
+    badge.classList.remove('is-unknown', 'is-up', 'is-down');
+    // up = reachable, down = configured but unreachable, anything else
+    // (e.g. "unconfigured") stays the neutral unknown badge.
     if (status === 'up') {
-      dot.classList.add('nrllm-ov-dot-up');
+      badge.classList.add('is-up');
     } else if (status === 'down') {
-      dot.classList.add('nrllm-ov-dot-down');
+      badge.classList.add('is-down');
     } else {
-      dot.classList.add('nrllm-ov-dot-unknown');
+      badge.classList.add('is-unknown');
     }
+    badge.setAttribute('aria-label', `${name}: ${word}`);
+    badge.setAttribute('title', word);
   }
 
   reset() {
-    document.querySelectorAll('.nrllm-ov-dot').forEach((dot) => {
-      dot.classList.remove('nrllm-ov-dot-up', 'nrllm-ov-dot-down');
-      dot.classList.add('nrllm-ov-dot-unknown');
+    document.querySelectorAll('.nrllm-ov-reach-badge').forEach((badge) => {
+      badge.classList.remove('is-up', 'is-down');
+      badge.classList.add('is-unknown');
     });
   }
 }

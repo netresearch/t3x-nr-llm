@@ -10,12 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use DateTimeImmutable;
-use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
-use Netresearch\NrLlm\Domain\Repository\ModelRepository;
-use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
-use Netresearch\NrLlm\Domain\Repository\TaskRepository;
-use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -46,10 +41,6 @@ final class LlmModuleController extends ActionController
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly LlmServiceManagerInterface $llmServiceManager,
         private readonly ProviderRepository $providerRepository,
-        private readonly ModelRepository $modelRepository,
-        private readonly LlmConfigurationRepository $configurationRepository,
-        private readonly TaskRepository $taskRepository,
-        private readonly PromptSnippetRepository $promptSnippetRepository,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly FormEngineUrlBuilder $formEngineUrlBuilder,
         private readonly TestPromptResolverInterface $testPromptResolver,
@@ -79,31 +70,6 @@ final class LlmModuleController extends ActionController
         $this->pageRenderer->addCssFile('EXT:nr_llm/Resources/Public/Css/Backend/Overview.css');
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/OverviewReachability.js');
 
-        $providers = $this->llmServiceManager->getProviderList();
-        $availableProviders = $this->llmServiceManager->getAvailableProviders();
-
-        $providerDetails = [];
-        foreach ($providers as $identifier => $name) {
-            $isAvailable = isset($availableProviders[$identifier]);
-            $provider = $isAvailable ? $availableProviders[$identifier] : null;
-
-            $providerDetails[$identifier] = [
-                'name' => $name,
-                'identifier' => $identifier,
-                'available' => $isAvailable,
-                'models' => $provider?->getAvailableModels() ?? [],
-                'defaultModel' => $provider?->getDefaultModel() ?? '',
-                'features' => $this->getProviderFeatures($provider),
-            ];
-        }
-
-        // Get counts from database repositories (non-deleted records only)
-        $dbProviderCount = $this->providerRepository->countActive();
-        $dbModelCount = $this->modelRepository->countActive();
-        $dbConfigurationCount = $this->configurationRepository->countActive();
-        $dbTaskCount = $this->taskRepository->countActive();
-        $dbSnippetCount = $this->promptSnippetRepository->countActive();
-
         // Per-module setup state, folded onto the cards (green / next / empty / locked).
         $statuses = $this->readinessService->buildStatuses();
 
@@ -117,9 +83,34 @@ final class LlmModuleController extends ActionController
         // descending top-list, then keep the top three.
         usort($providerBreakdown, static fn(array $a, array $b): int => $b['requests'] <=> $a['requests']);
         $providerBreakdown = array_slice($providerBreakdown, 0, 3);
+        // Pre-compute the bar width per provider here so the template stays
+        // logic-free and can never divide by zero.
         $maxProviderRequests = 0;
         foreach ($providerBreakdown as $row) {
             $maxProviderRequests = max($maxProviderRequests, $row['requests']);
+        }
+        foreach ($providerBreakdown as &$providerRow) {
+            $providerRow['percentage'] = $maxProviderRequests > 0
+                ? (int)round($providerRow['requests'] * 100 / $maxProviderRequests)
+                : 0;
+        }
+        unset($providerRow);
+
+        // 30-day daily request history for the sparkline. Bar heights are
+        // pre-computed here (percentage of the busiest day) so the template
+        // stays logic-free and cannot divide by zero.
+        $dailyTrend = $this->analytics->getDailyTrend($kpiPeriod->from, $kpiPeriod->to);
+        $maxDailyRequests = 0;
+        foreach ($dailyTrend as $day) {
+            $maxDailyRequests = max($maxDailyRequests, $day['requests']);
+        }
+        $dailyBars = [];
+        foreach ($dailyTrend as $day) {
+            $dailyBars[] = [
+                'date'     => $day['date'],
+                'requests' => $day['requests'],
+                'height'   => $maxDailyRequests > 0 ? max(3, (int)round($day['requests'] * 100 / $maxDailyRequests)) : 0,
+            ];
         }
 
         // Configured provider records drive the reachability dots (keyed by the
@@ -133,19 +124,16 @@ final class LlmModuleController extends ActionController
         }
 
         $moduleTemplate->assignMultiple([
-            'providers' => $providerDetails,
             'configuredProviders' => $configuredProviders,
-            'dbProviderCount' => $dbProviderCount,
-            'dbModelCount' => $dbModelCount,
-            'dbConfigurationCount' => $dbConfigurationCount,
-            'dbTaskCount' => $dbTaskCount,
-            'dbSnippetCount' => $dbSnippetCount,
             'statuses' => $statuses,
             'kpi' => $kpi,
             'hasUsage' => $kpi['requests'] > 0,
             'providerBreakdown' => $providerBreakdown,
-            'maxProviderRequests' => $maxProviderRequests,
-            'analyticsUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_analytics'),
+            'dailyBars' => $dailyBars,
+            'analyticsUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_analytics', [
+                'controller' => 'Backend\\Analytics',
+                'action'     => 'index',
+            ]),
             'taskWizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_tasks', [
                 'controller' => 'Backend\\TaskWizard',
                 'action'     => 'wizardForm',
@@ -162,7 +150,7 @@ final class LlmModuleController extends ActionController
     }
 
     /**
-     * AJAX: token-free reachability of the vault and configured providers.
+     * AJAX: token-free reachability of the configured providers.
      *
      * Admin-only (the module is admin-only, but AJAX routes bypass the module
      * access check — see {@see RequiresBackendAdminTrait}). Performs no LLM
@@ -302,25 +290,6 @@ final class LlmModuleController extends ActionController
         $value = $body[$key] ?? $default;
 
         return is_string($value) || is_numeric($value) ? (string)$value : $default;
-    }
-
-    /**
-     * @return array<string, bool>
-     */
-    private function getProviderFeatures(?ProviderInterface $provider): array
-    {
-        if ($provider === null) {
-            return [];
-        }
-
-        return [
-            'chat' => $provider->supportsFeature('chat'),
-            'completion' => $provider->supportsFeature('completion'),
-            'embeddings' => $provider->supportsFeature('embeddings'),
-            'vision' => $provider->supportsFeature('vision'),
-            'streaming' => $provider->supportsFeature('streaming'),
-            'tools' => $provider->supportsFeature('tools'),
-        ];
     }
 
 }

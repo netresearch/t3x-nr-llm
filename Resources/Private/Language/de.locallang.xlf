@@ -2450,6 +2450,22 @@
                 <source>Re-check</source>
                 <target>Neu prüfen</target>
             </trans-unit>
+            <trans-unit id="overview.reach.up">
+                <source>reachable</source>
+                <target>erreichbar</target>
+            </trans-unit>
+            <trans-unit id="overview.reach.down">
+                <source>unreachable</source>
+                <target>nicht erreichbar</target>
+            </trans-unit>
+            <trans-unit id="overview.reach.unknown">
+                <source>status unknown</source>
+                <target>Status unbekannt</target>
+            </trans-unit>
+            <trans-unit id="overview.analytics.daily">
+                <source>Daily requests</source>
+                <target>Anfragen pro Tag</target>
+            </trans-unit>
             <trans-unit id="overview.dev.title">
                 <source>For developers</source>
                 <target>Für Entwickler</target>

@@ -71,10 +71,13 @@ final class OverviewReadinessService
      */
     public function buildStatuses(): array
     {
-        $providers      = $this->providerRepository->countActive();
-        $models         = $this->modelRepository->countActive();
-        $configurations = $this->configurationRepository->countActive();
-        $hasDefault     = $this->configurationRepository->findDefault() !== null;
+        $providers        = $this->providerRepository->countActive();
+        $models           = $this->modelRepository->countActive();
+        $configurations   = $this->configurationRepository->countActive();
+        $configHasDefault = $this->configurationRepository->findDefault() !== null;
+        // Models carry a default too (used for fallback model selection); show
+        // the same "default set" badge. Providers use priority, not a default.
+        $modelHasDefault  = $this->modelRepository->findDefault() !== null;
 
         // Critical path: the first incomplete step is Next, later steps Locked.
         $providersState      = $providers > 0 ? OverviewCardState::Ready : OverviewCardState::Next;
@@ -95,8 +98,8 @@ final class OverviewReadinessService
 
         return [
             'providers'      => new OverviewCardStatus($providersState, $providers),
-            'models'         => new OverviewCardStatus($modelsState, $models),
-            'configurations' => new OverviewCardStatus($configurationsState, $configurations, hasDefault: $hasDefault),
+            'models'         => new OverviewCardStatus($modelsState, $models, hasDefault: $modelHasDefault),
+            'configurations' => new OverviewCardStatus($configurationsState, $configurations, hasDefault: $configHasDefault),
             'tryit'          => new OverviewCardStatus($tryitState),
             'tasks'          => new OverviewCardStatus($this->optionalState($tasks > 0), $tasks),
             'snippets'       => new OverviewCardStatus($this->optionalState($snippets > 0), $snippets),

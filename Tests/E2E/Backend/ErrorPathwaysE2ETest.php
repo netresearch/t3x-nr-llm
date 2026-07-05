@@ -194,22 +194,13 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $llmServiceManager = $this->get(LlmServiceManager::class);
         self::assertInstanceOf(LlmServiceManager::class, $llmServiceManager);
 
-        $configurationRepository = $this->get(LlmConfigurationRepository::class);
-        self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
-
-        $taskRepository = $this->get(TaskRepository::class);
-        self::assertInstanceOf(TaskRepository::class, $taskRepository);
-
         $testPromptResolver = $this->get(TestPromptResolverInterface::class);
         self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
         return $this->createControllerWithReflection(LlmModuleController::class, [
+            // executeTest resolves a default prompt; error paths log. It does
+            // not touch repositories, so only these three are wired.
             'llmServiceManager' => $llmServiceManager,
-            'providerRepository' => $this->providerRepository,
-            'modelRepository' => $this->modelRepository,
-            'configurationRepository' => $configurationRepository,
-            'taskRepository' => $taskRepository,
-            // executeTest resolves a default prompt; error paths log.
             'testPromptResolver' => $testPromptResolver,
             'logger' => new NullLogger(),
         ]);

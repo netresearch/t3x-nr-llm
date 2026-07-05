@@ -75,12 +75,9 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
         return $this->createControllerWithReflection(LlmModuleController::class, [
+            // executeTest resolves a default prompt; error paths log. It does
+            // not touch repositories, so only these three are wired.
             'llmServiceManager' => $llmServiceManager,
-            'providerRepository' => $this->providerRepository,
-            'modelRepository' => $this->modelRepository,
-            'configurationRepository' => $this->configurationRepository,
-            'taskRepository' => $this->taskRepository,
-            // executeTest resolves a default prompt; error paths log.
             'testPromptResolver' => $testPromptResolver,
             'logger' => new NullLogger(),
         ]);

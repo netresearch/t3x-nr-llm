@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
-use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
@@ -172,29 +171,14 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $llmServiceManager = $this->get(LlmServiceManager::class);
         self::assertInstanceOf(LlmServiceManager::class, $llmServiceManager);
 
-        $providerRepository = $this->get(ProviderRepository::class);
-        self::assertInstanceOf(ProviderRepository::class, $providerRepository);
-
-        $modelRepository = $this->get(ModelRepository::class);
-        self::assertInstanceOf(ModelRepository::class, $modelRepository);
-
-        $configurationRepository = $this->get(LlmConfigurationRepository::class);
-        self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
-
-        $taskRepository = $this->get(TaskRepository::class);
-        self::assertInstanceOf(TaskRepository::class, $taskRepository);
-
         $testPromptResolver = $this->get(TestPromptResolverInterface::class);
         self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
         $reflection = new ReflectionClass(LlmModuleController::class);
         $controller = $reflection->newInstanceWithoutConstructor();
 
+        // executeTestAction only needs these three; it does not touch repositories.
         $this->setPrivateProperty($controller, 'llmServiceManager', $llmServiceManager);
-        $this->setPrivateProperty($controller, 'providerRepository', $providerRepository);
-        $this->setPrivateProperty($controller, 'modelRepository', $modelRepository);
-        $this->setPrivateProperty($controller, 'configurationRepository', $configurationRepository);
-        $this->setPrivateProperty($controller, 'taskRepository', $taskRepository);
         $this->setPrivateProperty($controller, 'testPromptResolver', $testPromptResolver);
         $this->setPrivateProperty($controller, 'logger', new NullLogger());
 

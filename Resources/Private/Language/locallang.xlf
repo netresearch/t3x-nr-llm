@@ -1851,6 +1851,18 @@
             <trans-unit id="overview.reach.recheck">
                 <source>Re-check</source>
             </trans-unit>
+            <trans-unit id="overview.reach.up">
+                <source>reachable</source>
+            </trans-unit>
+            <trans-unit id="overview.reach.down">
+                <source>unreachable</source>
+            </trans-unit>
+            <trans-unit id="overview.reach.unknown">
+                <source>status unknown</source>
+            </trans-unit>
+            <trans-unit id="overview.analytics.daily">
+                <source>Daily requests</source>
+            </trans-unit>
             <trans-unit id="overview.dev.title">
                 <source>For developers</source>
             </trans-unit>

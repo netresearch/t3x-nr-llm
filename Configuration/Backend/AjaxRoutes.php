@@ -34,7 +34,7 @@ return [
         'target' => LlmModuleController::class . '::executeTestAction',
     ],
 
-    // Overview: token-free provider/vault reachability probe (loaded async so
+    // Overview: token-free provider reachability probe (loaded async so
     // a slow provider never blocks the page render).
     'nrllm_overview_reachability' => [
         'path' => '/nrllm/overview/reachability',

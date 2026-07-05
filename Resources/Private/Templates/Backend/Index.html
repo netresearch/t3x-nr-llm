@@ -76,18 +76,30 @@
                     </div>
                 </div>
 
-                <f:if condition="{providerBreakdown}">
-                    <div class="nrllm-ov-chart">
-                        <div class="nrllm-ov-chart-t"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.analytics.byProvider" default="Requests by provider" /> <span class="nrllm-ov-sub">7 days</span></div>
-                        <f:for each="{providerBreakdown}" as="row">
-                            <div class="nrllm-ov-bar-row">
-                                <span class="nrllm-ov-bar-label">{row.label}</span>
-                                <span class="nrllm-ov-bar-track"><span class="nrllm-ov-bar-fill" style="width: {f:if(condition: maxProviderRequests, then: '{row.requests * 100 / maxProviderRequests}', else: 0)}%"></span></span>
-                                <span class="nrllm-ov-bar-val">{row.requests}</span>
+                <div class="nrllm-ov-charts">
+                    <f:if condition="{providerBreakdown}">
+                        <div class="nrllm-ov-chart">
+                            <div class="nrllm-ov-chart-t"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.analytics.byProvider" default="Requests by provider" /> <span class="nrllm-ov-sub">7 days</span></div>
+                            <f:for each="{providerBreakdown}" as="row">
+                                <div class="nrllm-ov-bar-row">
+                                    <span class="nrllm-ov-bar-label">{row.label}</span>
+                                    <span class="nrllm-ov-bar-track"><span class="nrllm-ov-bar-fill" style="width: {row.percentage}%"></span></span>
+                                    <span class="nrllm-ov-bar-val">{row.requests}</span>
+                                </div>
+                            </f:for>
+                        </div>
+                    </f:if>
+                    <f:if condition="{dailyBars}">
+                        <div class="nrllm-ov-chart">
+                            <div class="nrllm-ov-chart-t"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.analytics.daily" default="Daily requests" /> <span class="nrllm-ov-sub">30 days</span></div>
+                            <div class="nrllm-ov-spark">
+                                <f:for each="{dailyBars}" as="d">
+                                    <span class="nrllm-ov-spark-bar" style="height: {d.height}%" title="{d.date}: {d.requests}"></span>
+                                </f:for>
                             </div>
-                        </f:for>
-                    </div>
-                </f:if>
+                        </div>
+                    </f:if>
+                </div>
             </f:then>
             <f:else>
                 <f:be.infobox state="-1" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.analytics.emptyTitle', default: 'No usage yet')}">
@@ -120,10 +132,10 @@
                 <div class="nrllm-ov-card-b">
                     <p class="mb-1"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.card.description" default="Configure endpoints, API keys, and timeouts for LLM services." /></p>
                     <f:if condition="{configuredProviders}">
-                        <div class="nrllm-ov-reach">
+                        <div class="nrllm-ov-reach" data-label-up="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.up', default: 'reachable')}" data-label-down="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.down', default: 'unreachable')}" data-label-unknown="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.unknown', default: 'status unknown')}">
                             <span class="nrllm-ov-reach-lab"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.label" default="Reachability (live, no tokens):" /></span>
                             <f:for each="{configuredProviders}" as="p">
-                                <span class="nrllm-ov-dot nrllm-ov-dot-unknown" data-nrllm-provider="{p.identifier}" title="{p.name}"></span> <span class="nrllm-ov-reach-name">{p.name}</span>
+                                <span class="nrllm-ov-reach-badge is-unknown" data-nrllm-provider="{p.identifier}"><span class="nrllm-ov-reach-ico" aria-hidden="true"></span>{p.name}</span>
                             </f:for>
                         </div>
                     </f:if>
@@ -142,7 +154,10 @@
                     <span class="nrllm-ov-icon"><core:icon identifier="module-nrllm-model" size="medium" /><f:render section="check" arguments="{status: statuses.models}" /></span>
                     <div>
                         <div class="nrllm-ov-tt"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.card.title" default="LLM Models" /></div>
-                        <div class="nrllm-ov-st">{statuses.models.count} <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.models" default="model(s) configured" /></div>
+                        <div class="nrllm-ov-st">
+                            {statuses.models.count} <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:card.count.models" default="model(s) configured" />
+                            <f:if condition="{statuses.models.hasDefault}"><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.config.default" default="default set" /></span></f:if>
+                        </div>
                     </div>
                 </div>
                 <div class="nrllm-ov-card-b"><p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.card.description" default="Configure model definitions, capabilities, and pricing per provider." /></p></div>
@@ -278,12 +293,15 @@
         </div>
 
         <f:comment>=================== For developers ===================</f:comment>
-        <div class="nrllm-ov-dev card mt-4">
-            <div class="card-header">
-                <h2 class="card-title mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.dev.title" default="For developers" /></h2>
-                <span class="card-subtitle"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.dev.subtitle" default="nr_llm is an API layer, not just this UI" /></span>
+        <div class="nrllm-ov-dev">
+            <div class="nrllm-ov-dev-h">
+                <span class="nrllm-ov-dev-icon"><core:icon identifier="actions-code" size="medium" /></span>
+                <div>
+                    <div class="nrllm-ov-dev-tt"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.dev.title" default="For developers" /></div>
+                    <div class="nrllm-ov-dev-sub"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.dev.subtitle" default="nr_llm is an API layer, not just this UI" /></div>
+                </div>
             </div>
-            <div class="card-body">
+            <div class="nrllm-ov-dev-b">
                 <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.dev.description" default="Everything you configure here is reachable from PHP via LlmServiceManager. Your extension inherits the providers, models, configurations, budgets and the middleware pipeline — no per-extension API wiring." /></p>
                 <pre><code class="language-php">use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 
@@ -296,10 +314,10 @@ $response = $this-&gt;llm-&gt;chatWithConfiguration($messages, 'my-config');
 
 // or a one-shot completion with the default configuration
 $text = $this-&gt;llm-&gt;complete('Summarise: ' . $input);</code></pre>
-                <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="btn btn-default btn-sm">
-                    <core:icon identifier="actions-open" size="small" />
-                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" />
-                </a>
+            </div>
+            <div class="nrllm-ov-dev-f">
+                <a href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}"><core:icon identifier="actions-info" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.card.button" default="Open Help" /></a>
+                <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener"><core:icon identifier="actions-open" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" /></a>
             </div>
         </div>
     </div>

@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Overview;
 
 use Netresearch\NrLlm\Domain\Enum\OverviewCardState;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
@@ -69,12 +70,13 @@ final class OverviewReadinessServiceTest extends TestCase
     #[Test]
     public function fullyConfiguredWithoutUsageMakesTryItTheNextStep(): void
     {
-        $statuses = $this->buildStatuses(providers: 2, models: 3, configurations: 1, hasDefault: true);
+        $statuses = $this->buildStatuses(providers: 2, models: 3, configurations: 1, hasDefault: true, modelHasDefault: true);
 
         self::assertSame(OverviewCardState::Ready, $statuses['providers']->state);
         self::assertSame(OverviewCardState::Ready, $statuses['models']->state);
         self::assertSame(OverviewCardState::Ready, $statuses['configurations']->state);
         self::assertTrue($statuses['configurations']->hasDefault);
+        self::assertTrue($statuses['models']->hasDefault);
         self::assertSame(OverviewCardState::Next, $statuses['tryit']->state);
     }
 
@@ -115,6 +117,7 @@ final class OverviewReadinessServiceTest extends TestCase
         int $models = 0,
         int $configurations = 0,
         bool $hasDefault = false,
+        bool $modelHasDefault = false,
         int $tasks = 0,
         int $snippets = 0,
         int $skillsTotal = 0,
@@ -127,6 +130,9 @@ final class OverviewReadinessServiceTest extends TestCase
 
         $modelRepo = $this->createMock(ModelRepository::class);
         $modelRepo->method('countActive')->willReturn($models);
+        $modelRepo->method('findDefault')->willReturn(
+            $modelHasDefault ? $this->createMock(Model::class) : null,
+        );
 
         $configRepo = $this->createMock(LlmConfigurationRepository::class);
         $configRepo->method('countActive')->willReturn($configurations);
