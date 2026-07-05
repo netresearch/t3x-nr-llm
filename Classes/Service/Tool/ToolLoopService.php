@@ -416,7 +416,10 @@ final readonly class ToolLoopService
             return $result;
         }
 
-        return mb_convert_encoding($result, 'UTF-8', 'UTF-8');
+        // Cast defends the string return type: mb_convert_encoding is typed
+        // string|false, and false (unreachable for the literal 'UTF-8' names)
+        // would otherwise be a TypeError.
+        return (string)mb_convert_encoding($result, 'UTF-8', 'UTF-8');
     }
 
     /**
