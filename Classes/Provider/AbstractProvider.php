@@ -488,6 +488,28 @@ abstract class AbstractProvider implements ProviderInterface
         );
     }
 
+    /**
+     * Optionally attach the decoded raw provider response to the completion
+     * metadata, gated by the private ``_capture_raw`` option the admin
+     * playground sets (never a provider API field). Off in production, so raw
+     * payloads are never retained — the parsed {@see CompletionResponse} is the
+     * only thing kept.
+     *
+     * @param array<string, mixed>      $options  the effective call options
+     * @param array<string, mixed>      $response the decoded provider response
+     * @param array<string, mixed>|null $existing metadata to merge the raw body into
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function rawResponseMetadata(array $options, array $response, ?array $existing = null): ?array
+    {
+        if (($options['_capture_raw'] ?? false) !== true) {
+            return $existing;
+        }
+
+        return array_merge($existing ?? [], ['_raw' => $response]);
+    }
+
     protected function createCompletionResponse(
         string $content,
         string $model,

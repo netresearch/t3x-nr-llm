@@ -291,6 +291,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             finishReason: $this->getString($response, 'done_reason', 'stop'),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls,
+            metadata: $this->rawResponseMetadata($options, $response),
         );
     }
 

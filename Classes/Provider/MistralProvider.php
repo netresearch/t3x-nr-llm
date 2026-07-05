@@ -229,6 +229,7 @@ final class MistralProvider extends AbstractProvider implements
             finishReason: $this->getString($choice, 'finish_reason', 'stop'),
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls,
+            metadata: $this->rawResponseMetadata($options, $response),
         );
     }
 

@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
+use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
@@ -79,6 +81,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $toolRegistry = new ToolRegistry([new FakeTool('fetch_logs')]);
         $availability = $this->availabilityFor($toolRegistry);
 
+        $skillRepository = $this->get(SkillRepository::class);
+        self::assertInstanceOf(SkillRepository::class, $skillRepository);
+        $promptSnippetRepository = $this->get(PromptSnippetRepository::class);
+        self::assertInstanceOf(PromptSnippetRepository::class, $promptSnippetRepository);
+
         $controller = new ToolPlaygroundController(
             $moduleTemplateFactory,
             $configurationRepository,
@@ -86,6 +93,8 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([]), $availability),
             $availability,
             $this->get(AllowedToolsResolver::class),
+            $skillRepository,
+            $promptSnippetRepository,
         );
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
 
@@ -198,19 +207,65 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertSame(2, $payload['iterations']);
         self::assertFalse($payload['truncated']);
 
-        // The trace records the single executed tool invocation, shape verbatim.
-        self::assertIsArray($payload['trace']);
-        self::assertCount(1, $payload['trace']);
-        $entry = $payload['trace'][0];
-        self::assertIsArray($entry);
-        self::assertSame('fetch_logs', $entry['name']);
-        self::assertSame(['limit' => 5], $entry['arguments']);
-        self::assertSame('ok', $entry['result']);
-        self::assertFalse($entry['isError']);
+        self::assertFalse($payload['dryRun']);
+
+        // The step trace records both model round-trips and the executed tool.
+        self::assertIsArray($payload['steps']);
+        $toolStep = null;
+        $llmSteps = 0;
+        foreach ($payload['steps'] as $step) {
+            self::assertIsArray($step);
+            if (($step['kind'] ?? '') === 'tool') {
+                $toolStep = $step;
+            } elseif (($step['kind'] ?? '') === 'llm') {
+                ++$llmSteps;
+            }
+        }
+        self::assertSame(2, $llmSteps);
+        self::assertIsArray($toolStep);
+        self::assertSame('fetch_logs', $toolStep['toolName']);
+        self::assertSame(['limit' => 5], $toolStep['toolArguments']);
+        self::assertSame('ok', $toolStep['toolResult']);
+        self::assertFalse($toolStep['toolIsError']);
 
         // Token usage is summed across both round-trips (7+3 then 5+4 => 19).
         self::assertIsArray($payload['usage']);
         self::assertSame(19, $payload['usage']['totalTokens']);
+    }
+
+    #[Test]
+    public function runActionDryRunAssemblesWithoutCallingTheProvider(): void
+    {
+        $this->importFixture('LlmConfigurations.csv');
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $configurationRepository = $this->get(LlmConfigurationRepository::class);
+        self::assertInstanceOf(LlmConfigurationRepository::class, $configurationRepository);
+
+        // A manager that fails the test if the loop ever calls the provider.
+        $manager = $this->createMock(LlmServiceManagerInterface::class);
+        $manager->expects(self::never())->method('chatWithToolsForConfiguration');
+
+        $toolRegistry = new ToolRegistry([new FakeTool('fetch_logs')]);
+        $toolLoop     = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $controller   = $this->makeController($configurationRepository, $toolRegistry, $toolLoop);
+
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody(['configuration' => 1, 'prompt' => 'assemble only', 'dryRun' => '1']);
+        $response = $controller->runAction($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($payload);
+        self::assertTrue($payload['success']);
+        self::assertTrue($payload['dryRun']);
+        self::assertSame(0, $payload['iterations']);
+        self::assertIsArray($payload['steps']);
+        self::assertCount(1, $payload['steps']);
+        $firstStep = $payload['steps'][0];
+        self::assertIsArray($firstStep);
+        self::assertSame('assembled', $firstStep['kind']);
     }
 
     /**
@@ -227,6 +282,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $pageRenderer = $this->get(PageRenderer::class);
         self::assertInstanceOf(PageRenderer::class, $pageRenderer);
 
+        $skillRepository = $this->get(SkillRepository::class);
+        self::assertInstanceOf(SkillRepository::class, $skillRepository);
+        $promptSnippetRepository = $this->get(PromptSnippetRepository::class);
+        self::assertInstanceOf(PromptSnippetRepository::class, $promptSnippetRepository);
+
         return new ToolPlaygroundController(
             $moduleTemplateFactory,
             $configurationRepository,
@@ -234,6 +294,8 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $toolLoopService,
             $this->availabilityFor($toolRegistry),
             $this->get(AllowedToolsResolver::class),
+            $skillRepository,
+            $promptSnippetRepository,
         );
     }
 

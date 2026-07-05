@@ -166,28 +166,38 @@ loop, while the Tools module governs *which* tools exist and are enabled.
 1. Pick an **LLM configuration** from the dropdown. Its vault-stored API key,
    model, temperature and system prompt are what the loop actually runs on —
    the playground never falls back to a default model.
-2. Type a **prompt** and click :guilabel:`Run`.
-3. Read the **trace**. Each tool the model called is shown in order with its
-   name, the arguments the model chose, and the tool's result (errors are
-   badged). The model's **final answer** follows the trace.
+2. Type a **prompt**. Optionally open the override panels to **force-inject
+   skills** (added on top of the configuration's own), **force-add snippets**
+   (inserted as leading system messages), override the **system prompt**, cap
+   the **max rounds**, or tick **capture raw provider response**.
+3. Click :guilabel:`Run` — or :guilabel:`Dry run` to assemble the prompt and
+   inspect exactly what *would* be sent without calling the model.
+4. Read the **inspector**. A summary strip reports rounds, tool calls, the
+   prompt/completion token split, estimated cost, wall time and status. The
+   step list is the nr_llm ↔ LLM dialog in order — each model round-trip and
+   each tool execution; select a step to open its detail, with
+   :guilabel:`Structured`, :guilabel:`Raw JSON`, :guilabel:`Messages sent`
+   and :guilabel:`Thinking` tabs. The model's **final answer** closes the run.
 
 .. figure:: /Images/ToolPlaygroundRun.png
-   :alt: A completed tool run showing a two-iteration agent loop that
-       called fetch_logs, its redacted result, and the run metadata
+   :alt: A completed tool run — the summary strip, the ordered step list and
+       the selected step's detail tabs for a two-iteration agent loop
    :class: with-border with-shadow
    :zoom: lightbox
 
-   A completed run — a two-iteration loop in which the model called
-   ``fetch_logs`` (arguments ``{"limit": 3}``); the redacted ``sys_log``
-   result is fed back and the model's final answer closes the trace.
+   A completed run — the summary strip (rounds, tool calls, token split, wall
+   time, status), the ordered step list of the nr_llm ↔ LLM dialog, and the
+   selected step's detail: here round 1 requested the ``list_be_users`` tool,
+   whose result is fed back so round 2 can answer.
 
 The :guilabel:`Tools available to this run` list lets you narrow a single run
 to a subset of the globally-enabled tools (the full list and the global
 enable/disable controls live in the :ref:`Tools
-<administration-tools-manage>` module). Every displayed string — tool
-arguments, tool results (which may include ``sys_log`` content), and the
-final answer — is rendered escaped; HTML is only ever shown inside a
-sandboxed preview, never injected into the page.
+<administration-tools-manage>` module). Raw-response capture is off unless you
+tick it, so ordinary runs never retain the provider's raw payload. Every
+displayed string — tool arguments, tool results (which may include
+``sys_log`` content), and the final answer — is rendered escaped; HTML is
+only ever shown inside a sandboxed preview, never injected into the page.
 
 Each run is bounded by the iteration cap (default 5) and, when the
 configuration's backend user has a budget, by the per-iteration budget

@@ -21,6 +21,8 @@ use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
+use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Tool\Builtin\ResolvesActingBackendUserTrait;
 use Psr\Log\LoggerInterface;
 use stdClass;
@@ -66,6 +68,12 @@ final readonly class ToolLoopService
         private ToolAvailabilityServiceInterface $availability,
         private ?LoggerInterface $logger = null,
         private int $defaultMaxIterations = 5,
+        // Optional collaborators (autowired in production), mirroring the
+        // optional SkillInjectionService on LlmServiceManager. Absent them the
+        // loop simply skips prompt augmentation — the production tool path and
+        // the existing lean test wiring keep working unchanged.
+        private ?SkillInjectionService $skillInjection = null,
+        private ?PromptSnippetComposer $snippetComposer = null,
     ) {}
 
     /**
@@ -86,8 +94,25 @@ final readonly class ToolLoopService
         ?array $allowedToolNames,
         ?ToolOptions $options = null,
         ?int $maxIterations = null,
+        ?RunTrace $runTrace = null,
+        ?RunAugmentation $augmentation = null,
     ): ToolLoopResult {
         $max = $maxIterations ?? $this->defaultMaxIterations;
+
+        // Assemble the outgoing prompt once, before the loop: configuration
+        // skills inject into the tool path here (the loop is the sole caller of
+        // chatWithToolsForConfiguration, so this closes the injection gap
+        // without double-injecting — augmentMessages returns a new list and the
+        // loop re-sends its own accumulating array). A RunAugmentation adds the
+        // playground extras (forced skills/snippets, baked system prompt) and
+        // the dry-run flag.
+        [$messages, $dryRun] = $this->assemble($messages, $configuration, $options, $augmentation);
+
+        if ($dryRun) {
+            $runTrace?->recordAssembledMessages($messages);
+
+            return new ToolLoopResult('', [], 0, false, UsageStatistics::fromTokens(0, 0));
+        }
 
         // Fail-closed global gate: the effective allow-set is always intersected
         // with the globally-enabled tools. A null caller list means "no per-run
@@ -118,7 +143,9 @@ final readonly class ToolLoopService
         // request with an empty `tools` array makes some providers (OpenAI) 400.
         // The design (§4.3) maps "no tools" to a single plain completion.
         if ($specs === []) {
+            $t0   = hrtime(true);
             $resp = $this->mgr->chatWithConfiguration($messages, $configuration, $this->budgetMetadata($options));
+            $runTrace?->recordLlmCall(1, self::elapsedMs($t0), $messages, [], $resp);
 
             return new ToolLoopResult(
                 $resp->content,
@@ -142,7 +169,9 @@ final readonly class ToolLoopService
         try {
             for ($i = 0; $i < $max; $i++) {
                 $iterations++;
+                $t0   = hrtime(true);
                 $resp = $this->mgr->chatWithToolsForConfiguration($messages, $specs, $configuration, $options);
+                $runTrace?->recordLlmCall($iterations, self::elapsedMs($t0), $messages, $allowedNames, $resp);
                 $promptTokens     += $resp->usage->promptTokens;
                 $completionTokens += $resp->usage->completionTokens;
 
@@ -158,6 +187,7 @@ final readonly class ToolLoopService
 
                 $messages[] = $this->assistantTurn($resp);
                 foreach ($resp->toolCalls ?? [] as $call) {
+                    $tt0                = hrtime(true);
                     [$result, $isError] = $this->invoke($call, $allowedNames);
                     $messages[]         = [
                         'role'         => 'tool',
@@ -165,6 +195,7 @@ final readonly class ToolLoopService
                         'content'      => $result,
                     ];
                     $trace[] = new ToolInvocation($call->name, $call->arguments, $result, $isError);
+                    $runTrace?->recordToolExecution($iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $result, $isError);
                 }
             }
 
@@ -172,11 +203,16 @@ final readonly class ToolLoopService
             // NO tools. A plain completion yields a real finalContent uniformly
             // across OpenAI, Claude and Ollama — unlike toolChoice='none' or an
             // empty tools array (see design §4.3).
+            $t0    = hrtime(true);
             $final = $this->mgr->chatWithConfiguration(
                 $messages,
                 $configuration,
                 $this->budgetMetadata($options),
             );
+            // Record the synthesis as its own round (after the last tool round)
+            // so the inspector's step list does not show two steps sharing a
+            // round number.
+            $runTrace?->recordLlmCall($iterations + 1, self::elapsedMs($t0), $messages, [], $final);
             $promptTokens     += $final->usage->promptTokens;
             $completionTokens += $final->usage->completionTokens;
 
@@ -206,6 +242,64 @@ final readonly class ToolLoopService
                 UsageStatistics::fromTokens($promptTokens, $completionTokens),
             );
         }
+    }
+
+    /**
+     * Assemble the outgoing messages once before the loop.
+     *
+     * Configuration skills are injected on every run — this is the tool-path
+     * injection fix (previously the loop never applied skill prose). A
+     * {@see RunAugmentation} additionally bakes the effective system prompt
+     * (a per-run override wins over the configuration's), the forced snippet
+     * system messages and the forced skills, and carries the dry-run flag.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     *
+     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: bool} [assembled messages, dryRun]
+     */
+    private function assemble(
+        array $messages,
+        LlmConfiguration $configuration,
+        ?ToolOptions $options,
+        ?RunAugmentation $augmentation,
+    ): array {
+        $configSkills = SkillInjectionService::toList($configuration->getSkills());
+        $forcedSkills = $augmentation !== null ? $augmentation->forcedSkills : [];
+        $messages     = $this->skillInjection?->augmentMessages($messages, $configSkills, $forcedSkills) ?? $messages;
+
+        if ($augmentation === null) {
+            return [$messages, false];
+        }
+
+        $lead = [];
+
+        // Bake the effective system prompt as the first message. Without this,
+        // the snippet system messages below would satisfy the manager's "a
+        // system message already exists" guard and suppress the configuration
+        // system prompt for the run.
+        $override = $options?->getSystemPrompt() ?? '';
+        $system   = $override !== '' ? $override : $configuration->getSystemPrompt();
+        if ($system !== '') {
+            $lead[] = ChatMessage::system($system);
+        }
+
+        foreach ($augmentation->forcedSnippets as $snippet) {
+            $text = $this->snippetComposer?->composeSections([$snippet->getName() => $snippet]) ?? '';
+            if ($text !== '') {
+                $lead[] = ChatMessage::system($text);
+            }
+        }
+
+        if ($lead !== []) {
+            $messages = array_values(array_merge($lead, $messages));
+        }
+
+        return [$messages, $augmentation->dryRun];
+    }
+
+    private static function elapsedMs(int $startNs): float
+    {
+        return (hrtime(true) - $startNs) / 1_000_000;
     }
 
     /**
