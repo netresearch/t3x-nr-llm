@@ -208,4 +208,15 @@ final class BackendAjaxAdminGuardTest extends AbstractFunctionalTestCase
         // non-admin call is refused without dispatching an Extbase request.
         $this->assertForbidden($controller->executeTestAction());
     }
+
+    #[Test]
+    public function llmModuleReachabilityDeniedForNonAdmin(): void
+    {
+        $controller = $this->get(LlmModuleController::class);
+        self::assertInstanceOf(LlmModuleController::class, $controller);
+
+        // The overview reachability probe is admin-only: the guard refuses a
+        // non-admin before any provider is contacted.
+        $this->assertForbidden($controller->reachabilityAction());
+    }
 }

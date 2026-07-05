@@ -29,6 +29,16 @@ defined('TYPO3') or die();
         'groups' => ['nrllm'],
     ];
 
+    // Short-lived reachability cache (overview provider dots).
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_reachability'] ??= [
+        'frontend' => VariableFrontend::class,
+        'options' => [
+            'defaultLifetime' => 60,
+        ],
+        'groups' => ['nrllm'],
+    ];
+
     // Register custom TCA renderType for model_id field with API fetch
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SYS']['formEngine']['nodeRegistry'][1741427200] = [

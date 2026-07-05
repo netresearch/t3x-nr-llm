@@ -1,0 +1,435 @@
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * Styling for the LLM backend overview: state-colored module cards
+ * (green ready / blue next / soft-blue empty / muted locked), the analytics
+ * band, provider reachability dots, and the developer teaser. Theme-aware for
+ * the TYPO3 v13/v14 backend light and dark colour schemes.
+ */
+
+.nrllm-ov {
+    --nrllm-ov-surface: #fff;
+    --nrllm-ov-surface-2: #fafbfc;
+    --nrllm-ov-border: #d3d6db;
+    --nrllm-ov-border-soft: #e5e7eb;
+    --nrllm-ov-text: #15181d;
+    --nrllm-ov-muted: #6b7280;
+    --nrllm-ov-primary: #0b7aba;
+    --nrllm-ov-brand: #ff8700;
+    --nrllm-ov-teal: #2f99a4;
+    --nrllm-ov-ok-bd: #4c9a2a;
+    --nrllm-ov-ok-tx: #2c6a17;
+    --nrllm-ov-ok-tint: #f1f9ee;
+    --nrllm-ov-ok-bg: #e7f4e4;
+    --nrllm-ov-info-bd: #0b7aba;
+    --nrllm-ov-info-tx: #0a5688;
+    --nrllm-ov-info-tint: #eef6fc;
+    --nrllm-ov-info-bg: #e4f0f8;
+    --nrllm-ov-danger-bd: #c0392b;
+    --nrllm-ov-code-bg: #f6f8fa;
+    --nrllm-ov-radius: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .nrllm-ov {
+        --nrllm-ov-surface: #26282c;
+        --nrllm-ov-surface-2: #2c2e33;
+        --nrllm-ov-border: #3a3d43;
+        --nrllm-ov-border-soft: #33363b;
+        --nrllm-ov-text: #e7e9ec;
+        --nrllm-ov-muted: #9aa0a8;
+        --nrllm-ov-primary: #3ea0dd;
+        --nrllm-ov-brand: #ff9e33;
+        --nrllm-ov-teal: #43b3bd;
+        --nrllm-ov-ok-tx: #8fd07a;
+        --nrllm-ov-ok-tint: #1a2a1b;
+        --nrllm-ov-ok-bg: #1f3320;
+        --nrllm-ov-info-tx: #8fcdf0;
+        --nrllm-ov-info-tint: #152833;
+        --nrllm-ov-info-bg: #16303f;
+        --nrllm-ov-danger-bd: #d9584a;
+        --nrllm-ov-code-bg: #1c2024;
+    }
+}
+
+/* TYPO3 backend explicit dark scheme (overrides system preference). */
+:root[data-color-scheme="dark"] .nrllm-ov,
+[data-color-scheme="dark"] .nrllm-ov {
+    --nrllm-ov-surface: #26282c;
+    --nrllm-ov-surface-2: #2c2e33;
+    --nrllm-ov-border: #3a3d43;
+    --nrllm-ov-border-soft: #33363b;
+    --nrllm-ov-text: #e7e9ec;
+    --nrllm-ov-muted: #9aa0a8;
+    --nrllm-ov-primary: #3ea0dd;
+    --nrllm-ov-brand: #ff9e33;
+    --nrllm-ov-teal: #43b3bd;
+    --nrllm-ov-ok-tx: #8fd07a;
+    --nrllm-ov-ok-tint: #1a2a1b;
+    --nrllm-ov-ok-bg: #1f3320;
+    --nrllm-ov-info-tx: #8fcdf0;
+    --nrllm-ov-info-tint: #152833;
+    --nrllm-ov-info-bg: #16303f;
+    --nrllm-ov-danger-bd: #d9584a;
+    --nrllm-ov-code-bg: #1c2024;
+}
+
+.nrllm-ov-sub {
+    font-size: .8em;
+    font-weight: 400;
+    color: var(--nrllm-ov-muted);
+}
+
+/* ---------- Analytics band ---------- */
+.nrllm-ov-ana-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0 12px;
+}
+
+.nrllm-ov-ana-head h2 {
+    font-size: 1.15rem;
+}
+
+.nrllm-ov-ana-head .btn {
+    margin-left: auto;
+}
+
+.nrllm-ov-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.nrllm-ov-kpi {
+    background: var(--nrllm-ov-surface);
+    border: 1px solid var(--nrllm-ov-border);
+    border-radius: var(--nrllm-ov-radius);
+    padding: 14px 16px;
+}
+
+.nrllm-ov-kpi-lab {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--nrllm-ov-muted);
+}
+
+.nrllm-ov-kpi-val {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-top: 4px;
+}
+
+.nrllm-ov-kpi-dt {
+    font-size: 11.5px;
+    color: var(--nrllm-ov-muted);
+    margin-top: 2px;
+}
+
+.nrllm-ov-accent {
+    color: var(--nrllm-ov-brand);
+}
+
+.nrllm-ov-chart {
+    background: var(--nrllm-ov-surface);
+    border: 1px solid var(--nrllm-ov-border);
+    border-radius: var(--nrllm-ov-radius);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+}
+
+.nrllm-ov-chart-t {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+.nrllm-ov-bar-row {
+    display: grid;
+    grid-template-columns: 130px 1fr 54px;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.nrllm-ov-bar-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nrllm-ov-bar-track {
+    background: var(--nrllm-ov-surface-2);
+    border: 1px solid var(--nrllm-ov-border-soft);
+    border-radius: 4px;
+    height: 14px;
+    overflow: hidden;
+}
+
+.nrllm-ov-bar-fill {
+    display: block;
+    height: 100%;
+    background: var(--nrllm-ov-teal);
+    border-radius: 4px;
+}
+
+.nrllm-ov-bar-val {
+    text-align: right;
+    color: var(--nrllm-ov-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Set up & manage grid ---------- */
+.nrllm-ov-legend {
+    font-size: 12.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.nrllm-ov-sw {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+    background: var(--nrllm-ov-border);
+}
+
+.nrllm-ov-sw.is-ready {
+    background: var(--nrllm-ov-ok-bd);
+}
+
+.nrllm-ov-sw.is-next {
+    background: var(--nrllm-ov-info-bd);
+}
+
+.nrllm-ov-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+}
+
+.nrllm-ov-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--nrllm-ov-surface);
+    border: 1px solid var(--nrllm-ov-border);
+    border-left: 3px solid var(--nrllm-ov-border);
+    border-radius: var(--nrllm-ov-radius);
+    overflow: hidden;
+    transition: box-shadow .12s, border-color .12s, transform .12s;
+}
+
+.nrllm-ov-card:hover {
+    border-color: var(--nrllm-ov-primary);
+    box-shadow: 0 3px 12px rgba(16, 24, 40, .12);
+    transform: translateY(-1px);
+}
+
+/* The whole card is a link (Bootstrap stretched-link); footer actions and the
+   flag sit above the stretched ::after so they remain independently clickable. */
+.nrllm-ov-card .nrllm-ov-card-f,
+.nrllm-ov-card .nrllm-ov-flag {
+    position: relative;
+    z-index: 2;
+}
+
+.nrllm-ov-card-h {
+    display: flex;
+    gap: 11px;
+    align-items: center;
+    padding: 13px 14px 8px;
+}
+
+.nrllm-ov-icon {
+    position: relative;
+    flex: 0 0 auto;
+    line-height: 0;
+}
+
+.nrllm-ov-check {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--nrllm-ov-ok-bd);
+    color: #fff;
+    border: 2px solid var(--nrllm-ov-surface);
+}
+
+.nrllm-ov-check .t3js-icon,
+.nrllm-ov-check .icon {
+    color: #fff;
+}
+
+.nrllm-ov-tt {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--nrllm-ov-text);
+}
+
+.nrllm-ov-st {
+    font-size: 12px;
+    color: var(--nrllm-ov-muted);
+    margin-top: 1px;
+}
+
+.nrllm-ov-card-b {
+    padding: 0 14px 10px;
+    font-size: 12.5px;
+    color: var(--nrllm-ov-muted);
+    flex: 1;
+}
+
+.nrllm-ov-card-f {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 9px 14px;
+    border-top: 1px solid var(--nrllm-ov-border-soft);
+    background: var(--nrllm-ov-surface-2);
+}
+
+.nrllm-ov-card-f a {
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.nrllm-ov-card-f a:hover {
+    text-decoration: underline;
+}
+
+.nrllm-ov-flag {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    border-radius: 20px;
+    padding: 2px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.nrllm-ov-flag.is-ready {
+    background: var(--nrllm-ov-ok-bg);
+    color: var(--nrllm-ov-ok-tx);
+}
+
+.nrllm-ov-flag.is-next {
+    background: var(--nrllm-ov-info-bd);
+    color: #fff;
+}
+
+.nrllm-ov-flag.is-empty {
+    background: var(--nrllm-ov-info-bg);
+    color: var(--nrllm-ov-info-tx);
+}
+
+.nrllm-ov-flag.is-locked {
+    background: var(--nrllm-ov-surface-2);
+    color: var(--nrllm-ov-muted);
+    border: 1px solid var(--nrllm-ov-border);
+}
+
+/* --- Card states --- */
+.nrllm-ov-card.is-ready {
+    border-left-color: var(--nrllm-ov-ok-bd);
+    background: linear-gradient(180deg, var(--nrllm-ov-ok-tint), var(--nrllm-ov-surface) 64px);
+}
+
+.nrllm-ov-card.is-next {
+    border-left-color: var(--nrllm-ov-info-bd);
+    background: linear-gradient(180deg, var(--nrllm-ov-info-tint), var(--nrllm-ov-surface) 64px);
+    box-shadow: 0 0 0 1px var(--nrllm-ov-info-bd);
+}
+
+.nrllm-ov-card.is-next:hover {
+    box-shadow: 0 0 0 1px var(--nrllm-ov-info-bd), 0 3px 12px rgba(16, 24, 40, .12);
+}
+
+.nrllm-ov-card.is-empty {
+    border-left-color: var(--nrllm-ov-info-bd);
+    background: linear-gradient(180deg, var(--nrllm-ov-info-tint), var(--nrllm-ov-surface) 64px);
+}
+
+/* Locked = visual only. pointer-events stays enabled so the card and its
+   links still work. */
+.nrllm-ov-card.is-locked {
+    opacity: .66;
+}
+
+/* ---------- Reachability dots ---------- */
+.nrllm-ov-reach {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    align-items: center;
+}
+
+.nrllm-ov-reach-lab {
+    width: 100%;
+    font-size: 11px;
+    color: var(--nrllm-ov-muted);
+}
+
+.nrllm-ov-reach-name {
+    font-size: 11.5px;
+    color: var(--nrllm-ov-muted);
+    margin-right: 6px;
+}
+
+.nrllm-ov-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    background: var(--nrllm-ov-muted);
+    vertical-align: middle;
+}
+
+.nrllm-ov-dot-up {
+    background: var(--nrllm-ov-ok-bd);
+    box-shadow: 0 0 0 3px var(--nrllm-ov-ok-bg);
+}
+
+.nrllm-ov-dot-down {
+    background: var(--nrllm-ov-danger-bd);
+    box-shadow: 0 0 0 3px rgba(192, 57, 43, .15);
+}
+
+.nrllm-ov-dot-unknown {
+    background: var(--nrllm-ov-muted);
+    opacity: .5;
+}
+
+/* ---------- Developer teaser ---------- */
+.nrllm-ov-dev pre {
+    background: var(--nrllm-ov-code-bg);
+    border: 1px solid var(--nrllm-ov-border-soft);
+    border-radius: var(--nrllm-ov-radius);
+    padding: 14px 16px;
+    overflow-x: auto;
+}
