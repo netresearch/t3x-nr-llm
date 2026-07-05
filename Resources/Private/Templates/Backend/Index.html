@@ -117,8 +117,8 @@ when the module has entries but none is the default; nothing when empty.</f:comm
                 </div>
             </f:then>
             <f:else>
-                <f:be.infobox state="-1" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.analytics.emptyTitle', default: 'No usage yet')}">
-                    <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.analytics.empty" default="Run your first prompt and cost, tokens and provider trends will appear here." /></p>
+                <f:be.infobox state="-1" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.analytics.emptyTitle', default: 'No usage in the last 30 days')}">
+                    <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.analytics.empty" default="Cost, tokens and provider trends appear here once there are requests in this period." /></p>
                 </f:be.infobox>
             </f:else>
         </f:if>

@@ -2355,12 +2355,12 @@
                 <target>Anfragen nach Anbieter</target>
             </trans-unit>
             <trans-unit id="overview.analytics.emptyTitle">
-                <source>No usage yet</source>
-                <target>Noch keine Nutzung</target>
+                <source>No usage in the last 30 days</source>
+                <target>Keine Nutzung in den letzten 30 Tagen</target>
             </trans-unit>
             <trans-unit id="overview.analytics.empty">
-                <source>Run your first prompt and cost, tokens and provider trends will appear here.</source>
-                <target>Führen Sie Ihren ersten Prompt aus – Kosten, Tokens und Anbieter-Trends erscheinen dann hier.</target>
+                <source>Cost, tokens and provider trends appear here once there are requests in this period.</source>
+                <target>Kosten, Tokens und Anbieter-Trends erscheinen hier, sobald es in diesem Zeitraum Anfragen gibt.</target>
             </trans-unit>
             <trans-unit id="overview.kpi.cost">
                 <source>Cost</source>

@@ -1780,10 +1780,10 @@
                 <source>Requests by provider</source>
             </trans-unit>
             <trans-unit id="overview.analytics.emptyTitle">
-                <source>No usage yet</source>
+                <source>No usage in the last 30 days</source>
             </trans-unit>
             <trans-unit id="overview.analytics.empty">
-                <source>Run your first prompt and cost, tokens and provider trends will appear here.</source>
+                <source>Cost, tokens and provider trends appear here once there are requests in this period.</source>
             </trans-unit>
             <trans-unit id="overview.kpi.cost">
                 <source>Cost</source>
