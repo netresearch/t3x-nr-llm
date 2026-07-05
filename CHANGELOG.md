@@ -10,7 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Tool calling with parameterless tools now works. A tool that takes no arguments declared its JSON-Schema `properties` as an empty PHP array, which serialises to `[]` — but JSON Schema requires an object, and strict providers (Ollama) reject the whole request with HTTP 400 (`Value looks like object, but can't find closing '}' symbol`). The same applied to a parameterless tool call's empty `{}` arguments when the agent loop replayed them (`json_decode('{}', true) === []`). Both are now emitted as `{}`, so the bounded agent loop and the Tool Playground work when a parameterless tool — environment, logs, page tree, TCA or backend user/group introspection — is offered (#308).
+- Tool calling with parameterless tools now works. A tool that takes no arguments declared its JSON-Schema `properties` as an empty PHP array, which serialises to `[]` — but JSON Schema requires an object, and strict providers (Ollama) reject the whole request with HTTP 400 (`Value looks like object, but can't find closing '}' symbol`). The same applied to a parameterless tool call's empty `{}` arguments when the agent loop replayed them (`json_decode('{}', true) === []`). Both are now emitted as `{}`, so the bounded agent loop and the Tool Playground work when a parameterless tool — environment, PHP info or backend user/group introspection — is offered (#308).
 
 ### Documentation
 
@@ -939,7 +939,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.1...HEAD
 [0.14.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.12.0...v0.13.0

@@ -21,8 +21,7 @@ takes no arguments emitted its (empty) JSON-Schema ``properties`` — and its
 empty replayed call ``arguments`` — as a JSON array ``[]`` instead of an
 object ``{}``, which strict providers such as Ollama reject with an HTTP 400.
 The bounded agent loop and the Tool Playground now work when a parameterless
-tool (environment, logs, page tree, TCA, or backend user/group introspection)
-is offered.
+tool (environment, PHP info, or backend user/group introspection) is offered.
 
 The Skills, Tools and Playground admin documentation was also refreshed to
 match the shipped backend (module section count, the full built-in tool
