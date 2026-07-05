@@ -651,7 +651,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             $request = $request->withHeader('X-Title', $this->appName);
         }
 
-        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR));
+        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
 
         return $request->withBody($body);
     }
@@ -890,7 +890,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             $request = $request->withHeader('X-Title', $this->appName);
         }
 
-        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR));
+        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
         $response = $this->getHttpClient()->sendRequest($request);

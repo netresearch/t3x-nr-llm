@@ -279,7 +279,13 @@ abstract class AbstractProvider implements ProviderInterface
         $request = $this->addProviderSpecificHeaders($request);
 
         if ($method === 'POST' && $payload !== []) {
-            $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR));
+            // JSON_INVALID_UTF8_SUBSTITUTE: a request payload carrying an invalid
+            // byte (e.g. a tool result echoing non-UTF-8 log/env output back into
+            // the conversation) must degrade to a replacement character, never
+            // throw and abort the whole call.
+            $body = $this->streamFactory->createStream(
+                json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE),
+            );
             $request = $request->withBody($body);
         }
 
