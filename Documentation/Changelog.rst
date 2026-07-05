@@ -11,6 +11,25 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-14-1:
+
+Version 0.14.1 (2026-07-05)
+===========================
+
+A patch release fixing tool calling with parameterless tools. A tool that
+takes no arguments emitted its (empty) JSON-Schema ``properties`` — and its
+empty replayed call ``arguments`` — as a JSON array ``[]`` instead of an
+object ``{}``, which strict providers such as Ollama reject with an HTTP 400.
+The bounded agent loop and the Tool Playground now work when a parameterless
+tool (environment, PHP info, or backend user/group introspection) is offered.
+
+The Skills, Tools and Playground admin documentation was also refreshed to
+match the shipped backend (module section count, the full built-in tool
+catalogue, two-tier tool authorization, and updated screenshots).
+
+For the complete, itemised list see the canonical
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-llm/blob/main/CHANGELOG.md>`__.
+
 .. _version-0-14-0:
 
 Version 0.14.0 (2026-07-04)
