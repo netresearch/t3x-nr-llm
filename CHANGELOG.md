@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-07-05
+
+### Fixed
+
+- Tool calling with parameterless tools now works. A tool that takes no arguments declared its JSON-Schema `properties` as an empty PHP array, which serialises to `[]` — but JSON Schema requires an object, and strict providers (Ollama) reject the whole request with HTTP 400 (`Value looks like object, but can't find closing '}' symbol`). The same applied to a parameterless tool call's empty `{}` arguments when the agent loop replayed them (`json_decode('{}', true) === []`). Both are now emitted as `{}`, so the bounded agent loop and the Tool Playground work when a parameterless tool — environment, logs, page tree, TCA or backend user/group introspection — is offered (#308).
+
+### Documentation
+
+- Refreshed the Skills, Tools and Playground admin guide: corrected the LLM module section count, replaced the outdated built-in tool list with the full catalogue, documented the two-tier (admin / non-admin) tool authorization, clarified that skill injection is eager and complete, and updated the screenshots (#307).
+
 ## [0.14.0] - 2026-07-04
 
 ### Added
@@ -930,6 +940,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Initial public release. See git history for prior commits.
 
 [Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.0...HEAD
+[0.14.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.11.1...v0.12.0
