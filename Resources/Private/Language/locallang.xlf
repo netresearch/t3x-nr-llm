@@ -672,10 +672,10 @@
                 <source>Function-calling tools</source>
             </trans-unit>
             <trans-unit id="tool.card.description">
-                <source>Function-calling tools available to the agent, with an admin playground to test them.</source>
+                <source>Function-calling tools available to the agent — enable or disable each one.</source>
             </trans-unit>
             <trans-unit id="tool.card.button">
-                <source>Open Tool Playground</source>
+                <source>Manage tools</source>
             </trans-unit>
             <trans-unit id="help.card.description">
                 <source>Read the in-module help and the online documentation for setup guidance and troubleshooting.</source>

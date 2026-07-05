@@ -885,12 +885,12 @@
                 <target>Werkzeuge für Funktionsaufrufe</target>
             </trans-unit>
             <trans-unit id="tool.card.description">
-                <source>Function-calling tools available to the agent, with an admin playground to test them.</source>
-                <target>Werkzeuge für Funktionsaufrufe, die dem Agenten zur Verfügung stehen, mit einem Administrator-Playground zum Testen.</target>
+                <source>Function-calling tools available to the agent — enable or disable each one.</source>
+                <target>Werkzeuge für Funktionsaufrufe, die dem Agenten zur Verfügung stehen — einzeln aktivierbar oder deaktivierbar.</target>
             </trans-unit>
             <trans-unit id="tool.card.button">
-                <source>Open Tool Playground</source>
-                <target>Werkzeug-Playground öffnen</target>
+                <source>Manage tools</source>
+                <target>Werkzeuge verwalten</target>
             </trans-unit>
             <trans-unit id="help.card.description">
                 <source>Read the in-module help and the online documentation for setup guidance and troubleshooting.</source>

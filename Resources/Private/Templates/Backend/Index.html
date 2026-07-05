@@ -283,9 +283,9 @@ when the module has entries but none is the default; nothing when empty.</f:comm
                         <div class="nrllm-ov-st">{statuses.tools.count} · {statuses.tools.enabledCount} <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.count.on" default="on" /></div>
                     </div>
                 </div>
-                <div class="nrllm-ov-card-b"><p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tool.card.description" default="Function-calling tools available to the agent." /></p></div>
+                <div class="nrllm-ov-card-b"><p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tool.card.description" default="Function-calling tools available to the agent — enable or disable each one." /></p></div>
                 <div class="nrllm-ov-card-f">
-                    <a href="{be:moduleLink(route: 'nrllm_playground')}"><core:icon identifier="module-nrllm-tool" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tool.card.button" default="Open Tool Playground" /></a>
+                    <a href="{be:moduleLink(route: 'nrllm_tools')}"><core:icon identifier="module-nrllm-tool" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tool.card.button" default="Manage tools" /></a>
                 </div>
             </div>
 
