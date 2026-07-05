@@ -111,9 +111,13 @@ class OverviewReachability {
   }
 
   reset() {
+    const word = this.labels.unknown;
     document.querySelectorAll('.nrllm-ov-reach-badge').forEach((badge) => {
       badge.classList.remove('is-up', 'is-down');
       badge.classList.add('is-unknown');
+      const name = badge.textContent.trim();
+      badge.setAttribute('aria-label', `${name}: ${word}`);
+      badge.setAttribute('title', word);
     });
   }
 }

@@ -150,7 +150,7 @@ when the module has entries but none is the default; nothing when empty.</f:comm
                         <div class="nrllm-ov-reach" data-label-up="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.up', default: 'reachable')}" data-label-down="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.down', default: 'unreachable')}" data-label-unknown="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.unknown', default: 'status unknown')}">
                             <span class="nrllm-ov-reach-lab"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.label" default="Reachability (live, no tokens):" /></span>
                             <f:for each="{configuredProviders}" as="p">
-                                <span class="nrllm-ov-reach-badge is-unknown" data-nrllm-provider="{p.identifier}"><span class="nrllm-ov-reach-ico" aria-hidden="true"></span>{p.name}</span>
+                                <span class="nrllm-ov-reach-badge is-unknown" data-nrllm-provider="{p.identifier}" aria-label="{p.name}: {f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.unknown', default: 'status unknown')}" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.reach.unknown', default: 'status unknown')}"><span class="nrllm-ov-reach-ico" aria-hidden="true"></span>{p.name}</span>
                             </f:for>
                         </div>
                     </f:if>
