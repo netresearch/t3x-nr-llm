@@ -2,12 +2,12 @@
 
 ## Description: Manage Ollama LLM models
 ## Usage: ollama [pull|list|run|chat|rm] [model]
-## Example: ddev ollama pull qwen3:0.6b
+## Example: ddev ollama pull qwen3:4b
 ## Example: ddev ollama list
 ## Example: ddev ollama chat qwen2.5:0.5b
 
 OLLAMA_CONTAINER="ddev-${DDEV_SITENAME}-ollama"
-DEFAULT_MODEL="${OLLAMA_MODEL:-qwen3:0.6b}"
+DEFAULT_MODEL="${OLLAMA_MODEL:-qwen3:4b}"
 
 case "$1" in
     pull)
@@ -53,15 +53,18 @@ case "$1" in
         echo "  status         Show Ollama status"
         echo "  api            Show API endpoints"
         echo ""
-        echo "Available small models (2025):"
+        echo "Default model:"
+        echo "  qwen3:4b       - 4B params, ~2.5GB, tool-capable (needs ~4GB RAM/VRAM)"
+        echo ""
+        echo "Low-resource fallbacks (small, but NOT reliably tool-capable):"
         echo "  smollm2:135m   - 135M params, ~400MB (absolute minimum)"
         echo "  smollm2:360m   - 360M params, ~700MB (tiny)"
-        echo "  qwen3:0.6b     - 600M params, ~800MB (recommended, newest)"
+        echo "  qwen3:0.6b     - 600M params, ~800MB (smallest qwen3)"
         echo "  gemma3:1b      - 1B params, ~1.2GB (Google's latest)"
         echo "  qwen2.5:0.5b   - 0.5B params, ~1GB"
         echo "  qwen2.5:1.5b   - 1.5B params, ~2GB"
         echo "  phi3:mini      - 3.8B params, ~3GB"
         echo ""
-        echo "Configure default: OLLAMA_MODEL=gemma3:1b ddev restart"
+        echo "Configure default: OLLAMA_MODEL=qwen3:0.6b ddev restart"
         ;;
 esac

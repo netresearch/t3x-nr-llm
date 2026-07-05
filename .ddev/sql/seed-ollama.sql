@@ -31,22 +31,27 @@ INSERT INTO tx_nrllm_provider (
 -- Get the provider UID for the model relation
 SET @ollama_provider_uid = (SELECT uid FROM tx_nrllm_provider WHERE identifier = 'ollama-local' AND deleted = 0 LIMIT 1);
 
--- Model: Qwen 3 0.6B (default small model)
+-- Clear any previous default for this provider so re-seeding stays
+-- deterministic (a stale is_default=1 row would make "default model"
+-- selection ambiguous by UID ordering).
+UPDATE tx_nrllm_model SET is_default = 0 WHERE provider_uid = @ollama_provider_uid AND deleted = 0;
+
+-- Model: Qwen 3 4B (default model)
 INSERT INTO tx_nrllm_model (
     pid, identifier, name, description, provider_uid, model_id,
     context_length, max_output_tokens, capabilities, default_timeout,
     cost_input, cost_output, is_active, is_default, sorting, tstamp, crdate
 ) VALUES (
     0,
-    'qwen3-0.6b',
-    'Qwen 3 0.6B',
-    'Alibaba Qwen 3 with 600M parameters. Fast, efficient for development and testing. April 2025 release.',
+    'qwen3-4b',
+    'Qwen 3 4B',
+    'Alibaba Qwen 3 with 4B parameters. Tool-capable, good general purpose at a small footprint (~2.5GB, ~4GB RAM). April 2025 release.',
     @ollama_provider_uid,
-    'qwen3:0.6b',
+    'qwen3:4b',
     32768,
     4096,
-    'chat,completion,streaming',
-    60,
+    'chat,completion,streaming,tools',
+    90,
     0,
     0,
     1,
@@ -59,6 +64,9 @@ INSERT INTO tx_nrllm_model (
     description = VALUES(description),
     provider_uid = @ollama_provider_uid,
     model_id = VALUES(model_id),
+    capabilities = VALUES(capabilities),
+    default_timeout = VALUES(default_timeout),
+    is_default = VALUES(is_default),
     tstamp = UNIX_TIMESTAMP();
 
 -- Model: Gemma 3 1B (alternative small model)
@@ -122,7 +130,7 @@ INSERT INTO tx_nrllm_model (
     tstamp = UNIX_TIMESTAMP();
 
 -- Get the default model UID for configurations
-SET @default_model_uid = (SELECT uid FROM tx_nrllm_model WHERE identifier = 'qwen3-0.6b' AND deleted = 0 LIMIT 1);
+SET @default_model_uid = (SELECT uid FROM tx_nrllm_model WHERE identifier = 'qwen3-4b' AND deleted = 0 LIMIT 1);
 
 -- Configuration: General Purpose
 INSERT INTO tx_nrllm_configuration (
