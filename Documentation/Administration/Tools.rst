@@ -13,10 +13,15 @@ it, feeds the result back, and re-asks — until the model answers or an
 iteration cap is reached. The v1 consumer is the interactive
 :ref:`Tool Playground <administration-tools-playground>`.
 
-Tool execution is **admin-only**. A tool runs with full TYPO3 privileges,
-has no per-record authorization, and its return value egresses both to the
-configured LLM provider **and** to the rendered backend output. It is safe
-only because the caller is an authenticated backend administrator.
+The :ref:`Tool Playground <administration-tools-playground>` — the only
+tool-running surface in this release — is **admin-only**. The runtime itself
+applies a two-tier gate: each tool declares ``requiresAdmin()``, and
+:php:`ToolLoopService` drops admin-only tools when the acting backend user is
+not an administrator. Most built-in tools require admin because a tool runs
+with full TYPO3 privileges, has no per-record authorization, and its return
+value egresses both to the configured LLM provider **and** to the rendered
+backend output; only a few read-only, scope-limited tools are offered to
+non-admin users.
 
 .. note::
 
@@ -28,11 +33,19 @@ only because the caller is an authenticated backend administrator.
 
 .. _administration-tools-builtin:
 
-The built-in example tools
-==========================
+The built-in tools
+==================
 
-Two read-only example tools ship enabled. They are reference implementations
-of the security contract, not a general capability:
+nr-llm ships eleven read-only introspection tools. Each is a reference
+implementation of the security contract: model-chosen arguments are
+validated and scoped, volumes are capped, and secret-bearing output is either
+redacted or gated behind a separate ``_raw`` variant. Eight ship **enabled**;
+the three unredacted ``_raw`` variants (``get_env_raw``, ``get_php_info_raw``
+and ``list_be_users_raw``) ship **disabled** and must be enabled deliberately.
+Most require admin; only ``get_pagetree``, ``get_tca`` and
+``read_fal_asset_meta`` are offered to non-admin backend users.
+
+The two tools below are the fullest illustrations of the contract:
 
 ``fetch_logs``
    Returns the most recent ``sys_log`` entries, newest first, with an
@@ -48,6 +61,33 @@ of the security contract, not a general capability:
    **storage-scoped** (default: the default storage). A uid in a non-permitted
    storage returns the same neutral "not found or not permitted" string as a
    missing uid — the model cannot enumerate arbitrary files.
+
+The remaining tools follow the same pattern:
+
+``get_env`` / ``get_env_raw``
+   Process environment variables. ``get_env`` redacts secret-looking values
+   (password, token, key, secret, salt, DSN, …); ``get_env_raw`` returns them
+   unredacted (database password, encryption key) and ships disabled.
+
+``get_php_info`` / ``get_php_info_raw``
+   PHP runtime configuration. ``get_php_info`` is redacted; ``get_php_info_raw``
+   returns the full, secret-bearing ``phpinfo`` detail and ships disabled.
+
+``get_pagetree``
+   The backend page tree (uid, title, doktype) as a depth-indented outline;
+   deleted and hidden pages are excluded — structure only, no content.
+
+``get_tca``
+   The TYPO3 TCA schema: with no argument it lists the configured table names;
+   with a ``table`` argument it returns that table's field definitions.
+
+``list_be_groups``
+   The backend user groups (uid, title).
+
+``list_be_users`` / ``list_be_users_raw``
+   Backend users. ``list_be_users`` omits credentials (password hashes and MFA
+   secrets are never included); ``list_be_users_raw`` returns the full
+   non-credential profile columns and ships disabled.
 
 .. _administration-tools-register:
 
@@ -91,6 +131,17 @@ tools (for example ``get_env_raw`` and ``get_php_info_raw``) ship **disabled
 by default** because they return unredacted, secret-bearing output; enable
 them only deliberately.
 
+.. figure:: /Images/ToolsModule.png
+   :alt: The Tools management module listing each built-in tool with an
+       Enabled or Disabled badge and an Enable/Disable toggle
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   The Tools module — each registered tool with its global enable state and a
+   toggle. The ``_raw`` variants show as :guilabel:`Disabled`, the redacted
+   tools as :guilabel:`Enabled`; the :guilabel:`Default` badge marks a tool
+   sitting at its shipped state.
+
 .. _administration-tools-playground:
 
 Using the Tool Playground
@@ -107,9 +158,10 @@ loop, while the Tools module governs *which* tools exist and are enabled.
    :class: with-border with-shadow
    :zoom: lightbox
 
-   The playground shell — the configuration picker and prompt box on the
-   left, the :guilabel:`Available tools` panel listing every registered
-   tool (here ``fetch_logs`` and ``read_fal_asset_meta``) on the right.
+   The playground shell — the configuration picker, prompt box and the
+   :guilabel:`Tools available to this run` panel, which lists every
+   registered tool with the default-enabled ones pre-checked and the
+   disabled ``_raw`` variants unchecked.
 
 1. Pick an **LLM configuration** from the dropdown. Its vault-stored API key,
    model, temperature and system prompt are what the loop actually runs on —
@@ -126,7 +178,7 @@ loop, while the Tools module governs *which* tools exist and are enabled.
    :zoom: lightbox
 
    A completed run — a two-iteration loop in which the model called
-   ``fetch_logs`` (arguments ``{"limit": 20}``); the redacted ``sys_log``
+   ``fetch_logs`` (arguments ``{"limit": 3}``); the redacted ``sys_log``
    result is fed back and the model's final answer closes the trace.
 
 The :guilabel:`Tools available to this run` list lets you narrow a single run

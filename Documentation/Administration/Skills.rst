@@ -115,6 +115,16 @@ prerequisite — nr-llm never silently bypasses the SSRF guard.
 Syncing and the review flow
 ===========================
 
+.. figure:: /Images/SkillsModule.png
+   :alt: The Skills module showing a synced marketplace source and the
+       discovered skills with their support badge and enabled state
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   The Skills module — the :guilabel:`Sources` table (type, sync status,
+   last synced, per-source actions) above the discovered :guilabel:`Skills`
+   with their ``partial`` / ``full`` support badge and enabled state.
+
 1. On a source, click :guilabel:`Sync`. The source moves through
    ``never_synced`` → ``syncing`` → ``ok`` / ``partial`` / ``error``.
    The ``syncing`` state also acts as a lock: a second concurrent sync on
@@ -154,8 +164,8 @@ Each skill carries a support badge:
    the referenced scripts and assets are **not executed** by nr-llm
    (which is true for every skill in this release). The prose itself is
    fully untrusted regardless of the badge. Asset references are stripped
-   from injected prose in a later release purely to avoid dangling
-   instructions, not as a security control.
+   from injected prose purely to avoid dangling instructions, not as a
+   security control.
 
 See :ref:`ADR-035 <adr-035>` for the full design and security rationale.
 
@@ -171,6 +181,25 @@ operations only — completion, translation and task execution; **never**
 embeddings, vision or speech — nr-llm composes the attached skills into a
 delimited block and prepends it to the *user* prompt. The configuration
 ``system_prompt`` is never modified.
+
+.. note::
+
+   Injection is **eager and complete**, not on demand. The whole skill
+   **body** — the entire ``SKILL.md`` prose after the front-matter, not just
+   the ``name``/``description`` — is written into the prompt *before* the model
+   runs. Unlike a :ref:`tool <administration-tools>`, a skill is **not**
+   something the model calls or fetches when it decides it needs it: there is no
+   runtime round-trip that loads a skill's body, and none that loads its
+   ``references/`` / ``scripts/`` / ``assets/`` (those lines are stripped from
+   ``partial`` skills, and the files are never executed). An attached skill
+   therefore always costs its full body in tokens on every run (subject to the
+   budget below).
+
+   *Planned direction (not in this release):* a progressive-disclosure mode
+   that injects only the ``description`` and lets the model pull the full body
+   or a referenced file on demand — the same shape as the tool runtime.
+   Executing a skill's bundled scripts or assets is a separate, harder step and
+   is not on the near-term roadmap.
 
 Composition rules:
 
