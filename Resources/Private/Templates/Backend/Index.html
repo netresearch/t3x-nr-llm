@@ -315,14 +315,17 @@ when the module has entries but none is the default; nothing when empty.</f:comm
         <div class="nrllm-ov-dev">
             <div class="nrllm-ov-dev-b">
                 <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:overview.dev.description" default="Everything you configure here is reachable from PHP via LlmServiceManager. Your extension inherits the providers, models, configurations, budgets and the middleware pipeline — no per-extension API wiring." /></p>
-                <pre><code class="language-php">use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+                <pre><code class="language-php">use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 
 // Inject the public API and run against a named configuration
 public function __construct(
     private readonly LlmServiceManagerInterface $llm,
+    private readonly LlmConfigurationRepository $configurations,
 ) {}
 
-$response = $this-&gt;llm-&gt;chatWithConfiguration($messages, 'my-config');
+$config = $this-&gt;configurations-&gt;findOneByIdentifier('my-config');
+$response = $this-&gt;llm-&gt;chatWithConfiguration($messages, $config);
 
 // or a one-shot completion with the default configuration
 $text = $this-&gt;llm-&gt;complete('Summarise: ' . $input);</code></pre>
