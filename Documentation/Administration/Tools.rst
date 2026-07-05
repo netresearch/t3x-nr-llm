@@ -180,14 +180,15 @@ loop, while the Tools module governs *which* tools exist and are enabled.
    and :guilabel:`Thinking` tabs. The model's **final answer** closes the run.
 
 .. figure:: /Images/ToolPlaygroundRun.png
-   :alt: A completed tool run showing a two-iteration agent loop that
-       called fetch_logs, its redacted result, and the run metadata
+   :alt: A completed tool run — the summary strip, the ordered step list and
+       the selected step's detail tabs for a two-iteration agent loop
    :class: with-border with-shadow
    :zoom: lightbox
 
-   A completed run — a two-iteration loop in which the model called
-   ``fetch_logs`` (arguments ``{"limit": 3}``); the redacted ``sys_log``
-   result is fed back and the model's final answer closes the trace.
+   A completed run — the summary strip (rounds, tool calls, token split, wall
+   time, status), the ordered step list of the nr_llm ↔ LLM dialog, and the
+   selected step's detail: here round 1 requested the ``list_be_users`` tool,
+   whose result is fed back so round 2 can answer.
 
 The :guilabel:`Tools available to this run` list lets you narrow a single run
 to a subset of the globally-enabled tools (the full list and the global
