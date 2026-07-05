@@ -290,7 +290,7 @@ class ToolPlayground {
             ['Structured', () => this.structuredPane(step, data, isFinal)],
             ['Raw JSON', () => step.raw != null ? this.pre(this.json(step.raw)) : this.note('Not captured. Enable “Capture raw provider response”.')],
             ['Messages sent', () => this.messagesList(step.messagesSent || [])],
-            ['Thinking', () => (step.thinking && String(step.thinking).trim() !== '') ? this.pre(step.thinking) : this.note('No reasoning returned for this round.')],
+            ['Thinking', () => step.thinking?.trim() ? this.pre(step.thinking) : this.note('No reasoning returned for this round.')],
         ];
         detail.appendChild(this.tabBox(tabs));
     }
