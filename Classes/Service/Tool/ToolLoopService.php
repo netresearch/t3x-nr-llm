@@ -209,7 +209,10 @@ final readonly class ToolLoopService
                 $configuration,
                 $this->budgetMetadata($options),
             );
-            $runTrace?->recordLlmCall($iterations, self::elapsedMs($t0), $messages, [], $final);
+            // Record the synthesis as its own round (after the last tool round)
+            // so the inspector's step list does not show two steps sharing a
+            // round number.
+            $runTrace?->recordLlmCall($iterations + 1, self::elapsedMs($t0), $messages, [], $final);
             $promptTokens     += $final->usage->promptTokens;
             $completionTokens += $final->usage->completionTokens;
 

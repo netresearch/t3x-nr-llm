@@ -59,6 +59,13 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     use ErrorMessageSanitizerTrait;
     use DefensiveLocalizationTrait;
 
+    /**
+     * Server-side ceiling on the per-run round count, matching the UI's
+     * max-rounds input. Guards against a crafted request driving an unbounded,
+     * cost-accruing agent loop.
+     */
+    private const MAX_ROUNDS = 20;
+
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly LlmConfigurationRepository $configurationRepository,
@@ -120,7 +127,9 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         $captureRaw   = $this->boolFromBody($body, 'captureRaw');
         $dryRun       = $this->boolFromBody($body, 'dryRun');
         $systemPrompt = trim($this->stringFromBody($body, 'systemPrompt'));
-        $maxRounds    = $this->intFromBody($body, 'maxRounds');
+        // Cap the per-run round count server-side (matching the UI ceiling) so
+        // a crafted request cannot drive an unbounded, cost-accruing loop.
+        $maxRounds    = min($this->intFromBody($body, 'maxRounds'), self::MAX_ROUNDS);
         $options      = new ToolOptions(
             systemPrompt: $systemPrompt !== '' ? $systemPrompt : null,
             beUserUid: $this->currentBackendUserUid(),
