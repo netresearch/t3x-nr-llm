@@ -96,7 +96,7 @@ class ToolPlayground {
                 try {
                     this.renderResult(data);
                 } catch (e) {
-                    const message = `Could not render the run result: ${e && e.message ? e.message : e}`;
+                    const message = `Could not render the run result: ${e?.message || String(e)}`;
                     this.renderError(message);
                     Notification.error('Error', message);
                 }
