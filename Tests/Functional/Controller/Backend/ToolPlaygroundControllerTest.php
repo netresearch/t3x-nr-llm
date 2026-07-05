@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
+use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
@@ -79,6 +81,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $toolRegistry = new ToolRegistry([new FakeTool('fetch_logs')]);
         $availability = $this->availabilityFor($toolRegistry);
 
+        $skillRepository = $this->get(SkillRepository::class);
+        self::assertInstanceOf(SkillRepository::class, $skillRepository);
+        $promptSnippetRepository = $this->get(PromptSnippetRepository::class);
+        self::assertInstanceOf(PromptSnippetRepository::class, $promptSnippetRepository);
+
         $controller = new ToolPlaygroundController(
             $moduleTemplateFactory,
             $configurationRepository,
@@ -86,6 +93,8 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([]), $availability),
             $availability,
             $this->get(AllowedToolsResolver::class),
+            $skillRepository,
+            $promptSnippetRepository,
         );
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
 
@@ -227,6 +236,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $pageRenderer = $this->get(PageRenderer::class);
         self::assertInstanceOf(PageRenderer::class, $pageRenderer);
 
+        $skillRepository = $this->get(SkillRepository::class);
+        self::assertInstanceOf(SkillRepository::class, $skillRepository);
+        $promptSnippetRepository = $this->get(PromptSnippetRepository::class);
+        self::assertInstanceOf(PromptSnippetRepository::class, $promptSnippetRepository);
+
         return new ToolPlaygroundController(
             $moduleTemplateFactory,
             $configurationRepository,
@@ -234,6 +248,8 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $toolLoopService,
             $this->availabilityFor($toolRegistry),
             $this->get(AllowedToolsResolver::class),
+            $skillRepository,
+            $promptSnippetRepository,
         );
     }
 
