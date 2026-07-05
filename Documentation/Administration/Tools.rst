@@ -13,10 +13,15 @@ it, feeds the result back, and re-asks — until the model answers or an
 iteration cap is reached. The v1 consumer is the interactive
 :ref:`Tool Playground <administration-tools-playground>`.
 
-Tool execution is **admin-only**. A tool runs with full TYPO3 privileges,
-has no per-record authorization, and its return value egresses both to the
-configured LLM provider **and** to the rendered backend output. It is safe
-only because the caller is an authenticated backend administrator.
+The :ref:`Tool Playground <administration-tools-playground>` — the only
+tool-running surface in this release — is **admin-only**. The runtime itself
+applies a two-tier gate: each tool declares ``requiresAdmin()``, and
+:php:`ToolLoopService` drops admin-only tools when the acting backend user is
+not an administrator. Most built-in tools require admin because a tool runs
+with full TYPO3 privileges, has no per-record authorization, and its return
+value egresses both to the configured LLM provider **and** to the rendered
+backend output; only a few read-only, scope-limited tools are offered to
+non-admin users.
 
 .. note::
 
@@ -31,12 +36,14 @@ only because the caller is an authenticated backend administrator.
 The built-in tools
 ==================
 
-nr-llm ships eleven read-only, admin-only introspection tools. Each is a
-reference implementation of the security contract: model-chosen arguments are
+nr-llm ships eleven read-only introspection tools. Each is a reference
+implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Eight ship **enabled**;
 the three unredacted ``_raw`` variants (``get_env_raw``, ``get_php_info_raw``
 and ``list_be_users_raw``) ship **disabled** and must be enabled deliberately.
+Most require admin; only ``get_pagetree``, ``get_tca`` and
+``read_fal_asset_meta`` are offered to non-admin backend users.
 
 The two tools below are the fullest illustrations of the contract:
 
