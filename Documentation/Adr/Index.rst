@@ -339,3 +339,4 @@ Tools
    Adr038ToolRuntime
    Adr039GlobalToolAvailabilityState
    Adr040PlaygroundRunTrace
+   Adr041PlaygroundLiveStreaming
