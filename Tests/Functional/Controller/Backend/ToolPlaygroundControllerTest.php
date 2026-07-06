@@ -234,6 +234,67 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function runActionReturnsValidJsonWhenTheTraceCarriesInvalidUtf8(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $provider = new Provider();
+        $provider->setIdentifier('fake-provider');
+        $provider->setAdapterType('openai');
+        $provider->setApiKey('nr_tools_vault_key');
+
+        $model = new Model();
+        $model->setModelId('priced-model-x');
+        $model->setProvider($provider);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('cfg-tools');
+        $configuration->setLlmModel($model);
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->method('findByUid')->willReturn($configuration);
+
+        // The model answer carries raw non-UTF-8 bytes (as injected skill prose
+        // or a provider echo can). Before the fix the controller's JsonResponse
+        // threw and 500'd the whole run; now the bytes are substituted and the
+        // inspector still renders.
+        $adapter         = new ScriptedToolAdapter("Recent logs: \xFF\xFE done");
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
+        $adapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
+        $extensionConfig->method('get')->willReturn([]);
+
+        $manager = new LlmServiceManager(
+            $extensionConfig,
+            new NullLogger(),
+            $adapterRegistry,
+            new MiddlewarePipeline([]),
+            self::createStub(CacheManagerInterface::class),
+        );
+
+        $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
+        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $controller      = $this->makeController($configurationRepository, $toolRegistry, $toolLoopService);
+
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody(['configuration' => 1, 'prompt' => 'analyse the logs']);
+        $response = $controller->runAction($request);
+
+        // The run must not 500 on the malformed byte, and the body must be
+        // valid, decodable JSON with the bytes substituted (U+FFFD).
+        self::assertSame(200, $response->getStatusCode());
+        $raw = (string)$response->getBody();
+        self::assertTrue(mb_check_encoding($raw, 'UTF-8'), 'response body must be valid UTF-8');
+        $payload = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertTrue($payload['success']);
+        self::assertIsString($payload['finalContent']);
+        self::assertStringContainsString('Recent logs:', $payload['finalContent']);
+    }
+
+    #[Test]
     public function runActionDryRunAssemblesWithoutCallingTheProvider(): void
     {
         $this->importFixture('LlmConfigurations.csv');

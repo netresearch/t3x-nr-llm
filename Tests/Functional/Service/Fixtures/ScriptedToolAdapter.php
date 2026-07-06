@@ -33,6 +33,8 @@ final class ScriptedToolAdapter implements ProviderInterface, ToolCapableInterfa
 {
     private int $toolCallCount = 0;
 
+    public function __construct(private readonly string $finalContent = 'Here are your recent logs.') {}
+
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
         $this->toolCallCount++;
@@ -52,7 +54,7 @@ final class ScriptedToolAdapter implements ProviderInterface, ToolCapableInterfa
         }
 
         return new CompletionResponse(
-            content: 'Here are your recent logs.',
+            content: $this->finalContent,
             model: $model,
             usage: new UsageStatistics(5, 4, 9),
             finishReason: 'stop',
