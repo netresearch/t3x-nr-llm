@@ -17,12 +17,15 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -34,6 +37,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
 use ReflectionClass;
+use ReflectionMethod;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
@@ -389,6 +393,111 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
      * Build the controller with the two AJAX-only collaborators supplied by the
      * caller; the ModuleTemplate stack and PageRenderer come from the container.
      */
+    #[Test]
+    public function runActionClampsOutOfRangeTemperatureInsteadOf500(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller] = $this->scriptedController();
+
+        // temperature 5.0 is outside ToolOptions' 0.0–2.0 range; unclamped it
+        // would throw an uncaught InvalidArgumentException (a 500), not a run.
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody(['configuration' => 1, 'prompt' => 'go', 'temperature' => '5']);
+        $response = $controller->runAction($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertTrue($payload['success']);
+    }
+
+    #[Test]
+    public function streamRunEmitsAStepPerRecordedStepThenDone(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller, $config] = $this->scriptedController();
+
+        $events = [];
+        $emit   = static function (array $event) use (&$events): void {
+            $events[] = $event;
+        };
+
+        // Exercise the transport-free protocol directly (runStreamed's echo/flush
+        // tears down output buffering, which can't run inside PHPUnit).
+        $method = new ReflectionMethod($controller, 'streamRun');
+        $method->invoke(
+            $controller,
+            $emit,
+            [ChatMessage::user('analyse the logs')],
+            $config,
+            ['fetch_logs'],
+            new ToolOptions(),
+            null,
+            new RunAugmentation(),
+            false,
+        );
+
+        $kinds = array_map(static fn(array $e): mixed => $e['event'] ?? null, $events);
+        // One 'step' per recorded step (2 LLM rounds + 1 tool), then a terminal 'done'.
+        self::assertContains('step', $kinds);
+        self::assertGreaterThanOrEqual(3, count(array_filter($kinds, static fn(mixed $k): bool => $k === 'step')));
+        self::assertNotEmpty($events);
+        $last = end($events);
+        self::assertIsArray($last);
+        self::assertSame('done', $last['event']);
+        self::assertTrue($last['success']);
+        self::assertSame('Here are your recent logs.', $last['finalContent']);
+        self::assertIsArray($last['usage']);
+    }
+
+    /**
+     * Build a controller wired to the scripted tool adapter (one tool call, then
+     * a plain answer) over an in-memory configuration.
+     *
+     * @return array{0: ToolPlaygroundController, 1: LlmConfiguration}
+     */
+    private function scriptedController(string $finalContent = 'Here are your recent logs.'): array
+    {
+        $provider = new Provider();
+        $provider->setIdentifier('fake-provider');
+        $provider->setAdapterType('openai');
+        $provider->setApiKey('nr_tools_vault_key');
+
+        $model = new Model();
+        $model->setModelId('priced-model-x');
+        $model->setProvider($provider);
+
+        $config = new LlmConfiguration();
+        $config->setIdentifier('cfg-tools');
+        $config->setLlmModel($model);
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->method('findByUid')->willReturn($config);
+
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
+        $adapterRegistry->method('createAdapterFromModel')->willReturn(new ScriptedToolAdapter($finalContent));
+
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
+        $extensionConfig->method('get')->willReturn([]);
+
+        $manager = new LlmServiceManager(
+            $extensionConfig,
+            new NullLogger(),
+            $adapterRegistry,
+            new MiddlewarePipeline([]),
+            self::createStub(CacheManagerInterface::class),
+        );
+
+        $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
+        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+
+        return [$this->makeController($configurationRepository, $toolRegistry, $toolLoopService), $config];
+    }
+
     private function makeController(
         LlmConfigurationRepository $configurationRepository,
         ToolRegistry $toolRegistry,
