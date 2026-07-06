@@ -33,11 +33,15 @@ final class ScriptedToolAdapter implements ProviderInterface, ToolCapableInterfa
 {
     private int $toolCallCount = 0;
 
+    /** @var array<string, mixed> Options seen on the last call, for assertions. */
+    public array $lastOptions = [];
+
     public function __construct(private readonly string $finalContent = 'Here are your recent logs.') {}
 
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
         $this->toolCallCount++;
+        $this->lastOptions = $options;
         $model = is_string($options['model'] ?? null) ? $options['model'] : 'unknown';
 
         // First round: request a single tool call. Later rounds: stop with a

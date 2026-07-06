@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
@@ -35,11 +36,17 @@ final class RunTrace
     private array $steps = [];
 
     /**
-     * @param bool $captureRaw When true the loop asks the provider to retain
-     *                         the decoded raw response so it can be inspected.
-     *                         Off by default so production runs never keep it.
+     * @param bool                          $captureRaw When true the loop asks the provider to retain
+     *                                                  the decoded raw response so it can be inspected.
+     *                                                  Off by default so production runs never keep it.
+     * @param (Closure(RunStep): void)|null $onRecord   Fired the moment each step is recorded, so a
+     *                                                  caller can stream steps live as the loop runs.
+     *                                                  Null (every production/test caller) ⇒ collect only.
      */
-    public function __construct(private readonly bool $captureRaw = false) {}
+    public function __construct(
+        private readonly bool $captureRaw = false,
+        private readonly ?Closure $onRecord = null,
+    ) {}
 
     public function capturesRaw(): bool
     {
@@ -80,7 +87,7 @@ final class RunTrace
             );
         }
 
-        $this->steps[] = new RunStep(
+        $this->add(new RunStep(
             kind: RunStep::KIND_LLM,
             round: $round,
             durationMs: $durationMs,
@@ -95,7 +102,7 @@ final class RunTrace
             estimatedCost: $response->usage->estimatedCost,
             requestedToolCalls: $requestedToolCalls,
             raw: $raw,
-        );
+        ));
     }
 
     /**
@@ -111,7 +118,7 @@ final class RunTrace
         string $result,
         bool $isError,
     ): void {
-        $this->steps[] = new RunStep(
+        $this->add(new RunStep(
             kind: RunStep::KIND_TOOL,
             round: $round,
             durationMs: $durationMs,
@@ -119,7 +126,7 @@ final class RunTrace
             toolArguments: $arguments,
             toolResult: $result,
             toolIsError: $isError,
-        );
+        ));
     }
 
     /**
@@ -129,12 +136,12 @@ final class RunTrace
      */
     public function recordAssembledMessages(array $messages): void
     {
-        $this->steps[] = new RunStep(
+        $this->add(new RunStep(
             kind: RunStep::KIND_ASSEMBLED,
             round: 0,
             durationMs: 0.0,
             messagesSent: self::snapshotMessages($messages),
-        );
+        ));
     }
 
     /**
@@ -143,6 +150,18 @@ final class RunTrace
     public function getSteps(): array
     {
         return $this->steps;
+    }
+
+    /**
+     * Append a step and, if a live listener was provided, hand it the step at
+     * once so the caller can stream it before the run finishes.
+     */
+    private function add(RunStep $step): void
+    {
+        $this->steps[] = $step;
+        if ($this->onRecord !== null) {
+            ($this->onRecord)($step);
+        }
     }
 
     /**

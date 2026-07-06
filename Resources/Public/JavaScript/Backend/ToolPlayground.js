@@ -39,6 +39,8 @@ class ToolPlayground {
         }
 
         this.route = this.root.dataset.ajaxRoute || '';
+        this.msgTruncated = this.root.dataset.msgTruncated || 'Response truncated — the model hit the max-tokens limit. Raise Max tokens in Advanced and run again.';
+        this.msgRunning = this.root.dataset.msgRunning || 'Running…';
         this.configSelect = document.getElementById('nrllm-tool-config');
         this.promptInput = document.getElementById('nrllm-tool-prompt');
         this.runButton = document.getElementById('nrllm-tool-run');
@@ -62,6 +64,29 @@ class ToolPlayground {
             return;
         }
 
+        const formData = this.buildFormData(dryRun, prompt);
+
+        this.setBusy(true);
+        this.renderStatus(dryRun ? 'Assembling…' : this.msgRunning);
+
+        // Live path: stream each step as it happens. Falls back to the batch
+        // request when the browser can't read a streaming body.
+        if (typeof fetch === 'function' && typeof ReadableStream === 'function') {
+            formData.append('stream', '1');
+            this.runStreaming(url, formData)
+                .catch(async err => {
+                    const message = err?.message || String(err) || 'Run failed';
+                    this.renderError(message);
+                    Notification.error('Error', message);
+                })
+                .finally(() => this.setBusy(false));
+            return;
+        }
+
+        this.runBatch(url, formData);
+    }
+
+    buildFormData(dryRun, prompt) {
         const formData = new FormData();
         formData.append('configuration', this.configSelect?.value || '');
         formData.append('prompt', prompt);
@@ -75,38 +100,119 @@ class ToolPlayground {
         if (system.trim() !== '') {
             formData.append('systemPrompt', system);
         }
-        const rounds = document.getElementById('nrllm-pg-rounds')?.value || '';
-        if (rounds !== '') {
-            formData.append('maxRounds', rounds);
-        }
+        this.appendIfSet(formData, 'nrllm-pg-rounds', 'maxRounds');
+        this.appendIfSet(formData, 'nrllm-pg-maxtokens', 'maxTokens');
+        this.appendIfSet(formData, 'nrllm-pg-temperature', 'temperature');
         this.appendChecked(formData, '.js-tool-select', 'tools[]');
         this.appendChecked(formData, '.js-skill-select', 'forcedSkills[]');
         this.appendChecked(formData, '.js-snippet-select', 'forcedSnippets[]');
+        return formData;
+    }
 
-        this.setBusy(true);
-        this.renderStatus(dryRun ? 'Assembling…' : 'Running…');
+    appendIfSet(formData, elementId, field) {
+        const value = document.getElementById(elementId)?.value ?? '';
+        if (String(value).trim() !== '') {
+            formData.append(field, value);
+        }
+    }
 
+    /**
+     * Read the NDJSON event stream and render each step as it arrives. A
+     * `step` event appends to the live trace and re-renders; `done` finalises
+     * the summary; `error` surfaces the real message.
+     */
+    async runStreaming(url, formData) {
+        const response = await fetch(url, { method: 'POST', body: formData, headers: { Accept: 'application/x-ndjson' } });
+        if (!response.ok || !response.body) {
+            // Fallback: consume the whole body and treat it as a batch payload.
+            const text = await response.text();
+            let data = null;
+            try { data = JSON.parse(text); } catch { /* not JSON */ }
+            if (data) {
+                this.safeRender(data);
+            } else {
+                this.renderError(`The server returned an error (HTTP ${response.status}).`);
+            }
+            return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        const live = { success: true, running: true, steps: [], usage: {}, finalContent: '', truncated: false, dryRun: false };
+        let buffer = '';
+        let sawTerminal = false;
+
+        for (;;) {
+            const { value, done } = await reader.read();
+            if (done) {
+                break;
+            }
+            buffer += decoder.decode(value, { stream: true });
+            let newline;
+            while ((newline = buffer.indexOf('\n')) >= 0) {
+                const line = buffer.slice(0, newline).trim();
+                buffer = buffer.slice(newline + 1);
+                if (line === '') {
+                    continue;
+                }
+                let event;
+                try { event = JSON.parse(line); } catch { continue; }
+
+                if (event.event === 'step' && event.step) {
+                    live.steps.push(event.step);
+                    this.safeRender(live);
+                } else if (event.event === 'done') {
+                    live.running = false;
+                    live.finalContent = event.finalContent || '';
+                    live.iterations = event.iterations;
+                    live.truncated = !!event.truncated;
+                    live.dryRun = !!event.dryRun;
+                    live.usage = event.usage || {};
+                    sawTerminal = true;
+                    this.safeRender(live);
+                } else if (event.event === 'error') {
+                    sawTerminal = true;
+                    const message = event.error || 'Run failed';
+                    this.renderError(message);
+                    Notification.error('Error', message);
+                    return;
+                }
+            }
+        }
+
+        if (!sawTerminal) {
+            // Stream ended without a done/error line — show whatever arrived.
+            live.running = false;
+            this.safeRender(live);
+        }
+    }
+
+    runBatch(url, formData) {
         new AjaxRequest(url)
             .post(formData)
             .then(response => response.resolve())
-            .then(data => {
-                // Keep a rendering exception out of the AJAX catch below, whose
-                // readAjaxError() only understands transport errors and would
-                // otherwise mask a client-side bug as a bare "Unknown error".
-                try {
-                    this.renderResult(data);
-                } catch (e) {
-                    const message = `Could not render the run result: ${e?.message || String(e)}`;
-                    this.renderError(message);
-                    Notification.error('Error', message);
-                }
-            })
+            .then(data => this.safeRender(data))
             .catch(async err => {
                 const message = await readAjaxError(err);
                 this.renderError(message);
                 Notification.error('Error', message);
             })
             .finally(() => this.setBusy(false));
+    }
+
+    /**
+     * Render, keeping a rendering exception out of any AJAX catch (whose
+     * readAjaxError only understands transport errors and would mask a
+     * client-side bug as a bare "Unknown error").
+     */
+    safeRender(data) {
+        try {
+            this.renderResult(data);
+        } catch (e) {
+            const message = `Could not render the run result: ${e?.message || String(e)}`;
+            this.renderError(message);
+            Notification.error('Error', message);
+        }
     }
 
     appendChecked(formData, selector, field) {
@@ -141,6 +247,12 @@ class ToolPlayground {
         const steps = Array.isArray(data.steps) ? data.steps : [];
 
         this.output.appendChild(this.buildSummary(data, steps));
+
+        // A model round that stopped on the token limit was cut off mid-answer;
+        // say so plainly rather than showing a silent half-sentence.
+        if (steps.some(s => s.kind === 'llm' && s.finishReason === 'length')) {
+            this.output.appendChild(this.buildTruncationBanner());
+        }
 
         const split = document.createElement('div');
         split.className = 'nrllm-pg-split';
@@ -182,11 +294,17 @@ class ToolPlayground {
         const wall = steps.reduce((sum, s) => sum + (Number(s.durationMs) || 0), 0);
         const usage = data.usage || {};
         const cost = usage.estimatedCost;
+        // While streaming, the summed usage arrives only with the final `done`
+        // event, so fall back to summing the per-round token counts so far.
+        const sumTokens = key => llm.reduce((s, x) => s + (Number(x[key]) || 0), 0);
+        const total = usage.totalTokens != null ? usage.totalTokens : sumTokens('totalTokens');
+        const promptT = usage.promptTokens != null ? usage.promptTokens : sumTokens('promptTokens');
+        const completionT = usage.completionTokens != null ? usage.completionTokens : sumTokens('completionTokens');
 
         const cells = [
             ['Rounds', String(llm.length)],
             ['Tool calls', String(tools)],
-            ['Tokens', `${this.num(usage.totalTokens)} (${this.num(usage.promptTokens)}p / ${this.num(usage.completionTokens)}c)`],
+            ['Tokens', `${this.num(total)} (${this.num(promptT)}p / ${this.num(completionT)}c)`],
             ['Est. cost', cost != null ? `$${Number(cost).toFixed(4)}` : '—'],
             ['Wall time', `${(wall / 1000).toFixed(2)}s`],
         ];
@@ -194,7 +312,10 @@ class ToolPlayground {
 
         const status = document.createElement('span');
         status.className = 'nrllm-pg-status';
-        if (data.dryRun) {
+        if (data.running) {
+            status.classList.add('is-run');
+            status.textContent = `● ${this.msgRunning}`;
+        } else if (data.dryRun) {
             status.classList.add('is-dry');
             status.textContent = '⧉ Dry run — assembled, not sent';
         } else if (data.truncated) {
@@ -474,6 +595,21 @@ class ToolPlayground {
             return;
         }
         this.output.appendChild(this.note(message));
+    }
+
+    buildTruncationBanner() {
+        const banner = document.createElement('div');
+        banner.className = 'nrllm-pg-banner is-warn';
+        banner.setAttribute('role', 'status');
+        const icon = document.createElement('span');
+        icon.className = 'nrllm-pg-banner-ico';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = '⚠';
+        const text = document.createElement('span');
+        text.textContent = this.msgTruncated;
+        banner.appendChild(icon);
+        banner.appendChild(text);
+        return banner;
     }
 
     renderError(message) {

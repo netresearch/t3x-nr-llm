@@ -150,6 +150,22 @@
                 <source>Max rounds</source>
                 <target>Maximale Runden</target>
             </trans-unit>
+            <trans-unit id="playground.maxTokens">
+                <source>Max tokens</source>
+                <target>Maximale Tokens</target>
+            </trans-unit>
+            <trans-unit id="playground.maxTokens.placeholder">
+                <source>Model default — raise if the answer is cut off</source>
+                <target>Modell-Standard — erhöhen, wenn die Antwort abgeschnitten wird</target>
+            </trans-unit>
+            <trans-unit id="playground.temperature">
+                <source>Temperature</source>
+                <target>Temperatur</target>
+            </trans-unit>
+            <trans-unit id="playground.temperature.placeholder">
+                <source>Configuration default</source>
+                <target>Standard der Konfiguration</target>
+            </trans-unit>
             <trans-unit id="playground.captureRaw">
                 <source>Capture raw provider response</source>
                 <target>Rohe Provider-Antwort erfassen</target>
@@ -157,6 +173,14 @@
             <trans-unit id="playground.dryRun">
                 <source>Dry run — assemble only</source>
                 <target>Trockenlauf — nur zusammenstellen</target>
+            </trans-unit>
+            <trans-unit id="playground.running">
+                <source>Running…</source>
+                <target>Läuft…</target>
+            </trans-unit>
+            <trans-unit id="playground.truncatedBanner">
+                <source>Response truncated — the model hit the max-tokens limit. Raise Max tokens in Advanced and run again.</source>
+                <target>Antwort abgeschnitten — das Modell hat das Token-Limit erreicht. Maximale Tokens unter „Erweitert“ erhöhen und erneut ausführen.</target>
             </trans-unit>
         </body>
     </file>

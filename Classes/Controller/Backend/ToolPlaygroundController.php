@@ -9,13 +9,16 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Closure;
 use Netresearch\NrLlm\Controller\Backend\Response\PlaygroundRunResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
@@ -33,6 +36,7 @@ use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Http\NullResponse;
 use TYPO3\CMS\Core\Http\Response;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
@@ -65,6 +69,14 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      * cost-accruing agent loop.
      */
     private const MAX_ROUNDS = 20;
+
+    /**
+     * Minimum byte length of each streamed NDJSON line. A TYPO3 backend AJAX
+     * response is buffered by the reverse proxy until a chunk clears its flush
+     * threshold; padding every event past ~4 KB makes it flush immediately, so
+     * steps reach the browser as they happen instead of all at once at the end.
+     */
+    private const STREAM_MIN_LINE_BYTES = 4096;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -130,7 +142,17 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // Cap the per-run round count server-side (matching the UI ceiling) so
         // a crafted request cannot drive an unbounded, cost-accruing loop.
         $maxRounds    = min($this->intFromBody($body, 'maxRounds'), self::MAX_ROUNDS);
+        $maxTokens    = $this->intFromBody($body, 'maxTokens');
+        // Clamp to ChatOptions' valid range: an out-of-range value would throw
+        // an InvalidArgumentException from the ToolOptions constructor below —
+        // which is outside the run try/catch — and 500 the request.
+        $temperature  = $this->floatFromBody($body, 'temperature');
+        if ($temperature !== null) {
+            $temperature = max(0.0, min(2.0, $temperature));
+        }
         $options      = new ToolOptions(
+            temperature: $temperature,
+            maxTokens: $maxTokens > 0 ? $maxTokens : null,
             systemPrompt: $systemPrompt !== '' ? $systemPrompt : null,
             beUserUid: $this->currentBackendUserUid(),
             captureRaw: $captureRaw,
@@ -155,18 +177,20 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             forcedSnippets: $this->promptSnippetRepository->findByUids($this->uidListFromBody($body, 'forcedSnippets')),
             dryRun: $dryRun,
         );
+        $messages      = [ChatMessage::user($prompt)];
+        $maxIterations = $maxRounds > 0 ? $maxRounds : null;
+
+        // Live path: stream each recorded step to the browser as it happens.
+        if ($this->boolFromBody($body, 'stream')) {
+            return $this->runStreamed($messages, $config, $allowed, $options, $maxIterations, $augmentation, $captureRaw);
+        }
+
+        // Batch path: run the whole loop, then return the full trace as one JSON
+        // document (the no-JS fallback and the shape the functional tests assert).
         $trace = new RunTrace(captureRaw: $captureRaw);
 
         try {
-            $result = $this->toolLoopService->runLoop(
-                [ChatMessage::user($prompt)],
-                $config,
-                $allowed,
-                $options,
-                $maxRounds > 0 ? $maxRounds : null,
-                $trace,
-                $augmentation,
-            );
+            $result = $this->toolLoopService->runLoop($messages, $config, $allowed, $options, $maxIterations, $trace, $augmentation);
         } catch (Throwable $e) {
             $this->logger?->error('Tool playground run failed', ['exception' => $e]);
 
@@ -186,6 +210,123 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         );
 
         return $this->respondJson($response->toArray());
+    }
+
+    /**
+     * Run the loop while streaming one NDJSON line per recorded step to the
+     * browser as it happens, then a final ``done`` (or ``error``) line.
+     *
+     * Output buffering and compression are disabled and each line is padded
+     * (see {@see self::STREAM_MIN_LINE_BYTES}) so the reverse proxy flushes it
+     * immediately; a {@see NullResponse} is returned so TYPO3 emits nothing
+     * further (it has already been sent). The step callback runs inside
+     * {@see RunTrace}, fired the moment each step is recorded.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<string>|null                      $allowed
+     */
+    private function runStreamed(
+        array $messages,
+        LlmConfiguration $config,
+        ?array $allowed,
+        ToolOptions $options,
+        ?int $maxIterations,
+        RunAugmentation $augmentation,
+        bool $captureRaw,
+    ): ResponseInterface {
+        ini_set('zlib.output_compression', '0');
+        ini_set('output_buffering', '0');
+        ini_set('implicit_flush', '1');
+        while (ob_get_level() > 0) {
+            ob_end_flush();
+        }
+        if (!headers_sent()) {
+            header('Content-Type: application/x-ndjson; charset=utf-8');
+            header('Cache-Control: no-cache, no-transform');
+            header('X-Accel-Buffering: no');
+        }
+
+        $this->streamRun(
+            function (array $event): void {
+                $this->streamLine($event);
+            },
+            $messages,
+            $config,
+            $allowed,
+            $options,
+            $maxIterations,
+            $augmentation,
+            $captureRaw,
+        );
+
+        return new NullResponse();
+    }
+
+    /**
+     * Run the loop and emit the streamed protocol through {@see $emit}: one
+     * ``step`` event per recorded step (live, via the {@see RunTrace} callback),
+     * then a terminal ``done`` — or ``error`` on failure. Transport-agnostic (no
+     * output buffering, headers or flushing), so the event sequence can be
+     * asserted in isolation from the echo/flush plumbing in {@see runStreamed()}.
+     *
+     * @param Closure(array<string, mixed>): void    $emit
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<string>|null                      $allowed
+     */
+    private function streamRun(
+        Closure $emit,
+        array $messages,
+        LlmConfiguration $config,
+        ?array $allowed,
+        ToolOptions $options,
+        ?int $maxIterations,
+        RunAugmentation $augmentation,
+        bool $captureRaw,
+    ): void {
+        $trace = new RunTrace(
+            captureRaw: $captureRaw,
+            onRecord: static function (RunStep $step) use ($emit): void {
+                $emit(['event' => 'step', 'step' => $step->toArray()]);
+            },
+        );
+
+        try {
+            $result = $this->toolLoopService->runLoop($messages, $config, $allowed, $options, $maxIterations, $trace, $augmentation);
+            $emit([
+                'event'        => 'done',
+                'success'      => true,
+                'finalContent' => $result->finalContent,
+                'iterations'   => $result->iterations,
+                'truncated'    => $result->truncated,
+                'dryRun'       => $augmentation->dryRun,
+                'usage'        => [
+                    'promptTokens'     => $result->usage->promptTokens,
+                    'completionTokens' => $result->usage->completionTokens,
+                    'totalTokens'      => $result->usage->totalTokens,
+                    'estimatedCost'    => $result->usage->estimatedCost,
+                ],
+            ]);
+        } catch (Throwable $e) {
+            $this->logger?->error('Tool playground run failed', ['exception' => $e]);
+            $emit(['event' => 'error', 'success' => false, 'error' => $this->diagnoseRunFailure($e)]);
+        }
+    }
+
+    /**
+     * Echo one NDJSON event and flush it. Encoded with the same UTF-8-substitute
+     * guard as {@see self::respondJson()} (a malformed byte must not break the
+     * stream) and padded past the proxy flush threshold.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function streamLine(array $data): void
+    {
+        $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+        // Trailing whitespace is ignored by JSON.parse on the client, so pad the
+        // line to the flush threshold with spaces before the newline.
+        $padding = self::STREAM_MIN_LINE_BYTES - strlen($json);
+        echo $json . ($padding > 0 ? str_repeat(' ', $padding) : '') . "\n";
+        flush();
     }
 
     /**
@@ -237,6 +378,19 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         }
         $value = $body[$key] ?? 0;
         return is_numeric($value) ? (int)$value : 0;
+    }
+
+    /**
+     * Read an optional float (e.g. temperature, where 0.0 is a valid value so a
+     * numeric zero must not be treated as "unset"). Null when absent/non-numeric.
+     */
+    private function floatFromBody(mixed $body, string $key): ?float
+    {
+        if (!is_array($body) || !isset($body[$key]) || !is_numeric($body[$key])) {
+            return null;
+        }
+
+        return (float)$body[$key];
     }
 
     private function stringFromBody(mixed $body, string $key): string
