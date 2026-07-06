@@ -141,6 +141,36 @@
     background: color-mix(in srgb, var(--pg-primary) 16%, transparent);
 }
 
+.nrllm-pg-status.is-run {
+    color: var(--pg-primary);
+    background: color-mix(in srgb, var(--pg-primary) 16%, transparent);
+}
+
+/* ---- truncation banner (semantic colour + glyph + text, never colour alone) ---- */
+.nrllm-pg-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 10px 0;
+    padding: 10px 14px;
+    border-radius: var(--pg-radius);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.nrllm-pg-banner.is-warn {
+    color: var(--pg-warn);
+    background: color-mix(in srgb, var(--pg-warn) 12%, var(--pg-surface));
+    border: 1px solid color-mix(in srgb, var(--pg-warn) 45%, transparent);
+    border-left-width: 3px;
+}
+
+.nrllm-pg-banner-ico {
+    flex: 0 0 auto;
+    font-weight: 700;
+}
+
 /* ---- split: step list + detail ---- */
 .nrllm-pg-split {
     display: grid;

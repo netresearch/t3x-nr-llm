@@ -329,6 +329,62 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertSame('assembled', $firstStep['kind']);
     }
 
+    #[Test]
+    public function runActionForwardsMaxTokensAndTemperatureToTheProvider(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $provider = new Provider();
+        $provider->setIdentifier('fake-provider');
+        $provider->setAdapterType('openai');
+        $provider->setApiKey('nr_tools_vault_key');
+
+        $model = new Model();
+        $model->setModelId('priced-model-x');
+        $model->setProvider($provider);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('cfg-tools');
+        $configuration->setLlmModel($model);
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->method('findByUid')->willReturn($configuration);
+
+        $adapter         = new ScriptedToolAdapter();
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
+        $adapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
+        $extensionConfig->method('get')->willReturn([]);
+
+        $manager = new LlmServiceManager(
+            $extensionConfig,
+            new NullLogger(),
+            $adapterRegistry,
+            new MiddlewarePipeline([]),
+            self::createStub(CacheManagerInterface::class),
+        );
+
+        $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
+        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $controller      = $this->makeController($configurationRepository, $toolRegistry, $toolLoopService);
+
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody([
+                'configuration' => 1,
+                'prompt'        => 'analyse the logs',
+                'maxTokens'     => '4096',
+                'temperature'   => '0.1',
+            ]);
+        $response = $controller->runAction($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        // The per-run overrides reached the adapter as real provider options.
+        self::assertSame(4096, $adapter->lastOptions['max_tokens'] ?? null);
+        self::assertSame(0.1, $adapter->lastOptions['temperature'] ?? null);
+    }
+
     /**
      * Build the controller with the two AJAX-only collaborators supplied by the
      * caller; the ModuleTemplate stack and PageRenderer come from the container.

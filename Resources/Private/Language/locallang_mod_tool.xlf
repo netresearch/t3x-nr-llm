@@ -113,11 +113,29 @@
             <trans-unit id="playground.maxRounds">
                 <source>Max rounds</source>
             </trans-unit>
+            <trans-unit id="playground.maxTokens">
+                <source>Max tokens</source>
+            </trans-unit>
+            <trans-unit id="playground.maxTokens.placeholder">
+                <source>Model default — raise if the answer is cut off</source>
+            </trans-unit>
+            <trans-unit id="playground.temperature">
+                <source>Temperature</source>
+            </trans-unit>
+            <trans-unit id="playground.temperature.placeholder">
+                <source>Configuration default</source>
+            </trans-unit>
             <trans-unit id="playground.captureRaw">
                 <source>Capture raw provider response</source>
             </trans-unit>
             <trans-unit id="playground.dryRun">
                 <source>Dry run — assemble only</source>
+            </trans-unit>
+            <trans-unit id="playground.running">
+                <source>Running…</source>
+            </trans-unit>
+            <trans-unit id="playground.truncatedBanner">
+                <source>Response truncated — the model hit the max-tokens limit. Raise Max tokens in Advanced and run again.</source>
             </trans-unit>
         </body>
     </file>
