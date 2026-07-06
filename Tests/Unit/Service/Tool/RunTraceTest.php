@@ -90,6 +90,39 @@ final class RunTraceTest extends TestCase
         self::assertSame('system', $assembled->messagesSent[0]['role']);
     }
 
+    #[Test]
+    public function firesOnRecordOncePerStepInOrderWithTheRecordedStep(): void
+    {
+        /** @var list<RunStep> $streamed */
+        $streamed = [];
+        $trace    = new RunTrace(onRecord: static function (RunStep $step) use (&$streamed): void {
+            $streamed[] = $step;
+        });
+
+        $trace->recordLlmCall(1, 1.0, [], [], $this->response(null));
+        $trace->recordToolExecution(1, 2.0, 'fetch', [], 'ok', false);
+        $trace->recordAssembledMessages([ChatMessage::user('go')]);
+
+        // The listener saw each step live, in order, and they are the very same
+        // objects the trace collected (so a streaming caller and a batch caller
+        // observe identical data).
+        self::assertCount(3, $streamed);
+        self::assertSame($trace->getSteps(), $streamed);
+        self::assertSame(RunStep::KIND_LLM, $streamed[0]->kind);
+        self::assertSame(RunStep::KIND_TOOL, $streamed[1]->kind);
+        self::assertSame(RunStep::KIND_ASSEMBLED, $streamed[2]->kind);
+    }
+
+    #[Test]
+    public function withoutOnRecordCallbackNothingIsStreamedButStepsCollect(): void
+    {
+        $trace = new RunTrace();
+        $trace->recordToolExecution(1, 1.0, 'fetch', [], 'ok', false);
+
+        // No listener ⇒ no side effect, steps still collected (batch path).
+        self::assertCount(1, $trace->getSteps());
+    }
+
     /**
      * @param array<string, mixed>|null $metadata
      */
