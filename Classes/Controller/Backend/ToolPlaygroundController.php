@@ -33,7 +33,7 @@ use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\Http\JsonResponse;
+use TYPO3\CMS\Core\Http\Response;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 
@@ -121,7 +121,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         $config = $this->configurationRepository->findByUid($configUid);
         if ($config === null || $prompt === '') {
-            return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.invalidInput', 'Invalid configuration or prompt')], 400);
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.invalidInput', 'Invalid configuration or prompt')], 400);
         }
 
         $captureRaw   = $this->boolFromBody($body, 'captureRaw');
@@ -170,7 +170,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         } catch (Throwable $e) {
             $this->logger?->error('Tool playground run failed', ['exception' => $e]);
 
-            return new JsonResponse(['success' => false, 'error' => $this->diagnoseRunFailure($e)], 500);
+            return $this->respondJson(['success' => false, 'error' => $this->diagnoseRunFailure($e)], 500);
         }
 
         $response = new PlaygroundRunResponse(
@@ -185,7 +185,33 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             estimatedCost: $result->usage->estimatedCost,
         );
 
-        return new JsonResponse($response->toArray());
+        return $this->respondJson($response->toArray());
+    }
+
+    /**
+     * Encode a payload as JSON, substituting invalid UTF-8 instead of throwing.
+     *
+     * The inspector trace echoes untrusted bytes back to the browser — tool
+     * output, injected skill/snippet text, and raw provider responses — any of
+     * which may not be valid UTF-8. TYPO3's {@see JsonResponse} encodes with
+     * JSON_THROW_ON_ERROR, so a single malformed byte would 500 an otherwise
+     * successful run and the UI could only show a bare "Unknown error". The
+     * substitute flag turns those bytes into U+FFFD so the inspector always
+     * renders.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function respondJson(array $data, int $status = 200): ResponseInterface
+    {
+        $response = new Response('php://temp', $status, ['Content-Type' => 'application/json; charset=utf-8']);
+        $response->getBody()->write(
+            json_encode($data, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE),
+        );
+        // Rewind so a consumer reading via getContents() (emitters/middleware)
+        // sees the payload rather than an empty stream positioned at EOF.
+        $response->getBody()->rewind();
+
+        return $response;
     }
 
     /**
