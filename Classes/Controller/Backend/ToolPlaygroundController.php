@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Closure;
 use Netresearch\NrLlm\Controller\Backend\Response\PlaygroundRunResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
@@ -142,7 +143,13 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // a crafted request cannot drive an unbounded, cost-accruing loop.
         $maxRounds    = min($this->intFromBody($body, 'maxRounds'), self::MAX_ROUNDS);
         $maxTokens    = $this->intFromBody($body, 'maxTokens');
+        // Clamp to ChatOptions' valid range: an out-of-range value would throw
+        // an InvalidArgumentException from the ToolOptions constructor below —
+        // which is outside the run try/catch — and 500 the request.
         $temperature  = $this->floatFromBody($body, 'temperature');
+        if ($temperature !== null) {
+            $temperature = max(0.0, min(2.0, $temperature));
+        }
         $options      = new ToolOptions(
             temperature: $temperature,
             maxTokens: $maxTokens > 0 ? $maxTokens : null,
@@ -239,16 +246,53 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             header('X-Accel-Buffering: no');
         }
 
+        $this->streamRun(
+            function (array $event): void {
+                $this->streamLine($event);
+            },
+            $messages,
+            $config,
+            $allowed,
+            $options,
+            $maxIterations,
+            $augmentation,
+            $captureRaw,
+        );
+
+        return new NullResponse();
+    }
+
+    /**
+     * Run the loop and emit the streamed protocol through {@see $emit}: one
+     * ``step`` event per recorded step (live, via the {@see RunTrace} callback),
+     * then a terminal ``done`` — or ``error`` on failure. Transport-agnostic (no
+     * output buffering, headers or flushing), so the event sequence can be
+     * asserted in isolation from the echo/flush plumbing in {@see runStreamed()}.
+     *
+     * @param Closure(array<string, mixed>): void    $emit
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<string>|null                      $allowed
+     */
+    private function streamRun(
+        Closure $emit,
+        array $messages,
+        LlmConfiguration $config,
+        ?array $allowed,
+        ToolOptions $options,
+        ?int $maxIterations,
+        RunAugmentation $augmentation,
+        bool $captureRaw,
+    ): void {
         $trace = new RunTrace(
             captureRaw: $captureRaw,
-            onRecord: function (RunStep $step): void {
-                $this->streamLine(['event' => 'step', 'step' => $step->toArray()]);
+            onRecord: static function (RunStep $step) use ($emit): void {
+                $emit(['event' => 'step', 'step' => $step->toArray()]);
             },
         );
 
         try {
             $result = $this->toolLoopService->runLoop($messages, $config, $allowed, $options, $maxIterations, $trace, $augmentation);
-            $this->streamLine([
+            $emit([
                 'event'        => 'done',
                 'success'      => true,
                 'finalContent' => $result->finalContent,
@@ -264,10 +308,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             ]);
         } catch (Throwable $e) {
             $this->logger?->error('Tool playground run failed', ['exception' => $e]);
-            $this->streamLine(['event' => 'error', 'success' => false, 'error' => $this->diagnoseRunFailure($e)]);
+            $emit(['event' => 'error', 'success' => false, 'error' => $this->diagnoseRunFailure($e)]);
         }
-
-        return new NullResponse();
     }
 
     /**
