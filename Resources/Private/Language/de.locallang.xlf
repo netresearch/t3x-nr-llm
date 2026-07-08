@@ -2154,6 +2154,10 @@
                 <source>Unknown tool</source>
                 <target>Unbekanntes Werkzeug</target>
             </trans-unit>
+            <trans-unit id="error.tool.unknownGroup">
+                <source>Unknown tool group</source>
+                <target>Unbekannte Werkzeuggruppe</target>
+            </trans-unit>
             <trans-unit id="card.count.configurations">
                 <source>configuration(s) configured</source>
                 <target>Konfiguration(en) eingerichtet</target>
