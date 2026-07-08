@@ -55,6 +55,7 @@ final readonly class FakeTool implements ToolInterface
     {
         return $this->requiresAdmin;
     }
+
     public function getGroup(): string
     {
         return $this->group;

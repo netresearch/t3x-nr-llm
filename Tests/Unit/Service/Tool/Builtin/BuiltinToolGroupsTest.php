@@ -52,7 +52,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'read_records'      => [ReadRecordsTool::class, 'content'],
             'get_pagetree'      => [GetPageTreeTool::class, 'structure'],
             'get_tca'           => [GetTcaTool::class, 'structure'],
-            'read_fal_asset'    => [ReadFalAssetMetaTool::class, 'structure'],
+            'read_fal_asset_meta'    => [ReadFalAssetMetaTool::class, 'structure'],
             'get_env'           => [GetEnvTool::class, 'system'],
             'get_env_raw'       => [GetEnvRawTool::class, 'system'],
             'get_php_info'      => [GetPhpInfoTool::class, 'system'],
