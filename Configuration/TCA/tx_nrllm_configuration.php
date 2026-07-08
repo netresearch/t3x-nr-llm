@@ -7,6 +7,8 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Form\Tca\ToolGroupItems;
+
 return [
     'ctrl' => [
         'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration',
@@ -389,7 +391,7 @@ return [
             'config' => [
                 'type' => 'select',
                 'renderType' => 'selectCheckBox',
-                'itemsProcFunc' => \Netresearch\NrLlm\Form\Tca\ToolGroupItems::class . '->addItems',
+                'itemsProcFunc' => ToolGroupItems::class . '->addItems',
                 'default' => '',
             ],
         ],
