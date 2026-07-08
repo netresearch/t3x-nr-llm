@@ -35,7 +35,7 @@ final class RunTraceTest extends TestCase
             thinking: 'need the page first',
         );
 
-        $trace->recordLlmCall(1, 12.5, [ChatMessage::user('translate page 42')], ['fetch'], $response);
+        $trace->recordLlmCall(1, 12.5, $response);
 
         $steps = $trace->getSteps();
         self::assertCount(1, $steps);
@@ -50,9 +50,33 @@ final class RunTraceTest extends TestCase
         self::assertNotNull($step->requestedToolCalls);
         self::assertSame('fetch', $step->requestedToolCalls[0]['name']);
         self::assertSame(['uid' => 42], $step->requestedToolCalls[0]['arguments']);
+        // The messages sent live on the round's request step, not the response.
+        self::assertNull($step->messagesSent);
+    }
+
+    #[Test]
+    public function recordsRequestBeforeTheProviderCallAndFiresTheListenerAtOnce(): void
+    {
+        /** @var list<RunStep> $streamed */
+        $streamed = [];
+        $trace    = new RunTrace(onRecord: static function (RunStep $step) use (&$streamed): void {
+            $streamed[] = $step;
+        });
+
+        $trace->recordRequest(1, [ChatMessage::user('translate page 42')], ['fetch']);
+
+        // Streamed immediately — no response needed for the listener to fire.
+        self::assertCount(1, $streamed);
+        $step = $streamed[0];
+        self::assertSame(RunStep::KIND_REQUEST, $step->kind);
+        self::assertSame(1, $step->round);
         // A ChatMessage snapshot is flattened to a role/content array.
         self::assertNotNull($step->messagesSent);
         self::assertSame('user', $step->messagesSent[0]['role']);
+        self::assertSame(['fetch'], $step->toolSpecs);
+        // No timing/tokens on the outbound half.
+        self::assertSame(0.0, $step->durationMs);
+        self::assertNull($step->totalTokens);
     }
 
     #[Test]
@@ -62,11 +86,11 @@ final class RunTraceTest extends TestCase
         self::assertTrue($trace->capturesRaw());
 
         $withRaw = $this->response(['_raw' => ['done_reason' => 'stop', 'eval_count' => 3]]);
-        $trace->recordLlmCall(1, 1.0, [], [], $withRaw);
+        $trace->recordLlmCall(1, 1.0, $withRaw);
         self::assertSame(['done_reason' => 'stop', 'eval_count' => 3], $trace->getSteps()[0]->raw);
 
         $withoutRaw = $this->response(null);
-        $trace->recordLlmCall(2, 1.0, [], [], $withoutRaw);
+        $trace->recordLlmCall(2, 1.0, $withoutRaw);
         self::assertNull($trace->getSteps()[1]->raw);
     }
 
@@ -99,7 +123,7 @@ final class RunTraceTest extends TestCase
             $streamed[] = $step;
         });
 
-        $trace->recordLlmCall(1, 1.0, [], [], $this->response(null));
+        $trace->recordLlmCall(1, 1.0, $this->response(null));
         $trace->recordToolExecution(1, 2.0, 'fetch', [], 'ok', false);
         $trace->recordAssembledMessages([ChatMessage::user('go')]);
 

@@ -172,12 +172,16 @@ loop, while the Tools module governs *which* tools exist and are enabled.
    the **max rounds**, or tick **capture raw provider response**.
 3. Click :guilabel:`Run` — or :guilabel:`Dry run` to assemble the prompt and
    inspect exactly what *would* be sent without calling the model.
-4. Read the **inspector**. A summary strip reports rounds, tool calls, the
-   prompt/completion token split, estimated cost, wall time and status. The
-   step list is the nr_llm ↔ LLM dialog in order — each model round-trip and
-   each tool execution; select a step to open its detail, with
-   :guilabel:`Structured`, :guilabel:`Raw JSON`, :guilabel:`Messages sent`
-   and :guilabel:`Thinking` tabs. The model's **final answer** closes the run.
+4. Read the **inspector** — live from the moment you click Run. A summary
+   strip reports rounds, tool calls, the prompt/completion token split,
+   estimated cost, wall time and status. The step list is the nr_llm ↔ LLM
+   dialog in order: each round's outbound **request** (the messages sent and
+   the tools offered) appears the instant it goes out, a waiting indicator
+   shows while the model works, then the **response** and each tool execution
+   stream in. Select a step to open its detail — requests carry
+   :guilabel:`Messages sent` and :guilabel:`Tools offered`; responses carry
+   :guilabel:`Structured`, :guilabel:`Raw JSON` and :guilabel:`Thinking`. The
+   model's **final answer** closes the run.
 
 .. figure:: /Images/ToolPlaygroundRun.png
    :alt: A completed tool run — the summary strip, the ordered step list and

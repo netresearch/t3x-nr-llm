@@ -178,6 +178,38 @@
                 <source>Running…</source>
                 <target>Läuft…</target>
             </trans-unit>
+            <trans-unit id="playground.waiting">
+                <source>Waiting for model…</source>
+                <target>Warten auf das Modell…</target>
+            </trans-unit>
+            <trans-unit id="playground.step.request">
+                <source>Request</source>
+                <target>Anfrage</target>
+            </trans-unit>
+            <trans-unit id="playground.tab.toolSpecs">
+                <source>Tools offered</source>
+                <target>Angebotene Werkzeuge</target>
+            </trans-unit>
+            <trans-unit id="playground.tab.messagesSent">
+                <source>Messages sent</source>
+                <target>Gesendete Nachrichten</target>
+            </trans-unit>
+            <trans-unit id="playground.noToolsOffered">
+                <source>No tools offered for this round.</source>
+                <target>In dieser Runde wurden keine Werkzeuge angeboten.</target>
+            </trans-unit>
+            <trans-unit id="playground.noMessages">
+                <source>No messages.</source>
+                <target>Keine Nachrichten.</target>
+            </trans-unit>
+            <trans-unit id="playground.assembling">
+                <source>Assembling…</source>
+                <target>Wird zusammengestellt…</target>
+            </trans-unit>
+            <trans-unit id="playground.runConfig">
+                <source>Run configuration</source>
+                <target>Lauf-Konfiguration</target>
+            </trans-unit>
             <trans-unit id="playground.truncatedBanner">
                 <source>Response truncated — the model hit the max-tokens limit. Raise Max tokens in Advanced and run again.</source>
                 <target>Antwort abgeschnitten — das Modell hat das Token-Limit erreicht. Maximale Tokens unter „Erweitert“ erhöhen und erneut ausführen.</target>

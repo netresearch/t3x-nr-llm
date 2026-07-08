@@ -226,6 +226,7 @@
 }
 
 .nrllm-pg-si.is-req { background: var(--pg-teal); }
+.nrllm-pg-si.is-out { background: var(--pg-primary); }
 .nrllm-pg-si.is-final { background: var(--pg-ok); }
 .nrllm-pg-si.is-tool { background: var(--pg-brand); }
 .nrllm-pg-si.is-toolerr { background: var(--pg-danger); }
@@ -421,4 +422,88 @@
     color: var(--pg-danger);
     font-weight: 600;
     margin: 8px 0;
+}
+
+/* ---------- Collapsible run-configuration panel (form above inspector) ---------- */
+
+.nrllm-pg-form-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 14px;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.nrllm-pg-form-toggle:focus-visible {
+    outline: 2px solid var(--pg-primary);
+    outline-offset: -2px;
+}
+
+.nrllm-pg-form-chevron {
+    flex: 0 0 auto;
+    transition: transform 0.15s ease;
+}
+
+.nrllm-pg-form-toggle[aria-expanded="false"] .nrllm-pg-form-chevron {
+    transform: rotate(-90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nrllm-pg-form-chevron {
+        transition: none;
+    }
+}
+
+.nrllm-pg-form-title {
+    font-weight: 600;
+}
+
+.nrllm-pg-form-summary {
+    color: var(--pg-muted);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.nrllm-pg-form-toggle[aria-expanded="true"] {
+    border-bottom: 1px solid var(--pg-border);
+}
+
+/* ---------- Waiting-for-model row (between request and response) ---------- */
+
+.nrllm-pg-waiting {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    font-size: 12.5px;
+    color: var(--pg-muted);
+    border-bottom: 1px solid var(--pg-border);
+}
+
+.nrllm-pg-waiting-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--pg-primary);
+    animation: nrllm-pg-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes nrllm-pg-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nrllm-pg-waiting-dot {
+        animation: none;
+    }
 }
