@@ -36,4 +36,9 @@ final readonly class FakeToolAvailability implements ToolAvailabilityServiceInte
     {
         return [];
     }
+
+    public function groupStates(): array
+    {
+        return [];
+    }
 }

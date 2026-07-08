@@ -120,4 +120,9 @@ final readonly class ListBeUsersRawTool implements ToolInterface
 
         return mb_substr($value, 0, self::MAX_VALUE_LENGTH) . '…';
     }
+
+    public function getGroup(): string
+    {
+        return 'accounts';
+    }
 }

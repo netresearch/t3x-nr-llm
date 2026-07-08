@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
+use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
@@ -144,7 +145,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     private function buildService(LlmServiceManagerInterface $mgr): ToolLoopService
     {
         $registry     = new ToolRegistry([new FetchLogsTool($this->connectionPool)]);
-        $availability = new ToolAvailabilityService($registry, new ToolStateRepository($this->connectionPool));
+        $availability = new ToolAvailabilityService($registry, new ToolStateRepository($this->connectionPool), new ToolGroupStateRepository($this->connectionPool));
 
         return new ToolLoopService($mgr, $registry, $availability);
     }

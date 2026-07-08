@@ -172,4 +172,9 @@ final readonly class GetPageTreeTool implements ToolInterface
             $this->appendChildren($uid, $level + 1, $maxDepth, $lines, $count);
         }
     }
+
+    public function getGroup(): string
+    {
+        return 'structure';
+    }
 }

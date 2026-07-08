@@ -28,17 +28,31 @@ interface ToolAvailabilityServiceInterface
     public function enabledNames(): array;
 
     /**
-     * Per-tool state rows for the management UI: name, description, the
-     * effective enabled flag, the tool default and whether an explicit admin
-     * override is in effect.
+     * Per-tool state rows for the management UI: name, description, group,
+     * the effective enabled flag (group AND tool cascade), the tool-level
+     * flag, the group-level flag, the tool default and whether an explicit
+     * admin override is in effect.
      *
      * @return list<array{
      *     name: string,
      *     description: string,
+     *     group: string,
      *     enabled: bool,
+     *     toolEnabled: bool,
+     *     groupEnabled: bool,
      *     defaultEnabled: bool,
      *     overridden: bool,
      * }>
      */
     public function states(): array;
+
+    /**
+     * Per-group state rows for the management UI, one per group of the
+     * currently registered tools: name, the effective enabled flag (an
+     * unknown / never-toggled group is enabled) and whether an explicit
+     * admin override row exists.
+     *
+     * @return list<array{name: string, enabled: bool, overridden: bool}>
+     */
+    public function groupStates(): array;
 }

@@ -25,6 +25,7 @@ final readonly class ToolAvailabilityService implements ToolAvailabilityServiceI
     public function __construct(
         private ToolRegistry $registry,
         private ToolStateRepository $stateRepository,
+        private ToolGroupStateRepository $groupStateRepository,
     ) {}
 
     public function enabledNames(): array
@@ -41,7 +42,8 @@ final readonly class ToolAvailabilityService implements ToolAvailabilityServiceI
 
     public function states(): array
     {
-        $overrides = $this->stateRepository->overrides();
+        $overrides      = $this->stateRepository->overrides();
+        $groupOverrides = $this->groupStateRepository->overrides();
 
         $states = [];
         foreach ($this->registry->names() as $name) {
@@ -52,16 +54,52 @@ final readonly class ToolAvailabilityService implements ToolAvailabilityServiceI
 
             $default    = $tool->isEnabledByDefault();
             $overridden = array_key_exists($name, $overrides);
+            $group      = $tool->getGroup();
+            // Unknown / never-toggled group => enabled (only an explicit
+            // admin override disables a group).
+            $groupEnabled = $groupOverrides[$group] ?? true;
+            $toolEnabled  = $overridden ? $overrides[$name] : $default;
 
             $states[] = [
                 'name'           => $name,
                 'description'    => $tool->getSpec()->description,
-                'enabled'        => $overridden ? $overrides[$name] : $default,
+                'group'          => $group,
+                // Fail-closed cascade: a per-tool override can never
+                // re-enable a tool inside a disabled group.
+                'enabled'        => $groupEnabled && $toolEnabled,
+                'toolEnabled'    => $toolEnabled,
+                'groupEnabled'   => $groupEnabled,
                 'defaultEnabled' => $default,
                 'overridden'     => $overridden,
             ];
         }
 
         return $states;
+    }
+
+    public function groupStates(): array
+    {
+        $groupOverrides = $this->groupStateRepository->overrides();
+
+        $groups = [];
+        foreach ($this->registry->names() as $name) {
+            $tool = $this->registry->get($name);
+            if ($tool === null) {
+                continue;
+            }
+            $group = $tool->getGroup();
+            if (isset($groups[$group])) {
+                continue;
+            }
+            $groups[$group] = [
+                'name'       => $group,
+                'enabled'    => $groupOverrides[$group] ?? true,
+                'overridden' => array_key_exists($group, $groupOverrides),
+            ];
+        }
+
+        ksort($groups);
+
+        return array_values($groups);
     }
 }

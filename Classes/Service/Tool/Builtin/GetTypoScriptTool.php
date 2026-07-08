@@ -247,4 +247,9 @@ final readonly class GetTypoScriptTool implements ToolInterface
 
         return implode("\n", $lines);
     }
+
+    public function getGroup(): string
+    {
+        return 'configuration';
+    }
 }

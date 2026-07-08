@@ -84,4 +84,20 @@ interface ToolInterface
      * (TYPO3 admins see everything).
      */
     public function requiresAdmin(): bool;
+
+    /**
+     * The tool's group — a short, stable identifier used to enable or disable
+     * whole families of tools at once (Tools module group toggles, the
+     * per-configuration `allowed_tool_groups` gate and the playground's
+     * grouped checkboxes).
+     *
+     * Builtins use the curated taxonomy `content`, `structure`, `system`,
+     * `accounts`, `configuration`. Third-party tools declare their own group;
+     * the recommended value is the providing extension's key. Enablement
+     * cascades fail-closed: a tool is only offered when its group is enabled
+     * AND the tool itself is enabled AND the run's configuration permits the
+     * group — a per-tool override never re-enables a tool inside a disabled
+     * group.
+     */
+    public function getGroup(): string;
 }

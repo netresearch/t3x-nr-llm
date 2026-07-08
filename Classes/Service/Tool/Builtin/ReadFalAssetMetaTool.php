@@ -145,4 +145,9 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface
         // non-admin), with the storage allow-list as a further bound.
         return true;
     }
+
+    public function getGroup(): string
+    {
+        return 'structure';
+    }
 }
