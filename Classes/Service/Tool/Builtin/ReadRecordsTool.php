@@ -354,4 +354,9 @@ final readonly class ReadRecordsTool implements ToolInterface
 
         return $string;
     }
+
+    public function getGroup(): string
+    {
+        return 'content';
+    }
 }

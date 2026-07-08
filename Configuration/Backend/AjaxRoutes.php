@@ -149,6 +149,11 @@ return [
         'path' => '/nrllm/tool/toggle',
         'target' => ToolController::class . '::toggleToolAction',
     ],
+    // Tool group management route (enable/disable a whole group)
+    'nrllm_toolgroup_toggle' => [
+        'path' => '/nrllm/toolgroup/toggle',
+        'target' => ToolController::class . '::toggleToolGroupAction',
+    ],
 
     // Setup Wizard routes
     'nrllm_wizard_detect' => [

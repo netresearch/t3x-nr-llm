@@ -139,6 +139,9 @@ CREATE TABLE tx_nrllm_configuration (
     -- Access control (MM relation to be_groups)
     allowed_groups int(11) DEFAULT '0' NOT NULL,
 
+    -- Comma list of permitted tool groups (empty = all groups allowed)
+    allowed_tool_groups varchar(255) DEFAULT '' NOT NULL,
+
     -- Attached skills (MM relation to tx_nrllm_skill)
     skills int(11) DEFAULT '0' NOT NULL,
 
@@ -544,4 +547,22 @@ CREATE TABLE tx_nrllm_tool_state (
 
     PRIMARY KEY (uid),
     UNIQUE KEY tool_name (tool_name)
+);
+
+#
+# Table structure for table 'tx_nrllm_tool_group_state'
+# Global per-GROUP enable/disable overrides for the agent tool runtime.
+# Managed via the Tools module group toggles (no FormEngine UI / no TCA);
+# a missing row means "group enabled". A disabled group also covers tools
+# of that group installed later — the runtime gate is fail-closed.
+#
+CREATE TABLE tx_nrllm_tool_group_state (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    group_name varchar(190) DEFAULT '' NOT NULL,
+    enabled smallint(5) unsigned DEFAULT '1' NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY group_name (group_name)
 );

@@ -1629,6 +1629,9 @@
             <trans-unit id="error.tool.unknownTool">
                 <source>Unknown tool</source>
             </trans-unit>
+            <trans-unit id="error.tool.unknownGroup">
+                <source>Unknown tool group</source>
+            </trans-unit>
             <trans-unit id="card.count.configurations">
                 <source>configuration(s) configured</source>
             </trans-unit>

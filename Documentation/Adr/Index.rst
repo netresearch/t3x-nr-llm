@@ -341,3 +341,4 @@ Tools
    Adr040PlaygroundRunTrace
    Adr041PlaygroundLiveStreaming
    Adr042ContentAndIntrospectionTools
+   Adr043ToolGroups

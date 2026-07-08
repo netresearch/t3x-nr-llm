@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
+use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Psr\Http\Message\ResponseInterface;
@@ -41,6 +42,7 @@ final class ToolController extends ActionController
         private readonly ToolRegistry $toolRegistry,
         private readonly ToolAvailabilityServiceInterface $toolAvailability,
         private readonly ToolStateRepository $toolStateRepository,
+        private readonly ToolGroupStateRepository $toolGroupStateRepository,
         private readonly PageRenderer $pageRenderer,
     ) {}
 
@@ -50,7 +52,8 @@ final class ToolController extends ActionController
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->makeDocHeaderModuleMenu();
         $moduleTemplate->assignMultiple([
-            'toolStates' => $this->toolAvailability->states(),
+            'toolStates'  => $this->toolAvailability->states(),
+            'groupStates' => $this->groupStatesByName(),
         ]);
         return $moduleTemplate->renderResponse('Backend/Tool/List');
     }
@@ -80,6 +83,50 @@ final class ToolController extends ActionController
         $this->toolStateRepository->setEnabled($toolName, $enabled);
 
         return new JsonResponse(['success' => true, 'enabled' => $enabled]);
+    }
+
+    /**
+     * Toggle the global enable state of a whole tool GROUP (AJAX, admin-gated).
+     *
+     * Mirrors {@see toggleToolAction()}: admin gate first (ADR-037), then the
+     * override is persisted to `tx_nrllm_tool_group_state`. Only a group of a
+     * currently registered tool is accepted so the table cannot accumulate
+     * orphan rows; the stored NAME still covers same-group tools installed
+     * later. The cascade in ToolAvailabilityService keeps a disabled group
+     * authoritative over any per-tool override (fail-closed).
+     */
+    public function toggleToolGroupAction(ServerRequestInterface $request): ResponseInterface
+    {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
+
+        $body      = $request->getParsedBody();
+        $groupName = $this->stringFromBody($body, 'group');
+        $known     = array_column($this->toolAvailability->groupStates(), 'name');
+        if ($groupName === '' || !in_array($groupName, $known, true)) {
+            return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.unknownGroup', 'Unknown tool group')], 404);
+        }
+
+        $enabled = $this->boolFromBody($body, 'enabled');
+        $this->toolGroupStateRepository->setEnabled($groupName, $enabled);
+
+        return new JsonResponse(['success' => true, 'enabled' => $enabled]);
+    }
+
+    /**
+     * Group states keyed by group name for direct template lookup.
+     *
+     * @return array<string, array{name: string, enabled: bool, overridden: bool}>
+     */
+    private function groupStatesByName(): array
+    {
+        $byName = [];
+        foreach ($this->toolAvailability->groupStates() as $state) {
+            $byName[$state['name']] = $state;
+        }
+
+        return $byName;
     }
 
     private function stringFromBody(mixed $body, string $key): string

@@ -98,4 +98,9 @@ final readonly class ListBeUsersTool implements ToolInterface
         // Admin-only: exposes system / host / cross-user data a non-admin must never reach.
         return true;
     }
+
+    public function getGroup(): string
+    {
+        return 'accounts';
+    }
 }

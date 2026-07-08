@@ -148,4 +148,9 @@ final readonly class GetTsConfigTool implements ToolInterface
 
         return $uid !== false;
     }
+
+    public function getGroup(): string
+    {
+        return 'configuration';
+    }
 }

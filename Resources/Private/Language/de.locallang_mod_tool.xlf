@@ -90,6 +90,18 @@
                 <source>Disable</source>
                 <target>Deaktivieren</target>
             </trans-unit>
+            <trans-unit id="group.disable">
+                <source>Disable group</source>
+                <target>Gruppe deaktivieren</target>
+            </trans-unit>
+            <trans-unit id="group.enable">
+                <source>Enable group</source>
+                <target>Gruppe aktivieren</target>
+            </trans-unit>
+            <trans-unit id="group.disabledHint">
+                <source>All tools of this group are refused; per-tool toggles have no effect while the group is disabled.</source>
+                <target>Alle Werkzeuge dieser Gruppe werden abgelehnt; Einzelschalter haben keine Wirkung, solange die Gruppe deaktiviert ist.</target>
+            </trans-unit>
             <trans-unit id="playground.help.title">
                 <source>How to add a tool</source>
                 <target>Ein Tool hinzufügen</target>

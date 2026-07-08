@@ -312,4 +312,9 @@ final readonly class SearchRecordsTool implements ToolInterface
         // the field denylist applies to the label too (drop, don't leak).
         return $this->tableAccess->isSensitiveField($label) ? '' : $label;
     }
+
+    public function getGroup(): string
+    {
+        return 'content';
+    }
 }

@@ -30,6 +30,7 @@ final readonly class AllowedToolsResolver
 {
     public function __construct(
         private SkillComposer $composer,
+        private ToolRegistry $registry,
     ) {}
 
     /**
@@ -53,7 +54,46 @@ final readonly class AllowedToolsResolver
             }
         }
 
-        return $any ? array_keys($declared) : null;
+        $names = $any ? array_keys($declared) : null;
+
+        return $this->applyGroupGate($names, $config->getAllowedToolGroupsList());
+    }
+
+    /**
+     * Intersect the skill-derived allow-list with the configuration's
+     * `allowed_tool_groups` gate.
+     *
+     * An empty group set means "no group restriction" and passes `$names`
+     * through unchanged. A non-empty set restricts to registered tools whose
+     * {@see ToolInterface::getGroup()} is in the set — combined with the skill
+     * list when one exists, otherwise as the allow-list itself. The global
+     * group/tool enable cascade (ToolAvailabilityService) applies on top in
+     * the runtime gate regardless.
+     *
+     * @param list<string>|null $names
+     * @param list<string>      $groupSet
+     *
+     * @return list<string>|null
+     */
+    private function applyGroupGate(?array $names, array $groupSet): ?array
+    {
+        if ($groupSet === []) {
+            return $names;
+        }
+
+        $inGroups = [];
+        foreach ($this->registry->names() as $name) {
+            $tool = $this->registry->get($name);
+            if ($tool !== null && in_array($tool->getGroup(), $groupSet, true)) {
+                $inGroups[] = $name;
+            }
+        }
+
+        if ($names === null) {
+            return $inGroups;
+        }
+
+        return array_values(array_intersect($names, $inGroups));
     }
 
     /**

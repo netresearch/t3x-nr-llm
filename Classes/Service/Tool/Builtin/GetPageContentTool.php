@@ -238,4 +238,9 @@ final readonly class GetPageContentTool implements ToolInterface
 
         return $plain;
     }
+
+    public function getGroup(): string
+    {
+        return 'content';
+    }
 }

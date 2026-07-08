@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 use GuzzleHttp\Psr7\ServerRequest as GuzzleServerRequest;
 use Netresearch\NrLlm\Controller\Backend\ToolController;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
+use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -130,6 +131,74 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         self::assertNotContains('fetch_logs', $this->availabilityFor($toolRegistry)->enabledNames());
     }
 
+    #[Test]
+    public function listActionRendersGroupHeadersAndGroupToggle(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $backendUser     = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
+
+        $toolRegistry = new ToolRegistry([
+            new FakeTool('alpha_tool', group: 'alpha'),
+            new FakeTool('beta_tool', group: 'beta'),
+        ]);
+        $controller = $this->makeController($toolRegistry);
+        $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
+
+        $body = (string)$controller->listAction()->getBody();
+
+        self::assertStringContainsString('js-toolgroup-toggle', $body);
+        self::assertStringContainsString('data-group="alpha"', $body);
+        self::assertStringContainsString('data-group="beta"', $body);
+    }
+
+    #[Test]
+    public function toggleToolGroupActionDeniesNonAdmin(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(2); // non-admin editor
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('t', group: 'alpha')]));
+        $request    = (new GuzzleServerRequest('POST', '/ajax/nrllm/toolgroup/toggle'))
+            ->withParsedBody(['group' => 'alpha', 'enabled' => 'false']);
+
+        self::assertSame(403, $controller->toggleToolGroupAction($request)->getStatusCode());
+    }
+
+    #[Test]
+    public function toggleToolGroupActionRejectsUnknownGroup(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('t', group: 'alpha')]));
+        $request    = (new GuzzleServerRequest('POST', '/ajax/nrllm/toolgroup/toggle'))
+            ->withParsedBody(['group' => 'nope', 'enabled' => 'false']);
+
+        self::assertSame(404, $controller->toggleToolGroupAction($request)->getStatusCode());
+    }
+
+    #[Test]
+    public function toggleToolGroupActionPersistsAndCascades(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $toolRegistry = new ToolRegistry([
+            new FakeTool('alpha_tool', group: 'alpha'),
+            new FakeTool('beta_tool', group: 'beta'),
+        ]);
+        $controller = $this->makeController($toolRegistry);
+        $request    = (new GuzzleServerRequest('POST', '/ajax/nrllm/toolgroup/toggle'))
+            ->withParsedBody(['group' => 'alpha', 'enabled' => 'false']);
+
+        $response = $controller->toggleToolGroupAction($request);
+        self::assertSame(200, $response->getStatusCode());
+
+        // The cascade drops the whole group from the enabled set.
+        self::assertSame(['beta_tool'], $this->availabilityFor($toolRegistry)->enabledNames());
+    }
+
     private function makeController(ToolRegistry $toolRegistry): ToolController
     {
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
@@ -142,13 +211,14 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
             $toolRegistry,
             $this->availabilityFor($toolRegistry),
             new ToolStateRepository($this->toolConnectionPool()),
+            new ToolGroupStateRepository($this->toolConnectionPool()),
             $pageRenderer,
         );
     }
 
     private function availabilityFor(ToolRegistry $toolRegistry): ToolAvailabilityService
     {
-        return new ToolAvailabilityService($toolRegistry, new ToolStateRepository($this->toolConnectionPool()));
+        return new ToolAvailabilityService($toolRegistry, new ToolStateRepository($this->toolConnectionPool()), new ToolGroupStateRepository($this->toolConnectionPool()));
     }
 
     private function toolConnectionPool(): ConnectionPool

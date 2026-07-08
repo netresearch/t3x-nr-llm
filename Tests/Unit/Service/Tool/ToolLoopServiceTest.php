@@ -128,6 +128,11 @@ final class ToolLoopServiceTest extends TestCase
             {
                 return false;
             }
+
+            public function getGroup(): string
+            {
+                return 'test';
+            }
         };
 
         $mgr   = self::createStub(LlmServiceManagerInterface::class);
@@ -176,6 +181,11 @@ final class ToolLoopServiceTest extends TestCase
             public function requiresAdmin(): bool
             {
                 return false;
+            }
+
+            public function getGroup(): string
+            {
+                return 'test';
             }
         };
 
@@ -437,6 +447,11 @@ final class ToolLoopServiceTest extends TestCase
             public function requiresAdmin(): bool
             {
                 return false;
+            }
+
+            public function getGroup(): string
+            {
+                return 'test';
             }
         };
 

@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -21,11 +23,20 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(AllowedToolsResolver::class)]
 final class AllowedToolsResolverTest extends TestCase
 {
-    private function resolver(): AllowedToolsResolver
+    private function resolver(?ToolRegistry $registry = null): AllowedToolsResolver
     {
         // A real (pure) SkillComposer: effectiveSkills() has no side effects, so the
         // resolver is exercised against the genuine enabled/non-orphaned/dedup selection.
-        return new AllowedToolsResolver(new SkillComposer());
+        return new AllowedToolsResolver(new SkillComposer(), $registry ?? new ToolRegistry([]));
+    }
+
+    private function groupedRegistry(): ToolRegistry
+    {
+        return new ToolRegistry([
+            new FakeTool('content_a', group: 'content'),
+            new FakeTool('content_b', group: 'content'),
+            new FakeTool('system_a', group: 'system'),
+        ]);
     }
 
     private function skill(
@@ -99,5 +110,50 @@ final class AllowedToolsResolverTest extends TestCase
         self::assertNotNull($result);
         sort($result);
         self::assertSame(['a', 'b'], $result);
+    }
+
+    #[Test]
+    public function emptyGroupSetLeavesSkillResultUntouched(): void
+    {
+        $config = new LlmConfiguration();
+        $config->addSkill($this->skill('a', ''));
+
+        self::assertNull($this->resolver($this->groupedRegistry())->resolve($config));
+    }
+
+    #[Test]
+    public function groupSetAloneBecomesTheAllowList(): void
+    {
+        $config = new LlmConfiguration();
+        $config->setAllowedToolGroups('content');
+        $config->addSkill($this->skill('a', ''));
+
+        self::assertSame(
+            ['content_a', 'content_b'],
+            $this->resolver($this->groupedRegistry())->resolve($config),
+        );
+    }
+
+    #[Test]
+    public function groupSetIntersectsTheSkillDeclaredUnion(): void
+    {
+        $config = new LlmConfiguration();
+        $config->setAllowedToolGroups('content');
+        $config->addSkill($this->skill('a', '["content_a", "system_a"]'));
+
+        self::assertSame(
+            ['content_a'],
+            $this->resolver($this->groupedRegistry())->resolve($config),
+        );
+    }
+
+    #[Test]
+    public function unknownGroupInSetYieldsNoToolsFailClosed(): void
+    {
+        $config = new LlmConfiguration();
+        $config->setAllowedToolGroups('nonexistent');
+        $config->addSkill($this->skill('a', ''));
+
+        self::assertSame([], $this->resolver($this->groupedRegistry())->resolve($config));
     }
 }

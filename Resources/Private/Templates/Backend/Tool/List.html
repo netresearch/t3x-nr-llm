@@ -35,9 +35,33 @@
                 <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tools" default="Available tools" /></h2>
                 <f:if condition="{f:count(subject: toolStates)}">
                     <f:then>
+                        <f:groupedFor each="{toolStates}" as="groupTools" groupBy="group" groupKey="groupName">
                         <div class="card mb-4">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong><core:icon identifier="actions-folder" size="small" /> <code>{groupName}</code></strong>
+                                    <f:if condition="{groupStates.{groupName}.enabled}">
+                                        <f:then>
+                                            <span class="badge bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enabled" default="Enabled" /></span>
+                                        </f:then>
+                                        <f:else>
+                                            <span class="badge bg-secondary">✕ <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disabled" default="Disabled" /></span>
+                                            <small class="text-body-secondary ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:group.disabledHint" default="All tools of this group are refused; per-tool toggles have no effect while the group is disabled." /></small>
+                                        </f:else>
+                                    </f:if>
+                                </div>
+                                <button type="button"
+                                        class="btn btn-sm js-toolgroup-toggle {f:if(condition: groupStates.{groupName}.enabled, then: 'btn-outline-secondary', else: 'btn-outline-success')}"
+                                        data-group="{groupName}"
+                                        data-enabled="{f:if(condition: groupStates.{groupName}.enabled, then: '1', else: '0')}">
+                                    <f:if condition="{groupStates.{groupName}.enabled}">
+                                        <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:group.disable" default="Disable group" /></f:then>
+                                        <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:group.enable" default="Enable group" /></f:else>
+                                    </f:if>
+                                </button>
+                            </div>
                             <ul class="list-group list-group-flush">
-                                <f:for each="{toolStates}" as="tool">
+                                <f:for each="{groupTools}" as="tool">
                                     <li class="list-group-item d-flex justify-content-between align-items-start">
                                         <div class="me-3">
                                             <strong><code>{tool.name}</code></strong>
@@ -62,10 +86,10 @@
                                             </f:if>
                                         </div>
                                         <button type="button"
-                                                class="btn btn-sm js-tool-toggle {f:if(condition: tool.enabled, then: 'btn-outline-secondary', else: 'btn-outline-success')}"
+                                                class="btn btn-sm js-tool-toggle {f:if(condition: tool.toolEnabled, then: 'btn-outline-secondary', else: 'btn-outline-success')}"
                                                 data-tool="{tool.name}"
-                                                data-enabled="{f:if(condition: tool.enabled, then: '1', else: '0')}">
-                                            <f:if condition="{tool.enabled}">
+                                                data-enabled="{f:if(condition: tool.toolEnabled, then: '1', else: '0')}">
+                                            <f:if condition="{tool.toolEnabled}">
                                                 <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.disable" default="Disable" /></f:then>
                                                 <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enable" default="Enable" /></f:else>
                                             </f:if>
@@ -74,6 +98,7 @@
                                 </f:for>
                             </ul>
                         </div>
+                        </f:groupedFor>
                     </f:then>
                     <f:else>
                         <f:be.infobox state="-1">

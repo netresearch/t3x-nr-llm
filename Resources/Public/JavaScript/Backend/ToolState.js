@@ -26,6 +26,13 @@ class ToolState {
 
     init() {
         document.body.addEventListener('click', (e) => {
+            const groupBtn = e.target.closest('.js-toolgroup-toggle');
+            if (groupBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.handleGroupToggle(groupBtn);
+                return;
+            }
             const toggleBtn = e.target.closest('.js-tool-toggle');
             if (toggleBtn) {
                 e.preventDefault();
@@ -35,6 +42,37 @@ class ToolState {
         });
 
         console.debug('[ToolState] Initialized with event delegation');
+    }
+
+    handleGroupToggle(btn) {
+        const group = btn.dataset.group;
+        const enabled = btn.dataset.enabled === '1' ? 0 : 1;
+        const url = TYPO3.settings.ajaxUrls['nrllm_toolgroup_toggle'];
+        if (!url) {
+            Notification.error('Error', 'AJAX URL not configured');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('group', group);
+        formData.append('enabled', String(enabled));
+
+        btn.disabled = true;
+        new AjaxRequest(url)
+            .post(formData)
+            .then(response => response.resolve())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    Notification.error('Error', data.error || 'Unknown error');
+                    btn.disabled = false;
+                }
+            })
+            .catch(async err => {
+                Notification.error('Error', await readAjaxError(err));
+                btn.disabled = false;
+            });
     }
 
     handleToggle(btn) {

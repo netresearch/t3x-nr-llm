@@ -137,4 +137,9 @@ final readonly class GetTcaTool implements ToolInterface
 
         return implode("\n", $lines);
     }
+
+    public function getGroup(): string
+    {
+        return 'structure';
+    }
 }

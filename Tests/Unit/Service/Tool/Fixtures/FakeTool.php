@@ -26,6 +26,7 @@ final readonly class FakeTool implements ToolInterface
         private string $result = 'ok',
         private bool $enabledByDefault = true,
         private bool $requiresAdmin = false,
+        private string $group = 'test',
     ) {}
 
     public function getSpec(): ToolSpec
@@ -53,5 +54,10 @@ final readonly class FakeTool implements ToolInterface
     public function requiresAdmin(): bool
     {
         return $this->requiresAdmin;
+    }
+
+    public function getGroup(): string
+    {
+        return $this->group;
     }
 }

@@ -90,4 +90,8 @@ final readonly class GetEnvTool implements ToolInterface
         return true;
     }
 
+    public function getGroup(): string
+    {
+        return 'system';
+    }
 }

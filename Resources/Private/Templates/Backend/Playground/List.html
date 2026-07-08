@@ -65,19 +65,29 @@
                                 <details class="nrllm-pg-ov mb-2" open="open">
                                     <summary><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.run.tools" default="Tools available to this run" /></summary>
                                     <div class="nrllm-pg-ov-b">
-                                        <f:for each="{toolStates}" as="tool">
-                                            <div class="form-check">
-                                                <f:if condition="{tool.enabled}">
-                                                    <f:then>
-                                                        <input class="form-check-input js-tool-select" type="checkbox" id="nrllm-tool-select-{tool.name}" value="{tool.name}" checked="checked" />
-                                                    </f:then>
-                                                    <f:else>
-                                                        <input class="form-check-input js-tool-select" type="checkbox" id="nrllm-tool-select-{tool.name}" value="{tool.name}" />
-                                                    </f:else>
-                                                </f:if>
-                                                <label class="form-check-label" for="nrllm-tool-select-{tool.name}"><code>{tool.name}</code></label>
+                                        <f:groupedFor each="{toolStates}" as="groupTools" groupBy="group" groupKey="groupName">
+                                            <div class="nrllm-pg-toolgroup mb-2">
+                                                <div class="form-check">
+                                                    <input class="form-check-input js-toolgroup-select" type="checkbox" id="nrllm-toolgroup-select-{groupName}" data-group="{groupName}" />
+                                                    <label class="form-check-label fw-bold" for="nrllm-toolgroup-select-{groupName}"><code>{groupName}</code></label>
+                                                </div>
+                                                <div class="ms-4">
+                                                    <f:for each="{groupTools}" as="tool">
+                                                        <div class="form-check">
+                                                            <f:if condition="{tool.enabled}">
+                                                                <f:then>
+                                                                    <input class="form-check-input js-tool-select" type="checkbox" id="nrllm-tool-select-{tool.name}" value="{tool.name}" data-group="{groupName}" checked="checked" />
+                                                                </f:then>
+                                                                <f:else>
+                                                                    <input class="form-check-input js-tool-select" type="checkbox" id="nrllm-tool-select-{tool.name}" value="{tool.name}" data-group="{groupName}" />
+                                                                </f:else>
+                                                            </f:if>
+                                                            <label class="form-check-label" for="nrllm-tool-select-{tool.name}"><code>{tool.name}</code></label>
+                                                        </div>
+                                                    </f:for>
+                                                </div>
                                             </div>
-                                        </f:for>
+                                        </f:groupedFor>
                                     </div>
                                 </details>
                             </f:then>

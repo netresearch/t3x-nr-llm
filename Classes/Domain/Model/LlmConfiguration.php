@@ -60,6 +60,12 @@ class LlmConfiguration extends AbstractEntity
     protected float $presencePenalty = 0.0;
     protected int $timeout = 0;
     protected string $options = '';
+
+    /**
+     * Comma list of permitted tool groups; empty = all groups allowed.
+     * See {@see getAllowedToolGroupsList()} and AllowedToolsResolver.
+     */
+    protected string $allowedToolGroups = '';
     protected int $maxRequestsPerDay = 0;
     protected int $maxTokensPerDay = 0;
     protected float $maxCostPerDay = 0.0;
@@ -724,5 +730,38 @@ class LlmConfiguration extends AbstractEntity
     public function getProvider(): ?Provider
     {
         return $this->llmModel?->getProvider();
+    }
+
+    public function getAllowedToolGroups(): string
+    {
+        return $this->allowedToolGroups;
+    }
+
+    public function setAllowedToolGroups(string $allowedToolGroups): void
+    {
+        $this->allowedToolGroups = $allowedToolGroups;
+    }
+
+    /**
+     * The permitted tool groups as a trimmed list; empty list = no
+     * group-based restriction (all groups allowed).
+     *
+     * @return list<string>
+     */
+    public function getAllowedToolGroupsList(): array
+    {
+        if (trim($this->allowedToolGroups) === '') {
+            return [];
+        }
+
+        $list = [];
+        foreach (explode(',', $this->allowedToolGroups) as $group) {
+            $group = trim($group);
+            if ($group !== '') {
+                $list[] = $group;
+            }
+        }
+
+        return $list;
     }
 }

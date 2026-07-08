@@ -139,6 +139,13 @@ A tool is a PHP class that implements
    Runs the tool with the model-provided arguments and returns a plain
    string that is fed back into the conversation as a tool turn.
 
+``getGroup(): string``
+   The tool's *group* — a short, stable identifier used to enable or disable
+   whole families of tools at once. Built-ins use ``content``, ``structure``,
+   ``system``, ``accounts`` and ``configuration``; third-party tools declare
+   their own group (recommended: the providing extension's key). See
+   :ref:`administration-tools-groups`.
+
 The interface carries ``#[AutoconfigureTag('nr_llm.tool')]``, so a class is
 **auto-registered simply by implementing it** — no central registration file
 to edit. :php:`ToolRegistry` collects every tagged tool through a DI iterator
@@ -174,6 +181,45 @@ them only deliberately.
    toggle. The ``_raw`` variants show as :guilabel:`Disabled`, the redacted
    tools as :guilabel:`Enabled`; the :guilabel:`Default` badge marks a tool
    sitting at its shipped state.
+
+.. _administration-tools-groups:
+
+Tool groups
+===========
+
+Every tool belongs to a **group** (its ``getGroup()`` value). The built-in
+taxonomy:
+
+===============  ============================================================
+Group            Tools
+===============  ============================================================
+``content``      ``search_records``, ``get_page_content``, ``read_records``
+``structure``    ``get_pagetree``, ``get_tca``, ``read_fal_asset_meta``
+``system``       ``get_env`` (+ raw), ``get_php_info`` (+ raw), ``fetch_logs``
+``accounts``     ``list_be_users`` (+ raw), ``list_be_groups``
+``configuration``  ``get_typoscript``, ``get_tsconfig``
+===============  ============================================================
+
+Groups can be switched on three levels, and the result cascades
+**fail-closed** — a tool is offered only when *every* level permits it:
+
+#. **Centrally** in the Tools module: each group header carries an
+   Enable/Disable group toggle. A disabled group refuses all of its tools —
+   including same-group tools installed later — and a per-tool override can
+   **not** re-enable a tool inside a disabled group (predictable,
+   fail-closed). Per-tool toggles keep working but take effect only once the
+   group is enabled again.
+#. **Per configuration**: the :guilabel:`Allowed tool groups` field on an
+   LLM configuration restricts agent runs with that configuration to tools of
+   the selected groups (empty = all groups). This intersects with a skill's
+   ``allowed-tools`` declaration.
+#. **Per run** in the playground: the tool checkboxes are grouped, and each
+   group checkbox (de)selects its children.
+
+Third-party extensions declare their own group per tool; the recommended
+value is the extension key, so an admin can disable an extension's whole
+tool family with one toggle. The design is recorded in
+:ref:`ADR-043 <adr-043>`.
 
 .. _administration-tools-playground:
 
