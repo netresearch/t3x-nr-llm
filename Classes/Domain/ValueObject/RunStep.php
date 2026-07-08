@@ -13,12 +13,16 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * One recorded step of an inspectable {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService}
  * run, as gathered by {@see \Netresearch\NrLlm\Service\Tool\RunTrace}.
  *
- * A step is one of three kinds:
- * - {@see self::KIND_LLM}: a single model round-trip — the messages sent, the
- *   tool specs offered, the assistant content + thinking, the tool calls the
- *   model requested, timing, the prompt/completion/total token split, the
- *   estimated cost (when the provider reported it) and — only when raw capture
- *   was requested — the decoded provider response body.
+ * A step is one of four kinds:
+ * - {@see self::KIND_REQUEST}: the outbound half of a model round-trip,
+ *   recorded (and streamed) BEFORE the provider call — the messages sent and
+ *   the tool specs offered this round. Carries no timing/tokens; those belong
+ *   to the response.
+ * - {@see self::KIND_LLM}: the response half of a model round-trip — the
+ *   assistant content + thinking, the tool calls the model requested, timing,
+ *   the prompt/completion/total token split, the estimated cost (when the
+ *   provider reported it) and — only when raw capture was requested — the
+ *   decoded provider response body.
  * - {@see self::KIND_TOOL}: one executed tool call — its name, arguments, the
  *   returned string, an error flag and the execution timing.
  * - {@see self::KIND_ASSEMBLED}: a dry run — the fully assembled message list
@@ -30,6 +34,8 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  */
 final readonly class RunStep
 {
+    public const KIND_REQUEST = 'request';
+
     public const KIND_LLM = 'llm';
 
     public const KIND_TOOL = 'tool';
@@ -37,8 +43,8 @@ final readonly class RunStep
     public const KIND_ASSEMBLED = 'assembled';
 
     /**
-     * @param list<array<string, mixed>>|null                                             $messagesSent       Snapshot of the messages sent this round (LLM/assembled).
-     * @param list<string>|null                                                           $toolSpecs          Names of the tools offered this round (LLM).
+     * @param list<array<string, mixed>>|null                                             $messagesSent       Snapshot of the messages sent this round (REQUEST/assembled).
+     * @param list<string>|null                                                           $toolSpecs          Names of the tools offered this round (REQUEST).
      * @param list<array{id: string, name: string, arguments: array<string, mixed>}>|null $requestedToolCalls Tool calls the model asked for (LLM).
      * @param array<string, mixed>|null                                                   $raw                Decoded raw provider response — only when capture was requested (LLM).
      * @param array<string, mixed>|null                                                   $toolArguments      Arguments the model supplied for a tool call (TOOL).

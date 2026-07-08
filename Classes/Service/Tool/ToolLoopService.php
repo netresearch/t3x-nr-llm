@@ -143,9 +143,10 @@ final readonly class ToolLoopService
         // request with an empty `tools` array makes some providers (OpenAI) 400.
         // The design (§4.3) maps "no tools" to a single plain completion.
         if ($specs === []) {
+            $runTrace?->recordRequest(1, $messages, []);
             $t0   = hrtime(true);
             $resp = $this->mgr->chatWithConfiguration($messages, $configuration, $this->budgetMetadata($options));
-            $runTrace?->recordLlmCall(1, self::elapsedMs($t0), $messages, [], $resp);
+            $runTrace?->recordLlmCall(1, self::elapsedMs($t0), $resp);
 
             return new ToolLoopResult(
                 $resp->content,
@@ -169,9 +170,12 @@ final readonly class ToolLoopService
         try {
             for ($i = 0; $i < $max; $i++) {
                 $iterations++;
+                // Streamed BEFORE the provider call so the inspector shows the
+                // outgoing request (and a waiting state) from second zero.
+                $runTrace?->recordRequest($iterations, $messages, $allowedNames);
                 $t0   = hrtime(true);
                 $resp = $this->mgr->chatWithToolsForConfiguration($messages, $specs, $configuration, $options);
-                $runTrace?->recordLlmCall($iterations, self::elapsedMs($t0), $messages, $allowedNames, $resp);
+                $runTrace?->recordLlmCall($iterations, self::elapsedMs($t0), $resp);
                 $promptTokens     += $resp->usage->promptTokens;
                 $completionTokens += $resp->usage->completionTokens;
 
@@ -203,16 +207,17 @@ final readonly class ToolLoopService
             // NO tools. A plain completion yields a real finalContent uniformly
             // across OpenAI, Claude and Ollama — unlike toolChoice='none' or an
             // empty tools array (see design §4.3).
+            // Record the synthesis as its own round (after the last tool round)
+            // so the inspector's step list does not show two steps sharing a
+            // round number.
+            $runTrace?->recordRequest($iterations + 1, $messages, []);
             $t0    = hrtime(true);
             $final = $this->mgr->chatWithConfiguration(
                 $messages,
                 $configuration,
                 $this->budgetMetadata($options),
             );
-            // Record the synthesis as its own round (after the last tool round)
-            // so the inspector's step list does not show two steps sharing a
-            // round number.
-            $runTrace?->recordLlmCall($iterations + 1, self::elapsedMs($t0), $messages, [], $final);
+            $runTrace?->recordLlmCall($iterations + 1, self::elapsedMs($t0), $final);
             $promptTokens     += $final->usage->promptTokens;
             $completionTokens += $final->usage->completionTokens;
 

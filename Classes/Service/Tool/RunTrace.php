@@ -20,9 +20,10 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
  * the admin playground's inspector view.
  *
  * A caller that wants the glass-box view constructs a RunTrace and passes it
- * into {@see ToolLoopService::runLoop()}; the service records one step per
- * model round-trip (messages sent, tools offered, the response, timing and the
- * token split) and one per executed tool call. When no RunTrace is passed
+ * into {@see ToolLoopService::runLoop()}; the service records a request step
+ * (messages sent, tools offered) BEFORE each provider call, a response step
+ * (content, timing, token split) after it, and one step per executed tool
+ * call. When no RunTrace is passed
  * (every production caller) the loop does no recording at all — the trace is
  * pure overhead-free instrumentation, never part of the loop's control flow.
  *
@@ -54,16 +55,35 @@ final class RunTrace
     }
 
     /**
-     * Record one model round-trip.
+     * Record the outbound half of a model round-trip, BEFORE the provider call.
+     *
+     * Fired through {@see self::add()} immediately, so a live listener streams
+     * the request the moment it goes out — the inspector shows activity from
+     * second zero instead of only after the first response arrives.
      *
      * @param list<ChatMessage|array<string, mixed>> $messagesSent messages sent this round
      * @param list<string>                           $toolSpecs    names of the tools offered this round
      */
+    public function recordRequest(int $round, array $messagesSent, array $toolSpecs): void
+    {
+        $this->add(new RunStep(
+            kind: RunStep::KIND_REQUEST,
+            round: $round,
+            durationMs: 0.0,
+            messagesSent: self::snapshotMessages($messagesSent),
+            toolSpecs: $toolSpecs,
+        ));
+    }
+
+    /**
+     * Record the response half of a model round-trip. The messages sent and
+     * tools offered live on the preceding {@see self::recordRequest()} step —
+     * not here — so the (potentially large) message array is serialised once
+     * per round, not twice.
+     */
     public function recordLlmCall(
         int $round,
         float $durationMs,
-        array $messagesSent,
-        array $toolSpecs,
         CompletionResponse $response,
     ): void {
         $raw = null;
@@ -91,8 +111,6 @@ final class RunTrace
             kind: RunStep::KIND_LLM,
             round: $round,
             durationMs: $durationMs,
-            messagesSent: self::snapshotMessages($messagesSent),
-            toolSpecs: $toolSpecs,
             content: $response->content,
             thinking: $response->thinking,
             finishReason: $response->finishReason,

@@ -115,10 +115,16 @@ final class ToolLoopServiceAugmentationTest extends TestCase
 
         self::assertSame('done', $result->finalContent);
         $steps = $trace->getSteps();
-        self::assertCount(1, $steps);
-        self::assertSame(RunStep::KIND_LLM, $steps[0]->kind);
-        self::assertSame('done', $steps[0]->content);
-        self::assertSame(10, $steps[0]->promptTokens);
+        // Outbound request first (streamed before the provider call), then the
+        // response — the messages live on the request, the tokens on the response.
+        self::assertCount(2, $steps);
+        self::assertSame(RunStep::KIND_REQUEST, $steps[0]->kind);
+        self::assertSame(1, $steps[0]->round);
+        self::assertNotNull($steps[0]->messagesSent);
+        self::assertSame(RunStep::KIND_LLM, $steps[1]->kind);
+        self::assertSame('done', $steps[1]->content);
+        self::assertSame(10, $steps[1]->promptTokens);
+        self::assertNull($steps[1]->messagesSent);
     }
 
     #[Test]

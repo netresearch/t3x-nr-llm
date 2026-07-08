@@ -217,15 +217,22 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertIsArray($payload['steps']);
         $toolStep = null;
         $llmSteps = 0;
+        $kinds    = [];
         foreach ($payload['steps'] as $step) {
             self::assertIsArray($step);
+            $kinds[] = $step['kind'] ?? '';
             if (($step['kind'] ?? '') === 'tool') {
                 $toolStep = $step;
             } elseif (($step['kind'] ?? '') === 'llm') {
                 ++$llmSteps;
+            } elseif (($step['kind'] ?? '') === 'request') {
+                // The outbound half carries the messages; the response does not.
+                self::assertIsArray($step['messagesSent'] ?? null);
             }
         }
         self::assertSame(2, $llmSteps);
+        // Each round's request precedes its response; the tool runs in between.
+        self::assertSame(['request', 'llm', 'tool', 'request', 'llm'], $kinds);
         self::assertIsArray($toolStep);
         self::assertSame('fetch_logs', $toolStep['toolName']);
         self::assertSame(['limit' => 5], $toolStep['toolArguments']);
@@ -442,10 +449,22 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $kinds = array_map(static fn(array $e): mixed => $e['event'] ?? null, $events);
-        // One 'step' per recorded step (2 LLM rounds + 1 tool), then a terminal 'done'.
+        // One 'step' per recorded step, then a terminal 'done'.
         self::assertContains('step', $kinds);
-        self::assertGreaterThanOrEqual(3, count(array_filter($kinds, static fn(mixed $k): bool => $k === 'step')));
+        self::assertGreaterThanOrEqual(5, count(array_filter($kinds, static fn(mixed $k): bool => $k === 'step')));
         self::assertNotEmpty($events);
+
+        // The very first event is the outbound request — emitted BEFORE the
+        // provider call, which is what makes the inspector live from second
+        // zero — and the full interleaving matches the loop.
+        $stepKinds = [];
+        foreach ($events as $event) {
+            if (($event['event'] ?? null) === 'step' && is_array($event['step'] ?? null)) {
+                $stepKinds[] = $event['step']['kind'] ?? '';
+            }
+        }
+        self::assertSame(['request', 'llm', 'tool', 'request', 'llm'], $stepKinds);
+
         $last = end($events);
         self::assertIsArray($last);
         self::assertSame('done', $last['event']);
