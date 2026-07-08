@@ -122,6 +122,30 @@ The remaining tools follow the same pattern:
    ``path`` drill-down, output cap and redaction as ``get_typoscript``.
    Admin-only.
 
+``get_last_exception``
+   The newest exception/error from the TYPO3 file logs with its parsed
+   stack trace and the surrounding source lines of the project frames
+   inlined. ``index`` steps back through older errors, ``search`` filters
+   by message, class or component. Admin-only.
+
+``read_source``
+   A line-numbered range of one project source file. Paths must resolve
+   inside the project root; dotfiles, ``var/*`` (except ``var/log``),
+   ``config/system``, ``settings.php``/``additional.php``, key material
+   and credential paths are structurally unreadable. Admin-only.
+
+``search_code``
+   Literal-substring (or opt-in regex) search across the project's source
+   files, returning ``path:line`` hits. Vendor, ``var`` and dot
+   directories are never searched; matched credential lines are
+   value-redacted. Admin-only.
+
+``probe_url``
+   One GET against a URL of *this* instance: status, key headers, timing
+   and a short body excerpt — and on a 5xx the matching exception from the
+   TYPO3 logs is appended automatically. Foreign hosts and non-http(s)
+   schemes are denied; redirects are reported, not followed. Admin-only.
+
 .. _administration-tools-register:
 
 Registering a tool
@@ -195,9 +219,11 @@ Group            Tools
 ===============  ============================================================
 ``content``      ``search_records``, ``get_page_content``, ``read_records``
 ``structure``    ``get_pagetree``, ``get_tca``, ``read_fal_asset_meta``
-``system``       ``get_env`` (+ raw), ``get_php_info`` (+ raw), ``fetch_logs``
+``system``       ``get_env`` (+ raw), ``get_php_info`` (+ raw),
+                 ``fetch_logs``, ``probe_url``
 ``accounts``     ``list_be_users`` (+ raw), ``list_be_groups``
 ``configuration``  ``get_typoscript``, ``get_tsconfig``
+``code``         ``get_last_exception``, ``read_source``, ``search_code``
 ===============  ============================================================
 
 Groups can be switched on three levels, and the result cascades
