@@ -44,6 +44,10 @@ class ToolPlayground {
         this.msgWaiting = this.root.dataset.msgWaiting || 'Waiting for model…';
         this.msgRequest = this.root.dataset.msgRequest || 'Request';
         this.msgToolSpecs = this.root.dataset.msgToolspecs || 'Tools offered';
+        this.msgMessagesSent = this.root.dataset.msgMessagessent || 'Messages sent';
+        this.msgNoTools = this.root.dataset.msgNotools || 'No tools offered for this round.';
+        this.msgNoMessages = this.root.dataset.msgNomessages || 'No messages.';
+        this.msgAssembling = this.root.dataset.msgAssembling || 'Assembling…';
         this.configSelect = document.getElementById('nrllm-tool-config');
         this.promptInput = document.getElementById('nrllm-tool-prompt');
         this.runButton = document.getElementById('nrllm-tool-run');
@@ -97,7 +101,7 @@ class ToolPlayground {
         const formData = this.buildFormData(dryRun, prompt);
 
         this.setBusy(true);
-        this.renderStatus(dryRun ? 'Assembling…' : this.msgRunning);
+        this.renderStatus(dryRun ? this.msgAssembling : this.msgRunning);
 
         // Give the streaming inspector the room: collapse the form (state is
         // kept; the header re-expands it) and bring the inspector into view.
@@ -459,10 +463,10 @@ class ToolPlayground {
                 '',
             ));
             detail.appendChild(this.tabBox([
-                ['Messages sent', () => this.messagesList(step.messagesSent || [])],
+                [this.msgMessagesSent, () => this.messagesList(step.messagesSent || [])],
                 [this.msgToolSpecs, () => (step.toolSpecs || []).length > 0
                     ? this.pre((step.toolSpecs || []).join('\n'))
-                    : this.note('No tools offered for this round.')],
+                    : this.note(this.msgNoTools)],
             ]));
             return;
         }
@@ -548,7 +552,7 @@ class ToolPlayground {
             wrap.appendChild(row);
         });
         if (messages.length === 0) {
-            wrap.appendChild(this.note('No messages.'));
+            wrap.appendChild(this.note(this.msgNoMessages));
         }
         return wrap;
     }

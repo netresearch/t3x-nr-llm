@@ -143,6 +143,18 @@
             <trans-unit id="playground.tab.toolSpecs">
                 <source>Tools offered</source>
             </trans-unit>
+            <trans-unit id="playground.tab.messagesSent">
+                <source>Messages sent</source>
+            </trans-unit>
+            <trans-unit id="playground.noToolsOffered">
+                <source>No tools offered for this round.</source>
+            </trans-unit>
+            <trans-unit id="playground.noMessages">
+                <source>No messages.</source>
+            </trans-unit>
+            <trans-unit id="playground.assembling">
+                <source>Assembling…</source>
+            </trans-unit>
             <trans-unit id="playground.runConfig">
                 <source>Run configuration</source>
             </trans-unit>
