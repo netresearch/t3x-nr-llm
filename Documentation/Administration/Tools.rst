@@ -36,14 +36,18 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships eleven read-only introspection tools. Each is a reference
+nr-llm ships sixteen read-only tools. Each is a reference
 implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
-redacted or gated behind a separate ``_raw`` variant. Eight ship **enabled**;
-the three unredacted ``_raw`` variants (``get_env_raw``, ``get_php_info_raw``
-and ``list_be_users_raw``) ship **disabled** and must be enabled deliberately.
-Most require admin; only ``get_pagetree``, ``get_tca`` and
-``read_fal_asset_meta`` are offered to non-admin backend users.
+redacted or gated behind a separate ``_raw`` variant. Thirteen ship
+**enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
+``get_php_info_raw`` and ``list_be_users_raw``) ship **disabled** and must be
+enabled deliberately. Most require admin; only ``get_pagetree``, ``get_tca``,
+``search_records``, ``get_page_content`` and ``read_records`` are offered to
+non-admin backend users — those self-enforce the acting user's TYPO3
+permissions (page-show rights, ``tables_select``) inside the tool, so a
+non-admin only ever sees what the backend already grants them (see
+:ref:`ADR-042 <adr-042>`).
 
 The two tools below are the fullest illustrations of the contract:
 
@@ -88,6 +92,35 @@ The remaining tools follow the same pattern:
    Backend users. ``list_be_users`` omits credentials (password hashes and MFA
    secrets are never included); ``list_be_users_raw`` returns the full
    non-credential profile columns and ships disabled.
+
+``search_records``
+   Full-text search across the tables that define TCA ``searchFields``.
+   Returns compact ``table:uid`` hits with a short excerpt around the match.
+   Credential and nr-llm configuration tables are never searched; non-admins
+   are limited to their ``tables_select`` tables and to hits on pages they
+   may show.
+
+``get_page_content``
+   One page's header data plus its content elements in column/sorting order
+   (uid, colPos, CType, header, a short bodytext excerpt). Non-admins need
+   page-show permission; only admins see hidden elements (marked
+   ``[hidden]``).
+
+``read_records``
+   Generic equality-filtered read of one TCA table — never raw SQL. Fields
+   are validated against the TCA and credential-like columns are silently
+   dropped; the same table gates as ``search_records`` apply.
+
+``get_typoscript``
+   The resolved frontend TypoScript (setup or constants) effective on a page,
+   with a dotted ``path`` drill-down and capped output. Admin-only —
+   constants routinely carry API keys — and credential-like values render as
+   ``[redacted]`` on top of that.
+
+``get_tsconfig``
+   The rootline-merged Page TSconfig effective on a page, with the same
+   ``path`` drill-down, output cap and redaction as ``get_typoscript``.
+   Admin-only.
 
 .. _administration-tools-register:
 

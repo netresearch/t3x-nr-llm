@@ -62,7 +62,7 @@ final class PublicServicesPolicyTest extends TestCase
      * `Documentation/Adr/Adr028PublicServicesPolicy.rst` in the
      * same PR — the diff is the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 42;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 43;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 

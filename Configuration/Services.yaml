@@ -196,6 +196,11 @@ services:
   Netresearch\NrLlm\Service\Skill\GitHubClientInterface:
     alias: Netresearch\NrLlm\Service\Skill\GitHubClient
 
+  # Public so functional tests can fetch registered tools by spec name
+  # (the tools themselves stay private; ADR-042).
+  Netresearch\NrLlm\Service\Tool\ToolRegistry:
+    public: true
+
   Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface:
     alias: Netresearch\NrLlm\Service\Tool\ToolAvailabilityService
 

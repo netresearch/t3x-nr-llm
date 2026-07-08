@@ -120,11 +120,11 @@ The unit test
 ``Configuration/Services.yaml`` and asserts:
 
 * The total count of ``public: true`` keys matches the expected
-  total (currently **42**).
+  total (currently **43**).
 * The ADR file exists and references both ``REC #9c`` and the
   ``public: true`` policy text.
 
-Breakdown of the 42:
+Breakdown of the 43:
 
 * **22** Category 1 — Public LLM API surface
   (13 concrete services + 9 interface aliases).
