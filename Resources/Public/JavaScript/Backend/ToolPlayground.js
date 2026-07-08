@@ -9,8 +9,8 @@
  * The operator picks a configuration, types a prompt, optionally force-injects
  * skills/snippets and overrides options, then runs (or dry-runs) the agent
  * loop. The runAction JSON carries the full run trace; this module renders a
- * summary strip, a step list of the nr_llm ↔ LLM dialog, and a detail pane
- * with Structured / Raw JSON / Messages-sent / Thinking tabs.
+ * summary strip, a step list of the nr_llm ↔ LLM dialog (request steps stream
+ * in BEFORE the model answers), and a per-step detail pane.
  *
  * Security: every server/LLM string is written via textContent (never
  * innerHTML); the final answer's HTML preview lives inside a fully sandboxed
@@ -41,14 +41,44 @@ class ToolPlayground {
         this.route = this.root.dataset.ajaxRoute || '';
         this.msgTruncated = this.root.dataset.msgTruncated || 'Response truncated — the model hit the max-tokens limit. Raise Max tokens in Advanced and run again.';
         this.msgRunning = this.root.dataset.msgRunning || 'Running…';
+        this.msgWaiting = this.root.dataset.msgWaiting || 'Waiting for model…';
+        this.msgRequest = this.root.dataset.msgRequest || 'Request';
+        this.msgToolSpecs = this.root.dataset.msgToolspecs || 'Tools offered';
         this.configSelect = document.getElementById('nrllm-tool-config');
         this.promptInput = document.getElementById('nrllm-tool-prompt');
         this.runButton = document.getElementById('nrllm-tool-run');
         this.dryRunButton = document.getElementById('nrllm-tool-dryrun');
         this.output = document.getElementById('nrllm-tool-output');
+        this.formToggle = document.getElementById('nrllm-pg-form-toggle');
+        this.formBody = document.getElementById('nrllm-pg-form-body');
+        this.formSummary = document.getElementById('nrllm-pg-form-summary');
 
         this.runButton?.addEventListener('click', () => this.run(false));
         this.dryRunButton?.addEventListener('click', () => this.run(true));
+        this.formToggle?.addEventListener('click', () => this.setFormCollapsed(this.formToggle.getAttribute('aria-expanded') === 'true'));
+    }
+
+    /**
+     * Collapse or expand the run-configuration panel. Form state is kept — the
+     * body is only hidden. When collapsed, the header shows a one-line summary
+     * (configuration name + prompt excerpt) of what is running.
+     */
+    setFormCollapsed(collapsed) {
+        if (!this.formToggle || !this.formBody) {
+            return;
+        }
+        this.formToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        this.formBody.hidden = collapsed;
+        if (this.formSummary) {
+            if (collapsed) {
+                const config = this.configSelect?.selectedOptions?.[0]?.textContent?.trim() || '';
+                const prompt = (this.promptInput?.value || '').trim().replace(/\s+/g, ' ');
+                const excerpt = prompt.length > 80 ? `${prompt.slice(0, 80)}…` : prompt;
+                this.formSummary.textContent = [config, excerpt].filter(Boolean).join(' · ');
+            } else {
+                this.formSummary.textContent = '';
+            }
+        }
     }
 
     run(dryRun) {
@@ -68,6 +98,12 @@ class ToolPlayground {
 
         this.setBusy(true);
         this.renderStatus(dryRun ? 'Assembling…' : this.msgRunning);
+
+        // Give the streaming inspector the room: collapse the form (state is
+        // kept; the header re-expands it) and bring the inspector into view.
+        this.setFormCollapsed(true);
+        const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+        this.output?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
 
         // Live path: stream each step as it happens. Falls back to the batch
         // request when the browser can't read a streaming body.
@@ -272,6 +308,12 @@ class ToolPlayground {
             list.appendChild(row);
         });
 
+        // A request whose response has not arrived yet: the model is working —
+        // show a live waiting row so the stream never looks stalled.
+        if (data.running && steps.length > 0 && steps[steps.length - 1].kind === 'request') {
+            list.appendChild(this.buildWaitingRow());
+        }
+
         split.appendChild(list);
         split.appendChild(detail);
         this.output.appendChild(split);
@@ -360,7 +402,13 @@ class ToolPlayground {
         const metrics = document.createElement('div');
         metrics.className = 'nrllm-pg-sr';
 
-        if (step.kind === 'assembled') {
+        if (step.kind === 'request') {
+            icon.classList.add('is-out');
+            icon.textContent = '⬆';
+            title.textContent = `${this.msgRequest} · round ${step.round}`;
+            const tools = (step.toolSpecs || []).length;
+            sub.textContent = `${(step.messagesSent || []).length} messages · ${tools} tools`;
+        } else if (step.kind === 'assembled') {
             icon.classList.add('is-assembled');
             icon.textContent = '⧉';
             title.textContent = 'Assembled prompt';
@@ -404,6 +452,21 @@ class ToolPlayground {
             return;
         }
 
+        if (step.kind === 'request') {
+            detail.appendChild(this.detailHeader(
+                `${this.msgRequest} · round ${step.round}`,
+                `${(step.messagesSent || []).length} messages · ${(step.toolSpecs || []).length} tools`,
+                '',
+            ));
+            detail.appendChild(this.tabBox([
+                ['Messages sent', () => this.messagesList(step.messagesSent || [])],
+                [this.msgToolSpecs, () => (step.toolSpecs || []).length > 0
+                    ? this.pre((step.toolSpecs || []).join('\n'))
+                    : this.note('No tools offered for this round.')],
+            ]));
+            return;
+        }
+
         if (step.kind === 'assembled') {
             detail.appendChild(this.detailHeader('Assembled prompt (dry run)', '', ''));
             detail.appendChild(this.messagesList(step.messagesSent || []));
@@ -418,13 +481,31 @@ class ToolPlayground {
             step.finishReason || '',
         ));
 
+        // The messages sent live on the round's request step, not here.
         const tabs = [
             ['Structured', () => this.structuredPane(step, data, isFinal)],
             ['Raw JSON', () => step.raw != null ? this.pre(this.json(step.raw)) : this.note('Not captured. Enable “Capture raw provider response”.')],
-            ['Messages sent', () => this.messagesList(step.messagesSent || [])],
             ['Thinking', () => step.thinking?.trim() ? this.pre(step.thinking) : this.note('No reasoning returned for this round.')],
         ];
         detail.appendChild(this.tabBox(tabs));
+    }
+
+    /**
+     * Live row shown while a request is out and the model has not answered yet.
+     * The text label carries the state (the pulse dot is decorative only).
+     */
+    buildWaitingRow() {
+        const row = document.createElement('div');
+        row.className = 'nrllm-pg-waiting';
+        row.setAttribute('role', 'status');
+        const dot = document.createElement('span');
+        dot.className = 'nrllm-pg-waiting-dot';
+        dot.setAttribute('aria-hidden', 'true');
+        const text = document.createElement('span');
+        text.textContent = this.msgWaiting;
+        row.appendChild(dot);
+        row.appendChild(text);
+        return row;
     }
 
     structuredPane(step, data, isFinal) {

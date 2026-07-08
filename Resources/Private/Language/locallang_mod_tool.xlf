@@ -134,6 +134,18 @@
             <trans-unit id="playground.running">
                 <source>Running…</source>
             </trans-unit>
+            <trans-unit id="playground.waiting">
+                <source>Waiting for model…</source>
+            </trans-unit>
+            <trans-unit id="playground.step.request">
+                <source>Request</source>
+            </trans-unit>
+            <trans-unit id="playground.tab.toolSpecs">
+                <source>Tools offered</source>
+            </trans-unit>
+            <trans-unit id="playground.runConfig">
+                <source>Run configuration</source>
+            </trans-unit>
             <trans-unit id="playground.truncatedBanner">
                 <source>Response truncated — the model hit the max-tokens limit. Raise Max tokens in Advanced and run again.</source>
             </trans-unit>

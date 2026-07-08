@@ -10,7 +10,7 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
-    <div id="nrllm-tool-playground" class="nrllm-pg" data-ajax-route="{ajaxRoute}" data-msg-truncated="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.truncatedBanner', default: 'Response truncated — the model hit the max-tokens limit. Raise Max tokens in Advanced and run again.')}" data-msg-running="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.running', default: 'Running…')}">
+    <div id="nrllm-tool-playground" class="nrllm-pg" data-ajax-route="{ajaxRoute}" data-msg-truncated="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.truncatedBanner', default: 'Response truncated — the model hit the max-tokens limit. Raise Max tokens in Advanced and run again.')}" data-msg-running="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.running', default: 'Running…')}" data-msg-waiting="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.waiting', default: 'Waiting for model…')}" data-msg-request="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.step.request', default: 'Request')}" data-msg-toolspecs="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tab.toolSpecs', default: 'Tools offered')}">
         <h1>
             <core:icon identifier="module-nrllm-tool" size="medium" />
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.title" default="Tool Playground" />
@@ -31,10 +31,16 @@
 
         <f:render partial="Backend/Glossary" />
 
-        <div class="row">
-            <div class="col-lg-4">
-                <div class="card mb-4">
-                    <div class="card-body nrllm-pg-controls">
+        <f:comment>Form and inspector are stacked full-width; the form collapses
+        after a run starts so the streaming inspector gets the room.</f:comment>
+        <div class="card mb-4 nrllm-pg-form">
+            <button type="button" class="nrllm-pg-form-toggle" id="nrllm-pg-form-toggle" aria-expanded="true" aria-controls="nrllm-pg-form-body">
+                <span class="nrllm-pg-form-chevron" aria-hidden="true">▾</span>
+                <span class="nrllm-pg-form-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.runConfig" default="Run configuration" /></span>
+                <span class="nrllm-pg-form-summary" id="nrllm-pg-form-summary"></span>
+            </button>
+            <div id="nrllm-pg-form-body">
+                <div class="card-body nrllm-pg-controls">
                         <div class="mb-3">
                             <label class="form-label" for="nrllm-tool-config">
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.config" default="LLM configuration" />
@@ -151,15 +157,12 @@
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.dryRun" default="Dry run — assemble only" />
                             </button>
                         </div>
-                    </div>
                 </div>
             </div>
-
-            <div class="col-lg-8">
-                <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.inspector" default="Inspector" /></h2>
-                <div id="nrllm-tool-output" class="nrllm-pg-inspector"></div>
-            </div>
         </div>
+
+        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.inspector" default="Inspector" /></h2>
+        <div id="nrllm-tool-output" class="nrllm-pg-inspector"></div>
     </div>
 </f:section>
 
