@@ -342,3 +342,4 @@ Tools
    Adr041PlaygroundLiveStreaming
    Adr042ContentAndIntrospectionTools
    Adr043ToolGroups
+   Adr044ErrorAnalysisTools
