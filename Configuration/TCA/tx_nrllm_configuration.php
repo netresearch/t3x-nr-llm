@@ -44,6 +44,7 @@ return [
                     fallback_chain,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.access,
                     allowed_groups,
+                    allowed_tool_groups,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     hidden,
                     --palette--;;status
@@ -380,6 +381,16 @@ return [
                 'size' => 5,
                 'minitems' => 0,
                 'maxitems' => 100,
+            ],
+        ],
+        'allowed_tool_groups' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.allowed_tool_groups',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.allowed_tool_groups.description',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectCheckBox',
+                'itemsProcFunc' => \Netresearch\NrLlm\Form\Tca\ToolGroupItems::class . '->addItems',
+                'default' => '',
             ],
         ],
         'skills' => [

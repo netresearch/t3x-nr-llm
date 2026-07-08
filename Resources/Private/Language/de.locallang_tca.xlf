@@ -285,6 +285,14 @@
                 <source>If empty, configuration is accessible to all users with LLM permissions</source>
                 <target>Wenn leer, ist die Konfiguration für alle Benutzer mit LLM-Berechtigungen zugänglich</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.allowed_tool_groups">
+                <source>Allowed tool groups</source>
+                <target>Erlaubte Werkzeuggruppen</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.allowed_tool_groups.description">
+                <source>Restrict agent runs with this configuration to tools of the selected groups. Empty = all groups allowed. Globally disabled tools or groups stay disabled regardless.</source>
+                <target>Beschränkt Agent-Läufe mit dieser Konfiguration auf Werkzeuge der gewählten Gruppen. Leer = alle Gruppen erlaubt. Global deaktivierte Werkzeuge oder Gruppen bleiben unabhängig davon deaktiviert.</target>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.skills">
                 <source>Attached Skills</source>

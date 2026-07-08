@@ -222,6 +222,12 @@
             <trans-unit id="tx_nrllm_configuration.allowed_groups.description">
                 <source>If empty, configuration is accessible to all users with LLM permissions</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.allowed_tool_groups">
+                <source>Allowed tool groups</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.allowed_tool_groups.description">
+                <source>Restrict agent runs with this configuration to tools of the selected groups. Empty = all groups allowed. Globally disabled tools or groups stay disabled regardless.</source>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.skills">
                 <source>Attached Skills</source>
