@@ -15,7 +15,9 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\EndTimeRestriction;
 use TYPO3\CMS\Core\Database\Query\Restriction\HiddenRestriction;
+use TYPO3\CMS\Core\Database\Query\Restriction\StartTimeRestriction;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
@@ -165,9 +167,12 @@ final readonly class GetPageContentTool implements ToolInterface
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
         if ($isAdmin) {
-            // Admins may inspect hidden pages; the [hidden] marker makes it
-            // explicit. Soft-deleted rows stay excluded.
-            $queryBuilder->getRestrictions()->removeByType(HiddenRestriction::class);
+            // Admins may inspect hidden and timed-out pages; the [hidden]
+            // marker makes it explicit. Soft-deleted rows stay excluded.
+            $queryBuilder->getRestrictions()
+                ->removeByType(HiddenRestriction::class)
+                ->removeByType(StartTimeRestriction::class)
+                ->removeByType(EndTimeRestriction::class);
         }
 
         $row = $queryBuilder
@@ -192,7 +197,10 @@ final readonly class GetPageContentTool implements ToolInterface
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
         if ($isAdmin) {
-            $queryBuilder->getRestrictions()->removeByType(HiddenRestriction::class);
+            $queryBuilder->getRestrictions()
+                ->removeByType(HiddenRestriction::class)
+                ->removeByType(StartTimeRestriction::class)
+                ->removeByType(EndTimeRestriction::class);
         }
 
         $rows = $queryBuilder

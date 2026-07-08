@@ -224,7 +224,7 @@ final readonly class GetTypoScriptTool implements ToolInterface
         foreach ($constants as $key => $value) {
             $key   = (string)$key;
             $value = is_scalar($value) ? (string)$value : '';
-            if ($path !== '' && !str_starts_with($key, $path)) {
+            if ($path !== '' && $key !== $path && !str_starts_with($key, $path . '.')) {
                 continue;
             }
             if (count($lines) >= self::MAX_LINES) {

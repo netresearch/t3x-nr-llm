@@ -20,7 +20,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
  * - **path drill-down**: a dotted path walks `key.` children so the model
  *   can request one subtree instead of the whole document;
  * - **output capping**: without a path only the top-level keys are listed,
- *   and any rendered subtree stops at {@see line cap} lines with an explicit
+ *   and any rendered subtree stops at a fixed line cap with an explicit
  *   truncation marker — a full setup dump would flood the provider egress;
  * - **secret redaction**: values whose key looks credential-bearing render
  *   as `[redacted]` for every user (TS constants routinely carry API keys).

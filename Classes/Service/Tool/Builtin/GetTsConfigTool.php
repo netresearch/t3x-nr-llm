@@ -16,6 +16,7 @@ use Throwable;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 
 /**
  * Return the rootline-merged Page TSconfig effective on a page.
@@ -131,6 +132,10 @@ final readonly class GetTsConfigTool implements ToolInterface
     private function pageExists(int $pageUid): bool
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
+        // Admin-only tool: hidden and timed-out pages are inspectable too;
+        // only soft-deleted rows stay excluded.
+        $queryBuilder->getRestrictions()->removeAll()
+            ->add(new DeletedRestriction());
 
         $uid = $queryBuilder
             ->select('uid')

@@ -305,8 +305,11 @@ final readonly class SearchRecordsTool implements ToolInterface
     {
         $tca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
         $definition = $tca[$table] ?? null;
-        $ctrl = is_array($definition) ? ($definition['ctrl'] ?? null) : null;
+        $ctrl  = is_array($definition) ? ($definition['ctrl'] ?? null) : null;
+        $label = is_array($ctrl) ? self::toStr($ctrl['label'] ?? '') : '';
 
-        return is_array($ctrl) ? self::toStr($ctrl['label'] ?? '') : '';
+        // A customised ctrl.label could point at a credential-ish column —
+        // the field denylist applies to the label too (drop, don't leak).
+        return $this->tableAccess->isSensitiveField($label) ? '' : $label;
     }
 }
