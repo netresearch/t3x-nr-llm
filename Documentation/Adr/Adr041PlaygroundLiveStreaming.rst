@@ -42,6 +42,14 @@ existing admin AJAX route:
   flushes; a final ``{"event":"done",…}`` (or ``{"event":"error",…}``) line
   carries the summary. When no closure is passed (every production and test
   caller) the loop is byte-for-byte unchanged.
+- **Request steps stream before the call.** Each model round-trip is recorded
+  as two steps: a ``request`` step (the messages sent and tools offered, no
+  timing/tokens) emitted *before* the provider call, and the ``llm`` response
+  step (content, timing, token split) after it. The first event reaches the
+  browser within moments of the POST — the inspector is live from second zero
+  and shows a waiting state while the model works — instead of staying empty
+  until the first response arrives. The message array is serialised once per
+  round, on the request step only.
 - **Beat the proxy buffer.** A TYPO3 backend response is buffered by the reverse
   proxy until a chunk clears its flush threshold, so small lines all arrive at
   the end. The stream disables output buffering and zlib compression at runtime
