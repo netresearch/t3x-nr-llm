@@ -31,6 +31,7 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 final readonly class GetTableSchemaTool implements ToolInterface
 {
     use ResolvesActingBackendUserTrait;
+    use ResolvesLanguageLabelTrait;
     use SafeCastTrait;
 
     /** Upper bound on described columns to keep the egress bounded. */
@@ -84,7 +85,7 @@ final readonly class GetTableSchemaTool implements ToolInterface
         $ctrl  = is_array($tca['ctrl'] ?? null) ? $tca['ctrl'] : [];
         $lines = [sprintf('Table: %s', $table)];
 
-        $title = self::toStr($ctrl['title'] ?? '');
+        $title = $this->resolveLabel(self::toStr($ctrl['title'] ?? ''));
         if ($title !== '') {
             $lines[] = sprintf('Title: %s', $title);
         }
@@ -139,7 +140,9 @@ final readonly class GetTableSchemaTool implements ToolInterface
                 $enablecolumns,
             ));
         }
-        if (($ctrl['versioningWS'] ?? false) === true) {
+        // versioningWS may be a bool or an int (legacy 1/2) — !empty() catches
+        // both; a strict === true would miss integer-configured tables.
+        if (!empty($ctrl['versioningWS'])) {
             $parts[] = 'workspace-capable';
         }
 

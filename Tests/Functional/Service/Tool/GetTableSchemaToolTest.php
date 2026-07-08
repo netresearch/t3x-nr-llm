@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Functional tests for GetTableSchemaTool (ADR-045): the schema surfaces
@@ -83,5 +85,28 @@ final class GetTableSchemaToolTest extends AbstractFunctionalTestCase
     public function deniesWithoutBackendUser(): void
     {
         self::assertSame('Table not found or not permitted.', $this->tool->execute(['table' => 'tt_content']));
+    }
+
+    #[Test]
+    public function resolvesLllTitleAndReportsIntegerVersioning(): void
+    {
+        $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = GeneralUtility::makeInstance(LanguageServiceFactory::class)->create('default');
+
+        self::assertIsArray($GLOBALS['TCA']);
+        $GLOBALS['TCA']['tx_demo_ver'] = [
+            'ctrl' => [
+                'title'        => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.description',
+                // Legacy integer form must still be recognised as workspace-capable.
+                'versioningWS' => 2,
+            ],
+            'columns' => ['name' => ['config' => ['type' => 'input']]],
+        ];
+
+        $output = $this->tool->execute(['table' => 'tx_demo_ver']);
+
+        self::assertStringContainsString('Title: Description', $output);
+        self::assertStringNotContainsString('LLL:', $output);
+        self::assertStringContainsString('workspace-capable', $output);
     }
 }

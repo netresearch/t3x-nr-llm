@@ -31,6 +31,7 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 final readonly class GetFullTcaTool implements ToolInterface
 {
     use ResolvesActingBackendUserTrait;
+    use ResolvesLanguageLabelTrait;
     use SafeCastTrait;
 
     /** Upper bound on listed tables to keep the egress bounded. */
@@ -80,8 +81,10 @@ final readonly class GetFullTcaTool implements ToolInterface
         // typically owns tables named tx_myext_* (underscores stripped).
         $extPrefix = $extension !== '' ? 'tx_' . str_replace('_', '', $extension) : '';
 
-        $lines   = [];
-        $skipped = 0;
+        // Collect all matching, accessible table names first, then sort — so
+        // the MAX_TABLES cut is deterministic (alphabetical) rather than
+        // dependent on the non-deterministic $GLOBALS['TCA'] load order.
+        $names = [];
         foreach (array_keys($allTca) as $name) {
             $table = (string)$name;
 
@@ -95,18 +98,24 @@ final readonly class GetFullTcaTool implements ToolInterface
                 continue;
             }
 
-            if (count($lines) >= self::MAX_TABLES) {
-                ++$skipped;
-                continue;
-            }
+            $names[] = $table;
+        }
 
-            $title     = $this->tableTitle($allTca[$table] ?? null);
-            $lines[]   = $title !== ''
+        sort($names);
+
+        $skipped = 0;
+        if (count($names) > self::MAX_TABLES) {
+            $skipped = count($names) - self::MAX_TABLES;
+            $names   = array_slice($names, 0, self::MAX_TABLES);
+        }
+
+        $lines = [];
+        foreach ($names as $table) {
+            $title   = $this->tableTitle($allTca[$table] ?? null);
+            $lines[] = $title !== ''
                 ? sprintf('%s — %s', $table, $title)
                 : $table;
         }
-
-        sort($lines);
 
         if ($lines === []) {
             return 'Accessible tables (0). Nothing matched the filter, or you may not read any matching table.';
@@ -140,6 +149,6 @@ final readonly class GetFullTcaTool implements ToolInterface
     {
         $ctrl = is_array($definition) ? ($definition['ctrl'] ?? null) : null;
 
-        return is_array($ctrl) ? self::toStr($ctrl['title'] ?? '') : '';
+        return is_array($ctrl) ? $this->resolveLabel(self::toStr($ctrl['title'] ?? '')) : '';
     }
 }

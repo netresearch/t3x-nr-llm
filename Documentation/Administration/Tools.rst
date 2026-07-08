@@ -36,10 +36,10 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships sixteen read-only tools. Each is a reference
+nr-llm ships twenty read-only tools. Each is a reference
 implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
-redacted or gated behind a separate ``_raw`` variant. Thirteen ship
+redacted or gated behind a separate ``_raw`` variant. Seventeen ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``) ship **disabled** and must be
 enabled deliberately. Many require admin; the read-only structure and content

@@ -33,6 +33,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final readonly class GetFlexFormSchemaTool implements ToolInterface
 {
     use ResolvesActingBackendUserTrait;
+    use ResolvesLanguageLabelTrait;
     use SafeCastTrait;
 
     private const NOT_PERMITTED = 'Table not found or not permitted.';
@@ -204,7 +205,7 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
                 }
                 $config = is_array($elConf['config'] ?? null) ? $elConf['config'] : [];
                 $type   = self::toStr($config['type'] ?? '') ?: '?';
-                $label  = self::toStr($elConf['label'] ?? '');
+                $label  = $this->resolveLabel(self::toStr($elConf['label'] ?? ''));
                 $lines[] = $label !== ''
                     ? sprintf('  - %s: %s (%s)', (string)$elName, $type, $label)
                     : sprintf('  - %s: %s', (string)$elName, $type);

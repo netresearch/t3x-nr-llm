@@ -62,4 +62,25 @@ final class GetFullTcaToolTest extends AbstractFunctionalTestCase
     {
         self::assertStringContainsString('(0)', $this->tool->execute([]));
     }
+
+    #[Test]
+    public function listedTablesAreSortedAlphabetically(): void
+    {
+        $this->setUpBackendUser(1);
+
+        $output = $this->tool->execute([]);
+
+        // Drop the header line; every remaining line starts with a table name.
+        $lines = explode("\n", $output);
+        array_shift($lines);
+        $names = array_map(
+            static fn(string $line): string => explode(' — ', $line)[0],
+            array_filter($lines, static fn(string $line): bool => $line !== ''),
+        );
+
+        $sorted = $names;
+        sort($sorted);
+        // Deterministic (alphabetical) order, independent of TCA load order.
+        self::assertSame($sorted, $names);
+    }
 }

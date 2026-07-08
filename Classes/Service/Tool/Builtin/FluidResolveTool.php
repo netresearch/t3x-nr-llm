@@ -107,7 +107,7 @@ final readonly class FluidResolveTool implements ToolInterface
         $lines = [
             sprintf('Fluid %s "%s" in EXT:%s', $type, $name, $extension),
             '',
-            'Candidates (override order, first existing wins):',
+            'Candidate path (extension default only):',
             sprintf('  [%s] %s', $exists ? 'x' : ' ', $relative),
         ];
 
