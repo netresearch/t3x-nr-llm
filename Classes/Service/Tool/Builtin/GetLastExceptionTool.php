@@ -87,9 +87,8 @@ final readonly class GetLastExceptionTool implements ToolInterface
 
         $lines   = [];
         $lines[] = sprintf(
-            'Error %d of %s%s (newest first):',
-            $index + 1,
-            count($entries) === $index + 1 ? (string)($index + 1) . '+' : (string)count($entries),
+            'Exception #%d (0 = newest)%s:',
+            $index,
             $search !== '' ? sprintf(', filtered by "%s"', $search) : '',
         );
         $lines[] = sprintf(

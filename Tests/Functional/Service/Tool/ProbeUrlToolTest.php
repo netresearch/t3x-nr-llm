@@ -86,6 +86,25 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function deniesRoguePortOnOwnHost(): void
+    {
+        // Same host, different port than the site (59999) — must NOT pass the
+        // gate, or an attacker could probe localhost:6379 (Redis), :3306, …
+        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'http://localhost:6379/']));
+        // Bare host defaults to port 80, also != 59999.
+        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'http://localhost/']));
+    }
+
+    #[Test]
+    public function deniesUserinfoAndDoesNotEchoCredentials(): void
+    {
+        $output = $this->tool->execute(['url' => 'http://user:s3cr3t@localhost:59999/']);
+
+        self::assertStringContainsString('Denied', $output);
+        self::assertStringNotContainsString('s3cr3t', $output);
+    }
+
+    #[Test]
     public function ownHostPassesTheGate(): void
     {
         $output = $this->tool->execute(['url' => 'http://localhost:59999/some/page']);

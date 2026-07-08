@@ -88,7 +88,7 @@ final readonly class ProbeUrlTool implements ToolInterface
             return sprintf(
                 'Denied: "%s" is not a URL of this instance. Allowed hosts: %s. '
                 . 'Relative paths like "/imprint" are resolved against the first site.',
-                $input,
+                $this->displayUrl($input),
                 implode(', ', $this->allowedHosts()) ?: '(no site configured)',
             );
         }
@@ -174,21 +174,39 @@ final readonly class ProbeUrlTool implements ToolInterface
             return rtrim($base, '/') . $input;
         }
 
-        $parts  = parse_url($input);
+        $parts = parse_url($input);
+        if (!is_array($parts)) {
+            return null;
+        }
+        // Reject userinfo (user:pass@host): the URL is echoed back into the tool
+        // output, so credentials must never reach the LLM or the logs.
+        if (isset($parts['user']) || isset($parts['pass'])) {
+            return null;
+        }
         $scheme = strtolower(self::toStr($parts['scheme'] ?? ''));
         $host   = strtolower(self::toStr($parts['host'] ?? ''));
         if (!in_array($scheme, ['http', 'https'], true) || $host === '') {
             return null;
         }
 
-        $hostPort = $host . (isset($parts['port']) ? ':' . $parts['port'] : '');
-        foreach ($this->allowedHosts() as $allowed) {
-            if ($hostPort === $allowed || $host === $allowed) {
-                return $input;
-            }
+        // Exact host:port match with scheme-defaulted ports on BOTH sides — a
+        // bare-host match would let http://localhost:6379/ (Redis, …) through.
+        $port     = isset($parts['port']) ? (int)$parts['port'] : ($scheme === 'https' ? 443 : 80);
+        $hostPort = $host . ':' . $port;
+        if (in_array($hostPort, $this->allowedHosts(), true)) {
+            return $input;
         }
 
         return null;
+    }
+
+    /**
+     * Strip any userinfo (user:pass@) before a URL is echoed into tool output,
+     * so credentials in a rejected URL never reach the LLM or the logs.
+     */
+    private function displayUrl(string $url): string
+    {
+        return preg_replace('#://[^/@\s]*@#', '://', $url) ?? $url;
     }
 
     /**
@@ -205,8 +223,11 @@ final readonly class ProbeUrlTool implements ToolInterface
                 if ($host === '') {
                     continue;
                 }
-                $port    = $base->getPort();
-                $hosts[] = $host . ($port !== null ? ':' . $port : '');
+                // Normalise to an explicit host:port (scheme default 80/443) so
+                // the match is exact and cannot be bypassed by a rogue port.
+                $scheme  = strtolower($base->getScheme() ?: 'http');
+                $port    = $base->getPort() ?? ($scheme === 'https' ? 443 : 80);
+                $hosts[] = $host . ':' . $port;
             }
         }
 

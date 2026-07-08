@@ -167,8 +167,8 @@ final readonly class SearchCodeTool implements ToolInterface
                 }
 
                 $trimmed = trim($this->guard->redactSecretLine($line));
-                if (strlen($trimmed) > self::MAX_LINE_LENGTH) {
-                    $trimmed = substr($trimmed, 0, self::MAX_LINE_LENGTH) . '…';
+                if (mb_strlen($trimmed) > self::MAX_LINE_LENGTH) {
+                    $trimmed = mb_substr($trimmed, 0, self::MAX_LINE_LENGTH) . '…';
                 }
                 $hits[] = sprintf('%s:%d: %s', $relative, $lineNumber + 1, $trimmed);
 
