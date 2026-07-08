@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
+use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
@@ -119,6 +120,9 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         // separate Tools module, {@see ToolControllerTest}).
         self::assertStringContainsString('fetch_logs', $body);
         self::assertStringContainsString('js-tool-select', $body);
+        // Grouped: the group checkbox and the child's group attribution render.
+        self::assertStringContainsString('js-toolgroup-select', $body);
+        self::assertStringContainsString('data-group="test"', $body);
     }
 
     #[Test]
@@ -550,7 +554,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
      */
     private function availabilityFor(ToolRegistry $toolRegistry): ToolAvailabilityService
     {
-        return new ToolAvailabilityService($toolRegistry, new ToolStateRepository($this->toolConnectionPool()));
+        return new ToolAvailabilityService($toolRegistry, new ToolStateRepository($this->toolConnectionPool()), new ToolGroupStateRepository($this->toolConnectionPool()));
     }
 
     private function toolConnectionPool(): ConnectionPool

@@ -57,6 +57,24 @@ class ToolPlayground {
         this.formBody = document.getElementById('nrllm-pg-form-body');
         this.formSummary = document.getElementById('nrllm-pg-form-summary');
 
+        // Tool-group tri-state checkboxes: a group box (de)selects its
+        // children; a child updates its group box (checked / indeterminate).
+        this.root.addEventListener('change', (e) => {
+            const groupBox = e.target.closest('.js-toolgroup-select');
+            if (groupBox) {
+                this.root.querySelectorAll(`.js-tool-select[data-group="${CSS.escape(groupBox.dataset.group)}"]`)
+                    .forEach((box) => { box.checked = groupBox.checked; });
+                groupBox.indeterminate = false;
+                return;
+            }
+            const toolBox = e.target.closest('.js-tool-select');
+            if (toolBox && toolBox.dataset.group) {
+                this.syncGroupCheckbox(toolBox.dataset.group);
+            }
+        });
+        this.root.querySelectorAll('.js-toolgroup-select')
+            .forEach((box) => this.syncGroupCheckbox(box.dataset.group));
+
         this.runButton?.addEventListener('click', () => this.run(false));
         this.dryRunButton?.addEventListener('click', () => this.run(true));
         this.formToggle?.addEventListener('click', () => this.setFormCollapsed(this.formToggle.getAttribute('aria-expanded') === 'true'));
@@ -253,6 +271,21 @@ class ToolPlayground {
             this.renderError(message);
             Notification.error('Error', message);
         }
+    }
+
+    /**
+     * Reflect the children's state onto a group checkbox: all checked ->
+     * checked, none -> unchecked, mixed -> indeterminate.
+     */
+    syncGroupCheckbox(group) {
+        const groupBox = this.root.querySelector(`.js-toolgroup-select[data-group="${CSS.escape(group)}"]`);
+        if (!groupBox) {
+            return;
+        }
+        const children = [...this.root.querySelectorAll(`.js-tool-select[data-group="${CSS.escape(group)}"]`)];
+        const checked = children.filter((box) => box.checked).length;
+        groupBox.checked = checked > 0 && checked === children.length;
+        groupBox.indeterminate = checked > 0 && checked < children.length;
     }
 
     appendChecked(formData, selector, field) {
