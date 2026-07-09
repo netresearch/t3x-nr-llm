@@ -9,11 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\FindMissingFilesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FluidResolveTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetEnvRawTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetEnvTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\GetFalReferencesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetFlexFormSchemaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetFullTcaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetLastExceptionTool;
@@ -29,12 +32,14 @@ use Netresearch\NrLlm\Service\Tool\Builtin\GetTypoScriptTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeGroupsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeUsersRawTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeUsersTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ListFalStoragesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ProbeUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadRecordsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadSourceTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ResolveUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchCodeTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\SearchFalFilesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchRecordsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ValidateTcaTool;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -87,6 +92,11 @@ final class BuiltinToolGroupsTest extends TestCase
             'read_source'       => [ReadSourceTool::class, 'code'],
             'search_code'       => [SearchCodeTool::class, 'code'],
             'probe_url'         => [ProbeUrlTool::class, 'system'],
+            'list_fal_storages' => [ListFalStoragesTool::class, 'files'],
+            'browse_fal_folder' => [BrowseFalFolderTool::class, 'files'],
+            'search_fal_files'  => [SearchFalFilesTool::class, 'files'],
+            'get_fal_references' => [GetFalReferencesTool::class, 'files'],
+            'find_missing_files' => [FindMissingFilesTool::class, 'files'],
         ];
     }
 
