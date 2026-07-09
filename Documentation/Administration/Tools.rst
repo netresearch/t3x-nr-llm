@@ -393,13 +393,14 @@ loop, while the Tools module governs *which* tools exist and are enabled.
 
 .. tip::
 
-   **Small local models need a narrow tool set.** With every group enabled,
-   the model is offered 36 tool declarations at once — small models (such
-   as the seeded ``qwen3:4b``) then routinely fail to pick the right tool
-   or reason themselves past the token budget without calling any. Untick
-   the groups that are irrelevant to the question; with one or two groups,
-   the same model answers reliably. Larger hosted models cope with the
-   full set.
+   **Small local models work best with a narrow tool set.** With every
+   group enabled, the model is offered every enabled tool declaration at
+   once (several dozen). Small models such as the seeded ``qwen3:4b``
+   often fail to pick the right tool from a set that large, or reason
+   past the token budget without calling any. Untick the groups that are
+   irrelevant to the question — restricted to one or two groups, the same
+   model picks the right tool. Larger hosted models cope with the full
+   set.
 
 1. Pick an **LLM configuration** from the dropdown. Its vault-stored API key,
    model, temperature and system prompt are what the loop actually runs on —
