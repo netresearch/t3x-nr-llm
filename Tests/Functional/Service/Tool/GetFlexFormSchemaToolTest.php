@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Information\Typo3Version;
 
 /**
  * Functional tests for GetFlexFormSchemaTool (ADR-045): non-flex fields are
@@ -45,11 +46,17 @@ final class GetFlexFormSchemaToolTest extends AbstractFunctionalTestCase
         $this->tool = new GetFlexFormSchemaTool(new TableReadAccessService());
 
         self::assertIsArray($GLOBALS['TCA']);
+        // The single-structure ds form is version-specific: 13.4 requires an
+        // array keyed 'default' (a plain string throws), v14's raw-TCA
+        // resolver requires a plain string (an array resolves to nothing).
+        $singleDs = (new Typo3Version())->getMajorVersion() >= 14
+            ? self::DS
+            : ['default' => self::DS];
         $GLOBALS['TCA']['tx_demo_flex'] = [
             'ctrl'    => ['title' => 'Demo Flex'],
             'columns' => [
                 'title'     => ['config' => ['type' => 'input']],
-                'single_ff' => ['config' => ['type' => 'flex', 'ds' => self::DS]],
+                'single_ff' => ['config' => ['type' => 'flex', 'ds' => $singleDs]],
                 'multi_ff'  => ['config' => [
                     'type'            => 'flex',
                     'ds_pointerField' => 'kind',

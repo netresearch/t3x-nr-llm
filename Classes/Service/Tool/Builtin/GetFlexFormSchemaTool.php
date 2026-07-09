@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\FlexForm\FlexFormTools;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -114,11 +115,17 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
         try {
             $flexFormTools = GeneralUtility::makeInstance(FlexFormTools::class);
             $row           = $this->pointerRow($conf, $pointer);
-            // Since v13.4 the resolver expects the table TCA as the $schema
-            // argument (no longer read from a global); harmless on older cores
-            // that ignore the extra argument.
-            $identifier = $flexFormTools->getDataStructureIdentifier($columnTca, $table, $field, $row, $tableTca);
-            $structure  = $flexFormTools->parseDataStructureByIdentifier($identifier, $tableTca);
+            if ((new Typo3Version())->getMajorVersion() >= 14) {
+                // v14+: the resolver requires the table TCA as the $schema
+                // argument — with null it throws instead of reading a global.
+                $identifier = $flexFormTools->getDataStructureIdentifier($columnTca, $table, $field, $row, $tableTca);
+                $structure  = $flexFormTools->parseDataStructureByIdentifier($identifier, $tableTca);
+            } else {
+                // 13.4: 4-/1-parameter signatures; the resolver reads
+                // $GLOBALS['TCA'] itself.
+                $identifier = $flexFormTools->getDataStructureIdentifier($columnTca, $table, $field, $row);
+                $structure  = $flexFormTools->parseDataStructureByIdentifier($identifier);
+            }
         } catch (Throwable) {
             // Neutral by design — resolution internals must not egress.
             return sprintf('Could not resolve the FlexForm data structure for %s.%s%s.', $table, $field, $pointer !== '' ? sprintf(' (ds_pointer "%s")', $pointer) : '');
