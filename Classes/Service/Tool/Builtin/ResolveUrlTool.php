@@ -144,11 +144,19 @@ final readonly class ResolveUrlTool implements ToolInterface
     }
 
     /**
-     * Absolute http(s) URL for the input; a "/path" resolves against the
-     * first configured site. Null when nothing sensible can be built.
+     * Absolute http(s) URL for the input; a path (with or without leading
+     * slash) resolves against the first configured site. Null when nothing
+     * sensible can be built.
      */
     private function absoluteUrl(string $input): ?string
     {
+        // Schemeless input like "imprint" or "en/imprint" is a path too —
+        // "//host/…" (protocol-relative) is deliberately NOT, it falls
+        // through to the scheme check below and is rejected there.
+        if (!str_contains($input, '://') && !str_starts_with($input, '/')) {
+            $input = '/' . $input;
+        }
+
         if (str_starts_with($input, '/') && !str_starts_with($input, '//')) {
             $base = $this->firstSiteBase();
             if ($base === null) {
@@ -168,11 +176,23 @@ final readonly class ResolveUrlTool implements ToolInterface
 
     private function firstSiteBase(): ?string
     {
+        $relativeBase = null;
         foreach ($this->siteFinder->getAllSites() as $site) {
             $base = (string)$site->getBase();
-            if ($base !== '' && $site->getBase()->getHost() !== '') {
+            if ($base === '') {
+                continue;
+            }
+            if ($site->getBase()->getHost() !== '') {
                 return $base;
             }
+            $relativeBase ??= $base;
+        }
+
+        // Sites with a relative base (`base: /`) match ANY host in the
+        // SiteMatcher, so for this routing-only resolution a placeholder
+        // host suffices — no request is ever sent to it.
+        if ($relativeBase !== null) {
+            return 'http://localhost/' . ltrim($relativeBase, '/');
         }
 
         return null;

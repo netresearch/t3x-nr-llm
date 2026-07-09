@@ -91,6 +91,27 @@ final class ResolveUrlToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function resolvesSchemelessPathWithoutLeadingSlash(): void
+    {
+        $this->setUpBackendUser(1);
+
+        $output = $this->tool->execute(['url' => 'imprint']);
+
+        self::assertStringContainsString('Page: [2] Imprint', $output);
+    }
+
+    #[Test]
+    public function rejectsProtocolRelativeUrl(): void
+    {
+        $this->setUpBackendUser(1);
+
+        self::assertSame(
+            'Not a URL of this instance (no site matches).',
+            $this->tool->execute(['url' => '//evil.example.com/x']),
+        );
+    }
+
+    #[Test]
     public function reportsForeignHostNeutrally(): void
     {
         $this->setUpBackendUser(1);
