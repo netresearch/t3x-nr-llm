@@ -41,7 +41,7 @@ final class SolrSearchBackendTest extends TestCase
 
         $uris = $requestFactory->requestedUris();
         self::assertCount(1, $uris);
-        self::assertStringStartsWith('http://solr.example:8983/solr/core_en/select?', $uris[0]);
+        self::assertStringStartsWith('https://solr.example:8983/solr/core_en/select?', $uris[0]);
         self::assertStringContainsString('fq=' . rawurlencode('{!typo3access}0,-1'), $uris[0]);
         self::assertStringContainsString('fq=' . rawurlencode('language:0'), $uris[0]);
         self::assertStringContainsString('defType=edismax', $uris[0]);
@@ -108,7 +108,7 @@ final class SolrSearchBackendTest extends TestCase
 
         $uris = $requestFactory->requestedUris();
         self::assertCount(1, $uris);
-        self::assertStringStartsWith('http://solr.example:8983/solr/core_en/select?', $uris[0]);
+        self::assertStringStartsWith('https://solr.example:8983/solr/core_en/select?', $uris[0]);
     }
 
     #[Test]
@@ -138,7 +138,7 @@ final class SolrSearchBackendTest extends TestCase
 
         $uris = $requestFactory->requestedUris();
         self::assertCount(1, $uris);
-        self::assertStringStartsWith('http://solr.example:8983/solr/core_de/select?', $uris[0]);
+        self::assertStringStartsWith('https://solr.example:8983/solr/core_de/select?', $uris[0]);
         self::assertStringContainsString('fq=' . rawurlencode('language:1'), $uris[0]);
     }
 
@@ -220,7 +220,7 @@ final class SolrSearchBackendTest extends TestCase
         $configuration = array_merge([
             'base' => 'https://example.org/',
             'solr_enabled_read' => true,
-            'solr_scheme_read' => 'http',
+            'solr_scheme_read' => 'https',
             'solr_host_read' => 'solr.example',
             'solr_port_read' => 8983,
             'solr_path_read' => '',

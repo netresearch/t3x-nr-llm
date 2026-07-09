@@ -78,9 +78,9 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
             'sorting' => 2, 'slug' => '/migration',
         ]);
 
-        $this->publicPhash = md5('public-doc');
-        $this->restrictedPhash = md5('restricted-doc');
-        $this->regainedPhash = md5('regained-doc');
+        $this->publicPhash = self::indexHash('public-doc');
+        $this->restrictedPhash = self::indexHash('restricted-doc');
+        $this->regainedPhash = self::indexHash('regained-doc');
 
         $connection = $connectionPool->getConnectionForTable('index_phash');
         self::assertInstanceOf(Connection::class, $connection);
@@ -91,7 +91,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
         // The "regained" document was ALSO rendered by an anonymous session.
         $connection->insert('index_grlist', [
             'phash' => $this->regainedPhash, 'phash_x' => $this->regainedPhash,
-            'hash_gr_list' => md5('0,-1'), 'gr_list' => '0,-1',
+            'hash_gr_list' => self::indexHash('0,-1'), 'gr_list' => '0,-1',
         ]);
 
         $connection->insert('index_fulltext', [
@@ -108,7 +108,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
         ]);
 
         foreach (['aikido', 'migration', 'insider', 'schedule'] as $word) {
-            $connection->insert('index_words', ['wid' => md5($word), 'baseword' => $word]);
+            $connection->insert('index_words', ['wid' => self::indexHash($word), 'baseword' => $word]);
         }
         $this->relate($connection, $this->publicPhash, 'aikido', 4, 12);
         $this->relate($connection, $this->publicPhash, 'migration', 4, 8);
@@ -171,7 +171,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
         // Lexer produces) — it must be ignored, not required.
         $connection = $this->connectionPool->getConnectionForTable('index_words');
         self::assertInstanceOf(Connection::class, $connection);
-        $connection->insert('index_words', ['wid' => md5('the'), 'baseword' => 'the', 'is_stopword' => 1]);
+        $connection->insert('index_words', ['wid' => self::indexHash('the'), 'baseword' => 'the', 'is_stopword' => 1]);
 
         $repeated = $this->backend->search(
             RetrievalQuery::create('aikido aikido migration'),
@@ -219,11 +219,11 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
         $connection = $this->connectionPool->getConnectionForTable('index_phash');
         self::assertInstanceOf(Connection::class, $connection);
 
-        $filePhash = md5('file-doc');
+        $filePhash = self::indexHash('file-doc');
         $connection->insert('index_phash', [
             'phash' => $filePhash,
             'phash_grouping' => $filePhash,
-            'contentHash' => md5('content-' . $filePhash),
+            'contentHash' => self::indexHash('content-' . $filePhash),
             'data_page_id' => 2,
             'gr_list' => '0,-1',
             'item_type' => 'pdf',
@@ -288,7 +288,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
         $connection->insert('index_phash', [
             'phash' => $phash,
             'phash_grouping' => $phash,
-            'contentHash' => md5('content-' . $phash),
+            'contentHash' => self::indexHash('content-' . $phash),
             'data_page_id' => $pageUid,
             'gr_list' => $grList,
             'item_type' => '0',
@@ -301,8 +301,18 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
     private function relate(Connection $connection, string $phash, string $word, int $flags, int $freq): void
     {
         $connection->insert('index_rel', [
-            'phash' => $phash, 'wid' => md5($word),
+            'phash' => $phash, 'wid' => self::indexHash($word),
             'count' => 1, 'first' => 1, 'freq' => $freq, 'flags' => $flags,
         ]);
+    }
+
+    /**
+     * The 32-char hash the core index tables store (`index_words.wid` IS
+     * the md5 of the lowercased word since TYPO3 13, #102975) — a storage
+     * FORMAT, not a security control.
+     */
+    private static function indexHash(string $value): string
+    {
+        return md5($value); // NOSONAR php:S4790 — index table format, not cryptography
     }
 }
