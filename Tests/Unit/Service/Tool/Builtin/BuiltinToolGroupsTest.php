@@ -25,6 +25,8 @@ use Netresearch\NrLlm\Service\Tool\Builtin\GetPageTreeTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPhpInfoRawTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPhpInfoTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetRecordHistoryTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\GetSiteConfigTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\GetSystemStatusTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTableSchemaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTcaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTsConfigTool;
@@ -32,7 +34,11 @@ use Netresearch\NrLlm\Service\Tool\Builtin\GetTypoScriptTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeGroupsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeUsersRawTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeUsersTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ListDeprecationsTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ListExtensionsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListFalStoragesTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ListMiddlewaresTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ListSchedulerTasksTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ProbeUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadRecordsTool;
@@ -84,6 +90,12 @@ final class BuiltinToolGroupsTest extends TestCase
             'list_be_groups'    => [ListBeGroupsTool::class, 'accounts'],
             'get_typoscript'    => [GetTypoScriptTool::class, 'configuration'],
             'get_tsconfig'      => [GetTsConfigTool::class, 'configuration'],
+            'list_extensions'   => [ListExtensionsTool::class, 'system'],
+            'get_site_config'   => [GetSiteConfigTool::class, 'configuration'],
+            'list_scheduler_tasks'   => [ListSchedulerTasksTool::class, 'system'],
+            'get_system_status' => [GetSystemStatusTool::class, 'system'],
+            'list_deprecations' => [ListDeprecationsTool::class, 'system'],
+            'list_middlewares'  => [ListMiddlewaresTool::class, 'system'],
             'get_record_history' => [GetRecordHistoryTool::class, 'content'],
             'resolve_url'       => [ResolveUrlTool::class, 'structure'],
             'validate_tca'      => [ValidateTcaTool::class, 'structure'],
