@@ -346,3 +346,4 @@ Tools
    Adr045SchemaAndResolutionTools
    Adr046HistoryUrlAndValidationTools
    Adr047FalTools
+   Adr048DiagnosticsTools
