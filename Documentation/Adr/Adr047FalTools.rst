@@ -66,6 +66,12 @@ the neutral denial. A file or folder outside the gate is indistinguishable
 from a missing one — the same neutrality contract as
 ``read_fal_asset_meta``. ``get_fal_references`` additionally drops rows
 whose referencing table fails :php:`TableReadAccessService` for non-admins.
+``browse_fal_folder`` enforces FOLDER-level file-mount boundaries on top:
+for non-admins it sets :php:`ResourceStorage::setEvaluatePermissions()`, so
+the core mount checks apply to every folder read. The mounts themselves are
+attached by the core ``StoragePermissionsAspect`` only inside a backend
+request — in any other context (CLI, scheduler) non-admin folder access
+therefore fails CLOSED (denied) rather than mount-blind.
 Server paths never egress: listings use storage-relative identifiers, and
 ``list_fal_storages`` omits the base path by design.
 

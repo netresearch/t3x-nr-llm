@@ -86,6 +86,13 @@ final readonly class BrowseFalFolderTool implements ToolInterface
             if ($storage === null || !$storage->isOnline()) {
                 return self::NOT_PERMITTED;
             }
+            // Folder-level enforcement on top of the storage gate: with
+            // evaluatePermissions the read calls below check the acting
+            // user's file-mount boundaries and throw outside them — which
+            // collapses into the neutral denial.
+            if ($user !== null && !$user->isAdmin()) {
+                $storage->setEvaluatePermissions(true);
+            }
             $folder = $storage->getFolder($folderId);
 
             $lines   = [];
