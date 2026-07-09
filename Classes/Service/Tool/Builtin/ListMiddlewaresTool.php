@@ -64,27 +64,29 @@ final readonly class ListMiddlewaresTool implements ToolInterface
             return sprintf('Unknown stack — use one of: %s.', implode(', ', self::STACKS));
         }
 
+        $lines = [];
+        $shown = 0;
         try {
-            // array on 13.4, ArrayObject on v14 — both iterate identically.
-            $middlewares = $this->stackResolver->resolve($stack);
+            // array on 13.4, ArrayObject on v14 — iterated inside the try so
+            // a future return-type change of the @internal resolver collapses
+            // into the neutral message instead of an uncaught TypeError.
+            foreach ($this->stackResolver->resolve($stack) as $identifier => $className) {
+                if ($shown >= self::MAX_ENTRIES) {
+                    $lines[] = '… more entries not shown';
+                    break;
+                }
+                ++$shown;
+                $lines[] = sprintf('%2d. %s (%s)', $shown, (string)$identifier, self::toStr($className));
+            }
         } catch (Throwable) {
             return 'Could not resolve the middleware stack.';
         }
 
-        $lines = [];
-        foreach ($middlewares as $identifier => $className) {
-            if (count($lines) >= self::MAX_ENTRIES) {
-                $lines[] = '… more entries not shown';
-                break;
-            }
-            $lines[] = sprintf('%2d. %s (%s)', count($lines) + 1, (string)$identifier, self::toStr($className));
-        }
-
-        if ($lines === []) {
+        if ($shown === 0) {
             return sprintf('The %s middleware stack is empty.', $stack);
         }
 
-        return sprintf("PSR-15 %s middleware stack (%d, execution order):\n", $stack, count($lines))
+        return sprintf("PSR-15 %s middleware stack (%d, execution order):\n", $stack, $shown)
             . implode("\n", $lines);
     }
 

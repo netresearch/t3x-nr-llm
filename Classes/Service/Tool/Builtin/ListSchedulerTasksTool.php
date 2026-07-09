@@ -102,10 +102,17 @@ final readonly class ListSchedulerTasksTool implements ToolInterface
             }
             $label = mb_strimwidth(trim((string)preg_replace('/\s+/', ' ', $label)), 0, 100, '…');
 
-            $next    = self::toInt($row['nextexecution'] ?? 0);
-            $failed  = self::toStr($row['lastexecution_failure'] ?? '') !== '';
+            $next = self::toInt($row['nextexecution'] ?? 0);
+            // The failure column carries an error string; '' / '0' / NULL all
+            // mean "no failure" (the DB default is numeric on some versions).
+            $failure = trim(self::toStr($row['lastexecution_failure'] ?? ''));
+            $failed  = $failure !== '' && $failure !== '0';
             $flags   = [];
             $flags[] = $next > 0 ? 'next ' . gmdate('Y-m-d H:i', $next) . ' UTC' : 'no next execution';
+            $lastRun = self::toInt($row['lastexecution_time'] ?? 0);
+            if ($lastRun > 0) {
+                $flags[] = 'last run ' . gmdate('Y-m-d H:i', $lastRun) . ' UTC';
+            }
             if (self::toInt($row['disable'] ?? 0) === 1) {
                 $flags[] = 'DISABLED';
             }
