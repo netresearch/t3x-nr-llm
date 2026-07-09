@@ -143,14 +143,24 @@ nr-llm solves this once for the entire TYPO3 ecosystem.
 
 The **Admin Tools > LLM** backend module gives you full control:
 
+![LLM module overview — 30-day usage and cost KPIs, a per-provider request breakdown with live reachability, and a card grid where every module shows its readiness state](Documentation/Images/backend-dashboard.png)
+
 - **Providers** — Register API connections (OpenAI, Anthropic, Gemini, Ollama, …)
 - **Models** — Define which models are available and their capabilities
 - **Configurations** — Create use-case presets (temperature, system prompts, token limits)
 - **Tasks** — Define reusable prompt templates for editors
 - **User Budgets** — Cap per-backend-user spending across every preset (requests / tokens / cost × daily / monthly). See the [Administration guide](Documentation/Administration/UserBudgets.rst).
 - **Analytics** — Estimated cost and usage trends with breakdowns per provider, model, and service, plus per-user consumption against monthly budgets. See the [Administration guide](Documentation/Administration/Analytics.rst).
+- **Skills** — Ingest `SKILL.md` instruction files from GitHub (SHA-pinned, admin-reviewed) and attach them to tasks and configurations. See the [Administration guide](Documentation/Administration/Skills.rst).
+- **Tools** — 39 built-in read-only function-calling tools in 7 toggleable groups: content search and record history ("who changed this?"), TCA/TypoScript introspection and validation, error analysis (last exception, source read/search, URL probe), FAL file tools, and system diagnostics. See the [Administration guide](Documentation/Administration/Tools.rst).
 
 ![LLM Usage Analytics dashboard — KPI tiles, a cost and request trend chart, breakdowns by provider, model, and service, and a per-user table with monthly budget bars](Documentation/Images/backend-analytics.png)
+
+### Tool Playground — a glass box for agent runs
+
+The admin-only Playground runs the bounded agent loop against any configuration and streams the whole nr_llm ↔ LLM dialog live: every request (messages + tools offered), every response (structured, raw JSON, extracted thinking), every tool execution with arguments, result and duration — plus a dry-run mode that shows the exact prompt without calling the model.
+
+![Tool Playground run inspector — summary strip with rounds, tool calls, tokens and wall time; the step list shows the request, the model's tool call, the get_record_history execution and the final answer](Documentation/Images/ToolPlaygroundRun.png)
 
 ### Resilience
 
