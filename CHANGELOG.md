@@ -6,9 +6,45 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-07-09
+
 ### Added
 
-- **Backend overview facelift.** The LLM module landing page is now a real starting point: a usage-and-cost band on top (30-day KPIs + a 7-day provider breakdown), a single unified "Set up & manage" card grid, and a "For developers" teaser. Setup guidance is folded onto the module cards themselves — each card shows its state (ready / next / empty / locked) so the recommended next step is always visible, without a separate stepper. The Providers card carries live, **token-free** reachability dots (a cached model-list/health ping, never a completion). Cards are whole-card links. New `OverviewReadinessService` (state matrix) and `ProviderReachabilityService` (cached probe over configured provider records).
+- **Playground run inspector ("glass box").** The admin Tool Playground was rebuilt around a full run trace: every outbound request (messages sent, tools offered), every model response (structured view, raw JSON, extracted thinking), every tool execution with arguments/result/duration, and the final answer appear as an ordered step list with a summary strip (rounds, tool calls, prompt/completion token split, estimated cost, wall time). Includes a dry-run mode that assembles and shows the exact prompt without calling the model, optional raw provider-response capture, and per-run overrides for skills, snippets and the system prompt (ADR-040) (#314).
+- **Live streaming.** The inspector streams from the moment Run is clicked — the outbound request appears before the model answers, then responses and tool executions arrive as they happen (NDJSON over a padded stream that defeats proxy buffering). The run form collapses on Run and the layout stacks form above inspector; max-tokens and temperature are exposed as run controls, and a truncation warning appears when the model hits the token limit (ADR-041) (#317, #320).
+- **28 new built-in tools** (39 total), organised in groups, covering the diagnostic questions "who changed this?", "why is this page broken?", "check my TCA/TypoScript":
+  - *content:* `search_records`, `get_page_content`, `read_records`, `get_record_history` (sys_history: who changed what, `old → new` per field) (#321, #325)
+  - *structure:* `get_full_tca` (navigable TCA index), `get_table_schema` (relations surfaced), `get_flexform_schema`, `resolve_url` (URL → page, routing only), `validate_tca` (structural checks: dangling `foreign_table`, showitem/palette references, v14 `ds_pointerField`) (#324, #325)
+  - *configuration:* `get_typoscript`, `get_tsconfig` (page-effective, drill-down, redacted), `fluid_resolve`, `check_typoscript` (core syntax scanner over constants+setup, incl. site-set TypoScript), `get_site_config` (credential-keys redacted) (#321, #325, #328)
+  - *code:* `get_last_exception` (parsed stack trace + source context from the TYPO3 logs), `read_source` (path-guarded), `search_code` (value-redacting) (#323)
+  - *files:* `list_fal_storages`, `browse_fal_folder`, `search_fal_files` (case-insensitive on every DBMS), `get_fal_references`, `find_missing_files` (#327)
+  - *system:* `probe_url` (GET against this instance only, 5xx auto-correlates the matching log exception), `list_extensions`, `list_scheduler_tasks` (never unserializes task blobs), `get_system_status`, `list_deprecations`, `list_middlewares` (#323, #328)
+- **Tool groups.** Every tool declares a group; whole groups can be toggled centrally in the Tools module, restricted per LLM configuration (`allowed_tool_groups`), and (de)selected per run in the playground. Enablement cascades fail-closed: a tool runs only when group, tool and configuration all permit it (ADR-043) (#322).
+- **Backend overview facelift.** The LLM module landing page is now a real starting point: a usage-and-cost band on top (30-day KPIs + a 7-day provider breakdown), a single unified "Set up & manage" card grid, and a "For developers" teaser. Setup guidance is folded onto the module cards themselves — each card shows its state (ready / next / empty / locked) so the recommended next step is always visible, without a separate stepper. The Providers card carries live, **token-free** reachability dots (a cached model-list/health ping, never a completion). Cards are whole-card links. New `OverviewReadinessService` (state matrix) and `ProviderReachabilityService` (cached probe over configured provider records). (#313)
+### Changed
+
+- **BREAKING:** `ToolInterface` now requires a `getGroup(): string` method. Every implementer must declare its group — third-party extensions are recommended to use their extension key, so an admin can disable an extension's whole tool family with one toggle (ADR-043, #322).
+
+### Fixed
+
+- Non-UTF-8 bytes anywhere in a run — tool output, provider request/response bodies or the trace itself — no longer crash the playground with an opaque 500; invalid sequences are substituted on every boundary (#315, #316).
+- Out-of-range temperature values are clamped instead of raising an uncaught exception, and the run round count is capped server-side (#314, #317).
+- The playground system-prompt placeholder renders as text instead of raw Fluid markup (#319).
+- `FlexFormTools` calls are version-gated: TYPO3 v14 requires the schema argument the 13.4 signatures do not have, and the two majors expect opposite `ds` shapes (#324).
+- `validate_tca` no longer flags core-managed (auto-created) columns declared via `ctrl` — enablecolumns, language fields, `origUid` — and `check_typoscript` scans site-set/site-local TypoScript instead of reporting "no template" on sys_template-less v13+ sites (#326).
+- `resolve_url` handles relative site bases (`base: /`) and schemeless path input (#325).
+- Scheduler tasks report their last run time; the middleware listing survives resolver changes and reports exact counts (#328).
+
+### Security
+
+- `probe_url` matches allowed hosts on exact scheme-defaulted `host:port` (a bare-host match would have let `localhost:6379` through), rejects userinfo URLs and strips credentials before echoing anything back (#323).
+- `get_record_history` requires PAGE_SHOW on the record's page for non-admins — history values cannot leak from unreadable pages (fail-closed for unresolvable records) (#325).
+- `browse_fal_folder` enforces folder-level file-mount boundaries for non-admins on top of the storage allow-list; outside a backend request FAL access fails closed rather than mount-blind. Server paths never egress from any FAL tool (#327).
+- `check_typoscript` reports source + line + error kind only — never the offending line's content (a broken constants line may carry an API key); `get_site_config` redacts credential-like keys including camelCase forms (#325, #328).
+
+### Documentation
+
+- ADR-040 through ADR-048; the Tools guide covers all 39 built-ins, the group taxonomy and the playground inspector; a tip advises narrow tool groups for small local models — verified live: the seeded `qwen3:4b` makes no tool call when offered the full set, and picks correctly when restricted to a group (#329).
 
 ## [0.14.1] - 2026-07-05
 
@@ -943,7 +979,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.12.0...v0.13.0
