@@ -213,6 +213,18 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function pagesWithoutVisibleTranslationNeverSurfaceForThatLanguage(): void
+    {
+        $result = $this->backend->search(
+            RetrievalQuery::create('aikido', 8, null, 1),
+            AccessContext::publicOnly(),
+        );
+
+        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        self::assertSame(['database:2:1'], $ids, 'untranslated page cited under a language-routed URL');
+    }
+
+    #[Test]
     public function pagesInsideRestrictedOrHiddenSectionsNeverSurface(): void
     {
         $result = $this->backend->search(

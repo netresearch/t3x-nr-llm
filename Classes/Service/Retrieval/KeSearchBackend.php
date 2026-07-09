@@ -166,7 +166,9 @@ final class KeSearchBackend implements SearchBackendInterface
         if ($term !== '') {
             $placeholder = $queryBuilder->createNamedParameter($term);
             $queryBuilder
-                ->addSelectLiteral('MATCH (title, content) AGAINST (' . $placeholder . ') AS score')
+                // Boolean mode in BOTH expressions: natural-language mode
+                // would score the +operators literally.
+                ->addSelectLiteral('MATCH (title, content) AGAINST (' . $placeholder . ' IN BOOLEAN MODE) AS score')
                 ->andWhere('MATCH (title, content) AGAINST (' . $placeholder . ' IN BOOLEAN MODE)')
                 ->orderBy('score', 'DESC');
         } else {

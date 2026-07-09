@@ -282,12 +282,19 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
                 ->executeQuery()
                 ->fetchAllAssociative();
 
+            $translatedTitles = [];
             foreach ($translations as $row) {
                 $parent = self::toInt($row['l10n_parent'] ?? 0);
                 if (isset($titles[$parent])) {
-                    $titles[$parent] = self::toStr($row['title'] ?? '');
+                    $translatedTitles[$parent] = self::toStr($row['title'] ?? '');
                 }
             }
+
+            // Pages WITHOUT a visible translation are dropped for a
+            // non-default language: citing the default-language row under
+            // a language-routed URL mislabels the evidence and 404s on
+            // strict-fallback sites.
+            $titles = $translatedTitles;
         }
 
         return $titles;
