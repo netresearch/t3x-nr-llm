@@ -344,3 +344,4 @@ Tools
    Adr043ToolGroups
    Adr044ErrorAnalysisTools
    Adr045SchemaAndResolutionTools
+   Adr046HistoryUrlAndValidationTools
