@@ -176,7 +176,7 @@ final class IndexedSearchBackend implements SearchBackendInterface
      */
     private function searchByWordHash(array $words, int $languageId): array
     {
-        $hashes = array_map(static fn(string $word): string => md5($word), $words);
+        $hashes = array_map(md5(...), $words);
 
         $queryBuilder = $this->phashQueryBuilder();
         $queryBuilder
