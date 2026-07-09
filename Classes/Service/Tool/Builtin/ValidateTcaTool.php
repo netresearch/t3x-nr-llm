@@ -138,6 +138,11 @@ final readonly class ValidateTcaTool implements ToolInterface
         $columns  = is_array($tca['columns'] ?? null) ? $tca['columns'] : [];
         $palettes = is_array($tca['palettes'] ?? null) ? $tca['palettes'] : [];
 
+        // Fields declared via ctrl are core-managed (and since v13 mostly
+        // auto-created): enablecolumns, language fields, editlock, … — a
+        // showitem reference to them is valid without a columns definition.
+        $ctrlFields = $this->ctrlDeclaredFields($ctrl);
+
         $findings = [];
 
         // 1. ctrl.label must name a defined column.
@@ -189,7 +194,7 @@ final readonly class ValidateTcaTool implements ToolInterface
         $types = is_array($tca['types'] ?? null) ? $tca['types'] : [];
         foreach ($types as $typeName => $typeConf) {
             $showitem = is_array($typeConf) ? self::toStr($typeConf['showitem'] ?? '') : '';
-            foreach ($this->showitemFindings($showitem, $columns, $palettes) as $message) {
+            foreach ($this->showitemFindings($showitem, $columns, $ctrlFields, $palettes) as $message) {
                 $findings[] = sprintf('%s: types[%s] %s', $table, (string)$typeName, $message);
             }
         }
@@ -197,7 +202,7 @@ final readonly class ValidateTcaTool implements ToolInterface
         // 5. palettes[*].showitem references (no palette nesting allowed).
         foreach ($palettes as $paletteName => $paletteConf) {
             $showitem = is_array($paletteConf) ? self::toStr($paletteConf['showitem'] ?? '') : '';
-            foreach ($this->showitemFindings($showitem, $columns, null) as $message) {
+            foreach ($this->showitemFindings($showitem, $columns, $ctrlFields, null) as $message) {
                 $findings[] = sprintf('%s: palettes[%s] %s', $table, (string)$paletteName, $message);
             }
         }
@@ -210,11 +215,12 @@ final readonly class ValidateTcaTool implements ToolInterface
      * references themselves are flagged (palettes cannot nest).
      *
      * @param array<array-key, mixed>      $columns
+     * @param list<string>                 $ctrlFields
      * @param array<array-key, mixed>|null $palettes
      *
      * @return list<string>
      */
-    private function showitemFindings(string $showitem, array $columns, ?array $palettes): array
+    private function showitemFindings(string $showitem, array $columns, array $ctrlFields, ?array $palettes): array
     {
         $findings = [];
         foreach (explode(',', $showitem) as $item) {
@@ -235,7 +241,7 @@ final readonly class ValidateTcaTool implements ToolInterface
                 continue;
             }
 
-            if (!$this->isKnownField($fieldName, $columns)) {
+            if (!$this->isKnownField($fieldName, $columns) && !in_array($fieldName, $ctrlFields, true)) {
                 $findings[] = sprintf('showitem references undefined column "%s"', $fieldName);
             }
         }
@@ -249,6 +255,46 @@ final readonly class ValidateTcaTool implements ToolInterface
     private function isKnownField(string $field, array $columns): bool
     {
         return isset($columns[$field]) || in_array($field, self::IMPLICIT_FIELDS, true);
+    }
+
+    /**
+     * Column names declared through ctrl: enablecolumns values plus the
+     * single-field ctrl keys the core manages (auto-created since v13).
+     *
+     * @param array<string, mixed> $ctrl
+     *
+     * @return list<string>
+     */
+    private function ctrlDeclaredFields(array $ctrl): array
+    {
+        $fields = [];
+
+        $enablecolumns = is_array($ctrl['enablecolumns'] ?? null) ? $ctrl['enablecolumns'] : [];
+        foreach ($enablecolumns as $field) {
+            if (is_string($field) && $field !== '') {
+                $fields[] = $field;
+            }
+        }
+
+        foreach ([
+            'languageField',
+            'transOrigPointerField',
+            'translationSource',
+            'transOrigDiffSourceField',
+            'editlock',
+            'descriptionColumn',
+            'sortby',
+            'tstamp',
+            'crdate',
+            'delete',
+        ] as $key) {
+            $field = self::toStr($ctrl[$key] ?? '');
+            if ($field !== '') {
+                $fields[] = $field;
+            }
+        }
+
+        return array_values(array_unique($fields));
     }
 
     /**

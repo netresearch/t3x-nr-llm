@@ -97,7 +97,10 @@ final readonly class CheckTypoScriptTool implements ToolInterface
             $request  = (new ServerRequest())->withAttribute('site', $site);
 
             $sysTemplateRows = $this->sysTemplateRepository->getSysTemplateRowsByRootline($rootline, $request);
-            if ($sysTemplateRows === []) {
+            // No sys_template rows is fine when the site brings TypoScript
+            // itself (site sets / site-defined TS, v13+) — the tree builder
+            // includes those; only bail out when NEITHER source exists.
+            if ($sysTemplateRows === [] && !$site->isTypoScriptRoot()) {
                 return self::NEUTRAL_ERROR;
             }
 
@@ -123,11 +126,22 @@ final readonly class CheckTypoScriptTool implements ToolInterface
 
         $errors = array_values(array_unique($errors));
         if ($errors === []) {
+            $sources = [];
+            if ($sysTemplateRows !== []) {
+                $sources[] = sprintf(
+                    '%d sys_template row%s',
+                    count($sysTemplateRows),
+                    count($sysTemplateRows) === 1 ? '' : 's',
+                );
+            }
+            if ($site->isTypoScriptRoot()) {
+                $sources[] = 'site-set TypoScript';
+            }
+
             return sprintf(
-                'No TypoScript syntax errors on page %d (constants and setup of %d sys_template row%s checked).',
+                'No TypoScript syntax errors on page %d (constants and setup of %s checked).',
                 $pageUid,
-                count($sysTemplateRows),
-                count($sysTemplateRows) === 1 ? '' : 's',
+                implode(' + ', $sources),
             );
         }
 
