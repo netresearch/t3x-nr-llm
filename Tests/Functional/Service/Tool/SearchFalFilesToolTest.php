@@ -113,4 +113,18 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
             $this->tool->execute(['query' => 'brochure']),
         );
     }
+    #[Test]
+    public function searchIsCaseInsensitive(): void
+    {
+        $this->setUpBackendUser(1);
+
+        // Fixture name is lowercase 'brochure-2026.pdf'; DB collations with
+        // case-sensitive LIKE (e.g. PostgreSQL) must still match.
+        $output = $this->tool->execute(['query' => 'BROCHURE']);
+
+        self::assertStringContainsString('brochure-2026.pdf', $output);
+        // Uppercase name matched by lowercase query, too.
+        $output = $this->tool->execute(['query' => 'dsc01']);
+        self::assertStringContainsString('DSC01.jpg', $output);
+    }
 }

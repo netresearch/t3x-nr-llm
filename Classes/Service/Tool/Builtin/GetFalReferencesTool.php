@@ -108,6 +108,10 @@ final readonly class GetFalReferencesTool implements ToolInterface
         $skipped = 0;
         foreach ($rows as $row) {
             $table = self::toStr($row['tablenames'] ?? '');
+            // A reference without a table name is dangling — skip it.
+            if ($table === '') {
+                continue;
+            }
             // Non-admins only see references from tables they may read.
             if (!$isAdmin && !$this->tableAccess->canReadTable($user, $table)) {
                 continue;

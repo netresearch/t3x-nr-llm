@@ -95,7 +95,9 @@ final readonly class SearchFalFilesTool implements ToolInterface
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('sys_file');
         $queryBuilder->getRestrictions()->removeAll();
 
-        $like = '%' . $queryBuilder->escapeLikeWildcards($query) . '%';
+        // LOWER() on both sides: plain LIKE is collation-dependent (e.g.
+        // case-sensitive on PostgreSQL), the spec promises case-insensitive.
+        $like = '%' . $queryBuilder->escapeLikeWildcards(mb_strtolower($query)) . '%';
 
         $rows = $queryBuilder
             ->select('f.uid', 'f.storage', 'f.identifier', 'f.mime_type', 'f.size')
@@ -111,9 +113,9 @@ final readonly class SearchFalFilesTool implements ToolInterface
                 ),
                 $queryBuilder->expr()->eq('f.missing', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
                 $queryBuilder->expr()->or(
-                    $queryBuilder->expr()->like('f.name', $queryBuilder->createNamedParameter($like)),
-                    $queryBuilder->expr()->like('m.title', $queryBuilder->createNamedParameter($like)),
-                    $queryBuilder->expr()->like('m.alternative', $queryBuilder->createNamedParameter($like)),
+                    $queryBuilder->expr()->comparison('LOWER(f.name)', 'LIKE', $queryBuilder->createNamedParameter($like)),
+                    $queryBuilder->expr()->comparison('LOWER(m.title)', 'LIKE', $queryBuilder->createNamedParameter($like)),
+                    $queryBuilder->expr()->comparison('LOWER(m.alternative)', 'LIKE', $queryBuilder->createNamedParameter($like)),
                 ),
             )
             ->orderBy('f.name')

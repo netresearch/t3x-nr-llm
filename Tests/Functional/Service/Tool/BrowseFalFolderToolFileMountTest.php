@@ -87,6 +87,13 @@ final class BrowseFalFolderToolFileMountTest extends AbstractFunctionalTestCase
         $this->tool = $tool;
     }
 
+    protected function tearDown(): void
+    {
+        // The faked backend request must not leak into later tests.
+        unset($GLOBALS['TYPO3_REQUEST']);
+        parent::tearDown();
+    }
+
     #[Test]
     public function nonAdminIsConfinedToTheirFileMount(): void
     {
