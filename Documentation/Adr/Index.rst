@@ -343,3 +343,4 @@ Tools
    Adr042ContentAndIntrospectionTools
    Adr043ToolGroups
    Adr044ErrorAnalysisTools
+   Adr045SchemaAndResolutionTools

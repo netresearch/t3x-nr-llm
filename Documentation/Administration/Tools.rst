@@ -36,14 +36,16 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships sixteen read-only tools. Each is a reference
+nr-llm ships twenty-four read-only tools. Each is a reference
 implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
-redacted or gated behind a separate ``_raw`` variant. Thirteen ship
+redacted or gated behind a separate ``_raw`` variant. Twenty-one ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``) ship **disabled** and must be
-enabled deliberately. Most require admin; only ``get_pagetree``, ``get_tca``,
-``search_records``, ``get_page_content`` and ``read_records`` are offered to
+enabled deliberately. Many require admin; the read-only structure and content
+tools (``get_pagetree``, ``get_tca``, ``get_full_tca``, ``get_table_schema``,
+``get_flexform_schema``, ``fluid_resolve``, ``search_records``,
+``get_page_content``, ``read_records``) are offered to
 non-admin backend users — those self-enforce the acting user's TYPO3
 permissions (page-show rights, ``tables_select``) inside the tool, so a
 non-admin only ever sees what the backend already grants them (see
@@ -145,6 +147,31 @@ The remaining tools follow the same pattern:
    and a short body excerpt — and on a 5xx the matching exception from the
    TYPO3 logs is appended automatically. Foreign hosts and non-http(s)
    schemes are denied; redirects are reported, not followed. Admin-only.
+``get_full_tca``
+   The TCA index: the names and titles of all accessible tables, each with a
+   pointer to ``get_table_schema``. A navigation aid so the model can traverse
+   the schema without the whole (multi-megabyte) TCA being sent at once. The
+   same table gates as ``get_table_schema`` apply. Optional ``filter`` and
+   ``extension`` narrow the list.
+
+``get_table_schema``
+   One table's schema in a readable form: control settings plus, per field,
+   its type and — for relational fields — the foreign table and relation kind
+   (the value over ``get_tca``). Sensitive tables are denied for every user;
+   credential-like columns show name and type only.
+
+``get_flexform_schema``
+   The data structure of a TCA FlexForm field, rendered as sheets and fields.
+   When the field selects one of several structures by a pointer, the
+   available keys are listed so a follow-up call can pass ``ds_pointer``. Same
+   table gates as ``get_table_schema``.
+
+``fluid_resolve``
+   Which physical Fluid file backs a template, partial or layout name in an
+   extension: the candidate paths in override order with an exists flag and
+   the winning path — to debug a wrong or missing template. Paths only.
+   (Resolves an extension's own ``Resources/Private`` paths; TypoScript
+   override root paths need a live rendering context and are not reflected.)
 
 .. _administration-tools-register:
 
@@ -218,11 +245,12 @@ taxonomy:
 Group            Tools
 ===============  ============================================================
 ``content``      ``search_records``, ``get_page_content``, ``read_records``
-``structure``    ``get_pagetree``, ``get_tca``, ``read_fal_asset_meta``
+``structure``    ``get_pagetree``, ``get_tca``, ``read_fal_asset_meta``,
+                 ``get_full_tca``, ``get_table_schema``, ``get_flexform_schema``
 ``system``       ``get_env`` (+ raw), ``get_php_info`` (+ raw),
                  ``fetch_logs``, ``probe_url``
 ``accounts``     ``list_be_users`` (+ raw), ``list_be_groups``
-``configuration``  ``get_typoscript``, ``get_tsconfig``
+``configuration``  ``get_typoscript``, ``get_tsconfig``, ``fluid_resolve``
 ``code``         ``get_last_exception``, ``read_source``, ``search_code``
 ===============  ============================================================
 

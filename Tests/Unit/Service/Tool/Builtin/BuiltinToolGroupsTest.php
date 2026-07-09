@@ -10,13 +10,17 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\FluidResolveTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetEnvRawTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetEnvTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\GetFlexFormSchemaTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\GetFullTcaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetLastExceptionTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPageContentTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPageTreeTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPhpInfoRawTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPhpInfoTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\GetTableSchemaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTcaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTsConfigTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTypoScriptTool;
@@ -56,6 +60,10 @@ final class BuiltinToolGroupsTest extends TestCase
             'read_records'      => [ReadRecordsTool::class, 'content'],
             'get_pagetree'      => [GetPageTreeTool::class, 'structure'],
             'get_tca'           => [GetTcaTool::class, 'structure'],
+            'get_full_tca'      => [GetFullTcaTool::class, 'structure'],
+            'get_table_schema'  => [GetTableSchemaTool::class, 'structure'],
+            'get_flexform_schema'    => [GetFlexFormSchemaTool::class, 'structure'],
+            'fluid_resolve'     => [FluidResolveTool::class, 'configuration'],
             'read_fal_asset_meta'    => [ReadFalAssetMetaTool::class, 'structure'],
             'get_env'           => [GetEnvTool::class, 'system'],
             'get_env_raw'       => [GetEnvRawTool::class, 'system'],
