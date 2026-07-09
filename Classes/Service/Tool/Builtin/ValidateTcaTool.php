@@ -281,6 +281,7 @@ final readonly class ValidateTcaTool implements ToolInterface
             'transOrigPointerField',
             'translationSource',
             'transOrigDiffSourceField',
+            'origUid',
             'editlock',
             'descriptionColumn',
             'sortby',
