@@ -393,11 +393,11 @@ loop, while the Tools module governs *which* tools exist and are enabled.
 
 .. tip::
 
-   **Small local models need a narrow tool set.** With every group enabled
+   **Small local models need a narrow tool set.** With every group enabled,
    the model is offered 36 tool declarations at once — small models (such
    as the seeded ``qwen3:4b``) then routinely fail to pick the right tool
    or reason themselves past the token budget without calling any. Untick
-   the groups that are irrelevant to the question; with one or two groups
+   the groups that are irrelevant to the question; with one or two groups,
    the same model answers reliably. Larger hosted models cope with the
    full set.
 
