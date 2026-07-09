@@ -42,10 +42,13 @@ layer defines ``SearchBackendInterface`` (``isAvailable()``,
 ``getPriority()``, ``search(RetrievalQuery, AccessContext)``) with four
 implementations, collected via the ``nr_llm.retrieval_backend`` tag:
 
-#. ``SolrSearchBackend`` — EXT:solr's ``SearchResultSetService`` path
-   (works without TSFE; connection resolved per site root page and
-   language). All EXT:solr references are ``class_exists``-guarded;
-   static analysis uses stub files, no composer dependency.
+#. ``SolrSearchBackend`` — talks to the Solr server EXT:solr
+   provisioned over the HTTP select API instead of EXT:solr's
+   ``@internal`` PHP classes (for TYPO3 14 only a beta of EXT:solr
+   exists): endpoints come from the documented site-configuration
+   ``solr_*_read`` keys with per-language overrides, every query
+   carries the ``{!typo3access}0,-1`` public filter, and no composer
+   dependency on EXT:solr exists.
 #. ``KeSearchBackend`` — reads ``tx_kesearch_index`` directly:
    ``MATCH … AGAINST`` on MySQL/MariaDB, ``LIKE`` elsewhere. Matches
    ``title``/``content`` only — never ``hidden_content``, which
@@ -71,13 +74,15 @@ caps, source-id grammar validation and result caps apply.
 
 **Access model, fail-closed.** Index-level filtering is always
 *public-only* (``fe_group`` ``''``/``0``, ``gr_list`` ``0,-1``, Solr
-access groups ``[0,-1]``): RAG evidence is what the anonymous website
-visitor could read. On top, non-admin backend users get the same
-``PAGE_SHOW`` post-filter as ``search_records``. ``AccessContext``
-(backend user / frontend groups / public) travels through the retrieval
-core so a later frontend endpoint can widen filtering per fe_group
-without touching the backends' call sites — it is *not* consumed beyond
-public-only + backend post-filtering in this iteration.
+access filter ``{!typo3access}0,-1``): RAG evidence is what the
+anonymous website visitor could read. Because that content is by
+definition readable by every backend user, no per-user page narrowing
+applies (unlike ``search_records``, which exposes non-public backend
+records); the tools stay fail-closed without a backend user like every
+builtin. ``AccessContext`` (backend user / frontend groups / public)
+travels through the retrieval core so a later frontend endpoint can
+widen filtering per fe_group without touching the backends' call
+sites — it is *not* consumed beyond public-only in this iteration.
 
 **Web search stays an interface.** ``WebSearchBackendInterface``
 (site-limited external search) is defined but has no implementation;
@@ -96,10 +101,10 @@ Consequences
   currently supported versions (ke_search v6.6/v7, core 13.4/14.x —
   identical), but future majors can drift; ``isAvailable()`` checks
   table presence, and functional tests pin the expected schema.
-- The Solr adapter rides on EXT:solr internals (no ``@api`` surface
-  exists) and for TYPO3 14 only a beta of EXT:solr is published; the
-  adapter therefore treats every EXT:solr failure as "backend
-  unavailable" and lets the cascade continue.
+- The Solr adapter depends on the documented site-configuration keys
+  and on the ``typo3access`` query parser from EXT:solr's configsets,
+  not on EXT:solr PHP internals; any HTTP or configuration failure is
+  treated as "backend unavailable" and the cascade continues.
 - Stale indexes cite stale content (ke_search incremental runs never
   delete; indexed_search updates on render) — a known property of
   search-index RAG, documented for editors.
