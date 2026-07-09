@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **RAG site-search tools** (41 tools / 8 groups): new `rag` tool group with `site_rag_query` — cited evidence about the website's own public content (source id, title, URL, match excerpt), retrieved through a priority cascade over whichever search index is installed (EXT:solr via its HTTP select API, ke_search, indexed_search) with an always-available pages/tt_content database fallback — and `site_fetch_source` to read a source's full indexed text. Index-level filtering is strictly public-only (what the anonymous visitor could read); the answering backend is named in every evidence package (ADR-049).
+
 ## [0.15.0] - 2026-07-09
 
 ### Added

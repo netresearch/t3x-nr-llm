@@ -347,3 +347,4 @@ Tools
    Adr046HistoryUrlAndValidationTools
    Adr047FalTools
    Adr048DiagnosticsTools
+   Adr049RagSiteSearchTools

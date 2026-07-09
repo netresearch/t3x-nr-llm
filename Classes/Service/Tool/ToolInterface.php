@@ -91,8 +91,9 @@ interface ToolInterface
      * per-configuration `allowed_tool_groups` gate and the playground's
      * grouped checkboxes).
      *
-     * Builtins use the curated taxonomy `content`, `structure`, `system`,
-     * `accounts`, `configuration`. Third-party tools declare their own group;
+     * Builtins use the curated taxonomy `content`, `structure`,
+     * `configuration`, `code`, `files`, `system`, `accounts`, `rag`.
+     * Third-party tools declare their own group;
      * the recommended value is the providing extension's key. Enablement
      * cascades fail-closed: a tool is only offered when its group is enabled
      * AND the tool itself is enabled AND the run's configuration permits the

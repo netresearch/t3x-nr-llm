@@ -36,10 +36,10 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships thirty-nine read-only tools. Each is a reference
+nr-llm ships forty-one read-only tools. Each is a reference
 implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
-redacted or gated behind a separate ``_raw`` variant. Thirty-six ship
+redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``) ship **disabled** and must be
 enabled deliberately. Many require admin; the read-only structure, content
@@ -260,6 +260,18 @@ The remaining tools follow the same pattern:
    A PSR-15 middleware stack (frontend or backend) in execution order with
    identifiers and classes. Admin-only.
 
+``site_rag_query``
+   Curated evidence about the website's own **public** content for a
+   question: source id, title, URL and match excerpt per source, retrieved
+   from the best available search index — EXT:solr, ke_search,
+   indexed_search or a database fallback — and labelled with the answering
+   backend (:ref:`ADR-049 <adr-049>`). Index-level filtering is always
+   public-only (what the anonymous visitor could read).
+
+``site_fetch_source``
+   The full indexed text behind a ``site_rag_query`` source id, capped at
+   8000 characters — for reading a promising source beyond its excerpt.
+
 .. _administration-tools-register:
 
 Registering a tool
@@ -347,6 +359,7 @@ Group            Tools
 ``files``        ``list_fal_storages``, ``browse_fal_folder``,
                  ``search_fal_files``, ``get_fal_references``,
                  ``find_missing_files``
+``rag``          ``site_rag_query``, ``site_fetch_source``
 ===============  ============================================================
 
 Groups can be switched on three levels, and the result cascades
