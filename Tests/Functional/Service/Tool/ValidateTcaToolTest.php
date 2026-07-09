@@ -62,6 +62,29 @@ final class ValidateTcaToolTest extends AbstractFunctionalTestCase
             ],
         ];
 
+        // showitem references ctrl-declared fields (enablecolumns, language
+        // fields) that have NO columns definition — auto-created by the core
+        // since v13, so they must NOT be flagged.
+        $GLOBALS['TCA']['tx_demo_ctrlfields'] = [
+            'ctrl' => [
+                'title'                    => 'Ctrl Fields Demo',
+                'label'                    => 'name',
+                'languageField'            => 'sys_language_uid',
+                'transOrigPointerField'    => 'l18n_parent',
+                'transOrigDiffSourceField' => 'l18n_diffsource',
+                'enablecolumns'            => [
+                    'disabled'  => 'disable',
+                    'starttime' => 'starttime',
+                ],
+            ],
+            'columns' => [
+                'name' => ['config' => ['type' => 'input']],
+            ],
+            'types' => [
+                '0' => ['showitem' => 'name, disable, starttime, sys_language_uid, l18n_parent'],
+            ],
+        ];
+
         $registry = $this->get(ToolRegistry::class);
         self::assertInstanceOf(ToolRegistry::class, $registry);
         $tool = $registry->get('validate_tca');
@@ -91,6 +114,17 @@ final class ValidateTcaToolTest extends AbstractFunctionalTestCase
         self::assertSame(
             'No TCA issues found in table "tx_demo_clean".',
             $this->tool->execute(['table' => 'tx_demo_clean']),
+        );
+    }
+
+    #[Test]
+    public function ctrlDeclaredFieldsInShowitemAreNotFlagged(): void
+    {
+        $this->setUpBackendUser(1);
+
+        self::assertSame(
+            'No TCA issues found in table "tx_demo_ctrlfields".',
+            $this->tool->execute(['table' => 'tx_demo_ctrlfields']),
         );
     }
 
