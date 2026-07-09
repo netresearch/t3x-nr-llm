@@ -132,6 +132,50 @@ final class SiteRagToolsTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function outOfRangeArgumentsAreClampedNeverThrown(): void
+    {
+        $this->setUpBackendUser(1);
+
+        // Each of these once mapped to a RetrievalQuery::create() guard —
+        // the tool must clamp them, not surface an exception (temperature=5
+        // bug class).
+        $overCap = $this->queryTool->execute(['question' => 'aikido', 'max_sources' => 999]);
+        self::assertStringContainsString('database:2:0', $overCap);
+
+        $zero = $this->queryTool->execute(['question' => 'aikido', 'max_sources' => 0]);
+        self::assertStringContainsString('database:2:0', $zero);
+
+        $negativeLanguage = $this->queryTool->execute(['question' => 'aikido', 'language' => -3]);
+        self::assertStringContainsString('database:2:0', $negativeLanguage);
+
+        // 350 chars in, truncated to 200 and answered cleanly — the echoed
+        // question ends mid-word instead of raising a VO exception.
+        $longQuestion = $this->queryTool->execute(['question' => str_repeat('aikido ', 50)]);
+        self::assertStringStartsWith('No evidence found for "aikido ', $longQuestion);
+        self::assertStringContainsString('aiki" (backend:', $longQuestion);
+    }
+
+    #[Test]
+    public function fetchedSourceTextIsCappedAt8000Characters(): void
+    {
+        $this->setUpBackendUser(1);
+
+        $connectionPool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $content = $connectionPool->getConnectionForTable('tt_content');
+        self::assertInstanceOf(Connection::class, $content);
+        $content->insert('tt_content', [
+            'uid' => 11, 'pid' => 2, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
+            'header' => 'Long chapter', 'bodytext' => str_repeat('aikido wisdom ', 1000),
+        ]);
+
+        $output = $this->fetchTool->execute(['source_id' => 'database:2:0']);
+
+        self::assertSame(8001, mb_strlen($output));
+        self::assertStringEndsWith('…', $output);
+    }
+
+    #[Test]
     public function bothToolsFailClosedWithoutBackendUser(): void
     {
         self::assertSame('Not permitted.', $this->queryTool->execute(['question' => 'aikido']));

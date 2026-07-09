@@ -179,6 +179,45 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
 
         $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
         self::assertSame(['indexed_search:' . $this->publicPhash], $ids);
+
+        // The gr_list guard must hold on the LIKE fallback path too: the
+        // restricted document's fulltext matches, but must not surface.
+        $restricted = $this->createBackend()->search(
+            RetrievalQuery::create('insider pricing'),
+            AccessContext::publicOnly(),
+        );
+        self::assertTrue($restricted->isEmpty(), 'group-restricted document leaked on the LIKE path');
+    }
+
+    #[Test]
+    public function nonPageItemTypesNeverSurface(): void
+    {
+        $connection = $this->connectionPool->getConnectionForTable('index_phash');
+        self::assertInstanceOf(Connection::class, $connection);
+
+        $filePhash = md5('file-doc');
+        $connection->insert('index_phash', [
+            'phash' => $filePhash,
+            'phash_grouping' => $filePhash,
+            'contentHash' => md5('content-' . $filePhash),
+            'data_page_id' => 2,
+            'gr_list' => '0,-1',
+            'item_type' => 'pdf',
+            'item_title' => 'Aikido brochure.pdf',
+            'sys_language_uid' => 0,
+        ]);
+        $connection->insert('index_fulltext', [
+            'phash' => $filePhash, 'fulltextdata' => 'Aikido brochure download.',
+        ]);
+        $this->relate($connection, $filePhash, 'aikido', 0, 2);
+
+        $result = $this->backend->search(
+            RetrievalQuery::create('aikido'),
+            AccessContext::publicOnly(),
+        );
+
+        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        self::assertNotContains('indexed_search:' . $filePhash, $ids, 'non-page item_type leaked');
     }
 
     #[Test]

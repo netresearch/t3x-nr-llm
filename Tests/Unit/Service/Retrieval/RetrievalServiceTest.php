@@ -93,6 +93,20 @@ final class RetrievalServiceTest extends TestCase
     }
 
     #[Test]
+    public function emptyResultFromAvailableBackendIsFinalNotFallThrough(): void
+    {
+        $emptyIndex = new FakeSearchBackend('ke_search', 20);
+        $fallback = new FakeSearchBackend('database', 0, sources: [FakeSearchBackend::source('database:1:0')]);
+
+        $service = new RetrievalService([$emptyIndex, $fallback]);
+        $result = $service->search($this->query(), AccessContext::publicOnly());
+
+        self::assertSame('ke_search', $result->backend);
+        self::assertTrue($result->isEmpty());
+        self::assertSame(0, $fallback->searchCalls, 'empty result must not fall through to a lower-quality engine');
+    }
+
+    #[Test]
     public function fetchSourceRoutesToTheEmittingBackend(): void
     {
         $database = new FakeSearchBackend('database', 0, fetchResult: 'full text');

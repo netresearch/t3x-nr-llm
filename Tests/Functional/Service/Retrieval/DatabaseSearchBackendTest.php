@@ -74,6 +74,25 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             'uid' => 5, 'pid' => 1, 'title' => 'Aikido unlisted page', 'doktype' => 1,
             'sorting' => 5, 'slug' => '/unlisted', 'no_search' => 1,
         ]);
+        // Classic members-only section: restriction sits on the section
+        // ROOT with extendToSubpages, the child row itself is public.
+        $pages->insert('pages', [
+            'uid' => 6, 'pid' => 1, 'title' => 'Members section', 'doktype' => 1,
+            'sorting' => 6, 'slug' => '/members', 'fe_group' => '1', 'extendToSubpages' => 1,
+        ]);
+        $pages->insert('pages', [
+            'uid' => 7, 'pid' => 6, 'title' => 'Aikido internal price list', 'doktype' => 1,
+            'sorting' => 1, 'slug' => '/members/prices',
+        ]);
+        // Hidden section root with extendToSubpages, public child row.
+        $pages->insert('pages', [
+            'uid' => 8, 'pid' => 1, 'title' => 'Staging section', 'doktype' => 1,
+            'sorting' => 7, 'slug' => '/staging', 'hidden' => 1, 'extendToSubpages' => 1,
+        ]);
+        $pages->insert('pages', [
+            'uid' => 9, 'pid' => 8, 'title' => 'Aikido unpublished relaunch page', 'doktype' => 1,
+            'sorting' => 1, 'slug' => '/staging/relaunch',
+        ]);
 
         $content = $connectionPool->getConnectionForTable('tt_content');
         self::assertInstanceOf(Connection::class, $content);
@@ -88,6 +107,16 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
         $content->insert('tt_content', [
             'uid' => 12, 'pid' => 2, 'colPos' => 0, 'sorting' => 2, 'CType' => 'text',
             'header' => 'Protected element', 'bodytext' => 'Aikido insider pricing.', 'fe_group' => '1',
+        ]);
+        $content->insert('tt_content', [
+            'uid' => 13, 'pid' => 7, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'header' => 'Member prices', 'bodytext' => 'Aikido member price table.',
+        ]);
+        // Unpublished workspace draft of element 10 (t3ver_wsid > 0).
+        $content->insert('tt_content', [
+            'uid' => 14, 'pid' => 2, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'header' => 'Draft press release', 'bodytext' => 'Aikido draft codename xyzzy.',
+            't3ver_wsid' => 1, 't3ver_oid' => 10, 't3ver_state' => 0,
         ]);
 
         $collector = $this->get(SearchableSchemaFieldsCollector::class);
@@ -141,6 +170,42 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
         self::assertNotContains('database:3:0', $ids, 'hidden page leaked');
         self::assertNotContains('database:4:0', $ids, 'fe_group-protected page leaked');
         self::assertNotContains('database:5:0', $ids, 'no_search page leaked');
+    }
+
+    #[Test]
+    public function pagesInsideRestrictedOrHiddenSectionsNeverSurface(): void
+    {
+        $result = $this->backend->search(
+            RetrievalQuery::create('aikido'),
+            AccessContext::publicOnly(),
+        );
+
+        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        self::assertNotContains('database:7:0', $ids, 'child of fe_group-restricted section leaked');
+        self::assertNotContains('database:9:0', $ids, 'child of hidden section leaked');
+
+        $restrictedChild = SourceReference::parse('database:7:0');
+        self::assertNotNull($restrictedChild);
+        self::assertNull(
+            $this->backend->fetchSource($restrictedChild, AccessContext::publicOnly()),
+            'fetchSource dumped a page inside a restricted section',
+        );
+    }
+
+    #[Test]
+    public function workspaceDraftRowsNeverSurface(): void
+    {
+        $result = $this->backend->search(
+            RetrievalQuery::create('xyzzy'),
+            AccessContext::publicOnly(),
+        );
+        self::assertTrue($result->isEmpty(), 'workspace draft matched the search');
+
+        $reference = SourceReference::parse('database:2:0');
+        self::assertNotNull($reference);
+        $text = $this->backend->fetchSource($reference, AccessContext::publicOnly());
+        self::assertNotNull($text);
+        self::assertStringNotContainsString('xyzzy', $text, 'workspace draft leaked into fetched page text');
     }
 
     #[Test]

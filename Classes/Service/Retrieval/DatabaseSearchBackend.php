@@ -14,21 +14,24 @@ use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
+use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
 use TYPO3\CMS\Core\Schema\SearchableSchemaFieldsCollector;
 use TYPO3\CMS\Core\Site\SiteFinder;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Always-available retrieval fallback (ADR-049): LIKE search across the
  * TCA search fields of `pages` and `tt_content`, grouped per page.
  *
  * Runs when no search extension index exists. Public-only by
- * construction: default restrictions drop deleted/hidden/timed rows,
- * `fe_group` must be empty/0, pages must be searchable (`no_search` = 0)
- * content page types (doktype < 199). Rootline visibility
- * (hidden parent with extendToSubpages) is NOT evaluated here — the
- * index-based backends inherit their engine's semantics, this fallback
- * stays row-level; the calling tool's per-user page post-filter applies
- * on top for non-admin backend users.
+ * construction: default restrictions plus a live-workspace restriction
+ * drop deleted/hidden/timed/draft rows, `fe_group` must be empty/0,
+ * pages must be searchable (`no_search` = 0) content page types
+ * (doktype < 199), and the ANCESTOR rootline is walked so pages inside
+ * an access-restricted or hidden section (`extendToSubpages`) or under
+ * a recycler never surface — the anonymous frontend would not render
+ * them either.
  */
 final readonly class DatabaseSearchBackend implements SearchBackendInterface
 {
@@ -149,7 +152,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
 
         $parts = ['# ' . $pageRows[$routeUid]];
 
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
+        $queryBuilder = $this->liveQueryBuilder('tt_content');
         $rows = $queryBuilder
             ->select('header', 'bodytext')
             ->from('tt_content')
@@ -183,7 +186,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
     private function searchPages(string $query, int $languageId): array
     {
         $fields = $this->pageFields();
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
+        $queryBuilder = $this->liveQueryBuilder('pages');
         $select = array_values(array_unique(array_merge(['uid', 'l10n_parent', 'title'], $fields)));
 
         $rows = $queryBuilder
@@ -210,7 +213,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
     private function searchContent(string $query, int $languageId): array
     {
         $fields = $this->contentFields();
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
+        $queryBuilder = $this->liveQueryBuilder('tt_content');
         $select = array_values(array_unique(array_merge(['uid', 'pid'], $fields)));
 
         $rows = $queryBuilder
@@ -240,9 +243,9 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
      */
     private function visiblePages(array $routeUids, int $languageId): array
     {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
+        $queryBuilder = $this->liveQueryBuilder('pages');
         $rows = $queryBuilder
-            ->select('uid', 'title')
+            ->select('uid', 'pid', 'title')
             ->from('pages')
             ->where(
                 $queryBuilder->expr()->in('uid', $queryBuilder->createNamedParameter($routeUids, Connection::PARAM_INT_ARRAY)),
@@ -254,12 +257,19 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             ->fetchAllAssociative();
 
         $titles = [];
+        $ancestorCache = [];
         foreach ($rows as $row) {
+            // Pages inside a restricted/hidden section or under a recycler
+            // are unreachable for the anonymous visitor even when the row
+            // itself is public.
+            if (!$this->ancestorsArePublic(self::toInt($row['pid'] ?? 0), $ancestorCache)) {
+                continue;
+            }
             $titles[self::toInt($row['uid'] ?? 0)] = self::toStr($row['title'] ?? '');
         }
 
         if ($languageId > 0 && $titles !== []) {
-            $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
+            $queryBuilder = $this->liveQueryBuilder('pages');
             $translations = $queryBuilder
                 ->select('l10n_parent', 'title')
                 ->from('pages')
@@ -329,6 +339,100 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             $queryBuilder->expr()->eq('fe_group', $queryBuilder->createNamedParameter('')),
             $queryBuilder->expr()->eq('fe_group', $queryBuilder->createNamedParameter('0')),
         );
+    }
+
+    /**
+     * Query builder with the default restrictions (deleted/hidden/timed)
+     * plus the live-workspace restriction, so unpublished draft rows never
+     * match.
+     */
+    private function liveQueryBuilder(string $table): QueryBuilder
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+
+        return $queryBuilder;
+    }
+
+    /**
+     * Whether every ancestor up to the root leaves its subtree reachable
+     * for the anonymous visitor: not deleted, no recycler, and no
+     * `extendToSubpages` combined with hidden or an fe_group restriction.
+     * Memoised per ancestor uid across one retrieval.
+     *
+     * @param array<int, bool> $cache
+     */
+    private function ancestorsArePublic(int $parentUid, array &$cache): bool
+    {
+        $chain = [];
+        $current = $parentUid;
+        $public = true;
+
+        for ($depth = 0; $current > 0 && $depth < 99; ++$depth) {
+            if (isset($cache[$current])) {
+                $public = $cache[$current];
+                break;
+            }
+            $chain[] = $current;
+
+            $row = $this->ancestorRow($current);
+            if ($row === null || !$this->ancestorAllowsSubtree($row)) {
+                $public = false;
+                break;
+            }
+            $current = self::toInt($row['pid'] ?? 0);
+        }
+
+        foreach ($chain as $uid) {
+            $cache[$uid] = $public;
+        }
+
+        return $public;
+    }
+
+    /**
+     * The ancestor row incl. hidden — a hidden ancestor without
+     * `extendToSubpages` still serves its children, so it must be
+     * inspected rather than filtered away.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function ancestorRow(int $uid): ?array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
+        $queryBuilder->getRestrictions()
+            ->removeAll()
+            ->add(GeneralUtility::makeInstance(DeletedRestriction::class))
+            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+
+        $row = $queryBuilder
+            ->select('uid', 'pid', 'hidden', 'extendToSubpages', 'fe_group', 'doktype')
+            ->from('pages')
+            ->where(
+                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchAssociative();
+
+        return $row === false ? null : $row;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function ancestorAllowsSubtree(array $row): bool
+    {
+        if (self::toInt($row['doktype'] ?? 0) === 255) {
+            return false;
+        }
+
+        if (self::toInt($row['extendToSubpages'] ?? 0) !== 1) {
+            return true;
+        }
+
+        $feGroup = self::toStr($row['fe_group'] ?? '');
+
+        return self::toInt($row['hidden'] ?? 0) === 0 && ($feGroup === '' || $feGroup === '0');
     }
 
     /**

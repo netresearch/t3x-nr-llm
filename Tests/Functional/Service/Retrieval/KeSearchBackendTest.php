@@ -107,6 +107,13 @@ final class KeSearchBackendTest extends AbstractFunctionalTestCase
             'params' => 'https://aikido.example.org/rules',
             'language' => -1, 'fe_group' => '0', 'sortdate' => 60,
         ]);
+        $index->insert('tx_kesearch_index', [
+            'uid' => 6, 'pid' => 9, 'type' => 'page', 'targetpid' => '2',
+            'title' => 'Aikido future announcement',
+            'content' => 'Aikido event not yet published.', 'params' => '',
+            'language' => 0, 'fe_group' => '0',
+            'starttime' => 2000000000, 'sortdate' => 50,
+        ]);
 
         $siteFinder = $this->get(SiteFinder::class);
         self::assertInstanceOf(SiteFinder::class, $siteFinder);
@@ -177,6 +184,7 @@ final class KeSearchBackendTest extends AbstractFunctionalTestCase
         self::assertNotContains('ke_search:2', $ids, 'fe_group-restricted row leaked');
         self::assertNotContains('ke_search:3', $ids, 'expired row leaked');
         self::assertNotContains('ke_search:4', $ids, 'foreign-language row leaked');
+        self::assertNotContains('ke_search:6', $ids, 'future-starttime row leaked');
     }
 
     #[Test]

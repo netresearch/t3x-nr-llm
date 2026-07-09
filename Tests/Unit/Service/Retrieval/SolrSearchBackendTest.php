@@ -164,6 +164,10 @@ final class SolrSearchBackendTest extends TestCase
         self::assertCount(1, $uris);
         self::assertStringContainsString('fq=' . rawurlencode('type:pages'), $uris[0]);
         self::assertStringContainsString('fq=' . rawurlencode('uid:2'), $uris[0]);
+        // The public-only access filter must guard the FETCH path exactly
+        // like the search path — a guessable uid must never bypass it.
+        self::assertStringContainsString('fq=' . rawurlencode('{!typo3access}0,-1'), $uris[0]);
+        self::assertStringContainsString('fq=' . rawurlencode('language:0'), $uris[0]);
     }
 
     #[Test]

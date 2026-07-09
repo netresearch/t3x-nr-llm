@@ -162,11 +162,8 @@ final class KeSearchBackend implements SearchBackendInterface
             )
             ->setMaxResults(self::MAX_ROWS);
 
-        if ($isMysql) {
-            $term = $this->booleanModeTerm($query->query);
-            if ($term === '') {
-                return [];
-            }
+        $term = $isMysql ? $this->booleanModeTerm($query->query) : '';
+        if ($term !== '') {
             $placeholder = $queryBuilder->createNamedParameter($term);
             $queryBuilder
                 ->addSelectLiteral('MATCH (title, content) AGAINST (' . $placeholder . ') AS score')
@@ -186,20 +183,32 @@ final class KeSearchBackend implements SearchBackendInterface
     }
 
     /**
-     * All words required, MySQL boolean-mode operator characters stripped
-     * (they are interpreted by the server and attacker-influenceable).
+     * Boolean-mode term with MySQL operator characters stripped (they are
+     * interpreted by the server and attacker-influenceable). Only words of
+     * 4+ characters are REQUIRED (`+`): shorter tokens fall below the
+     * server's fulltext minimum token size (InnoDB 3 / MyISAM 4) and would
+     * make the whole query unmatchable if mandatory. When no requirable
+     * word remains the caller falls back to the LIKE path.
      */
     private function booleanModeTerm(string $query): string
     {
-        $words = [];
+        $required = [];
+        $optional = [];
         foreach (preg_split('/\s+/', $query) ?: [] as $word) {
             $clean = trim((string)preg_replace('/[+\-<>~*"()@]/', '', $word));
-            if (mb_strlen($clean) >= 2) {
-                $words[] = '+' . $clean;
+            $length = mb_strlen($clean);
+            if ($length >= 4) {
+                $required[] = '+' . $clean;
+            } elseif ($length >= 2) {
+                $optional[] = $clean;
             }
         }
 
-        return implode(' ', $words);
+        if ($required === []) {
+            return '';
+        }
+
+        return implode(' ', [...$required, ...$optional]);
     }
 
     /**

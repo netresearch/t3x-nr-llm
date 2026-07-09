@@ -21,7 +21,10 @@ use Throwable;
  * scores and LIKE hits are not comparable. A backend that throws is
  * treated as unavailable and the cascade continues with a note, so a
  * misconfigured Solr connection degrades to the next index instead of
- * failing the run.
+ * failing the run. An EMPTY result from an available backend is final by
+ * design: falling through would silently mix engines of different
+ * quality, and "the site's search finds nothing" is itself the honest
+ * evidence (the answering backend is always named).
  */
 final class RetrievalService
 {
