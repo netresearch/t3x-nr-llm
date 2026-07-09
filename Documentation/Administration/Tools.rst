@@ -36,10 +36,10 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships thirty-three read-only tools. Each is a reference
+nr-llm ships thirty-nine read-only tools. Each is a reference
 implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
-redacted or gated behind a separate ``_raw`` variant. Thirty ship
+redacted or gated behind a separate ``_raw`` variant. Thirty-six ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``) ship **disabled** and must be
 enabled deliberately. Many require admin; the read-only structure, content
@@ -231,6 +231,35 @@ The remaining tools follow the same pattern:
    Reports source and line number only, never the offending line's content
    (a constants line may carry an API key). Admin-only.
 
+``list_extensions``
+   The installed (active) extensions: key, version, composer name and
+   title — no package paths. Admin-only.
+
+``get_site_config``
+   Without arguments the configured sites (identifier, base, root page);
+   with ``identifier`` that site's configuration flattened to dotted
+   ``key: value`` lines. Credential-like keys (camelCase included, e.g.
+   ``apiKey``) render as ``[redacted]``. Admin-only.
+
+``list_scheduler_tasks``
+   The scheduler tasks with next execution, disabled flag and a
+   last-run-failed marker. The serialized task object is **never
+   unserialized**; degrades gracefully when EXT:scheduler is absent.
+   Admin-only.
+
+``get_system_status``
+   One compact block: TYPO3/PHP/database versions, application context,
+   composer mode, OS family, timezone — no paths, no hostnames. Admin-only.
+
+``list_deprecations``
+   The newest distinct messages from the deprecation log, deduplicated with
+   a ×count suffix and project paths relativized — the upgrade work list.
+   Admin-only.
+
+``list_middlewares``
+   A PSR-15 middleware stack (frontend or backend) in execution order with
+   identifiers and classes. Admin-only.
+
 .. _administration-tools-register:
 
 Registering a tool
@@ -308,10 +337,12 @@ Group            Tools
                  ``get_full_tca``, ``get_table_schema``, ``get_flexform_schema``,
                  ``resolve_url``, ``validate_tca``
 ``system``       ``get_env`` (+ raw), ``get_php_info`` (+ raw),
-                 ``fetch_logs``, ``probe_url``
+                 ``fetch_logs``, ``probe_url``, ``list_extensions``,
+                 ``list_scheduler_tasks``, ``get_system_status``,
+                 ``list_deprecations``, ``list_middlewares``
 ``accounts``     ``list_be_users`` (+ raw), ``list_be_groups``
 ``configuration``  ``get_typoscript``, ``get_tsconfig``, ``fluid_resolve``,
-                 ``check_typoscript``
+                 ``check_typoscript``, ``get_site_config``
 ``code``         ``get_last_exception``, ``read_source``, ``search_code``
 ``files``        ``list_fal_storages``, ``browse_fal_folder``,
                  ``search_fal_files``, ``get_fal_references``,
