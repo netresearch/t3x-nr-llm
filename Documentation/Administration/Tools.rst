@@ -36,17 +36,19 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships twenty-eight read-only tools. Each is a reference
+nr-llm ships thirty-three read-only tools. Each is a reference
 implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
-redacted or gated behind a separate ``_raw`` variant. Twenty-five ship
+redacted or gated behind a separate ``_raw`` variant. Thirty ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``) ship **disabled** and must be
-enabled deliberately. Many require admin; the read-only structure and content
-tools (``get_pagetree``, ``get_tca``, ``get_full_tca``, ``get_table_schema``,
-``get_flexform_schema``, ``fluid_resolve``, ``search_records``,
-``get_page_content``, ``read_records``, ``get_record_history``,
-``resolve_url``, ``validate_tca``) are offered to
+enabled deliberately. Many require admin; the read-only structure, content
+and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
+``get_table_schema``, ``get_flexform_schema``, ``fluid_resolve``,
+``search_records``, ``get_page_content``, ``read_records``,
+``get_record_history``, ``resolve_url``, ``validate_tca``,
+``list_fal_storages``, ``browse_fal_folder``, ``search_fal_files``,
+``get_fal_references``, ``find_missing_files``) are offered to
 non-admin backend users — those self-enforce the acting user's TYPO3
 permissions (page-show rights, ``tables_select``) inside the tool, so a
 non-admin only ever sees what the backend already grants them (see
@@ -70,6 +72,34 @@ The two tools below are the fullest illustrations of the contract:
    missing uid — the model cannot enumerate arbitrary files.
 
 The remaining tools follow the same pattern:
+
+``list_fal_storages``
+   The file storages this run may touch (uid, name, driver, status flags).
+   The effective set is the configured allow-list, intersected for
+   non-admins with their file mounts; the server-side base path is never
+   part of the output.
+
+``browse_fal_folder``
+   One FAL folder: subfolders (with file count), then files with size and
+   MIME type. Storage-relative identifiers only; anything unresolvable
+   collapses into one neutral denial. Capped at 100 entries.
+
+``search_fal_files``
+   Substring search over file name and metadata title/alternative within
+   the accessible storages. ``%``/``_`` in the query match literally;
+   missing files are excluded.
+
+``get_fal_references``
+   Where a file is used: ``sys_file_reference`` rows as ``table:uid
+   (field)``, hidden references marked. Soft references (RTE links, plain
+   URLs) are not tracked — stated in the output so "no references" is
+   never read as "safe to delete". Non-admins only see references from
+   tables they may read.
+
+``find_missing_files``
+   ``sys_file`` records whose physical file is gone (``missing = 1``) —
+   the "broken image" diagnosis. The total count is always reported next
+   to the capped listing.
 
 ``get_env`` / ``get_env_raw``
    Process environment variables. ``get_env`` redacts secret-looking values
@@ -283,6 +313,9 @@ Group            Tools
 ``configuration``  ``get_typoscript``, ``get_tsconfig``, ``fluid_resolve``,
                  ``check_typoscript``
 ``code``         ``get_last_exception``, ``read_source``, ``search_code``
+``files``        ``list_fal_storages``, ``browse_fal_folder``,
+                 ``search_fal_files``, ``get_fal_references``,
+                 ``find_missing_files``
 ===============  ============================================================
 
 Groups can be switched on three levels, and the result cascades
