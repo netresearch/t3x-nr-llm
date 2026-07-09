@@ -11,6 +11,28 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-15-0:
+
+Version 0.15.0 (2026-07-09)
+===========================
+
+This release turns the Tool Playground into a **glass-box run inspector** —
+every request, response, tool execution and the final answer stream live
+into an ordered step list with token, cost and timing detail, plus a
+dry-run mode that shows the exact prompt without calling the model — and
+grows the built-in tool set to **39 tools in 7 groups**: record history
+("who changed this?"), URL resolution, TCA/TypoScript validation,
+error-analysis (last exception, source read/search, URL probe), FAL file
+tools and system diagnostics. Groups can be toggled centrally, restricted
+per configuration and selected per run, cascading fail-closed.
+
+**Breaking:** ``ToolInterface`` gained ``getGroup(): string`` — every tool
+implementer must declare its group (third-party tools: use the extension
+key).
+
+For the complete, itemised list see the canonical
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-llm/blob/main/CHANGELOG.md>`__.
+
 .. _version-0-14-1:
 
 Version 0.14.1 (2026-07-05)
