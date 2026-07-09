@@ -17,6 +17,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
  * Functional tests for GetRecordHistoryTool (ADR-046): history renders
@@ -151,5 +152,78 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
             'Table not found or not permitted.',
             $this->tool->execute(['table' => 'tt_content', 'uid' => 5]),
         );
+    }
+
+    #[Test]
+    public function nonAdminWithoutPageAccessIsDenied(): void
+    {
+        // Editor MAY select tt_content but has no PAGE_SHOW on page 9 — the
+        // per-record page gate must deny (values must not leak from
+        // unreadable pages).
+        $this->grantEditorTableSelect();
+        $this->insertPageWithContentAndHistory(9, 0, 40);
+        $this->setUpBackendUser(2);
+
+        self::assertSame(
+            'Table not found or not permitted.',
+            $this->tool->execute(['table' => 'tt_content', 'uid' => 40]),
+        );
+    }
+
+    #[Test]
+    public function nonAdminWithPageAccessSeesHistory(): void
+    {
+        // Same editor, but page 9 grants PAGE_SHOW to everybody.
+        $this->grantEditorTableSelect();
+        $this->insertPageWithContentAndHistory(9, Permission::PAGE_SHOW, 40);
+        $this->setUpBackendUser(2);
+
+        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 40]);
+
+        self::assertStringContainsString('Change history for tt_content:40', $output);
+        self::assertStringContainsString("header: 'A' → 'B'", $output);
+    }
+
+    private function grantEditorTableSelect(): void
+    {
+        $connectionPool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $groups = $connectionPool->getConnectionForTable('be_groups');
+        self::assertInstanceOf(Connection::class, $groups);
+        // db_mountpoints + options=3: readPageAccess also requires the page
+        // inside a webmount, and group mounts are only inherited with the
+        // options bits set.
+        $groups->insert('be_groups', [
+            'uid' => 7, 'pid' => 0, 'title' => 'Readers',
+            'tables_select' => 'tt_content,pages', 'db_mountpoints' => '9',
+        ]);
+        $groups->update('be_users', ['usergroup' => '7', 'options' => 3], ['uid' => 2]);
+    }
+
+    private function insertPageWithContentAndHistory(int $pageUid, int $permsEverybody, int $contentUid): void
+    {
+        $connectionPool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $connection = $connectionPool->getConnectionForTable('pages');
+        self::assertInstanceOf(Connection::class, $connection);
+
+        $connection->insert('pages', [
+            'uid' => $pageUid, 'pid' => 0, 'title' => 'Gated', 'doktype' => 1, 'sorting' => 1,
+            'perms_userid' => 1, 'perms_user' => 31, 'perms_everybody' => $permsEverybody,
+        ]);
+        $connection->insert('tt_content', [
+            'uid' => $contentUid, 'pid' => $pageUid, 'colPos' => 0, 'sorting' => 1,
+            'CType' => 'text', 'header' => 'B',
+        ]);
+        $connection->insert('sys_history', [
+            'tstamp'       => 1700000000,
+            'actiontype'   => 2,
+            'usertype'     => 'BE',
+            'userid'       => 1,
+            'recuid'       => $contentUid,
+            'tablename'    => 'tt_content',
+            'history_data' => '{"oldRecord":{"header":"A"},"newRecord":{"header":"B"}}',
+            'workspace'    => 0,
+        ]);
     }
 }

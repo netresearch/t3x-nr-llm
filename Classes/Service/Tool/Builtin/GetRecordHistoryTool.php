@@ -13,9 +13,12 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\History\RecordHistoryStore;
+use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
  * The "who changed this record" tool (ADR-046).
@@ -28,8 +31,10 @@ use TYPO3\CMS\Core\DataHandling\History\RecordHistoryStore;
  * without a backend user; the TARGET table passes
  * {@see TableReadAccessService::canReadTable()} (sensitive-table denylist for
  * everyone, `tables_select` for non-admins) with the same neutral denial as
- * the schema tools. Values of credential-like fields are never rendered —
- * only the fact that they changed. All values are length-capped.
+ * the schema tools, and non-admins additionally need PAGE_SHOW on the
+ * record's page (same per-row gate as read_records). Values of
+ * credential-like fields are never rendered — only the fact that they
+ * changed. All values are length-capped.
  */
 final readonly class GetRecordHistoryTool implements ToolInterface
 {
@@ -92,6 +97,13 @@ final readonly class GetRecordHistoryTool implements ToolInterface
         $user = $this->actingBackendUser();
         if (!$this->tableAccess->canReadTable($user, $table)) {
             // Same neutral string whether unknown, denylisted or unpermitted.
+            return self::NOT_PERMITTED;
+        }
+
+        // Non-admins must hold PAGE_SHOW on the record's page (same gate as
+        // read_records) — history values must not leak from unreadable pages.
+        // Fail-closed: an unresolvable record (e.g. hard-deleted) denies too.
+        if ($user !== null && !$user->isAdmin() && !$this->recordPageIsReadable($user, $table, $uid)) {
             return self::NOT_PERMITTED;
         }
 
@@ -164,6 +176,29 @@ final readonly class GetRecordHistoryTool implements ToolInterface
     public function getGroup(): string
     {
         return 'content';
+    }
+
+    /**
+     * True when the record's page passes the acting non-admin's PAGE_SHOW
+     * permission ({@see ReadRecordsTool} applies the same per-row gate). The
+     * record row is loaded ignoring enable-fields but not soft-delete; a
+     * record that cannot be resolved denies (fail-closed).
+     */
+    private function recordPageIsReadable(BackendUserAuthentication $user, string $table, int $uid): bool
+    {
+        $row = BackendUtility::getRecord($table, $uid, 'uid,pid');
+        if (!is_array($row)) {
+            return false;
+        }
+
+        $pageUid = $table === 'pages' ? self::toInt($row['uid'] ?? 0) : self::toInt($row['pid'] ?? 0);
+        if ($pageUid < 1) {
+            return false;
+        }
+
+        $permsClause = self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW));
+
+        return is_array(BackendUtility::readPageAccess($pageUid, $permsClause));
     }
 
     /**

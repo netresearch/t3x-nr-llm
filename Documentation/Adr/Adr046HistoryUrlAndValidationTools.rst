@@ -66,8 +66,10 @@ Access model
 ``get_record_history`` and ``validate_tca`` reuse
 :php:`TableReadAccessService` (ADR-042): the sensitive-table denylist holds
 for every user including admins; non-admins additionally pass
-``tables_select``. History values of credential-like fields are withheld
-(the *fact* of the change stays visible). ``resolve_url`` needs no host
+``tables_select``, and ``get_record_history`` also requires page-show on
+the record's page (the per-row gate of ``read_records``, fail-closed for
+unresolvable records). History values of credential-like fields are
+withheld (the *fact* of the change stays visible). ``resolve_url`` needs no host
 allowlist — :php:`SiteMatcher` only knows this instance's sites, so foreign
 hosts cannot match by construction; non-admins must hold page-show on the
 resolved page, with the same neutral denial as ``get_page_content``.

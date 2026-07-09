@@ -119,7 +119,8 @@ The remaining tools follow the same pattern:
    which backend user, which action, and per modification the changed
    fields as old → new values. Values of credential-like fields are never
    rendered — only the fact that they changed. Same table gates as
-   ``read_records``.
+   ``read_records``, and non-admins additionally need page-show access on
+   the record's page.
 
 ``resolve_url``
    Map a URL (or path) of this instance to the page that serves it: site,
