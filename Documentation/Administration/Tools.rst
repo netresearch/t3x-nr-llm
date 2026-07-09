@@ -36,16 +36,17 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships twenty-four read-only tools. Each is a reference
+nr-llm ships twenty-eight read-only tools. Each is a reference
 implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
-redacted or gated behind a separate ``_raw`` variant. Twenty-one ship
+redacted or gated behind a separate ``_raw`` variant. Twenty-five ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``) ship **disabled** and must be
 enabled deliberately. Many require admin; the read-only structure and content
 tools (``get_pagetree``, ``get_tca``, ``get_full_tca``, ``get_table_schema``,
 ``get_flexform_schema``, ``fluid_resolve``, ``search_records``,
-``get_page_content``, ``read_records``) are offered to
+``get_page_content``, ``read_records``, ``get_record_history``,
+``resolve_url``, ``validate_tca``) are offered to
 non-admin backend users — those self-enforce the acting user's TYPO3
 permissions (page-show rights, ``tables_select``) inside the tool, so a
 non-admin only ever sees what the backend already grants them (see
@@ -113,6 +114,20 @@ The remaining tools follow the same pattern:
    are validated against the TCA and credential-like columns are silently
    dropped; the same table gates as ``search_records`` apply.
 
+``get_record_history``
+   One record's change history from ``sys_history``, newest first: when,
+   which backend user, which action, and per modification the changed
+   fields as old → new values. Values of credential-like fields are never
+   rendered — only the fact that they changed. Same table gates as
+   ``read_records``, and non-admins additionally need page-show access on
+   the record's page.
+
+``resolve_url``
+   Map a URL (or path) of this instance to the page that serves it: site,
+   language, page uid/title/slug and route arguments. Routing only — no
+   request is sent; foreign hosts cannot match by construction. Non-admins
+   need page-show permission on the resolved page.
+
 ``get_typoscript``
    The resolved frontend TypoScript (setup or constants) effective on a page,
    with a dotted ``path`` drill-down and capped output. Admin-only —
@@ -172,6 +187,19 @@ The remaining tools follow the same pattern:
    the winning path — to debug a wrong or missing template. Paths only.
    (Resolves an extension's own ``Resources/Private`` paths; TypoScript
    override root paths need a live rendering context and are not reflected.)
+
+``validate_tca``
+   Structural TCA checks: ``ctrl.label``/``ctrl.type`` naming undefined
+   columns, ``foreign_table`` references to unknown tables, ``showitem``
+   entries referencing undefined columns or palettes. One table or all
+   accessible tables; findings name schema keys, never record data.
+
+``check_typoscript``
+   Scans the TypoScript effective on a page (constants **and** setup) for
+   syntax errors — invalid lines, unbalanced braces, ``@import`` matching no
+   file — using the same core scanner as the backend's TypoScript module.
+   Reports source and line number only, never the offending line's content
+   (a constants line may carry an API key). Admin-only.
 
 .. _administration-tools-register:
 
@@ -244,13 +272,16 @@ taxonomy:
 ===============  ============================================================
 Group            Tools
 ===============  ============================================================
-``content``      ``search_records``, ``get_page_content``, ``read_records``
+``content``      ``search_records``, ``get_page_content``, ``read_records``,
+                 ``get_record_history``
 ``structure``    ``get_pagetree``, ``get_tca``, ``read_fal_asset_meta``,
-                 ``get_full_tca``, ``get_table_schema``, ``get_flexform_schema``
+                 ``get_full_tca``, ``get_table_schema``, ``get_flexform_schema``,
+                 ``resolve_url``, ``validate_tca``
 ``system``       ``get_env`` (+ raw), ``get_php_info`` (+ raw),
                  ``fetch_logs``, ``probe_url``
 ``accounts``     ``list_be_users`` (+ raw), ``list_be_groups``
-``configuration``  ``get_typoscript``, ``get_tsconfig``, ``fluid_resolve``
+``configuration``  ``get_typoscript``, ``get_tsconfig``, ``fluid_resolve``,
+                 ``check_typoscript``
 ``code``         ``get_last_exception``, ``read_source``, ``search_code``
 ===============  ============================================================
 

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FluidResolveTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetEnvRawTool;
@@ -20,6 +21,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\GetPageContentTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPageTreeTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPhpInfoRawTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPhpInfoTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\GetRecordHistoryTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTableSchemaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTcaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTsConfigTool;
@@ -31,8 +33,10 @@ use Netresearch\NrLlm\Service\Tool\Builtin\ProbeUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadRecordsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadSourceTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ResolveUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchCodeTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchRecordsTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ValidateTcaTool;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -75,6 +79,10 @@ final class BuiltinToolGroupsTest extends TestCase
             'list_be_groups'    => [ListBeGroupsTool::class, 'accounts'],
             'get_typoscript'    => [GetTypoScriptTool::class, 'configuration'],
             'get_tsconfig'      => [GetTsConfigTool::class, 'configuration'],
+            'get_record_history' => [GetRecordHistoryTool::class, 'content'],
+            'resolve_url'       => [ResolveUrlTool::class, 'structure'],
+            'validate_tca'      => [ValidateTcaTool::class, 'structure'],
+            'check_typoscript'  => [CheckTypoScriptTool::class, 'configuration'],
             'get_last_exception' => [GetLastExceptionTool::class, 'code'],
             'read_source'       => [ReadSourceTool::class, 'code'],
             'search_code'       => [SearchCodeTool::class, 'code'],
