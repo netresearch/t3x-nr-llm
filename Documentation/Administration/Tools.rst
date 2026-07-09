@@ -391,6 +391,17 @@ loop, while the Tools module governs *which* tools exist and are enabled.
    registered tool with the default-enabled ones pre-checked and the
    disabled ``_raw`` variants unchecked.
 
+.. tip::
+
+   **Small local models work best with a narrow tool set.** With every
+   group enabled, the model is offered every enabled tool declaration at
+   once (several dozen). Small models such as the seeded ``qwen3:4b``
+   often fail to pick the right tool from a set that large, or reason
+   past the token budget without calling any. Untick the groups that are
+   irrelevant to the question — restricted to one or two groups, the same
+   model picks the right tool. Larger hosted models cope with the full
+   set.
+
 1. Pick an **LLM configuration** from the dropdown. Its vault-stored API key,
    model, temperature and system prompt are what the loop actually runs on —
    the playground never falls back to a default model.
