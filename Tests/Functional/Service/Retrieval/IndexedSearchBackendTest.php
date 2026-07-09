@@ -165,6 +165,30 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function repeatedWordsAndStopwordsDoNotInflateTheRequiredCount(): void
+    {
+        // 'the' is indexed as a stopword (no index_rel rows, like the core
+        // Lexer produces) — it must be ignored, not required.
+        $connection = $this->connectionPool->getConnectionForTable('index_words');
+        self::assertInstanceOf(Connection::class, $connection);
+        $connection->insert('index_words', ['wid' => md5('the'), 'baseword' => 'the', 'is_stopword' => 1]);
+
+        $repeated = $this->backend->search(
+            RetrievalQuery::create('aikido aikido migration'),
+            AccessContext::publicOnly(),
+        );
+        $ids = array_map(static fn($source): string => $source->sourceId, $repeated->sources);
+        self::assertSame(['indexed_search:' . $this->publicPhash], $ids, 'duplicate query word broke the required count');
+
+        $withStopword = $this->backend->search(
+            RetrievalQuery::create('the aikido migration'),
+            AccessContext::publicOnly(),
+        );
+        $ids = array_map(static fn($source): string => $source->sourceId, $withStopword->sources);
+        self::assertSame(['indexed_search:' . $this->publicPhash], $ids, 'stopword was treated as a required word');
+    }
+
+    #[Test]
     public function emptyWordTablesFallBackToFulltextLike(): void
     {
         $connection = $this->connectionPool->getConnectionForTable('index_words');

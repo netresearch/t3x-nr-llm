@@ -50,6 +50,9 @@ services:
   Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface:
     alias: Netresearch\NrLlm\Service\UsageAnalyticsService
 
+  Netresearch\NrLlm\Service\Retrieval\SolrHttpClientInterface:
+    alias: Netresearch\NrLlm\Service\Retrieval\SolrHttpClient
+
   Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface:
     alias: Netresearch\NrLlm\Specialized\Translation\TranslatorRegistry
     public: true

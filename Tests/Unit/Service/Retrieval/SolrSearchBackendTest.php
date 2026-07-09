@@ -13,8 +13,8 @@ use Netresearch\NrLlm\Service\Retrieval\AccessContext;
 use Netresearch\NrLlm\Service\Retrieval\RetrievalQuery;
 use Netresearch\NrLlm\Service\Retrieval\SolrSearchBackend;
 use Netresearch\NrLlm\Service\Retrieval\SourceReference;
-use Netresearch\NrLlm\Tests\Unit\Service\Retrieval\Fixtures\FakeRequestFactory;
 use Netresearch\NrLlm\Tests\Unit\Service\Retrieval\Fixtures\FakeSiteFinder;
+use Netresearch\NrLlm\Tests\Unit\Service\Retrieval\Fixtures\FakeSolrHttpClient;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -34,7 +34,7 @@ final class SolrSearchBackendTest extends TestCase
     #[Test]
     public function buildsSelectUrlWithAccessAndLanguageFiltersAndMapsDocuments(): void
     {
-        $requestFactory = FakeRequestFactory::withJson(self::DOCS_JSON);
+        $requestFactory = FakeSolrHttpClient::withJson(self::DOCS_JSON);
         $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), $requestFactory);
 
         $result = $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
@@ -58,12 +58,36 @@ final class SolrSearchBackendTest extends TestCase
         $second = $result->sources[1];
         self::assertSame('solr:main:tx_news_domain_model_news:7:0', $second->sourceId);
         self::assertNull($second->pageUid, 'non-page document must not carry a page uid');
+        self::assertSame('https://example.org/news/aikido', $second->url, 'relative URL not absolutized against the site base');
+    }
+
+    #[Test]
+    public function crossSiteDocumentsFromASharedCoreAreDropped(): void
+    {
+        $json = '{"response":{"docs":[
+            {"type":"pages","uid":9,"title":"Foreign site page",
+             "content":"Aikido elsewhere.","url":"https://other.example/aikido","language":0}
+        ]}}';
+        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), FakeSolrHttpClient::withJson($json));
+
+        $result = $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
+        self::assertTrue($result->isEmpty(), 'foreign-host document from a shared core leaked');
+
+        $reference = SourceReference::parse('solr:main:pages:9:0');
+        self::assertNotNull($reference);
+        $fetchBackend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), FakeSolrHttpClient::withJson(
+            '{"response":{"docs":[{"title":"Foreign","content":"x","url":"https://other.example/aikido"}]}}',
+        ));
+        self::assertNull(
+            $fetchBackend->fetchSource($reference, AccessContext::publicOnly()),
+            'foreign-host document leaked through fetchSource',
+        );
     }
 
     #[Test]
     public function escapesLuceneQuerySyntaxInTheTerm(): void
     {
-        $requestFactory = FakeRequestFactory::withJson('{"response":{"docs":[]}}');
+        $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
         $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido (hack:* OR "x")'), AccessContext::publicOnly());
@@ -77,7 +101,7 @@ final class SolrSearchBackendTest extends TestCase
     public function stripsTrailingSolrSegmentFromConfiguredPath(): void
     {
         $site = $this->site(['solr_path_read' => '/solr']);
-        $requestFactory = FakeRequestFactory::withJson('{"response":{"docs":[]}}');
+        $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
         $backend = new SolrSearchBackend(new FakeSiteFinder([$site]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
@@ -91,7 +115,7 @@ final class SolrSearchBackendTest extends TestCase
     public function disabledOrCorelessSiteYieldsNoRequestAndEmptyResult(): void
     {
         $disabled = $this->site(['solr_enabled_read' => false]);
-        $requestFactory = FakeRequestFactory::withJson(self::DOCS_JSON);
+        $requestFactory = FakeSolrHttpClient::withJson(self::DOCS_JSON);
         $backend = new SolrSearchBackend(new FakeSiteFinder([$disabled]), $requestFactory);
 
         $result = $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
@@ -107,7 +131,7 @@ final class SolrSearchBackendTest extends TestCase
             ['languageId' => 0, 'title' => 'EN', 'locale' => 'en_US.UTF-8', 'base' => '/', 'solr_core_read' => 'core_en'],
             ['languageId' => 1, 'title' => 'DE', 'locale' => 'de_DE.UTF-8', 'base' => '/de/', 'solr_core_read' => 'core_de'],
         ]);
-        $requestFactory = FakeRequestFactory::withJson('{"response":{"docs":[]}}');
+        $requestFactory = FakeSolrHttpClient::withJson('{"response":{"docs":[]}}');
         $backend = new SolrSearchBackend(new FakeSiteFinder([$site]), $requestFactory);
 
         $backend->search(RetrievalQuery::create('aikido', 8, null, 1), AccessContext::publicOnly());
@@ -123,13 +147,13 @@ final class SolrSearchBackendTest extends TestCase
     {
         $error = new SolrSearchBackend(
             new FakeSiteFinder([$this->site()]),
-            FakeRequestFactory::withJson('irrelevant', 500),
+            FakeSolrHttpClient::withJson('irrelevant', 500),
         );
         self::assertTrue($error->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly())->isEmpty());
 
         $garbage = new SolrSearchBackend(
             new FakeSiteFinder([$this->site()]),
-            FakeRequestFactory::withJson('not json at all'),
+            FakeSolrHttpClient::withJson('not json at all'),
         );
         self::assertTrue($garbage->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly())->isEmpty());
     }
@@ -141,7 +165,7 @@ final class SolrSearchBackendTest extends TestCase
             {"type":"pages;drop","uid":2,"title":"Bad type","content":"x","url":"https://example.org/a","language":0},
             {"type":"pages","uid":3,"title":"Bad url","content":"x","url":"javascript:alert(1)","language":0}
         ]}}';
-        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), FakeRequestFactory::withJson($json));
+        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), FakeSolrHttpClient::withJson($json));
 
         $result = $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
 
@@ -152,7 +176,7 @@ final class SolrSearchBackendTest extends TestCase
     public function fetchSourceQueriesByTypeUidLanguageAndFormatsText(): void
     {
         $json = '{"response":{"docs":[{"title":"Aikido Migration Services","content":"Full page text."}]}}';
-        $requestFactory = FakeRequestFactory::withJson($json);
+        $requestFactory = FakeSolrHttpClient::withJson($json);
         $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), $requestFactory);
 
         $reference = SourceReference::parse('solr:main:pages:2:0');
@@ -175,7 +199,7 @@ final class SolrSearchBackendTest extends TestCase
     {
         $backend = new SolrSearchBackend(
             new FakeSiteFinder([$this->site()]),
-            FakeRequestFactory::withJson('{"response":{"docs":[]}}'),
+            FakeSolrHttpClient::withJson('{"response":{"docs":[]}}'),
         );
 
         $tooFewParts = SourceReference::parse('solr:main:pages:2');

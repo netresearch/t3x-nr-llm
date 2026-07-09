@@ -84,10 +84,12 @@ final readonly class SiteRagQueryTool implements ToolInterface
         }
 
         $question = trim(self::toStr($arguments['question'] ?? ''));
+        // Re-trim after truncation: cutting at 200 chars can end on
+        // whitespace and shrink the trimmed length below the minimum.
+        $question = trim(mb_substr($question, 0, RetrievalQuery::MAX_QUERY_LENGTH));
         if (mb_strlen($question) < RetrievalQuery::MIN_QUERY_LENGTH) {
             return 'Question too short (minimum 2 characters).';
         }
-        $question = mb_substr($question, 0, RetrievalQuery::MAX_QUERY_LENGTH);
 
         $maxSources = self::toInt($arguments['max_sources'] ?? self::DEFAULT_SOURCES);
         if ($maxSources < 1) {

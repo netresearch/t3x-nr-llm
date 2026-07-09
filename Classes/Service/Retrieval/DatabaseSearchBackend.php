@@ -158,7 +158,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             ->from('tt_content')
             ->where(
                 $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($routeUid, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($languageId, Connection::PARAM_INT)),
+                $queryBuilder->expr()->in('sys_language_uid', $queryBuilder->createNamedParameter([$languageId, -1], Connection::PARAM_INT_ARRAY)),
                 $this->publicGroupCondition($queryBuilder),
             )
             ->orderBy('sorting', 'ASC')
@@ -221,7 +221,8 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             ->from('tt_content')
             ->where(
                 $this->likeAnyCondition($queryBuilder, $fields, $query),
-                $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($languageId, Connection::PARAM_INT)),
+                // -1 = "all languages": rendered in every language.
+                $queryBuilder->expr()->in('sys_language_uid', $queryBuilder->createNamedParameter([$languageId, -1], Connection::PARAM_INT_ARRAY)),
                 $this->publicGroupCondition($queryBuilder),
             )
             ->orderBy('uid', 'ASC')
@@ -311,8 +312,9 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
         try {
             return (string)$site->getRouter()->generateUri($routeUid, ['_language' => $languageId]);
         } catch (Throwable) {
-            // Routable URL unavailable (missing language, broken site config).
-            return 't3://page?uid=' . $routeUid;
+            // No routable public URL (missing language, broken site config)
+            // — skip the row like the index backends do.
+            return null;
         }
     }
 
@@ -406,7 +408,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
 
         $row = $queryBuilder
-            ->select('uid', 'pid', 'hidden', 'extendToSubpages', 'fe_group', 'doktype')
+            ->select('uid', 'pid', 'hidden', 'extendToSubpages', 'fe_group', 'doktype', 'starttime', 'endtime')
             ->from('pages')
             ->where(
                 $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
@@ -431,8 +433,13 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
         }
 
         $feGroup = self::toStr($row['fe_group'] ?? '');
+        $now = time();
+        $endtime = self::toInt($row['endtime'] ?? 0);
 
-        return self::toInt($row['hidden'] ?? 0) === 0 && ($feGroup === '' || $feGroup === '0');
+        return self::toInt($row['hidden'] ?? 0) === 0
+            && ($feGroup === '' || $feGroup === '0')
+            && self::toInt($row['starttime'] ?? 0) <= $now
+            && ($endtime === 0 || $endtime > $now);
     }
 
     /**

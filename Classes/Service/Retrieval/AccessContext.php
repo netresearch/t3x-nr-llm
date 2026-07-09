@@ -19,8 +19,8 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * In the current iteration every backend filters the INDEX side
  * public-only (fe_group ''/0, gr_list '0,-1', Solr access groups [0,-1])
  * regardless of context: RAG evidence is what the anonymous visitor could
- * read. The backend-user variant additionally lets the calling tool apply
- * the PAGE_SHOW post-filter for non-admins.
+ * read, so no additional per-user narrowing exists today — the variants
+ * only preserve WHO asked for future widening.
  */
 final readonly class AccessContext
 {

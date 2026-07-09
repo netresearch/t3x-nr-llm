@@ -11,7 +11,6 @@ namespace Netresearch\NrLlm\Service\Retrieval;
 
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Throwable;
-use TYPO3\CMS\Core\Http\RequestFactory;
 use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
@@ -40,13 +39,11 @@ final class SolrSearchBackend implements SearchBackendInterface
 
     public const IDENTIFIER = 'solr';
 
-    private const TIMEOUT_SECONDS = 10;
-
     private ?bool $configured = null;
 
     public function __construct(
         private readonly SiteFinder $siteFinder,
-        private readonly RequestFactory $requestFactory,
+        private readonly SolrHttpClientInterface $httpClient,
     ) {}
 
     public function getIdentifier(): string
@@ -133,7 +130,7 @@ final class SolrSearchBackend implements SearchBackendInterface
             $endpoint,
             [
                 'q' => '*:*',
-                'fl' => 'title,content',
+                'fl' => 'title,content,url',
                 'rows' => '1',
                 'wt' => 'json',
             ],
@@ -150,6 +147,12 @@ final class SolrSearchBackend implements SearchBackendInterface
         }
 
         $document = $documents[0];
+        // Shared-core guard, mirroring search(): a document whose absolute
+        // URL points at a foreign host belongs to another site.
+        $documentUrl = self::toStr($document['url'] ?? '');
+        if ($documentUrl !== '' && $this->siteScopedUrl($documentUrl, $site) === null) {
+            return null;
+        }
         $title = ExcerptBuilder::plain(self::toStr($document['title'] ?? ''));
         $content = ExcerptBuilder::plain(self::toStr($document['content'] ?? ''));
 
@@ -196,10 +199,7 @@ final class SolrSearchBackend implements SearchBackendInterface
             $pairs[] = 'fq=' . rawurlencode($filter);
         }
 
-        $response = $this->requestFactory->request($endpoint . '?' . implode('&', $pairs), 'GET', [
-            'timeout' => self::TIMEOUT_SECONDS,
-            'allow_redirects' => false,
-        ]);
+        $response = $this->httpClient->get($endpoint . '?' . implode('&', $pairs));
         if ($response->getStatusCode() !== 200) {
             return [];
         }
@@ -235,11 +235,11 @@ final class SolrSearchBackend implements SearchBackendInterface
     {
         $type = self::toStr($document['type'] ?? '');
         $uid = self::toInt($document['uid'] ?? 0);
-        $url = self::toStr($document['url'] ?? '');
         if ($type === '' || $uid < 1 || preg_match('/^[A-Za-z0-9_]{1,64}$/', $type) !== 1) {
             return null;
         }
-        if (!str_starts_with($url, 'https://') && !str_starts_with($url, 'http://') && !str_starts_with($url, '/')) {
+        $url = $this->siteScopedUrl(self::toStr($document['url'] ?? ''), $site);
+        if ($url === null) {
             return null;
         }
 
@@ -256,6 +256,41 @@ final class SolrSearchBackend implements SearchBackendInterface
             pageUid: $type === 'pages' ? $uid : null,
             score: isset($document['score']) && is_numeric($document['score']) ? (float)$document['score'] : null,
         );
+    }
+
+    /**
+     * The document URL scoped to the queried site, or null when the
+     * document does not belong to it. Several TYPO3 sites can share one
+     * Solr core (EXT:solr disambiguates via a config- and event-dependent
+     * siteHash this extension deliberately does not reimplement) — a
+     * cross-host absolute URL is the observable signal of a foreign-site
+     * document. Relative URLs are absolutized against the site base.
+     */
+    private function siteScopedUrl(string $url, Site $site): ?string
+    {
+        $base = $site->getBase();
+        $baseHost = $base->getHost();
+
+        if (str_starts_with($url, 'https://') || str_starts_with($url, 'http://')) {
+            $host = self::toStr(parse_url($url, PHP_URL_HOST));
+            if ($baseHost !== '' && $host !== '' && strcasecmp($host, $baseHost) !== 0) {
+                return null;
+            }
+
+            return $url;
+        }
+
+        if (str_starts_with($url, '/')) {
+            if ($baseHost === '') {
+                return $url;
+            }
+            $origin = $base->getScheme() . '://' . $baseHost
+                . ($base->getPort() !== null ? ':' . $base->getPort() : '');
+
+            return $origin . $url;
+        }
+
+        return null;
     }
 
     /**

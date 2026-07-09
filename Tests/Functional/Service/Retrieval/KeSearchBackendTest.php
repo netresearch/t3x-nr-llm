@@ -226,6 +226,21 @@ final class KeSearchBackendTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function shortOnlyQueriesFallBackToLikeAndStillMatch(): void
+    {
+        // Words below the fulltext minimum token size must never become
+        // required MATCH terms; with no requirable word the LIKE path
+        // answers on every platform.
+        $result = $this->backend->search(
+            RetrievalQuery::create('ai'),
+            AccessContext::publicOnly(),
+        );
+
+        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        self::assertContains('ke_search:1', $ids);
+    }
+
+    #[Test]
     public function siteFilterDropsExternalAndForeignRows(): void
     {
         $result = $this->backend->search(

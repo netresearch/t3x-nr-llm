@@ -47,6 +47,10 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
                 title: English
                 locale: en_US.UTF-8
                 base: /
+              - languageId: 1
+                title: Deutsch
+                locale: de_DE.UTF-8
+                base: /de/
             YAML);
 
         $connectionPool = $this->get(ConnectionPool::class);
@@ -84,6 +88,11 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             'uid' => 7, 'pid' => 6, 'title' => 'Aikido internal price list', 'doktype' => 1,
             'sorting' => 1, 'slug' => '/members/prices',
         ]);
+        // German translation of the migration page.
+        $pages->insert('pages', [
+            'uid' => 20, 'pid' => 1, 'title' => 'Aikido Migrationsdienste', 'doktype' => 1,
+            'sorting' => 2, 'slug' => '/migration', 'sys_language_uid' => 1, 'l10n_parent' => 2,
+        ]);
         // Hidden section root with extendToSubpages, public child row.
         $pages->insert('pages', [
             'uid' => 8, 'pid' => 1, 'title' => 'Staging section', 'doktype' => 1,
@@ -111,6 +120,11 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
         $content->insert('tt_content', [
             'uid' => 13, 'pid' => 7, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
             'header' => 'Member prices', 'bodytext' => 'Aikido member price table.',
+        ]);
+        $content->insert('tt_content', [
+            'uid' => 15, 'pid' => 2, 'colPos' => 0, 'sorting' => 1, 'CType' => 'text',
+            'header' => 'Unser Aikido-Angebot', 'bodytext' => 'Aikido Migrationen richtig gemacht.',
+            'sys_language_uid' => 1, 'l18n_parent' => 10,
         ]);
         // Unpublished workspace draft of element 10 (t3ver_wsid > 0).
         $content->insert('tt_content', [
@@ -170,6 +184,32 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
         self::assertNotContains('database:3:0', $ids, 'hidden page leaked');
         self::assertNotContains('database:4:0', $ids, 'fe_group-protected page leaked');
         self::assertNotContains('database:5:0', $ids, 'no_search page leaked');
+    }
+
+    #[Test]
+    public function translatedContentIsFoundWithTranslatedTitleAndLanguageRoutedUrl(): void
+    {
+        $result = $this->backend->search(
+            RetrievalQuery::create('Migrationen', 8, null, 1),
+            AccessContext::publicOnly(),
+        );
+
+        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        self::assertContains('database:2:1', $ids);
+
+        foreach ($result->sources as $source) {
+            if ($source->sourceId === 'database:2:1') {
+                self::assertSame('Aikido Migrationsdienste', $source->title);
+                self::assertStringContainsString('/de/', $source->url);
+            }
+        }
+
+        $reference = SourceReference::parse('database:2:1');
+        self::assertNotNull($reference);
+        $text = $this->backend->fetchSource($reference, AccessContext::publicOnly());
+        self::assertNotNull($text);
+        self::assertStringContainsString('Aikido Migrationen richtig gemacht.', $text);
+        self::assertStringContainsString('# Aikido Migrationsdienste', $text);
     }
 
     #[Test]

@@ -80,8 +80,9 @@ final class IndexedSearchBackend implements SearchBackendInterface
             return new EvidenceList(self::IDENTIFIER, []);
         }
 
-        $rows = $this->wordTablesArePopulated()
-            ? $this->searchByWordHash($words, $query->languageId)
+        $hashes = $this->requiredWordHashes($words);
+        $rows = $hashes !== [] && $this->wordTablesArePopulated()
+            ? $this->searchByWordHash($hashes, $query->languageId)
             : $this->searchByFulltext($query->query, $query->languageId);
 
         $fulltext = $this->fulltextByPhash(array_map(
@@ -154,30 +155,68 @@ final class IndexedSearchBackend implements SearchBackendInterface
     }
 
     /**
-     * Lowercased words of the query — matching the Lexer's index-time
-     * lowercasing, so `md5(word)` equals the stored `wid`.
+     * Lowercased, DEDUPLICATED words of the query, truncated to the
+     * indexer's 60-character word limit — matching the Lexer's index-time
+     * processing, so `md5(word)` equals the stored `wid`.
      *
      * @return list<string>
      */
     private function queryWords(string $query): array
     {
         $split = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($query)) ?: [];
+        $words = array_map(static fn(string $word): string => mb_substr($word, 0, 60), $split);
 
-        return array_values(array_filter($split, static fn(string $word): bool => mb_strlen($word) >= 2));
+        return array_values(array_unique(array_filter(
+            $words,
+            static fn(string $word): bool => mb_strlen($word) >= 2,
+        )));
+    }
+
+    /**
+     * The wids the all-words-required join must match: one hash per
+     * distinct word, minus known stopwords — the core ignores stopwords
+     * in queries, and requiring one would make every query unmatchable
+     * (stopwords carry no index_rel rows).
+     *
+     * @param list<string> $words
+     *
+     * @return list<string>
+     */
+    private function requiredWordHashes(array $words): array
+    {
+        $hashes = array_map(md5(...), $words);
+
+        try {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable('index_words');
+            $queryBuilder->getRestrictions()->removeAll();
+            $stopwordRows = $queryBuilder
+                ->select('wid')
+                ->from('index_words')
+                ->where(
+                    $queryBuilder->expr()->in('wid', $queryBuilder->createNamedParameter($hashes, Connection::PARAM_STR_ARRAY)),
+                    $queryBuilder->expr()->eq('is_stopword', $queryBuilder->createNamedParameter(1, Connection::PARAM_INT)),
+                )
+                ->executeQuery()
+                ->fetchFirstColumn();
+        } catch (Throwable) {
+            return $hashes;
+        }
+
+        $stopwords = array_map(self::toStr(...), $stopwordRows);
+
+        return array_values(array_diff($hashes, $stopwords));
     }
 
     /**
      * All-words-required word-hash join, ordered like the core's default
      * `rank_flag` mode (title/keyword weight, then frequency).
      *
-     * @param list<string> $words
+     * @param list<string> $hashes
      *
      * @return list<array<string, mixed>>
      */
-    private function searchByWordHash(array $words, int $languageId): array
+    private function searchByWordHash(array $hashes, int $languageId): array
     {
-        $hashes = array_map(md5(...), $words);
-
         $queryBuilder = $this->phashQueryBuilder();
         $queryBuilder
             ->join('IP', 'index_rel', 'IR', 'IR.phash = IP.phash')
