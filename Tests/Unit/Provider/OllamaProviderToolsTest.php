@@ -258,6 +258,23 @@ class OllamaProviderToolsTest extends AbstractUnitTestCase
         self::assertArrayNotHasKey('think', $this->capturedRequest());
     }
 
+    #[Test]
+    public function surfacesNativeThinkingFieldFromTheResponse(): void
+    {
+        $messages = [['role' => 'user', 'content' => 'why is the sky blue?']];
+
+        // Native reasoning: `message.thinking` arrives as a separate field.
+        $response = $this->plainAssistantResponse('blue');
+        $response['message']['thinking'] = 'Rayleigh scattering favours short wavelengths.';
+        $result = $this->buildSubject($response)->chatCompletionWithTools($messages, [], ['think' => true]);
+        self::assertSame('Rayleigh scattering favours short wavelengths.', $result->thinking);
+        self::assertSame('blue', $result->content);
+
+        // No thinking field -> null, never an empty string.
+        $result = $this->buildSubject($this->plainAssistantResponse('blue'))->chatCompletionWithTools($messages, []);
+        self::assertNull($result->thinking);
+    }
+
     /**
      * Build an Ollama provider whose stream factory records the outgoing JSON
      * request body and whose HTTP client returns the given canned response.

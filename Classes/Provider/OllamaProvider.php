@@ -213,6 +213,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
                 completionTokens: $this->getInt($response, 'eval_count'),
             ),
             finishReason: $this->getString($response, 'done_reason', 'stop'),
+            thinking: $this->messageThinking($message),
         );
     }
 
@@ -303,7 +304,22 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             provider: $this->getIdentifier(),
             toolCalls: $toolCalls,
             metadata: $this->rawResponseMetadata($options, $response),
+            thinking: $this->messageThinking($message),
         );
+    }
+
+    /**
+     * With native reasoning (`think: true`, #341) Ollama returns the
+     * reasoning in a separate `message.thinking` field instead of inline
+     * `<think>` tags — surface it so run traces can show it.
+     *
+     * @param array<string, mixed> $message
+     */
+    private function messageThinking(array $message): ?string
+    {
+        $thinking = trim($this->getString($message, 'thinking'));
+
+        return $thinking !== '' ? $thinking : null;
     }
 
     public function supportsTools(): bool
