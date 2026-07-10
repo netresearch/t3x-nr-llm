@@ -72,8 +72,10 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
 
         // routeUid (default-language page uid) => partial evidence data;
         // 'words' collects which query words the page covers (over the page
-        // row AND all its content elements) for the relevance ordering.
-        /** @var array<int, array{title: string, excerpt: string, words: list<string>}> $byPage */
+        // row AND all its content elements) for the relevance ordering,
+        // 'phrase' whether the excerpt is already centred on the literal
+        // phrase (a later row with a phrase hit upgrades a word excerpt).
+        /** @var array<int, array{title: string, excerpt: string, phrase: bool, words: list<string>}> $byPage */
         $byPage = [];
 
         foreach ($this->searchPages($words, $languageId) as $row) {
@@ -84,15 +86,8 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
                 continue;
             }
 
-            $byPage[$routeUid] ??= [
-                'title' => self::toStr($row['title'] ?? ''),
-                'excerpt' => $this->excerptFromRow($row, $this->pageFields(), $query->query, $words),
-                'words' => [],
-            ];
-            $byPage[$routeUid]['words'] = array_values(array_unique(array_merge(
-                $byPage[$routeUid]['words'],
-                $this->matchedWords($row, $this->pageFields(), $words),
-            )));
+            $byPage[$routeUid] ??= ['title' => self::toStr($row['title'] ?? ''), 'excerpt' => '', 'phrase' => false, 'words' => []];
+            $this->mergeRow($byPage[$routeUid], $row, $this->pageFields(), $query->query, $words);
         }
 
         foreach ($this->searchContent($words, $languageId) as $row) {
@@ -101,15 +96,8 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
                 continue;
             }
 
-            $byPage[$routeUid] ??= [
-                'title' => '',
-                'excerpt' => $this->excerptFromRow($row, $this->contentFields(), $query->query, $words),
-                'words' => [],
-            ];
-            $byPage[$routeUid]['words'] = array_values(array_unique(array_merge(
-                $byPage[$routeUid]['words'],
-                $this->matchedWords($row, $this->contentFields(), $words),
-            )));
+            $byPage[$routeUid] ??= ['title' => '', 'excerpt' => '', 'phrase' => false, 'words' => []];
+            $this->mergeRow($byPage[$routeUid], $row, $this->contentFields(), $query->query, $words);
         }
 
         if ($byPage === []) {
@@ -536,14 +524,46 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
     }
 
     /**
-     * Excerpt centred on the full query phrase when it occurs literally,
-     * else on the first matching query word.
+     * Folds one matched row into the page's partial evidence: unions the
+     * covered query words and keeps the best excerpt seen so far — centred
+     * on the full query phrase when any row contains it literally, else on
+     * the first matching word of the first matching row.
+     *
+     * @param array{title: string, excerpt: string, phrase: bool, words: list<string>} $partial
+     * @param array<string, mixed>                                                     $row
+     * @param list<string>                                                             $fields
+     * @param list<string>                                                             $words
+     */
+    private function mergeRow(array &$partial, array $row, array $fields, string $query, array $words): void
+    {
+        $partial['words'] = array_values(array_unique(array_merge(
+            $partial['words'],
+            $this->matchedWords($row, $fields, $words),
+        )));
+
+        if ($partial['phrase']) {
+            return;
+        }
+
+        ['excerpt' => $excerpt, 'phrase' => $isPhrase] = $this->excerptFromRow($row, $fields, $query, $words);
+        if ($isPhrase || $partial['excerpt'] === '') {
+            $partial['excerpt'] = $excerpt;
+            $partial['phrase'] = $isPhrase;
+        }
+    }
+
+    /**
+     * Excerpt centred on the full query phrase when it occurs literally
+     * (`phrase` reports which case applied), else on the first matching
+     * query word.
      *
      * @param array<string, mixed> $row
      * @param list<string>         $fields
      * @param list<string>         $words
+     *
+     * @return array{excerpt: string, phrase: bool}
      */
-    private function excerptFromRow(array $row, array $fields, string $query, array $words): string
+    private function excerptFromRow(array $row, array $fields, string $query, array $words): array
     {
         $fallback = '';
         foreach ($fields as $field) {
@@ -556,16 +576,16 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
                 $fallback = mb_substr($plain, 0, ExcerptBuilder::DEFAULT_LENGTH);
             }
             if (mb_stripos($plain, $query) !== false) {
-                return ExcerptBuilder::around($plain, $query);
+                return ['excerpt' => ExcerptBuilder::around($plain, $query), 'phrase' => true];
             }
             foreach ($words as $word) {
                 if (mb_stripos($plain, $word) !== false) {
-                    return ExcerptBuilder::around($plain, $word);
+                    return ['excerpt' => ExcerptBuilder::around($plain, $word), 'phrase' => false];
                 }
             }
         }
 
-        return $fallback;
+        return ['excerpt' => $fallback, 'phrase' => false];
     }
 
     /**
