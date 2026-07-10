@@ -11,6 +11,22 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-16-1:
+
+Version 0.16.1 (2026-07-10)
+===========================
+
+Compatibility fixes for strict-mode MySQL/MariaDB, surfaced by the new
+MariaDB CI leg: the setup wizard's AJAX persist path now enforces the
+column length limits and the TCA identifier contract (overlong values
+previously produced a 500 instead of being truncated), generated
+identifier suffixes are collision-free within a batch, and
+decimal-backed values such as ``temperature`` are rounded to their
+column scale so every DBMS round-trips identical values.
+
+For the complete, itemised list see the canonical
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-llm/blob/main/CHANGELOG.md>`__.
+
 .. _version-0-16-0:
 
 Version 0.16.0 (2026-07-10)
