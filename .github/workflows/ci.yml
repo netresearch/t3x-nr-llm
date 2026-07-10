@@ -30,6 +30,8 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
   # MariaDB functional leg (one cell): keeps the MySQL-only branches —
   # ke_search MATCH...AGAINST retrieval — permanently exercised in CI.
+  # mariadb:10.11 LTS: images >= 11 ship only mariadb-admin, which fails
+  # the reusable workflow's hardcoded mysqladmin health check.
   # The full matrix above stays on SQLite; this narrow second call trades
   # a small duplicate unit/PHPStan run for permanent engine coverage.
   # Scoped to the `functional` testsuite: the e2e-backend suite carries
@@ -43,5 +45,5 @@ jobs:
       typo3-versions: '["^14.3"]'
       run-functional-tests: true
       functional-test-db: mariadb
-      db-image: 'mariadb:11.4'
+      db-image: 'mariadb:10.11'
       functional-test-command: '.Build/bin/phpunit -c Build/FunctionalTests.xml --testsuite functional'
