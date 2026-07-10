@@ -134,6 +134,18 @@
             <trans-unit id="playground.temperature.placeholder">
                 <source>Configuration default</source>
             </trans-unit>
+            <trans-unit id="playground.think">
+                <source>Thinking (reasoning models)</source>
+            </trans-unit>
+            <trans-unit id="playground.think.default">
+                <source>Model default</source>
+            </trans-unit>
+            <trans-unit id="playground.think.on">
+                <source>On — think before answering</source>
+            </trans-unit>
+            <trans-unit id="playground.think.off">
+                <source>Off — answer directly</source>
+            </trans-unit>
             <trans-unit id="playground.captureRaw">
                 <source>Capture raw provider response</source>
             </trans-unit>

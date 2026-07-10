@@ -231,6 +231,33 @@ class OllamaProviderToolsTest extends AbstractUnitTestCase
         self::assertSame('plain answer', $result->content);
     }
 
+    #[Test]
+    public function threadsThinkToggleIntoThePayload(): void
+    {
+        $tool = ToolSpec::function('fetch_logs', 'Fetch recent log entries', [
+            'type'       => 'object',
+            'properties' => ['limit' => ['type' => 'integer']],
+        ]);
+        $messages = [['role' => 'user', 'content' => 'show logs']];
+
+        // Explicitly OFF: the top-level `think` field carries `false`.
+        $subject = $this->buildSubject($this->plainAssistantResponse('done'));
+        $subject->chatCompletionWithTools($messages, [$tool], ['think' => false]);
+        $payload = $this->capturedRequest();
+        self::assertArrayHasKey('think', $payload);
+        self::assertFalse($payload['think']);
+
+        // Explicitly ON.
+        $subject = $this->buildSubject($this->plainAssistantResponse('done'));
+        $subject->chatCompletionWithTools($messages, [$tool], ['think' => true]);
+        self::assertTrue($this->capturedRequest()['think']);
+
+        // Unset: the model default stays untouched — no `think` key at all.
+        $subject = $this->buildSubject($this->plainAssistantResponse('done'));
+        $subject->chatCompletionWithTools($messages, [$tool]);
+        self::assertArrayNotHasKey('think', $this->capturedRequest());
+    }
+
     /**
      * Build an Ollama provider whose stream factory records the outgoing JSON
      * request body and whose HTTP client returns the given canned response.

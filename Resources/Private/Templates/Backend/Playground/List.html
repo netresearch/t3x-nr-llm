@@ -150,6 +150,14 @@
                                     <label class="form-label" for="nrllm-pg-temperature"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.temperature" default="Temperature" /></label>
                                     <input type="number" min="0" max="2" step="0.1" id="nrllm-pg-temperature" class="form-control" placeholder="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.temperature.placeholder', default: 'Configuration default')}" />
                                 </div>
+                                <div class="mb-2">
+                                    <label class="form-label" for="nrllm-pg-think"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.think" default="Thinking (reasoning models)" /></label>
+                                    <select id="nrllm-pg-think" class="form-select">
+                                        <option value=""><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.think.default" default="Model default" /></option>
+                                        <option value="1"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.think.on" default="On — think before answering" /></option>
+                                        <option value="0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.think.off" default="Off — answer directly" /></option>
+                                    </select>
+                                </div>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="nrllm-pg-raw" />
                                     <label class="form-check-label" for="nrllm-pg-raw"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.captureRaw" default="Capture raw provider response" /></label>

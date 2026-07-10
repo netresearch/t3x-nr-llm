@@ -37,6 +37,7 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
         private ?string $model = null,
         ?int $beUserUid = null,
         ?float $plannedCost = null,
+        private ?bool $think = null,
     ) {
         $this->setBudgetFields($beUserUid, $plannedCost);
         $this->validate();
@@ -210,6 +211,15 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
         return $this->temperature;
     }
 
+    /**
+     * Reasoning toggle for hybrid-thinking models: true forces thinking
+     * on, false off, null leaves the provider/model default untouched.
+     */
+    public function getThink(): ?bool
+    {
+        return $this->think;
+    }
+
     public function getMaxTokens(): ?int
     {
         return $this->maxTokens;
@@ -267,7 +277,7 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 
     public function toArray(): array
     {
-        return $this->filterNull([
+        $options = $this->filterNull([
             'temperature' => $this->temperature,
             'max_tokens' => $this->maxTokens,
             'top_p' => $this->topP,
@@ -279,6 +289,14 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
             'provider' => $this->provider,
             'model' => $this->model,
         ]);
+
+        // Tri-state: `false` (thinking explicitly OFF) must survive, so this
+        // bypasses filterNull; unset = provider/model default.
+        if ($this->think !== null) {
+            $options['think'] = $this->think;
+        }
+
+        return $options;
     }
 
     /**

@@ -36,6 +36,7 @@ class ToolOptions extends ChatOptions
         ?string $model = null,
         ?int $beUserUid = null,
         ?float $plannedCost = null,
+        ?bool $think = null,
         private ?string $toolChoice = null,
         private ?bool $parallelToolCalls = null,
         private bool $captureRaw = false,
@@ -53,6 +54,7 @@ class ToolOptions extends ChatOptions
             $model,
             $beUserUid,
             $plannedCost,
+            $think,
         );
         $this->validateToolOptions();
     }

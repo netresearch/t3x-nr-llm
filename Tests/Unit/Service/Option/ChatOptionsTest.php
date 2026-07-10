@@ -339,6 +339,25 @@ class ChatOptionsTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function thinkIsTriState(): void
+    {
+        // Unset: provider/model default — the key must be absent.
+        self::assertArrayNotHasKey('think', (new ChatOptions())->toArray());
+        self::assertNull((new ChatOptions())->getThink());
+
+        // Explicitly ON.
+        $on = new ChatOptions(think: true);
+        self::assertTrue($on->getThink());
+        self::assertTrue($on->toArray()['think']);
+
+        // Explicitly OFF — `false` must survive the null filtering.
+        $off = new ChatOptions(think: false);
+        self::assertFalse($off->getThink());
+        self::assertArrayHasKey('think', $off->toArray());
+        self::assertFalse($off->toArray()['think']);
+    }
+
+    #[Test]
     public function toArrayUsesSnakeCaseKeys(): void
     {
         $options = new ChatOptions(
