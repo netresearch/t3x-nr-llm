@@ -492,7 +492,7 @@ final class SetupWizardController extends ActionController
 
             $config = new LlmConfiguration();
             // Identifier columns are varchar(100), name columns varchar(255).
-            $config->setIdentifier(mb_substr($configIdentifier !== '' ? trim($configIdentifier) : $this->generateIdentifier($configName), 0, 100));
+            $config->setIdentifier($configIdentifier !== '' ? $this->normalizeIdentifier($configIdentifier) : $this->generateIdentifier($configName));
             $config->setName($this->truncateLabel($configName));
             $config->setDescription($configDescription);
             $config->setSystemPrompt($systemPrompt);
@@ -647,8 +647,21 @@ final class SetupWizardController extends ActionController
         // identifier columns.
         $identifier = trim(mb_substr($identifier, 0, 93), '-');
 
-        // Add timestamp suffix for uniqueness
-        return $identifier . '-' . substr(md5((string)time()), 0, 6);
+        // Random suffix for uniqueness — a time()-based suffix is
+        // identical for every record created in the same request batch.
+        return $identifier . '-' . bin2hex(random_bytes(3));
+    }
+
+    /**
+     * Applies the TCA identifier contract (eval alphanum_x,lower, max 100)
+     * to a caller-provided identifier — the AJAX path bypasses FormEngine.
+     */
+    private function normalizeIdentifier(string $identifier): string
+    {
+        $identifier = strtolower(trim($identifier));
+        $identifier = (string)preg_replace('/[^a-z0-9_-]+/', '-', $identifier);
+
+        return mb_substr(trim($identifier, '-'), 0, 100);
     }
 
     /**
