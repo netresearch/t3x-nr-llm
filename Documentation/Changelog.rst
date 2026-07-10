@@ -11,6 +11,26 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-16-0:
+
+Version 0.16.0 (2026-07-10)
+===========================
+
+This release adds **RAG site-search tools**: the new ``rag`` tool group
+lets agent runs answer questions about the website's own public
+content with cited evidence. ``site_rag_query`` returns curated sources
+(``source_id``, title, URL, match excerpt) from a priority cascade over
+whichever search index is installed — EXT:solr (via its HTTP select
+API), ke_search, indexed_search — with an always-available
+pages/tt_content database fallback that matches natural-language
+questions word-wise; ``site_fetch_source`` reads a source's full
+indexed text. Index-level filtering is strictly public-only (what the
+anonymous visitor could read), and every evidence package names the
+answering backend. See :ref:`ADR-049 <adr-049>`.
+
+For the complete, itemised list see the canonical
+`CHANGELOG.md <https://github.com/netresearch/t3x-nr-llm/blob/main/CHANGELOG.md>`__.
+
 .. _version-0-15-0:
 
 Version 0.15.0 (2026-07-09)
