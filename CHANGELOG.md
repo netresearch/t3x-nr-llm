@@ -6,9 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-07-10
+
 ### Added
 
-- **RAG site-search tools** (41 tools / 8 groups): new `rag` tool group with `site_rag_query` — cited evidence about the website's own public content (source id, title, URL, match excerpt), retrieved through a priority cascade over whichever search index is installed (EXT:solr via its HTTP select API, ke_search, indexed_search) with an always-available pages/tt_content database fallback — and `site_fetch_source` to read a source's full indexed text. Index-level filtering is strictly public-only (what the anonymous visitor could read); the answering backend is named in every evidence package (ADR-049).
+- **RAG site-search tools** (41 tools / 8 groups): new `rag` tool group with `site_rag_query` — cited evidence about the website's own public content (source id, title, URL, match excerpt), retrieved through a priority cascade over whichever search index is installed (EXT:solr via its HTTP select API, ke_search, indexed_search) with an always-available pages/tt_content database fallback — and `site_fetch_source` to read a source's full indexed text. Index-level filtering is strictly public-only (what the anonymous visitor could read); the answering backend is named in every evidence package (ADR-049). The database fallback matches natural-language questions word-wise and ranks pages by how many query words they cover (#332, #333).
+
+### Changed
+
+- Functional tests additionally run against MariaDB in CI (one matrix cell), keeping the MySQL-only retrieval branches exercised; two pre-existing MySQL incompatibilities in the e2e-backend suite surfaced by this are tracked in #335/#336 (#334, #337).
 
 ## [0.15.0] - 2026-07-09
 
@@ -983,7 +989,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.13.0...v0.14.0
