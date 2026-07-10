@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-07-10
+
+### Fixed
+
+- The setup wizard's AJAX persist path now enforces the column limits FormEngine would apply: names are clamped to 255 characters, identifiers to 100, and caller-provided identifiers get the TCA contract (`alphanum_x`, lowercase). Strict-mode MySQL/MariaDB previously rejected overlong values with a 500 where SQLite silently truncated. Generated identifier suffixes are now random — the `time()`-based suffix collided for same-named records created in one batch (#335, #339).
+- Decimal-backed model values (`temperature`, `top_p`, penalties, cost ceilings) are rounded to their column scale in the setters, so every DBMS stores and returns the identical value (#336, #339).
+
+### Changed
+
+- The MariaDB CI leg runs the full functional configuration (functional + e2e-backend suites) now that the strict-mode incompatibilities are fixed (#339).
+
 ## [0.16.0] - 2026-07-10
 
 ### Added
@@ -989,7 +1000,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.16.1...HEAD
+[0.16.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.0...v0.14.1
