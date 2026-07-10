@@ -273,6 +273,18 @@ class OllamaProviderToolsTest extends AbstractUnitTestCase
         // No thinking field -> null, never an empty string.
         $result = $this->buildSubject($this->plainAssistantResponse('blue'))->chatCompletionWithTools($messages, []);
         self::assertNull($result->thinking);
+
+        // Whitespace-only thinking normalises to null.
+        $response = $this->plainAssistantResponse('blue');
+        $response['message']['thinking'] = '   ';
+        $result = $this->buildSubject($response)->chatCompletionWithTools($messages, []);
+        self::assertNull($result->thinking);
+
+        // The plain chat path surfaces the field as well.
+        $response = $this->plainAssistantResponse('blue');
+        $response['message']['thinking'] = 'Scattering, obviously.';
+        $result = $this->buildSubject($response)->chatCompletion($messages, ['think' => true]);
+        self::assertSame('Scattering, obviously.', $result->thinking);
     }
 
     /**
