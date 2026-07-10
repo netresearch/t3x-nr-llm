@@ -14,6 +14,7 @@ use GuzzleHttp\Psr7\Utils;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
@@ -161,6 +162,15 @@ abstract class AbstractBackendE2ETestCase extends AbstractFunctionalTestCase
     {
         $reflection = new ReflectionClass($controllerClass);
         $controller = $reflection->newInstanceWithoutConstructor();
+
+        // Skipping the constructor leaves every non-injected readonly
+        // property uninitialized. All backend controllers take a PSR
+        // logger that only error paths touch — on SQLite those paths
+        // rarely run, on strict-mode DBMS they do (#335). Default it so
+        // error handling behaves like production.
+        if (!array_key_exists('logger', $dependencies) && $reflection->hasProperty('logger')) {
+            $dependencies['logger'] = new NullLogger();
+        }
 
         foreach ($dependencies as $property => $value) {
             $this->setPrivateProperty($controller, $property, $value);

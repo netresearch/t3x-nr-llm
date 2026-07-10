@@ -348,7 +348,7 @@ final class SetupWizardController extends ActionController
 
         $provider = new Provider();
         $provider->setIdentifier($this->generateIdentifier($providerName));
-        $provider->setName($providerName !== '' ? $providerName : 'New Provider');
+        $provider->setName($this->truncateLabel($providerName !== '' ? $providerName : 'New Provider'));
         $provider->setAdapterType($providerAdapter);
         $provider->setEndpointUrl($providerEndpoint);
         $provider->setApiKey($vaultIdentifier);
@@ -416,7 +416,7 @@ final class SetupWizardController extends ActionController
 
             $model = new Model();
             $model->setIdentifier($this->generateIdentifier($modelName));
-            $model->setName($modelName);
+            $model->setName($this->truncateLabel($modelName));
             $model->setDescription($modelDescription);
             $model->setModelId($modelId);
             $model->setProvider($provider);
@@ -491,8 +491,9 @@ final class SetupWizardController extends ActionController
             $maxTokens = max(1, min(128000, is_numeric($configData['maxTokens'] ?? null) ? (int)$configData['maxTokens'] : 4096));
 
             $config = new LlmConfiguration();
-            $config->setIdentifier($configIdentifier !== '' ? $configIdentifier : $this->generateIdentifier($configName));
-            $config->setName($configName);
+            // Identifier columns are varchar(100), name columns varchar(255).
+            $config->setIdentifier($configIdentifier !== '' ? $this->normalizeIdentifier($configIdentifier) : $this->generateIdentifier($configName));
+            $config->setName($this->truncateLabel($configName));
             $config->setDescription($configDescription);
             $config->setSystemPrompt($systemPrompt);
             $config->setLlmModel($model);
@@ -642,9 +643,35 @@ final class SetupWizardController extends ActionController
     {
         $identifier = strtolower(trim($name));
         $identifier = (string)preg_replace('/[^a-z0-9]+/', '-', $identifier);
-        $identifier = trim($identifier, '-');
+        // Keep slug + '-' + 6-char suffix within the varchar(100)
+        // identifier columns.
+        $identifier = trim(mb_substr($identifier, 0, 93), '-');
 
-        // Add timestamp suffix for uniqueness
-        return $identifier . '-' . substr(md5((string)time()), 0, 6);
+        // Random suffix for uniqueness — a time()-based suffix is
+        // identical for every record created in the same request batch.
+        return $identifier . '-' . bin2hex(random_bytes(3));
+    }
+
+    /**
+     * Applies the TCA identifier contract (eval alphanum_x,lower, max 100)
+     * to a caller-provided identifier — the AJAX path bypasses FormEngine.
+     */
+    private function normalizeIdentifier(string $identifier): string
+    {
+        $identifier = strtolower(trim($identifier));
+        $identifier = (string)preg_replace('/[^a-z0-9_-]+/', '-', $identifier);
+
+        return mb_substr(trim($identifier, '-'), 0, 100);
+    }
+
+    /**
+     * The wizard's AJAX payload bypasses FormEngine, so the TCA input
+     * limit (max=255, matching the varchar(255) columns) is enforced
+     * here — a strict-mode DBMS rejects overlong values instead of
+     * truncating them like SQLite.
+     */
+    private function truncateLabel(string $value): string
+    {
+        return mb_substr(trim($value), 0, 255);
     }
 }

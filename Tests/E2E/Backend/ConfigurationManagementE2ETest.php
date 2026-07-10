@@ -1584,8 +1584,9 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
 
         $retrieved = $this->configurationRepository->findOneByIdentifier($config->getIdentifier());
         self::assertNotNull($retrieved);
-        // Temperature should be close to original (may have float precision issues)
-        self::assertEqualsWithDelta(0.123456789, $retrieved->getTemperature(), 0.0001);
+        // The setter rounds to the decimal(3,2) column scale, so every
+        // DBMS round-trips the identical value (#336).
+        self::assertEqualsWithDelta(0.12, $retrieved->getTemperature(), 0.001);
     }
 
     #[Test]
