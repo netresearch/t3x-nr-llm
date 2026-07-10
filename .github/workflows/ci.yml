@@ -28,3 +28,20 @@ jobs:
       run-functional-tests: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  # MariaDB functional leg (one cell): keeps the MySQL-only branches —
+  # ke_search MATCH...AGAINST retrieval — permanently exercised in CI.
+  # The full matrix above stays on SQLite; this narrow second call trades
+  # a small duplicate unit/PHPStan run for permanent engine coverage.
+  # Scoped to the `functional` testsuite: the e2e-backend suite carries
+  # two pre-existing MySQL incompatibilities tracked separately.
+  ci-functional-mariadb:
+    uses: netresearch/typo3-ci-workflows/.github/workflows/ci.yml@main # NOSONAR — own-org reusable workflow deliberately tracks main, like the sibling job above
+    permissions:
+      contents: read
+    with:
+      php-versions: '["8.4"]'
+      typo3-versions: '["^14.3"]'
+      run-functional-tests: true
+      functional-test-db: mariadb
+      db-image: 'mariadb:11.4'
+      functional-test-command: '.Build/bin/phpunit -c Build/FunctionalTests.xml --testsuite functional'
