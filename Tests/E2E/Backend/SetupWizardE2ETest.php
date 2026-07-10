@@ -2139,8 +2139,10 @@ final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
         ]);
         $response = $this->controller->saveAction($saveRequest);
 
-        // Should handle long name - possibly truncate
-        self::assertContains($response->getStatusCode(), [200, 400]);
+        // Overlong names are truncated to the varchar(255)/varchar(100)
+        // columns before persisting (#335), so the save succeeds on every
+        // DBMS.
+        self::assertSame(200, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
         self::assertIsArray($body);
     }
