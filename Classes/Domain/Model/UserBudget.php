@@ -75,7 +75,7 @@ class UserBudget extends AbstractEntity
 
     public function setMaxCostPerDay(float $value): void
     {
-        $this->maxCostPerDay = max(0.0, $value);
+        $this->maxCostPerDay = round(max(0.0, $value), 4);
     }
 
     public function getMaxRequestsPerMonth(): int
@@ -105,7 +105,7 @@ class UserBudget extends AbstractEntity
 
     public function setMaxCostPerMonth(float $value): void
     {
-        $this->maxCostPerMonth = max(0.0, $value);
+        $this->maxCostPerMonth = round(max(0.0, $value), 4);
     }
 
     public function isActive(): bool

@@ -504,7 +504,9 @@ class LlmConfiguration extends AbstractEntity
 
     public function setTemperature(float $temperature): void
     {
-        $this->temperature = max(0.0, min(2.0, $temperature));
+        // Rounded to the decimal(3,2) column scale so every DBMS stores
+        // and returns the identical value (#336).
+        $this->temperature = round(max(0.0, min(2.0, $temperature)), 2);
     }
 
     public function setMaxTokens(int $maxTokens): void
@@ -514,17 +516,17 @@ class LlmConfiguration extends AbstractEntity
 
     public function setTopP(float $topP): void
     {
-        $this->topP = max(0.0, min(1.0, $topP));
+        $this->topP = round(max(0.0, min(1.0, $topP)), 2);
     }
 
     public function setFrequencyPenalty(float $frequencyPenalty): void
     {
-        $this->frequencyPenalty = max(-2.0, min(2.0, $frequencyPenalty));
+        $this->frequencyPenalty = round(max(-2.0, min(2.0, $frequencyPenalty)), 2);
     }
 
     public function setPresencePenalty(float $presencePenalty): void
     {
-        $this->presencePenalty = max(-2.0, min(2.0, $presencePenalty));
+        $this->presencePenalty = round(max(-2.0, min(2.0, $presencePenalty)), 2);
     }
 
     public function setTimeout(int $timeout): void
@@ -567,7 +569,7 @@ class LlmConfiguration extends AbstractEntity
 
     public function setMaxCostPerDay(float $maxCostPerDay): void
     {
-        $this->maxCostPerDay = max(0.0, $maxCostPerDay);
+        $this->maxCostPerDay = round(max(0.0, $maxCostPerDay), 2);
     }
 
     public function setIsActive(bool $isActive): void
