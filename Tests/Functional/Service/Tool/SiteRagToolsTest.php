@@ -151,8 +151,9 @@ final class SiteRagToolsTest extends AbstractFunctionalTestCase
         // 350 chars in, truncated to 200 and answered cleanly — the echoed
         // question ends mid-word instead of raising a VO exception.
         $longQuestion = $this->queryTool->execute(['question' => str_repeat('aikido ', 50)]);
-        self::assertStringStartsWith('No evidence found for "aikido ', $longQuestion);
+        self::assertStringStartsWith('Evidence for "aikido ', $longQuestion);
         self::assertStringContainsString('aiki" (backend:', $longQuestion);
+        self::assertStringContainsString('database:2:0', $longQuestion);
     }
 
     #[Test]

@@ -93,6 +93,11 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             'uid' => 20, 'pid' => 1, 'title' => 'Aikido Migrationsdienste', 'doktype' => 1,
             'sorting' => 2, 'slug' => '/migration', 'sys_language_uid' => 1, 'l10n_parent' => 2,
         ]);
+        // Narrow match: covers only ONE word of a multi-word query.
+        $pages->insert('pages', [
+            'uid' => 30, 'pid' => 1, 'title' => 'Aikido overview', 'doktype' => 1,
+            'sorting' => 8, 'slug' => '/overview',
+        ]);
         // Hidden section root with extendToSubpages, public child row.
         $pages->insert('pages', [
             'uid' => 8, 'pid' => 1, 'title' => 'Staging section', 'doktype' => 1,
@@ -270,6 +275,33 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
 
         self::assertTrue($result->isEmpty());
         self::assertSame('database', $result->backend);
+    }
+
+    #[Test]
+    public function naturalLanguageQuestionsMatchWordWise(): void
+    {
+        // Models pass whole questions — as a single phrase needle this
+        // found nothing; the fill words must not defeat the match either.
+        $result = $this->backend->search(
+            RetrievalQuery::create('What migration services does this aikido site offer?'),
+            AccessContext::publicOnly(),
+        );
+
+        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        self::assertContains('database:2:0', $ids);
+    }
+
+    #[Test]
+    public function pagesCoveringMoreQueryWordsRankFirst(): void
+    {
+        $result = $this->backend->search(
+            RetrievalQuery::create('aikido migration services'),
+            AccessContext::publicOnly(),
+        );
+
+        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        self::assertSame('database:2:0', $ids[0] ?? null, 'page covering all three words must rank first');
+        self::assertContains('database:30:0', $ids, 'single-word match missing entirely');
     }
 
     #[Test]

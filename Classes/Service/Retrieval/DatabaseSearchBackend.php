@@ -21,8 +21,11 @@ use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * Always-available retrieval fallback (ADR-049): LIKE search across the
- * TCA search fields of `pages` and `tt_content`, grouped per page.
+ * Always-available retrieval fallback (ADR-049): word-wise LIKE search
+ * across the TCA search fields of `pages` and `tt_content`, grouped per
+ * page and ranked by how many distinct query words a page covers —
+ * models pass whole natural-language questions, which as a single
+ * phrase-needle matched next to nothing.
  *
  * Runs when no search extension index exists. Public-only by
  * construction: default restrictions plus a live-workspace restriction
@@ -65,35 +68,48 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
     public function search(RetrievalQuery $query, AccessContext $context): EvidenceList
     {
         $languageId = $query->languageId;
+        $words = $this->queryWords($query->query);
 
-        // routeUid (default-language page uid) => partial evidence data.
-        /** @var array<int, array{title: string, excerpt: string}> $byPage */
+        // routeUid (default-language page uid) => partial evidence data;
+        // 'words' collects which query words the page covers (over the page
+        // row AND all its content elements) for the relevance ordering.
+        /** @var array<int, array{title: string, excerpt: string, words: list<string>}> $byPage */
         $byPage = [];
 
-        foreach ($this->searchPages($query->query, $languageId) as $row) {
+        foreach ($this->searchPages($words, $languageId) as $row) {
             $routeUid = $languageId === 0
                 ? self::toInt($row['uid'] ?? 0)
                 : self::toInt($row['l10n_parent'] ?? 0);
-            if ($routeUid < 1 || isset($byPage[$routeUid])) {
+            if ($routeUid < 1) {
                 continue;
             }
 
-            $byPage[$routeUid] = [
+            $byPage[$routeUid] ??= [
                 'title' => self::toStr($row['title'] ?? ''),
-                'excerpt' => $this->excerptFromRow($row, $this->pageFields(), $query->query),
+                'excerpt' => $this->excerptFromRow($row, $this->pageFields(), $query->query, $words),
+                'words' => [],
             ];
+            $byPage[$routeUid]['words'] = array_values(array_unique(array_merge(
+                $byPage[$routeUid]['words'],
+                $this->matchedWords($row, $this->pageFields(), $words),
+            )));
         }
 
-        foreach ($this->searchContent($query->query, $languageId) as $row) {
+        foreach ($this->searchContent($words, $languageId) as $row) {
             $routeUid = self::toInt($row['pid'] ?? 0);
-            if ($routeUid < 1 || isset($byPage[$routeUid])) {
+            if ($routeUid < 1) {
                 continue;
             }
 
-            $byPage[$routeUid] = [
+            $byPage[$routeUid] ??= [
                 'title' => '',
-                'excerpt' => $this->excerptFromRow($row, $this->contentFields(), $query->query),
+                'excerpt' => $this->excerptFromRow($row, $this->contentFields(), $query->query, $words),
+                'words' => [],
             ];
+            $byPage[$routeUid]['words'] = array_values(array_unique(array_merge(
+                $byPage[$routeUid]['words'],
+                $this->matchedWords($row, $this->contentFields(), $words),
+            )));
         }
 
         if ($byPage === []) {
@@ -102,8 +118,16 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
 
         $pageRows = $this->visiblePages(array_keys($byPage), $languageId);
 
+        // Pages covering more distinct query words rank first.
+        $rankedUids = array_keys($byPage);
+        usort(
+            $rankedUids,
+            static fn(int $a, int $b): int => (count($byPage[$b]['words']) <=> count($byPage[$a]['words'])) ?: ($a <=> $b),
+        );
+
         $sources = [];
-        foreach ($byPage as $routeUid => $partial) {
+        foreach ($rankedUids as $routeUid) {
+            $partial = $byPage[$routeUid];
             if (!isset($pageRows[$routeUid])) {
                 // Hidden, timed, access-protected or non-searchable page.
                 continue;
@@ -181,9 +205,11 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
     }
 
     /**
+     * @param list<string> $words
+     *
      * @return list<array<string, mixed>>
      */
-    private function searchPages(string $query, int $languageId): array
+    private function searchPages(array $words, int $languageId): array
     {
         $fields = $this->pageFields();
         $queryBuilder = $this->liveQueryBuilder('pages');
@@ -193,7 +219,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             ->select(...$select)
             ->from('pages')
             ->where(
-                $this->likeAnyCondition($queryBuilder, $fields, $query),
+                $this->likeAnyCondition($queryBuilder, $fields, $words),
                 $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($languageId, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('no_search', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
                 $queryBuilder->expr()->lt('doktype', $queryBuilder->createNamedParameter(199, Connection::PARAM_INT)),
@@ -208,9 +234,11 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
     }
 
     /**
+     * @param list<string> $words
+     *
      * @return list<array<string, mixed>>
      */
-    private function searchContent(string $query, int $languageId): array
+    private function searchContent(array $words, int $languageId): array
     {
         $fields = $this->contentFields();
         $queryBuilder = $this->liveQueryBuilder('tt_content');
@@ -220,7 +248,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             ->select(...$select)
             ->from('tt_content')
             ->where(
-                $this->likeAnyCondition($queryBuilder, $fields, $query),
+                $this->likeAnyCondition($queryBuilder, $fields, $words),
                 // -1 = "all languages": rendered in every language.
                 $queryBuilder->expr()->in('sys_language_uid', $queryBuilder->createNamedParameter([$languageId, -1], Connection::PARAM_INT_ARRAY)),
                 $this->publicGroupCondition($queryBuilder),
@@ -326,17 +354,75 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
     }
 
     /**
+     * A row qualifies when ANY query word occurs in ANY search field —
+     * the per-page word-coverage ranking in search() sorts broad matches
+     * up, so a one-word hit can appear but ranks last.
+     *
      * @param list<string> $fields
+     * @param list<string> $words
      */
-    private function likeAnyCondition(QueryBuilder $queryBuilder, array $fields, string $query): string
+    private function likeAnyCondition(QueryBuilder $queryBuilder, array $fields, array $words): string
     {
-        $like = '%' . $queryBuilder->escapeLikeWildcards($query) . '%';
         $conditions = [];
-        foreach ($fields as $field) {
-            $conditions[] = $queryBuilder->expr()->like($field, $queryBuilder->createNamedParameter($like));
+        foreach ($words as $word) {
+            $like = '%' . $queryBuilder->escapeLikeWildcards($word) . '%';
+            $placeholder = $queryBuilder->createNamedParameter($like);
+            foreach ($fields as $field) {
+                $conditions[] = $queryBuilder->expr()->like($field, $placeholder);
+            }
         }
 
         return (string)$queryBuilder->expr()->or(...$conditions);
+    }
+
+    /**
+     * Words of the (model-chosen, natural-language) question worth
+     * matching: 4+ characters — models pass whole questions, and requiring
+     * fill words like "what"/"does" as a phrase found nothing. Falls back
+     * to 2+ characters, then to the raw query, so short queries stay
+     * searchable. Capped at 8 words.
+     *
+     * @return non-empty-list<string>
+     */
+    private function queryWords(string $query): array
+    {
+        $split = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($query)) ?: [];
+        $split = array_values(array_filter($split, static fn(string $word): bool => $word !== ''));
+
+        foreach ([4, 2] as $minimumLength) {
+            $words = array_values(array_unique(array_filter(
+                $split,
+                static fn(string $word): bool => mb_strlen($word) >= $minimumLength,
+            )));
+            if ($words !== []) {
+                return array_slice($words, 0, 8);
+            }
+        }
+
+        return [mb_strtolower($query)];
+    }
+
+    /**
+     * The query words occurring in any of the row's search fields.
+     *
+     * @param array<string, mixed> $row
+     * @param list<string>         $fields
+     * @param list<string>         $words
+     *
+     * @return list<string>
+     */
+    private function matchedWords(array $row, array $fields, array $words): array
+    {
+        $haystack = '';
+        foreach ($fields as $field) {
+            $haystack .= ' ' . self::toStr($row[$field] ?? '');
+        }
+        $haystack = ExcerptBuilder::plain($haystack);
+
+        return array_values(array_filter(
+            $words,
+            static fn(string $word): bool => mb_stripos($haystack, $word) !== false,
+        ));
     }
 
     /**
@@ -450,10 +536,14 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
     }
 
     /**
+     * Excerpt centred on the full query phrase when it occurs literally,
+     * else on the first matching query word.
+     *
      * @param array<string, mixed> $row
      * @param list<string>         $fields
+     * @param list<string>         $words
      */
-    private function excerptFromRow(array $row, array $fields, string $query): string
+    private function excerptFromRow(array $row, array $fields, string $query, array $words): string
     {
         $fallback = '';
         foreach ($fields as $field) {
@@ -467,6 +557,11 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             }
             if (mb_stripos($plain, $query) !== false) {
                 return ExcerptBuilder::around($plain, $query);
+            }
+            foreach ($words as $word) {
+                if (mb_stripos($plain, $word) !== false) {
+                    return ExcerptBuilder::around($plain, $word);
+                }
             }
         }
 
