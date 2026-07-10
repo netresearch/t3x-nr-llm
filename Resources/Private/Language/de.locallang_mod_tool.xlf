@@ -178,6 +178,22 @@
                 <source>Configuration default</source>
                 <target>Standard der Konfiguration</target>
             </trans-unit>
+            <trans-unit id="playground.think">
+                <source>Thinking (reasoning models)</source>
+                <target>Thinking (Reasoning-Modelle)</target>
+            </trans-unit>
+            <trans-unit id="playground.think.default">
+                <source>Model default</source>
+                <target>Modell-Standard</target>
+            </trans-unit>
+            <trans-unit id="playground.think.on">
+                <source>On — think before answering</source>
+                <target>An — erst denken, dann antworten</target>
+            </trans-unit>
+            <trans-unit id="playground.think.off">
+                <source>Off — answer directly</source>
+                <target>Aus — direkt antworten</target>
+            </trans-unit>
             <trans-unit id="playground.captureRaw">
                 <source>Capture raw provider response</source>
                 <target>Rohe Provider-Antwort erfassen</target>

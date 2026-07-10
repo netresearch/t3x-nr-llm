@@ -190,6 +190,13 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             'stream' => false,
         ];
 
+        // Top-level request field (not an `options` entry): forces hybrid
+        // reasoning models to think (true) or answer directly (false);
+        // absent = model default (#312).
+        if (isset($options['think']) && is_bool($options['think'])) {
+            $payload['think'] = $options['think'];
+        }
+
         if ($payloadOptions !== []) {
             $payload['options'] = $payloadOptions;
         }
@@ -255,6 +262,10 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             'stream' => false,
             'tools' => array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $tools),
         ];
+
+        if (isset($options['think']) && is_bool($options['think'])) {
+            $payload['think'] = $options['think'];
+        }
 
         if ($payloadOptions !== []) {
             $payload['options'] = $payloadOptions;
@@ -445,6 +456,10 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             'messages' => $messages,
             'stream' => true,
         ];
+
+        if (isset($options['think']) && is_bool($options['think'])) {
+            $payload['think'] = $options['think'];
+        }
 
         if ($payloadOptions !== []) {
             $payload['options'] = $payloadOptions;

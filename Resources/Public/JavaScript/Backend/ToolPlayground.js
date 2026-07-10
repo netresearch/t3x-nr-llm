@@ -161,6 +161,7 @@ class ToolPlayground {
         this.appendIfSet(formData, 'nrllm-pg-rounds', 'maxRounds');
         this.appendIfSet(formData, 'nrllm-pg-maxtokens', 'maxTokens');
         this.appendIfSet(formData, 'nrllm-pg-temperature', 'temperature');
+        this.appendIfSet(formData, 'nrllm-pg-think', 'think');
         this.appendChecked(formData, '.js-tool-select', 'tools[]');
         this.appendChecked(formData, '.js-skill-select', 'forcedSkills[]');
         this.appendChecked(formData, '.js-snippet-select', 'forcedSnippets[]');

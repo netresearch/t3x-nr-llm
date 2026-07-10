@@ -150,12 +150,20 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         if ($temperature !== null) {
             $temperature = max(0.0, min(2.0, $temperature));
         }
+        // Tri-state reasoning toggle (#312): '1' forces thinking on, '0'
+        // off, anything else keeps the provider/model default.
+        $think = match ($this->stringFromBody($body, 'think')) {
+            '1' => true,
+            '0' => false,
+            default => null,
+        };
         $options      = new ToolOptions(
             temperature: $temperature,
             maxTokens: $maxTokens > 0 ? $maxTokens : null,
             systemPrompt: $systemPrompt !== '' ? $systemPrompt : null,
             beUserUid: $this->currentBackendUserUid(),
             captureRaw: $captureRaw,
+            think: $think,
         );
 
         // The checked tool boxes restrict this run; absent any selection, fall
