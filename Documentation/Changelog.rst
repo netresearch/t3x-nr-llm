@@ -19,7 +19,7 @@ Version 0.16.0 (2026-07-10)
 This release adds **RAG site-search tools**: the new ``rag`` tool group
 lets agent runs answer questions about the website's own public
 content with cited evidence. ``site_rag_query`` returns curated sources
-(source id, title, URL, match excerpt) from a priority cascade over
+(``source_id``, title, URL, match excerpt) from a priority cascade over
 whichever search index is installed — EXT:solr (via its HTTP select
 API), ke_search, indexed_search — with an always-available
 pages/tt_content database fallback that matches natural-language
