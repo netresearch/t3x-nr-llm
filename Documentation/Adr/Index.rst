@@ -348,3 +348,4 @@ Tools
    Adr047FalTools
    Adr048DiagnosticsTools
    Adr049RagSiteSearchTools
+   Adr050RetrievalAndEmbeddingScopeBoundary
