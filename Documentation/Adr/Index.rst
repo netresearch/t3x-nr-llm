@@ -349,3 +349,4 @@ Tools
    Adr048DiagnosticsTools
    Adr049RagSiteSearchTools
    Adr050RetrievalAndEmbeddingScopeBoundary
+   Adr051ToolCallingFeatureService

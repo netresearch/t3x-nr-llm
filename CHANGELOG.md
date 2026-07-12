@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `ToolCallingService` / `ToolCallingServiceInterface` — the feature-service pair for tool-calling chat (`chatWithTools()`, `chatWithToolsForConfiguration()`), completing the narrow-interface catalogue so consumers no longer need to depend on the 19-method `LlmServiceManagerInterface` for tool calling (ADR-051).
+
 ## [0.16.1] - 2026-07-10
 
 ### Fixed

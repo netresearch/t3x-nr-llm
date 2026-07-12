@@ -50,6 +50,8 @@ surface; they MUST be public.
 * ``Service\Feature\EmbeddingService`` (+ Interface)
 * ``Service\Feature\TranslationService`` (+ Interface)
 * ``Service\Feature\VisionService`` (+ Interface)
+* ``Service\Feature\ToolCallingService`` (+ Interface, ADR-051)
+* ``Service\Prompt\PromptSnippetComposer`` (concrete-only, ADR-031)
 * ``Service\BudgetService`` (+ ``BudgetServiceInterface``)
 * ``Service\CacheManager`` (+ ``CacheManagerInterface``)
 * ``Service\UsageTrackerService`` (+ ``UsageTrackerServiceInterface``)
@@ -120,28 +122,18 @@ The unit test
 ``Configuration/Services.yaml`` and asserts:
 
 * The total count of ``public: true`` keys matches the expected
-  total (currently **43**).
+  total (currently **45**).
 * The ADR file exists and references both ``REC #9c`` and the
   ``public: true`` policy text.
 
-Breakdown of the 43:
+Breakdown of the 45:
 
-* **22** Category 1 — Public LLM API surface
-  (13 concrete services + 9 interface aliases).
-  Note the 13 / 9 asymmetry: ``CompletionService``,
-  ``EmbeddingService``, ``TranslationService``, ``VisionService``
-  contribute 4 concrete entries but their interface aliases are
-  registered separately (4 aliases). Of the remaining 9 concrete
-  services, three core services
-  (``LlmServiceManager``, ``ProviderAdapterRegistry``,
-  ``TranslatorRegistry``) keep the interface-alias entry while
-  ``BudgetService``, ``CacheManager``, ``UsageTrackerService``,
-  ``LlmConfigurationService``, ``PromptTemplateService`` each have
-  both a concrete + interface entry, and
-  ``Service\Prompt\PromptSnippetComposer`` (ADR-031) is
-  concrete-only — consuming extensions resolve it by class name,
-  it has no interface alias. The maths: 13 concrete + 9
-  aliases = 22.
+* **27** Category 1 — Public LLM API surface
+  (14 concrete services + 13 interface aliases). Every Category-1
+  service has a public interface alias except
+  ``Service\Prompt\PromptSnippetComposer`` (ADR-031), which is
+  concrete-only — consuming extensions resolve it by class name.
+  The maths: 14 concrete + 13 aliases = 27.
 * **4** Category 2 — Specialized services
   (Whisper, TextToSpeech, DallE, Fal).
 * **8** Category 3 — Repositories
@@ -154,14 +146,15 @@ Breakdown of the 43:
 * **4** Category 4 — SetupWizard
   (3 concrete: ProviderDetector, ModelDiscovery,
   ConfigurationGenerator + 1 alias: ModelDiscoveryInterface).
-* **4** Doctrine + provider-adapter wiring tail —
-  small set of services that the host instance / dashboard widgets
-  resolve by class-name through the public container. Includes
+* **2** Class-name-resolution tail —
   ``Service\UsageAnalyticsService``, the read-only Analytics-module
-  reporting service, which is public solely so its functional test
-  resolves it via ``FunctionalTestCase::get()`` (same rationale as
-  Category 3; production callers use constructor injection). Its
-  ``UsageAnalyticsServiceInterface`` alias stays private.
+  reporting service, public solely so its functional test resolves
+  it via ``FunctionalTestCase::get()`` (same rationale as
+  Category 3; production callers use constructor injection — its
+  ``UsageAnalyticsServiceInterface`` alias stays private), and
+  ``Service\Tool\ToolRegistry``, public so functional tests fetch
+  registered tools by spec name (the tools themselves stay
+  private, ADR-042).
 
 The current test enforces only the **count** and the **ADR's
 presence**. It does not statically validate that each individual

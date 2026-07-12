@@ -33,13 +33,15 @@ use PHPUnit\Framework\TestCase;
 final class PublicServicesPolicyTest extends TestCase
 {
     /**
-     * Audited count of `public: true` overrides as of slice 25
-     * (REC #9c, ADR-028). Categories per ADR-028:
+     * Audited count of `public: true` overrides (REC #9c, ADR-028).
+     * Categories per ADR-028:
      *
-     * - Category 1 (Public LLM API surface): 13 concrete services
-     *   + 9 interface aliases = 22. Includes the concrete-only
+     * - Category 1 (Public LLM API surface): 14 concrete services
+     *   + 13 interface aliases = 27. Every Category-1 service has a
+     *   public interface alias except the concrete-only
      *   PromptSnippetComposer (ADR-031), the snippet composition
-     *   surface for consuming extensions.
+     *   surface for consuming extensions. Includes the
+     *   ToolCallingService feature pair (ADR-051).
      * - Category 2 (Specialized services): 4
      * - Category 3 (Repositories — required public for
      *   FunctionalTestCase::get(); PromptSnippetRepository is also
@@ -49,20 +51,20 @@ final class PublicServicesPolicyTest extends TestCase
      *   functional tests resolve them via FunctionalTestCase::get().
      * - Category 4 (SetupWizard collaborators): 3 concrete +
      *   1 interface alias = 4
-     * - Doctrine + provider wiring tail (services exposed for
-     *   LlmServiceManager / dashboard widget / analytics-module
-     *   resolution by class-name): 4. Includes
-     *   UsageAnalyticsService, public solely so the Analytics
-     *   functional test resolves it via FunctionalTestCase::get().
+     * - Class-name-resolution tail: 2 — UsageAnalyticsService
+     *   (public solely so the Analytics functional test resolves it
+     *   via FunctionalTestCase::get()) and ToolRegistry (public so
+     *   functional tests fetch registered tools by spec name,
+     *   ADR-042).
      *
-     * Total: 22 + 4 + 8 + 4 + 4 = **42**.
+     * Total: 27 + 4 + 8 + 4 + 2 = **45**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
      * `Documentation/Adr/Adr028PublicServicesPolicy.rst` in the
      * same PR — the diff is the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 43;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 45;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 
