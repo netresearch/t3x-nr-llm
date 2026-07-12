@@ -273,6 +273,67 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function trackUsageAttributesToExplicitBeUserUid(): void
+    {
+        $this->service->trackUsage(
+            'chat',
+            'openai',
+            ['tokens' => 10],
+            beUserUid: 42,
+        );
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $row = $connection->select(
+            ['be_user'],
+            self::TABLE,
+            ['service_type' => 'chat'],
+        )->fetchAssociative();
+
+        self::assertIsArray($row);
+        self::assertArrayHasKey('be_user', $row);
+        self::assertIsNumeric($row['be_user']);
+        self::assertSame(42, (int)$row['be_user']);
+    }
+
+    #[Test]
+    public function trackUsageFallsBackToAmbientContextWhenBeUserUidIsNull(): void
+    {
+        // The functional container has no authenticated backend user, so the
+        // ambient backend.user aspect resolves to 0 — the pre-existing default.
+        $this->service->trackUsage(
+            'chat',
+            'openai',
+            ['tokens' => 10],
+        );
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $row = $connection->select(
+            ['be_user'],
+            self::TABLE,
+            ['service_type' => 'chat'],
+        )->fetchAssociative();
+
+        self::assertIsArray($row);
+        self::assertArrayHasKey('be_user', $row);
+        self::assertIsNumeric($row['be_user']);
+        self::assertSame(0, (int)$row['be_user']);
+    }
+
+    #[Test]
+    public function trackUsageKeepsSeparateRecordsForDifferentBeUsers(): void
+    {
+        // be_user is part of the daily aggregation key — two users on the same
+        // provider/model/day must not merge into one row.
+        $this->service->trackUsage('chat', 'openai', ['tokens' => 10], beUserUid: 42);
+        $this->service->trackUsage('chat', 'openai', ['tokens' => 10], beUserUid: 43);
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $count = $connection->count('*', self::TABLE, ['service_type' => 'chat']);
+
+        self::assertSame(2, $count);
+    }
+
+    #[Test]
     public function trackUsageHandlesEmptyMetrics(): void
     {
         $this->service->trackUsage('test', 'provider', []);
