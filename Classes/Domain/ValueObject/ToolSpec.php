@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
-use InvalidArgumentException;
 use JsonSerializable;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use stdClass;
 
 /**

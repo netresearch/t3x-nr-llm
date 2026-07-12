@@ -14,4 +14,4 @@ use RuntimeException;
 /**
  * Exception thrown when access to an LLM configuration is denied.
  */
-class AccessDeniedException extends RuntimeException {}
+class AccessDeniedException extends RuntimeException implements NrLlmExceptionInterface {}
