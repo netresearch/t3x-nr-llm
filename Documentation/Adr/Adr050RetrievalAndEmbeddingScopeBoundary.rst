@@ -97,19 +97,22 @@ extension owns its *tools*.
 
 .. _adr-050-open:
 
-Open question (deferred, not decided)
-=====================================
+Decision (2026-07): no nr_llm-owned persistent index
+====================================================
 
-Whether **site-wide semantic** retrieval for backend/API consumers —
-semantic auto-linking, "related content" suggestions for editors — is
-primitive enough to justify a *minimal* nr_llm-owned vector store, or
-must always route through nr_ai_search, is left open. The rule above
-resolves the near cases (a small or dynamic candidate set is served by
-stateless embed-and-rank in nr_llm; a persistent site-wide semantic
-index is nr_ai_search). It does not settle whether a persistent
-nr_llm-owned index is ever warranted. Until that is decided, the
-**"no nr_llm-owned persistent index"** rule holds. nr_ai_search records
-the same open question from its side.
+The previously deferred question — whether **site-wide semantic**
+retrieval for backend/API consumers (semantic auto-linking, "related
+content" suggestions for editors, thematic matches for other extensions)
+is primitive enough to justify a *minimal* nr_llm-owned vector store — is
+now decided: **it is not.** nr_llm never owns a persistent vector store.
+Such retrieval always routes through ``nr_ai_search``, which owns the
+persistent semantic index and the pipeline that keeps it correct.
+nr_llm's contribution stays **stateless**: ``EmbeddingService`` embeds a
+string on demand, and a small or dynamic candidate set may be ranked in
+memory (embed-and-rank), but nothing is persisted or kept synchronised
+with content. A consumer that needs site-wide semantic answering installs
+``nr_ai_search`` on top of nr_llm. ``nr_ai_search`` records the same
+decision from its side in ADR-028.
 
 .. _adr-050-consequences:
 
