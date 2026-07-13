@@ -101,6 +101,9 @@ final class DomainLayerTest
                 Selector::inNamespace('Netresearch\NrLlm\Domain\ValueObject'),
                 // Value objects and service options
                 Selector::inNamespace('Netresearch\NrLlm\Service\Option'),
+                // Dependency-free domain exceptions — validation errors are
+                // catchable via NrLlmExceptionInterface (ADR-053)
+                Selector::inNamespace('Netresearch\NrLlm\Exception'),
                 // Extbase base classes (required for entity functionality)
                 Selector::inNamespace('TYPO3\CMS\Extbase\DomainObject'),
                 Selector::inNamespace('TYPO3\CMS\Extbase\Persistence'),
@@ -129,6 +132,9 @@ final class DomainLayerTest
                 // Vault identifier rules (single source of truth for what
                 // counts as a vault identifier — UUID v7 or name-style)
                 Selector::classname(IdentifierValidator::class),
+                // Dependency-free domain exceptions — validation errors are
+                // catchable via NrLlmExceptionInterface (ADR-053)
+                Selector::inNamespace('Netresearch\NrLlm\Exception'),
                 // Extbase infrastructure
                 Selector::inNamespace('TYPO3\CMS\Extbase\DomainObject'),
                 Selector::inNamespace('TYPO3\CMS\Extbase\Persistence'),

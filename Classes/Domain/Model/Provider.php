@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
-use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\DTO\ProviderOptions;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Netresearch\NrVault\Utility\IdentifierValidator;
 use Throwable;

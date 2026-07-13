@@ -60,12 +60,17 @@ arm, future-proof.
 Consequences
 ============
 
-- Remaining classes that import the global ``InvalidArgumentException``
-  for their own validation errors (response parsers, task readers,
-  backend response DTOs) are unchanged — they are not part of the
-  chat/embedding consumer surface. Migrating them onto
-  ``Exception\InvalidArgumentException`` is compatible follow-up work,
-  guarded by the same reflection test.
+- The remaining classes that imported the global
+  ``InvalidArgumentException`` for their own validation errors
+  (response parsers, task readers, backend response DTOs, value
+  objects) throw ``Exception\InvalidArgumentException`` now — the
+  compatible follow-up named here is done, guarded by the same
+  reflection test. One deliberate exception:
+  ``Service\Task\TaskInputResolver`` keeps the global import because it
+  only *catches* the exception around ``RecordTableReader::fetchAll()``
+  — narrowing that catch to the nr_llm subclass would miss a plain
+  ``\InvalidArgumentException`` raised by third-party code inside the
+  read path.
 - Catch-all remains opt-in: consumers that want to handle budget
   exhaustion differently from provider outages keep catching the
   concrete classes.

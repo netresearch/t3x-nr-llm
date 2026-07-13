@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Retrieval;
 
-use InvalidArgumentException;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
 /**
  * A validated retrieval request against the site-search backends (ADR-049).

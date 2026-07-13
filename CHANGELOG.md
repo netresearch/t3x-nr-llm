@@ -9,6 +9,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - The specialized translators forward the caller-supplied `beUserUid` to usage tracking: `TranslationService` re-attaches the resolved uid to the options array handed to `TranslatorInterface` implementations (`beUserUid` key — budget fields are deliberately excluded from `TranslationOptions::toArray()`), and `DeepLTranslator` / `LlmTranslator` pass it on to `trackUsage()`, so translator usage rows are attributed like the middleware-pipeline paths. The speech/image services (Whisper, TTS, DALL-E, FAL) keep ambient attribution — their option shapes carry no budget fields (ADR-052).
+- The remaining validation errors thrown with PHP's global `InvalidArgumentException` (record table reader, retrieval queries, vision content, embedding responses, provider response parsing, backend response DTOs, provider vault-key checks, usage analytics) now throw nr_llm's `Exception\InvalidArgumentException`, so they are catchable via `NrLlmExceptionInterface` too. Backwards compatible: the nr_llm class extends `\InvalidArgumentException`, existing catches keep matching (ADR-053).
 
 ## [0.17.0] - 2026-07-13
 
