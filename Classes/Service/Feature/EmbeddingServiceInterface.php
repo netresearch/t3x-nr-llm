@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 
@@ -45,6 +46,27 @@ interface EmbeddingServiceInterface
      * @return array<int, array<int, float>> Array of embedding vectors, indexed parallel to `$texts`
      */
     public function embedBatch(array $texts, ?EmbeddingOptions $options = null): array;
+
+    /**
+     * Generate embedding vector for a single text against a specific LLM
+     * configuration, so the configuration's provider/model drive the call
+     * and per-configuration budgets and cost attribution apply.
+     *
+     * @throws InvalidArgumentException when `$text` is empty
+     *
+     * @return array<int, float> Embedding vector
+     */
+    public function embedForConfiguration(string $text, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): array;
+
+    /**
+     * Generate embeddings for a batch of texts against a specific LLM
+     * configuration in a single provider call.
+     *
+     * @param array<int, string> $texts
+     *
+     * @return array<int, array<int, float>> Array of embedding vectors, indexed parallel to `$texts`
+     */
+    public function embedBatchForConfiguration(array $texts, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): array;
 
     /**
      * Cosine similarity between two vectors. Result is in `[-1, 1]`.

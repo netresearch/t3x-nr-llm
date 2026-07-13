@@ -63,6 +63,9 @@ CREATE TABLE tx_nrllm_model (
     context_length int(11) unsigned DEFAULT '0' NOT NULL,
     max_output_tokens int(11) unsigned DEFAULT '0' NOT NULL,
 
+    -- Embedding vector dimensionality (0 = unknown)
+    dimensions int(11) unsigned DEFAULT '0' NOT NULL,
+
     -- Capabilities (comma-separated: chat,completion,embeddings,vision,streaming,tools)
     capabilities varchar(255) DEFAULT '' NOT NULL,
 

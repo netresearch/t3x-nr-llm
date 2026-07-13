@@ -480,6 +480,13 @@
                 <source>Maximum output tokens per request (0 = unknown)</source>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_model.dimensions">
+                <source>Embedding Dimensions</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.dimensions.description">
+                <source>Embedding vector dimensionality of the model (0 = unknown)</source>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_model.capabilities">
                 <source>Capabilities</source>
             </trans-unit>

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
@@ -183,6 +184,107 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
         $result = $this->subject->embedBatch([]);
 
         self::assertSame([], $result);
+    }
+
+    #[Test]
+    public function embedForConfigurationDelegatesToManagerAndReturnsVector(): void
+    {
+        $config = self::createStub(LlmConfiguration::class);
+        $expectedVector = [0.1, 0.2, 0.3];
+
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('embedForConfiguration')
+            ->with(
+                'Some text',
+                self::identicalTo($config),
+                self::isInstanceOf(EmbeddingOptions::class),
+            )
+            ->willReturn($this->createMockEmbeddingResponse([$expectedVector]));
+
+        $subject = new EmbeddingService($llmManagerMock);
+        $result = $subject->embedForConfiguration('Some text', $config);
+
+        self::assertSame($expectedVector, $result);
+    }
+
+    #[Test]
+    public function embedForConfigurationThrowsOnEmptyText(): void
+    {
+        $config = self::createStub(LlmConfiguration::class);
+
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock->expects(self::never())->method('embedForConfiguration');
+
+        $subject = new EmbeddingService($llmManagerMock);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Text cannot be empty');
+
+        $subject->embedForConfiguration('', $config);
+    }
+
+    #[Test]
+    public function embedForConfigurationAutoPopulatesBeUserUidFromResolver(): void
+    {
+        $config = self::createStub(LlmConfiguration::class);
+
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->expects(self::once())
+            ->method('resolveBeUserUid')
+            ->willReturn(42);
+
+        $llmManagerMock->expects(self::once())
+            ->method('embedForConfiguration')
+            ->with(
+                'hello',
+                self::identicalTo($config),
+                self::callback(static fn(EmbeddingOptions $options): bool
+                    => $options->getBeUserUid() === 42),
+            )
+            ->willReturn($this->createMockEmbeddingResponse([[0.1]]));
+
+        $subject = new EmbeddingService($llmManagerMock, $resolver);
+        $subject->embedForConfiguration('hello', $config);
+    }
+
+    #[Test]
+    public function embedBatchForConfigurationDelegatesToManagerAndReturnsVectors(): void
+    {
+        $config = self::createStub(LlmConfiguration::class);
+        $texts = ['Text 1', 'Text 2'];
+        $vectors = [[0.1, 0.2], [0.3, 0.4]];
+
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('embedForConfiguration')
+            ->with(
+                $texts,
+                self::identicalTo($config),
+                self::isInstanceOf(EmbeddingOptions::class),
+            )
+            ->willReturn($this->createMockEmbeddingResponse($vectors));
+
+        $subject = new EmbeddingService($llmManagerMock);
+        $results = $subject->embedBatchForConfiguration($texts, $config);
+
+        self::assertSame($vectors, $results);
+    }
+
+    #[Test]
+    public function embedBatchForConfigurationReturnsEmptyArrayForEmptyInput(): void
+    {
+        $config = self::createStub(LlmConfiguration::class);
+
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock->expects(self::never())->method('embedForConfiguration');
+
+        $subject = new EmbeddingService($llmManagerMock);
+
+        self::assertSame([], $subject->embedBatchForConfiguration([], $config));
     }
 
     #[Test]

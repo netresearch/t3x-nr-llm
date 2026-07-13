@@ -52,7 +52,7 @@ return [
         ],
         'limits' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.model_limits',
-            'showitem' => 'context_length, max_output_tokens, --linebreak--, default_timeout',
+            'showitem' => 'context_length, max_output_tokens, dimensions, --linebreak--, default_timeout',
         ],
         'pricing' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.pricing',
@@ -145,6 +145,18 @@ return [
         'max_output_tokens' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.max_output_tokens',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.max_output_tokens.description',
+            'config' => [
+                'type' => 'number',
+                'size' => 15,
+                'range' => [
+                    'lower' => 0,
+                ],
+                'default' => 0,
+            ],
+        ],
+        'dimensions' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.dimensions',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.dimensions.description',
             'config' => [
                 'type' => 'number',
                 'size' => 15,
