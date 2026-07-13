@@ -50,6 +50,9 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
      * @param int      $modelUid         Model UID (0 when unknown / no DB model)
      * @param string   $modelId          Model identifier label (e.g. "gpt-4o"); '' when unknown
      * @param int      $taskUid          Task UID (0 when the call is not a task execution)
+     * @param int|null $beUserUid        Backend user to attribute the usage to; null falls
+     *                                   back to the ambient `backend.user` context aspect
+     *                                   (0 when no backend user is authenticated)
      */
     public function trackUsage(
         string $serviceType,
@@ -59,8 +62,9 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
         int $modelUid = 0,
         string $modelId = '',
         int $taskUid = 0,
+        ?int $beUserUid = null,
     ): void {
-        $beUser = $this->getCurrentBackendUserId();
+        $beUser = $beUserUid ?? $this->getCurrentBackendUserId();
         $today = strtotime('today');
         $now = time();
 

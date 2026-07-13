@@ -350,3 +350,4 @@ Tools
    Adr049RagSiteSearchTools
    Adr050RetrievalAndEmbeddingScopeBoundary
    Adr051ToolCallingFeatureService
+   Adr052UsageAttributionViaOptions

@@ -10,6 +10,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `ToolCallingService` / `ToolCallingServiceInterface` — the feature-service pair for tool-calling chat (`chatWithTools()`, `chatWithToolsForConfiguration()`), completing the narrow-interface catalogue so consumers no longer need to depend on the 19-method `LlmServiceManagerInterface` for tool calling (ADR-051).
 
+### Changed
+
+- Usage attribution honours the caller-supplied `beUserUid`: `UsageMiddleware` forwards the uid the options carry (`withBeUserUid()`, the same metadata the budget gate enforces against) to `UsageTrackerService`, instead of always reading the ambient `backend.user` aspect. Frontend/CLI callers that pass a uid no longer need to impersonate a technical backend user just to get correct `be_user` rows; without a caller uid the ambient fallback behaves as before. `UsageTrackerServiceInterface::trackUsage()` gains an optional trailing `?int $beUserUid = null` parameter — implementers outside this repo must add it (ADR-052).
+
 ## [0.16.1] - 2026-07-10
 
 ### Fixed

@@ -130,6 +130,15 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             ? $context->metadata[self::METADATA_TASK_UID]
             : 0;
 
+        // The caller-supplied attribution uid (options `withBeUserUid()`,
+        // forwarded by the manager as budget metadata). BudgetMiddleware reads
+        // the same key for enforcement; recording it here keeps enforcement and
+        // attribution consistent for callers that run outside a backend-user
+        // request context (frontend plugins, CLI workers).
+        $beUserUid = isset($context->metadata[BudgetMiddleware::METADATA_BE_USER_UID]) && is_int($context->metadata[BudgetMiddleware::METADATA_BE_USER_UID])
+            ? $context->metadata[BudgetMiddleware::METADATA_BE_USER_UID]
+            : null;
+
         $this->usageTracker->trackUsage(
             serviceType: $context->operation->value,
             provider: $provider !== '' ? $provider : 'unknown',
@@ -138,6 +147,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             modelUid: $modelUid,
             modelId: $modelId,
             taskUid: $taskUid,
+            beUserUid: $beUserUid,
         );
     }
 

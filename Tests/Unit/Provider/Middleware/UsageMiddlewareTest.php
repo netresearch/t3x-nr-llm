@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
@@ -412,6 +413,65 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: ProviderCallContext::for(ProviderOperation::Chat, [UsageMiddleware::METADATA_TASK_UID => 42]),
+            configuration: $this->configuration(),
+            terminal: static fn(LlmConfiguration $c): CompletionResponse => new CompletionResponse(
+                content: 'x',
+                model: 'm',
+                usage: new UsageStatistics(5, 5, 10),
+                provider: 'openai',
+            ),
+        );
+    }
+
+    #[Test]
+    public function recordsBeUserUidFromContextMetadata(): void
+    {
+        $this->tracker->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                ProviderOperation::Chat->value,
+                'openai',
+                ['tokens' => 10, 'promptTokens' => 5, 'completionTokens' => 5],
+                null,
+                0,
+                'm',
+                0,
+                99,
+            );
+
+        $this->pipeline()->run(
+            context: ProviderCallContext::for(ProviderOperation::Chat, [BudgetMiddleware::METADATA_BE_USER_UID => 99]),
+            configuration: $this->configuration(),
+            terminal: static fn(LlmConfiguration $c): CompletionResponse => new CompletionResponse(
+                content: 'x',
+                model: 'm',
+                usage: new UsageStatistics(5, 5, 10),
+                provider: 'openai',
+            ),
+        );
+    }
+
+    #[Test]
+    public function passesNullBeUserUidWhenMetadataAbsent(): void
+    {
+        // Null defers the attribution decision to the tracker's ambient
+        // backend.user fallback — the middleware must not coerce it to 0,
+        // which would silently re-attribute backend-module calls.
+        $this->tracker->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                ProviderOperation::Chat->value,
+                'openai',
+                ['tokens' => 10, 'promptTokens' => 5, 'completionTokens' => 5],
+                null,
+                0,
+                'm',
+                0,
+                null,
+            );
+
+        $this->pipeline()->run(
+            context: ProviderCallContext::for(ProviderOperation::Chat),
             configuration: $this->configuration(),
             terminal: static fn(LlmConfiguration $c): CompletionResponse => new CompletionResponse(
                 content: 'x',
