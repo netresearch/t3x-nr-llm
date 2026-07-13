@@ -16,9 +16,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `ChatMessage` models the two tool-loop turns as typed value objects: an assistant turn carrying `$toolCalls` (`list<ToolCall>`) and a tool turn carrying `$toolCallId`, built via the new `ChatMessage::assistantToolCalls()` / `ChatMessage::toolResult()` factories. `toArray()`/`jsonSerialize()` emit the OpenAI wire shape (`tool_calls` with JSON-string `function.arguments`, empty arguments as `{}`; `tool_call_id`), `fromArray()` accepts the keys back (including `content: null` alongside `tool_calls`), and invalid combinations — tool calls on a non-assistant role, a `tool_call_id` on a non-tool role, an empty id — are rejected with nr_llm's `InvalidArgumentException`. `ToolLoopService` builds its turns through the factories instead of raw wire arrays, and the tool-calling developer docs are rewritten on top of the value objects (ADR-054) (#345).
 - Configuration-record path for embeddings: `LlmServiceManager::embedForConfiguration()` and `EmbeddingService::embedForConfiguration()` / `embedBatchForConfiguration()` resolve the adapter from a DB-backed `LlmConfiguration` (vault key + model + pricing) and run through the middleware pipeline, so embedding consumers get per-configuration budgets and cost attribution like every chat-shaped capability. Per-call `EmbeddingOptions` override the configuration's stored defaults (an options `model` wins over the configuration's model id). Note: `LlmServiceManagerInterface` and `EmbeddingServiceInterface` gained these methods — implementers outside this repo must add them. New `dimensions` field on model records (`tx_nrllm_model`, 0 = unknown) so consumers can validate a persisted vector index against the configured model without a live calibration probe (ADR-055) (#346).
 
+- Reasoning toggle for hybrid-thinking models (Ollama `think`) (#341).
+
 ### Changed
 
 - Usage attribution honours the caller-supplied `beUserUid`: `UsageMiddleware` forwards the uid the options carry (`withBeUserUid()`, the same metadata the budget gate enforces against) to `UsageTrackerService`, instead of always reading the ambient `backend.user` aspect. Frontend/CLI callers that pass a uid no longer need to impersonate a technical backend user just to get correct `be_user` rows; without a caller uid the ambient fallback behaves as before. `UsageTrackerServiceInterface::trackUsage()` gains an optional trailing `?int $beUserUid = null` parameter — implementers outside this repo must add it (ADR-052).
+
+### Fixed
+
+- Ollama's native `message.thinking` is surfaced on completion responses (`CompletionResponse::$thinking` / `hasThinking()`) (#342).
 
 ## [0.16.1] - 2026-07-10
 
