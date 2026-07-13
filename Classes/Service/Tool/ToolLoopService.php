@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
-use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
@@ -25,7 +24,6 @@ use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Tool\Builtin\ResolvesActingBackendUserTrait;
 use Psr\Log\LoggerInterface;
-use stdClass;
 use Throwable;
 
 /**
@@ -34,8 +32,8 @@ use Throwable;
  * Each round calls {@see LlmServiceManagerInterface::chatWithToolsForConfiguration()}
  * (so the run uses the configuration's vault key, model, and pricing — the
  * provider-key path of `chatWithTools()` cannot reach those). When the model
- * answers with tool calls, they are executed in PHP, appended back as raw
- * assistant + tool turns, and the conversation is re-sent — bounded by a
+ * answers with tool calls, they are executed in PHP, appended back as typed
+ * {@see ChatMessage} assistant + tool turns, and the conversation is re-sent — bounded by a
  * configurable max-iteration cap.
  *
  * Failure handling is fail-soft so the admin always sees what ran:
@@ -189,15 +187,11 @@ final readonly class ToolLoopService
                     );
                 }
 
-                $messages[] = $this->assistantTurn($resp);
+                $messages[] = ChatMessage::assistantToolCalls($resp->toolCalls ?? [], $resp->content);
                 foreach ($resp->toolCalls ?? [] as $call) {
                     $tt0                = hrtime(true);
                     [$result, $isError] = $this->invoke($call, $allowedNames);
-                    $messages[]         = [
-                        'role'         => 'tool',
-                        'tool_call_id' => $call->id,
-                        'content'      => $result,
-                    ];
+                    $messages[]         = ChatMessage::toolResult($call->id, $result);
                     $trace[] = new ToolInvocation($call->name, $call->arguments, $result, $isError);
                     $runTrace?->recordToolExecution($iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $result, $isError);
                 }
@@ -305,37 +299,6 @@ final readonly class ToolLoopService
     private static function elapsedMs(int $startNs): float
     {
         return (hrtime(true) - $startNs) / 1_000_000;
-    }
-
-    /**
-     * Build the raw OpenAI-compatible assistant turn carrying the model's tool
-     * calls. Empty arguments serialise to `{}` (an object), never `[]`.
-     *
-     * @return array{
-     *     role: string,
-     *     content: string,
-     *     tool_calls: list<array{id: string, type: string, function: array{name: string, arguments: string}}>,
-     * }
-     */
-    private function assistantTurn(CompletionResponse $resp): array
-    {
-        $calls = array_map(
-            static fn(ToolCall $c): array => [
-                'id'       => $c->id,
-                'type'     => 'function',
-                'function' => [
-                    'name'      => $c->name,
-                    'arguments' => json_encode($c->arguments !== [] ? $c->arguments : new stdClass(), JSON_THROW_ON_ERROR),
-                ],
-            ],
-            $resp->toolCalls ?? [],
-        );
-
-        return [
-            'role'       => 'assistant',
-            'content'    => $resp->content,
-            'tool_calls' => $calls,
-        ];
     }
 
     /**

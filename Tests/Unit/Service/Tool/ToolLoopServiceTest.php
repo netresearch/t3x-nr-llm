@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
@@ -230,22 +231,27 @@ final class ToolLoopServiceTest extends TestCase
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
         $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), null);
 
-        // The second round must carry the appended assistant + tool turns.
+        // The second round must carry the appended assistant + tool turns as
+        // typed ChatMessage VOs whose wire form stays OpenAI-compatible.
         $round2    = self::arr($captured[1] ?? null);
-        $assistant = self::arr($round2[1] ?? null);
-        self::assertSame('assistant', $assistant['role'] ?? null);
+        $assistant = $round2[1] ?? null;
+        self::assertInstanceOf(ChatMessage::class, $assistant);
+        self::assertSame('assistant', $assistant->role);
 
-        $calls    = self::arr($assistant['tool_calls'] ?? null);
+        $wire     = $assistant->toArray();
+        $calls    = self::arr($wire['tool_calls'] ?? null);
         $function = self::arr(self::arr($calls[0] ?? null)['function'] ?? null);
         self::assertSame('call_1', self::arr($calls[0] ?? null)['id'] ?? null);
         self::assertSame('function', self::arr($calls[0] ?? null)['type'] ?? null);
         // Empty arguments MUST serialise to an object, not an array.
         self::assertSame('{}', $function['arguments'] ?? null);
 
-        $toolTurn = self::arr($round2[2] ?? null);
-        self::assertSame('tool', $toolTurn['role'] ?? null);
-        self::assertSame('call_1', $toolTurn['tool_call_id'] ?? null);
-        self::assertSame('LOGS', $toolTurn['content'] ?? null);
+        $toolTurn = $round2[2] ?? null;
+        self::assertInstanceOf(ChatMessage::class, $toolTurn);
+        self::assertSame('tool', $toolTurn->role);
+        self::assertSame('call_1', $toolTurn->toolCallId);
+        self::assertSame('LOGS', $toolTurn->content);
+        self::assertSame('call_1', $toolTurn->toArray()['tool_call_id'] ?? null);
     }
 
     #[Test]
