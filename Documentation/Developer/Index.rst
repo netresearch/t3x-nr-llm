@@ -237,5 +237,6 @@ Best practices
    ProviderRegistration
    FallbackChain
    CapabilityPermissions
+   ConfigurationPresets
    IntegrationGuide
    FeatureServices/Index

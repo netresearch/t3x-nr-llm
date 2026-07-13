@@ -10,6 +10,7 @@ declare(strict_types=1);
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
+use Netresearch\NrLlm\Controller\Backend\PresetController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
@@ -123,6 +124,18 @@ return [
     'nrllm_task_execute' => [
         'path' => '/nrllm/task/execute',
         'target' => TaskExecutionController::class . '::executeAction',
+    ],
+
+    // Configuration preset routes (ADR-056): pending presets declared by
+    // consuming extensions (GET, incl. preflight result per preset) and
+    // the admin-confirmed import of one preset by identifier (POST).
+    'nrllm_preset_list' => [
+        'path' => '/nrllm/preset/list',
+        'target' => PresetController::class . '::listPresetsAction',
+    ],
+    'nrllm_preset_import' => [
+        'path' => '/nrllm/preset/import',
+        'target' => PresetController::class . '::importAction',
     ],
 
     // Skill routes

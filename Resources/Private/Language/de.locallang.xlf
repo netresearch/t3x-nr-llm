@@ -2122,6 +2122,10 @@
                 <source>Cannot enable an orphaned skill</source>
                 <target>Ein verwaister Skill kann nicht aktiviert werden</target>
             </trans-unit>
+            <trans-unit id="error.preset.unknown">
+                <source>Unknown preset</source>
+                <target>Unbekanntes Preset</target>
+            </trans-unit>
             <trans-unit id="error.model.noModelUid">
                 <source>No model UID specified</source>
                 <target>Keine Modell-UID angegeben</target>
