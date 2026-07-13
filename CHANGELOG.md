@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-07-13
+
 ### Added
 
 - **Configuration presets**: consuming extensions declare the `LlmConfiguration` records they need via the `nr_llm.configuration_preset` DI tag (`ConfigurationPresetProviderInterface` + `ConfigurationPreset` value objects). Presets express requirements as `ModelSelectionCriteria` — never providers, models, or API keys — and a backend admin imports a pending preset with one confirmation through the new admin-gated AJAX endpoints `nrllm_preset_list` (pending presets incl. a per-preset preflight against the configured models) and `nrllm_preset_import`. Imported records are active criteria-mode configurations resolved at runtime by `ModelSelectionService`; the new `preset_checksum` column makes a changed declaration detectable (ADR-056) (#347).
