@@ -351,3 +351,4 @@ Tools
    Adr050RetrievalAndEmbeddingScopeBoundary
    Adr051ToolCallingFeatureService
    Adr052UsageAttributionViaOptions
+   Adr053ExceptionMarkerInterface

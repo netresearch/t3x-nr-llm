@@ -9,6 +9,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `ToolCallingService` / `ToolCallingServiceInterface` — the feature-service pair for tool-calling chat (`chatWithTools()`, `chatWithToolsForConfiguration()`), completing the narrow-interface catalogue so consumers no longer need to depend on the 19-method `LlmServiceManagerInterface` for tool calling (ADR-051).
+- `NrLlmExceptionInterface` — a marker interface implemented by every exception thrown on the public API surface, so consumers can write a single `catch (NrLlmExceptionInterface $e)` instead of enumerating concrete classes. `ChatMessage`/`ToolSpec`/`ToolCall::fromArray()` normalisation errors now throw nr_llm's `Exception\InvalidArgumentException` (a subclass of PHP's, so existing catches keep matching) and are covered by the marker too (ADR-053).
 
 ### Changed
 

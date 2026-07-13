@@ -6,6 +6,22 @@
 Exceptions
 ==========
 
+.. php:namespace:: Netresearch\NrLlm\Exception
+
+.. php:interface:: NrLlmExceptionInterface
+
+   Marker interface implemented by every exception this extension
+   throws on its public API surface — including the ``fromArray()``
+   normalisation errors of ``ChatMessage`` / ``ToolSpec`` /
+   ``ToolCall``. Catch this when any nr_llm failure should take the
+   same error path (:ref:`ADR-053 <adr-053>`)::
+
+      try {
+          $response = $this->llmManager->chatWithTools($messages, $tools);
+      } catch (NrLlmExceptionInterface $e) {
+          throw new MyDomainException($e->getMessage(), 0, $e);
+      }
+
 .. php:namespace:: Netresearch\NrLlm\Provider\Exception
 
 .. php:class:: ProviderException

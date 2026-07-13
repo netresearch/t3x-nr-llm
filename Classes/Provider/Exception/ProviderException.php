@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Exception;
 
+use Netresearch\NrLlm\Exception\NrLlmExceptionInterface;
 use RuntimeException;
 
-class ProviderException extends RuntimeException {}
+class ProviderException extends RuntimeException implements NrLlmExceptionInterface {}

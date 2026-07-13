@@ -20,7 +20,7 @@ use Throwable;
  * flash messages) can surface which bucket tripped, the current usage,
  * and the limit without re-running the check.
  */
-final class BudgetExceededException extends RuntimeException
+final class BudgetExceededException extends RuntimeException implements NrLlmExceptionInterface
 {
     public function __construct(
         public readonly BudgetCheckResult $result,
