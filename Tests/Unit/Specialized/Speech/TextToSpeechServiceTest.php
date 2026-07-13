@@ -360,6 +360,10 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
                 null,
                 0,
                 'tts-1',
+                0,
+                // Ambient attribution: SpeechSynthesisOptions carries no
+                // budget fields, so no caller uid reaches this path (ADR-052).
+                null,
             );
 
         $subject = $this->buildService(

@@ -42,7 +42,10 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
  * path (DeepL et al.) does NOT go through `LlmServiceManager`, so
  * the BudgetMiddleware does not currently apply there; ADR / future
  * slice can route specialized translators through a similar
- * pre-flight if needed.
+ * pre-flight if needed. Usage *attribution* on that path is wired,
+ * though: the resolved uid is re-attached to the translator options
+ * array (`beUserUid` key, see `attachBeUserUid()`) and the
+ * translators forward it to `trackUsage()` (ADR-052).
  */
 final readonly class TranslationService implements TranslationServiceInterface
 {
@@ -253,7 +256,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         ?TranslationOptions $options = null,
     ): TranslatorResult {
         $options ??= new TranslationOptions();
-        $optionsArray = $options->toArray();
+        $optionsArray = $this->attachBeUserUid($options->toArray(), $options);
 
         if (empty($text)) {
             throw new InvalidArgumentException('Text cannot be empty', 3459949413);
@@ -291,10 +294,34 @@ final readonly class TranslationService implements TranslationServiceInterface
         }
 
         $options ??= new TranslationOptions();
-        $optionsArray = $options->toArray();
+        $optionsArray = $this->attachBeUserUid($options->toArray(), $options);
         $translator = $this->resolveTranslator($optionsArray);
 
         return $translator->translateBatch($texts, $targetLanguage, $sourceLanguage, $optionsArray);
+    }
+
+    /**
+     * Re-attach the usage-attribution uid to a translator options array.
+     *
+     * `TranslationOptions::toArray()` deliberately excludes the budget
+     * fields (pipeline metadata, not wire payload), but the translator
+     * path bypasses the middleware pipeline, so without this key the
+     * caller-supplied uid would never reach the translators'
+     * `trackUsage()` calls (ADR-052). Translators read the key and must
+     * not send it to the remote API.
+     *
+     * @param array<string, mixed> $optionsArray
+     *
+     * @return array<string, mixed>
+     */
+    private function attachBeUserUid(array $optionsArray, TranslationOptions $options): array
+    {
+        $beUserUid = $this->resolveBeUserUid($options);
+        if ($beUserUid !== null) {
+            $optionsArray['beUserUid'] = $beUserUid;
+        }
+
+        return $optionsArray;
     }
 
     /**

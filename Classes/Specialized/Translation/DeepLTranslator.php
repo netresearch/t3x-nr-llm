@@ -124,7 +124,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $this->usageTracker->trackUsage('translation', 'deepl', [
             'characters' => mb_strlen($text),
-        ]);
+        ], beUserUid: $this->extractBeUserUid($options));
 
         return new TranslatorResult(
             translatedText: $translation['text'],
@@ -184,7 +184,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         $this->usageTracker->trackUsage('translation', 'deepl', [
             'characters' => $totalCharacters,
             'batch_size' => count($texts),
-        ]);
+        ], beUserUid: $this->extractBeUserUid($options));
 
         return $results;
     }
@@ -589,6 +589,20 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
     private function countBilledCharacters(string $text): int
     {
         return mb_strlen($text);
+    }
+
+    /**
+     * Extract the usage-attribution uid attached by `TranslationService`
+     * (`beUserUid` options key, ADR-052). Never part of the DeepL payload;
+     * null falls back to the tracker's ambient `backend.user` context.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function extractBeUserUid(array $options): ?int
+    {
+        $beUserUid = $options['beUserUid'] ?? null;
+
+        return is_int($beUserUid) ? $beUserUid : null;
     }
 
     /**

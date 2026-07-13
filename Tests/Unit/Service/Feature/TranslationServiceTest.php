@@ -1172,4 +1172,134 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $subject->scoreTranslationQuality('Hello', 'Hallo', 'de');
     }
+
+    // ==================== translator-path attribution tests (ADR-052) ====================
+
+    #[Test]
+    public function translateWithTranslatorAttachesBeUserUidToTranslatorOptions(): void
+    {
+        // Budget fields are excluded from TranslationOptions::toArray(),
+        // so the service re-attaches the uid as the `beUserUid` metadata
+        // key for the translator's trackUsage() call (ADR-052).
+        $translatorMock = $this->createMock(TranslatorInterface::class);
+        $translatorMock
+            ->expects(self::once())
+            ->method('translate')
+            ->with(
+                'Hello World',
+                'de',
+                'en',
+                self::callback(static fn(array $options): bool => ($options['beUserUid'] ?? null) === 42),
+            )
+            ->willReturn(new TranslatorResult(
+                translatedText: 'Hallo Welt',
+                sourceLanguage: 'en',
+                targetLanguage: 'de',
+                translator: 'llm:openai',
+            ));
+
+        $this->translatorRegistryMock
+            ->method('get')
+            ->willReturn($translatorMock);
+
+        $this->subject->translateWithTranslator(
+            'Hello World',
+            'de',
+            'en',
+            (new TranslationOptions())->withBeUserUid(42),
+        );
+    }
+
+    #[Test]
+    public function translateWithTranslatorAttachesResolverUidWhenOptionsCarryNone(): void
+    {
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->method('resolveBeUserUid')->willReturn(7);
+
+        $subject = new TranslationService(
+            $this->llmManagerStub,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+            $resolver,
+        );
+
+        $translatorMock = $this->createMock(TranslatorInterface::class);
+        $translatorMock
+            ->expects(self::once())
+            ->method('translate')
+            ->with(
+                'Hello World',
+                'de',
+                'en',
+                self::callback(static fn(array $options): bool => ($options['beUserUid'] ?? null) === 7),
+            )
+            ->willReturn(new TranslatorResult(
+                translatedText: 'Hallo Welt',
+                sourceLanguage: 'en',
+                targetLanguage: 'de',
+                translator: 'llm:openai',
+            ));
+
+        $this->translatorRegistryMock
+            ->method('get')
+            ->willReturn($translatorMock);
+
+        $subject->translateWithTranslator('Hello World', 'de', 'en');
+    }
+
+    #[Test]
+    public function translateWithTranslatorOmitsBeUserUidKeyWithoutUidSource(): void
+    {
+        // No options uid and no resolver: the key stays absent so the
+        // tracker's own ambient fallback applies.
+        $translatorMock = $this->createMock(TranslatorInterface::class);
+        $translatorMock
+            ->expects(self::once())
+            ->method('translate')
+            ->with(
+                'Hello World',
+                'de',
+                'en',
+                self::callback(static fn(array $options): bool => !array_key_exists('beUserUid', $options)),
+            )
+            ->willReturn(new TranslatorResult(
+                translatedText: 'Hallo Welt',
+                sourceLanguage: 'en',
+                targetLanguage: 'de',
+                translator: 'llm:openai',
+            ));
+
+        $this->translatorRegistryMock
+            ->method('get')
+            ->willReturn($translatorMock);
+
+        $this->subject->translateWithTranslator('Hello World', 'de', 'en');
+    }
+
+    #[Test]
+    public function translateBatchWithTranslatorAttachesBeUserUidToTranslatorOptions(): void
+    {
+        $translatorMock = $this->createMock(TranslatorInterface::class);
+        $translatorMock
+            ->expects(self::once())
+            ->method('translateBatch')
+            ->with(
+                ['Hello', 'World'],
+                'de',
+                'en',
+                self::callback(static fn(array $options): bool => ($options['beUserUid'] ?? null) === 42),
+            )
+            ->willReturn([]);
+
+        $this->translatorRegistryMock
+            ->method('get')
+            ->willReturn($translatorMock);
+
+        $this->subject->translateBatchWithTranslator(
+            ['Hello', 'World'],
+            'de',
+            'en',
+            (new TranslationOptions())->withBeUserUid(42),
+        );
+    }
 }

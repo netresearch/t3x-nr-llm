@@ -299,6 +299,12 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
                 'translation',
                 'deepl',
                 self::callback(fn(array $data) => $data['characters'] === mb_strlen($text)),
+                null,
+                0,
+                '',
+                0,
+                // Ambient fallback: no beUserUid option key was passed.
+                null,
             );
 
         $subject = new DeepLTranslator(
@@ -313,6 +319,95 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $subject->setHttpClient($httpClientStub);
 
         $subject->translate($text, 'de');
+    }
+
+    #[Test]
+    public function translateForwardsBeUserUidOptionToTracker(): void
+    {
+        // ADR-052: the `beUserUid` options key (attached by
+        // TranslationService) must reach the tracker for attribution.
+        $apiResponse = [
+            'translations' => [
+                ['text' => 'Hallo Welt', 'detected_source_language' => 'EN'],
+            ],
+        ];
+
+        $httpClientStub = self::createStub(ClientInterface::class);
+        $httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'translation',
+                'deepl',
+                self::anything(),
+                null,
+                0,
+                '',
+                0,
+                42,
+            );
+
+        $subject = new DeepLTranslator(
+            $this->createVaultServiceMock(),
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createExtensionConfigurationMock($this->defaultConfig),
+            $usageTrackerMock,
+            $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
+        );
+        $subject->setHttpClient($httpClientStub);
+
+        $subject->translate('Hello World', 'de', null, ['beUserUid' => 42]);
+    }
+
+    #[Test]
+    public function translateBatchForwardsBeUserUidOptionToTracker(): void
+    {
+        $apiResponse = [
+            'translations' => [
+                ['text' => 'Hallo', 'detected_source_language' => 'EN'],
+                ['text' => 'Welt', 'detected_source_language' => 'EN'],
+            ],
+        ];
+
+        $httpClientStub = self::createStub(ClientInterface::class);
+        $httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'translation',
+                'deepl',
+                self::anything(),
+                null,
+                0,
+                '',
+                0,
+                42,
+            );
+
+        $subject = new DeepLTranslator(
+            $this->createVaultServiceMock(),
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createExtensionConfigurationMock($this->defaultConfig),
+            $usageTrackerMock,
+            $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
+        );
+        $subject->setHttpClient($httpClientStub);
+
+        $subject->translateBatch(['Hello', 'World'], 'de', null, ['beUserUid' => 42]);
     }
 
     #[Test]

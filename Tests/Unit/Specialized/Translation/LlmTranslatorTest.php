@@ -186,6 +186,9 @@ class LlmTranslatorTest extends AbstractUnitTestCase
                 null,
                 0,
                 'gpt-5.2',
+                0,
+                // Ambient fallback: no beUserUid option key was passed.
+                null,
             );
 
         $subject = new LlmTranslator(
@@ -194,6 +197,36 @@ class LlmTranslatorTest extends AbstractUnitTestCase
         );
 
         $subject->translate('Test text', 'de', 'en', ['provider' => 'openai']);
+    }
+
+    #[Test]
+    public function translateForwardsBeUserUidOptionToTracker(): void
+    {
+        // ADR-052: the `beUserUid` options key (attached by
+        // TranslationService) must reach the tracker for attribution.
+        $this->setResponse('Translated text');
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'translation',
+                self::stringStartsWith('llm:'),
+                self::anything(),
+                null,
+                0,
+                'gpt-5.2',
+                0,
+                42,
+            );
+
+        $subject = new LlmTranslator(
+            $this->llmManager,
+            $usageTrackerMock,
+        );
+
+        $subject->translate('Test text', 'de', 'en', ['provider' => 'openai', 'beUserUid' => 42]);
     }
 
     #[Test]

@@ -457,6 +457,9 @@ final class DallEImageService extends AbstractSpecializedService
             $imageInput,
         );
 
+        // beUserUid stays ambient (null): ImageGenerationOptions carries no
+        // budget fields, so no caller-supplied uid reaches this path —
+        // ADR-052 keeps it ambient rather than growing new option surface.
         $this->usageTracker->trackUsage(
             'image',
             $this->getServiceProvider(),
