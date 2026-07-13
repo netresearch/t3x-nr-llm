@@ -786,10 +786,12 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      * documented shape. Richer provider-specific arrays carrying
      * `tool_call_id`, `tool_calls`, `name`, or multimodal `content` arrays
      * are passed through unchanged so their additional fields survive the
-     * round-trip — `ChatMessage` does not currently model those shapes and
-     * eagerly running them through `fromArray()` would silently drop the
-     * extra keys (and break `ClaudeProvider::convertMessagesForClaude()` for
-     * tool-result and multimodal messages).
+     * round-trip. `ChatMessage` models the tool-turn keys (`tool_calls`,
+     * `tool_call_id`) since #345 — typed tool turns pass through as VOs and
+     * serialise those fields in `toArray()` — but `name` and multimodal
+     * `content` arrays remain array-only shapes, and eagerly running them
+     * through `fromArray()` would silently drop the extra keys (and break
+     * `ClaudeProvider::convertMessagesForClaude()` for multimodal messages).
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      *

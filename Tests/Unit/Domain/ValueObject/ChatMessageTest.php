@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Enum\MessageRole;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Exception\InvalidArgumentException as NrLlmInvalidArgumentException;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -367,5 +369,233 @@ class ChatMessageTest extends AbstractUnitTestCase
             self::assertStringContainsString('assistant', $e->getMessage());
             self::assertStringContainsString('tool', $e->getMessage());
         }
+    }
+
+    // ──────────────────────────────────────────────
+    // Tool turns: assistantToolCalls / toolResult
+    // ──────────────────────────────────────────────
+
+    #[Test]
+    public function assistantToolCallsFactoryCreatesAssistantTurnWithToolCalls(): void
+    {
+        $call = new ToolCall('call_1', 'get_weather', ['location' => 'Leipzig']);
+
+        $message = ChatMessage::assistantToolCalls([$call], 'checking the weather');
+
+        self::assertSame('assistant', $message->role);
+        self::assertSame('checking the weather', $message->content);
+        self::assertSame([$call], $message->toolCalls);
+        self::assertNull($message->toolCallId);
+    }
+
+    #[Test]
+    public function assistantToolCallsFactoryDefaultsNullContentToEmptyString(): void
+    {
+        $message = ChatMessage::assistantToolCalls([new ToolCall('call_1', 'get_weather', [])]);
+
+        self::assertSame('', $message->content);
+    }
+
+    #[Test]
+    public function toolResultFactoryCreatesToolTurn(): void
+    {
+        $message = ChatMessage::toolResult('call_1', '{"temp": 20}');
+
+        self::assertSame('tool', $message->role);
+        self::assertSame('{"temp": 20}', $message->content);
+        self::assertSame('call_1', $message->toolCallId);
+        self::assertNull($message->toolCalls);
+    }
+
+    #[Test]
+    public function toolResultFactoryRejectsEmptyToolCallId(): void
+    {
+        $this->expectException(NrLlmInvalidArgumentException::class);
+        $this->expectExceptionCode(1752400005);
+
+        ChatMessage::toolResult('', 'result');
+    }
+
+    #[Test]
+    public function constructorRejectsToolCallsOnNonAssistantRole(): void
+    {
+        $this->expectException(NrLlmInvalidArgumentException::class);
+        $this->expectExceptionCode(1752400001);
+
+        new ChatMessage('user', 'content', [new ToolCall('call_1', 'get_weather', [])]);
+    }
+
+    #[Test]
+    public function constructorRejectsEmptyToolCallsList(): void
+    {
+        $this->expectException(NrLlmInvalidArgumentException::class);
+        $this->expectExceptionCode(1752400002);
+
+        new ChatMessage('assistant', 'content', []);
+    }
+
+    #[Test]
+    public function constructorRejectsNonToolCallElements(): void
+    {
+        $this->expectException(NrLlmInvalidArgumentException::class);
+        $this->expectExceptionCode(1752400003);
+
+        new ChatMessage('assistant', 'content', [['id' => 'call_1']]);
+    }
+
+    #[Test]
+    public function constructorRejectsToolCallIdOnNonToolRole(): void
+    {
+        $this->expectException(NrLlmInvalidArgumentException::class);
+        $this->expectExceptionCode(1752400004);
+
+        new ChatMessage('assistant', 'content', null, 'call_1');
+    }
+
+    // ──────────────────────────────────────────────
+    // Tool turns: wire shape (toArray / jsonSerialize)
+    // ──────────────────────────────────────────────
+
+    #[Test]
+    public function toArrayEmitsOpenAiWireShapeForAssistantToolCalls(): void
+    {
+        $message = ChatMessage::assistantToolCalls(
+            [new ToolCall('call_1', 'get_weather', ['location' => 'Leipzig'])],
+            'looking it up',
+        );
+
+        self::assertSame([
+            'role' => 'assistant',
+            'content' => 'looking it up',
+            'tool_calls' => [
+                [
+                    'id' => 'call_1',
+                    'type' => 'function',
+                    'function' => [
+                        'name' => 'get_weather',
+                        'arguments' => '{"location":"Leipzig"}',
+                    ],
+                ],
+            ],
+        ], $message->toArray());
+    }
+
+    #[Test]
+    public function toArrayEncodesEmptyArgumentsAsJsonObjectNotArray(): void
+    {
+        $message = ChatMessage::assistantToolCalls([new ToolCall('call_1', 'ping', [])]);
+
+        $array = $message->toArray();
+        $calls = $array['tool_calls'] ?? [];
+        assert(isset($calls[0]['function']['arguments']));
+
+        self::assertSame('{}', $calls[0]['function']['arguments']);
+    }
+
+    #[Test]
+    public function toArrayEmitsToolCallIdForToolResult(): void
+    {
+        $message = ChatMessage::toolResult('call_1', 'LOGS');
+
+        self::assertSame([
+            'role' => 'tool',
+            'content' => 'LOGS',
+            'tool_call_id' => 'call_1',
+        ], $message->toArray());
+    }
+
+    #[Test]
+    public function jsonSerializeFollowsToArrayForToolTurns(): void
+    {
+        $assistant = ChatMessage::assistantToolCalls([new ToolCall('call_1', 'ping', [])]);
+        $tool = ChatMessage::toolResult('call_1', 'pong');
+
+        self::assertSame($assistant->toArray(), $assistant->jsonSerialize());
+        self::assertSame($tool->toArray(), $tool->jsonSerialize());
+    }
+
+    // ──────────────────────────────────────────────
+    // Tool turns: fromArray round-trips
+    // ──────────────────────────────────────────────
+
+    #[Test]
+    public function fromArrayRoundTripsAssistantToolCallsWireShape(): void
+    {
+        $original = ChatMessage::assistantToolCalls(
+            [new ToolCall('call_1', 'get_weather', ['location' => 'Leipzig'])],
+            'looking it up',
+        );
+
+        $rebuilt = ChatMessage::fromArray($original->toArray());
+
+        self::assertSame($original->toArray(), $rebuilt->toArray());
+        self::assertNotNull($rebuilt->toolCalls);
+        self::assertSame('get_weather', $rebuilt->toolCalls[0]->name);
+        // ToolCall::fromArray() decodes the JSON-string arguments back to a map.
+        self::assertSame(['location' => 'Leipzig'], $rebuilt->toolCalls[0]->arguments);
+    }
+
+    #[Test]
+    public function fromArrayRoundTripsToolResultWireShape(): void
+    {
+        $original = ChatMessage::toolResult('call_1', 'LOGS');
+
+        $rebuilt = ChatMessage::fromArray($original->toArray());
+
+        self::assertSame($original->toArray(), $rebuilt->toArray());
+        self::assertSame('call_1', $rebuilt->toolCallId);
+    }
+
+    #[Test]
+    public function fromArrayAcceptsNullContentAlongsideToolCalls(): void
+    {
+        // Providers send `content: null` on assistant tool-call turns.
+        $message = ChatMessage::fromArray([
+            'role' => 'assistant',
+            'content' => null,
+            'tool_calls' => [
+                ['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'ping', 'arguments' => '{}']],
+            ],
+        ]);
+
+        self::assertSame('', $message->content);
+        self::assertNotNull($message->toolCalls);
+        self::assertSame('ping', $message->toolCalls[0]->name);
+    }
+
+    #[Test]
+    public function fromArrayRejectsNonArrayToolCalls(): void
+    {
+        $this->expectException(NrLlmInvalidArgumentException::class);
+        $this->expectExceptionCode(1752400006);
+
+        ChatMessage::fromArray(['role' => 'assistant', 'content' => '', 'tool_calls' => 'nope']);
+    }
+
+    #[Test]
+    public function fromArrayRejectsNonArrayToolCallElement(): void
+    {
+        $this->expectException(NrLlmInvalidArgumentException::class);
+        $this->expectExceptionCode(1752400007);
+
+        ChatMessage::fromArray(['role' => 'assistant', 'content' => '', 'tool_calls' => ['nope']]);
+    }
+
+    #[Test]
+    public function fromArrayRejectsNonStringToolCallId(): void
+    {
+        $this->expectException(NrLlmInvalidArgumentException::class);
+        $this->expectExceptionCode(1752400008);
+
+        ChatMessage::fromArray(['role' => 'tool', 'content' => 'x', 'tool_call_id' => 123]);
+    }
+
+    #[Test]
+    public function fromArrayStillRejectsNullContentWithoutToolCalls(): void
+    {
+        $this->expectException(NrLlmInvalidArgumentException::class);
+        $this->expectExceptionCode(1736502003);
+
+        ChatMessage::fromArray(['role' => 'user', 'content' => null]);
     }
 }

@@ -352,3 +352,4 @@ Tools
    Adr051ToolCallingFeatureService
    Adr052UsageAttributionViaOptions
    Adr053ExceptionMarkerInterface
+   Adr054TypedToolTurnMessages

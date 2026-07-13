@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
@@ -576,6 +578,94 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         $result = $this->subject->chatCompletionWithTools($messages, $tools, ['tool_choice' => 'auto']);
 
         self::assertInstanceOf(CompletionResponse::class, $result);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsSendsTypedToolTurnsOnTheWire(): void
+    {
+        // Transport-path proof for #345: an assistantToolCalls + toolResult
+        // ChatMessage pair must reach the HTTP payload intact — nothing between
+        // the public API and the request body may flatten them to role+content.
+        $captured = null;
+        $streamFactory = self::createStub(StreamFactoryInterface::class);
+        $streamFactory->method('createStream')->willReturnCallback(
+            function (string $content) use (&$captured): StreamInterface {
+                $captured = $content;
+                $stream = self::createStub(StreamInterface::class);
+                $stream->method('__toString')->willReturn($content);
+                $stream->method('getContents')->willReturn($content);
+
+                return $stream;
+            },
+        );
+
+        $subject = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $streamFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-4o',
+            'baseUrl' => '',
+            'timeout' => 30,
+        ]);
+
+        $httpClientStub = $this->createHttpClientMock();
+        $httpClientStub->method('sendRequest')->willReturn($this->createJsonResponseMock([
+            'id' => 'chatcmpl-test',
+            'choices' => [['message' => ['content' => 'Sunny, 20 °C.'], 'finish_reason' => 'stop']],
+            'model' => 'gpt-4o',
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+        ]));
+        $subject->setHttpClient($httpClientStub);
+
+        $messages = [
+            ChatMessage::user('What is the weather in Leipzig?'),
+            ChatMessage::assistantToolCalls([new ToolCall('call_1', 'get_weather', ['location' => 'Leipzig'])]),
+            ChatMessage::toolResult('call_1', '{"temp": 20}'),
+        ];
+        $tools = [
+            ToolSpec::fromArray([
+                'type' => 'function',
+                'function' => ['name' => 'get_weather', 'parameters' => ['type' => 'object', 'properties' => []]],
+            ]),
+        ];
+
+        $subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertIsString($captured);
+        $payload = json_decode($captured, true);
+        self::assertIsArray($payload);
+        assert(isset($payload['messages']));
+
+        self::assertSame([
+            [
+                'role' => 'user',
+                'content' => 'What is the weather in Leipzig?',
+            ],
+            [
+                'role' => 'assistant',
+                'content' => '',
+                'tool_calls' => [
+                    [
+                        'id' => 'call_1',
+                        'type' => 'function',
+                        'function' => [
+                            'name' => 'get_weather',
+                            'arguments' => '{"location":"Leipzig"}',
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'role' => 'tool',
+                'content' => '{"temp": 20}',
+                'tool_call_id' => 'call_1',
+            ],
+        ], $payload['messages']);
     }
 
     #[Test]

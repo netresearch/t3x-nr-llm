@@ -51,36 +51,39 @@ Defining tools
 Executing tool calls
 ====================
 
+:php:`CompletionResponse::$toolCalls` is a list of
+:php:`Netresearch\NrLlm\Domain\ValueObject\ToolCall` value objects —
+:php:`$toolCall->arguments` is already a JSON-decoded associative array,
+so no manual :php:`json_decode()` is needed. The two follow-up turns are
+built with the :php:`ChatMessage` factories:
+:php:`ChatMessage::assistantToolCalls()` echoes the assistant turn that
+carries the tool calls, and :php:`ChatMessage::toolResult()` answers one
+call by its id.
+
 .. code-block:: php
    :caption: Example: Handling tool call responses
+
+   use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 
    $response = $this->llmManager->chatWithTools($messages, $tools);
 
    if ($response->hasToolCalls()) {
-       foreach ($response->toolCalls as $toolCall) {
-           $functionName = $toolCall['function']['name'];
-           $arguments = json_decode($toolCall['function']['arguments'], true);
+       // Echo the assistant turn (with all its tool calls) back first
+       $messages[] = ChatMessage::assistantToolCalls($response->toolCalls, $response->content);
 
-           // Execute your function
-           $result = match ($functionName) {
-               'get_weather' => $this->getWeather($arguments['location']),
-               default => throw new \RuntimeException("Unknown function: {$functionName}"),
+       foreach ($response->toolCalls as $toolCall) {
+           // Execute your function — $toolCall->arguments is a decoded array
+           $result = match ($toolCall->name) {
+               'get_weather' => $this->getWeather($toolCall->arguments['location']),
+               default => throw new \RuntimeException("Unknown function: {$toolCall->name}"),
            };
 
-           // Continue conversation with result
-           $messages[] = [
-               'role' => 'assistant',
-               'content' => null,
-               'tool_calls' => [$toolCall],
-           ];
-           $messages[] = [
-               'role' => 'tool',
-               'tool_call_id' => $toolCall['id'],
-               'content' => json_encode($result),
-           ];
-
-           $response = $this->llmManager->chat($messages);
+           // Answer the call by its id
+           $messages[] = ChatMessage::toolResult($toolCall->id, json_encode($result, JSON_THROW_ON_ERROR));
        }
+
+       // Ask the model to answer with the tool results in context
+       $response = $this->llmManager->chat($messages);
    }
 
 Providers that implement :php:interface:`ToolCapableInterface` support
