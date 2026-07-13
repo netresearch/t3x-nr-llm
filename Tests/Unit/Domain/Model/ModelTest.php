@@ -247,6 +247,38 @@ final class ModelTest extends TestCase
         ], $model->getCapabilitiesAsEnums());
     }
 
+    // ========================================
+    // Dimensions tests
+    // ========================================
+
+    #[Test]
+    public function getDimensionsDefaultsToZeroMeaningUnknown(): void
+    {
+        $model = new Model();
+
+        self::assertSame(0, $model->getDimensions());
+    }
+
+    #[Test]
+    public function setDimensionsSetsValue(): void
+    {
+        $model = new Model();
+        $model->setDimensions(1536);
+
+        self::assertSame(1536, $model->getDimensions());
+    }
+
+    #[Test]
+    public function setDimensionsClampsNegativeValuesToZero(): void
+    {
+        // Mirrors setContextLength()'s clamp — a negative dimensionality
+        // is meaningless, 0 is the documented "unknown" marker.
+        $model = new Model();
+        $model->setDimensions(-5);
+
+        self::assertSame(0, $model->getDimensions());
+    }
+
     #[Test]
     public function getCapabilitySetDeduplicatesPersistedDuplicates(): void
     {

@@ -549,6 +549,95 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
+     * Generate embeddings against a specific LLM configuration.
+     *
+     * Mirrors {@see self::chatWithToolsForConfiguration()} — resolves the
+     * adapter via {@see self::getAdapterFromConfiguration()} (so the
+     * configuration's vault key + model + params drive the call) and runs
+     * through the middleware pipeline (so Budget/Usage see the real Model and
+     * record real cost) — but guards the `embeddings` feature the same way
+     * {@see self::embed()} does and dispatches `embeddings()`.
+     *
+     * This closes the gap where embedding consumers that persist vectors had
+     * to duplicate provider/model settings into their own extension
+     * configuration: the DB-backed configuration now carries them, and the
+     * per-call {@see EmbeddingOptions} take precedence over the
+     * configuration's stored defaults (an options `model` overrides the
+     * configuration's model id), matching `chatWithConfiguration()`'s
+     * override semantics.
+     *
+     * Caching mirrors {@see self::embed()}: a positive `cache_ttl` puts a
+     * cache key on the call context so `CacheMiddleware` can short-circuit.
+     * The key is derived from the configuration identifier plus the
+     * *effective* model (options override or the configuration's model id),
+     * so two configurations pointing at different models never share entries.
+     *
+     * @param string|array<int, string> $input
+     */
+    public function embedForConfiguration(string|array $input, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): EmbeddingResponse
+    {
+        $options ??= new EmbeddingOptions();
+        $optionOverrides = $options->toArray();
+        unset($optionOverrides['provider']);
+
+        $metadata = $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost());
+
+        // Cache metadata: CacheMiddleware short-circuits when it sees a key;
+        // cache_ttl: 0 (EmbeddingOptions::noCache()) leaves the key out so
+        // the middleware becomes a no-op for this call — same contract as
+        // embed().
+        $cacheTtl = is_int($optionOverrides['cache_ttl'] ?? null) ? $optionOverrides['cache_ttl'] : 0;
+        if ($cacheTtl > 0) {
+            $effectiveModel = is_string($optionOverrides['model'] ?? null)
+                ? $optionOverrides['model']
+                : $configuration->getModelId();
+            $metadata += [
+                CacheMiddleware::METADATA_CACHE_KEY => $this->cacheManager->generateCacheKey(
+                    $configuration->getIdentifier(),
+                    'embeddings',
+                    ['input' => $input, 'options' => $optionOverrides, 'model' => $effectiveModel],
+                ),
+                CacheMiddleware::METADATA_CACHE_TTL  => $cacheTtl,
+                CacheMiddleware::METADATA_CACHE_TAGS => [
+                    'nrllm_embeddings',
+                    'nrllm_configuration_' . $configuration->getIdentifier(),
+                ],
+            ];
+        }
+
+        // Terminal returns an array-shaped payload so CacheMiddleware (which
+        // persists `array<string, mixed>`) can round-trip through the TYPO3
+        // cache frontend. The typed response is reconstructed at this layer.
+        $raw = $this->pipeline->run(
+            ProviderCallContext::for(ProviderOperation::Embedding, $metadata),
+            $configuration,
+            function (LlmConfiguration $config) use ($input, $optionOverrides): array {
+                $adapter = $this->getAdapterFromConfiguration($config);
+                if (!$adapter->supportsFeature('embeddings')) {
+                    throw new UnsupportedFeatureException(
+                        sprintf('Provider "%s" does not support embeddings', $adapter->getIdentifier()),
+                        7093846251,
+                    );
+                }
+
+                $callOptions = array_merge($config->toOptionsArray(), $optionOverrides);
+                unset($callOptions['provider']);
+
+                return $adapter->embeddings($input, $callOptions)->toArray();
+            },
+        );
+
+        if (!is_array($raw)) {
+            throw new ProviderException(
+                'Embedding pipeline returned non-array payload — expected array<string, mixed>',
+                6482915370,
+            );
+        }
+
+        return EmbeddingResponse::fromArray($raw);
+    }
+
+    /**
      * Check if a specific feature is supported by a provider.
      */
     public function supportsFeature(string $feature, ?string $provider = null): bool

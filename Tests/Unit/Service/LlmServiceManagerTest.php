@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service;
 
 use Exception;
 use Generator;
+use Netresearch\NrLlm\Domain\DTO\FallbackChain;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
@@ -738,6 +739,203 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $result = $manager->completeWithConfiguration('Test prompt', $config);
 
         self::assertSame($expectedResponse, $result);
+    }
+
+    #[Test]
+    public function embedForConfigurationUsesAdapterWithConfigurationModel(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('embed-config');
+        $config->method('getModelId')->willReturn('text-embedding-3-small');
+        $config->method('toOptionsArray')->willReturn(['model' => 'text-embedding-3-small', 'provider' => 'openai']);
+
+        $providerResponse = new EmbeddingResponse(
+            embeddings: [[0.1, 0.2, 0.3]],
+            model: 'text-embedding-3-small',
+            usage: new UsageStatistics(5, 0, 5),
+            provider: 'openai',
+        );
+
+        $capturedOptions = [];
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->method('supportsFeature')->willReturnCallback(
+            static fn(string $feature): bool => $feature === 'embeddings',
+        );
+        $mockAdapter->expects(self::once())
+            ->method('embeddings')
+            ->willReturnCallback(
+                function (string|array $input, array $options) use (&$capturedOptions, $providerResponse): EmbeddingResponse {
+                    self::assertSame('Some text', $input);
+                    $capturedOptions = $options;
+                    return $providerResponse;
+                },
+            );
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $result = $manager->embedForConfiguration('Some text', $config);
+
+        // Typed response is reconstructed from the array-shaped pipeline
+        // payload (cache round-trip contract) — compare values, not identity.
+        self::assertSame([[0.1, 0.2, 0.3]], $result->embeddings);
+        self::assertSame('text-embedding-3-small', $result->model);
+        // Configuration's model drives the call when the options carry none;
+        // the provider key is stripped before dispatch.
+        self::assertSame('text-embedding-3-small', $capturedOptions['model']);
+        self::assertArrayNotHasKey('provider', $capturedOptions);
+    }
+
+    #[Test]
+    public function embedForConfigurationHonoursOptionsModelOverride(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('embed-config');
+        $config->method('getModelId')->willReturn('config-model');
+        $config->method('toOptionsArray')->willReturn(['model' => 'config-model']);
+
+        $capturedOptions = [];
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->method('supportsFeature')->willReturnCallback(
+            static fn(string $feature): bool => $feature === 'embeddings',
+        );
+        $mockAdapter->method('embeddings')->willReturnCallback(
+            function (string|array $input, array $options) use (&$capturedOptions): EmbeddingResponse {
+                $capturedOptions = $options;
+                return new EmbeddingResponse(
+                    embeddings: [[0.4]],
+                    model: 'override-model',
+                    usage: new UsageStatistics(1, 0, 1),
+                    provider: 'openai',
+                );
+            },
+        );
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->embedForConfiguration('text', $config, (new EmbeddingOptions())->withModel('override-model'));
+
+        // Per-call options win over the configuration's stored model id.
+        self::assertSame('override-model', $capturedOptions['model']);
+    }
+
+    #[Test]
+    public function embedForConfigurationThrowsWhenEmbeddingsUnsupported(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('chat-only-config');
+        $config->method('toOptionsArray')->willReturn([]);
+
+        $mockAdapter = self::createStub(ProviderInterface::class);
+        $mockAdapter->method('supportsFeature')->willReturn(false);
+        $mockAdapter->method('getIdentifier')->willReturn('chat-only');
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $this->expectException(UnsupportedFeatureException::class);
+        $this->expectExceptionMessage('Provider "chat-only" does not support embeddings');
+
+        $manager->embedForConfiguration('text', $config);
+    }
+
+    #[Test]
+    public function embedForConfigurationPlumbsBudgetAndCacheMetadata(): void
+    {
+        $spy = new RecordingMiddleware();
+        $manager = $this->buildManagerForEmbedConfiguration([$spy]);
+        $config = $this->buildEmbeddingConfigurationStub();
+
+        $options = (new EmbeddingOptions())
+            ->withBeUserUid(7)
+            ->withPlannedCost(0.42);
+
+        $manager->embedForConfiguration('hello', $config, $options);
+
+        self::assertCount(1, $spy->calls);
+        self::assertSame(ProviderOperation::Embedding, $spy->calls[0]['operation']);
+        // The pipeline sees the real configuration, not an ad-hoc transient.
+        self::assertSame('embed-config', $spy->calls[0]['identifier']);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertSame(7, $metadata[BudgetMiddleware::METADATA_BE_USER_UID]);
+        self::assertSame(0.42, $metadata[BudgetMiddleware::METADATA_PLANNED_COST]);
+        // EmbeddingOptions defaults to cacheTtl = 86400, so cache metadata
+        // coexists with the budget keys.
+        self::assertArrayHasKey(CacheMiddleware::METADATA_CACHE_KEY, $metadata);
+        self::assertSame(86400, $metadata[CacheMiddleware::METADATA_CACHE_TTL]);
+    }
+
+    #[Test]
+    public function embedForConfigurationOmitsCacheMetadataWhenTtlZero(): void
+    {
+        $spy = new RecordingMiddleware();
+        $manager = $this->buildManagerForEmbedConfiguration([$spy]);
+        $config = $this->buildEmbeddingConfigurationStub();
+
+        $manager->embedForConfiguration('hello', $config, EmbeddingOptions::noCache());
+
+        self::assertCount(1, $spy->calls);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertArrayNotHasKey(CacheMiddleware::METADATA_CACHE_KEY, $metadata);
+        self::assertArrayNotHasKey(BudgetMiddleware::METADATA_BE_USER_UID, $metadata);
+    }
+
+    /**
+     * Build a manager whose registry resolves an embeddings-capable adapter,
+     * wrapped in the given middleware stack — for embedForConfiguration()
+     * metadata-plumbing assertions.
+     *
+     * @param list<ProviderMiddlewareInterface> $middleware
+     */
+    private function buildManagerForEmbedConfiguration(array $middleware): LlmServiceManager
+    {
+        $adapter = self::createStub(ProviderInterface::class);
+        $adapter->method('supportsFeature')->willReturn(true);
+        $adapter->method('embeddings')->willReturn(new EmbeddingResponse(
+            embeddings: [[0.1, 0.2]],
+            model: 'text-embedding-3-small',
+            usage: new UsageStatistics(1, 0, 1),
+            provider: 'openai',
+        ));
+
+        $registry = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registry->method('createAdapterFromModel')->willReturn($adapter);
+
+        return new LlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registry,
+            new MiddlewarePipeline($middleware),
+            self::createStub(CacheManagerInterface::class),
+        );
+    }
+
+    private function buildEmbeddingConfigurationStub(): LlmConfiguration
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('embed-config');
+        $config->method('getModelId')->willReturn('text-embedding-3-small');
+        $config->method('toOptionsArray')->willReturn(['model' => 'text-embedding-3-small']);
+        // FallbackChain is final (not doubleable): RecordingMiddleware reads
+        // getFallbackChainDTO(), so the stub must return a real instance.
+        $config->method('getFallbackChainDTO')->willReturn(FallbackChain::fromArray([]));
+
+        return $config;
     }
 
     #[Test]

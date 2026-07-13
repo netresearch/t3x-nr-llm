@@ -106,6 +106,21 @@ interface LlmServiceManagerInterface
     public function embed(string|array $input, ?EmbeddingOptions $options = null): EmbeddingResponse;
 
     /**
+     * Generate embeddings against a specific LLM configuration.
+     *
+     * Unlike {@see self::embed()} — which resolves a provider from
+     * ExtensionConfiguration against a model-less transient configuration —
+     * this entry point resolves the adapter from the configuration's model
+     * (vault key + model + pricing) so the middleware pipeline records real
+     * cost and budget. The per-call {@see EmbeddingOptions} take precedence
+     * over the configuration's stored defaults: an options `model` overrides
+     * the configuration's model id.
+     *
+     * @param string|array<int, string> $input
+     */
+    public function embedForConfiguration(string|array $input, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): EmbeddingResponse;
+
+    /**
      * Legacy array-shaped vision-content fixtures are accepted for
      * back-compat and normalised via `VisionContent::fromArray()`
      * before dispatch.

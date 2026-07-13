@@ -36,6 +36,29 @@ EmbeddingService
       :param ?EmbeddingOptions $options: Optional config
       :returns: array<array<float>> Array of vectors
 
+   .. php:method:: embedForConfiguration(string $text, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): array
+
+      Generate embedding vector for text against a specific LLM
+      configuration, so the configuration's provider/model drive the
+      call and per-configuration budgets and cost attribution apply.
+
+      :param string $text: The text to embed
+      :param LlmConfiguration $configuration: The
+         configuration record to resolve provider/model from
+      :param ?EmbeddingOptions $options: Optional config
+      :returns: array<float> Vector representation
+
+   .. php:method:: embedBatchForConfiguration(array $texts, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): array
+
+      Generate embeddings for multiple texts against a specific LLM
+      configuration in a single provider call.
+
+      :param array $texts: Array of texts
+      :param LlmConfiguration $configuration: The
+         configuration record to resolve provider/model from
+      :param ?EmbeddingOptions $options: Optional config
+      :returns: array<array<float>> Array of vectors
+
    .. php:method:: cosineSimilarity(array $a, array $b): float
 
       Calculate cosine similarity between two vectors.

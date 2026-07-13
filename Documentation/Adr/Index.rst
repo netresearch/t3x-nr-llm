@@ -353,3 +353,4 @@ Tools
    Adr052UsageAttributionViaOptions
    Adr053ExceptionMarkerInterface
    Adr054TypedToolTurnMessages
+   Adr055EmbeddingConfigurationPath

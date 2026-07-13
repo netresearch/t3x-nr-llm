@@ -28,6 +28,9 @@ class Model extends AbstractEntity
     protected string $modelId = '';
     protected int $contextLength = 0;
     protected int $maxOutputTokens = 0;
+
+    /** Embedding vector dimensionality of the model (0 = unknown). */
+    protected int $dimensions = 0;
     protected string $capabilities = '';
     protected int $defaultTimeout = 120;
     protected int $costInput = 0;
@@ -74,6 +77,14 @@ class Model extends AbstractEntity
     public function getMaxOutputTokens(): int
     {
         return $this->maxOutputTokens;
+    }
+
+    /**
+     * Embedding vector dimensionality of the model (0 = unknown).
+     */
+    public function getDimensions(): int
+    {
+        return $this->dimensions;
     }
 
     /**
@@ -267,6 +278,14 @@ class Model extends AbstractEntity
     public function setMaxOutputTokens(int $maxOutputTokens): void
     {
         $this->maxOutputTokens = max(0, $maxOutputTokens);
+    }
+
+    /**
+     * Set the embedding vector dimensionality (0 = unknown).
+     */
+    public function setDimensions(int $dimensions): void
+    {
+        $this->dimensions = max(0, $dimensions);
     }
 
     /**

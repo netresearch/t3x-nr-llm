@@ -53,6 +53,26 @@ The central service for all LLM operations.
          configuration
       :returns: EmbeddingResponse
 
+   .. php:method:: embedForConfiguration(string|array $input, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): EmbeddingResponse
+
+      Generate embeddings against a specific LLM configuration.
+
+      Resolves the adapter from the configuration's model (vault key +
+      model + pricing) and runs through the middleware pipeline, so
+      per-configuration budgets and cost attribution apply. Per-call
+      options take precedence over the configuration's stored defaults:
+      an options ``model`` overrides the configuration's model id.
+      Throws ``UnsupportedFeatureException`` when the configuration's
+      provider does not support embeddings.
+
+      :param string|array $input: Single text or array
+         of texts
+      :param LlmConfiguration $configuration: The
+         configuration record to resolve provider/model from
+      :param EmbeddingOptions|null $options: Optional
+         configuration
+      :returns: EmbeddingResponse
+
    .. php:method:: vision(array $content, ?VisionOptions $options = null): VisionResponse
 
       Analyze an image with vision capabilities.

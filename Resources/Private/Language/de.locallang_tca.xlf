@@ -617,6 +617,15 @@
                 <target>Maximale Ausgabe-Token pro Anfrage (0 = unbekannt)</target>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_model.dimensions">
+                <source>Embedding Dimensions</source>
+                <target>Embedding-Dimensionen</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.dimensions.description">
+                <source>Embedding vector dimensionality of the model (0 = unknown)</source>
+                <target>Dimensionalität des Embedding-Vektors des Modells (0 = unbekannt)</target>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_model.capabilities">
                 <source>Capabilities</source>
                 <target>Fähigkeiten</target>

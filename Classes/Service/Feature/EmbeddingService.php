@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Budget\AutoPopulatesBeUserUidTrait;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
@@ -83,6 +84,49 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
         $options = $this->autoPopulateBeUserUid($options ?? new EmbeddingOptions());
         $response = $this->llmManager->embed($texts, $options);
         return $response->embeddings;
+    }
+
+    /**
+     * Generate embedding vector for text against a specific LLM configuration.
+     *
+     * Delegates to `LlmServiceManager::embedForConfiguration()` so the
+     * configuration's provider/model drive the call and per-configuration
+     * budgets and cost attribution apply — no more duplicating provider,
+     * model and dimensions into a consumer's own extension configuration.
+     *
+     * @param string $text Text to embed
+     *
+     * @throws InvalidArgumentException when `$text` is empty
+     *
+     * @return array<int, float> Embedding vector
+     */
+    public function embedForConfiguration(string $text, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): array
+    {
+        if ($text === '') {
+            throw new InvalidArgumentException('Text cannot be empty', 8241937560);
+        }
+
+        return $this->llmManager
+            ->embedForConfiguration($text, $configuration, $this->autoPopulateBeUserUid($options ?? new EmbeddingOptions()))
+            ->getVector();
+    }
+
+    /**
+     * Generate embeddings for multiple texts against a specific LLM
+     * configuration in a single provider call.
+     *
+     * @param array<int, string> $texts Array of texts to embed
+     *
+     * @return array<int, array<int, float>> Array of embedding vectors
+     */
+    public function embedBatchForConfiguration(array $texts, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): array
+    {
+        if (empty($texts)) {
+            return [];
+        }
+
+        $options = $this->autoPopulateBeUserUid($options ?? new EmbeddingOptions());
+        return $this->llmManager->embedForConfiguration($texts, $configuration, $options)->embeddings;
     }
 
     /**
