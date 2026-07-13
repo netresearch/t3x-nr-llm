@@ -1605,6 +1605,9 @@
             <trans-unit id="error.skill.orphaned">
                 <source>Cannot enable an orphaned skill</source>
             </trans-unit>
+            <trans-unit id="error.preset.unknown">
+                <source>Unknown preset</source>
+            </trans-unit>
             <trans-unit id="error.model.noModelUid">
                 <source>No model UID specified</source>
             </trans-unit>

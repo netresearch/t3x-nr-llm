@@ -228,6 +228,22 @@ backend module:
        }
    }
 
+.. _integration-guide-step6:
+
+Step 6: Declare the configurations you need (optional)
+======================================================
+
+Instead of documenting "please create a configuration named
+``myext.chat``" in prose, declare it as a **configuration preset**: implement
+:php:`ConfigurationPresetProviderInterface` (auto-tagged
+``nr_llm.configuration_preset``) and express your requirements as
+:php:`ModelSelectionCriteria` — never a concrete provider, model, or API
+key. nr_llm lists your presets as pending and a backend admin imports
+them with one confirmation as criteria-mode configuration records.
+
+See :ref:`Configuration presets <developer-configuration-presets>` for
+the declaration example and import flow.
+
 .. _integration-guide-testing:
 
 Testing your integration

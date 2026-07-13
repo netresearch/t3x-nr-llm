@@ -75,6 +75,13 @@ class LlmConfiguration extends AbstractEntity
      */
     protected string $fallbackChain = '';
 
+    /**
+     * SHA-256 checksum of the configuration preset this record was imported
+     * from ('' = not imported from a preset). Lets nr_llm detect a changed
+     * preset declaration in the consuming extension (ADR-056).
+     */
+    protected string $presetChecksum = '';
+
     protected bool $isActive = true;
     protected bool $isDefault = false;
     protected int $tstamp = 0;
@@ -329,6 +336,11 @@ class LlmConfiguration extends AbstractEntity
         return $this->maxCostPerDay;
     }
 
+    public function getPresetChecksum(): string
+    {
+        return $this->presetChecksum;
+    }
+
     public function getIsActive(): bool
     {
         return $this->isActive;
@@ -570,6 +582,11 @@ class LlmConfiguration extends AbstractEntity
     public function setMaxCostPerDay(float $maxCostPerDay): void
     {
         $this->maxCostPerDay = round(max(0.0, $maxCostPerDay), 2);
+    }
+
+    public function setPresetChecksum(string $presetChecksum): void
+    {
+        $this->presetChecksum = $presetChecksum;
     }
 
     public function setIsActive(bool $isActive): void

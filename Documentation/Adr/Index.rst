@@ -354,3 +354,4 @@ Tools
    Adr053ExceptionMarkerInterface
    Adr054TypedToolTurnMessages
    Adr055EmbeddingConfigurationPath
+   Adr056ConfigurationPresets

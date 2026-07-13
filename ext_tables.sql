@@ -135,6 +135,9 @@ CREATE TABLE tx_nrllm_configuration (
     -- Fallback chain (JSON list of configuration identifiers to try on retryable failures)
     fallback_chain text,
 
+    -- SHA-256 checksum of the configuration preset this record was imported from ('' = not preset-imported)
+    preset_checksum varchar(64) DEFAULT '' NOT NULL,
+
     -- Status
     is_active tinyint(1) DEFAULT '1' NOT NULL,
     is_default tinyint(1) DEFAULT '0' NOT NULL,

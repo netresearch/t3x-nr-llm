@@ -355,6 +355,15 @@ return [
                 'default' => '',
             ],
         ],
+        // SHA-256 checksum of the configuration preset this record was imported from; written by
+        // ConfigurationPresetImportService (never edited in FormEngine). MUST be declared here so
+        // Extbase hydrates LlmConfiguration::$presetChecksum — without a TCA column the DataMapper
+        // leaves it '', making every imported record look preset-less (ADR-056).
+        'preset_checksum' => [
+            'config' => [
+                'type' => 'passthrough',
+            ],
+        ],
         'is_active' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_active',
             'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.is_active.description',
