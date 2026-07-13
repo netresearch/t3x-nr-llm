@@ -16,6 +16,7 @@ Complete API reference for the TYPO3 LLM extension.
    EmbeddingService
    VisionService
    TranslationService
+   ToolCallingService
    ResponseObjects
    OptionClasses
    ProviderInterface
