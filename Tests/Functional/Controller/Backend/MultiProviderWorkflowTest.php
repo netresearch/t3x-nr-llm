@@ -21,6 +21,8 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Preset\ConfigurationPresetImportService;
+use Netresearch\NrLlm\Service\Preset\ConfigurationPresetRegistry;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
@@ -136,6 +138,9 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $analytics = $this->get(UsageAnalyticsServiceInterface::class);
         self::assertInstanceOf(UsageAnalyticsServiceInterface::class, $analytics);
 
+        $presetRegistry = $this->getService(ConfigurationPresetRegistry::class);
+        $presetImportService = $this->getService(ConfigurationPresetImportService::class);
+
         return new ConfigurationController(
             $moduleTemplateFactory,
             $iconFactory,
@@ -150,6 +155,8 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
             $testPromptResolver,
             $analytics,
             new NullLogger(),
+            $presetRegistry,
+            $presetImportService,
         );
     }
 

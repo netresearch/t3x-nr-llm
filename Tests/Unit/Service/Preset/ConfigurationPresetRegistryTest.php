@@ -82,4 +82,62 @@ final class ConfigurationPresetRegistryTest extends TestCase
 
         self::assertSame([$pending], $registry->pending());
     }
+
+    #[Test]
+    public function driftedReturnsImportedPresetWhoseDeclarationChanged(): void
+    {
+        $preset = self::preset('ext.imported');
+        $configuration = new LlmConfiguration();
+        $configuration->setPresetChecksum('0000000000000000000000000000000000000000000000000000000000000000');
+        $repository = $this->createMock(LlmConfigurationRepository::class);
+        $repository->method('findOneByIdentifier')->willReturn($configuration);
+
+        $registry = new ConfigurationPresetRegistry(
+            [new FixturePresetProvider([$preset])],
+            $repository,
+        );
+
+        self::assertSame(
+            [['preset' => $preset, 'configuration' => $configuration]],
+            $registry->drifted(),
+        );
+    }
+
+    #[Test]
+    public function driftedOmitsImportedPresetWithUnchangedChecksum(): void
+    {
+        $preset = self::preset('ext.imported');
+        $configuration = new LlmConfiguration();
+        $configuration->setPresetChecksum($preset->checksum());
+        $repository = $this->createMock(LlmConfigurationRepository::class);
+        $repository->method('findOneByIdentifier')->willReturn($configuration);
+
+        $registry = new ConfigurationPresetRegistry(
+            [new FixturePresetProvider([$preset])],
+            $repository,
+        );
+
+        self::assertSame([], $registry->drifted());
+    }
+
+    #[Test]
+    public function driftedOmitsPendingPresetsAndHandCreatedRecords(): void
+    {
+        // A pending preset has no record; a hand-created record sharing a
+        // declared identifier carries no stored checksum. Neither is drift.
+        $pending = self::preset('ext.pending');
+        $handCreated = self::preset('ext.hand_created');
+        $record = new LlmConfiguration();
+        $repository = $this->createMock(LlmConfigurationRepository::class);
+        $repository->method('findOneByIdentifier')->willReturnCallback(
+            static fn(string $identifier): ?LlmConfiguration => $identifier === 'ext.hand_created' ? $record : null,
+        );
+
+        $registry = new ConfigurationPresetRegistry(
+            [new FixturePresetProvider([$pending, $handCreated])],
+            $repository,
+        );
+
+        self::assertSame([], $registry->drifted());
+    }
 }

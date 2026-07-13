@@ -735,6 +735,41 @@
             <trans-unit id="configuration.empty.hint">
                 <source>Configurations are the third tier of setup and require a Model first (Provider → Model → Configuration).</source>
             </trans-unit>
+
+            <!-- Configuration presets (ADR-056) -->
+            <trans-unit id="configuration.presets.title">
+                <source>Pending presets</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.intro">
+                <source>Installed extensions declare the following LLM configurations they need. Importing creates a criteria-mode configuration record; the model is resolved at runtime from the providers and models you configured.</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.col.preflight">
+                <source>Requirement check</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.satisfiable">
+                <source>Satisfiable</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.notSatisfiable">
+                <source>Not satisfiable</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.matchedModel">
+                <source>Would currently use</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.missing">
+                <source>Missing</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.import">
+                <source>Import</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.importDisabled.title">
+                <source>Cannot import: no active model satisfies the requirements</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.drift.badge">
+                <source>Preset changed</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.drift.title">
+                <source>The preset declaration changed since this configuration was imported. Review the record; it is not updated automatically.</source>
+            </trans-unit>
             <trans-unit id="task.empty.title">
                 <source>No Tasks Configured</source>
             </trans-unit>

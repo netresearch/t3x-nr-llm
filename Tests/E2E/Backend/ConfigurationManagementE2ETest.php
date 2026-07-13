@@ -19,6 +19,8 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Preset\ConfigurationPresetImportService;
+use Netresearch\NrLlm\Service\Preset\ConfigurationPresetRegistry;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
@@ -117,6 +119,9 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         $analytics = $this->get(UsageAnalyticsServiceInterface::class);
         self::assertInstanceOf(UsageAnalyticsServiceInterface::class, $analytics);
 
+        $presetRegistry = $this->getService(ConfigurationPresetRegistry::class);
+        $presetImportService = $this->getService(ConfigurationPresetImportService::class);
+
         return new ConfigurationController(
             $moduleTemplateFactory,
             $iconFactory,
@@ -131,6 +136,8 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
             $testPromptResolver,
             $analytics,
             new NullLogger(),
+            $presetRegistry,
+            $presetImportService,
         );
     }
 

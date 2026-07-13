@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Configuration presets module UI** (the ADR-056 follow-up): the Configurations backend module surfaces pending presets — one row per preset with name, identifier, description, and the preflight result (the model the criteria currently match, or the missing requirement) — and imports one via the existing `nrllm_preset_import` endpoint with a single click; the panel renders only while presets are pending. Imported records whose declaration changed since import are flagged with a non-blocking "Preset changed" hint (checksum comparison via the new `ConfigurationPresetRegistry::drifted()`), and `nrllm_preset_list` returns these as a new `drifted` list. The checksum-driven update flow remains future work (ADR-056).
+
 ### Changed
 
 - The specialized translators forward the caller-supplied `beUserUid` to usage tracking: `TranslationService` re-attaches the resolved uid to the options array handed to `TranslatorInterface` implementations (`beUserUid` key — budget fields are deliberately excluded from `TranslationOptions::toArray()`), and `DeepLTranslator` / `LlmTranslator` pass it on to `trackUsage()`, so translator usage rows are attributed like the middleware-pipeline paths. The speech/image services (Whisper, TTS, DALL-E, FAL) keep ambient attribution — their option shapes carry no budget fields (ADR-052).

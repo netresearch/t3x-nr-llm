@@ -15,6 +15,7 @@ import Notification from '@typo3/backend/notification.js';
 import Modal from '@typo3/backend/modal.js';
 import Severity from '@typo3/backend/severity.js';
 import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
+import { postAndReload } from '@netresearch/nr-llm/Backend/ModuleAction.js';
 
 /**
  * Read the JSON error body from a rejected AjaxRequest response.
@@ -62,6 +63,15 @@ class ConfigurationList {
                 e.preventDefault();
                 e.stopPropagation();
                 this.handleTestConfig(testBtn);
+                return;
+            }
+
+            // Import a pending configuration preset (ADR-056)
+            const importBtn = e.target.closest('.js-import-preset');
+            if (importBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.handleImportPreset(importBtn);
             }
         });
 
@@ -120,6 +130,21 @@ class ConfigurationList {
             .catch(async err => {
                 Notification.error('Error', await readAjaxError(err));
             });
+    }
+
+    handleImportPreset(btn) {
+        const identifier = btn.dataset.identifier;
+        const url = TYPO3.settings.ajaxUrls['nrllm_preset_import'];
+
+        if (!url) {
+            Notification.error('Error', 'AJAX URL not configured');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('identifier', identifier);
+
+        postAndReload(url, formData, btn);
     }
 
     handleTestConfig(btn) {

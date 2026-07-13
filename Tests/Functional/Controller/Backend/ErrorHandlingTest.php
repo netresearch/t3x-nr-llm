@@ -20,6 +20,8 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Preset\ConfigurationPresetImportService;
+use Netresearch\NrLlm\Service\Preset\ConfigurationPresetRegistry;
 use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
 use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
@@ -124,6 +126,9 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
         $analytics = $this->get(UsageAnalyticsServiceInterface::class);
         self::assertInstanceOf(UsageAnalyticsServiceInterface::class, $analytics);
 
+        $presetRegistry = $this->getService(ConfigurationPresetRegistry::class);
+        $presetImportService = $this->getService(ConfigurationPresetImportService::class);
+
         return new ConfigurationController(
             $moduleTemplateFactory,
             $iconFactory,
@@ -138,6 +143,8 @@ final class ErrorHandlingTest extends AbstractFunctionalTestCase
             $testPromptResolver,
             $analytics,
             new NullLogger(),
+            $presetRegistry,
+            $presetImportService,
         );
     }
 

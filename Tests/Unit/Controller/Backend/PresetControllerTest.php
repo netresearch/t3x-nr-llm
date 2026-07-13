@@ -154,6 +154,7 @@ final class PresetControllerTest extends TestCase
         self::assertTrue($entry['satisfiable']);
         self::assertSame('Claude Sonnet', $entry['matchedModelLabel']);
         self::assertNull($entry['missingRequirement']);
+        self::assertSame([], $body['drifted']);
     }
 
     #[Test]
@@ -164,6 +165,41 @@ final class PresetControllerTest extends TestCase
         $body = self::decode($controller->listPresetsAction(new ServerRequest()));
 
         self::assertSame([], $body['presets']);
+    }
+
+    #[Test]
+    public function listPresetsReportsDriftedImportedPresets(): void
+    {
+        // Imported record (identifier exists) whose stored checksum no longer
+        // matches the current declaration: not pending, but drifted.
+        $configuration = new LlmConfiguration();
+        $configuration->_setProperty('uid', 7);
+        $configuration->setPresetChecksum('0000000000000000000000000000000000000000000000000000000000000000');
+        $controller = $this->createController([self::preset()], existing: $configuration);
+
+        $body = self::decode($controller->listPresetsAction(new ServerRequest()));
+
+        self::assertSame([], $body['presets']);
+        assert(isset($body['drifted']) && is_array($body['drifted']));
+        self::assertCount(1, $body['drifted']);
+        $entry = $body['drifted'][0];
+        assert(is_array($entry));
+        self::assertSame('ext.chat', $entry['identifier']);
+        self::assertSame('Chat', $entry['name']);
+        self::assertSame(7, $entry['configurationUid']);
+    }
+
+    #[Test]
+    public function listPresetsOmitsImportedPresetWithUnchangedChecksumFromDrifted(): void
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setPresetChecksum(self::preset()->checksum());
+        $controller = $this->createController([self::preset()], existing: $configuration);
+
+        $body = self::decode($controller->listPresetsAction(new ServerRequest()));
+
+        self::assertSame([], $body['presets']);
+        self::assertSame([], $body['drifted']);
     }
 
     #[Test]

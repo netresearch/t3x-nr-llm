@@ -968,6 +968,52 @@
                 <source>Configurations are the third tier of setup and require a Model first (Provider → Model → Configuration).</source>
                 <target>Konfigurationen sind die dritte Stufe der Einrichtung und erfordern zuerst ein Modell (Anbieter → Modell → Konfiguration).</target>
             </trans-unit>
+
+            <!-- Configuration presets (ADR-056) -->
+            <trans-unit id="configuration.presets.title">
+                <source>Pending presets</source>
+                <target>Ausstehende Presets</target>
+            </trans-unit>
+            <trans-unit id="configuration.presets.intro">
+                <source>Installed extensions declare the following LLM configurations they need. Importing creates a criteria-mode configuration record; the model is resolved at runtime from the providers and models you configured.</source>
+                <target>Installierte Erweiterungen deklarieren die folgenden benötigten LLM-Konfigurationen. Der Import legt einen kriterienbasierten Konfigurationsdatensatz an; das Modell wird zur Laufzeit aus den von Ihnen konfigurierten Anbietern und Modellen aufgelöst.</target>
+            </trans-unit>
+            <trans-unit id="configuration.presets.col.preflight">
+                <source>Requirement check</source>
+                <target>Anforderungsprüfung</target>
+            </trans-unit>
+            <trans-unit id="configuration.presets.satisfiable">
+                <source>Satisfiable</source>
+                <target>Erfüllbar</target>
+            </trans-unit>
+            <trans-unit id="configuration.presets.notSatisfiable">
+                <source>Not satisfiable</source>
+                <target>Nicht erfüllbar</target>
+            </trans-unit>
+            <trans-unit id="configuration.presets.matchedModel">
+                <source>Would currently use</source>
+                <target>Würde aktuell verwenden</target>
+            </trans-unit>
+            <trans-unit id="configuration.presets.missing">
+                <source>Missing</source>
+                <target>Fehlt</target>
+            </trans-unit>
+            <trans-unit id="configuration.presets.import">
+                <source>Import</source>
+                <target>Importieren</target>
+            </trans-unit>
+            <trans-unit id="configuration.presets.importDisabled.title">
+                <source>Cannot import: no active model satisfies the requirements</source>
+                <target>Import nicht möglich: Kein aktives Modell erfüllt die Anforderungen</target>
+            </trans-unit>
+            <trans-unit id="configuration.presets.drift.badge">
+                <source>Preset changed</source>
+                <target>Preset geändert</target>
+            </trans-unit>
+            <trans-unit id="configuration.presets.drift.title">
+                <source>The preset declaration changed since this configuration was imported. Review the record; it is not updated automatically.</source>
+                <target>Die Preset-Deklaration hat sich seit dem Import dieser Konfiguration geändert. Prüfen Sie den Datensatz; er wird nicht automatisch aktualisiert.</target>
+            </trans-unit>
             <trans-unit id="task.empty.title">
                 <source>No Tasks Configured</source>
                 <target>Keine Aufgaben konfiguriert</target>
