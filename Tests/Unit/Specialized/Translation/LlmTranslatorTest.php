@@ -20,6 +20,8 @@ use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Translation\LlmTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
@@ -227,6 +229,101 @@ class LlmTranslatorTest extends AbstractUnitTestCase
         );
 
         $subject->translate('Test text', 'de', 'en', ['provider' => 'openai', 'beUserUid' => 42]);
+    }
+
+    #[Test]
+    public function translateForwardsBeUserUidToUnderlyingChatOptions(): void
+    {
+        // ADR-052: the underlying chat call carries all tokens and cost, so
+        // it must be attributed to the same be_user as the translation row —
+        // otherwise BudgetMiddleware skips enforcement (uid 0) and the chat
+        // row lands in the ambient bucket.
+        [$llmManager, $captured] = $this->createChatCapturingManager('Hallo Welt');
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->translate('Hello World', 'de', 'en', ['beUserUid' => 42]);
+
+        self::assertCount(1, $captured->list);
+        self::assertSame(42, $captured->list[0]->getBeUserUid());
+    }
+
+    #[Test]
+    public function translateWithAutoDetectAttributesDetectionChatCall(): void
+    {
+        // The language-detection chat call is billed like any other request;
+        // it must carry the caller's uid, not fall back to ambient.
+        [$llmManager, $captured] = $this->createChatCapturingManager('en');
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->translate('Hello World', 'de', null, ['beUserUid' => 42]);
+
+        self::assertCount(2, $captured->list);
+        self::assertSame(42, $captured->list[0]->getBeUserUid(), 'detection call');
+        self::assertSame(42, $captured->list[1]->getBeUserUid(), 'translation call');
+    }
+
+    #[Test]
+    public function detectLanguageWithoutCallerContextStaysAmbient(): void
+    {
+        // Public TranslatorInterface::detectLanguage() has no options
+        // parameter — a direct call keeps the previous ambient behavior.
+        [$llmManager, $captured] = $this->createChatCapturingManager('de');
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->detectLanguage('Hallo Welt');
+
+        self::assertCount(1, $captured->list);
+        self::assertNull($captured->list[0]->getBeUserUid());
+    }
+
+    #[Test]
+    public function translateTreatsNegativeBeUserUidAsAbsent(): void
+    {
+        // A negative uid from the untrusted options array must not reach the
+        // ChatOptions constructor, whose budget-field validation throws.
+        [$llmManager, $captured] = $this->createChatCapturingManager('Hallo Welt');
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->translate('Hello World', 'de', 'en', ['beUserUid' => -5]);
+
+        self::assertCount(1, $captured->list);
+        self::assertNull($captured->list[0]->getBeUserUid());
+    }
+
+    /**
+     * Stub the manager interface so every ChatOptions passed to chat() is
+     * captured and answered with a fixed response.
+     *
+     * @return array{0: LlmServiceManagerInterface&Stub, 1: object{list: array<int, ChatOptions>}}
+     */
+    private function createChatCapturingManager(string $responseContent): array
+    {
+        $captured = new class {
+            /** @var array<int, ChatOptions> */
+            public array $list = [];
+        };
+
+        $response = new CompletionResponse(
+            content: $responseContent,
+            model: 'gpt-5.2',
+            usage: new UsageStatistics(100, 50, 150),
+            finishReason: 'stop',
+            provider: 'openai',
+        );
+
+        $llmManager = self::createStub(LlmServiceManagerInterface::class);
+        $llmManager
+            ->method('chat')
+            ->willReturnCallback(
+                static function (array $messages, ?ChatOptions $options = null) use ($captured, $response): CompletionResponse {
+                    self::assertInstanceOf(ChatOptions::class, $options);
+                    $captured->list[] = $options;
+
+                    return $response;
+                },
+            );
+
+        return [$llmManager, $captured];
     }
 
     #[Test]

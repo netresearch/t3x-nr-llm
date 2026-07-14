@@ -76,9 +76,14 @@ final readonly class LlmTranslator implements TranslatorInterface
         ?string $sourceLanguage = null,
         array $options = [],
     ): TranslatorResult {
+        // ADR-052: extract the attribution uid once — it feeds the underlying
+        // chat calls (budget enforcement + chat-row attribution in the
+        // middleware pipeline) and the translation-level tracking row alike.
+        $beUserUid = $this->extractBeUserUid($options);
+
         // Detect source language if not provided
         if ($sourceLanguage === null) {
-            $sourceLanguage = $this->detectLanguage($text);
+            $sourceLanguage = $this->detectLanguageAttributed($text, $beUserUid);
         }
 
         // Build translation prompt
@@ -98,12 +103,16 @@ final readonly class LlmTranslator implements TranslatorInterface
             ? $options['model']
             : null;
 
-        // Execute translation
+        // Execute translation. The uid rides along as pipeline metadata so
+        // BudgetMiddleware enforces the caller's budget and UsageMiddleware
+        // attributes the chat row to the same be_user as the translation row
+        // (previously the chat row always landed in the ambient bucket).
         $chatOptions = new ChatOptions(
             temperature: $temperature,
             maxTokens: $maxTokens,
             provider: $provider,
             model: $model,
+            beUserUid: $beUserUid,
         );
 
         $response = $this->llmManager->chat($prompt['messages'], $chatOptions);
@@ -116,7 +125,7 @@ final readonly class LlmTranslator implements TranslatorInterface
         $providerUsed = $provider ?? 'default';
         $this->usageTracker->trackUsage('translation', 'llm:' . $providerUsed, [
             'characters' => mb_strlen($text),
-        ], modelId: $response->model, beUserUid: $this->extractBeUserUid($options));
+        ], modelId: $response->model, beUserUid: $beUserUid);
 
         // Calculate confidence from finish reason
         $confidence = match ($response->finishReason) {
@@ -168,6 +177,20 @@ final readonly class LlmTranslator implements TranslatorInterface
 
     public function detectLanguage(string $text): string
     {
+        // Public TranslatorInterface signature carries no options, so a
+        // direct call stays ambient; translate() routes through
+        // detectLanguageAttributed() with the caller's uid instead.
+        return $this->detectLanguageAttributed($text, null);
+    }
+
+    /**
+     * Detect the language of a text, attributing the underlying chat call
+     * to the given backend user (ADR-052). The detection call is billed
+     * like any other chat request — without the uid it lands in the
+     * ambient bucket even when the translation itself is attributed.
+     */
+    private function detectLanguageAttributed(string $text, ?int $beUserUid): string
+    {
         $messages = [
             [
                 'role' => 'system',
@@ -182,6 +205,7 @@ final readonly class LlmTranslator implements TranslatorInterface
         $chatOptions = new ChatOptions(
             temperature: 0.1,
             maxTokens: 10,
+            beUserUid: $beUserUid,
         );
 
         $response = $this->llmManager->chat($messages, $chatOptions);
@@ -206,7 +230,9 @@ final readonly class LlmTranslator implements TranslatorInterface
      * Extract the usage-attribution uid attached by `TranslationService`
      * (`beUserUid` options key, ADR-052). Never part of the chat prompt or
      * payload; null falls back to the tracker's ambient `backend.user`
-     * context.
+     * context. Negative values are treated as absent: the uid feeds the
+     * `ChatOptions` constructor, whose budget-field validation would throw
+     * outside any error-mapping boundary.
      *
      * @param array<string, mixed> $options
      */
@@ -214,7 +240,7 @@ final readonly class LlmTranslator implements TranslatorInterface
     {
         $beUserUid = $options['beUserUid'] ?? null;
 
-        return is_int($beUserUid) ? $beUserUid : null;
+        return is_int($beUserUid) && $beUserUid >= 0 ? $beUserUid : null;
     }
 
     /**

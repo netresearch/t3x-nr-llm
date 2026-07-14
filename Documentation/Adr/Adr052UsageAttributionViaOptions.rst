@@ -75,6 +75,14 @@ Consequences
   ``LlmTranslator`` pass it on to ``trackUsage()``. The key is
   attribution metadata only; translators never send it to the remote
   API.
+- ``LlmTranslator`` additionally threads the uid into the
+  ``ChatOptions`` of its underlying chat calls (translation and
+  language detection), so the pipeline-recorded chat row — which
+  carries the tokens and cost — lands under the same ``be_user`` as
+  the translation-level row, and ``BudgetMiddleware`` enforces the
+  caller's budget on those calls. A direct
+  ``TranslatorInterface::detectLanguage()`` call has no options
+  parameter and stays ambient.
 - The remaining specialized services are ambient-only:
   ``WhisperTranscriptionService``, ``TextToSpeechService``,
   ``DallEImageService`` and ``FalImageService`` accept option shapes
