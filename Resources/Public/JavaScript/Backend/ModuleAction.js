@@ -36,6 +36,25 @@ export function resolveAjaxUrl(key) {
 }
 
 /**
+ * Standard list-row action: resolve the AJAX route, POST the row's
+ * `data-uid`, reload on success. The toggle-active / set-default
+ * handlers of the list modules are all this exact shape.
+ *
+ * @param {string} urlKey AJAX route identifier
+ * @param {HTMLButtonElement} btn Triggering button carrying `data-uid`
+ */
+export function postUidAndReload(urlKey, btn) {
+    const url = resolveAjaxUrl(urlKey);
+    if (!url) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('uid', btn.dataset.uid);
+    postAndReload(url, formData, btn);
+}
+
+/**
  * @param {string} url Resolved AJAX endpoint URL
  * @param {FormData} formData POST payload
  * @param {HTMLButtonElement} btn Triggering button; disabled during flight, re-enabled on failure

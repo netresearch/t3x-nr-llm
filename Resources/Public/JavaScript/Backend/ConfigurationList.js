@@ -15,7 +15,7 @@ import Notification from '@typo3/backend/notification.js';
 import Modal from '@typo3/backend/modal.js';
 import Severity from '@typo3/backend/severity.js';
 import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
-import { postAndReload, resolveAjaxUrl } from '@netresearch/nr-llm/Backend/ModuleAction.js';
+import { postAndReload, postUidAndReload, resolveAjaxUrl } from '@netresearch/nr-llm/Backend/ModuleAction.js';
 import { escapeHtml } from '@netresearch/nr-llm/Backend/HtmlEscape.js';
 
 class ConfigurationList {
@@ -72,31 +72,11 @@ class ConfigurationList {
     }
 
     handleToggleActive(btn) {
-        const uid = btn.dataset.uid;
-        const url = resolveAjaxUrl('nrllm_config_toggle_active');
-
-        if (!url) {
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('uid', uid);
-
-        postAndReload(url, formData, btn);
+        postUidAndReload('nrllm_config_toggle_active', btn);
     }
 
     handleSetDefault(btn) {
-        const uid = btn.dataset.uid;
-        const url = resolveAjaxUrl('nrllm_config_set_default');
-
-        if (!url) {
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('uid', uid);
-
-        postAndReload(url, formData, btn);
+        postUidAndReload('nrllm_config_set_default', btn);
     }
 
     handleImportPreset(btn) {

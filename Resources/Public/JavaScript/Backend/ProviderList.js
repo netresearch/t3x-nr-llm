@@ -15,7 +15,7 @@ import Notification from '@typo3/backend/notification.js';
 import Modal from '@typo3/backend/modal.js';
 import Severity from '@typo3/backend/severity.js';
 import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
-import { postAndReload, resolveAjaxUrl } from '@netresearch/nr-llm/Backend/ModuleAction.js';
+import { postUidAndReload } from '@netresearch/nr-llm/Backend/ModuleAction.js';
 import { escapeHtml } from '@netresearch/nr-llm/Backend/HtmlEscape.js';
 
 class ProviderList {
@@ -54,17 +54,7 @@ class ProviderList {
     }
 
     handleToggleActive(btn) {
-        const uid = btn.dataset.uid;
-        const url = resolveAjaxUrl('nrllm_provider_toggle_active');
-
-        if (!url) {
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('uid', uid);
-
-        postAndReload(url, formData, btn);
+        postUidAndReload('nrllm_provider_toggle_active', btn);
     }
 
     handleTestConnection(btn) {
