@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\RecordingToolAdapter;
+use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
@@ -39,6 +40,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(LlmServiceManager::class)]
 final class LlmServiceManagerToolsConfigurationTest extends AbstractFunctionalTestCase
 {
+    use LlmServiceManagerTestFactory;
     #[Test]
     public function chatWithToolsForConfigurationResolvesAdapterFromConfigurationAndReturnsToolCall(): void
     {
@@ -77,7 +79,7 @@ final class LlmServiceManagerToolsConfigurationTest extends AbstractFunctionalTe
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([]);
 
-        $manager = new LlmServiceManager(
+        $manager = $this->createLlmServiceManager(
             $extensionConfig,
             new NullLogger(),
             $adapterRegistry,

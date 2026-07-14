@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Translation\LlmTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
+use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -36,6 +37,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(TranslatorResult::class)]
 class LlmTranslatorTest extends AbstractUnitTestCase
 {
+    use LlmServiceManagerTestFactory;
     private LlmServiceManager $llmManager;
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LlmTranslator $subject;
@@ -79,7 +81,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
         $adapterRegistryStub = self::createStub(ProviderAdapterRegistryInterface::class);
         $adapterRegistryStub->method('createAdapterFromModel')->willReturn($this->provider);
 
-        $this->llmManager = new LlmServiceManager(
+        $this->llmManager = $this->createLlmServiceManager(
             $extensionConfigStub,
             $loggerStub,
             $adapterRegistryStub,

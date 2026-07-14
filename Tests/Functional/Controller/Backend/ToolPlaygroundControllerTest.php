@@ -21,7 +21,6 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
-use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
@@ -33,6 +32,7 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ScriptedToolAdapter;
+use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -62,6 +62,7 @@ use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 #[CoversClass(ToolPlaygroundController::class)]
 final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 {
+    use LlmServiceManagerTestFactory;
     protected function tearDown(): void
     {
         unset($GLOBALS['BE_USER'], $GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
@@ -188,7 +189,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([]);
 
-        $manager = new LlmServiceManager(
+        $manager = $this->createLlmServiceManager(
             $extensionConfig,
             new NullLogger(),
             $adapterRegistry,
@@ -281,7 +282,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([]);
 
-        $manager = new LlmServiceManager(
+        $manager = $this->createLlmServiceManager(
             $extensionConfig,
             new NullLogger(),
             $adapterRegistry,
@@ -373,7 +374,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([]);
 
-        $manager = new LlmServiceManager(
+        $manager = $this->createLlmServiceManager(
             $extensionConfig,
             new NullLogger(),
             $adapterRegistry,
@@ -507,7 +508,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $extensionConfig = self::createStub(ExtensionConfiguration::class);
         $extensionConfig->method('get')->willReturn([]);
 
-        $manager = new LlmServiceManager(
+        $manager = $this->createLlmServiceManager(
             $extensionConfig,
             new NullLogger(),
             $adapterRegistry,
