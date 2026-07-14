@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-07-14
+
+### Added
+
+- **Per-user usage attribution for the specialized speech and image services** (ADR-057, the ADR-052 follow-up): `TranscriptionOptions`, `SpeechSynthesisOptions` and `ImageGenerationOptions` implement `BudgetAwareOptionsInterface` via `BudgetFieldsTrait` (optional `beUserUid`/`plannedCost` constructor params and `fromArray` keys, negative-value validation), and `WhisperTranscriptionService`, `TextToSpeechService` and `DallEImageService` forward the resolved uid to `trackUsage()` — so transcription, synthesis and image generation are attributed to the calling backend user instead of the ambient `be_user = 0` bucket for FE/CLI/worker callers. `FalImageService` reads a documented `beUserUid` options-array key (no DTO exists), `DallEImageService::createVariations()`/`edit()` gain an optional trailing `?int $beUserUid`. The budget fields stay out of `toArray()`, so they never reach the provider APIs. Attribution only — these services bypass the middleware pipeline, so per-user budget ceilings are still not enforced there (out of scope in ADR-057) (#362).
+
+### Fixed
+
+- **LLM configuration identifiers with dots crashed every cached call.** `CacheManager::generateCacheKey()` and the provider-derived cache tags used the raw provider/configuration identifier, but TYPO3 cache frontends only accept `A-Za-z0-9_%-&` in entry identifiers and tags. The documented preset naming scheme uses dots (e.g. `nr_ai_search.embeddings`), so every completion/embedding call for such a configuration threw `"… is not a valid cache entry identifier"` — found live on the first 0.18 deployment. The provider segment is now sanitized in both the key and every tag (#365).
+- `LlmTranslator`'s underlying chat calls (translation and language detection) built their `ChatOptions` without the `beUserUid` that `TranslationService` attaches per ADR-052, so the pipeline-recorded chat row — which carries all tokens and cost — landed in the ambient bucket and `BudgetMiddleware` skipped per-user enforcement. The uid is now threaded into both `ChatOptions` constructions; the public `detectLanguage()` signature stays ambient (#361).
+- Backend `Test.js` is loaded as an ES module, fixing the model-test button in the backend module (#363).
+
 ## [0.18.0] - 2026-07-14
 
 ### Added
