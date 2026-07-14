@@ -316,6 +316,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
             ->method('chat')
             ->willReturnCallback(
                 static function (array $messages, ?ChatOptions $options = null) use ($captured, $response): CompletionResponse {
+                    self::assertNotSame([], $messages);
                     self::assertInstanceOf(ChatOptions::class, $options);
                     $captured->list[] = $options;
 
