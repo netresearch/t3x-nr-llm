@@ -76,7 +76,7 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
                 $context,
                 $this->configuration('primary'),
                 static function (LlmConfiguration $c): string {
-                    throw new RuntimeException('boom');
+                    throw new RuntimeException('boom', 1495872184);
                 },
             );
         } catch (RuntimeException $e) {
