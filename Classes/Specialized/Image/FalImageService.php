@@ -99,7 +99,10 @@ final class FalImageService extends AbstractSpecializedService
 
         // FAL publishes no static price list (billing varies per hosted
         // model), so no cost is recorded — never guess (see
-        // SpecializedCostCalculatorInterface).
+        // SpecializedCostCalculatorInterface). beUserUid stays ambient
+        // (null): the generation options array carries no caller-supplied
+        // uid — ADR-052 keeps this path ambient rather than growing new
+        // option surface.
         $this->usageTracker->trackUsage('image', $this->getServiceProvider(), [
             'images' => 1,
         ], modelUid: $this->resolveModelUid($model), modelId: $model);
@@ -176,6 +179,7 @@ final class FalImageService extends AbstractSpecializedService
             }
         }
 
+        // beUserUid stays ambient (null) — see generate().
         $this->usageTracker->trackUsage('image', $this->getServiceProvider(), [
             'images' => count($results),
         ], modelUid: $this->resolveModelUid($model), modelId: $model);

@@ -461,6 +461,10 @@ class FalImageServiceTest extends AbstractUnitTestCase
                 null,
                 0,
                 'flux-schnell',
+                0,
+                // Ambient attribution: the FAL options array carries no
+                // caller-supplied uid, so this path stays ambient (ADR-052).
+                null,
             );
 
         $subject = $this->buildService(

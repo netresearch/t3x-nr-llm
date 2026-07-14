@@ -456,6 +456,9 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
             $metrics['cost'] = $this->costCalculator->estimateTranscriptionCost($model, $duration);
         }
 
+        // beUserUid stays ambient (null): TranscriptionOptions carries no
+        // budget fields, so no caller-supplied uid reaches this path —
+        // ADR-052 keeps it ambient rather than growing new option surface.
         $this->usageTracker->trackUsage(
             'speech',
             $this->getServiceProvider(),

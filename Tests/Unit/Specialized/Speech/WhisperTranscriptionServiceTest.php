@@ -462,6 +462,10 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
                 31,
                 0,
                 'whisper-1',
+                0,
+                // Ambient attribution: TranscriptionOptions carries no
+                // budget fields, so no caller uid reaches this path (ADR-052).
+                null,
             );
 
         $subject = $this->buildService(

@@ -116,7 +116,7 @@ final readonly class LlmTranslator implements TranslatorInterface
         $providerUsed = $provider ?? 'default';
         $this->usageTracker->trackUsage('translation', 'llm:' . $providerUsed, [
             'characters' => mb_strlen($text),
-        ], modelId: $response->model);
+        ], modelId: $response->model, beUserUid: $this->extractBeUserUid($options));
 
         // Calculate confidence from finish reason
         $confidence = match ($response->finishReason) {
@@ -200,6 +200,21 @@ final readonly class LlmTranslator implements TranslatorInterface
     {
         // LLM can translate any language pair (quality may vary)
         return true;
+    }
+
+    /**
+     * Extract the usage-attribution uid attached by `TranslationService`
+     * (`beUserUid` options key, ADR-052). Never part of the chat prompt or
+     * payload; null falls back to the tracker's ambient `backend.user`
+     * context.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function extractBeUserUid(array $options): ?int
+    {
+        $beUserUid = $options['beUserUid'] ?? null;
+
+        return is_int($beUserUid) ? $beUserUid : null;
     }
 
     /**

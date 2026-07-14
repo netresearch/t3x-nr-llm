@@ -66,3 +66,21 @@ Consequences
   parameter (semver-minor breaking in the 0.x line, same policy as
   ``ToolInterface::getGroup()`` in 0.15.0). In-repo,
   ``UsageTrackerService`` is the only implementation.
+- The specialized translator path forwards the uid even though it
+  bypasses the middleware pipeline: ``TranslationService`` re-attaches
+  the resolved uid to the options array it hands to
+  ``TranslatorInterface`` implementations (the ``beUserUid`` key —
+  budget fields are deliberately excluded from
+  ``TranslationOptions::toArray()``), and ``DeepLTranslator`` /
+  ``LlmTranslator`` pass it on to ``trackUsage()``. The key is
+  attribution metadata only; translators never send it to the remote
+  API.
+- The remaining specialized services are ambient-only:
+  ``WhisperTranscriptionService``, ``TextToSpeechService``,
+  ``DallEImageService`` and ``FalImageService`` accept option shapes
+  without budget fields (``TranscriptionOptions``,
+  ``SpeechSynthesisOptions``, ``ImageGenerationOptions``, a plain
+  array), so no caller-supplied uid reaches their ``trackUsage()``
+  calls and attribution falls back to the ambient ``backend.user``
+  aspect. Extending those option shapes is deferred until a consumer
+  needs per-user attribution there.

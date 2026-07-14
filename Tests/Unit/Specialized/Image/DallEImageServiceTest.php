@@ -418,6 +418,10 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 null,
                 0,
                 'dall-e-3',
+                0,
+                // Ambient attribution: ImageGenerationOptions carries no
+                // budget fields, so no caller uid reaches this path (ADR-052).
+                null,
             );
 
         $subject = $this->buildService(

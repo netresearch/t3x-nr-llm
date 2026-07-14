@@ -51,6 +51,11 @@ interface TranslatorInterface
     /**
      * Translate a single text.
      *
+     * The `beUserUid` options key (int), when present, is usage-attribution
+     * metadata (ADR-052): implementations forward it to
+     * `UsageTrackerServiceInterface::trackUsage()` and must never send it
+     * to the remote API.
+     *
      * @param string               $text           Text to translate
      * @param string               $targetLanguage Target language code (ISO 639-1)
      * @param string|null          $sourceLanguage Source language code (auto-detect if null)
@@ -67,6 +72,9 @@ interface TranslatorInterface
 
     /**
      * Translate multiple texts efficiently.
+     *
+     * The `beUserUid` options key carries usage-attribution metadata —
+     * see `translate()`.
      *
      * @param array<int, string>   $texts          Texts to translate
      * @param string               $targetLanguage Target language code
