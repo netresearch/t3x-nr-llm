@@ -128,7 +128,9 @@ return [
 
     // Configuration preset routes (ADR-056): pending presets declared by
     // consuming extensions (GET, incl. preflight result per preset) and
-    // the admin-confirmed import of one preset by identifier (POST).
+    // the admin-confirmed import of one preset by identifier (POST). The
+    // diff (GET) and update (POST) endpoints drive drift resolution: review
+    // the field changes against the imported record, then re-confirm.
     'nrllm_preset_list' => [
         'path' => '/nrllm/preset/list',
         'target' => PresetController::class . '::listPresetsAction',
@@ -136,6 +138,14 @@ return [
     'nrllm_preset_import' => [
         'path' => '/nrllm/preset/import',
         'target' => PresetController::class . '::importAction',
+    ],
+    'nrllm_preset_diff' => [
+        'path' => '/nrllm/preset/diff',
+        'target' => PresetController::class . '::diffAction',
+    ],
+    'nrllm_preset_update' => [
+        'path' => '/nrllm/preset/update',
+        'target' => PresetController::class . '::updateAction',
     ],
 
     // Skill routes

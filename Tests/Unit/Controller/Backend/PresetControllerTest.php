@@ -11,11 +11,13 @@ namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\PresetController;
 use Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria;
+use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
+use Netresearch\NrLlm\Service\Preset\ConfigurationPresetDiffService;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetImportService;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetRegistry;
 use Netresearch\NrLlm\Tests\Unit\Service\Preset\Fixtures\FixturePresetProvider;
@@ -91,13 +93,32 @@ final class PresetControllerTest extends TestCase
         $modelSelection->method('findCandidates')->willReturn([]);
 
         $registry = new ConfigurationPresetRegistry([new FixturePresetProvider($presets)], $repository);
+        $diffService = new ConfigurationPresetDiffService();
         $importService = new ConfigurationPresetImportService(
             $modelSelection,
             $repository,
             $this->createMock(PersistenceManagerInterface::class),
+            $diffService,
         );
 
-        return new PresetController($registry, $importService);
+        return new PresetController($registry, $importService, $diffService, $repository);
+    }
+
+    /**
+     * A criteria-mode record for the {@see preset()} identifier whose stored
+     * checksum differs from the current declaration — i.e. drifted. Its name
+     * differs so an update produces a non-empty diff.
+     */
+    private static function driftedRecord(): LlmConfiguration
+    {
+        $record = new LlmConfiguration();
+        $record->setIdentifier('ext.chat');
+        $record->setModelSelectionMode(ModelSelectionMode::CRITERIA->value);
+        $record->setModelSelectionCriteriaDTO(new ModelSelectionCriteria(capabilities: ['chat']));
+        $record->setName('Old chat');
+        $record->setPresetChecksum('0000000000000000000000000000000000000000000000000000000000000000');
+
+        return $record;
     }
 
     /**
@@ -245,5 +266,127 @@ final class PresetControllerTest extends TestCase
         self::assertFalse($body['success']);
         assert(isset($body['error']) && is_string($body['error']));
         self::assertStringContainsString('capabilities: chat', $body['error']);
+    }
+
+    #[Test]
+    public function listPresetsSummarisesDriftedChangedFields(): void
+    {
+        $configuration = self::driftedRecord();
+        $configuration->_setProperty('uid', 7);
+        $controller = $this->createController([self::preset()], existing: $configuration);
+
+        $body = self::decode($controller->listPresetsAction(new ServerRequest()));
+
+        assert(isset($body['drifted']) && is_array($body['drifted']));
+        $entry = $body['drifted'][0];
+        assert(is_array($entry) && isset($entry['changedFields']) && is_array($entry['changedFields']));
+        self::assertContains('name', $entry['changedFields']);
+    }
+
+    #[Test]
+    public function diffDeniesNonAdmin(): void
+    {
+        unset($GLOBALS['BE_USER']);
+        $controller = $this->createController([]);
+
+        self::assertSame(403, $controller->diffAction(new ServerRequest())->getStatusCode());
+    }
+
+    #[Test]
+    public function updateDeniesNonAdmin(): void
+    {
+        unset($GLOBALS['BE_USER']);
+        $controller = $this->createController([]);
+
+        self::assertSame(403, $controller->updateAction(new ServerRequest())->getStatusCode());
+    }
+
+    #[Test]
+    public function diffReturns404ForUnknownIdentifier(): void
+    {
+        $controller = $this->createController([self::preset()]);
+        $request = (new ServerRequest())->withQueryParams(['identifier' => 'ext.unknown']);
+
+        self::assertSame(404, $controller->diffAction($request)->getStatusCode());
+    }
+
+    #[Test]
+    public function diffReturns422WhenNothingImported(): void
+    {
+        $controller = $this->createController([self::preset()], existing: null);
+        $request = (new ServerRequest())->withQueryParams(['identifier' => 'ext.chat']);
+
+        self::assertSame(422, $controller->diffAction($request)->getStatusCode());
+    }
+
+    #[Test]
+    public function diffReturnsChangesForDriftedRecord(): void
+    {
+        $controller = $this->createController([self::preset()], existing: self::driftedRecord(), matchedModel: new Model());
+        $request = (new ServerRequest())->withQueryParams(['identifier' => 'ext.chat']);
+
+        $response = $controller->diffAction($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $body = self::decode($response);
+        self::assertTrue($body['success']);
+        self::assertSame('ext.chat', $body['identifier']);
+        assert(isset($body['changes']) && is_array($body['changes']));
+        $fields = [];
+        foreach ($body['changes'] as $change) {
+            assert(is_array($change) && isset($change['field']) && is_string($change['field']));
+            $fields[] = $change['field'];
+        }
+        self::assertContains('name', $fields);
+    }
+
+    #[Test]
+    public function updateAppliesDriftedRecordAndReturnsChangedFields(): void
+    {
+        $controller = $this->createController([self::preset()], existing: self::driftedRecord(), matchedModel: new Model());
+        $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
+
+        $response = $controller->updateAction($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $body = self::decode($response);
+        self::assertTrue($body['success']);
+        self::assertSame('ext.chat', $body['identifier']);
+        assert(isset($body['changedFields']) && is_array($body['changedFields']));
+        self::assertContains('name', $body['changedFields']);
+    }
+
+    #[Test]
+    public function updateReturns422WhenModeSwitchedToFixed(): void
+    {
+        $record = self::driftedRecord();
+        $record->setModelSelectionMode(ModelSelectionMode::FIXED->value);
+        $controller = $this->createController([self::preset()], existing: $record, matchedModel: new Model());
+        $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
+
+        $response = $controller->updateAction($request);
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertFalse(self::decode($response)['success']);
+    }
+
+    #[Test]
+    public function updateReturns422WhenRecordNotDrifted(): void
+    {
+        $record = self::driftedRecord();
+        $record->setPresetChecksum(self::preset()->checksum());
+        $controller = $this->createController([self::preset()], existing: $record, matchedModel: new Model());
+        $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
+
+        self::assertSame(422, $controller->updateAction($request)->getStatusCode());
+    }
+
+    #[Test]
+    public function updateReturns404ForUnknownIdentifier(): void
+    {
+        $controller = $this->createController([self::preset()]);
+        $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.unknown']);
+
+        self::assertSame(404, $controller->updateAction($request)->getStatusCode());
     }
 }
