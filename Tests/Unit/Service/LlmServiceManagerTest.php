@@ -608,7 +608,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             ->with($resolvedModel)
             ->willReturn($mockAdapter);
 
-        $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class), null, null, $selection);
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class), null, null, $selection);
 
         self::assertSame($mockAdapter, $manager->getAdapterFromConfiguration($config));
     }
@@ -623,7 +623,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $selection = self::createStub(ModelSelectionServiceInterface::class);
         $selection->method('resolveModel')->willReturn(null);
 
-        $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $this->adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class), null, null, $selection);
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $this->adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class), null, null, $selection);
 
         $this->expectException(ProviderException::class);
         $this->expectExceptionMessage('has no model assigned');
@@ -967,7 +967,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             static fn(string $value): string => preg_replace('/\W/', '_', $value) ?? '',
         );
 
-        $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registry, new MiddlewarePipeline([$spy]), $cacheStub);
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registry, new MiddlewarePipeline([$spy]), $cacheStub);
 
         $config = self::createStub(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn(self::createStub(Model::class));

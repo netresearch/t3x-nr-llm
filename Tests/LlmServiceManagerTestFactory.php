@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\EmbedCacheKeyBuilder;
 use Netresearch\NrLlm\Service\KeyedProviderRegistry;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\MessageShaper;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
@@ -45,6 +46,7 @@ trait LlmServiceManagerTestFactory
         CacheManagerInterface $cacheManager,
         ?LlmConfigurationRepository $configurationRepository = null,
         ?SkillInjectionService $skillInjection = null,
+        ?ModelSelectionServiceInterface $modelSelectionService = null,
     ): LlmServiceManager {
         return new LlmServiceManager(
             $adapterRegistry,
@@ -54,6 +56,7 @@ trait LlmServiceManagerTestFactory
             new MessageShaper(),
             new EmbedCacheKeyBuilder($cacheManager),
             $skillInjection,
+            $modelSelectionService,
         );
     }
 }

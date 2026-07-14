@@ -49,6 +49,7 @@ class EmbedCacheKeyBuilderTest extends AbstractUnitTestCase
             ->method('generateCacheKey')
             ->with('config-42', 'embeddings', ['input' => 'x', 'model' => 'm'])
             ->willReturn('generated-key');
+        $cacheManager->method('sanitizeCacheTag')->willReturnArgument(0);
 
         $subject = new EmbedCacheKeyBuilder($cacheManager);
 
@@ -59,5 +60,26 @@ class EmbedCacheKeyBuilderTest extends AbstractUnitTestCase
             CacheMiddleware::METADATA_CACHE_TTL  => 3600,
             CacheMiddleware::METADATA_CACHE_TAGS => ['nrllm_embeddings', 'nrllm_configuration_config-42'],
         ], $result);
+    }
+
+    #[Test]
+    public function buildSanitizesTheScopeTag(): void
+    {
+        // Configuration identifiers use the dotted preset scheme
+        // (nr_ai_search.embeddings); the cache frontend rejects a tag with a
+        // dot, so the scope tag must be sanitized before it reaches the tags.
+        $cacheManager = self::createMock(CacheManagerInterface::class);
+        $cacheManager->method('generateCacheKey')->willReturn('generated-key');
+        $cacheManager->method('sanitizeCacheTag')
+            ->willReturnCallback(static fn(string $value): string => str_replace('.', '_', $value));
+
+        $subject = new EmbedCacheKeyBuilder($cacheManager);
+
+        $result = $subject->build(3600, 'nr_ai_search.embeddings', ['input' => 'x'], 'nrllm_configuration_nr_ai_search.embeddings');
+
+        self::assertSame(
+            ['nrllm_embeddings', 'nrllm_configuration_nr_ai_search_embeddings'],
+            $result[CacheMiddleware::METADATA_CACHE_TAGS],
+        );
     }
 }
