@@ -663,3 +663,45 @@ CREATE TABLE tx_nrllm_skill_audit (
     KEY source_uid (source_uid),
     KEY event (event)
 );
+
+#
+# Table structure for table 'tx_nrllm_eval_result'
+# Quality-evaluation run results (ADR-060). One row per golden-set run
+# against a model: aggregate pass rate / mean score plus a JSON snapshot of
+# the per-prompt outcomes. UI-less result log (no TCA), like
+# tx_nrllm_service_usage; written only by the nrllm:eval:run command and read
+# for regression comparison and quality-aware routing. Grows per run;
+# retention is a documented follow-up (ADR-060).
+#
+CREATE TABLE tx_nrllm_eval_result (
+    uid int(11) unsigned NOT NULL auto_increment,
+    pid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Run identity
+    set_identifier varchar(190) DEFAULT '' NOT NULL,
+    model_id varchar(150) DEFAULT '' NOT NULL,
+    grader varchar(50) DEFAULT '' NOT NULL,
+
+    -- Aggregate metrics (pass_rate / mean_score normalised 0.0000-1.0000)
+    prompt_count int(11) unsigned DEFAULT '0' NOT NULL,
+    passed_count int(11) unsigned DEFAULT '0' NOT NULL,
+    pass_rate decimal(5,4) DEFAULT '0.0000' NOT NULL,
+    mean_score decimal(5,4) DEFAULT '0.0000' NOT NULL,
+
+    -- Per-prompt outcomes snapshot (JSON) for later inspection
+    details mediumtext,
+
+    -- Time tracking
+    run_date int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Standard TYPO3 fields
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    -- Regression read path: latest run(s) for a (set, model), newest first.
+    KEY set_model (set_identifier, model_id, run_date),
+    -- Quality-routing read path: latest runs per set for a model.
+    KEY model_lookup (model_id, run_date)
+);
