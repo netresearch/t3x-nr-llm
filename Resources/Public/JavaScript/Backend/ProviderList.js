@@ -15,6 +15,8 @@ import Notification from '@typo3/backend/notification.js';
 import Modal from '@typo3/backend/modal.js';
 import Severity from '@typo3/backend/severity.js';
 import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
+import { postUidAndReload } from '@netresearch/nr-llm/Backend/ModuleAction.js';
+import { escapeHtml } from '@netresearch/nr-llm/Backend/HtmlEscape.js';
 
 class ProviderList {
     constructor() {
@@ -52,30 +54,7 @@ class ProviderList {
     }
 
     handleToggleActive(btn) {
-        const uid = btn.dataset.uid;
-        const url = TYPO3.settings.ajaxUrls['nrllm_provider_toggle_active'];
-
-        if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('uid', uid);
-
-        new AjaxRequest(url)
-            .post(formData)
-            .then(response => response.resolve())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    Notification.error('Error', data.error || 'Unknown error');
-                }
-            })
-            .catch(async err => {
-                Notification.error('Error', await readAjaxError(err));
-            });
+        postUidAndReload('nrllm_provider_toggle_active', btn);
     }
 
     handleTestConnection(btn) {
@@ -99,7 +78,7 @@ class ProviderList {
                 <div class="spinner-border text-primary mb-3" role="status">
                     <span class="visually-hidden">Testing connection...</span>
                 </div>
-                <p class="text-body-secondary">Testing connection to ${this.escapeHtml(name)}...</p>
+                <p class="text-body-secondary">Testing connection to ${escapeHtml(name)}...</p>
             </div>
             <div class="modal-success text-center py-4" id="provider-test-success" style="display: none;">
                 <div class="mb-3">
@@ -175,12 +154,6 @@ class ProviderList {
                 if (msgEl) msgEl.textContent = await readAjaxError(err);
             }
         });
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 }
 

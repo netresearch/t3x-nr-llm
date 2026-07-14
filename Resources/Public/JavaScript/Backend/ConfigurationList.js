@@ -15,15 +15,8 @@ import Notification from '@typo3/backend/notification.js';
 import Modal from '@typo3/backend/modal.js';
 import Severity from '@typo3/backend/severity.js';
 import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
-import { postAndReload } from '@netresearch/nr-llm/Backend/ModuleAction.js';
-
-/**
- * Read the JSON error body from a rejected AjaxRequest response.
- *
- * AjaxRequest rejects with an AjaxResponse on HTTP error status; resolve it
- * to recover the `{ success: false, error: ... }` payload the controllers
- * emit. Falls back to a thrown Error's message for genuine network failures.
- */
+import { postAndReload, postUidAndReload, resolveAjaxUrl } from '@netresearch/nr-llm/Backend/ModuleAction.js';
+import { escapeHtml } from '@netresearch/nr-llm/Backend/HtmlEscape.js';
 
 class ConfigurationList {
     constructor() {
@@ -79,65 +72,18 @@ class ConfigurationList {
     }
 
     handleToggleActive(btn) {
-        const uid = btn.dataset.uid;
-        const url = TYPO3.settings.ajaxUrls['nrllm_config_toggle_active'];
-
-        if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('uid', uid);
-
-        new AjaxRequest(url)
-            .post(formData)
-            .then(response => response.resolve())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    Notification.error('Error', data.error || 'Unknown error');
-                }
-            })
-            .catch(async err => {
-                Notification.error('Error', await readAjaxError(err));
-            });
+        postUidAndReload('nrllm_config_toggle_active', btn);
     }
 
     handleSetDefault(btn) {
-        const uid = btn.dataset.uid;
-        const url = TYPO3.settings.ajaxUrls['nrllm_config_set_default'];
-
-        if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('uid', uid);
-
-        new AjaxRequest(url)
-            .post(formData)
-            .then(response => response.resolve())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    Notification.error('Error', data.error || 'Unknown error');
-                }
-            })
-            .catch(async err => {
-                Notification.error('Error', await readAjaxError(err));
-            });
+        postUidAndReload('nrllm_config_set_default', btn);
     }
 
     handleImportPreset(btn) {
         const identifier = btn.dataset.identifier;
-        const url = TYPO3.settings.ajaxUrls['nrllm_preset_import'];
+        const url = resolveAjaxUrl('nrllm_preset_import');
 
         if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
             return;
         }
 
@@ -168,7 +114,7 @@ class ConfigurationList {
                 <div class="spinner-border text-primary mb-3" role="status">
                     <span class="visually-hidden">Testing configuration...</span>
                 </div>
-                <p class="text-body-secondary">Testing configuration ${this.escapeHtml(name)}...</p>
+                <p class="text-body-secondary">Testing configuration ${escapeHtml(name)}...</p>
             </div>
             <div class="config-test-success" id="config-test-success" style="display: none;">
                 <div class="text-center py-3 mb-3">
@@ -279,12 +225,6 @@ class ConfigurationList {
             const msgEl = container.querySelector('#config-test-error-message');
             if (msgEl) msgEl.textContent = message;
         }
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 }
 

@@ -15,6 +15,8 @@ import Notification from '@typo3/backend/notification.js';
 import Modal from '@typo3/backend/modal.js';
 import Severity from '@typo3/backend/severity.js';
 import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
+import { postUidAndReload } from '@netresearch/nr-llm/Backend/ModuleAction.js';
+import { escapeHtml } from '@netresearch/nr-llm/Backend/HtmlEscape.js';
 
 class ModelList {
     constructor() {
@@ -61,57 +63,11 @@ class ModelList {
     }
 
     handleToggleActive(btn) {
-        const uid = btn.dataset.uid;
-        const url = TYPO3.settings.ajaxUrls['nrllm_model_toggle_active'];
-
-        if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('uid', uid);
-
-        new AjaxRequest(url)
-            .post(formData)
-            .then(response => response.resolve())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    Notification.error('Error', data.error || 'Unknown error');
-                }
-            })
-            .catch(async err => {
-                Notification.error('Error', await readAjaxError(err));
-            });
+        postUidAndReload('nrllm_model_toggle_active', btn);
     }
 
     handleSetDefault(btn) {
-        const uid = btn.dataset.uid;
-        const url = TYPO3.settings.ajaxUrls['nrllm_model_set_default'];
-
-        if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('uid', uid);
-
-        new AjaxRequest(url)
-            .post(formData)
-            .then(response => response.resolve())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    Notification.error('Error', data.error || 'Unknown error');
-                }
-            })
-            .catch(async err => {
-                Notification.error('Error', await readAjaxError(err));
-            });
+        postUidAndReload('nrllm_model_set_default', btn);
     }
 
     handleTestModel(btn) {
@@ -136,7 +92,7 @@ class ModelList {
                     <div class="spinner-border text-primary mb-3" role="status">
                         <span class="visually-hidden">Testing model...</span>
                     </div>
-                    <h5 class="mb-2">Testing model ${this.escapeHtml(name)}</h5>
+                    <h5 class="mb-2">Testing model ${escapeHtml(name)}</h5>
                 </div>
                 <div class="progress-steps small">
                     <div class="d-flex align-items-center mb-2" id="step-connect">
@@ -297,12 +253,6 @@ class ModelList {
         if (msgEl) msgEl.textContent = message;
         const elapsedEl = container.querySelector('#error-elapsed');
         if (elapsedEl) elapsedEl.textContent = elapsed.toString();
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 }
 
