@@ -56,7 +56,7 @@ final class GoldenPromptSetTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1794000020);
-        new GoldenPromptSet($identifier, 'Chat', 'A set', [$this->prompt()]);
+        self::assertInstanceOf(GoldenPromptSet::class, new GoldenPromptSet($identifier, 'Chat', 'A set', [$this->prompt()]));
     }
 
     #[Test]
@@ -64,7 +64,7 @@ final class GoldenPromptSetTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1794000022);
-        new GoldenPromptSet('nr_llm.smoke', 'Smoke', 'desc', []);
+        self::assertInstanceOf(GoldenPromptSet::class, new GoldenPromptSet('nr_llm.smoke', 'Smoke', 'desc', []));
     }
 
     #[Test]
@@ -72,7 +72,7 @@ final class GoldenPromptSetTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1794000023);
-        new GoldenPromptSet('nr_llm.smoke', 'Smoke', 'desc', [$this->prompt('dup'), $this->prompt('dup')]);
+        self::assertInstanceOf(GoldenPromptSet::class, new GoldenPromptSet('nr_llm.smoke', 'Smoke', 'desc', [$this->prompt('dup'), $this->prompt('dup')]));
     }
 
     #[Test]
@@ -80,7 +80,7 @@ final class GoldenPromptSetTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1794000012);
-        new GoldenPrompt('p', 'prompt without expectations');
+        self::assertInstanceOf(GoldenPrompt::class, new GoldenPrompt('p', 'prompt without expectations'));
     }
 
     #[Test]

@@ -66,9 +66,9 @@ final class GoldenPromptSetRegistryTest extends TestCase
     {
         $this->expectException(LogicException::class);
         $this->expectExceptionCode(1794000030);
-        new GoldenPromptSetRegistry([
+        self::assertInstanceOf(GoldenPromptSetRegistry::class, new GoldenPromptSetRegistry([
             $this->provider($this->set('a.one')),
             $this->provider($this->set('a.one')),
-        ]);
+        ]));
     }
 }

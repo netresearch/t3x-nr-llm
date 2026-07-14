@@ -75,7 +75,7 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
             ->executeQuery()
             ->fetchAllAssociative();
 
-        return array_map(fn(array $row): EvaluationResultSummary => $this->mapRow($row), $rows);
+        return array_map($this->mapRow(...), $rows);
     }
 
     public function meanQualityScoreForModel(string $model): ?float
