@@ -200,8 +200,25 @@ final readonly class SkillComposer
         if ($skill->getSupportStatusEnum() === SupportStatus::PARTIAL) {
             $body = $this->stripAssetReferences($body);
         }
+        $body = $this->neutralizeFenceMarkers($body);
 
         return sprintf("### Skill: %s\n%s\n", $skill->getName(), $body);
+    }
+
+    /**
+     * Defuse any verbatim BEGIN/END fence marker embedded in an (untrusted)
+     * skill body so a crafted body cannot forge an early fence close and
+     * escape the DATA channel (ADR-061). The exact delimiter strings are
+     * broken; a non-exact variant is no longer the real delimiter the model
+     * keys on.
+     */
+    private function neutralizeFenceMarkers(string $body): string
+    {
+        return str_replace(
+            [self::BEGIN_MARKER, self::END_MARKER],
+            ['[begin untrusted skill data]', '[end untrusted skill data]'],
+            $body,
+        );
     }
 
     private function stripAssetReferences(string $body): string
