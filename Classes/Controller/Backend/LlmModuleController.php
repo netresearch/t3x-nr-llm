@@ -180,6 +180,12 @@ final class LlmModuleController extends ActionController
             );
         }
 
+        // Wire the test form to the nrllm_test AJAX endpoint. Test.js carries
+        // top-level ES imports, so it must load through the import map rather
+        // than as a classic <script> (which would throw "Cannot use import
+        // statement outside a module").
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/Test.js');
+
         $providers = $this->llmServiceManager->getAvailableProviders();
 
         $moduleTemplate->assignMultiple([

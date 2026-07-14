@@ -7,10 +7,11 @@
  * Wires the test prompt form to the nrllm_test AJAX endpoint and renders
  * the response (success, error, usage details).
  *
- * Loaded as an external module to satisfy CSP (no inline <script>).
- * The script is included via HeaderAssets, so it runs before <body> is
- * parsed — wrap in DOMContentLoaded and bail out if required elements
- * or the AJAX URL are missing.
+ * Loaded as an ES module via PageRenderer::loadJavaScriptModule — the bare
+ * @typo3/... and @netresearch/... imports below are resolved through TYPO3's
+ * import map, so a classic <script> include would not work. Module scripts
+ * are deferred, so wrap in DOMContentLoaded and bail out if the required
+ * elements or the AJAX URL are missing.
  *
  * State-changing AJAX uses AjaxRequest, which injects TYPO3's CSRF token.
  */
