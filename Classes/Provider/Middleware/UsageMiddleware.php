@@ -55,11 +55,13 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * is used when present; otherwise the middleware records 'unknown'.
  *
  * The middleware never runs when $next throws: failed calls are not
- * tracked here. If failure-rate telemetry is needed later, a dedicated
- * middleware can wrap and record regardless of outcome.
+ * tracked here. Failure-rate telemetry is handled by the dedicated
+ * TelemetryMiddleware (ADR-058), which wraps the whole pipeline and records
+ * one row regardless of outcome.
  *
- * The default pipeline order is pinned via tag priority (Cache outermost at
- * 100, then Budget at 75, Fallback at 50, Usage innermost at 25).
+ * The default pipeline order is pinned via tag priority (Telemetry outermost
+ * at 110 as a pure observer, then Cache at 100, Budget at 75, Fallback at 50,
+ * Usage innermost at 25).
  */
 #[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 25])]
 final readonly class UsageMiddleware implements ProviderMiddlewareInterface

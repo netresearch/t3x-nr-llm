@@ -50,16 +50,20 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  *
  * Pipeline ordering
  * -----------------
- * Cache must be the OUTERMOST layer so a cache hit skips even the fallback
- * attempt and is NOT counted against a user's budget. This order is pinned
- * via the tag priority below (highest priority = first in the autowired
+ * Cache is the outermost BEHAVIOURAL layer so a cache hit skips even the
+ * fallback attempt and is NOT counted against a user's budget. Only the
+ * observation-only TelemetryMiddleware (priority 110) sits further out, so a
+ * cache-served response still produces a telemetry row; on a hit this
+ * middleware flags that row via the shared telemetry signals. This order is
+ * pinned via the tag priority below (highest priority = first in the autowired
  * iterator = outermost in the pipeline):
  *
- *   CacheMiddleware          <-- outermost; short-circuits on hit (priority 100)
- *     BudgetMiddleware       <-- pre-flight only on miss            (priority 75)
- *       FallbackMiddleware   <-- swaps config on retryable failure  (priority 50)
- *         UsageMiddleware    <-- records the call that actually ran (priority 25)
- *           <terminal>
+ *   TelemetryMiddleware      <-- outermost; observation only        (priority 110)
+ *     CacheMiddleware        <-- short-circuits on hit              (priority 100)
+ *       BudgetMiddleware     <-- pre-flight only on miss            (priority 75)
+ *         FallbackMiddleware <-- swaps config on retryable failure  (priority 50)
+ *           UsageMiddleware  <-- records the call that actually ran (priority 25)
+ *             <terminal>
  *
  * Callers who want cache accounting (count hits against budget / usage)
  * should assemble a custom pipeline with Cache *inside* those layers — it is
@@ -93,6 +97,11 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
 
         $cached = $this->cache->get($key);
         if ($cached !== null) {
+            // Signal the outer TelemetryMiddleware (ADR-058) that this run was
+            // served from cache. The context is shared across the pipeline, so
+            // annotating its mutable signal sink is visible after the unwind.
+            $context->telemetrySignals->recordCacheHit();
+
             return $cached;
         }
 
