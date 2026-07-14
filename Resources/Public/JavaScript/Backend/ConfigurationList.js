@@ -65,6 +65,15 @@ class ConfigurationList {
                 e.preventDefault();
                 e.stopPropagation();
                 this.handleImportPreset(importBtn);
+                return;
+            }
+
+            // Review + apply a drifted preset update (ADR-056)
+            const reviewBtn = e.target.closest('.js-review-preset-update');
+            if (reviewBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.handleReviewPresetUpdate(reviewBtn);
             }
         });
 
@@ -91,6 +100,136 @@ class ConfigurationList {
         formData.append('identifier', identifier);
 
         postAndReload(url, formData, btn);
+    }
+
+    handleReviewPresetUpdate(btn) {
+        const identifier = btn.dataset.identifier;
+        const name = btn.dataset.name || 'Configuration';
+        const diffUrl = TYPO3.settings.ajaxUrls['nrllm_preset_diff'];
+        const updateUrl = TYPO3.settings.ajaxUrls['nrllm_preset_update'];
+
+        if (!diffUrl || !updateUrl) {
+            Notification.error('Error', 'AJAX URL not configured');
+            return;
+        }
+
+        new AjaxRequest(diffUrl)
+            .withQueryArguments({ identifier })
+            .get()
+            .then(response => response.resolve())
+            .then(data => {
+                if (!data.success) {
+                    Notification.error('Error', data.error || 'Unknown error');
+                    return;
+                }
+                this.openPresetUpdateModal(name, identifier, data.changes || [], updateUrl);
+            })
+            .catch(async err => {
+                Notification.error('Error', await readAjaxError(err));
+            });
+    }
+
+    openPresetUpdateModal(name, identifier, changes, updateUrl) {
+        Modal.advanced({
+            title: `Review preset update: ${name}`,
+            content: this.buildPresetDiffContent(changes),
+            severity: Severity.warning,
+            size: Modal.sizes.medium,
+            buttons: [
+                {
+                    text: 'Cancel',
+                    btnClass: 'btn-default',
+                    trigger: () => Modal.dismiss(),
+                },
+                {
+                    text: 'Apply update',
+                    btnClass: 'btn-warning',
+                    trigger: () => this.applyPresetUpdate(identifier, updateUrl),
+                },
+            ],
+        });
+    }
+
+    /**
+     * Build the diff table as a DOM element. Every declared/current value is a
+     * text node (textContent), so untrusted preset content cannot execute as
+     * markup.
+     */
+    buildPresetDiffContent(changes) {
+        const container = document.createElement('div');
+
+        const intro = document.createElement('p');
+        intro.textContent = 'Applying this update overwrites the current record values shown below with the '
+            + 'declared values. Your activation, default flag, backend-group assignment and fallback chain are preserved.';
+        container.appendChild(intro);
+
+        if (changes.length === 0) {
+            const note = document.createElement('p');
+            note.className = 'text-body-secondary mb-0';
+            note.textContent = 'The declaration changed but no record field differs; applying will clear the change hint.';
+            container.appendChild(note);
+            return container;
+        }
+
+        const wrap = document.createElement('div');
+        wrap.className = 'table-fit mb-0';
+        const table = document.createElement('table');
+        table.className = 'table table-striped';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['Field', 'Current value', 'Declared value'].forEach(label => {
+            const th = document.createElement('th');
+            th.scope = 'col';
+            th.textContent = label;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        changes.forEach(change => {
+            const row = document.createElement('tr');
+
+            const fieldCell = document.createElement('td');
+            const code = document.createElement('code');
+            code.textContent = change.field;
+            fieldCell.appendChild(code);
+            row.appendChild(fieldCell);
+
+            [change.current, change.declared].forEach(value => {
+                const cell = document.createElement('td');
+                cell.textContent = value;
+                row.appendChild(cell);
+            });
+
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        container.appendChild(wrap);
+
+        return container;
+    }
+
+    applyPresetUpdate(identifier, updateUrl) {
+        const formData = new FormData();
+        formData.append('identifier', identifier);
+
+        new AjaxRequest(updateUrl)
+            .post(formData)
+            .then(response => response.resolve())
+            .then(data => {
+                if (data.success) {
+                    Modal.dismiss();
+                    location.reload();
+                } else {
+                    Notification.error('Error', data.error || 'Unknown error');
+                }
+            })
+            .catch(async err => {
+                Notification.error('Error', await readAjaxError(err));
+            });
     }
 
     handleTestConfig(btn) {

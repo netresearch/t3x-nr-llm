@@ -770,6 +770,9 @@
             <trans-unit id="configuration.presets.drift.title">
                 <source>The preset declaration changed since this configuration was imported. Review the record; it is not updated automatically.</source>
             </trans-unit>
+            <trans-unit id="configuration.presets.update.review">
+                <source>Review update</source>
+            </trans-unit>
             <trans-unit id="task.empty.title">
                 <source>No Tasks Configured</source>
             </trans-unit>
@@ -1642,6 +1645,12 @@
             </trans-unit>
             <trans-unit id="error.preset.unknown">
                 <source>Unknown preset</source>
+            </trans-unit>
+            <trans-unit id="error.preset.notDrifted">
+                <source>This configuration is up to date; there is nothing to update.</source>
+            </trans-unit>
+            <trans-unit id="error.preset.modeSwitched">
+                <source>This configuration was switched to fixed model selection; the preset update is refused so the administrator's model choice is not overridden.</source>
             </trans-unit>
             <trans-unit id="error.model.noModelUid">
                 <source>No model UID specified</source>
