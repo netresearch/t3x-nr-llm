@@ -75,7 +75,10 @@ final readonly class SkillAuditService
     private function actorUid(): int
     {
         $backendUser = $GLOBALS['BE_USER'] ?? null;
-        if ($backendUser instanceof BackendUserAuthentication) {
+        // `->user` is untyped and is null in CLI/scheduler contexts before a
+        // session is loaded — exactly the case this method documents — so
+        // guard the array access to avoid an "offset on null" warning.
+        if ($backendUser instanceof BackendUserAuthentication && is_array($backendUser->user)) {
             $uid = $backendUser->user['uid'] ?? 0;
 
             return is_numeric($uid) ? (int)$uid : 0;
