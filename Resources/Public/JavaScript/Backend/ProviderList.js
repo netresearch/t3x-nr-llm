@@ -16,6 +16,7 @@ import Modal from '@typo3/backend/modal.js';
 import Severity from '@typo3/backend/severity.js';
 import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 import { postAndReload, resolveAjaxUrl } from '@netresearch/nr-llm/Backend/ModuleAction.js';
+import { escapeHtml } from '@netresearch/nr-llm/Backend/HtmlEscape.js';
 
 class ProviderList {
     constructor() {
@@ -87,7 +88,7 @@ class ProviderList {
                 <div class="spinner-border text-primary mb-3" role="status">
                     <span class="visually-hidden">Testing connection...</span>
                 </div>
-                <p class="text-body-secondary">Testing connection to ${this.escapeHtml(name)}...</p>
+                <p class="text-body-secondary">Testing connection to ${escapeHtml(name)}...</p>
             </div>
             <div class="modal-success text-center py-4" id="provider-test-success" style="display: none;">
                 <div class="mb-3">
@@ -163,12 +164,6 @@ class ProviderList {
                 if (msgEl) msgEl.textContent = await readAjaxError(err);
             }
         });
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 }
 

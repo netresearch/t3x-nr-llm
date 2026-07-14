@@ -16,14 +16,7 @@ import Modal from '@typo3/backend/modal.js';
 import Severity from '@typo3/backend/severity.js';
 import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
 import { postAndReload, resolveAjaxUrl } from '@netresearch/nr-llm/Backend/ModuleAction.js';
-
-/**
- * Read the JSON error body from a rejected AjaxRequest response.
- *
- * AjaxRequest rejects with an AjaxResponse on HTTP error status; resolve it
- * to recover the `{ success: false, error: ... }` payload the controllers
- * emit. Falls back to a thrown Error's message for genuine network failures.
- */
+import { escapeHtml } from '@netresearch/nr-llm/Backend/HtmlEscape.js';
 
 class ConfigurationList {
     constructor() {
@@ -141,7 +134,7 @@ class ConfigurationList {
                 <div class="spinner-border text-primary mb-3" role="status">
                     <span class="visually-hidden">Testing configuration...</span>
                 </div>
-                <p class="text-body-secondary">Testing configuration ${this.escapeHtml(name)}...</p>
+                <p class="text-body-secondary">Testing configuration ${escapeHtml(name)}...</p>
             </div>
             <div class="config-test-success" id="config-test-success" style="display: none;">
                 <div class="text-center py-3 mb-3">
@@ -252,12 +245,6 @@ class ConfigurationList {
             const msgEl = container.querySelector('#config-test-error-message');
             if (msgEl) msgEl.textContent = message;
         }
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 }
 
