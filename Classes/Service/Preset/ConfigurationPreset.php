@@ -108,14 +108,15 @@ final readonly class ConfigurationPreset
     }
 
     /**
-     * SHA-256 checksum over a canonical JSON encoding (recursively sorted
-     * keys) of every declared field, so a changed declaration in the
-     * consuming extension is detectable against the stored checksum of an
-     * already-imported record.
+     * The canonical representation of every declared field, used both for the
+     * checksum and for the update diff so the two can never disagree on which
+     * fields make up a preset.
+     *
+     * @return array<string, mixed>
      */
-    public function checksum(): string
+    public function toCanonicalArray(): array
     {
-        $data = [
+        return [
             'allowedToolGroups' => $this->allowedToolGroups,
             'criteria' => $this->criteria->toArray(),
             'description' => $this->description,
@@ -128,7 +129,17 @@ final readonly class ConfigurationPreset
             'systemPrompt' => $this->systemPrompt,
             'temperature' => $this->temperature,
         ];
-        return hash('sha256', json_encode($this->sortKeysRecursively($data), JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * SHA-256 checksum over a canonical JSON encoding (recursively sorted
+     * keys) of every declared field, so a changed declaration in the
+     * consuming extension is detectable against the stored checksum of an
+     * already-imported record.
+     */
+    public function checksum(): string
+    {
+        return hash('sha256', json_encode($this->sortKeysRecursively($this->toCanonicalArray()), JSON_THROW_ON_ERROR));
     }
 
     /**

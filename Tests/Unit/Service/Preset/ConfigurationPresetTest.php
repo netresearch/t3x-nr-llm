@@ -210,4 +210,70 @@ final class ConfigurationPresetTest extends TestCase
         self::assertNotSame($base->checksum(), $changedCriteria->checksum());
         self::assertNotSame($base->checksum(), $changedOptional->checksum());
     }
+
+    #[Test]
+    public function canonicalArrayCarriesEveryDeclaredField(): void
+    {
+        $preset = new ConfigurationPreset(
+            identifier: 'ext.chat',
+            name: 'Chat',
+            description: 'A chat preset.',
+            criteria: new ModelSelectionCriteria(capabilities: ['chat', 'tools']),
+            systemPrompt: 'You are helpful.',
+            temperature: 0.2,
+            maxTokens: 2000,
+            maxRequestsPerDay: 100,
+            maxTokensPerDay: 50000,
+            maxCostPerDay: 5.0,
+            allowedToolGroups: ['rag'],
+        );
+
+        $canonical = $preset->toCanonicalArray();
+
+        self::assertSame([
+            'allowedToolGroups' => ['rag'],
+            'criteria' => $preset->criteria->toArray(),
+            'description' => 'A chat preset.',
+            'identifier' => 'ext.chat',
+            'maxCostPerDay' => 5.0,
+            'maxRequestsPerDay' => 100,
+            'maxTokens' => 2000,
+            'maxTokensPerDay' => 50000,
+            'name' => 'Chat',
+            'systemPrompt' => 'You are helpful.',
+            'temperature' => 0.2,
+        ], $canonical);
+    }
+
+    #[Test]
+    public function checksumTracksTheCanonicalArray(): void
+    {
+        // The checksum and the canonical array are computed from the same
+        // field list: a preset whose canonical array differs must have a
+        // different checksum, and vice versa.
+        $base = new ConfigurationPreset(
+            identifier: 'ext.chat',
+            name: 'Chat',
+            description: 'A chat preset.',
+            criteria: new ModelSelectionCriteria(capabilities: ['chat']),
+        );
+        $same = new ConfigurationPreset(
+            identifier: 'ext.chat',
+            name: 'Chat',
+            description: 'A chat preset.',
+            criteria: new ModelSelectionCriteria(capabilities: ['chat']),
+        );
+        $changed = new ConfigurationPreset(
+            identifier: 'ext.chat',
+            name: 'Chat',
+            description: 'A chat preset.',
+            criteria: new ModelSelectionCriteria(capabilities: ['chat']),
+            maxTokens: 1234,
+        );
+
+        self::assertSame($base->toCanonicalArray(), $same->toCanonicalArray());
+        self::assertSame($base->checksum(), $same->checksum());
+        self::assertNotSame($base->toCanonicalArray(), $changed->toCanonicalArray());
+        self::assertNotSame($base->checksum(), $changed->checksum());
+    }
 }
