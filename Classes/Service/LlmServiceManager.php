@@ -36,17 +36,17 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use TYPO3\CMS\Core\SingletonInterface;
 
-final class LlmServiceManager implements LlmServiceManagerInterface, SingletonInterface
+final readonly class LlmServiceManager implements LlmServiceManagerInterface, SingletonInterface
 {
     public function __construct(
-        private readonly ProviderAdapterRegistryInterface $adapterRegistry,
-        private readonly MiddlewarePipeline $pipeline,
-        private readonly KeyedProviderRegistry $providerRegistry,
-        private readonly ConfigurationResolver $configurationResolver,
-        private readonly MessageShaper $messageShaper,
-        private readonly EmbedCacheKeyBuilder $embedCacheKeyBuilder,
-        private readonly ?SkillInjectionService $skillInjection = null,
-        private readonly ?ModelSelectionServiceInterface $modelSelectionService = null,
+        private ProviderAdapterRegistryInterface $adapterRegistry,
+        private MiddlewarePipeline $pipeline,
+        private KeyedProviderRegistry $providerRegistry,
+        private ConfigurationResolver $configurationResolver,
+        private MessageShaper $messageShaper,
+        private EmbedCacheKeyBuilder $embedCacheKeyBuilder,
+        private ?SkillInjectionService $skillInjection = null,
+        private ?ModelSelectionServiceInterface $modelSelectionService = null,
     ) {}
 
     /**
