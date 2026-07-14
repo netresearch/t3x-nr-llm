@@ -90,6 +90,27 @@ final class DeterministicGraderTest extends TestCase
     }
 
     #[Test]
+    public function jsonSchemaAcceptsEmptyObjectWhenNoKeysRequired(): void
+    {
+        // An empty JSON object decodes to [], which array_is_list() reports
+        // as a list — the required-key gate must still treat it as an object
+        // (matchesType already does), so a schema requiring no keys passes.
+        $schema = '{"type":"object","required":[]}';
+        $result = $this->grader->grade('{}', $this->promptWith(Assertion::jsonSchema($schema)));
+
+        self::assertTrue($result->passed);
+    }
+
+    #[Test]
+    public function jsonSchemaFailsForEmptyObjectMissingRequiredKey(): void
+    {
+        $schema = '{"type":"object","required":["name"]}';
+        $result = $this->grader->grade('{}', $this->promptWith(Assertion::jsonSchema($schema)));
+
+        self::assertFalse($result->passed);
+    }
+
+    #[Test]
     public function jsonSchemaFailsForWrongPropertyType(): void
     {
         $schema = '{"type":"object","properties":{"age":{"type":"integer"}}}';

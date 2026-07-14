@@ -104,7 +104,10 @@ final readonly class DeterministicGrader implements GraderInterface
         }
 
         if (isset($schema['required']) && is_array($schema['required'])) {
-            if (!is_array($data) || array_is_list($data)) {
+            // An empty JSON object decodes to []; treat it as an object here
+            // (consistent with matchesType()) so an empty object is not
+            // mistaken for a list and the required-key checks still run.
+            if (!is_array($data) || ($data !== [] && array_is_list($data))) {
                 return false;
             }
             foreach ($schema['required'] as $key) {
