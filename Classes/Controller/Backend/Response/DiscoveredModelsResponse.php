@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend\Response;
 
-use InvalidArgumentException;
 use JsonSerializable;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 
 /**
