@@ -69,6 +69,21 @@ class CacheManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function generateCacheKeyIsAValidCacheEntryIdentifierForDottedConfigurationIdentifiers(): void
+    {
+        // The provider segment can carry an LLM configuration identifier; the
+        // documented preset naming scheme uses dots (e.g. "nr_ai_search.embeddings").
+        // TYPO3 cache frontends only accept /^[a-zA-Z0-9_%\-&]{1,250}$/ - an
+        // unsanitized dot made every cached call throw
+        // "... is not a valid cache entry identifier" (found live on the first
+        // 0.18 deployment).
+        $key = $this->subject->generateCacheKey('nr_ai_search.embeddings', 'embeddings', ['input' => 'hello']);
+
+        self::assertMatchesRegularExpression('/^[a-zA-Z0-9_%\-&]{1,250}$/', $key);
+        self::assertStringStartsWith('nr_ai_search_embeddings_', $key);
+    }
+
+    #[Test]
     public function generateCacheKeyDiffersForDifferentProviders(): void
     {
         $params = ['messages' => [['role' => 'user', 'content' => 'Hello']]];
