@@ -80,12 +80,20 @@ final class EvalRunCommand extends Command
 
         $graderOption = $input->getOption('grader');
         $graderId = is_string($graderOption) ? $graderOption : DeterministicGrader::IDENTIFIER;
+        $availableGraders = $this->evaluationService->availableGraders();
+        if (!in_array($graderId, $availableGraders, true)) {
+            $io->error(sprintf('Unknown grader "%s".', $graderId));
+            $io->writeln('Available graders: ' . implode(', ', $availableGraders));
+
+            return Command::FAILURE;
+        }
+
         $result = $this->evaluationService->run($set, $graderId, $this->buildBaseOptions($input));
 
         $io->title(sprintf('Evaluation: %s', $set->identifier));
         $this->renderEvaluations($io, $result);
 
-        $previous = $this->repository->findLatest($result->setIdentifier, $result->model);
+        $previous = $this->repository->findLatest($result->setIdentifier, $result->model, $result->grader);
         $this->repository->save($result);
 
         $report = $this->regressionDetector->compare(

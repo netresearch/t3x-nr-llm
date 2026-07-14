@@ -24,7 +24,7 @@ final class EvaluationQualityScoreProviderTest extends TestCase
         $repository = $this->createMock(EvaluationResultRepositoryInterface::class);
         $repository->expects(self::once())
             ->method('meanQualityScoreForModel')
-            ->with('gpt-test')
+            ->with('gpt-test', 'deterministic')
             ->willReturn(0.82);
 
         $provider = new EvaluationQualityScoreProvider($repository);

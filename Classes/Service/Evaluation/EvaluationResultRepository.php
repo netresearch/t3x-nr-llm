@@ -50,14 +50,14 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
         ]);
     }
 
-    public function findLatest(string $setIdentifier, string $model): ?EvaluationResultSummary
+    public function findLatest(string $setIdentifier, string $model, string $grader): ?EvaluationResultSummary
     {
-        $recent = $this->findRecent($setIdentifier, $model, 1);
+        $recent = $this->findRecent($setIdentifier, $model, $grader, 1);
 
         return $recent[0] ?? null;
     }
 
-    public function findRecent(string $setIdentifier, string $model, int $limit): array
+    public function findRecent(string $setIdentifier, string $model, string $grader, int $limit): array
     {
         if ($limit < 1) {
             return [];
@@ -68,6 +68,7 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
             ->where(
                 $queryBuilder->expr()->eq('set_identifier', $queryBuilder->createNamedParameter($setIdentifier)),
                 $queryBuilder->expr()->eq('model_id', $queryBuilder->createNamedParameter($model)),
+                $queryBuilder->expr()->eq('grader', $queryBuilder->createNamedParameter($grader)),
             )
             ->orderBy('run_date', 'DESC')
             ->addOrderBy('uid', 'DESC')
@@ -78,7 +79,7 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
         return array_map($this->mapRow(...), $rows);
     }
 
-    public function meanQualityScoreForModel(string $model): ?float
+    public function meanQualityScoreForModel(string $model, string $grader): ?float
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $rows = $queryBuilder
@@ -86,6 +87,7 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('model_id', $queryBuilder->createNamedParameter($model)),
+                $queryBuilder->expr()->eq('grader', $queryBuilder->createNamedParameter($grader)),
             )
             ->orderBy('run_date', 'DESC')
             ->addOrderBy('uid', 'DESC')

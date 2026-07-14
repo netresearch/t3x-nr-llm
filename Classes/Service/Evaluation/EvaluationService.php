@@ -32,6 +32,17 @@ final readonly class EvaluationService
     ) {}
 
     /**
+     * The grader identifiers this service can run, for callers that need to
+     * validate a requested grader before invoking run().
+     *
+     * @return list<string>
+     */
+    public function availableGraders(): array
+    {
+        return $this->gradingService->availableGraders();
+    }
+
+    /**
      * Execute the set and return the aggregated result.
      *
      * @param string           $graderId    Grader identifier (default: deterministic; llm_judge is opt-in)

@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
+use Netresearch\NrLlm\Service\Evaluation\Grader\DeterministicGrader;
+
 /**
  * The default ModelQualityScoreProvider: reads a model's quality score from
  * stored evaluation results (ADR-060).
@@ -28,6 +30,9 @@ final readonly class EvaluationQualityScoreProvider implements ModelQualityScore
             return null;
         }
 
-        return $this->repository->meanQualityScoreForModel($modelId);
+        // Routing uses the deterministic grader's scores only: LLM-judge
+        // scores are on a different, non-comparable scale, so averaging the
+        // two would produce a meaningless routing signal.
+        return $this->repository->meanQualityScoreForModel($modelId, DeterministicGrader::IDENTIFIER);
     }
 }

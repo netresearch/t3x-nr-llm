@@ -25,23 +25,28 @@ interface EvaluationResultRepositoryInterface
     public function save(SetEvaluationResult $result): void;
 
     /**
-     * The most recent stored summary for a (set, model), or null if none.
+     * The most recent stored summary for a (set, model, grader), or null if
+     * none. The grader is part of the key: a pass rate / mean score only
+     * means the same thing when compared against a run graded the same way.
      */
-    public function findLatest(string $setIdentifier, string $model): ?EvaluationResultSummary;
+    public function findLatest(string $setIdentifier, string $model, string $grader): ?EvaluationResultSummary;
 
     /**
-     * The most recent stored summaries for a (set, model), newest first.
+     * The most recent stored summaries for a (set, model, grader), newest
+     * first.
      *
      * @return list<EvaluationResultSummary>
      */
-    public function findRecent(string $setIdentifier, string $model, int $limit): array;
+    public function findRecent(string $setIdentifier, string $model, string $grader, int $limit): array;
 
     /**
-     * Mean quality score for a model across its golden sets (0.0-1.0), or
-     * null when the model has no stored results.
+     * Mean quality score for a model across its golden sets (0.0-1.0) for a
+     * single grader, or null when the model has no stored results for it.
      *
      * Averages the latest run per set for the model, so one heavily-evaluated
-     * set does not dominate and stale runs are ignored.
+     * set does not dominate and stale runs are ignored. Scoped to one grader
+     * because deterministic assertion fractions and LLM-judge scores are not
+     * comparable and must not be averaged together.
      */
-    public function meanQualityScoreForModel(string $model): ?float;
+    public function meanQualityScoreForModel(string $model, string $grader): ?float;
 }

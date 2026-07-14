@@ -32,6 +32,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
 {
     private const SET = 'nr_llm.smoke';
     private const MODEL = 'gpt-test';
+    private const GRADER = 'deterministic';
     private const TABLE = 'tx_nrllm_eval_result';
 
     private EvaluationResultRepository $repository;
@@ -49,19 +50,19 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
      * Build a result with `$total` prompts of which `$passed` pass and whose
      * mean score equals `$passed / $total`.
      */
-    private function buildResult(int $total, int $passed, int $runTimestamp, string $model = self::MODEL): SetEvaluationResult
+    private function buildResult(int $total, int $passed, int $runTimestamp, string $model = self::MODEL, string $grader = self::GRADER): SetEvaluationResult
     {
         $evaluations = [];
         for ($i = 0; $i < $total; ++$i) {
             $didPass = $i < $passed;
             $evaluations[] = new PromptEvaluation(
                 'p' . $i,
-                new GradingResult($didPass, $didPass ? 1.0 : 0.0, 'deterministic'),
+                new GradingResult($didPass, $didPass ? 1.0 : 0.0, $grader),
                 5,
             );
         }
 
-        return new SetEvaluationResult(self::SET, $model, 'deterministic', $evaluations, $runTimestamp);
+        return new SetEvaluationResult(self::SET, $model, $grader, $evaluations, $runTimestamp);
     }
 
     #[Test]
@@ -98,7 +99,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         $this->repository->save($this->buildResult(4, 4, 1_700_000_000));
         $this->repository->save($this->buildResult(4, 1, 1_700_000_100));
 
-        $latest = $this->repository->findLatest(self::SET, self::MODEL);
+        $latest = $this->repository->findLatest(self::SET, self::MODEL, self::GRADER);
 
         self::assertNotNull($latest);
         self::assertSame(1_700_000_100, $latest->runTimestamp);
@@ -111,7 +112,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         $this->repository->save($this->buildResult(4, 4, 1_700_000_000));
         $this->repository->save($this->buildResult(4, 2, 1_700_000_100));
 
-        $recent = $this->repository->findRecent(self::SET, self::MODEL, 2);
+        $recent = $this->repository->findRecent(self::SET, self::MODEL, self::GRADER, 2);
 
         self::assertCount(2, $recent);
         self::assertSame(1_700_000_100, $recent[0]->runTimestamp);
@@ -121,7 +122,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function findLatestIsNullForUnknownSetModel(): void
     {
-        self::assertNull($this->repository->findLatest('no.such.set', 'no-model'));
+        self::assertNull($this->repository->findLatest('no.such.set', 'no-model', self::GRADER));
     }
 
     #[Test]
@@ -130,7 +131,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         // First (baseline) run: all pass. Second run: quality collapses.
         $this->repository->save($this->buildResult(4, 4, 1_700_000_000));
 
-        $previous = $this->repository->findLatest(self::SET, self::MODEL);
+        $previous = $this->repository->findLatest(self::SET, self::MODEL, self::GRADER);
         self::assertNotNull($previous);
 
         $current = $this->buildResult(4, 1, 1_700_000_100);
@@ -150,7 +151,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         $this->repository->save($this->buildResult(4, 4, 1_700_000_000));
         $this->repository->save($this->buildResult(4, 2, 1_700_000_100));
 
-        $score = $this->repository->meanQualityScoreForModel(self::MODEL);
+        $score = $this->repository->meanQualityScoreForModel(self::MODEL, self::GRADER);
 
         self::assertNotNull($score);
         self::assertEqualsWithDelta(0.5, $score, 0.0001);
@@ -159,6 +160,25 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function meanQualityScoreIsNullForModelWithoutResults(): void
     {
-        self::assertNull($this->repository->meanQualityScoreForModel('unseen-model'));
+        self::assertNull($this->repository->meanQualityScoreForModel('unseen-model', self::GRADER));
+    }
+    #[Test]
+    public function findLatestSegregatesByGrader(): void
+    {
+        // A deterministic run and an llm_judge run for the SAME (set, model)
+        // must not be treated as the same series — their pass_rate/mean_score
+        // are not comparable, so regression detection must not pair them.
+        $this->repository->save($this->buildResult(4, 4, 1_700_000_000, self::MODEL, 'deterministic'));
+        $this->repository->save($this->buildResult(4, 1, 1_700_000_100, self::MODEL, 'llm_judge'));
+
+        $deterministic = $this->repository->findLatest(self::SET, self::MODEL, 'deterministic');
+        $judge = $this->repository->findLatest(self::SET, self::MODEL, 'llm_judge');
+
+        self::assertNotNull($deterministic);
+        self::assertNotNull($judge);
+        self::assertSame(1_700_000_000, $deterministic->runTimestamp);
+        self::assertSame(1_700_000_100, $judge->runTimestamp);
+        self::assertEqualsWithDelta(1.0, $deterministic->passRate, 0.0001);
+        self::assertEqualsWithDelta(0.25, $judge->passRate, 0.0001);
     }
 }

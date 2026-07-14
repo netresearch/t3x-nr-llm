@@ -82,6 +82,18 @@ final class EvalRunCommandTest extends TestCase
     }
 
     #[Test]
+    public function unknownGraderFailsWithHint(): void
+    {
+        $tester = new CommandTester($this->command(new StaticCompletionService('ACK'), new InMemoryEvaluationResultRepository()));
+
+        $exitCode = $tester->execute(['set' => self::SET_IDENTIFIER, '--grader' => 'llm_judg']);
+
+        self::assertSame(Command::FAILURE, $exitCode);
+        self::assertStringContainsString('Unknown grader', $tester->getDisplay());
+        self::assertStringContainsString('llm_judg', $tester->getDisplay());
+    }
+
+    #[Test]
     public function passingRunSucceedsAndPersists(): void
     {
         $repository = new InMemoryEvaluationResultRepository();

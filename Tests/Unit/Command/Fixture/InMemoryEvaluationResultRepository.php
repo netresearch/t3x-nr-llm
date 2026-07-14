@@ -28,7 +28,7 @@ final class InMemoryEvaluationResultRepository implements EvaluationResultReposi
 
     public function seed(EvaluationResultSummary $summary): void
     {
-        $this->seeded[$summary->setIdentifier . '|' . $summary->model] = $summary;
+        $this->seeded[$summary->setIdentifier . '|' . $summary->model . '|' . $summary->grader] = $summary;
     }
 
     public function save(SetEvaluationResult $result): void
@@ -36,19 +36,19 @@ final class InMemoryEvaluationResultRepository implements EvaluationResultReposi
         $this->saved[] = $result;
     }
 
-    public function findLatest(string $setIdentifier, string $model): ?EvaluationResultSummary
+    public function findLatest(string $setIdentifier, string $model, string $grader): ?EvaluationResultSummary
     {
-        return $this->seeded[$setIdentifier . '|' . $model] ?? null;
+        return $this->seeded[$setIdentifier . '|' . $model . '|' . $grader] ?? null;
     }
 
-    public function findRecent(string $setIdentifier, string $model, int $limit): array
+    public function findRecent(string $setIdentifier, string $model, string $grader, int $limit): array
     {
-        $latest = $this->findLatest($setIdentifier, $model);
+        $latest = $this->findLatest($setIdentifier, $model, $grader);
 
         return $latest === null ? [] : [$latest];
     }
 
-    public function meanQualityScoreForModel(string $model): ?float
+    public function meanQualityScoreForModel(string $model, string $grader): ?float
     {
         return null;
     }
