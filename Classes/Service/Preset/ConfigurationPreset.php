@@ -105,34 +105,41 @@ final readonly class ConfigurationPreset
                 1789347005,
             );
         }
-        // Validate the numeric seeds against the range LlmConfiguration's
-        // setters accept. Without this, an out-of-range declared seed is
-        // silently clamped on import/update (e.g. temperature 2.5 -> 2.0,
-        // maxTokens 0 -> 1) while the diff dialog and checksum show the raw
-        // declared value the update never stores. Fail fast at registration.
-        if ($temperature !== null && ($temperature < 0.0 || $temperature > 2.0)) {
+        $this->validateSeeds();
+    }
+
+    /**
+     * Validate the numeric seeds against the range LlmConfiguration's setters
+     * accept. Without this, an out-of-range declared seed is silently clamped
+     * on import/update (e.g. temperature 2.5 -> 2.0, maxTokens 0 -> 1) while
+     * the diff dialog and checksum show the raw declared value the update
+     * never stores. Fail fast at registration.
+     */
+    private function validateSeeds(): void
+    {
+        if ($this->temperature !== null && ($this->temperature < 0.0 || $this->temperature > 2.0)) {
             throw new InvalidArgumentException(
-                sprintf('Preset "%s" temperature must be between 0.0 and 2.0; got %s.', $identifier, $temperature),
+                sprintf('Preset "%s" temperature must be between 0.0 and 2.0; got %s.', $this->identifier, $this->temperature),
                 1789347006,
             );
         }
-        if ($maxTokens !== null && $maxTokens < 1) {
+        if ($this->maxTokens !== null && $this->maxTokens < 1) {
             throw new InvalidArgumentException(
-                sprintf('Preset "%s" maxTokens must be >= 1; got %d.', $identifier, $maxTokens),
+                sprintf('Preset "%s" maxTokens must be >= 1; got %d.', $this->identifier, $this->maxTokens),
                 1789347007,
             );
         }
-        foreach (['maxRequestsPerDay' => $maxRequestsPerDay, 'maxTokensPerDay' => $maxTokensPerDay] as $field => $value) {
+        foreach (['maxRequestsPerDay' => $this->maxRequestsPerDay, 'maxTokensPerDay' => $this->maxTokensPerDay] as $field => $value) {
             if ($value !== null && $value < 0) {
                 throw new InvalidArgumentException(
-                    sprintf('Preset "%s" %s must be >= 0; got %d.', $identifier, $field, $value),
+                    sprintf('Preset "%s" %s must be >= 0; got %d.', $this->identifier, $field, $value),
                     1789347008,
                 );
             }
         }
-        if ($maxCostPerDay !== null && $maxCostPerDay < 0.0) {
+        if ($this->maxCostPerDay !== null && $this->maxCostPerDay < 0.0) {
             throw new InvalidArgumentException(
-                sprintf('Preset "%s" maxCostPerDay must be >= 0.0; got %s.', $identifier, $maxCostPerDay),
+                sprintf('Preset "%s" maxCostPerDay must be >= 0.0; got %s.', $this->identifier, $this->maxCostPerDay),
                 1789347009,
             );
         }
