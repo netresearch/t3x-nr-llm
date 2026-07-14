@@ -175,6 +175,13 @@ services:
     alias: Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator
     public: false
 
+  # Telemetry recorder (ADR-058) — private; used by TelemetryMiddleware and the
+  # nrllm:telemetry:purge command. The concrete repository stays private too;
+  # functional tests instantiate it directly with the real ConnectionPool.
+  Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface:
+    alias: Netresearch\NrLlm\Service\Telemetry\TelemetryRepository
+    public: false
+
   # ========================================
   # Repositories (PUBLIC)
   # ========================================

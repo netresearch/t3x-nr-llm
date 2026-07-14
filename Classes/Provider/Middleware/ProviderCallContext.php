@@ -22,14 +22,24 @@ use Symfony\Component\Uid\Uuid;
 final readonly class ProviderCallContext
 {
     /**
-     * @param array<string, mixed> $metadata additional cross-cutting data
-     *                                       (e.g. user id for budget checks,
-     *                                       cache-key inputs, trace tags)
+     * @param array<string, mixed> $metadata         additional cross-cutting data
+     *                                               (e.g. user id for budget checks,
+     *                                               cache-key inputs, trace tags)
+     * @param TelemetrySignals     $telemetrySignals mutable scratchpad an inner
+     *                                               middleware uses to signal the
+     *                                               outer TelemetryMiddleware within
+     *                                               this run (cache hit, fallback
+     *                                               attempts). Default-constructed
+     *                                               per call so every pipeline run
+     *                                               has its own; the `new` default
+     *                                               is evaluated fresh on each call,
+     *                                               never shared across contexts.
      */
     public function __construct(
         public ProviderOperation $operation,
         public string $correlationId,
         public array $metadata = [],
+        public TelemetrySignals $telemetrySignals = new TelemetrySignals(),
     ) {}
 
     /**
@@ -64,6 +74,10 @@ final readonly class ProviderCallContext
             operation: $this->operation,
             correlationId: $this->correlationId,
             metadata: [...$this->metadata, ...$metadata],
+            // Carry the SAME signal sink forward: a context re-derived mid-run
+            // (e.g. to annotate downstream metadata) must not silently drop the
+            // cache-hit / fallback signals collected against the original.
+            telemetrySignals: $this->telemetrySignals,
         );
     }
 }

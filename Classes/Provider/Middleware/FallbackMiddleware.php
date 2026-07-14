@@ -37,8 +37,9 @@ use Throwable;
  * Fallback is shallow: a fallback configuration's own chain is ignored to
  * prevent recursion and cycles.
  *
- * The default pipeline order is pinned via tag priority (Cache outermost at
- * 100, then Budget at 75, Fallback at 50, Usage innermost at 25).
+ * The default pipeline order is pinned via tag priority (Telemetry outermost
+ * at 110 as a pure observer, then Cache at 100, Budget at 75, Fallback at 50,
+ * Usage innermost at 25).
  */
 #[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 50])]
 final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
@@ -130,6 +131,12 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
                 );
                 continue;
             }
+
+            // Count this as a fallback attempt for the outer TelemetryMiddleware
+            // (ADR-058): a real dispatch to a sibling configuration, after the
+            // not-found / inactive skips above. The primary attempt is not
+            // counted.
+            $context->telemetrySignals->recordFallbackAttempt();
 
             try {
                 $result = $next($fallback);

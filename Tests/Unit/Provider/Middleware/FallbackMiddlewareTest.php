@@ -117,6 +117,56 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function recordsOneFallbackAttemptPerDispatchedFallback(): void
+    {
+        // primary fails, first fallback fails, second fallback succeeds =>
+        // two real fallback dispatches; the primary attempt is not counted.
+        $primary = $this->makeConfig('primary', new FallbackChain(['alt1', 'alt2']));
+        $alt1    = $this->makeConfig('alt1');
+        $alt2    = $this->makeConfig('alt2');
+
+        $this->repositoryStub->method('findOneByIdentifier')->willReturnMap([
+            ['alt1', $alt1],
+            ['alt2', $alt2],
+        ]);
+
+        $context  = ProviderCallContext::for(ProviderOperation::Chat);
+        $pipeline = $this->makePipeline();
+
+        $result = $pipeline->run(
+            $context,
+            $primary,
+            static function (LlmConfiguration $config): string {
+                if ($config->getIdentifier() !== 'alt2') {
+                    throw new ProviderConnectionException('down', 0);
+                }
+
+                return 'ok-from-alt2';
+            },
+        );
+
+        self::assertSame('ok-from-alt2', $result);
+        self::assertSame(2, $context->telemetrySignals->fallbackAttempts);
+        self::assertFalse($context->telemetrySignals->cacheHit);
+    }
+
+    #[Test]
+    public function recordsNoFallbackAttemptWhenPrimarySucceeds(): void
+    {
+        $primary  = $this->makeConfig('primary', new FallbackChain(['alt']));
+        $context  = ProviderCallContext::for(ProviderOperation::Chat);
+        $pipeline = $this->makePipeline();
+
+        $pipeline->run(
+            $context,
+            $primary,
+            static fn(LlmConfiguration $config): string => 'ok',
+        );
+
+        self::assertSame(0, $context->telemetrySignals->fallbackAttempts);
+    }
+
+    #[Test]
     public function retriesOnRateLimitResponse(): void
     {
         $primary = $this->makeConfig('primary', new FallbackChain(['alt']));

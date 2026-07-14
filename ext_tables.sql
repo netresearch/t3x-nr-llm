@@ -572,3 +572,57 @@ CREATE TABLE tx_nrllm_tool_group_state (
     PRIMARY KEY (uid),
     UNIQUE KEY group_name (group_name)
 );
+
+#
+# Table structure for table 'tx_nrllm_telemetry'
+# One row per provider middleware pipeline run (ADR-058). Unlike
+# tx_nrllm_service_usage (a daily cost AGGREGATE) this is a per-request log:
+# every run appends exactly one immutable row, success or failure. It stores
+# only cross-cutting observability fields — NO prompts, NO responses, and the
+# exception FQCN (error_class) rather than the message, because messages can
+# carry payload fragments. Growth is bounded by the nrllm:telemetry:purge
+# command. No TCA / backend UI (reads happen via SQL / analytics), matching
+# the other UI-less log tables in this extension.
+#
+CREATE TABLE tx_nrllm_telemetry (
+    uid int(11) unsigned NOT NULL auto_increment,
+    pid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Trace correlation (UUID v4, RFC 4122 = 36 chars)
+    correlation_id varchar(36) DEFAULT '' NOT NULL,
+
+    -- What ran: operation kind + the requested primary configuration
+    operation varchar(32) DEFAULT '' NOT NULL,
+    provider varchar(64) DEFAULT '' NOT NULL,
+    model varchar(128) DEFAULT '' NOT NULL,
+    configuration_identifier varchar(150) DEFAULT '' NOT NULL,
+
+    -- Attribution (backend user; 0 for CLI / scheduler / unauthenticated)
+    be_user int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Outcome. error_class is the exception FQCN on failure ('' on success);
+    -- the message is deliberately NOT stored (privacy).
+    success smallint(5) unsigned DEFAULT '0' NOT NULL,
+    error_class varchar(255) DEFAULT '' NOT NULL,
+
+    -- Wall-clock latency around the whole pipeline (includes cache lookup)
+    latency_ms int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Pipeline signals collected on the way out
+    cache_hit smallint(5) unsigned DEFAULT '0' NOT NULL,
+    fallback_attempts smallint(5) unsigned DEFAULT '0' NOT NULL,
+
+    -- Standard TYPO3 field (append-only; no tstamp — rows are never updated)
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    -- Fetch every hop of one traced call.
+    KEY correlation (correlation_id),
+    -- Purge and time-range analytics scan by crdate only.
+    KEY crdate (crdate),
+    -- Failure-rate / latency breakdowns filter by operation over a window.
+    KEY operation_lookup (operation, crdate),
+    -- "which provider fails most" breakdowns.
+    KEY provider_lookup (provider, success, crdate)
+);

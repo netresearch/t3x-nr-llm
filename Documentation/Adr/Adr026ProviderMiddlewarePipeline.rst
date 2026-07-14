@@ -98,6 +98,25 @@ Contributors can add behaviour without touching :code:`Services.yaml` —
 implement the interface, drop the class under
 :code:`Classes/Provider/Middleware/`, you are done.
 
+.. _adr-026-ordering:
+
+Default ordering
+================
+
+The shipped middleware are pinned by tag ``priority`` (highest priority =
+first in the autowired iterator = outermost layer of the onion):
+
+* ``110`` — :php:`TelemetryMiddleware`: observation only; one row per run
+  (:ref:`adr-058`).
+* ``100`` — :php:`CacheMiddleware`: short-circuits on a cache hit.
+* ``75`` — :php:`BudgetMiddleware`: pre-flight budget denial (miss only).
+* ``50`` — :php:`FallbackMiddleware`: swaps configuration on a retryable failure.
+* ``25`` — :php:`UsageMiddleware`: records the call that actually ran.
+
+Telemetry sits *outside* Cache so measured latency includes the cache lookup
+and a cache-served response still produces a telemetry row. It never
+short-circuits, swaps, or denies — it only observes and re-throws.
+
 .. _adr-026-scope:
 
 Scope of this ADR

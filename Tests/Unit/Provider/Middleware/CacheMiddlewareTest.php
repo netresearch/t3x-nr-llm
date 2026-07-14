@@ -106,6 +106,36 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function flagsCacheHitOnTelemetrySignals(): void
+    {
+        $this->cache->method('get')->willReturn(['vector' => [0.1]]);
+
+        $context = $this->context(key: 'embed:abc');
+        $this->pipeline()->run(
+            context: $context,
+            configuration: $this->configuration(),
+            terminal: static fn(LlmConfiguration $c): array => ['vector' => [0.9]],
+        );
+
+        self::assertTrue($context->telemetrySignals->cacheHit, 'A cache hit must be flagged for TelemetryMiddleware.');
+    }
+
+    #[Test]
+    public function doesNotFlagCacheHitOnMiss(): void
+    {
+        $this->cache->method('get')->willReturn(null);
+
+        $context = $this->context(key: 'embed:new');
+        $this->pipeline()->run(
+            context: $context,
+            configuration: $this->configuration(),
+            terminal: static fn(LlmConfiguration $c): array => ['x' => 1],
+        );
+
+        self::assertFalse($context->telemetrySignals->cacheHit);
+    }
+
+    #[Test]
     public function storesArrayResultOnMiss(): void
     {
         $produced = ['vector' => [0.4, 0.5]];

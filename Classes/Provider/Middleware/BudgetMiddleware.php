@@ -51,8 +51,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * No side effects. The budget record is not incremented here — that is
  * the job of UsageMiddleware after the call succeeds.
  *
- * The default pipeline order is pinned via tag priority (Cache outermost at
- * 100, then Budget at 75, Fallback at 50, Usage innermost at 25).
+ * The default pipeline order is pinned via tag priority (Telemetry outermost
+ * at 110 as a pure observer, then Cache at 100, Budget at 75, Fallback at 50,
+ * Usage innermost at 25).
  */
 #[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 75])]
 final readonly class BudgetMiddleware implements ProviderMiddlewareInterface

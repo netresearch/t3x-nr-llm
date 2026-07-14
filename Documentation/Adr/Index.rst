@@ -356,3 +356,4 @@ Tools
    Adr055EmbeddingConfigurationPath
    Adr056ConfigurationPresets
    Adr057SpecializedServiceAttribution
+   Adr058TelemetryMiddleware

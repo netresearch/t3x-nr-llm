@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\FallbackMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
+use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -24,18 +25,21 @@ use ReflectionClass;
  * Verifies that the provider middleware pipeline is assembled in the
  * documented order via the autowired tagged iterator.
  *
- * The order is security-relevant: CacheMiddleware must be the OUTERMOST
- * layer so that a cache hit short-circuits the pipeline before any budget
- * is consumed (CacheMiddleware / BudgetMiddleware docblocks). Symfony orders
- * a tagged iterator by descending tag priority; this test resolves the real
- * MiddlewarePipeline from the DI container and asserts the resolved order
- * empirically, so the priority *direction* is proven rather than assumed.
+ * The order is security-relevant: CacheMiddleware must be the outermost
+ * BEHAVIOURAL layer so that a cache hit short-circuits the pipeline before any
+ * budget is consumed (CacheMiddleware / BudgetMiddleware docblocks). Only the
+ * observation-only TelemetryMiddleware (ADR-058) sits further out, so measured
+ * latency includes the cache lookup and a cache-served response still produces
+ * a telemetry row. Symfony orders a tagged iterator by descending tag priority;
+ * this test resolves the real MiddlewarePipeline from the DI container and
+ * asserts the resolved order empirically, so the priority *direction* is proven
+ * rather than assumed.
  */
 #[CoversClass(MiddlewarePipeline::class)]
 final class MiddlewarePipelineOrderTest extends AbstractFunctionalTestCase
 {
     #[Test]
-    public function pipelineIsAssembledCacheBudgetFallbackUsage(): void
+    public function pipelineIsAssembledTelemetryCacheBudgetFallbackUsage(): void
     {
         $pipeline = $this->get(MiddlewarePipeline::class);
         self::assertInstanceOf(MiddlewarePipeline::class, $pipeline);
@@ -44,10 +48,11 @@ final class MiddlewarePipelineOrderTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             [
-                CacheMiddleware::class,    // outermost: a cache hit short-circuits
-                BudgetMiddleware::class,   // pre-flight budget gate on a miss
-                FallbackMiddleware::class, // swaps configuration on retryable failure
-                UsageMiddleware::class,    // innermost: records the call that ran
+                TelemetryMiddleware::class, // outermost: observes every run (ADR-058)
+                CacheMiddleware::class,     // outermost behavioural layer: a cache hit short-circuits
+                BudgetMiddleware::class,    // pre-flight budget gate on a miss
+                FallbackMiddleware::class,  // swaps configuration on retryable failure
+                UsageMiddleware::class,     // innermost: records the call that ran
             ],
             $order,
         );
