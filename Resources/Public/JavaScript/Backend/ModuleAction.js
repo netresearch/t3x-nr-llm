@@ -28,7 +28,7 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
  * @returns {string|undefined} the endpoint URL, or a falsy value if not registered
  */
 export function resolveAjaxUrl(key) {
-    const url = TYPO3.settings.ajaxUrls[key];
+    const url = globalThis.TYPO3?.settings?.ajaxUrls?.[key];
     if (!url) {
         Notification.error('Error', 'AJAX URL not configured');
     }
