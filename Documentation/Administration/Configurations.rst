@@ -91,9 +91,20 @@ The panel disappears once no presets are pending.
 If a consuming extension later changes its preset
 declaration, the imported configuration is flagged
 with a :guilabel:`Preset changed` badge in the
-list. This is a hint only — the record is never
-updated automatically; review and adjust it
-manually if needed.
+list. The record is never updated automatically.
+
+Next to the badge, :guilabel:`Review update` opens
+a dialog that lists, field by field, the record's
+current value against the changed declaration.
+Confirming with :guilabel:`Apply update` overwrites
+those record fields with the declared values and
+clears the badge. Your own settings are preserved:
+whether the configuration is active or the default,
+its backend-group assignment, and its fallback chain
+are never changed. If you switched the configuration
+to fixed model selection, or the changed
+requirements no longer match any active model, the
+update is refused with the reason shown.
 
 .. _administration-configurations-test:
 

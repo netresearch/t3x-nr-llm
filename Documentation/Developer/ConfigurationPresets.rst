@@ -122,10 +122,41 @@ Change detection
 ``nrllm_preset_list`` additionally returns a ``drifted`` list: imported
 presets whose current declaration checksum no longer matches the
 ``preset_checksum`` stored at import time. Each entry carries
-``identifier``, ``name``, and ``configurationUid``. The Configurations
-module flags such records with a non-blocking "Preset changed" hint.
+``identifier``, ``name``, ``configurationUid``, and ``changedFields`` — the
+machine names of the fields an update would overwrite (an additive summary;
+may be empty when the declaration only dropped an optional seed). The
+Configurations module flags such records with a non-blocking "Preset
+changed" hint next to a :guilabel:`Review update` action.
 
-Detection only: nr_llm never updates an imported record automatically.
-If your extension changes a preset declaration, document what admins
-should adjust — the checksum-driven update flow (diff + re-confirm) is
-deliberately deferred (:ref:`ADR-056 <adr-056>`).
+nr_llm never updates an imported record automatically, but the admin can
+review and apply a changed declaration.
+
+.. _developer-configuration-presets-update:
+
+Update flow
+===========
+
+Two further admin-gated AJAX endpoints resolve drift:
+
+#. ``nrllm_preset_diff`` (GET, ``identifier``) returns the field-level
+   ``changes`` an update would apply — each a ``field`` (machine name, e.g.
+   ``temperature`` or ``criteria.capabilities``), the record's ``current``
+   value, and the ``declared`` value. It refuses (422) when there is nothing
+   to update: the record is up to date, was not imported from a preset, was
+   switched to ``fixed`` model selection, or the changed criteria are
+   currently unsatisfiable.
+#. ``nrllm_preset_update`` (POST, ``identifier``) applies a reviewed update
+   after the admin re-confirmed, then returns the ``changedFields`` that were
+   applied.
+
+An update follows the declaration for name, description and criteria, and
+for each optional seed that carries a value; a seed the declaration left
+``null`` does not reset the record. It leaves the admin-owned fields
+untouched — active state, default flag, backend groups, and the fallback
+chain — and re-stamps the stored checksum so the drift hint clears. See
+:ref:`ADR-056 <adr-056>` for the design.
+
+When your extension changes a preset declaration, ship the change; admins
+see the drift hint and re-confirm the diff. Document only anything the flow
+cannot carry (for example a change that also needs a new provider or model
+configured first).
