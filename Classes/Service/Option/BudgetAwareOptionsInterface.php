@@ -13,7 +13,13 @@ namespace Netresearch\NrLlm\Service\Option;
  * Marker for option types that carry budget pre-flight metadata
  * (REC #4). Implemented by every option type whose call path reaches
  * `BudgetMiddleware`: `ChatOptions` (and subclass `ToolOptions`),
- * `EmbeddingOptions`, `VisionOptions`, `TranslationOptions`.
+ * `EmbeddingOptions`, `VisionOptions`, `TranslationOptions` — and,
+ * for usage ATTRIBUTION only, by the specialized option types
+ * `TranscriptionOptions`, `SpeechSynthesisOptions` and
+ * `ImageGenerationOptions`: their services bypass the middleware
+ * pipeline, so `beUserUid` feeds `trackUsage()` there while
+ * `plannedCost` is carried for a potential future enforcement path
+ * (see ADR-057).
  *
  * The interface lets shared infrastructure (e.g. resolver-driven
  * auto-population in feature services, or `LlmServiceManager`'s

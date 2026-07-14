@@ -298,4 +298,66 @@ class TranscriptionOptionsTest extends AbstractUnitTestCase
         self::assertEquals('srt', $options->format);
         self::assertEquals('de', $options->language);
     }
+
+    // ============ Budget / attribution fields (ADR-057) ============
+
+    #[Test]
+    public function constructorAcceptsBudgetFields(): void
+    {
+        $options = new TranscriptionOptions(beUserUid: 7, plannedCost: 0.42);
+
+        self::assertSame(7, $options->getBeUserUid());
+        self::assertSame(0.42, $options->getPlannedCost());
+    }
+
+    #[Test]
+    public function fromArrayParsesBudgetFields(): void
+    {
+        $options = TranscriptionOptions::fromArray(['beUserUid' => 7, 'plannedCost' => 0.42]);
+
+        self::assertSame(7, $options->getBeUserUid());
+        self::assertSame(0.42, $options->getPlannedCost());
+    }
+
+    #[Test]
+    public function constructorRejectsNegativeBeUserUid(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('be_user_uid must be >= 0');
+
+        self::assertInstanceOf(TranscriptionOptions::class, new TranscriptionOptions(beUserUid: -1));
+    }
+
+    #[Test]
+    public function constructorRejectsNegativePlannedCost(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('planned_cost must be >= 0.0');
+
+        self::assertInstanceOf(TranscriptionOptions::class, new TranscriptionOptions(plannedCost: -0.01));
+    }
+
+    #[Test]
+    public function withBeUserUidReturnsCloneWithFieldSet(): void
+    {
+        $original = new TranscriptionOptions();
+        $modified = $original->withBeUserUid(11);
+
+        self::assertNull($original->getBeUserUid());
+        self::assertSame(11, $modified->getBeUserUid());
+    }
+
+    #[Test]
+    public function budgetFieldsAreOmittedFromToArray(): void
+    {
+        // Attribution metadata, not wire payload: the service builds its
+        // provider payload from toArray(), so a leak here would send the
+        // uid to the remote API (ADR-057).
+        $options = new TranscriptionOptions(beUserUid: 7, plannedCost: 0.5);
+
+        $array = $options->toArray();
+
+        self::assertArrayNotHasKey('beUserUid', $array);
+        self::assertArrayNotHasKey('plannedCost', $array);
+    }
 }

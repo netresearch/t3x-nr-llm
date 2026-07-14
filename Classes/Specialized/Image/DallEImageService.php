@@ -107,7 +107,7 @@ final class DallEImageService extends AbstractSpecializedService
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
         $data = $responseData[0] ?? [];
 
-        $this->trackImageUsage($model, $size, $quality, 1, $response, $options->configuration);
+        $this->trackImageUsage($model, $size, $quality, 1, $response, $options->configuration, $options->getBeUserUid());
 
         return new ImageGenerationResult(
             url: $data['url'] ?? '',
@@ -191,7 +191,7 @@ final class DallEImageService extends AbstractSpecializedService
             );
         }
 
-        $this->trackImageUsage($model, $size, $quality, count($results), $response, $options->configuration);
+        $this->trackImageUsage($model, $size, $quality, count($results), $response, $options->configuration, $options->getBeUserUid());
 
         return $results;
     }
@@ -199,9 +199,14 @@ final class DallEImageService extends AbstractSpecializedService
     /**
      * Create variations of an image (DALL-E 2 only).
      *
-     * @param string $imagePath Path to source image (PNG, max 4MB, square)
-     * @param int    $count     Number of variations (1-10)
-     * @param string $size      Output size
+     * @param string   $imagePath Path to source image (PNG, max 4MB, square)
+     * @param int      $count     Number of variations (1-10)
+     * @param string   $size      Output size
+     * @param int|null $beUserUid Backend user the usage row is attributed to
+     *                            (ADR-052/ADR-057); this endpoint takes no
+     *                            options object, so the uid is a scalar
+     *                            parameter. Null falls back to the ambient
+     *                            backend.user context.
      *
      * @throws ServiceUnavailableException
      *
@@ -211,6 +216,7 @@ final class DallEImageService extends AbstractSpecializedService
         string $imagePath,
         int $count = 1,
         string $size = self::DEFAULT_SIZE,
+        ?int $beUserUid = null,
     ): array {
         $this->ensureAvailable();
 
@@ -241,7 +247,7 @@ final class DallEImageService extends AbstractSpecializedService
             );
         }
 
-        $this->trackImageUsage('dall-e-2', $size, 'standard', count($results), $response);
+        $this->trackImageUsage('dall-e-2', $size, 'standard', count($results), $response, beUserUid: $beUserUid);
 
         return $results;
     }
@@ -253,6 +259,11 @@ final class DallEImageService extends AbstractSpecializedService
      * @param string      $prompt    Description of the edit
      * @param string|null $maskPath  Path to mask image (transparent areas will be edited)
      * @param string      $size      Output size
+     * @param int|null    $beUserUid Backend user the usage row is attributed to
+     *                               (ADR-052/ADR-057); this endpoint takes no
+     *                               options object, so the uid is a scalar
+     *                               parameter. Null falls back to the ambient
+     *                               backend.user context.
      *
      * @throws ServiceUnavailableException
      *
@@ -263,6 +274,7 @@ final class DallEImageService extends AbstractSpecializedService
         string $prompt,
         ?string $maskPath = null,
         string $size = self::DEFAULT_SIZE,
+        ?int $beUserUid = null,
     ): ImageGenerationResult {
         $this->ensureAvailable();
 
@@ -282,7 +294,7 @@ final class DallEImageService extends AbstractSpecializedService
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
         $data = $responseData[0] ?? [];
 
-        $this->trackImageUsage('dall-e-2', $size, 'standard', 1, $response);
+        $this->trackImageUsage('dall-e-2', $size, 'standard', 1, $response, beUserUid: $beUserUid);
 
         return new ImageGenerationResult(
             url: $data['url'] ?? '',
@@ -423,6 +435,7 @@ final class DallEImageService extends AbstractSpecializedService
         int $imageCount,
         array $response,
         ?string $configuration = null,
+        ?int $beUserUid = null,
     ): void {
         // gpt-image-* responses include a `usage` token object;
         // dall-e-2/3 never send one — token metrics are omitted then
@@ -457,9 +470,6 @@ final class DallEImageService extends AbstractSpecializedService
             $imageInput,
         );
 
-        // beUserUid stays ambient (null): ImageGenerationOptions carries no
-        // budget fields, so no caller-supplied uid reaches this path —
-        // ADR-052 keeps it ambient rather than growing new option surface.
         $this->usageTracker->trackUsage(
             'image',
             $this->getServiceProvider(),
@@ -467,6 +477,7 @@ final class DallEImageService extends AbstractSpecializedService
             configurationUid: $this->resolveConfigurationUid($configuration),
             modelUid: $this->resolveModelUid($model),
             modelId: $model,
+            beUserUid: $beUserUid,
         );
     }
 

@@ -71,6 +71,11 @@ final class FalImageService extends AbstractSpecializedService
      *                                      - seed: int Random seed for reproducibility
      *                                      - negative_prompt: string Things to avoid
      *                                      - enable_safety_checker: bool Safety filter
+     *                                      - beUserUid: int Backend user the usage row
+     *                                      is attributed to (ADR-052/ADR-057) —
+     *                                      attribution metadata only, never part of
+     *                                      the FAL payload (the payload builder is an
+     *                                      explicit allowlist)
      *
      * @throws ServiceUnavailableException
      *
@@ -99,13 +104,10 @@ final class FalImageService extends AbstractSpecializedService
 
         // FAL publishes no static price list (billing varies per hosted
         // model), so no cost is recorded — never guess (see
-        // SpecializedCostCalculatorInterface). beUserUid stays ambient
-        // (null): the generation options array carries no caller-supplied
-        // uid — ADR-052 keeps this path ambient rather than growing new
-        // option surface.
+        // SpecializedCostCalculatorInterface).
         $this->usageTracker->trackUsage('image', $this->getServiceProvider(), [
             'images' => 1,
-        ], modelUid: $this->resolveModelUid($model), modelId: $model);
+        ], modelUid: $this->resolveModelUid($model), modelId: $model, beUserUid: $this->extractBeUserUid($options));
 
         $imageUrl = isset($image['url']) && is_string($image['url']) ? $image['url'] : '';
 
@@ -179,10 +181,9 @@ final class FalImageService extends AbstractSpecializedService
             }
         }
 
-        // beUserUid stays ambient (null) — see generate().
         $this->usageTracker->trackUsage('image', $this->getServiceProvider(), [
             'images' => count($results),
-        ], modelUid: $this->resolveModelUid($model), modelId: $model);
+        ], modelUid: $this->resolveModelUid($model), modelId: $model, beUserUid: $this->extractBeUserUid($options));
 
         return $results;
     }
@@ -413,6 +414,22 @@ final class FalImageService extends AbstractSpecializedService
         $fastModels = ['flux-schnell'];
 
         return !in_array($model, $fastModels, true);
+    }
+
+    /**
+     * Extract the usage-attribution uid from the plain options array
+     * (`beUserUid` key, ADR-052/ADR-057 — the DeepL/LlmTranslator array
+     * pattern; FAL has no typed options DTO). Attribution metadata only:
+     * `buildGeneratePayload()` is an explicit allowlist, so the key never
+     * reaches the FAL API. Negative values are treated as absent.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function extractBeUserUid(array $options): ?int
+    {
+        $beUserUid = $options['beUserUid'] ?? null;
+
+        return is_int($beUserUid) && $beUserUid >= 0 ? $beUserUid : null;
     }
 
     /**

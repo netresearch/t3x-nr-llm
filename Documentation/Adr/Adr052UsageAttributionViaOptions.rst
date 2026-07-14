@@ -83,12 +83,11 @@ Consequences
   caller's budget on those calls. A direct
   ``TranslatorInterface::detectLanguage()`` call has no options
   parameter and stays ambient.
-- The remaining specialized services are ambient-only:
-  ``WhisperTranscriptionService``, ``TextToSpeechService``,
-  ``DallEImageService`` and ``FalImageService`` accept option shapes
-  without budget fields (``TranscriptionOptions``,
-  ``SpeechSynthesisOptions``, ``ImageGenerationOptions``, a plain
-  array), so no caller-supplied uid reaches their ``trackUsage()``
-  calls and attribution falls back to the ambient ``backend.user``
-  aspect. Extending those option shapes is deferred until a consumer
-  needs per-user attribution there.
+- The speech and image services were initially deferred and are now
+  covered by :ref:`ADR-057 <adr-057>`: ``TranscriptionOptions``,
+  ``SpeechSynthesisOptions`` and ``ImageGenerationOptions`` implement
+  ``BudgetAwareOptionsInterface``, ``FalImageService`` reads the
+  documented ``beUserUid`` array key, and all four services forward
+  the uid to their ``trackUsage()`` calls. Attribution only — those
+  services bypass the middleware pipeline, so no budget enforcement
+  happens there.

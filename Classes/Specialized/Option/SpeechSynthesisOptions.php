@@ -10,12 +10,16 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized\Option;
 
 use Netresearch\NrLlm\Service\Option\AbstractOptions;
+use Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface;
+use Netresearch\NrLlm\Service\Option\BudgetFieldsTrait;
 
 /**
  * Options for text-to-speech synthesis (OpenAI TTS).
  */
-final class SpeechSynthesisOptions extends AbstractOptions
+final class SpeechSynthesisOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 {
+    use BudgetFieldsTrait;
+
     private const VALID_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
     private const VALID_MODELS = ['tts-1', 'tts-1-hd'];
     private const VALID_FORMATS = ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'];
@@ -36,7 +40,15 @@ final class SpeechSynthesisOptions extends AbstractOptions
         public readonly ?string $format = 'mp3',
         public readonly ?float $speed = 1.0,
         public readonly ?string $configuration = null,
+        ?int $beUserUid = null,
+        ?float $plannedCost = null,
     ) {
+        $this->setBudgetFields($beUserUid, $plannedCost);
+        $this->validate();
+    }
+
+    private function validate(): void
+    {
         if ($this->model !== null) {
             self::validateEnum($this->model, self::VALID_MODELS, 'model');
         }
@@ -49,12 +61,14 @@ final class SpeechSynthesisOptions extends AbstractOptions
         if ($this->speed !== null) {
             self::validateRange($this->speed, 0.25, 4.0, 'speed');
         }
+        $this->validateBudgetFields();
     }
 
     public function toArray(): array
     {
-        // `configuration` is deliberately absent: it is consumer metadata
-        // for usage attribution, not a TTS API parameter.
+        // `configuration` and the budget fields are deliberately absent:
+        // they are consumer metadata for usage attribution, not TTS API
+        // parameters, and must never reach the provider.
         return $this->filterNull([
             'model' => $this->model,
             'voice' => $this->voice,
@@ -73,6 +87,8 @@ final class SpeechSynthesisOptions extends AbstractOptions
         $format = $options['format'] ?? $options['response_format'] ?? null;
         $speed = $options['speed'] ?? null;
         $configuration = $options['configuration'] ?? null;
+        $beUserUid = $options['beUserUid'] ?? null;
+        $plannedCost = $options['plannedCost'] ?? null;
 
         return new self(
             model: is_string($model) ? $model : null,
@@ -80,6 +96,8 @@ final class SpeechSynthesisOptions extends AbstractOptions
             format: is_string($format) ? $format : null,
             speed: is_float($speed) || is_int($speed) ? (float)$speed : null,
             configuration: is_string($configuration) ? $configuration : null,
+            beUserUid: is_int($beUserUid) ? $beUserUid : null,
+            plannedCost: is_float($plannedCost) || is_int($plannedCost) ? (float)$plannedCost : null,
         );
     }
 
