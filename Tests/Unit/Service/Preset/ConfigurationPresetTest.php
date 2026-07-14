@@ -114,6 +114,42 @@ final class ConfigurationPresetTest extends TestCase
         );
     }
 
+    /**
+     * @return array<string, array{array<string, mixed>, int}>
+     */
+    public static function outOfRangeSeeds(): array
+    {
+        return [
+            'temperature above 2.0' => [['temperature' => 2.5], 1789347006],
+            'temperature below 0.0' => [['temperature' => -0.1], 1789347006],
+            'maxTokens zero'        => [['maxTokens' => 0], 1789347007],
+            'negative requests'     => [['maxRequestsPerDay' => -1], 1789347008],
+            'negative tokens/day'   => [['maxTokensPerDay' => -1], 1789347008],
+            'negative cost/day'     => [['maxCostPerDay' => -0.01], 1789347009],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $seed
+     */
+    #[Test]
+    #[DataProvider('outOfRangeSeeds')]
+    public function rejectsOutOfRangeSeed(array $seed, int $expectedCode): void
+    {
+        // A declared seed outside the range LlmConfiguration's setters accept
+        // would be silently clamped on import/update while the diff dialog and
+        // checksum show the raw value — reject it at registration instead.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode($expectedCode);
+
+        new ConfigurationPreset(...([
+            'identifier' => 'ext.chat',
+            'name' => 'Name',
+            'description' => '',
+            'criteria' => self::chatCriteria(),
+        ] + $seed));
+    }
+
     #[Test]
     public function acceptsMultibyteNameUpToTheCharacterLimit(): void
     {
