@@ -585,13 +585,13 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     public function getAdapterFromConfigurationResolvesCriteriaModeViaModelSelectionService(): void
     {
         // Criteria-mode configuration: no direct model relation. The concrete model
-        // is picked from the criteria by ModelSelectionService and attached back to
-        // the configuration so downstream middleware sees it.
+        // is picked from the criteria by ModelSelectionService. The configuration
+        // entity must NOT be mutated (Extbase would persist the change).
         $resolvedModel = self::createStub(Model::class);
         $config = $this->createMock(LlmConfiguration::class);
         $config->method('getLlmModel')->willReturn(null);
         $config->method('getIdentifier')->willReturn('nr_ai_search.embeddings');
-        $config->expects(self::once())->method('setLlmModel')->with($resolvedModel);
+        $config->expects(self::never())->method('setLlmModel');
 
         $selection = $this->createMock(ModelSelectionServiceInterface::class);
         $selection->expects(self::once())

@@ -715,13 +715,13 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             );
         }
 
-        // Attach the resolved model to the configuration so downstream middleware
-        // (usage attribution, per-model pricing) sees the concrete model for
-        // criteria-mode configurations too, not a null relation.
-        if ($configuration->getLlmModel() === null) {
-            $configuration->setLlmModel($llmModel);
-        }
-
+        // Intentionally NOT calling $configuration->setLlmModel($llmModel): the
+        // configuration is a repository-managed Extbase entity, so mutating it
+        // would mark it dirty and Extbase would persist model_uid at end of
+        // request — silently converting a criteria-mode record into a fixed-mode
+        // one. Per-model cost analytics for criteria configs (UsageMiddleware
+        // reads getLlmModel() directly) remain a separate, non-destructive
+        // follow-up.
         return $this->adapterRegistry->createAdapterFromModel($llmModel);
     }
 
