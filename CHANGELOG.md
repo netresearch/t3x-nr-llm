@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-07-15
+
+### Fixed
+
+- **Criteria-mode configurations could not be used by `*ForConfiguration()`.** `getAdapterFromConfiguration()` read the concrete model relation directly, which is null for criteria-mode configurations (`model_selection_mode = 'criteria'`, `model_uid = 0`), so every `embedForConfiguration()` / `chatWithConfiguration()` / tool call on such a configuration threw `Configuration "…" has no model assigned`. The model is now resolved through `ModelSelectionService` (which returns the directly configured model unchanged for fixed-mode configs), covering the embed / chat / tools / complete / stream paths through the single choke point. The configuration entity is deliberately not mutated — doing so would mark a repository-managed Extbase record dirty and persist `model_uid`, silently converting a criteria-mode record into a fixed-mode one (#372).
+- The embedding cache tag built from the configuration identifier (`nrllm_configuration_<identifier>`) is now sanitized via the new `CacheManagerInterface::sanitizeCacheTag()`. A dotted preset identifier (`nr_ai_search.embeddings`) otherwise made the cache frontend reject the tag on `set()` when `cache_ttl > 0` — the same class as the cache key/tag sanitization shipped in 0.19.0 (#372).
+
 ## [0.19.0] - 2026-07-14
 
 ### Added
