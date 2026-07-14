@@ -132,15 +132,24 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
                 fallbackAttempts: $context->telemetrySignals->fallbackAttempts,
             ));
         } catch (Throwable $e) {
-            // Observability must not break the call it observes.
-            $this->logger->error(
-                'Failed to record LLM telemetry',
-                [
-                    'correlationId' => $context->correlationId,
-                    'operation'     => $context->operation->value,
-                    'exception'     => $e,
-                ],
-            );
+            // Observability must not break the call it observes. safeRecord()
+            // runs inside handle()'s finally, so a Throwable escaping here would
+            // (per PHP finally semantics) replace the provider exception the
+            // caller is meant to see. The logger itself can throw (e.g. TYPO3's
+            // FileWriter on a full/read-only var/log), so the log call is
+            // guarded too — a logging failure is swallowed as a last resort.
+            try {
+                $this->logger->error(
+                    'Failed to record LLM telemetry',
+                    [
+                        'correlationId' => $context->correlationId,
+                        'operation'     => $context->operation->value,
+                        'exception'     => $e,
+                    ],
+                );
+            } catch (Throwable) {
+                // Nothing safe left to do; never let observability break the call.
+            }
         }
     }
 

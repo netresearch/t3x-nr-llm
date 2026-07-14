@@ -168,6 +168,35 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function loggerFailureDuringTelemetryDoesNotBreakTheCall(): void
+    {
+        // safeRecord() runs inside handle()'s finally; a throw escaping the
+        // catch would replace the observed call's result/exception. The
+        // logger can itself throw (e.g. TYPO3 FileWriter on a full disk), so
+        // even a failing logger must not surface.
+        $failingRepository               = new InMemoryTelemetryRepository();
+        $failingRepository->failOnRecord = new RuntimeException('db down');
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->method('error')->willThrowException(new RuntimeException('log disk full'));
+
+        $middleware = new TelemetryMiddleware(
+            $failingRepository,
+            $this->contextWithAmbientUser(0),
+            $this->extensionConfiguration(true),
+            $logger,
+        );
+
+        $result = (new MiddlewarePipeline([$middleware]))->run(
+            new ProviderCallContext(ProviderOperation::Chat, 'corr'),
+            $this->configuration('primary'),
+            static fn(LlmConfiguration $c): string => 'answer',
+        );
+
+        self::assertSame('answer', $result);
+    }
+
+    #[Test]
     public function resolvesBeUserFromMetadata(): void
     {
         $repository = $this->recordingRepository();
