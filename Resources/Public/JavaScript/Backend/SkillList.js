@@ -16,6 +16,7 @@
 import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 import Notification from '@typo3/backend/notification.js';
 import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
+import { postAndReload, resolveAjaxUrl } from '@netresearch/nr-llm/Backend/ModuleAction.js';
 
 class SkillList {
     constructor() {
@@ -57,43 +58,27 @@ class SkillList {
 
     handleSync(btn) {
         const source = btn.dataset.source;
-        const url = TYPO3.settings.ajaxUrls['nrllm_skill_sync'];
+        const url = resolveAjaxUrl('nrllm_skill_sync');
         if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
             return;
         }
 
         const formData = new FormData();
         formData.append('source', source);
 
-        btn.disabled = true;
-        new AjaxRequest(url)
-            .post(formData)
-            .then(response => response.resolve())
-            .then(data => {
-                if (data.success) {
-                    Notification.success(
-                        'Sync complete',
-                        `Status: ${data.status}, created: ${data.created}, updated: ${data.updated}, auto-disabled: ${data.disabledOnChange}, orphaned: ${data.orphaned}`
-                    );
-                    location.reload();
-                } else {
-                    Notification.error('Error', data.error || 'Unknown error');
-                    btn.disabled = false;
-                }
-            })
-            .catch(async err => {
-                Notification.error('Error', await readAjaxError(err));
-                btn.disabled = false;
-            });
+        postAndReload(url, formData, btn, (data) => {
+            Notification.success(
+                'Sync complete',
+                `Status: ${data.status}, created: ${data.created}, updated: ${data.updated}, auto-disabled: ${data.disabledOnChange}, orphaned: ${data.orphaned}`
+            );
+        });
     }
 
     handleToggle(btn) {
         const skill = btn.dataset.skill;
         const enabled = btn.dataset.enabled === '1' ? 0 : 1;
-        const url = TYPO3.settings.ajaxUrls['nrllm_skill_toggle'];
+        const url = resolveAjaxUrl('nrllm_skill_toggle');
         if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
             return;
         }
 
@@ -101,26 +86,13 @@ class SkillList {
         formData.append('skill', skill);
         formData.append('enabled', String(enabled));
 
-        new AjaxRequest(url)
-            .post(formData)
-            .then(response => response.resolve())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    Notification.error('Error', data.error || 'Unknown error');
-                }
-            })
-            .catch(async err => {
-                Notification.error('Error', await readAjaxError(err));
-            });
+        postAndReload(url, formData, btn);
     }
 
     handleSetToken(btn) {
         const source = btn.dataset.source;
-        const url = TYPO3.settings.ajaxUrls['nrllm_skill_token'];
+        const url = resolveAjaxUrl('nrllm_skill_token');
         if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
             return;
         }
 

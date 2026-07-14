@@ -15,7 +15,7 @@ import Notification from '@typo3/backend/notification.js';
 import Modal from '@typo3/backend/modal.js';
 import Severity from '@typo3/backend/severity.js';
 import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
-import { postAndReload } from '@netresearch/nr-llm/Backend/ModuleAction.js';
+import { postAndReload, resolveAjaxUrl } from '@netresearch/nr-llm/Backend/ModuleAction.js';
 
 /**
  * Read the JSON error body from a rejected AjaxRequest response.
@@ -80,64 +80,37 @@ class ConfigurationList {
 
     handleToggleActive(btn) {
         const uid = btn.dataset.uid;
-        const url = TYPO3.settings.ajaxUrls['nrllm_config_toggle_active'];
+        const url = resolveAjaxUrl('nrllm_config_toggle_active');
 
         if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
             return;
         }
 
         const formData = new FormData();
         formData.append('uid', uid);
 
-        new AjaxRequest(url)
-            .post(formData)
-            .then(response => response.resolve())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    Notification.error('Error', data.error || 'Unknown error');
-                }
-            })
-            .catch(async err => {
-                Notification.error('Error', await readAjaxError(err));
-            });
+        postAndReload(url, formData, btn);
     }
 
     handleSetDefault(btn) {
         const uid = btn.dataset.uid;
-        const url = TYPO3.settings.ajaxUrls['nrllm_config_set_default'];
+        const url = resolveAjaxUrl('nrllm_config_set_default');
 
         if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
             return;
         }
 
         const formData = new FormData();
         formData.append('uid', uid);
 
-        new AjaxRequest(url)
-            .post(formData)
-            .then(response => response.resolve())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    Notification.error('Error', data.error || 'Unknown error');
-                }
-            })
-            .catch(async err => {
-                Notification.error('Error', await readAjaxError(err));
-            });
+        postAndReload(url, formData, btn);
     }
 
     handleImportPreset(btn) {
         const identifier = btn.dataset.identifier;
-        const url = TYPO3.settings.ajaxUrls['nrllm_preset_import'];
+        const url = resolveAjaxUrl('nrllm_preset_import');
 
         if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
             return;
         }
 

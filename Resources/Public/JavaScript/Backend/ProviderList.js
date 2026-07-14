@@ -15,6 +15,7 @@ import Notification from '@typo3/backend/notification.js';
 import Modal from '@typo3/backend/modal.js';
 import Severity from '@typo3/backend/severity.js';
 import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
+import { postAndReload, resolveAjaxUrl } from '@netresearch/nr-llm/Backend/ModuleAction.js';
 
 class ProviderList {
     constructor() {
@@ -53,29 +54,16 @@ class ProviderList {
 
     handleToggleActive(btn) {
         const uid = btn.dataset.uid;
-        const url = TYPO3.settings.ajaxUrls['nrllm_provider_toggle_active'];
+        const url = resolveAjaxUrl('nrllm_provider_toggle_active');
 
         if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
             return;
         }
 
         const formData = new FormData();
         formData.append('uid', uid);
 
-        new AjaxRequest(url)
-            .post(formData)
-            .then(response => response.resolve())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    Notification.error('Error', data.error || 'Unknown error');
-                }
-            })
-            .catch(async err => {
-                Notification.error('Error', await readAjaxError(err));
-            });
+        postAndReload(url, formData, btn);
     }
 
     handleTestConnection(btn) {

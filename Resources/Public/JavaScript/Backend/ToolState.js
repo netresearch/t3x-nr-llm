@@ -11,8 +11,7 @@
  * POST/reload flow lives in the shared ModuleAction helper (AjaxRequest
  * underneath, which injects TYPO3's CSRF token automatically).
  */
-import Notification from '@typo3/backend/notification.js';
-import { postAndReload } from '@netresearch/nr-llm/Backend/ModuleAction.js';
+import { postAndReload, resolveAjaxUrl } from '@netresearch/nr-llm/Backend/ModuleAction.js';
 
 class ToolState {
     constructor() {
@@ -46,9 +45,8 @@ class ToolState {
     handleGroupToggle(btn) {
         const group = btn.dataset.group;
         const enabled = btn.dataset.enabled === '1' ? 0 : 1;
-        const url = TYPO3.settings.ajaxUrls['nrllm_toolgroup_toggle'];
+        const url = resolveAjaxUrl('nrllm_toolgroup_toggle');
         if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
             return;
         }
 
@@ -62,9 +60,8 @@ class ToolState {
     handleToggle(btn) {
         const tool = btn.dataset.tool;
         const enabled = btn.dataset.enabled === '1' ? 0 : 1;
-        const url = TYPO3.settings.ajaxUrls['nrllm_tool_toggle'];
+        const url = resolveAjaxUrl('nrllm_tool_toggle');
         if (!url) {
-            Notification.error('Error', 'AJAX URL not configured');
             return;
         }
 
