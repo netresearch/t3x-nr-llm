@@ -69,6 +69,17 @@ class CacheManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function sanitizeCacheTagReducesDottedIdentifierToTheAllowedTagCharset(): void
+    {
+        // Exposed for callers that build tags from dotted preset identifiers
+        // (e.g. LlmServiceManager's embedding cache tags).
+        $tag = 'nrllm_configuration_' . $this->subject->sanitizeCacheTag('nr_ai_search.embeddings');
+
+        self::assertSame('nrllm_configuration_nr_ai_search_embeddings', $tag);
+        self::assertMatchesRegularExpression('/^[a-zA-Z0-9_%\-&]{1,250}$/', $tag);
+    }
+
+    #[Test]
     public function generateCacheKeyIsAValidCacheEntryIdentifierForDottedConfigurationIdentifiers(): void
     {
         // The provider segment can carry an LLM configuration identifier; the

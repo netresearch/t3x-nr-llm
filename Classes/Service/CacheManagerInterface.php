@@ -22,6 +22,14 @@ interface CacheManagerInterface
     public function generateCacheKey(string $provider, string $operation, array $params): string;
 
     /**
+     * Reduce a value to TYPO3's allowed cache-tag charset. Callers that build cache
+     * tags from identifiers which may contain characters the cache frontend rejects
+     * (e.g. the dotted preset naming scheme "nr_ai_search.embeddings") must run the
+     * value through this before handing the tag to the cache.
+     */
+    public function sanitizeCacheTag(string $value): string;
+
+    /**
      * @return array<string, mixed>|null
      */
     public function get(string $cacheKey): ?array;

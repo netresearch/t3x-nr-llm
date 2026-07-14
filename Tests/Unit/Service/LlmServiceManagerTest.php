@@ -39,6 +39,7 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
@@ -581,6 +582,54 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function getAdapterFromConfigurationResolvesCriteriaModeViaModelSelectionService(): void
+    {
+        // Criteria-mode configuration: no direct model relation. The concrete model
+        // is picked from the criteria by ModelSelectionService and attached back to
+        // the configuration so downstream middleware sees it.
+        $resolvedModel = self::createStub(Model::class);
+        $config = $this->createMock(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn(null);
+        $config->method('getIdentifier')->willReturn('nr_ai_search.embeddings');
+        $config->expects(self::once())->method('setLlmModel')->with($resolvedModel);
+
+        $selection = $this->createMock(ModelSelectionServiceInterface::class);
+        $selection->expects(self::once())
+            ->method('resolveModel')
+            ->with($config)
+            ->willReturn($resolvedModel);
+
+        $mockAdapter = self::createStub(ProviderInterface::class);
+        $registryMock = $this->createMock(ProviderAdapterRegistryInterface::class);
+        $registryMock->expects(self::once())
+            ->method('createAdapterFromModel')
+            ->with($resolvedModel)
+            ->willReturn($mockAdapter);
+
+        $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class), null, null, $selection);
+
+        self::assertSame($mockAdapter, $manager->getAdapterFromConfiguration($config));
+    }
+
+    #[Test]
+    public function getAdapterFromConfigurationThrowsWhenCriteriaResolvesToNoModel(): void
+    {
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn(null);
+        $config->method('getIdentifier')->willReturn('nr_ai_search.embeddings');
+
+        $selection = self::createStub(ModelSelectionServiceInterface::class);
+        $selection->method('resolveModel')->willReturn(null);
+
+        $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $this->adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class), null, null, $selection);
+
+        $this->expectException(ProviderException::class);
+        $this->expectExceptionMessage('has no model assigned');
+
+        $manager->getAdapterFromConfiguration($config);
+    }
+
+    #[Test]
     public function chatWithConfigurationUsesAdapter(): void
     {
         $model = self::createStub(Model::class);
@@ -891,6 +940,48 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $metadata = $spy->calls[0]['metadata'];
         self::assertArrayNotHasKey(CacheMiddleware::METADATA_CACHE_KEY, $metadata);
         self::assertArrayNotHasKey(BudgetMiddleware::METADATA_BE_USER_UID, $metadata);
+    }
+
+    #[Test]
+    public function embedForConfigurationRoutesTheConfigurationCacheTagThroughTheSanitizer(): void
+    {
+        // A dotted configuration identifier (the preset naming scheme) must not reach
+        // the cache frontend verbatim in a tag — it is rejected as an invalid tag.
+        $spy = new RecordingMiddleware();
+        $adapter = self::createStub(ProviderInterface::class);
+        $adapter->method('supportsFeature')->willReturn(true);
+        $adapter->method('embeddings')->willReturn(new EmbeddingResponse(
+            embeddings: [[0.1, 0.2]],
+            model: 'text-embedding-3-small',
+            usage: new UsageStatistics(1, 0, 1),
+            provider: 'openai',
+        ));
+        $registry = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $cacheStub = self::createStub(CacheManagerInterface::class);
+        $cacheStub->method('generateCacheKey')->willReturn('cache-key');
+        $cacheStub->method('sanitizeCacheTag')->willReturnCallback(
+            static fn(string $value): string => preg_replace('/\W/', '_', $value) ?? '',
+        );
+
+        $manager = new LlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registry, new MiddlewarePipeline([$spy]), $cacheStub);
+
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn(self::createStub(Model::class));
+        $config->method('getIdentifier')->willReturn('nr_ai_search.embeddings');
+        $config->method('getModelId')->willReturn('text-embedding-3-small');
+        $config->method('toOptionsArray')->willReturn(['model' => 'text-embedding-3-small']);
+        $config->method('getFallbackChainDTO')->willReturn(FallbackChain::fromArray([]));
+
+        // Default EmbeddingOptions keeps cacheTtl = 86400 > 0, so cache tags are built.
+        $manager->embedForConfiguration('hello', $config, new EmbeddingOptions());
+
+        $tags = $spy->calls[0]['metadata'][CacheMiddleware::METADATA_CACHE_TAGS];
+        self::assertContains('nrllm_configuration_nr_ai_search_embeddings', $tags);
+        foreach ($tags as $tag) {
+            self::assertMatchesRegularExpression('/^[a-zA-Z0-9_%\-&]{1,250}$/', $tag);
+        }
     }
 
     /**
