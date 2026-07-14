@@ -329,3 +329,17 @@ services:
   Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator:
     public: true
 
+  # ========================================
+  # Console Commands
+  # ========================================
+  # The console.command tag registers the command with TYPO3's
+  # CommandRegistry and is made public by ConsoleCommandPass — it does not
+  # add a `public: true` override to the audited surface (ADR-028 / ADR-060).
+
+  Netresearch\NrLlm\Command\EvalRunCommand:
+    tags:
+      - name: 'console.command'
+        command: 'nrllm:eval:run'
+        description: 'Run a golden prompt set against a model and report grading and regression.'
+        schedulable: false
+
