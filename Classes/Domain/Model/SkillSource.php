@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 use Netresearch\NrLlm\Domain\Enum\SkillSourceType;
+use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SyncStatus;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
@@ -21,6 +22,8 @@ class SkillSource extends AbstractEntity
     protected string $ref = '';
     protected string $pinnedSha = '';
     protected string $githubToken = '';
+    protected string $trustLevel = SkillTrustLevel::UNTRUSTED->value;
+    protected string $expectedFingerprint = '';
     protected string $syncStatus = SyncStatus::NEVER_SYNCED->value;
     protected string $syncError = '';
     protected int $lastSynced = 0;
@@ -92,6 +95,35 @@ class SkillSource extends AbstractEntity
     public function setGithubToken(string $githubToken): void
     {
         $this->githubToken = $githubToken;
+    }
+
+    public function getTrustLevel(): string
+    {
+        return $this->trustLevel;
+    }
+
+    /**
+     * Trust level as an enum, failing CLOSED to the lowest level for an empty
+     * or unrecognised stored value.
+     */
+    public function getTrustLevelEnum(): SkillTrustLevel
+    {
+        return SkillTrustLevel::fromStringOrUntrusted($this->trustLevel);
+    }
+
+    public function setTrustLevel(string $trustLevel): void
+    {
+        $this->trustLevel = $trustLevel;
+    }
+
+    public function getExpectedFingerprint(): string
+    {
+        return $this->expectedFingerprint;
+    }
+
+    public function setExpectedFingerprint(string $expectedFingerprint): void
+    {
+        $this->expectedFingerprint = $expectedFingerprint;
     }
 
     public function getSyncStatus(): string

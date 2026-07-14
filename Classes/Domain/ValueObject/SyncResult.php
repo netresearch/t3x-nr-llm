@@ -23,5 +23,6 @@ final readonly class SyncResult
         public int $disabledOnChange = 0,
         public int $orphaned = 0,
         public array $errors = [],
+        public int $injectionBlocked = 0,
     ) {}
 }

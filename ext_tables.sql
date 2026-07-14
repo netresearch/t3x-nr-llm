@@ -448,6 +448,10 @@ CREATE TABLE tx_nrllm_skill_source (
     -- Credentials (nr-vault UUID, never plaintext)
     github_token varchar(64) DEFAULT '' NOT NULL,
 
+    -- Publisher trust + manifest fingerprint (ADR-061)
+    trust_level varchar(20) DEFAULT 'untrusted' NOT NULL,
+    expected_fingerprint varchar(64) DEFAULT '' NOT NULL,
+
     -- Sync state
     sync_status varchar(20) DEFAULT 'never_synced' NOT NULL,
     sync_error text,
@@ -494,6 +498,11 @@ CREATE TABLE tx_nrllm_skill (
     support_status varchar(20) DEFAULT 'full' NOT NULL,
     unsupported_notes text,
     allowed_tools text,
+
+    -- Isolation metadata (ADR-061): trust denormalized from the source,
+    -- prompt-injection scan findings recorded at ingest.
+    trust_level varchar(20) DEFAULT 'untrusted' NOT NULL,
+    injection_scan text,
 
     -- Lifecycle
     orphaned tinyint(1) DEFAULT '0' NOT NULL,
@@ -625,4 +634,32 @@ CREATE TABLE tx_nrllm_telemetry (
     KEY operation_lookup (operation, crdate),
     -- "which provider fails most" breakdowns.
     KEY provider_lookup (provider, success, crdate)
+);
+
+#
+# Table structure for table 'tx_nrllm_skill_audit'
+# Append-only provenance trail for skill ingest/enable/disable (ADR-061).
+# Written only by SkillAuditRepository::record() (INSERT); the application has
+# no update/delete path. No TCA (UI-less log, like tx_nrllm_tool_state), no
+# soft-delete column — crdate is the immutable event time.
+#
+CREATE TABLE tx_nrllm_skill_audit (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    event varchar(40) DEFAULT '' NOT NULL,
+    source_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    skill_identifier varchar(512) DEFAULT '' NOT NULL,
+    source_sha varchar(64) DEFAULT '' NOT NULL,
+    body_checksum varchar(64) DEFAULT '' NOT NULL,
+    trust_level varchar(20) DEFAULT 'untrusted' NOT NULL,
+    scan_result text,
+    actor_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    detail text,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY source_uid (source_uid),
+    KEY event (event)
 );
