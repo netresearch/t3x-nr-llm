@@ -69,6 +69,56 @@ class CacheManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function generateCacheKeyIsAValidCacheEntryIdentifierForDottedConfigurationIdentifiers(): void
+    {
+        // The provider segment can carry an LLM configuration identifier; the
+        // documented preset naming scheme uses dots (e.g. "nr_ai_search.embeddings").
+        // TYPO3 cache frontends only accept /^[a-zA-Z0-9_%\-&]{1,250}$/ - an
+        // unsanitized dot made every cached call throw
+        // "... is not a valid cache entry identifier" (found live on the first
+        // 0.18 deployment).
+        $key = $this->subject->generateCacheKey('nr_ai_search.embeddings', 'embeddings', ['input' => 'hello']);
+
+        self::assertMatchesRegularExpression('/^[a-zA-Z0-9_%\-&]{1,250}$/', $key);
+        self::assertStringStartsWith('nr_ai_search_embeddings_', $key);
+    }
+
+    #[Test]
+    public function cacheEmbeddingsProducesValidKeyAndTagsForDottedConfigurationIdentifiers(): void
+    {
+        // The full caching flow with a preset-style configuration identifier
+        // (dots are the documented naming scheme): both the entry identifier
+        // AND every tag must satisfy TYPO3's charset - the provider tag was
+        // the second crash site after the cache key (set() rejects invalid
+        // tags with an InvalidArgumentException).
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
+
+        $cacheFrontendMock
+            ->expects(self::once())
+            ->method('set')
+            ->with(
+                self::matchesRegularExpression('/^[a-zA-Z0-9_%\-&]{1,250}$/'),
+                self::anything(),
+                self::callback(
+                    static function (array $tags): bool {
+                        foreach ($tags as $tag) {
+                            self::assertIsString($tag);
+                            self::assertMatchesRegularExpression('/^[a-zA-Z0-9_%\-&]{1,250}$/', $tag);
+                        }
+
+                        return in_array('nrllm_provider_nr_ai_search_embeddings', $tags, true);
+                    },
+                ),
+                self::anything(),
+            );
+
+        $subject->cacheEmbeddings('nr_ai_search.embeddings', 'hello', [], ['embeddings' => [[0.1]]]);
+    }
+
+    #[Test]
     public function generateCacheKeyDiffersForDifferentProviders(): void
     {
         $params = ['messages' => [['role' => 'user', 'content' => 'Hello']]];

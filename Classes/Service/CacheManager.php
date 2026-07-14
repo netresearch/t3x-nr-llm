@@ -34,13 +34,19 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     /**
      * Generate a cache key for LLM requests.
      *
+     * The provider segment is sanitized because it can carry an LLM
+     * configuration identifier, and those may contain characters TYPO3's
+     * cache frontends reject (valid: A-Za-z0-9_%-&). The documented preset
+     * naming scheme uses dots ("nr_ai_search.embeddings"), which otherwise
+     * made every cached call throw "not a valid cache entry identifier".
+     *
      * @param array<string, mixed> $params
      */
     public function generateCacheKey(string $provider, string $operation, array $params): string
     {
         $normalized = $this->normalizeParams($params);
         $hash = hash('xxh128', json_encode($normalized, JSON_THROW_ON_ERROR));
-        return sprintf('%s_%s_%s', $provider, $operation, $hash);
+        return sprintf('%s_%s_%s', $this->sanitizeTagValue($provider), $operation, $hash);
     }
 
     /**
@@ -127,7 +133,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
      */
     public function flushByProvider(string $provider): void
     {
-        $this->flushByTag('nrllm_provider_' . $provider);
+        $this->flushByTag('nrllm_provider_' . $this->sanitizeTagValue($provider));
     }
 
     /**
@@ -151,7 +157,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
 
         $tags = [
             'nrllm_completion',
-            'nrllm_provider_' . $provider,
+            'nrllm_provider_' . $this->sanitizeTagValue($provider),
         ];
 
         if (isset($options['model']) && is_string($options['model'])) {
@@ -204,7 +210,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
 
         $tags = [
             'nrllm_embeddings',
-            'nrllm_provider_' . $provider,
+            'nrllm_provider_' . $this->sanitizeTagValue($provider),
         ];
 
         $this->set($cacheKey, $response, $lifetime, $tags);
