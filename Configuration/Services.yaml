@@ -213,6 +213,12 @@ services:
   Netresearch\NrLlm\Service\Skill\GitHubClientInterface:
     alias: Netresearch\NrLlm\Service\Skill\GitHubClient
 
+  # Built via a factory so the instance-configured minimum skill trust level
+  # (skills.minTrustLevel, ADR-061) is applied. Stays private — the composer is
+  # an internal collaborator of the injection and allowed-tools paths.
+  Netresearch\NrLlm\Service\Skill\SkillComposer:
+    factory: ['@Netresearch\NrLlm\Service\Skill\SkillComposerFactory', 'create']
+
   # Public so functional tests can fetch registered tools by spec name
   # (the tools themselves stay private; ADR-042).
   Netresearch\NrLlm\Service\Tool\ToolRegistry:

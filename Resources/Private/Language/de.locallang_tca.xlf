@@ -1178,6 +1178,38 @@
                 <source>Enabled</source>
                 <target>Aktiviert</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.trust_level">
+                <source>Publisher trust level</source>
+                <target>Vertrauensstufe des Herausgebers</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.trust_level.description">
+                <source>Provenance classification of this source. Independent of the support status. Raising the instance-wide minimum trust level (extension configuration) drops skills below it from prompts and tool grants.</source>
+                <target>Herkunftsklassifizierung dieser Quelle. Unabhängig vom Unterstützungsstatus. Wird die instanzweite Mindestvertrauensstufe (Extension-Konfiguration) angehoben, werden Skills darunter aus Prompts und Tool-Freigaben entfernt.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.expected_fingerprint">
+                <source>Expected manifest fingerprint (sha256)</source>
+                <target>Erwarteter Manifest-Fingerprint (sha256)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.expected_fingerprint.description">
+                <source>Optional. The sha256 the source's whole skill set must hash to. When set, a mismatch at sync fails closed: no skill is materialized. Leave empty to rely on the commit-SHA pin alone.</source>
+                <target>Optional. Der sha256, auf den die gesamte Skill-Menge der Quelle hashen muss. Ist er gesetzt, schlägt eine Abweichung beim Sync fail-closed fehl: kein Skill wird materialisiert. Leer lassen, um allein auf die Commit-SHA-Fixierung zu vertrauen.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm.trust_level.untrusted">
+                <source>Untrusted (anonymous public source)</source>
+                <target>Nicht vertrauenswürdig (anonyme öffentliche Quelle)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm.trust_level.community">
+                <source>Community</source>
+                <target>Community</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm.trust_level.verified">
+                <source>Verified publisher</source>
+                <target>Verifizierter Herausgeber</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm.trust_level.first_party">
+                <source>First-party (operator-controlled)</source>
+                <target>Eigene Quelle (vom Betreiber kontrolliert)</target>
+            </trans-unit>
             <!-- Skill table -->
             <trans-unit id="tx_nrllm_skill">
                 <source>LLM Skill</source>
@@ -1214,6 +1246,14 @@
             <trans-unit id="tx_nrllm_skill.raw_frontmatter">
                 <source>Raw front-matter (JSON)</source>
                 <target>Roh-Front-Matter (JSON)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.trust_level">
+                <source>Trust level</source>
+                <target>Vertrauensstufe</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.injection_scan">
+                <source>Injection scan findings (JSON)</source>
+                <target>Injection-Scan-Funde (JSON)</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_skill.support_status">
                 <source>Support status</source>

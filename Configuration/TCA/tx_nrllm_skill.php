@@ -35,6 +35,8 @@ return [
                     description,
                     body,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.metadata,
+                    trust_level,
+                    injection_scan,
                     support_status,
                     unsupported_notes,
                     allowed_tools,
@@ -122,6 +124,33 @@ return [
                 'type' => 'text',
                 'cols' => 40,
                 'rows' => 5,
+                'readOnly' => true,
+                'searchable' => false,
+            ],
+        ],
+        // Denormalized from the source; sync-managed and read-only here (the
+        // source's classification is the authoritative edit surface).
+        'trust_level' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.trust_level',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectSingle',
+                'items' => [
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.trust_level.untrusted', 'value' => 'untrusted'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.trust_level.community', 'value' => 'community'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.trust_level.verified', 'value' => 'verified'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.trust_level.first_party', 'value' => 'first_party'],
+                ],
+                'default' => 'untrusted',
+                'readOnly' => true,
+            ],
+        ],
+        'injection_scan' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill.injection_scan',
+            'config' => [
+                'type' => 'text',
+                'cols' => 40,
+                'rows' => 4,
                 'readOnly' => true,
                 'searchable' => false,
             ],
