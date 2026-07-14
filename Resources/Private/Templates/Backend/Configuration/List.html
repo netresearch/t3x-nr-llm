@@ -128,9 +128,17 @@
                                         <f:if condition="{config.isDefault}">
                                             <span class="badge text-bg-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:default" default="Default" /></span>
                                         </f:if>
-                                        <f:comment>Checksum drift hint (ADR-056): the imported preset's declaration changed — hint only, no auto-update.</f:comment>
-                                        <f:if condition="{driftedUids.{config.uid}}">
+                                        <f:comment>Checksum drift hint (ADR-056): the imported preset's declaration changed. The "Review update" button opens the diff + re-confirm flow.</f:comment>
+                                        <f:if condition="{driftedIdentifiers.{config.uid}}">
                                             <span class="badge text-bg-warning" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.drift.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.drift.badge" default="Preset changed" /></span>
+                                            <button type="button" class="btn btn-warning btn-sm js-review-preset-update"
+                                                    data-identifier="{driftedIdentifiers.{config.uid}}"
+                                                    data-name="{config.name}"
+                                                    title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.update.review')}"
+                                                    aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.update.review')}">
+                                                <core:icon identifier="actions-refresh" size="small" />
+                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.update.review" default="Review update" />
+                                            </button>
                                         </f:if>
                                         <f:if condition="{config.description}">
                                             <br /><span class="text-body-secondary">{config.description}</span>

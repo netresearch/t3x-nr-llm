@@ -99,6 +99,8 @@ final class ConfigurationController extends ActionController
             'nrllm_config_set_default' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_set_default'),
             'nrllm_config_test' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_test'),
             'nrllm_preset_import' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_preset_import'),
+            'nrllm_preset_diff' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_preset_diff'),
+            'nrllm_preset_update' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_preset_update'),
         ]);
 
         // Load JavaScript for configuration list actions (ES6 module)
@@ -139,7 +141,7 @@ final class ConfigurationController extends ActionController
             'reqByConfig' => $usage['requests'],
             'tokByConfig' => $usage['tokens'],
             'pendingPresets' => $this->buildPendingPresetRows(),
-            'driftedUids' => $this->buildDriftedUidMap(),
+            'driftedIdentifiers' => $this->buildDriftedIdentifierMap(),
         ]);
 
         if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
@@ -583,22 +585,24 @@ final class ConfigurationController extends ActionController
     }
 
     /**
-     * Configuration UIDs whose imported preset declaration drifted
-     * (checksum mismatch, ADR-056) — keyed by UID for O(1) template lookup.
+     * Preset identifiers of configuration records whose imported preset
+     * declaration drifted (checksum mismatch, ADR-056) — keyed by record UID
+     * for O(1) template lookup. The template renders both the drift hint and
+     * the "Review update" button, which needs the identifier to fetch the diff.
      *
-     * @return array<int, bool>
+     * @return array<int, string>
      */
-    private function buildDriftedUidMap(): array
+    private function buildDriftedIdentifierMap(): array
     {
-        $driftedUids = [];
+        $driftedIdentifiers = [];
         foreach ($this->presetRegistry->drifted() as $drift) {
             $uid = $drift['configuration']->getUid();
             if ($uid !== null) {
-                $driftedUids[$uid] = true;
+                $driftedIdentifiers[$uid] = $drift['preset']->identifier;
             }
         }
 
-        return $driftedUids;
+        return $driftedIdentifiers;
     }
 
     /**

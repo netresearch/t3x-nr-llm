@@ -1014,6 +1014,10 @@
                 <source>The preset declaration changed since this configuration was imported. Review the record; it is not updated automatically.</source>
                 <target>Die Preset-Deklaration hat sich seit dem Import dieser Konfiguration geändert. Prüfen Sie den Datensatz; er wird nicht automatisch aktualisiert.</target>
             </trans-unit>
+            <trans-unit id="configuration.presets.update.review">
+                <source>Review update</source>
+                <target>Aktualisierung prüfen</target>
+            </trans-unit>
             <trans-unit id="task.empty.title">
                 <source>No Tasks Configured</source>
                 <target>Keine Aufgaben konfiguriert</target>
@@ -2171,6 +2175,14 @@
             <trans-unit id="error.preset.unknown">
                 <source>Unknown preset</source>
                 <target>Unbekanntes Preset</target>
+            </trans-unit>
+            <trans-unit id="error.preset.notDrifted">
+                <source>This configuration is up to date; there is nothing to update.</source>
+                <target>Diese Konfiguration ist aktuell; es gibt nichts zu aktualisieren.</target>
+            </trans-unit>
+            <trans-unit id="error.preset.modeSwitched">
+                <source>This configuration was switched to fixed model selection; the preset update is refused so the administrator's model choice is not overridden.</source>
+                <target>Diese Konfiguration wurde auf feste Modellauswahl umgestellt; die Preset-Aktualisierung wird abgelehnt, damit die Modellwahl des Administrators nicht überschrieben wird.</target>
             </trans-unit>
             <trans-unit id="error.model.noModelUid">
                 <source>No model UID specified</source>

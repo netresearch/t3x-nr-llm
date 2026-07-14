@@ -28,13 +28,34 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  * duplicate identifier and an unsatisfiable preset, then creates the record
  * in criteria selection mode with the preset's checksum stored for
  * change detection.
+ *
+ * `previewUpdate()` / `update()` implement the drift resolution flow: when a
+ * consuming extension changes a preset declaration, the admin reviews the
+ * diff against the imported record and re-confirms. An update applies the
+ * declared name, description, criteria and non-null seeds, then re-stamps the
+ * checksum so the drift hint clears; it never touches admin-owned fields
+ * (active state, default flag, backend groups, fallback chain) and refuses a
+ * record whose selection mode the admin switched away from criteria.
  */
 final readonly class ConfigurationPresetImportService
 {
+    /** An update was asked for a record whose identifier is not the preset's. */
+    public const CODE_UPDATE_IDENTIFIER_MISMATCH = 1789347007;
+
+    /** The record is up to date or not preset-managed — nothing to update. */
+    public const CODE_UPDATE_NOT_DRIFTED = 1789347008;
+
+    /** The admin switched the record off criteria mode; an update is refused. */
+    public const CODE_UPDATE_MODE_SWITCHED = 1789347009;
+
+    /** No active model satisfies the updated criteria. */
+    public const CODE_UPDATE_UNSATISFIABLE = 1789347010;
+
     public function __construct(
         private ModelSelectionServiceInterface $modelSelectionService,
         private LlmConfigurationRepository $configurationRepository,
         private PersistenceManagerInterface $persistenceManager,
+        private ConfigurationPresetDiffService $diffService,
     ) {}
 
     /**
@@ -114,6 +135,123 @@ final readonly class ConfigurationPresetImportService
         $this->persistenceManager->persistAll();
 
         return $configuration;
+    }
+
+    /**
+     * Diff the declared preset against the imported record, refusing when an
+     * update could not be applied (record not drifted, mode switched away from
+     * criteria, or the updated criteria unsatisfiable). Read-only — for the
+     * re-confirm preview.
+     *
+     * @throws InvalidArgumentException with one of the CODE_UPDATE_* codes
+     */
+    public function previewUpdate(ConfigurationPreset $preset, LlmConfiguration $record): PresetDiff
+    {
+        $this->assertUpdatable($preset, $record);
+
+        return $this->diffService->diff($preset, $record);
+    }
+
+    /**
+     * Apply a changed preset declaration to its imported record after the
+     * admin re-confirmed the diff.
+     *
+     * Applies the declared name, description and criteria (the declaration
+     * always wins) and each non-null seed, then re-stamps the record's stored
+     * checksum to the current declaration so the drift hint clears. Admin-owned
+     * fields (active state, default flag, backend groups, fallback chain) are
+     * left untouched. Returns the diff that was applied.
+     *
+     * @throws InvalidArgumentException with one of the CODE_UPDATE_* codes
+     */
+    public function update(ConfigurationPreset $preset, LlmConfiguration $record): PresetDiff
+    {
+        $this->assertUpdatable($preset, $record);
+
+        $diff = $this->diffService->diff($preset, $record);
+
+        $record->setName($preset->name);
+        $record->setDescription($preset->description);
+        $record->setModelSelectionCriteriaDTO($preset->criteria);
+        if ($preset->systemPrompt !== null) {
+            $record->setSystemPrompt($preset->systemPrompt);
+        }
+        if ($preset->temperature !== null) {
+            $record->setTemperature($preset->temperature);
+        }
+        if ($preset->maxTokens !== null) {
+            $record->setMaxTokens($preset->maxTokens);
+        }
+        if ($preset->maxRequestsPerDay !== null) {
+            $record->setMaxRequestsPerDay($preset->maxRequestsPerDay);
+        }
+        if ($preset->maxTokensPerDay !== null) {
+            $record->setMaxTokensPerDay($preset->maxTokensPerDay);
+        }
+        if ($preset->maxCostPerDay !== null) {
+            $record->setMaxCostPerDay($preset->maxCostPerDay);
+        }
+        if ($preset->allowedToolGroups !== []) {
+            $record->setAllowedToolGroups(implode(',', $preset->allowedToolGroups));
+        }
+        $record->setPresetChecksum($preset->checksum());
+
+        $this->configurationRepository->update($record);
+        $this->persistenceManager->persistAll();
+
+        return $diff;
+    }
+
+    /**
+     * Refuse an update the flow must not perform.
+     *
+     * @throws InvalidArgumentException with one of the CODE_UPDATE_* codes
+     */
+    private function assertUpdatable(ConfigurationPreset $preset, LlmConfiguration $record): void
+    {
+        if ($record->getIdentifier() !== $preset->identifier) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Configuration "%s" does not belong to preset "%s".',
+                    $record->getIdentifier(),
+                    $preset->identifier,
+                ),
+                self::CODE_UPDATE_IDENTIFIER_MISMATCH,
+            );
+        }
+
+        $storedChecksum = $record->getPresetChecksum();
+        if ($storedChecksum === '' || $storedChecksum === $preset->checksum()) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Preset "%s" has no drifted configuration to update: the record is up to date or was not imported from a preset.',
+                    $preset->identifier,
+                ),
+                self::CODE_UPDATE_NOT_DRIFTED,
+            );
+        }
+
+        if (!$record->usesCriteriaSelection()) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Configuration "%s" was switched to fixed model selection; updating the preset would override the administrator\'s model choice and is refused.',
+                    $preset->identifier,
+                ),
+                self::CODE_UPDATE_MODE_SWITCHED,
+            );
+        }
+
+        $preflight = $this->preflight($preset);
+        if (!$preflight->satisfiable) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Preset "%s" cannot be updated: no active model satisfies the requirement (%s).',
+                    $preset->identifier,
+                    (string)$preflight->missingRequirement,
+                ),
+                self::CODE_UPDATE_UNSATISFIABLE,
+            );
+        }
     }
 
     /**

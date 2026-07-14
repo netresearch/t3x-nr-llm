@@ -18,8 +18,8 @@ ADR-056: Configuration presets — consumer-declared, admin-imported records
    ``nrllm_preset_import`` endpoint, and imported records whose
    declaration checksum drifted are flagged with a non-blocking hint
    (see :ref:`administration-configurations-presets`). The
-   checksum-driven *update flow* (diff + re-confirm) remains future
-   work.
+   checksum-driven *update flow* (diff + re-confirm) has also been
+   implemented — see :ref:`the amendment below <adr-056-amendment-update-flow>`.
 
 .. _adr-056-context:
 
@@ -121,9 +121,9 @@ Negative
 * v1 has no backend-module UI; admins need the AJAX endpoints (or the
   follow-up module) to see and import pending presets. *(Implemented
   since — see the note above.)*
-* The stored checksum only *detects* declaration drift; an update flow
-  (diff + re-confirm) is deliberately deferred. *(Still the case: the
-  module UI shows a drift hint, nothing more.)*
+* The stored checksum only *detects* declaration drift. *(Superseded: the
+  diff + re-confirm update flow is now implemented — see the amendment
+  below.)*
 
 .. _adr-056-alternatives:
 
@@ -143,3 +143,46 @@ and gives compile-time class references instead of stringly-typed files.
 **Fixed-mode presets naming a concrete model.** Rejected outright: it
 would invert the three-tier ownership (:ref:`ADR-001 <adr-001>`) and break
 on every instance whose admin chose a different provider.
+
+.. _adr-056-amendment-update-flow:
+
+Amendment (2026-07-14): checksum-driven update flow
+===================================================
+
+The update flow the original decision deferred is now implemented as a
+diff + re-confirm step on top of the existing drift detection, in the same
+scope (no schema change, no new ADR).
+
+**Diff is declared-versus-current.** The as-imported declaration is not
+reconstructable (only the checksum is stored), so the diff compares the
+current declaration against the record's *current* values. That is exactly
+the right basis for the admin's decision: it shows the record values an
+update would overwrite. ``ConfigurationPresetDiffService`` produces a
+``PresetDiff`` of per-field deltas; ``ConfigurationPreset::toCanonicalArray()``
+is the single field list both the checksum and the diff read, so the two
+can never disagree.
+
+**What an update applies.** Name, description and the model-selection
+criteria always follow the declaration; the optional seeds (system prompt,
+temperature, max tokens, the three daily budgets, allowed tool groups) are
+applied only when the declaration carries a value. A seed the declaration
+left ``null`` never resets the record — seeds are initial values, so the
+diff shows only fields the declaration has a value for that differ. After
+applying, the record's stored checksum is re-stamped to the current
+declaration, which clears the drift hint (an update always resolves the
+drift, even when the diff was empty because only a seed was removed).
+
+**What an update never touches.** ``is_active``, ``is_default``,
+``be_groups`` and the fallback chain are the admin's — the record stays a
+normal row (per point 3 above). If the admin switched the record to
+``fixed`` model selection, the update is refused (a typed 422): applying the
+declared criteria would override the admin's supply-side model choice.
+Updating also runs the same preflight as import, so a changed, currently
+unsatisfiable criteria set is refused with the missing requirement named.
+
+**Surface.** Two more admin-gated AJAX endpoints (``nrllm_preset_diff``
+GET, ``nrllm_preset_update`` POST; guard per :ref:`ADR-037 <adr-037>`).
+The Configurations module renders a "Review update" action next to the
+drift hint that opens the diff in a re-confirm modal;
+``nrllm_preset_list``'s ``drifted`` entries additively gained a
+``changedFields`` summary (existing keys unchanged).

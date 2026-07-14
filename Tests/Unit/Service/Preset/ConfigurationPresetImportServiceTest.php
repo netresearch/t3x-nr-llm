@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
+use Netresearch\NrLlm\Service\Preset\ConfigurationPresetDiffService;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetImportService;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -44,6 +45,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
             $this->modelSelectionService,
             $this->configurationRepository,
             $this->persistenceManager,
+            new ConfigurationPresetDiffService(),
         );
     }
 
@@ -202,5 +204,212 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $this->expectExceptionCode(1789347006);
 
         $this->subject->import(self::preset());
+    }
+
+    /**
+     * A changed declaration for the same identifier: name, description,
+     * temperature and criteria all differ from {@see preset()}.
+     */
+    private static function changedPreset(): ConfigurationPreset
+    {
+        return new ConfigurationPreset(
+            identifier: 'ext.chat',
+            name: 'Chat v2',
+            description: 'An updated chat preset.',
+            criteria: new ModelSelectionCriteria(capabilities: ['chat', 'tools', 'vision'], minContextLength: 16000),
+            systemPrompt: 'You are very helpful.',
+            temperature: 0.9,
+            maxTokens: 4000,
+            maxRequestsPerDay: 100,
+            maxTokensPerDay: 50000,
+            maxCostPerDay: 5.0,
+            allowedToolGroups: ['rag', 'content'],
+        );
+    }
+
+    /**
+     * A criteria-mode record as imported from $importedFrom: its stored
+     * checksum is that declaration's, so passing a *different* declaration to
+     * update() makes it drifted.
+     */
+    private static function recordImportedFrom(ConfigurationPreset $importedFrom): LlmConfiguration
+    {
+        $record = new LlmConfiguration();
+        $record->setIdentifier($importedFrom->identifier);
+        $record->setModelSelectionMode(ModelSelectionMode::CRITERIA->value);
+        $record->setModelSelectionCriteriaDTO($importedFrom->criteria);
+        $record->setName($importedFrom->name);
+        $record->setDescription($importedFrom->description);
+        if ($importedFrom->systemPrompt !== null) {
+            $record->setSystemPrompt($importedFrom->systemPrompt);
+        }
+        if ($importedFrom->temperature !== null) {
+            $record->setTemperature($importedFrom->temperature);
+        }
+        if ($importedFrom->maxTokens !== null) {
+            $record->setMaxTokens($importedFrom->maxTokens);
+        }
+        if ($importedFrom->maxRequestsPerDay !== null) {
+            $record->setMaxRequestsPerDay($importedFrom->maxRequestsPerDay);
+        }
+        if ($importedFrom->maxTokensPerDay !== null) {
+            $record->setMaxTokensPerDay($importedFrom->maxTokensPerDay);
+        }
+        if ($importedFrom->maxCostPerDay !== null) {
+            $record->setMaxCostPerDay($importedFrom->maxCostPerDay);
+        }
+        if ($importedFrom->allowedToolGroups !== []) {
+            $record->setAllowedToolGroups(implode(',', $importedFrom->allowedToolGroups));
+        }
+        $record->setPresetChecksum($importedFrom->checksum());
+
+        return $record;
+    }
+
+    #[Test]
+    public function updateAppliesDeclaredFieldsAndRestampsChecksum(): void
+    {
+        $preset = self::changedPreset();
+        $record = self::recordImportedFrom(self::preset());
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(new Model());
+        $this->configurationRepository->expects(self::once())->method('update')->with($record);
+        $this->persistenceManager->expects(self::once())->method('persistAll');
+
+        $diff = $this->subject->update($preset, $record);
+
+        self::assertSame('Chat v2', $record->getName());
+        self::assertSame('An updated chat preset.', $record->getDescription());
+        self::assertSame(0.9, $record->getTemperature());
+        self::assertSame(4000, $record->getMaxTokens());
+        self::assertSame($preset->criteria->toArray(), $record->getModelSelectionCriteriaDTO()->toArray());
+        self::assertSame($preset->checksum(), $record->getPresetChecksum());
+        self::assertContains('name', $diff->changedFields());
+        self::assertContains('temperature', $diff->changedFields());
+        self::assertContains('criteria.capabilities', $diff->changedFields());
+    }
+
+    #[Test]
+    public function updateLeavesAdminOwnedFieldsUntouched(): void
+    {
+        $preset = self::changedPreset();
+        $record = self::recordImportedFrom(self::preset());
+        $record->setIsActive(true);
+        $record->setIsDefault(true);
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(new Model());
+
+        $this->subject->update($preset, $record);
+
+        self::assertTrue($record->getIsActive());
+        self::assertTrue($record->getIsDefault());
+    }
+
+    #[Test]
+    public function updateDoesNotResetRecordValueForNullSeed(): void
+    {
+        // The changed declaration removed the temperature seed (null): the
+        // record keeps its imported temperature, and temperature is not in the
+        // diff — yet the checksum change still resolves the drift.
+        $preset = new ConfigurationPreset(
+            identifier: 'ext.chat',
+            name: 'Chat',
+            description: 'A chat preset.',
+            criteria: new ModelSelectionCriteria(capabilities: ['chat', 'tools'], minContextLength: 8000),
+            systemPrompt: 'You are helpful.',
+            temperature: null,
+            maxTokens: 2000,
+        );
+        $record = self::recordImportedFrom(self::preset());
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(new Model());
+
+        $diff = $this->subject->update($preset, $record);
+
+        self::assertSame(0.2, $record->getTemperature());
+        self::assertNotContains('temperature', $diff->changedFields());
+        self::assertSame($preset->checksum(), $record->getPresetChecksum());
+    }
+
+    #[Test]
+    public function updateRefusesWhenRecordIsNotDrifted(): void
+    {
+        $preset = self::changedPreset();
+        $record = self::recordImportedFrom($preset); // stored checksum equals current declaration
+        $this->configurationRepository->expects(self::never())->method('update');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(ConfigurationPresetImportService::CODE_UPDATE_NOT_DRIFTED);
+
+        $this->subject->update($preset, $record);
+    }
+
+    #[Test]
+    public function updateRefusesWhenRecordCarriesNoStoredChecksum(): void
+    {
+        $preset = self::changedPreset();
+        $record = self::recordImportedFrom(self::preset());
+        $record->setPresetChecksum('');
+        $this->configurationRepository->expects(self::never())->method('update');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(ConfigurationPresetImportService::CODE_UPDATE_NOT_DRIFTED);
+
+        $this->subject->update($preset, $record);
+    }
+
+    #[Test]
+    public function updateRefusesWhenModeSwitchedToFixed(): void
+    {
+        $preset = self::changedPreset();
+        $record = self::recordImportedFrom(self::preset());
+        $record->setModelSelectionMode(ModelSelectionMode::FIXED->value);
+        $this->configurationRepository->expects(self::never())->method('update');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(ConfigurationPresetImportService::CODE_UPDATE_MODE_SWITCHED);
+
+        $this->subject->update($preset, $record);
+    }
+
+    #[Test]
+    public function updateRefusesWhenUpdatedCriteriaUnsatisfiable(): void
+    {
+        $preset = self::changedPreset();
+        $record = self::recordImportedFrom(self::preset());
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
+        $this->modelSelectionService->method('findCandidates')->willReturn([]);
+        $this->configurationRepository->expects(self::never())->method('update');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(ConfigurationPresetImportService::CODE_UPDATE_UNSATISFIABLE);
+
+        $this->subject->update($preset, $record);
+    }
+
+    #[Test]
+    public function updateRefusesWhenRecordBelongsToAnotherIdentifier(): void
+    {
+        $preset = self::changedPreset();
+        $record = self::recordImportedFrom(self::preset());
+        $record->setIdentifier('ext.other');
+        $this->configurationRepository->expects(self::never())->method('update');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(ConfigurationPresetImportService::CODE_UPDATE_IDENTIFIER_MISMATCH);
+
+        $this->subject->update($preset, $record);
+    }
+
+    #[Test]
+    public function previewUpdateReturnsDiffWithoutPersisting(): void
+    {
+        $preset = self::changedPreset();
+        $record = self::recordImportedFrom(self::preset());
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(new Model());
+        $this->configurationRepository->expects(self::never())->method('update');
+        $this->persistenceManager->expects(self::never())->method('persistAll');
+
+        $diff = $this->subject->previewUpdate($preset, $record);
+
+        self::assertTrue($diff->hasChanges());
+        self::assertContains('description', $diff->changedFields());
     }
 }
