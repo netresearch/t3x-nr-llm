@@ -128,6 +128,11 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
         return preg_replace('/\W/', '_', $value) ?? '';
     }
 
+    public function sanitizeCacheTag(string $value): string
+    {
+        return $this->sanitizeTagValue($value);
+    }
+
     /**
      * Flush cache entries by provider.
      */

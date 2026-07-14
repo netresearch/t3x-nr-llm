@@ -57,6 +57,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         private readonly CacheManagerInterface $cacheManager,
         private readonly ?LlmConfigurationRepository $configurationRepository = null,
         private readonly ?SkillInjectionService $skillInjection = null,
+        private readonly ?ModelSelectionServiceInterface $modelSelectionService = null,
     ) {
         $this->loadConfiguration();
     }
@@ -600,7 +601,10 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                 CacheMiddleware::METADATA_CACHE_TTL  => $cacheTtl,
                 CacheMiddleware::METADATA_CACHE_TAGS => [
                     'nrllm_embeddings',
-                    'nrllm_configuration_' . $configuration->getIdentifier(),
+                    // Sanitize: configuration identifiers use the dotted preset scheme
+                    // (nr_ai_search.embeddings), and the cache frontend rejects a tag
+                    // containing a dot with an InvalidArgumentException on set().
+                    'nrllm_configuration_' . $this->cacheManager->sanitizeCacheTag($configuration->getIdentifier()),
                 ],
             ];
         }
@@ -695,7 +699,15 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function getAdapterFromConfiguration(LlmConfiguration $configuration): ProviderInterface
     {
-        $llmModel = $configuration->getLlmModel();
+        // Criteria-mode configurations carry no direct model relation (model_uid = 0);
+        // their model is selected at call time from the stored criteria. Resolve
+        // through ModelSelectionService — which returns the directly configured model
+        // unchanged for fixed-mode configs — so both selection modes reach a concrete
+        // model here. Without this, every *ForConfiguration() call on a criteria-mode
+        // configuration threw "has no model assigned".
+        $llmModel = $this->modelSelectionService !== null
+            ? $this->modelSelectionService->resolveModel($configuration)
+            : $configuration->getLlmModel();
         if ($llmModel === null) {
             throw new ProviderException(
                 sprintf('Configuration "%s" has no model assigned', $configuration->getIdentifier()),
@@ -703,6 +715,13 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             );
         }
 
+        // Intentionally NOT calling $configuration->setLlmModel($llmModel): the
+        // configuration is a repository-managed Extbase entity, so mutating it
+        // would mark it dirty and Extbase would persist model_uid at end of
+        // request — silently converting a criteria-mode record into a fixed-mode
+        // one. Per-model cost analytics for criteria configs (UsageMiddleware
+        // reads getLlmModel() directly) remain a separate, non-destructive
+        // follow-up.
         return $this->adapterRegistry->createAdapterFromModel($llmModel);
     }
 
