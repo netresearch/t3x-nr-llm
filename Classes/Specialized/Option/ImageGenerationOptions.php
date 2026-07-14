@@ -11,12 +11,16 @@ namespace Netresearch\NrLlm\Specialized\Option;
 
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Option\AbstractOptions;
+use Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface;
+use Netresearch\NrLlm\Service\Option\BudgetFieldsTrait;
 
 /**
  * Options for image generation (DALL-E).
  */
-final class ImageGenerationOptions extends AbstractOptions
+final class ImageGenerationOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 {
+    use BudgetFieldsTrait;
+
     private const SIZE_SQUARE = '1024x1024';
     private const VALID_MODELS = ['dall-e-2', 'dall-e-3'];
     private const VALID_QUALITIES = ['standard', 'hd'];
@@ -61,7 +65,15 @@ final class ImageGenerationOptions extends AbstractOptions
         public readonly ?string $style = 'vivid',
         public readonly ?string $format = 'url',
         public readonly ?string $configuration = null,
+        ?int $beUserUid = null,
+        ?float $plannedCost = null,
     ) {
+        $this->setBudgetFields($beUserUid, $plannedCost);
+        $this->validate();
+    }
+
+    private function validate(): void
+    {
         if ($this->model !== null) {
             $this->validateModel($this->model);
         }
@@ -75,6 +87,7 @@ final class ImageGenerationOptions extends AbstractOptions
             self::validateEnum($this->format, self::VALID_FORMATS, 'format');
         }
         $this->validateSize();
+        $this->validateBudgetFields();
     }
 
     /**
@@ -198,8 +211,9 @@ final class ImageGenerationOptions extends AbstractOptions
 
     public function toArray(): array
     {
-        // `configuration` is deliberately absent: it is consumer metadata
-        // for usage attribution, not an Images API parameter.
+        // `configuration` and the budget fields are deliberately absent:
+        // they are consumer metadata for usage attribution, not Images API
+        // parameters, and must never reach the provider.
         return $this->filterNull([
             'model' => $this->model,
             'size' => $this->size,
@@ -220,6 +234,8 @@ final class ImageGenerationOptions extends AbstractOptions
         $style = $options['style'] ?? null;
         $format = $options['format'] ?? $options['response_format'] ?? null;
         $configuration = $options['configuration'] ?? null;
+        $beUserUid = $options['beUserUid'] ?? null;
+        $plannedCost = $options['plannedCost'] ?? null;
 
         return new self(
             model: is_string($model) ? $model : null,
@@ -228,6 +244,8 @@ final class ImageGenerationOptions extends AbstractOptions
             style: is_string($style) ? $style : null,
             format: is_string($format) ? $format : null,
             configuration: is_string($configuration) ? $configuration : null,
+            beUserUid: is_int($beUserUid) ? $beUserUid : null,
+            plannedCost: is_float($plannedCost) || is_int($plannedCost) ? (float)$plannedCost : null,
         );
     }
 

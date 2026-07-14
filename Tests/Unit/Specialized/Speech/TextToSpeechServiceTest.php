@@ -361,8 +361,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
                 0,
                 'tts-1',
                 0,
-                // Ambient attribution: SpeechSynthesisOptions carries no
-                // budget fields, so no caller uid reaches this path (ADR-052).
+                // Ambient fallback: no beUserUid option was passed (ADR-057).
                 null,
             );
 
@@ -376,6 +375,45 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         );
 
         $subject->synthesize('Test text');
+    }
+
+    #[Test]
+    public function synthesizeAttributesUsageToOptionUid(): void
+    {
+        // ADR-057: a caller-supplied beUserUid in the options reaches the
+        // usage row instead of the ambient fallback.
+        $this->setupSuccessfulRequest();
+
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'speech',
+                'tts',
+                self::callback(static fn(array $metrics): bool => $metrics['characters'] === 9),
+                null,
+                0,
+                'tts-1',
+                0,
+                42,
+            );
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
+
+        $subject->synthesize('Test text', new SpeechSynthesisOptions(beUserUid: 42));
     }
 
     #[Test]

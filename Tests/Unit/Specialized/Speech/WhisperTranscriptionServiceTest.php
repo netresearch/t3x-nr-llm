@@ -463,8 +463,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
                 0,
                 'whisper-1',
                 0,
-                // Ambient attribution: TranscriptionOptions carries no
-                // budget fields, so no caller uid reaches this path (ADR-052).
+                // Ambient fallback: no beUserUid option was passed (ADR-057).
                 null,
             );
 
@@ -479,6 +478,46 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         );
 
         $subject->transcribe($audioFile, ['configuration' => 'meeting-minutes']);
+    }
+
+    #[Test]
+    public function transcribeAttributesUsageToOptionUid(): void
+    {
+        // ADR-057: a caller-supplied beUserUid in the options reaches the
+        // usage row instead of the ambient fallback.
+        $audioFile = $this->createTestAudioFile();
+        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'speech',
+                'whisper',
+                [],
+                null,
+                0,
+                'whisper-1',
+                0,
+                42,
+            );
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
+
+        $subject->transcribe($audioFile, new TranscriptionOptions(beUserUid: 42));
     }
 
     // ==================== transcribe tests ====================

@@ -395,7 +395,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
                     // Raw-string formats expose no duration — record the
                     // request without audio seconds (cost stays 0 rather
                     // than guessed).
-                    $this->trackTranscriptionUsage($model, null, $options->configuration);
+                    $this->trackTranscriptionUsage($model, null, $options->configuration, $options->getBeUserUid());
                     return $responseBody;
                 }
 
@@ -407,7 +407,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
                 $duration = isset($decoded['duration']) && is_numeric($decoded['duration'])
                     ? (float)$decoded['duration']
                     : null;
-                $this->trackTranscriptionUsage($model, $duration, $options->configuration);
+                $this->trackTranscriptionUsage($model, $duration, $options->configuration, $options->getBeUserUid());
 
                 return $decoded;
             }
@@ -446,8 +446,12 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
      * that configuration record (resolved fail-soft) so Analytics can
      * aggregate spend per configuration.
      */
-    private function trackTranscriptionUsage(string $model, ?float $duration, ?string $configuration): void
-    {
+    private function trackTranscriptionUsage(
+        string $model,
+        ?float $duration,
+        ?string $configuration,
+        ?int $beUserUid = null,
+    ): void {
         $metrics = [];
         if ($duration !== null && $duration > 0.0) {
             // Floor of 1: a sub-half-second clip must not round to 0 seconds while
@@ -456,9 +460,6 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
             $metrics['cost'] = $this->costCalculator->estimateTranscriptionCost($model, $duration);
         }
 
-        // beUserUid stays ambient (null): TranscriptionOptions carries no
-        // budget fields, so no caller-supplied uid reaches this path —
-        // ADR-052 keeps it ambient rather than growing new option surface.
         $this->usageTracker->trackUsage(
             'speech',
             $this->getServiceProvider(),
@@ -466,6 +467,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
             configurationUid: $this->resolveConfigurationUid($configuration),
             modelUid: $this->resolveModelUid($model),
             modelId: $model,
+            beUserUid: $beUserUid,
         );
     }
 

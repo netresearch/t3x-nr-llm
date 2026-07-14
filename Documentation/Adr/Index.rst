@@ -355,3 +355,4 @@ Tools
    Adr054TypedToolTurnMessages
    Adr055EmbeddingConfigurationPath
    Adr056ConfigurationPresets
+   Adr057SpecializedServiceAttribution

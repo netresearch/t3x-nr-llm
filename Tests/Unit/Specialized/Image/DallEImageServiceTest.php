@@ -419,8 +419,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 0,
                 'dall-e-3',
                 0,
-                // Ambient attribution: ImageGenerationOptions carries no
-                // budget fields, so no caller uid reaches this path (ADR-052).
+                // Ambient fallback: no beUserUid option was passed (ADR-057).
                 null,
             );
 
@@ -434,6 +433,47 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         );
 
         $subject->generate('A cat');
+    }
+
+    #[Test]
+    public function generateAttributesUsageToOptionUid(): void
+    {
+        // ADR-057: a caller-supplied beUserUid in the options reaches the
+        // usage row instead of the ambient fallback.
+        $this->setupSuccessfulRequest([
+            'data' => [['url' => 'https://example.com/image.png']],
+        ]);
+
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'image',
+                'dall-e',
+                self::callback(static fn(array $metrics): bool => $metrics['images'] === 1),
+                null,
+                0,
+                'dall-e-3',
+                0,
+                42,
+            );
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
+
+        $subject->generate('A cat', new ImageGenerationOptions(beUserUid: 42));
     }
 
     #[Test]

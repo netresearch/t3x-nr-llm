@@ -105,9 +105,6 @@ final class TextToSpeechService extends AbstractSpecializedService
         $audioContent = $this->sendBinaryRequest($payload);
 
         $characterCount = mb_strlen($text);
-        // beUserUid stays ambient (null): SpeechSynthesisOptions carries no
-        // budget fields, so no caller-supplied uid reaches this path —
-        // ADR-052 keeps it ambient rather than growing new option surface.
         $this->usageTracker->trackUsage(
             'speech',
             $this->getServiceProvider(),
@@ -118,6 +115,7 @@ final class TextToSpeechService extends AbstractSpecializedService
             configurationUid: $this->resolveConfigurationUid($options->configuration),
             modelUid: $this->resolveModelUid($model),
             modelId: $model,
+            beUserUid: $options->getBeUserUid(),
         );
 
         return new SpeechSynthesisResult(

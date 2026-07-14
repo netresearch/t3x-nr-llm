@@ -462,8 +462,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
                 0,
                 'flux-schnell',
                 0,
-                // Ambient attribution: the FAL options array carries no
-                // caller-supplied uid, so this path stays ambient (ADR-052).
+                // Ambient fallback: no beUserUid options key was passed (ADR-057).
                 null,
             );
 
@@ -477,6 +476,47 @@ class FalImageServiceTest extends AbstractUnitTestCase
         );
 
         $subject->generate('A sunset');
+    }
+
+    #[Test]
+    public function generateAttributesUsageToOptionsKeyUid(): void
+    {
+        // ADR-057: the documented `beUserUid` options key reaches the usage
+        // row; the payload builder's allowlist keeps it off the wire.
+        $this->setupSuccessfulRequest([
+            'images' => [['url' => 'https://fal.ai/image.png']],
+        ]);
+
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['image' => ['fal' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'image',
+                'fal',
+                ['images' => 1],
+                null,
+                0,
+                'flux-schnell',
+                0,
+                42,
+            );
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
+
+        $subject->generate('A sunset', options: ['beUserUid' => 42]);
     }
 
     #[Test]
