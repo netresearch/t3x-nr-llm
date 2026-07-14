@@ -84,6 +84,41 @@ class CacheManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function cacheEmbeddingsProducesValidKeyAndTagsForDottedConfigurationIdentifiers(): void
+    {
+        // The full caching flow with a preset-style configuration identifier
+        // (dots are the documented naming scheme): both the entry identifier
+        // AND every tag must satisfy TYPO3's charset - the provider tag was
+        // the second crash site after the cache key (set() rejects invalid
+        // tags with an InvalidArgumentException).
+        /** @var array{subject: CacheManager, cacheFrontend: FrontendInterface&MockObject} $setup */
+        $setup = $this->createSubjectWithMockFrontend();
+        $subject = $setup['subject'];
+        $cacheFrontendMock = $setup['cacheFrontend'];
+
+        $cacheFrontendMock
+            ->expects(self::once())
+            ->method('set')
+            ->with(
+                self::matchesRegularExpression('/^[a-zA-Z0-9_%\-&]{1,250}$/'),
+                self::anything(),
+                self::callback(
+                    static function (array $tags): bool {
+                        foreach ($tags as $tag) {
+                            self::assertIsString($tag);
+                            self::assertMatchesRegularExpression('/^[a-zA-Z0-9_%\-&]{1,250}$/', $tag);
+                        }
+
+                        return in_array('nrllm_provider_nr_ai_search_embeddings', $tags, true);
+                    },
+                ),
+                self::anything(),
+            );
+
+        $subject->cacheEmbeddings('nr_ai_search.embeddings', 'hello', [], ['embeddings' => [[0.1]]]);
+    }
+
+    #[Test]
     public function generateCacheKeyDiffersForDifferentProviders(): void
     {
         $params = ['messages' => [['role' => 'user', 'content' => 'Hello']]];
