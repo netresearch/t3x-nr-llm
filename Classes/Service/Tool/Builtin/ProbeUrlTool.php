@@ -10,16 +10,13 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\EgressPolicyService;
 use Netresearch\NrLlm\Service\Tool\LogExceptionReader;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
-use Psr\Http\Message\UriInterface;
 use Throwable;
 use TYPO3\CMS\Core\Http\RequestFactory;
-use TYPO3\CMS\Core\Http\Uri;
-use TYPO3\CMS\Core\Site\Entity\Site;
-use TYPO3\CMS\Core\Site\SiteFinder;
 
 /**
  * The "why does URL X answer 500/400" tool (ADR-044).
@@ -31,11 +28,13 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  * are appended via the shared {@see LogExceptionReader} — probe and cause
  * in one result.
  *
- * SSRF containment (fail-closed): only http(s), and the target host:port
- * must match one of the instance's own site bases/base variants
- * ({@see SiteFinder}); relative paths resolve against the first site base.
- * Redirects are never followed — a 3xx reports its Location instead, so a
- * redirect cannot bounce the probe off-host.
+ * SSRF containment (fail-closed): the target is resolved through the central
+ * {@see EgressPolicyService} for this tool's group — only http(s), no userinfo,
+ * and the host:port must match one of the instance's own site bases/base
+ * variants; relative paths resolve against the first site base. A group without
+ * a declared egress policy is denied outright. Redirects are never followed — a
+ * 3xx reports its Location instead, so a redirect cannot bounce the probe
+ * off-host.
  */
 final readonly class ProbeUrlTool implements ToolInterface
 {
@@ -51,7 +50,7 @@ final readonly class ProbeUrlTool implements ToolInterface
     private const REPORTED_HEADERS = ['content-type', 'location', 'cache-control', 'x-typo3-cache'];
 
     public function __construct(
-        private SiteFinder $siteFinder,
+        private EgressPolicyService $egressPolicy,
         private RequestFactory $requestFactory,
         private LogExceptionReader $logReader,
     ) {}
@@ -83,13 +82,13 @@ final readonly class ProbeUrlTool implements ToolInterface
             return 'Error: "url" is required.';
         }
 
-        $url = $this->resolveAllowedUrl($input);
+        $url = $this->egressPolicy->resolveAllowedUrl($this->getGroup(), $input);
         if ($url === null) {
             return sprintf(
                 'Denied: "%s" is not a URL of this instance. Allowed hosts: %s. '
                 . 'Relative paths like "/imprint" are resolved against the first site.',
                 $this->displayUrl($input),
-                implode(', ', $this->allowedHosts()) ?: '(no site configured)',
+                implode(', ', $this->egressPolicy->allowedHosts()) ?: '(no site configured)',
             );
         }
 
@@ -159,110 +158,12 @@ final readonly class ProbeUrlTool implements ToolInterface
     }
 
     /**
-     * Resolve the model-supplied input to an absolute URL whose scheme is
-     * http(s) and whose host:port matches one of this instance's sites.
-     * Null when any gate denies it.
-     */
-    private function resolveAllowedUrl(string $input): ?string
-    {
-        if (str_starts_with($input, '/') && !str_starts_with($input, '//')) {
-            $base = $this->firstSiteBase();
-            if ($base === null) {
-                return null;
-            }
-
-            return rtrim($base, '/') . $input;
-        }
-
-        $parts = parse_url($input);
-        if (!is_array($parts)) {
-            return null;
-        }
-        // Reject userinfo (user:pass@host): the URL is echoed back into the tool
-        // output, so credentials must never reach the LLM or the logs.
-        if (isset($parts['user']) || isset($parts['pass'])) {
-            return null;
-        }
-        $scheme = strtolower(self::toStr($parts['scheme'] ?? ''));
-        $host   = strtolower(self::toStr($parts['host'] ?? ''));
-        if (!in_array($scheme, ['http', 'https'], true) || $host === '') {
-            return null;
-        }
-
-        // Exact host:port match with scheme-defaulted ports on BOTH sides — a
-        // bare-host match would let http://localhost:6379/ (Redis, …) through.
-        $port     = isset($parts['port']) ? (int)$parts['port'] : ($scheme === 'https' ? 443 : 80);
-        $hostPort = $host . ':' . $port;
-        if (in_array($hostPort, $this->allowedHosts(), true)) {
-            return $input;
-        }
-
-        return null;
-    }
-
-    /**
      * Strip any userinfo (user:pass@) before a URL is echoed into tool output,
      * so credentials in a rejected URL never reach the LLM or the logs.
      */
     private function displayUrl(string $url): string
     {
         return preg_replace('#://[^/@\s]*@#', '://', $url) ?? $url;
-    }
-
-    /**
-     * host[:port] values of every site base and base variant.
-     *
-     * @return list<string>
-     */
-    private function allowedHosts(): array
-    {
-        $hosts = [];
-        foreach ($this->siteFinder->getAllSites() as $site) {
-            foreach ($this->siteBases($site) as $base) {
-                $host = strtolower($base->getHost());
-                if ($host === '') {
-                    continue;
-                }
-                // Normalise to an explicit host:port (scheme default 80/443) so
-                // the match is exact and cannot be bypassed by a rogue port.
-                $scheme  = strtolower($base->getScheme() ?: 'http');
-                $port    = $base->getPort() ?? ($scheme === 'https' ? 443 : 80);
-                $hosts[] = $host . ':' . $port;
-            }
-        }
-
-        return array_values(array_unique($hosts));
-    }
-
-    /**
-     * @return list<UriInterface>
-     */
-    private function siteBases(Site $site): array
-    {
-        $bases = [$site->getBase()];
-
-        $variants = $site->getConfiguration()['baseVariants'] ?? null;
-        if (is_array($variants)) {
-            foreach ($variants as $variant) {
-                if (is_array($variant) && is_string($variant['base'] ?? null)) {
-                    $bases[] = new Uri($variant['base']);
-                }
-            }
-        }
-
-        return $bases;
-    }
-
-    private function firstSiteBase(): ?string
-    {
-        foreach ($this->siteFinder->getAllSites() as $site) {
-            $base = (string)$site->getBase();
-            if ($base !== '' && $site->getBase()->getHost() !== '') {
-                return $base;
-            }
-        }
-
-        return null;
     }
 
     private function bodyExcerpt(string $body): string
