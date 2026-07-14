@@ -57,6 +57,44 @@ Adding a configuration manually
    fields from a plain-language description of your
    use case.
 
+.. _administration-configurations-presets:
+
+Importing configuration presets
+===============================
+
+Extensions consuming nr_llm can declare the
+configurations they need as *presets*
+(:ref:`ADR-056 <adr-056>`). When at least one
+declared preset has not been imported yet, the
+configuration list shows a :guilabel:`Pending
+presets` panel above the records.
+
+Each pending preset row shows the preset's name,
+identifier, description, and a requirement check:
+
+*  *Satisfiable* — an active model currently
+   matches the preset's requirements; the model
+   that would be used right now is named. Click
+   :guilabel:`Import` to create the configuration
+   record with one confirmation.
+*  *Not satisfiable* — no active model matches;
+   the first missing requirement is named. The
+   :guilabel:`Import` button stays disabled until
+   you configure a matching provider and model.
+
+Imported records are normal criteria-mode
+configurations: the model is resolved at runtime
+from the providers and models you configured, and
+you can edit or delete the record like any other.
+The panel disappears once no presets are pending.
+
+If a consuming extension later changes its preset
+declaration, the imported configuration is flagged
+with a :guilabel:`Preset changed` badge in the
+list. This is a hint only — the record is never
+updated automatically; review and adjust it
+manually if needed.
+
 .. _administration-configurations-test:
 
 Testing a configuration

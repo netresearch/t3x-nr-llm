@@ -7,13 +7,12 @@
  * Tool state JavaScript module for the TYPO3 backend (ES6 Module).
  *
  * Toggles the global enable/disable override of a single agent tool from the
- * Tool Playground module. Mirrors SkillList.js: event delegation on the body
- * and a state-changing AJAX POST via AjaxRequest, which injects TYPO3's CSRF
- * token (and sets the request content-type) automatically.
+ * Tool Playground module. Event delegation on the body; the state-changing
+ * POST/reload flow lives in the shared ModuleAction helper (AjaxRequest
+ * underneath, which injects TYPO3's CSRF token automatically).
  */
-import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 import Notification from '@typo3/backend/notification.js';
-import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
+import { postAndReload } from '@netresearch/nr-llm/Backend/ModuleAction.js';
 
 class ToolState {
     constructor() {
@@ -57,22 +56,7 @@ class ToolState {
         formData.append('group', group);
         formData.append('enabled', String(enabled));
 
-        btn.disabled = true;
-        new AjaxRequest(url)
-            .post(formData)
-            .then(response => response.resolve())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    Notification.error('Error', data.error || 'Unknown error');
-                    btn.disabled = false;
-                }
-            })
-            .catch(async err => {
-                Notification.error('Error', await readAjaxError(err));
-                btn.disabled = false;
-            });
+        postAndReload(url, formData, btn);
     }
 
     handleToggle(btn) {
@@ -88,22 +72,7 @@ class ToolState {
         formData.append('tool', tool);
         formData.append('enabled', String(enabled));
 
-        btn.disabled = true;
-        new AjaxRequest(url)
-            .post(formData)
-            .then(response => response.resolve())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    Notification.error('Error', data.error || 'Unknown error');
-                    btn.disabled = false;
-                }
-            })
-            .catch(async err => {
-                Notification.error('Error', await readAjaxError(err));
-                btn.disabled = false;
-            });
+        postAndReload(url, formData, btn);
     }
 }
 

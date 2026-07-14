@@ -25,6 +25,8 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Preset\ConfigurationPresetImportService;
+use Netresearch\NrLlm\Service\Preset\ConfigurationPresetRegistry;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Service\UsageAnalyticsService;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
@@ -79,6 +81,8 @@ final class ConfigurationController extends ActionController
         private readonly TestPromptResolverInterface $testPromptResolver,
         private readonly UsageAnalyticsServiceInterface $analytics,
         private readonly LoggerInterface $logger,
+        private readonly ConfigurationPresetRegistry $presetRegistry,
+        private readonly ConfigurationPresetImportService $presetImportService,
     ) {}
 
     protected function initializeAction(): void
@@ -94,6 +98,7 @@ final class ConfigurationController extends ActionController
             'nrllm_config_toggle_active' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_toggle_active'),
             'nrllm_config_set_default' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_set_default'),
             'nrllm_config_test' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_config_test'),
+            'nrllm_preset_import' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_preset_import'),
         ]);
 
         // Load JavaScript for configuration list actions (ES6 module)
@@ -133,6 +138,8 @@ final class ConfigurationController extends ActionController
             'costByConfig' => $usage['cost'],
             'reqByConfig' => $usage['requests'],
             'tokByConfig' => $usage['tokens'],
+            'pendingPresets' => $this->buildPendingPresetRows(),
+            'driftedUids' => $this->buildDriftedUidMap(),
         ]);
 
         if (method_exists($this->moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
@@ -548,6 +555,50 @@ final class ConfigurationController extends ActionController
     private function getOllamaConstraints(): array
     {
         return $this->getDefaultConstraints();
+    }
+
+    /**
+     * Pending configuration presets (ADR-056) as template rows, each with
+     * its preflight result so the list can show upfront whether an import
+     * can succeed.
+     *
+     * @return list<array{identifier: string, name: string, description: string, satisfiable: bool, matchedModelLabel: string|null, missingRequirement: string|null}>
+     */
+    private function buildPendingPresetRows(): array
+    {
+        $rows = [];
+        foreach ($this->presetRegistry->pending() as $preset) {
+            $preflight = $this->presetImportService->preflight($preset);
+            $rows[] = [
+                'identifier' => $preset->identifier,
+                'name' => $preset->name,
+                'description' => $preset->description,
+                'satisfiable' => $preflight->satisfiable,
+                'matchedModelLabel' => $preflight->matchedModelLabel,
+                'missingRequirement' => $preflight->missingRequirement,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Configuration UIDs whose imported preset declaration drifted
+     * (checksum mismatch, ADR-056) — keyed by UID for O(1) template lookup.
+     *
+     * @return array<int, bool>
+     */
+    private function buildDriftedUidMap(): array
+    {
+        $driftedUids = [];
+        foreach ($this->presetRegistry->drifted() as $drift) {
+            $uid = $drift['configuration']->getUid();
+            if ($uid !== null) {
+                $driftedUids[$uid] = true;
+            }
+        }
+
+        return $driftedUids;
     }
 
     /**

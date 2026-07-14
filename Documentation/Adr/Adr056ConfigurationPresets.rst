@@ -10,6 +10,17 @@ ADR-056: Configuration presets — consumer-declared, admin-imported records
 :Date: 2026-07-13
 :Authors: Netresearch DTT GmbH
 
+.. note::
+
+   The backend-module UI named below as a follow-up has been implemented
+   since: the Configurations backend module lists pending presets with
+   their preflight result and imports one via the existing
+   ``nrllm_preset_import`` endpoint, and imported records whose
+   declaration checksum drifted are flagged with a non-blocking hint
+   (see :ref:`administration-configurations-presets`). The
+   checksum-driven *update flow* (diff + re-confirm) remains future
+   work.
+
 .. _adr-056-context:
 
 Context
@@ -108,9 +119,11 @@ Negative
 
 * One more DI-tag discovery surface to maintain.
 * v1 has no backend-module UI; admins need the AJAX endpoints (or the
-  follow-up module) to see and import pending presets.
+  follow-up module) to see and import pending presets. *(Implemented
+  since — see the note above.)*
 * The stored checksum only *detects* declaration drift; an update flow
-  (diff + re-confirm) is deliberately deferred.
+  (diff + re-confirm) is deliberately deferred. *(Still the case: the
+  module UI shows a drift hint, nothing more.)*
 
 .. _adr-056-alternatives:
 

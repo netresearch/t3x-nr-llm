@@ -24,7 +24,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * `listPresetsAction` returns the pending presets (declared by consuming
  * extensions via the `nr_llm.configuration_preset` DI tag but not yet
  * imported), each with its preflight result so the admin sees upfront
- * whether an import can succeed. `importAction` imports one preset by
+ * whether an import can succeed, plus the drifted imported presets whose
+ * declaration changed since import. `importAction` imports one preset by
  * identifier as a criteria-mode configuration record.
  *
  * Both actions are admin-gated via {@see RequiresBackendAdminTrait} FIRST
@@ -42,7 +43,15 @@ final class PresetController extends ActionController
     ) {}
 
     /**
-     * List pending presets including a preflight result per preset (AJAX, admin-gated).
+     * List pending presets (with preflight) and drifted imported presets (AJAX, admin-gated).
+     *
+     * JSON shape:
+     * `presets` — one entry per pending preset: `identifier`, `name`,
+     * `description`, `criteria` (array), `satisfiable` (bool),
+     * `missingRequirement` (string|null), `matchedModelLabel` (string|null).
+     * `drifted` — one entry per imported preset whose declaration changed
+     * since import (checksum mismatch, ADR-056): `identifier`, `name`,
+     * `configurationUid` (int|null). Detection only — no update flow.
      */
     public function listPresetsAction(ServerRequestInterface $request): ResponseInterface
     {
@@ -62,7 +71,15 @@ final class PresetController extends ActionController
                 'matchedModelLabel' => $preflight->matchedModelLabel,
             ];
         }
-        return new JsonResponse(['success' => true, 'presets' => $presets]);
+        $drifted = [];
+        foreach ($this->presetRegistry->drifted() as $drift) {
+            $drifted[] = [
+                'identifier' => $drift['preset']->identifier,
+                'name' => $drift['preset']->name,
+                'configurationUid' => $drift['configuration']->getUid(),
+            ];
+        }
+        return new JsonResponse(['success' => true, 'presets' => $presets, 'drifted' => $drifted]);
     }
 
     /**

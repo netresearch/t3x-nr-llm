@@ -127,4 +127,21 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
     {
         return $this->getConnectionPool()->getConnectionForTable('tx_nrllm_configuration');
     }
+
+    /**
+     * Resolve a service from the container, narrowing its type for PHPStan.
+     *
+     * @template T of object
+     *
+     * @param class-string<T> $id
+     *
+     * @return T
+     */
+    protected function getService(string $id): object
+    {
+        $service = $this->get($id);
+        self::assertInstanceOf($id, $service);
+
+        return $service;
+    }
 }

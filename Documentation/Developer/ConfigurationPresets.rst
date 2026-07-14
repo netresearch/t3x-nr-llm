@@ -108,5 +108,24 @@ Import flow
    detectable.
 
 Both endpoints are restricted to backend administrators
-(:ref:`ADR-037 <adr-037>`). A backend-module UI on top of these
-endpoints is a planned follow-up.
+(:ref:`ADR-037 <adr-037>`). Admins normally go through the
+Configurations backend module, which renders the pending presets —
+including each preflight result — above the configuration records and
+imports one through ``nrllm_preset_import`` with a single click; see
+:ref:`administration-configurations-presets`.
+
+.. _developer-configuration-presets-drift:
+
+Change detection
+================
+
+``nrllm_preset_list`` additionally returns a ``drifted`` list: imported
+presets whose current declaration checksum no longer matches the
+``preset_checksum`` stored at import time. Each entry carries
+``identifier``, ``name``, and ``configurationUid``. The Configurations
+module flags such records with a non-blocking "Preset changed" hint.
+
+Detection only: nr_llm never updates an imported record automatically.
+If your extension changes a preset declaration, document what admins
+should adjust — the checksum-driven update flow (diff + re-confirm) is
+deliberately deferred (:ref:`ADR-056 <adr-056>`).
