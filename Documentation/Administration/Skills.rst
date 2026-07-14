@@ -219,3 +219,45 @@ Composition rules:
   boundary.
 
 See :ref:`ADR-036 <adr-036>` for the injection design.
+
+.. _administration-skills-isolation:
+
+Isolation controls: trust, fingerprint, injection scan, audit
+=============================================================
+
+On top of the SHA-pin and checksum controls above, each source and skill
+carries the isolation controls introduced in :ref:`ADR-061 <adr-061>`.
+
+**Publisher trust level.** Every source is classified — ``untrusted`` (the
+default, for anonymous public GitHub content), ``community``, ``verified`` or
+``first_party`` (operator-controlled). This is *provenance*, independent of the
+``partial`` support badge. Each synced skill denormalises its source's level, so
+re-classifying a source takes effect on the next sync. The instance-wide floor
+``skills.minTrustLevel`` (extension configuration, default ``untrusted``) gates
+use: a skill below the floor is dropped from **both** prompt injection and the
+allowed-tools union. Raising the floor to ``verified`` therefore hides every
+community/untrusted skill without deleting it. Trust is *separate from* the
+``enabled = false`` default — an ``untrusted`` skill still needs an explicit
+enable.
+
+**Manifest fingerprint (optional).** A source may declare an
+``expected_fingerprint``: the sha256 its whole skill set must hash to. When set,
+the digest is recomputed at sync and verified before anything is materialised; a
+mismatch fails closed (no skill is imported, the source goes to ``error``) and
+leaves the last known-good skills untouched. Leave it empty to rely on the
+commit-SHA pin alone. This binds the reviewed bytes to a publisher-declared
+identity beyond "these bytes from this URL"; it is a declared digest, not a
+public-key signature.
+
+**Prompt-injection scan.** Each body is scanned at ingest for known injection
+signatures. A **high-confidence** jailbreak marker (e.g. "ignore all previous
+instructions", role reset, chat-template control tokens) force-disables the
+skill at import — even a single-file source that would otherwise default
+enabled — and must be re-reviewed before enabling. Lower-confidence findings are
+recorded on the skill (``Injection scan findings``) for review without blocking.
+
+**Immutable audit trail.** Every ingest, enable, disable and fail-closed
+rejection is written to ``tx_nrllm_skill_audit`` with who / when / source / SHA /
+checksum / trust level / scan result. The trail is append-only — the application
+never updates or deletes a row — so the provenance of any skill that can reach a
+prompt is reconstructable after the fact.

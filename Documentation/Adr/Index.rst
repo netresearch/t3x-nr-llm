@@ -357,3 +357,4 @@ Tools
    Adr056ConfigurationPresets
    Adr057SpecializedServiceAttribution
    Adr058TelemetryMiddleware
+   Adr061SkillTrustEgressAndAudit
