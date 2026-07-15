@@ -50,6 +50,10 @@ jobs:
       #     (FunctionalTestCase::getInstanceIdentifier), so one process per test
       #     FILE cannot collide. Per-class output is buffered and only replayed
       #     for failures, otherwise 4 interleaved streams make CI unreadable.
+      #     Deliberately NO opcache.enable_cli: one process per file means every
+      #     process starts with a cold cache, so it buys nothing here (it is
+      #     worth ~1.17x only for the single-process serial run), and it
+      #     segfaulted DataHandler on the 8.4/^14.3 cell when tried.
       #
       #   schedule / workflow_dispatch -> coverage. Serial, with Xdebug, so
       #     Codecov gets a real functional report (parallel would need per-process
@@ -68,7 +72,7 @@ jobs:
           find Tests/Functional Tests/E2E/Backend -name '*Test.php' -print0 \
             | xargs -0 -P"$(nproc)" -I{} sh -c '
                 log=".Build/logs/functional/$(printf %s "$1" | tr / _).log"
-                if ! php -d opcache.enable_cli=1 -d xdebug.mode=off \
+                if ! php -d xdebug.mode=off \
                        .Build/bin/phpunit -c Build/FunctionalTests.xml "$1" > "$log" 2>&1; then
                   echo "::group::FAILED $1"; cat "$log"; echo "::endgroup::"
                   exit 1
