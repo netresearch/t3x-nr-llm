@@ -1413,6 +1413,11 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
                 'speech',
                 'tts',
                 self::callback(static fn(array $metrics): bool => $metrics['characters'] === 3000),
+                null,
+                0,
+                'tts-1',
+                0,
+                null,
             );
 
         $subject = $this->buildService(

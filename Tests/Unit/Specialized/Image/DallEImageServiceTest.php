@@ -1589,6 +1589,8 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 null,
                 0,
                 'gpt-image-2',
+                0,
+                null,
             );
 
         $subject = $this->buildService(
@@ -1635,6 +1637,8 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 null,
                 0,
                 'gpt-image-2',
+                0,
+                null,
             );
 
         $subject = $this->buildService(
@@ -1949,6 +1953,8 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 null,
                 0,
                 'gpt-image-2',
+                0,
+                null,
             );
 
         $subject = $this->buildService(
