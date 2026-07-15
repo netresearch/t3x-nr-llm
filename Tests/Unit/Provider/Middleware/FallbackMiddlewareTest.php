@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 use Netresearch\NrLlm\Domain\DTO\FallbackChain;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Provider\Exception\CircuitOpenException;
 use Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
@@ -21,6 +22,7 @@ use Netresearch\NrLlm\Provider\Middleware\FallbackMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -106,6 +108,36 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
                 $calls[] = $config->getIdentifier();
                 if ($config->getIdentifier() === 'primary') {
                     throw new ProviderConnectionException('down', 0);
+                }
+
+                return 'ok-from-alt';
+            },
+        );
+
+        self::assertSame('ok-from-alt', $result);
+        self::assertSame(['primary', 'alt'], $calls);
+    }
+
+    #[Test]
+    public function fallsBackToNextConfigurationOnOpenCircuit(): void
+    {
+        // An open circuit (ADR-063) is thrown from inside the fallback loop and
+        // must be treated as retryable so the request routes to the next
+        // provider rather than surfacing as a hard error.
+        $primary = $this->makeConfig('primary', new FallbackChain(['alt']));
+        $alt     = $this->makeConfig('alt');
+        $this->repositoryStub->method('findOneByIdentifier')->willReturn($alt);
+
+        $pipeline = $this->makePipeline();
+        $calls    = [];
+
+        $result = $pipeline->run(
+            ProviderCallContext::for(ProviderOperation::Chat),
+            $primary,
+            function (LlmConfiguration $config) use (&$calls): string {
+                $calls[] = $config->getIdentifier();
+                if ($config->getIdentifier() === 'primary') {
+                    throw new CircuitOpenException('openai', 12);
                 }
 
                 return 'ok-from-alt';
@@ -498,7 +530,12 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
 
     private function makeMiddleware(): FallbackMiddleware
     {
-        return new FallbackMiddleware($this->repositoryStub, new NullLogger());
+        // Health reorder is opt-in and off by default; a passthrough stub keeps
+        // these tests focused on the fallback chain-walk semantics.
+        $health = self::createStub(ProviderHealthServiceInterface::class);
+        $health->method('reorder')->willReturnArgument(0);
+
+        return new FallbackMiddleware($this->repositoryStub, new NullLogger(), $health);
     }
 
     private function makePipeline(): MiddlewarePipeline

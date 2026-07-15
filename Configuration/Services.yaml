@@ -177,6 +177,24 @@ services:
     alias: Netresearch\NrLlm\Service\Telemetry\TelemetryRepository
     public: false
 
+  # Circuit breaker state store (ADR-063) — private; consumed by
+  # CircuitBreakerMiddleware. The cache-backed default is instantiated directly
+  # in its functional test with the real core cache manager.
+  Netresearch\NrLlm\Provider\CircuitBreaker\CircuitBreakerStoreInterface:
+    alias: Netresearch\NrLlm\Provider\CircuitBreaker\CacheCircuitBreakerStore
+    public: false
+
+  # Provider health advisor (ADR-063) — private; consulted by FallbackMiddleware
+  # for the opt-in health-aware fallback reorder. The telemetry-reading
+  # repository stays private too (analytics read path, like the recorder).
+  Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface:
+    alias: Netresearch\NrLlm\Service\Health\ProviderHealthService
+    public: false
+
+  Netresearch\NrLlm\Service\Health\ProviderHealthRepositoryInterface:
+    alias: Netresearch\NrLlm\Service\Health\ProviderHealthRepository
+    public: false
+
   # Quality-evaluation subsystem (ADR-060). Everything here is private:
   # the persistence layer is instantiated directly in its functional test
   # (its only dependency is ConnectionPool), the command is made public by

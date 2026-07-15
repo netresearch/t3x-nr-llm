@@ -11,7 +11,9 @@ namespace Netresearch\NrLlm\Tests\Functional\Provider\Middleware;
 
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\CircuitBreakerMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\FallbackMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
@@ -39,7 +41,7 @@ use ReflectionClass;
 final class MiddlewarePipelineOrderTest extends AbstractFunctionalTestCase
 {
     #[Test]
-    public function pipelineIsAssembledTelemetryCacheBudgetFallbackUsage(): void
+    public function pipelineIsAssembledInDocumentedPriorityOrder(): void
     {
         $pipeline = $this->get(MiddlewarePipeline::class);
         self::assertInstanceOf(MiddlewarePipeline::class, $pipeline);
@@ -48,11 +50,13 @@ final class MiddlewarePipelineOrderTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             [
-                TelemetryMiddleware::class, // outermost: observes every run (ADR-058)
-                CacheMiddleware::class,     // outermost behavioural layer: a cache hit short-circuits
-                BudgetMiddleware::class,    // pre-flight budget gate on a miss
-                FallbackMiddleware::class,  // swaps configuration on retryable failure
-                UsageMiddleware::class,     // innermost: records the call that ran
+                TelemetryMiddleware::class,      // 110 outermost: observes every run (ADR-058)
+                IdempotencyMiddleware::class,    // 105 replays a stored result by key (ADR-063)
+                CacheMiddleware::class,          // 100 outermost behavioural layer: a cache hit short-circuits
+                BudgetMiddleware::class,         //  75 pre-flight budget gate on a miss
+                FallbackMiddleware::class,       //  50 swaps configuration on retryable failure
+                UsageMiddleware::class,          //  25 records the served call
+                CircuitBreakerMiddleware::class, //  20 innermost: guards the provider call (ADR-063)
             ],
             $order,
         );

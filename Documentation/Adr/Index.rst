@@ -361,4 +361,5 @@ Tools
    Adr060QualityEvaluation
    Adr061SkillTrustEgressAndAudit
    Adr062StreamingLifecycle
+   Adr063ProviderResilience
    Adr065ReducePublicServiceSurface

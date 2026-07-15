@@ -11,9 +11,11 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Provider\Exception\CircuitOpenException;
 use Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Throwable;
@@ -39,7 +41,7 @@ use Throwable;
  *
  * The default pipeline order is pinned via tag priority (Telemetry outermost
  * at 110 as a pure observer, then Cache at 100, Budget at 75, Fallback at 50,
- * Usage innermost at 25).
+ * Usage at 25, CircuitBreaker innermost at 20).
  */
 #[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 50])]
 final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
@@ -47,6 +49,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
     public function __construct(
         private LlmConfigurationRepository $repository,
         private LoggerInterface $logger,
+        private ProviderHealthServiceInterface $health,
     ) {}
 
     /**
@@ -106,6 +109,11 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
             );
             throw $attempts[0]['error'];
         }
+
+        // Optionally prefer healthier providers among the fallback candidates
+        // (ADR-063). A stable no-op by default: the health service returns the
+        // chain untouched unless the operator opted into health-aware reorder.
+        $chain = $this->health->reorder($chain);
 
         foreach ($chain->configurationIdentifiers as $identifier) {
             $fallback = $this->repository->findOneByIdentifier($identifier);
@@ -179,6 +187,12 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
     private function isRetryable(Throwable $e): bool
     {
         if ($e instanceof ProviderConnectionException) {
+            return true;
+        }
+        if ($e instanceof CircuitOpenException) {
+            // An open circuit (ADR-063) means the provider just failed
+            // repeatedly and is being skipped; routing to the next configuration
+            // is exactly what tripping fast is for.
             return true;
         }
         if ($e instanceof ProviderResponseException) {
