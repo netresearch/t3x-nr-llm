@@ -55,6 +55,17 @@ jobs:
       functional-test-command: |
         if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           composer ci:test:php:functional -- --coverage-clover=coverage-functional.xml
+          # A suite that skipped itself out still writes a well-formed clover
+          # claiming zero covered statements — which would upload as a coverage
+          # COLLAPSE and stay green, the same silent-green shape as the outage
+          # this split exists to end. The last <metrics> before </project> is the
+          # clover project total.
+          covered=$(grep -oE 'coveredstatements="[0-9]+"' coverage-functional.xml | tail -1 | tr -dc '0-9')
+          if [ "${covered:-0}" -eq 0 ]; then
+            echo "::error::functional coverage reports 0 covered statements — the suite proved nothing; refusing to upload a false collapse to Codecov."
+            exit 1
+          fi
+          echo "functional coverage: ${covered} covered statements"
         else
           Build/Scripts/ciFunctionalParallel.sh
         fi

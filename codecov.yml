@@ -37,6 +37,17 @@ flags:
     paths:
       - Classes/
     carryforward: true
+  # The functional suite uploads only on schedule/workflow_dispatch — PR runs
+  # shard it and skip coverage, because Xdebug costs ~1.6x on the CI critical
+  # path. carryforward is therefore load-bearing rather than optional: without
+  # it every PR commit would silently drop the functional contribution and show
+  # an coverage regression that is really just "this flag wasn't uploaded today".
+  # It also covers the backend controllers, which the unit flag excludes
+  # precisely because the functional suite is what exercises them.
+  functional:
+    paths:
+      - Classes/
+    carryforward: true
 
 comment:
   layout: "reach,diff,flags,files"
