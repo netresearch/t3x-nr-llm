@@ -22,10 +22,18 @@ use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
  * When a call carries an idempotency key (via
  * {@see self::METADATA_IDEMPOTENCY_KEY} on the context metadata, set from an
  * option's `withIdempotencyKey()`), the FIRST call runs normally and its result
- * is stored under that key; a REPEAT with the same key returns the stored
- * result without calling the provider again. This makes a retried
- * request — a double-submitted form, a network retry — safe: it neither
- * re-charges the budget nor produces a second, different completion.
+ * is stored under that key; a later REPEAT with the same key returns the stored
+ * result without calling the provider again. This makes a SEQUENTIAL retry — a
+ * network retry, or a re-submit after the first request already returned — safe:
+ * it neither re-charges the budget nor produces a second, different completion.
+ *
+ * Scope — sequential retries only. The lookup is a plain get-then-run-then-set
+ * with no atomic reservation, so two requests carrying the SAME key that are
+ * genuinely in flight at once (both arriving before either has stored its
+ * result) both miss and both execute; the dedup only engages once a result is
+ * stored. Closing that window needs an atomic reserve-on-miss, which TYPO3's
+ * cache {@see FrontendInterface} does not expose — a future revision could gate
+ * the run+store with {@see \TYPO3\CMS\Core\Locking\LockFactory} (ADR-063).
  *
  * Opt-in: with no idempotency key the middleware is a verbatim pass-through, so
  * ordinary (non-idempotent) traffic is untouched.
