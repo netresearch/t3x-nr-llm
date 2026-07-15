@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -24,6 +25,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
@@ -1832,5 +1835,490 @@ class ClaudeProviderTest extends AbstractUnitTestCase
                 ],
             ],
         ], $payload['messages']);
+    }
+
+    // ===== Streaming request/parse tests =====
+
+    /**
+     * Drive streamChatCompletion() against a stubbed SSE response while
+     * capturing the request URL, the encoded JSON request payload, the
+     * yielded chunks and the byte counts requested from the response stream.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $options
+     * @param list<string>                           $sseChunks raw SSE data served one element per read() call
+     *
+     * @return array{url: string, payload: array<string, mixed>, chunks: list<string>, readLengths: list<int>}
+     */
+    private function runStreamingCapture(
+        array $messages,
+        array $options = [],
+        array $sseChunks = ["data: {\"type\":\"message_stop\"}\n"],
+        string $baseUrl = '',
+        int $statusCode = 200,
+    ): array {
+        $capturedUrl = null;
+        $requestFactory = self::createStub(RequestFactoryInterface::class);
+        $requestFactory->method('createRequest')->willReturnCallback(
+            function (string $method, string $uri) use (&$capturedUrl): RequestInterface {
+                $capturedUrl = $uri;
+
+                return $this->createRequestMock($method, $uri);
+            },
+        );
+
+        $capturedBody = null;
+        $streamFactory = self::createStub(StreamFactoryInterface::class);
+        $streamFactory->method('createStream')->willReturnCallback(
+            function (string $content) use (&$capturedBody): StreamInterface {
+                $capturedBody = $content;
+                $stream = self::createStub(StreamInterface::class);
+                $stream->method('__toString')->willReturn($content);
+                $stream->method('getContents')->willReturn($content);
+                return $stream;
+            },
+        );
+
+        $subject = new ClaudeProvider(
+            $requestFactory,
+            $streamFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'claude-sonnet-4-20250514',
+            'baseUrl' => $baseUrl,
+            'timeout' => 30,
+        ]);
+
+        $remainingChunks = $sseChunks;
+        /** @var list<int> $readLengths */
+        $readLengths = [];
+        $responseStream = self::createStub(StreamInterface::class);
+        $responseStream->method('eof')->willReturnCallback(
+            static function () use (&$remainingChunks): bool {
+                return $remainingChunks === [];
+            },
+        );
+        $responseStream->method('read')->willReturnCallback(
+            static function (int $length) use (&$remainingChunks, &$readLengths): string {
+                $readLengths[] = $length;
+
+                return array_shift($remainingChunks) ?? '';
+            },
+        );
+        $responseStream->method('__toString')->willReturn(implode('', $sseChunks));
+
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn($statusCode);
+        $response->method('getBody')->willReturn($responseStream);
+
+        $httpClient = $this->createHttpClientMock();
+        $httpClient->method('sendRequest')->willReturn($response);
+        $subject->setHttpClient($httpClient);
+
+        $chunks = [];
+        foreach ($subject->streamChatCompletion($messages, $options) as $chunk) {
+            $chunks[] = $chunk;
+        }
+
+        self::assertIsString($capturedUrl);
+        self::assertIsString($capturedBody);
+        /** @var array<string, mixed> $payload */
+        $payload = json_decode($capturedBody, true, 512, JSON_THROW_ON_ERROR);
+
+        return ['url' => $capturedUrl, 'payload' => $payload, 'chunks' => $chunks, 'readLengths' => $readLengths];
+    }
+
+    /**
+     * The streaming endpoint URL is the trimmed base URL plus '/messages';
+     * a trailing slash on the configured base URL must not double up.
+     */
+    #[Test]
+    public function streamChatCompletionBuildsMessagesEndpointUrlFromBaseUrl(): void
+    {
+        $result = $this->runStreamingCapture(
+            [['role' => 'user', 'content' => 'Hi']],
+            [],
+            ["data: {\"type\":\"message_stop\"}\n"],
+            'https://claude.example/v1/',
+        );
+
+        self::assertSame('https://claude.example/v1/messages', $result['url']);
+    }
+
+    /**
+     * Pin down the exact streaming request payload: model, converted
+     * ChatMessage objects, default max_tokens, the stream flag, the top-level
+     * system field and the merged (clamped) sampling params.
+     */
+    #[Test]
+    public function streamChatCompletionRequestPayloadHasExactShape(): void
+    {
+        $result = $this->runStreamingCapture(
+            [
+                ['role' => 'system', 'content' => 'Be helpful'],
+                ChatMessage::user('Hello'),
+            ],
+            ['temperature' => 1.8],
+        );
+
+        $payload = $result['payload'];
+        self::assertSame('claude-sonnet-4-20250514', $payload['model']);
+        self::assertSame([['role' => 'user', 'content' => 'Hello']], $payload['messages']);
+        self::assertSame(4096, $payload['max_tokens']);
+        self::assertTrue($payload['stream']);
+        self::assertSame('Be helpful', $payload['system']);
+        $this->assertPayloadTemperature($payload, 1.0);
+    }
+
+    /**
+     * JSON_INVALID_UTF8_SUBSTITUTE must be in effect: a non-UTF-8 byte in the
+     * message content is replaced with U+FFFD instead of failing the encode.
+     */
+    #[Test]
+    public function streamChatCompletionSubstitutesInvalidUtf8InPayload(): void
+    {
+        $result = $this->runStreamingCapture([['role' => 'user', 'content' => "caf\xE9"]]);
+
+        self::assertSame([['role' => 'user', 'content' => "caf\u{FFFD}"]], $result['payload']['messages']);
+    }
+
+    #[Test]
+    public function streamChatCompletionThrowsOnHttpErrorStatus(): void
+    {
+        $this->expectException(ProviderResponseException::class);
+
+        $this->runStreamingCapture(
+            [['role' => 'user', 'content' => 'Hi']],
+            [],
+            ['{"error":{"message":"bad request"}}'],
+            '',
+            400,
+        );
+    }
+
+    #[Test]
+    public function streamChatCompletionValidatesConfigurationBeforeRequest(): void
+    {
+        $subject = new ClaudeProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => '',
+            'defaultModel' => 'claude-sonnet-4-20250514',
+            'baseUrl' => '',
+            'timeout' => 30,
+        ]);
+        $subject->setHttpClient($this->createHttpClientMock());
+
+        $this->expectException(ProviderConfigurationException::class);
+        $this->expectExceptionCode(1307337100);
+
+        $subject->streamChatCompletion([['role' => 'user', 'content' => 'test']])->current();
+    }
+
+    /**
+     * A data line split across two read() calls must be re-assembled from the
+     * buffer (append, not replace) before parsing. Also pins the 1024-byte
+     * chunk size requested per read.
+     */
+    #[Test]
+    public function streamChatCompletionAccumulatesPartialLinesAcrossChunkReads(): void
+    {
+        $result = $this->runStreamingCapture(
+            [['role' => 'user', 'content' => 'Hi']],
+            [],
+            [
+                'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hel',
+                "lo\"}}\ndata: {\"type\":\"message_stop\"}\n",
+            ],
+        );
+
+        self::assertSame(['Hello'], $result['chunks']);
+        self::assertSame([1024, 1024], $result['readLengths']);
+    }
+
+    /**
+     * SSE events separated by a single newline (no blank line) must all be
+     * consumed — the buffer advances exactly one byte past each newline.
+     */
+    #[Test]
+    public function streamChatCompletionParsesSingleNewlineSeparatedEvents(): void
+    {
+        $streamData = "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"A\"}}\n"
+            . "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"B\"}}\n"
+            . "data: {\"type\":\"message_stop\"}\n";
+
+        $result = $this->runStreamingCapture([['role' => 'user', 'content' => 'Hi']], [], [$streamData]);
+
+        self::assertSame(['A', 'B'], $result['chunks']);
+    }
+
+    /**
+     * Lines without the exact 'data: ' prefix are skipped entirely (even when
+     * their tail happens to be valid delta JSON), and unknown event types
+     * (e.g. ping) neither yield text nor terminate the stream.
+     */
+    #[Test]
+    public function streamChatCompletionIgnoresNonDataPrefixedAndUnknownEventLines(): void
+    {
+        $streamData = "data: {\"type\":\"ping\"}\n"
+            . "ddata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"EVIL\"}}\n"
+            . "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"Hi\"}}\n"
+            . "data: {\"type\":\"message_stop\"}\n";
+
+        $result = $this->runStreamingCapture([['role' => 'user', 'content' => 'Hi']], [], [$streamData]);
+
+        self::assertSame(['Hi'], $result['chunks']);
+    }
+
+    #[Test]
+    public function streamChatCompletionStopsAtMessageStopAndIgnoresLaterDeltas(): void
+    {
+        $streamData = "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"A\"}}\n"
+            . "data: {\"type\":\"message_stop\"}\n"
+            . "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"B\"}}\n";
+
+        $result = $this->runStreamingCapture([['role' => 'user', 'content' => 'Hi']], [], [$streamData]);
+
+        self::assertSame(['A'], $result['chunks']);
+    }
+
+    // ===== Message-conversion payload tests =====
+
+    /**
+     * Pin the exact conversation transformation for a full tool round-trip:
+     * assistant text + tool_use blocks (JSON-string arguments decoded), tool
+     * results accumulated into a user message and flushed before the next
+     * non-tool message, later messages preserved, and a trailing tool result
+     * flushed as a final user message.
+     */
+    #[Test]
+    public function chatCompletionWithToolsConversationPayloadHasExactShape(): void
+    {
+        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'get_weather', 'description' => 'Get weather', 'parameters' => ['type' => 'object']]])];
+
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s) use ($tools): void {
+                $s->chatCompletionWithTools(
+                    [
+                        ['role' => 'user', 'content' => 'What is the weather?'],
+                        [
+                            'role' => 'assistant',
+                            'content' => 'Let me check.',
+                            'tool_calls' => [
+                                [
+                                    'id' => 'call_123',
+                                    'type' => 'function',
+                                    'function' => ['name' => 'get_weather', 'arguments' => '{"location":"Berlin"}'],
+                                ],
+                            ],
+                        ],
+                        ['role' => 'tool', 'tool_call_id' => 'call_123', 'content' => '{"temp":20}'],
+                        ['role' => 'user', 'content' => 'And tomorrow?'],
+                        ['role' => 'tool', 'tool_call_id' => 'call_999', 'content' => 'late result'],
+                    ],
+                    $tools,
+                );
+            },
+        );
+
+        self::assertSame([
+            ['role' => 'user', 'content' => 'What is the weather?'],
+            [
+                'role' => 'assistant',
+                'content' => [
+                    ['type' => 'text', 'text' => 'Let me check.'],
+                    ['type' => 'tool_use', 'id' => 'call_123', 'name' => 'get_weather', 'input' => ['location' => 'Berlin']],
+                ],
+            ],
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'tool_result', 'tool_use_id' => 'call_123', 'content' => '{"temp":20}'],
+                ],
+            ],
+            ['role' => 'user', 'content' => 'And tomorrow?'],
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'tool_result', 'tool_use_id' => 'call_999', 'content' => 'late result'],
+                ],
+            ],
+        ], $payload['messages']);
+    }
+
+    /**
+     * A plain assistant text message (no tool_calls key) passes through
+     * unchanged — and must not probe the absent tool_calls key (that would
+     * raise an undefined-array-key warning under failOnWarning).
+     */
+    #[Test]
+    public function chatCompletionPassesPlainAssistantMessageThrough(): void
+    {
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s): void {
+                $s->chatCompletion([
+                    ['role' => 'user', 'content' => 'Hi'],
+                    ['role' => 'assistant', 'content' => 'Hello there.'],
+                    ['role' => 'user', 'content' => 'Thanks'],
+                ]);
+            },
+        );
+
+        self::assertSame([
+            ['role' => 'user', 'content' => 'Hi'],
+            ['role' => 'assistant', 'content' => 'Hello there.'],
+            ['role' => 'user', 'content' => 'Thanks'],
+        ], $payload['messages']);
+    }
+
+    /**
+     * Pin the exact multimodal conversion: text pass-through, base64 data URL
+     * split into media_type + data, plain URL as url source, and Claude-native
+     * document blocks forwarded unchanged.
+     */
+    #[Test]
+    public function chatCompletionMultimodalRequestPayloadHasExactShape(): void
+    {
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s): void {
+                $s->chatCompletion([
+                    [
+                        'role' => 'user',
+                        'content' => [
+                            ['type' => 'text', 'text' => 'Look at these'],
+                            ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,iVBORw0KGgo=']],
+                            ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/pic.jpg']],
+                            ['type' => 'document', 'source' => ['type' => 'base64', 'media_type' => 'application/pdf', 'data' => 'JVBERi0=']],
+                        ],
+                    ],
+                ]);
+            },
+        );
+
+        self::assertSame([
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'Look at these'],
+                    [
+                        'type' => 'image',
+                        'source' => ['type' => 'base64', 'media_type' => 'image/png', 'data' => 'iVBORw0KGgo='],
+                    ],
+                    [
+                        'type' => 'image',
+                        'source' => ['type' => 'url', 'url' => 'https://example.com/pic.jpg'],
+                    ],
+                    ['type' => 'document', 'source' => ['type' => 'base64', 'media_type' => 'application/pdf', 'data' => 'JVBERi0=']],
+                ],
+            ],
+        ], $payload['messages']);
+    }
+
+    /**
+     * MIME-style wrapped base64 contains raw newlines; `.` does not match
+     * them, so the end-anchored regex must reject the URL instead of
+     * forwarding a silently truncated image payload.
+     */
+    #[Test]
+    public function chatCompletionDropsBase64DataUrlWithEmbeddedNewline(): void
+    {
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s): void {
+                $s->chatCompletion([
+                    [
+                        'role' => 'user',
+                        'content' => [
+                            ['type' => 'text', 'text' => 'Broken image'],
+                            ['type' => 'image_url', 'image_url' => ['url' => "data:image/png;base64,iVBOR\nw0KGgo="]],
+                        ],
+                    ],
+                ]);
+            },
+        );
+
+        self::assertSame([
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'Broken image'],
+                ],
+            ],
+        ], $payload['messages']);
+    }
+
+    /**
+     * Same newline-in-data-URL rejection on the vision path: the anchored
+     * regex must fail the match, so the image block is skipped entirely.
+     */
+    #[Test]
+    public function analyzeImageSkipsDataUrlWithEmbeddedNewline(): void
+    {
+        $content = [
+            VisionContent::fromArray(['type' => 'text', 'text' => 'What is this?']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => "data:image/png;base64,iVBOR\nw0KGgo="]]),
+        ];
+
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s) use ($content): void {
+                $s->analyzeImage($content);
+            },
+        );
+
+        self::assertSame([
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'What is this?'],
+                ],
+            ],
+        ], $payload['messages']);
+    }
+
+    /**
+     * Pin the exact Claude tool_choice mapping for every supported input
+     * shape (string shortcuts, named tool, array pass-through).
+     *
+     * @param array<string, string> $expected
+     */
+    #[Test]
+    #[DataProvider('toolChoicePayloadProvider')]
+    public function chatCompletionWithToolsMapsToolChoicePayload(mixed $toolChoice, array $expected): void
+    {
+        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'get_weather', 'description' => 'Get weather', 'parameters' => ['type' => 'object']]])];
+
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s) use ($tools, $toolChoice): void {
+                $s->chatCompletionWithTools(
+                    [['role' => 'user', 'content' => 'Weather?']],
+                    $tools,
+                    ['tool_choice' => $toolChoice],
+                );
+            },
+        );
+
+        self::assertSame($expected, $payload['tool_choice']);
+    }
+
+    /**
+     * @return array<string, array{0: mixed, 1: array<string, string>}>
+     */
+    public static function toolChoicePayloadProvider(): array
+    {
+        return [
+            'auto maps to type auto' => ['auto', ['type' => 'auto']],
+            'none maps to type none' => ['none', ['type' => 'none']],
+            'required maps to type any' => ['required', ['type' => 'any']],
+            'tool name maps to named tool' => ['get_weather', ['type' => 'tool', 'name' => 'get_weather']],
+            'array passes through unchanged' => [['type' => 'tool', 'name' => 'lookup'], ['type' => 'tool', 'name' => 'lookup']],
+        ];
     }
 }

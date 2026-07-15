@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service;
 
 use ArrayIterator;
+use JsonException;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -2087,5 +2088,698 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $result = $this->subject->generateConfiguration('inactive only');
 
         self::assertFalse($result['generated']);
+    }
+
+    // ==================== No-config guard returns immediately (ReturnRemoval) ====================
+
+    /**
+     * Build a subject whose logger is a mock that must never receive warning().
+     *
+     * Without the early `return $this->fallback…()` the code proceeds into the
+     * LLM call with a null config, which always ends in a logged warning
+     * (either the caught Throwable or the unparseable stub response).
+     */
+    private function createSubjectExpectingNoWarning(): WizardGeneratorService
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::never())->method('warning');
+
+        return new WizardGeneratorService(
+            $this->llmServiceManager,
+            $this->configurationRepository,
+            $this->modelRepository,
+            $logger,
+        );
+    }
+
+    #[Test]
+    public function testGenerateConfigurationWithoutConfigReturnsBeforeBuildingContext(): void
+    {
+        $this->stubNoDefaultConfig();
+        $this->modelRepository->expects(self::never())->method('findActive');
+
+        $result = $this->createSubjectExpectingNoWarning()->generateConfiguration('no config path');
+
+        self::assertFalse($result['generated']);
+    }
+
+    #[Test]
+    public function testGenerateTaskWithoutConfigReturnsBeforeBuildingContext(): void
+    {
+        $this->stubNoDefaultConfig();
+
+        $result = $this->createSubjectExpectingNoWarning()->generateTask('no config path');
+
+        self::assertFalse($result['generated']);
+    }
+
+    #[Test]
+    public function testGenerateTaskWithChainWithoutConfigReturnsBeforeBuildingContext(): void
+    {
+        $this->stubNoDefaultConfig();
+        $this->modelRepository->expects(self::never())->method('findActive');
+
+        $result = $this->createSubjectExpectingNoWarning()->generateTaskWithChain('no config path');
+
+        self::assertFalse($result['generated']);
+    }
+
+    // ==================== parseJsonResponse: depth limit and strategy boundaries ====================
+
+    /**
+     * Run generateConfiguration with a fixed LLM response content and return the result.
+     *
+     * @return array<string, mixed>
+     */
+    private function generateConfigurationFromContent(string $content): array
+    {
+        $config = $this->createConfigurationWithModel();
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
+        $this->configurationRepository->method('findAll')->willReturn([]);
+
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse($content));
+
+        return $this->subject->generateConfiguration('depth probe request', $config);
+    }
+
+    #[Test]
+    public function testParseJsonDirectParseAcceptsNestingWithinDepthLimit(): void
+    {
+        // 511 nested arrays decode fine at depth 512 but fail at 511 (the
+        // DecrementInteger mutant). No braces/fences: no other strategy can rescue.
+        $content = str_repeat('[', 511) . str_repeat(']', 511);
+
+        $result = $this->generateConfigurationFromContent($content);
+
+        self::assertTrue($result['generated']);
+    }
+
+    #[Test]
+    public function testParseJsonDirectParseRejectsNestingBeyondDepthLimit(): void
+    {
+        // 512 nested arrays exceed depth 512 (need 513) — must fall back. The
+        // IncrementInteger mutant (depth 513) would accept them.
+        $content = str_repeat('[', 512) . str_repeat(']', 512);
+
+        $result = $this->generateConfigurationFromContent($content);
+
+        self::assertFalse($result['generated']);
+    }
+
+    #[Test]
+    public function testParseJsonDirectParseAcceptsTopLevelJsonArray(): void
+    {
+        // A JSON list has no braces and no fences: only the direct-parse is_array
+        // branch can accept it. The negated-if mutant loses the result entirely.
+        $result = $this->generateConfigurationFromContent('["a","b"]');
+
+        self::assertTrue($result['generated']);
+    }
+
+    #[Test]
+    public function testParseJsonMarkdownBlockAcceptsJsonArray(): void
+    {
+        // Fenced JSON list: direct parse fails (fences), brace strategy cannot
+        // match (no braces) — only the markdown branch's is_array assignment works.
+        $result = $this->generateConfigurationFromContent("note\n```json\n[1, 2]\n```");
+
+        self::assertTrue($result['generated']);
+    }
+
+    #[Test]
+    public function testParseJsonMarkdownBlockUsesTrimmedCaptureGroup(): void
+    {
+        // Direct parse fails (fences + prefix). The stray '{' in the prefix makes the
+        // greedy brace strategy capture invalid JSON, so ONLY the markdown branch can
+        // succeed — and only via trim(): the trailing \x0B (vertical tab) is inside
+        // the capture group, is NOT valid JSON whitespace, but IS removed by trim().
+        // Kills: skipped-strategy mutants, $matches[0] (includes fences), UnwrapTrim.
+        $content = "junk { noise\n```json\n{\"a\":1}\x0B```";
+
+        $result = $this->generateConfigurationFromContent($content);
+
+        self::assertTrue($result['generated']);
+    }
+
+    #[Test]
+    public function testParseJsonMarkdownBlockAcceptsNestingWithinDepthLimit(): void
+    {
+        $content = "Note:\n```json\n" . str_repeat('[', 511) . str_repeat(']', 511) . "\n```";
+
+        $result = $this->generateConfigurationFromContent($content);
+
+        self::assertTrue($result['generated']);
+    }
+
+    #[Test]
+    public function testParseJsonMarkdownBlockRejectsNestingBeyondDepthLimit(): void
+    {
+        $content = "Note:\n```json\n" . str_repeat('[', 512) . str_repeat(']', 512) . "\n```";
+
+        $result = $this->generateConfigurationFromContent($content);
+
+        self::assertFalse($result['generated']);
+    }
+
+    #[Test]
+    public function testParseJsonEmbeddedObjectAcceptsNestingWithinDepthLimit(): void
+    {
+        // 511 nested objects: the "Result: " prefix breaks the direct parse, there
+        // are no fences, so only the brace-extraction strategy (depth 512) succeeds.
+        $content = 'Result: ' . str_repeat('{"a":', 511) . '1' . str_repeat('}', 511);
+
+        $result = $this->generateConfigurationFromContent($content);
+
+        self::assertTrue($result['generated']);
+    }
+
+    #[Test]
+    public function testParseJsonEmbeddedObjectRejectsNestingBeyondDepthLimit(): void
+    {
+        $content = 'Result: ' . str_repeat('{"a":', 512) . '1' . str_repeat('}', 512);
+
+        $result = $this->generateConfigurationFromContent($content);
+
+        self::assertFalse($result['generated']);
+    }
+
+    // ==================== parseJsonResponse: warning is logged exactly when parsing fails ====================
+
+    #[Test]
+    public function testParseJsonSuccessViaMarkdownBlockDoesNotLogParseWarning(): void
+    {
+        // Direct parse fails (lastError set) but the markdown block succeeds:
+        // the parse warning fires only for `result === null` — the flipped
+        // comparison mutant would log despite the successful parse.
+        $config = $this->createConfigurationWithModel();
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse("Here:\n```json\n{\"name\":\"Wrapped Name\"}\n```"));
+
+        $subject = $this->createSubjectExpectingNoWarning();
+        $result = $subject->generateConfiguration('markdown no warning', $config);
+
+        self::assertTrue($result['generated']);
+        self::assertSame('Wrapped Name', $result['name']);
+    }
+
+    #[Test]
+    public function testParseJsonScalarResponseWithoutParseErrorDoesNotLog(): void
+    {
+        // '42' is valid JSON but not an array: every strategy yields null WITHOUT
+        // a JsonException, so lastError stays null and nothing may be logged.
+        // The `lastError === null` / `||` mutants would dereference null here.
+        $config = $this->createConfigurationWithModel();
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse('42'));
+
+        $subject = $this->createSubjectExpectingNoWarning();
+        $result = $subject->generateConfiguration('scalar response', $config);
+
+        self::assertFalse($result['generated']);
+    }
+
+    #[Test]
+    public function testParseJsonFailureLogsExceptionMessageAndContentSample(): void
+    {
+        // Content > 201 chars so every substr mutation (offset ±1, length 199/201,
+        // unwrap) produces a different sample. Expected values are derived from the
+        // same json_decode call and substr window the source uses.
+        $content = 'unparseable ' . str_repeat('y', 250);
+
+        $expectedError = '';
+        try {
+            json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            $expectedError = $e->getMessage();
+        }
+        self::assertNotSame('', $expectedError);
+
+        $config = $this->createConfigurationWithModel();
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse($content));
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger
+            ->expects(self::once())
+            ->method('warning')
+            ->with(
+                'Wizard could not parse LLM JSON response',
+                [
+                    'exception' => $expectedError,
+                    'sample' => substr($content, 0, 200),
+                ],
+            );
+
+        $subject = new WizardGeneratorService(
+            $this->llmServiceManager,
+            $this->configurationRepository,
+            $this->modelRepository,
+            $logger,
+        );
+
+        $result = $subject->generateConfiguration('log parse failure', $config);
+
+        self::assertFalse($result['generated']);
+    }
+
+    // ==================== Normalization: snake_case wins over camelCase when both present ====================
+
+    #[Test]
+    public function testNormalizeConfigurationPrefersSnakeCaseOverCamelCase(): void
+    {
+        $llmJson = json_encode([
+            'identifier' => 'prec-config',
+            'name' => 'Precedence Config',
+            'description' => 'Polished config description.',
+            'system_prompt' => 'Snake sys.',
+            'systemPrompt' => 'Camel sys.',
+            'max_tokens' => 2048,
+            'maxTokens' => 512,
+            'top_p' => 0.25,
+            'topP' => 0.75,
+            'frequency_penalty' => 0.5,
+            'frequencyPenalty' => 1.5,
+            'presence_penalty' => 0.75,
+            'presencePenalty' => 1.75,
+            'recommended_model' => 'snake-model',
+            'recommendedModel' => 'camel-model',
+        ], JSON_THROW_ON_ERROR);
+
+        $result = $this->generateConfigurationFromContent($llmJson);
+
+        self::assertTrue($result['generated']);
+        // The LLM's polished description wins over the raw user request.
+        self::assertSame('Polished config description.', $result['description']);
+        self::assertSame('Snake sys.', $result['system_prompt']);
+        self::assertSame(2048, $result['max_tokens']);
+        self::assertSame(0.25, $result['top_p']);
+        self::assertSame(0.5, $result['frequency_penalty']);
+        self::assertSame(0.75, $result['presence_penalty']);
+        self::assertSame('snake-model', $result['recommended_model']);
+    }
+
+    #[Test]
+    public function testNormalizeTaskPrefersSnakeCaseOverCamelCase(): void
+    {
+        $config = $this->createConfigurationWithModel();
+        $this->configurationRepository->method('findAll')->willReturn([]);
+
+        $llmJson = json_encode([
+            'identifier' => 'prec-task',
+            'name' => 'Precedence Task',
+            'description' => 'Polished task description.',
+            'category' => 'content',
+            'prompt_template' => 'Snake template {{input}}',
+            'promptTemplate' => 'Camel template {{input}}',
+            'output_format' => 'json',
+            'outputFormat' => 'html',
+        ], JSON_THROW_ON_ERROR);
+
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse($llmJson));
+
+        $result = $this->subject->generateTask('raw task request', $config);
+
+        self::assertTrue($result['generated']);
+        self::assertSame('Polished task description.', $result['description']);
+        self::assertSame('Snake template {{input}}', $result['prompt_template']);
+        self::assertSame('json', $result['output_format']);
+    }
+
+    /**
+     * Run generateTaskWithChain with a fixed LLM response payload.
+     *
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, mixed>
+     */
+    private function generateTaskWithChainFromPayload(array $payload): array
+    {
+        $config = $this->createConfigurationWithModel();
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
+        $this->configurationRepository->method('findAll')->willReturn([]);
+
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createCompletionResponse(json_encode($payload, JSON_THROW_ON_ERROR)));
+
+        return $this->subject->generateTaskWithChain('raw chain request', $config);
+    }
+
+    #[Test]
+    public function testNormalizeFullChainPrefersSnakeCaseOverCamelCase(): void
+    {
+        $result = $this->generateTaskWithChainFromPayload([
+            'task' => [
+                'identifier' => 'prec-chain',
+                'name' => 'Precedence Chain',
+                'description' => 'Polished chain description.',
+                'category' => 'content',
+                'prompt_template' => 'Snake {{input}}',
+                'promptTemplate' => 'Camel {{input}}',
+                'output_format' => 'json',
+                'outputFormat' => 'html',
+            ],
+            'configuration' => [
+                'identifier' => 'prec-chain-config',
+                'name' => 'Chain Custom Name',
+                'description' => 'Chain config description.',
+                'system_prompt' => 'Snake sys.',
+                'systemPrompt' => 'Camel sys.',
+                'temperature' => 0.5,
+                'max_tokens' => 999999,
+                'maxTokens' => 500,
+                'top_p' => 0.25,
+                'topP' => 0.75,
+                'frequency_penalty' => 0.5,
+                'frequencyPenalty' => 1.5,
+                'presence_penalty' => 0.75,
+                'presencePenalty' => 1.75,
+            ],
+            'recommended_model_id' => 'snake-rec',
+            'recommendedModelId' => 'camel-rec',
+            'suggested_model' => [
+                'name' => 'Suggested',
+                'model_id' => 'snake-mid',
+                'modelId' => 'camel-mid',
+                'description' => 'Suggested desc.',
+                'capabilities' => 'chat',
+            ],
+        ]);
+
+        self::assertTrue($result['generated']);
+
+        self::assertIsArray($result['task']);
+        $task = $result['task'];
+        self::assertSame('Polished chain description.', $task['description']);
+        self::assertSame('Snake {{input}}', $task['prompt_template']);
+        self::assertSame('json', $task['output_format']);
+
+        self::assertIsArray($result['configuration']);
+        $configuration = $result['configuration'];
+        self::assertSame('Chain Custom Name', $configuration['name']);
+        self::assertSame('Chain config description.', $configuration['description']);
+        self::assertSame('Snake sys.', $configuration['system_prompt']);
+        // 999999 is clamped to exactly 128000 — the upper-bound ±1 mutants differ.
+        self::assertSame(128000, $configuration['max_tokens']);
+        self::assertSame(0.25, $configuration['top_p']);
+        self::assertSame(0.5, $configuration['frequency_penalty']);
+        self::assertSame(0.75, $configuration['presence_penalty']);
+
+        self::assertSame('snake-rec', $result['recommended_model_id']);
+
+        self::assertIsArray($result['suggested_model']);
+        $suggestedModel = $result['suggested_model'];
+        self::assertSame('snake-mid', $suggestedModel['model_id']);
+        self::assertSame('Suggested desc.', $suggestedModel['description']);
+    }
+
+    #[Test]
+    public function testNormalizeFullChainHonorsCamelCaseOnlyKeys(): void
+    {
+        $result = $this->generateTaskWithChainFromPayload([
+            'task' => [
+                'identifier' => 'camel-chain',
+                'name' => 'Camel Chain',
+                'description' => 'Camel chain description.',
+                'category' => 'developer',
+                'promptTemplate' => 'Camel template {{input}}',
+                'outputFormat' => 'html',
+            ],
+            'configuration' => [
+                'identifier' => 'camel-chain-config',
+                'name' => 'Camel Config',
+                'description' => 'Camel config description.',
+                'systemPrompt' => 'Camel sys.',
+                'maxTokens' => 512,
+                'topP' => 0.25,
+                'frequencyPenalty' => 0.5,
+                'presencePenalty' => 0.75,
+            ],
+            'recommendedModelId' => 'camel-rec',
+            'suggested_model' => [
+                'name' => 'Suggested',
+                'modelId' => 'camel-mid',
+                'description' => 'Camel suggested.',
+                'capabilities' => 'chat',
+            ],
+        ]);
+
+        self::assertTrue($result['generated']);
+
+        self::assertIsArray($result['task']);
+        $task = $result['task'];
+        self::assertSame('Camel template {{input}}', $task['prompt_template']);
+        self::assertSame('html', $task['output_format']);
+
+        self::assertIsArray($result['configuration']);
+        $configuration = $result['configuration'];
+        self::assertSame('Camel sys.', $configuration['system_prompt']);
+        self::assertSame(512, $configuration['max_tokens']);
+        self::assertSame(0.25, $configuration['top_p']);
+        self::assertSame(0.5, $configuration['frequency_penalty']);
+        self::assertSame(0.75, $configuration['presence_penalty']);
+
+        self::assertSame('camel-rec', $result['recommended_model_id']);
+
+        self::assertIsArray($result['suggested_model']);
+        $suggestedModel = $result['suggested_model'];
+        self::assertSame('camel-mid', $suggestedModel['model_id']);
+    }
+
+    #[Test]
+    public function testNormalizeFullChainAppliesDefaultsWhenConfigValuesMissing(): void
+    {
+        $result = $this->generateTaskWithChainFromPayload([
+            'task' => [
+                'identifier' => 'defaults-chain',
+                'name' => 'Defaults Chain',
+                'description' => 'Defaults chain description.',
+                'category' => 'general',
+                'prompt_template' => '{{input}}',
+                'output_format' => 'markdown',
+            ],
+            'configuration' => [
+                'identifier' => 'defaults-config',
+                'name' => 'Defaults Config',
+                'description' => 'd',
+                'system_prompt' => 's',
+            ],
+            'recommended_model_id' => '',
+            'suggested_model' => [
+                'name' => 'S',
+                'model_id' => 'mid',
+                'description' => 'sd',
+                'capabilities' => 'chat',
+            ],
+        ]);
+
+        self::assertTrue($result['generated']);
+        self::assertIsArray($result['configuration']);
+        $configuration = $result['configuration'];
+        self::assertSame(0.7, $configuration['temperature']);
+        self::assertSame(4096, $configuration['max_tokens']);
+        self::assertSame(1.0, $configuration['top_p']);
+        self::assertSame(0.0, $configuration['frequency_penalty']);
+        self::assertSame(0.0, $configuration['presence_penalty']);
+    }
+
+    // ==================== Fallback results: exact full shape ====================
+
+    /**
+     * 45-char description: the substr(…, 0, 40) window is observable — every
+     * offset/length mutation and the unwrap produce a different identifier.
+     */
+    private function longFallbackDescription(): string
+    {
+        return 'b' . str_repeat('a', 44);
+    }
+
+    private function expectedTruncatedIdentifier(): string
+    {
+        return 'b' . str_repeat('a', 39);
+    }
+
+    #[Test]
+    public function testFallbackConfigurationFullShape(): void
+    {
+        $this->stubNoDefaultConfig();
+        $description = $this->longFallbackDescription();
+
+        $result = $this->subject->generateConfiguration($description);
+
+        self::assertSame([
+            'identifier' => $this->expectedTruncatedIdentifier(),
+            'name' => 'New Configuration',
+            'description' => $description,
+            'system_prompt' => 'You are a helpful assistant. ' . $description,
+            'temperature' => 0.7,
+            'max_tokens' => 4096,
+            'top_p' => 1.0,
+            'frequency_penalty' => 0.0,
+            'presence_penalty' => 0.0,
+            'recommended_model' => '',
+            'generated' => false,
+        ], $result);
+    }
+
+    #[Test]
+    public function testFallbackTaskFullShape(): void
+    {
+        $this->stubNoDefaultConfig();
+        $description = $this->longFallbackDescription();
+
+        $result = $this->subject->generateTask($description);
+
+        self::assertSame([
+            'identifier' => $this->expectedTruncatedIdentifier(),
+            'name' => 'New Task',
+            'description' => $description,
+            'category' => 'general',
+            'prompt_template' => $description . "\n\n{{input}}",
+            'output_format' => 'markdown',
+            'generated' => false,
+        ], $result);
+    }
+
+    #[Test]
+    public function testFallbackTaskChainFullShape(): void
+    {
+        $this->stubNoDefaultConfig();
+        $description = $this->longFallbackDescription();
+        $identifier = $this->expectedTruncatedIdentifier();
+
+        $result = $this->subject->generateTaskWithChain($description);
+
+        self::assertSame([
+            'task' => [
+                'identifier' => $identifier,
+                'name' => 'New Task',
+                'description' => $description,
+                'category' => 'general',
+                'prompt_template' => $description . "\n\n{{input}}",
+                'output_format' => 'markdown',
+            ],
+            'configuration' => [
+                'identifier' => $identifier . '-config',
+                'name' => 'New Task Configuration',
+                'description' => 'Configuration for: ' . $description,
+                'system_prompt' => 'You are a helpful assistant. ' . $description,
+                'temperature' => 0.7,
+                'max_tokens' => 4096,
+                'top_p' => 1.0,
+                'frequency_penalty' => 0.0,
+                'presence_penalty' => 0.0,
+            ],
+            'recommended_model_id' => '',
+            'suggested_model' => [
+                'name' => '',
+                'model_id' => '',
+                'description' => '',
+                'capabilities' => 'chat',
+            ],
+            'generated' => false,
+        ], $result);
+    }
+
+    // ==================== Full-chain context: slice window and label placement ====================
+
+    #[Test]
+    public function testGenerateTaskWithChainContextLimitsModelsToTenAndKeepsLabelOrder(): void
+    {
+        $config = $this->createConfigurationWithModel();
+
+        $models = [];
+        for ($i = 1; $i <= 11; ++$i) {
+            $m = $this->createActiveModel('model-' . $i, 'Model ' . $i);
+            $m->setDescription('Desc ' . $i);
+            $models[] = $m;
+        }
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub($models));
+
+        $existingConfig = new LlmConfiguration();
+        $existingConfig->setName('Chain Ref');
+        $existingConfig->setIdentifier('chain-ref');
+        $existingConfig->setDescription('Ref desc');
+        $this->configurationRepository->method('findAll')->willReturn([$existingConfig]);
+
+        $llmJson = json_encode([
+            'task' => [
+                'identifier' => 'ctx-chain',
+                'name' => 'Ctx Chain',
+                'description' => 'Ctx.',
+                'category' => 'general',
+                'prompt_template' => '{{input}}',
+                'output_format' => 'markdown',
+            ],
+            'configuration' => [
+                'identifier' => 'ctx-chain-config',
+                'name' => 'Ctx Config',
+                'description' => 'Ctx.',
+                'system_prompt' => 'Ctx.',
+            ],
+            'recommended_model_id' => 'model-1',
+            'suggested_model' => [
+                'name' => 'M',
+                'model_id' => 'model-1',
+                'description' => 'd',
+                'capabilities' => 'chat',
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $captured = null;
+        $this->stubChatCapturing($this->createCompletionResponse($llmJson), $captured);
+
+        $result = $this->subject->generateTaskWithChain('chain context capture', $config);
+
+        self::assertTrue($result['generated']);
+
+        $userContent = $this->messageContent($captured, 1, 'user');
+
+        // Label directly precedes the first model line (Concat order) and the
+        // slice window is [0, 10): model 1 and 10 in, model 11 out. The needles
+        // include the ':' so '(model-1)' cannot false-match inside '(model-11)'.
+        self::assertStringContainsString(
+            "Available models (prefer these):\n- Model 1 (model-1): Desc 1",
+            $userContent,
+        );
+        self::assertStringContainsString('(model-10):', $userContent);
+        self::assertStringNotContainsString('(model-11)', $userContent);
+
+        // Configs label directly precedes the config line (Concat order).
+        self::assertStringContainsString(
+            "Existing configurations (for reference, avoid duplicate names):\n- Chain Ref (identifier: chain-ref): Ref desc",
+            $userContent,
+        );
+    }
+
+    // ==================== sanitizeIdentifier trims leading/trailing hyphens ====================
+
+    #[Test]
+    public function testGenerateConfigurationTrimsHyphensFromIdentifier(): void
+    {
+        $llmJson = json_encode([
+            'identifier' => '--wrapped--',
+            'name' => 'Wrapped',
+            'description' => 'Wrapped identifier.',
+            'system_prompt' => 'Help.',
+        ], JSON_THROW_ON_ERROR);
+
+        $result = $this->generateConfigurationFromContent($llmJson);
+
+        self::assertTrue($result['generated']);
+        self::assertSame('wrapped', $result['identifier']);
     }
 }

@@ -1300,6 +1300,10 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
+        // The valid entry after the bad ones must still be processed LIVE —
+        // if the loop had stopped early, the result would be the fallback
+        // catalog (which contains the same id), so pin the fallback flag.
+        self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
         $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
     }
@@ -2510,6 +2514,9 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $models = $this->subject->discover($provider, 'test-key');
 
+        // The invalid ids must be SKIPPED (not break the loop, not blow up
+        // with a TypeError that degrades to the fallback catalog).
+        self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
         $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
         // None of the invalid entries should appear
@@ -3342,7 +3349,9 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ->with(
                 'LLM model discovery received a malformed JSON response',
                 self::callback(static fn(array $ctx): bool => ($ctx['provider'] ?? null) === 'openai'
-                    && ($ctx['sample'] ?? null) === substr($body, 0, 200)),
+                    && ($ctx['sample'] ?? null) === substr($body, 0, 200)
+                    && is_string($ctx['message'] ?? null)
+                    && ($ctx['message'] ?? '') !== ''),
             );
 
         $subject = $this->makeSubjectWithLogger($logger);
@@ -3350,6 +3359,418 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             adapterType: 'openai',
             endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+        );
+
+        $subject->discover($provider, 'test-key');
+    }
+
+    // ==================== decodeModelListBody JSON depth boundary ====================
+
+    #[Test]
+    public function discoverOpenAiDecodesBodyNestedExactlyAtJsonDepthLimit(): void
+    {
+        // decodeModelListBody() decodes with the PHP-default maximum depth of
+        // 512. This body needs exactly depth 512 (object wrapper + 510 nested
+        // arrays around a scalar — boundary verified against json_decode): it
+        // must decode and yield a LIVE result. A lower limit would reject it
+        // as malformed and silently degrade to the fallback catalog, which
+        // contains no gpt-4.1 entry.
+        $pad = str_repeat('[', 510) . '1' . str_repeat(']', 510);
+        $body = '{"data":[{"id":"gpt-4.1"}],"pad":' . $pad . '}';
+
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, $body));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
+        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        self::assertContains('gpt-4.1', $modelIds);
+    }
+
+    #[Test]
+    public function discoverOpenAiFallsBackWhenBodyExceedsJsonDepthLimit(): void
+    {
+        // One nesting level beyond the depth limit (511 nested arrays inside
+        // the object wrapper → depth 513) must be rejected as malformed JSON
+        // and degrade to the fallback catalog. A higher limit would decode the
+        // body and surface the live gpt-4.1 entry instead.
+        $pad = str_repeat('[', 511) . '1' . str_repeat(']', 511);
+        $body = '{"data":[{"id":"gpt-4.1"}],"pad":' . $pad . '}';
+
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, $body));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        self::assertTrue($this->subject->wasLastDiscoveryFromFallback());
+        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        self::assertNotContains('gpt-4.1', $modelIds);
+        self::assertContains('gpt-5.5', $modelIds);
+    }
+
+    // ==================== discoverOpenAI data-shape edge cases ====================
+
+    #[Test]
+    public function discoverOpenAiReturnsFallbackWhenDataKeyMissing(): void
+    {
+        // An array body WITHOUT a 'data' key must yield an empty data list
+        // (→ fallback) without touching the missing key — accessing
+        // $data['data'] unguarded would raise an undefined-array-key warning
+        // (failOnWarning turns that into a failure).
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{"object":"list"}'));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        self::assertTrue($this->subject->wasLastDiscoveryFromFallback());
+        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        self::assertContains('gpt-5.5', $modelIds);
+    }
+
+    #[Test]
+    public function discoverOpenAiSkipsNonStringModelIdWithoutFailing(): void
+    {
+        // A non-string id must be skipped BEFORE the relevance check — passing
+        // the int into isRelevantOpenAIModel() would raise a TypeError that
+        // degrades the whole discovery to the fallback catalog (which contains
+        // no gpt-4.1).
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(
+                200,
+                (string)json_encode(['data' => [['id' => 123], ['id' => 'gpt-4.1']]]),
+            ));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
+        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        self::assertContains('gpt-4.1', $modelIds);
+    }
+
+    #[Test]
+    public function discoverOpenAiExcludesRealtimeModels(): void
+    {
+        // 'gpt-realtime' matches none of the include patterns and carries the
+        // 'realtime' exclusion marker on its own (no '-search'), so it must be
+        // filtered — the realtime arm must exclude independently of the
+        // '-search' arm.
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(
+                200,
+                (string)json_encode(['data' => [['id' => 'gpt-realtime'], ['id' => 'gpt-4.1']]]),
+            ));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        self::assertNotContains('gpt-realtime', $modelIds);
+        self::assertContains('gpt-4.1', $modelIds);
+    }
+
+    #[Test]
+    public function discoverOpenAiDerivesTextToSpeechCapabilityForDatedTtsVariant(): void
+    {
+        // 'tts-1-1106' (dated TTS release) has no spec entry and does NOT end
+        // in '-tts', so its capability must come from the 'tts-' PREFIX arm of
+        // defaultOpenAICapabilities().
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(
+                200,
+                (string)json_encode(['data' => [['id' => 'tts-1-1106']]]),
+            ));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        self::assertCount(1, $models);
+        self::assertSame(['text_to_speech'], $models[0]->capabilities);
+    }
+
+    // ==================== discoverAnthropic transformation pinning ====================
+
+    #[Test]
+    public function discoverAnthropicBuildsModelsUrlWithAuthHeaders(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
+            suggestedName: 'Anthropic',
+        );
+
+        $captured = [];
+        $this->configureCapturingRequestFactory($captured);
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{"data": []}'));
+
+        $this->subject->discover($provider, 'test-api-key');
+
+        self::assertSame('GET', $captured['method']);
+        self::assertSame('https://api.anthropic.com/v1/models', $captured['uri']);
+        self::assertSame('test-api-key', $captured['headers']['x-api-key'] ?? null);
+        self::assertSame('2023-06-01', $captured['headers']['anthropic-version'] ?? null);
+        // Anthropic must NOT get a Bearer Authorization header.
+        self::assertArrayNotHasKey('Authorization', $captured['headers']);
+    }
+
+    #[Test]
+    public function discoverAnthropicReturnsFallbackOnNonOkStatusEvenWithParseableBody(): void
+    {
+        // A non-200 status must short-circuit to the fallback catalog and NOT
+        // parse the (otherwise valid) body — proven by a body whose model id
+        // is absent from the fallback list.
+        $provider = new DetectedProvider(
+            adapterType: 'anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
+            suggestedName: 'Anthropic',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(
+                401,
+                (string)json_encode(['data' => [['id' => 'claude-3-haiku-20240307']]]),
+            ));
+
+        $models = $this->subject->discover($provider, 'bad-key');
+
+        self::assertTrue($this->subject->wasLastDiscoveryFromFallback());
+        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        self::assertNotContains('claude-3-haiku-20240307', $modelIds);
+        self::assertContains('claude-opus-4-5-20251101', $modelIds);
+    }
+
+    #[Test]
+    public function discoverAnthropicReturnsFallbackWhenDataKeyMissing(): void
+    {
+        // An array body WITHOUT a 'data' key must yield an empty model list
+        // (→ fallback) without touching the missing key (see the matching
+        // OpenAI test for the warning rationale).
+        $provider = new DetectedProvider(
+            adapterType: 'anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
+            suggestedName: 'Anthropic',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{"object":"list"}'));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        self::assertTrue($this->subject->wasLastDiscoveryFromFallback());
+        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        self::assertContains('claude-opus-4-5-20251101', $modelIds);
+    }
+
+    #[Test]
+    public function discoverAnthropicSortsRecommendedModelsFirst(): void
+    {
+        // Insertion order is [non-recommended, recommended]; the usort must
+        // move the recommended model to the front. Kills both the removed-sort
+        // and the flipped-comparison mutants.
+        $provider = new DetectedProvider(
+            adapterType: 'anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
+            suggestedName: 'Anthropic',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(
+                200,
+                (string)json_encode(['data' => [
+                    ['id' => 'claude-sonnet-4-20250514'],
+                    ['id' => 'claude-opus-4-5-20251101'],
+                ]]),
+            ));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        self::assertCount(2, $models);
+        self::assertSame('claude-opus-4-5-20251101', $models[0]->modelId);
+        self::assertTrue($models[0]->recommended);
+        self::assertSame('claude-sonnet-4-20250514', $models[1]->modelId);
+    }
+
+    #[Test]
+    public function discoverAnthropicEnrichesEverySpecWithExactValues(): void
+    {
+        // Pin every field of the Anthropic spec table (enrichAnthropicModel)
+        // via the dated model ids the API actually returns — each resolves its
+        // spec through the prefix match, and without a display_name the name
+        // must come from the spec. Values mirror ModelDiscovery's spec table.
+        // [name, description, costInput, costOutput, recommended]
+        $expected = [
+            'claude-opus-4-5-20251101' => ['Claude Opus 4.5', 'Most intelligent, best for coding, agents, and computer use', 500, 2500, true],
+            'claude-sonnet-4-5-20250929' => ['Claude Sonnet 4.5', 'Balanced performance and cost', 300, 1500, true],
+            'claude-haiku-4-5-20251001' => ['Claude Haiku 4.5', 'Fast and cost-effective for simple tasks', 100, 500, true],
+            'claude-opus-4-20250514' => ['Claude Opus 4', 'Previous generation Opus', 1500, 7500, false],
+            'claude-sonnet-4-20250514' => ['Claude Sonnet 4', 'Previous generation Sonnet', 300, 1500, false],
+        ];
+
+        $provider = new DetectedProvider(
+            adapterType: 'anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
+            suggestedName: 'Anthropic',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $data = array_map(static fn(string $id): array => ['id' => $id], array_keys($expected));
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(
+                200,
+                (string)json_encode(['data' => $data]),
+            ));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
+        $byId = [];
+        foreach ($models as $model) {
+            $byId[$model->modelId] = $model;
+        }
+
+        foreach ($expected as $id => $spec) {
+            self::assertArrayHasKey($id, $byId, sprintf('Model %s missing from discovery result', $id));
+            $model = $byId[$id];
+            self::assertSame($spec[0], $model->name, $id . ' name');
+            self::assertSame($spec[1], $model->description, $id . ' description');
+            self::assertSame(['chat', 'vision', 'tools', 'streaming'], $model->capabilities, $id . ' capabilities');
+            self::assertSame(200000, $model->contextLength, $id . ' contextLength');
+            self::assertSame(32000, $model->maxOutputTokens, $id . ' maxOutputTokens');
+            self::assertSame($spec[2], $model->costInput, $id . ' costInput');
+            self::assertSame($spec[3], $model->costOutput, $id . ' costOutput');
+            self::assertSame($spec[4], $model->recommended, $id . ' recommended');
+        }
+    }
+
+    #[Test]
+    public function discoverAnthropicLogsHttpErrorWithProviderAndStatus(): void
+    {
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(503, '{}'));
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())
+            ->method('warning')
+            ->with(
+                'LLM model discovery returned an unexpected HTTP status',
+                self::callback(static fn(array $ctx): bool => ($ctx['provider'] ?? null) === 'anthropic' && ($ctx['status'] ?? null) === 503),
+            );
+
+        $subject = $this->makeSubjectWithLogger($logger);
+        $provider = new DetectedProvider(
+            adapterType: 'anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
+            suggestedName: 'Anthropic',
+        );
+
+        $subject->discover($provider, 'test-key');
+    }
+
+    #[Test]
+    public function discoverAnthropicLogsRequestFailureWithExceptionClass(): void
+    {
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willThrowException(new RuntimeException('anthropic down'));
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())
+            ->method('warning')
+            ->with(
+                'LLM model discovery request failed',
+                self::callback(static fn(array $ctx): bool => ($ctx['provider'] ?? null) === 'anthropic'
+                    && ($ctx['exception'] ?? null) === RuntimeException::class
+                    && ($ctx['message'] ?? null) === 'anthropic down'),
+            );
+
+        $subject = $this->makeSubjectWithLogger($logger);
+        $provider = new DetectedProvider(
+            adapterType: 'anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
+            suggestedName: 'Anthropic',
         );
 
         $subject->discover($provider, 'test-key');

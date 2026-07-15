@@ -752,9 +752,16 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject();
         $this->setupSuccessfulRequest();
 
-        $this->expectException(ServiceUnavailableException::class);
-
-        $subject->synthesizeToFile('Hello world', '/non/existent/path/file.mp3');
+        try {
+            $subject->synthesizeToFile('Hello world', '/non/existent/path/file.mp3');
+            self::fail('Expected ServiceUnavailableException was not thrown');
+        } catch (ServiceUnavailableException $e) {
+            // The exception names the failed path and carries the provider
+            // context used by upstream error reporting.
+            self::assertStringContainsString('/non/existent/path/file.mp3', $e->getMessage());
+            self::assertSame('speech', $e->service);
+            self::assertSame(['provider' => 'tts'], $e->context);
+        }
     }
 
     // ==================== synthesizeLong tests ====================
@@ -1141,6 +1148,9 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         self::assertEquals('nova', $result->voice);
         self::assertEquals('tts-1-hd', $result->model);
         self::assertEquals('opus', $result->format);
+        // The effective speed is echoed into the result metadata — the only
+        // place a caller can read back what rate was actually requested.
+        self::assertSame(['speed' => 1.5], $result->metadata);
     }
 
     #[Test]
@@ -1560,5 +1570,411 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
 
         self::assertIsArray($chunks);
         self::assertCount(1, $chunks);
+    }
+
+    // ==================== second-pass mutation pins ====================
+
+    #[Test]
+    public function synthesizeLongSendsExactMaxLengthMultibyteTextVerbatim(): void
+    {
+        $subject = $this->createSubject();
+
+        $captured = ['method' => '', 'url' => '', 'body' => '', 'headers' => []];
+        $this->setupCapturingRequest($captured);
+
+        // Codepoint length exactly 4096 (2001 + 2 + 2093) but BYTE length
+        // 8188: the short-text branch must measure by codepoint and take
+        // the text as-is. Any mutant that falls into the split path re-joins
+        // the two sentences with a SINGLE space, so the double space between
+        // them is the discriminator visible in the outgoing payload.
+        $text = str_repeat('ü', 2000) . '.' . '  ' . str_repeat('ü', 2092) . '.';
+
+        $results = $subject->synthesizeLong($text);
+
+        self::assertCount(1, $results);
+        $decoded = json_decode($captured['body'], true);
+        self::assertIsArray($decoded);
+        self::assertSame($text, $decoded['input']);
+    }
+
+    #[Test]
+    public function splitTextIntoChunksKeepsExactLimitSentenceVerbatim(): void
+    {
+        $subject = $this->createSubject();
+
+        // The second sentence is exactly 4096 characters and ends in ', '.
+        // At exactly the limit it is NOT long-split — the whole sentence
+        // becomes one chunk, trailing separator intact. A `>=` boundary
+        // mutant routes it through splitLongSentence(), whose flush rtrims
+        // the trailing ', ' away.
+        $sentence = str_repeat('x', 4094) . ', ';
+        $text = 'Intro. ' . $sentence;
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+
+        self::assertSame(['Intro.', $sentence], $chunks);
+    }
+
+    #[Test]
+    public function splitTextIntoChunksStripsTrailingSeparatorFromFinalCommaChunk(): void
+    {
+        $subject = $this->createSubject();
+
+        // Over-limit sentence ending in ', ': explode() yields a trailing
+        // empty part, so the final running chunk still carries its ', '
+        // separator — the flush in splitLongSentence() must rtrim it.
+        $text = str_repeat('a', 4000) . ', ' . str_repeat('b', 1000) . ', ';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+
+        self::assertSame([str_repeat('a', 4000), str_repeat('b', 1000)], $chunks);
+    }
+
+    #[Test]
+    public function splitTextIntoChunksMergesCommaPartsUpToExactLimit(): void
+    {
+        $subject = $this->createSubject();
+
+        // Second chunk is 1202 + 2894 = exactly 4096 characters: the last
+        // part merges only because its separator is '' (it IS the last part)
+        // and the comparison is `<=`. Mutants that give the last part a ', '
+        // separator (lastIndex off-by-one, `<`→`<=`, swapped ternary) or use
+        // strict `<` push it to 4098 / fail at 4096 and emit three chunks;
+        // concat-order mutants corrupt the merged chunk's content.
+        $text = str_repeat('a', 3000) . ', ' . str_repeat('b', 1200) . ', ' . str_repeat('c', 2893) . '.';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+
+        self::assertSame(
+            [
+                str_repeat('a', 3000),
+                str_repeat('b', 1200) . ', ' . str_repeat('c', 2893) . '.',
+            ],
+            $chunks,
+        );
+    }
+
+    #[Test]
+    public function splitTextIntoChunksPreservesSeparatorBetweenLeadingMergedParts(): void
+    {
+        $subject = $this->createSubject();
+
+        // The first two parts merge into one chunk; the ', ' between them is
+        // part of the chunk content (only TRAILING separators are trimmed).
+        $text = str_repeat('a', 2000) . ', ' . str_repeat('b', 2000) . ', ' . str_repeat('c', 3000) . '.';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+
+        self::assertSame(
+            [
+                str_repeat('a', 2000) . ', ' . str_repeat('b', 2000),
+                str_repeat('c', 3000) . '.',
+            ],
+            $chunks,
+        );
+    }
+
+    #[Test]
+    public function splitTextIntoChunksPreservesSeparatorBeforeFinalMergedPart(): void
+    {
+        $subject = $this->createSubject();
+
+        // Four parts; the last three merge into the second chunk. The ', '
+        // between the second-to-last and last part must survive — an
+        // off-by-one lastIndex hands the second-to-last part an empty
+        // separator and glues 'c…' and 'd…' together.
+        $text = str_repeat('a', 3000) . ', ' . str_repeat('b', 1200)
+            . ', ' . str_repeat('c', 100) . ', ' . str_repeat('d', 100) . '.';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+
+        self::assertSame(
+            [
+                str_repeat('a', 3000),
+                str_repeat('b', 1200) . ', ' . str_repeat('c', 100) . ', ' . str_repeat('d', 100) . '.',
+            ],
+            $chunks,
+        );
+    }
+
+    #[Test]
+    public function splitTextIntoChunksAccountsForSeparatorWhenMergingCommaParts(): void
+    {
+        $subject = $this->createSubject();
+
+        // Merging part two INCLUDING its ', ' separator would hit 4098 > 4096,
+        // so the chunk is flushed as part one only. A mutant that measures the
+        // test chunk WITHOUT the separator sees 4096 <= 4096, merges, and
+        // produces ['a…, b…', 'c….'] instead.
+        $text = str_repeat('a', 2000) . ', ' . str_repeat('b', 2094) . ', ' . str_repeat('c', 500) . '.';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+
+        self::assertSame(
+            [
+                str_repeat('a', 2000),
+                str_repeat('b', 2094) . ', ' . str_repeat('c', 500) . '.',
+            ],
+            $chunks,
+        );
+    }
+
+    #[Test]
+    public function splitTextIntoChunksMeasuresMergedCommaChunksByCodepoint(): void
+    {
+        $subject = $this->createSubject();
+
+        // First two multibyte parts: 4004 codepoints (merge) but 8004 bytes
+        // (would flush). A byte-wise running-chunk measure splits them apart
+        // and yields three chunks instead of two.
+        $text = str_repeat('ü', 2000) . ', ' . str_repeat('ü', 2000) . ', ' . str_repeat('ü', 1500) . '.';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+
+        self::assertSame(
+            [
+                str_repeat('ü', 2000) . ', ' . str_repeat('ü', 2000),
+                str_repeat('ü', 1500) . '.',
+            ],
+            $chunks,
+        );
+    }
+
+    #[Test]
+    public function splitTextIntoChunksMeasuresCommaPartOverflowByCodepoint(): void
+    {
+        $subject = $this->createSubject();
+
+        // The 'ü' part is 2502 codepoints (fits after the flush, merges with
+        // the tail) but 5002 bytes. A byte-wise part-length check would
+        // hard-split it into its own chunk and orphan the tail.
+        $text = str_repeat('a', 4000) . ', ' . str_repeat('ü', 2500) . ', tail.';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+
+        self::assertSame(
+            [
+                str_repeat('a', 4000),
+                str_repeat('ü', 2500) . ', tail.',
+            ],
+            $chunks,
+        );
+    }
+
+    #[Test]
+    public function splitTextIntoChunksHardSplitsCommalessSentenceAtCodepointBoundaries(): void
+    {
+        $subject = $this->createSubject();
+
+        // 5000 two-byte characters, no commas: hard-split at 4096 CODEPOINTS
+        // gives chunks of 4096 + 904. A byte-wise split cuts every 4096 BYTES
+        // (= 2048 'ü') and yields three shorter chunks.
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, str_repeat('ü', 5000));
+
+        self::assertSame([str_repeat('ü', 4096), str_repeat('ü', 904)], $chunks);
+    }
+
+    #[Test]
+    public function splitTextIntoChunksHardSplitsOverLimitCommaPartAtCodepointBoundaries(): void
+    {
+        $subject = $this->createSubject();
+
+        // The first comma part alone exceeds the limit and is hard-split at
+        // codepoint boundaries into 4096 + 904; the short tail part follows
+        // as its own chunk. A byte-wise split of the 10000-byte part yields
+        // 2048 + 2048 + 904; dropping the hard-split loop loses the part
+        // entirely.
+        $text = str_repeat('ü', 5000) . ', x.';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $text);
+
+        self::assertSame([str_repeat('ü', 4096), str_repeat('ü', 904), 'x.'], $chunks);
+    }
+
+    #[Test]
+    public function synthesizeRecordsModelAndVoiceAsPendingAuditContext(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest();
+
+        $subject->synthesize('Hello world');
+
+        // The test seam bypasses the vault secure client, so the audit
+        // context set right before dispatch is still pending; folding it
+        // into the audit reason is exactly what the secure-client build
+        // would record with the secret access.
+        $reflection = new ReflectionClass($subject);
+        $reason = $reflection->getMethod('getAuditReason')->invoke($subject);
+
+        self::assertSame('OpenAI TTS API call (tts-1, voice alloy)', $reason);
+    }
+
+    #[Test]
+    public function synthesizeEmptyTextExceptionCarriesProviderContext(): void
+    {
+        $subject = $this->createSubject();
+
+        try {
+            $subject->synthesize('   ');
+            self::fail('Expected ServiceUnavailableException was not thrown');
+        } catch (ServiceUnavailableException $e) {
+            self::assertSame('Input text cannot be empty', $e->getMessage());
+            self::assertSame('speech', $e->service);
+            self::assertSame(['provider' => 'tts'], $e->context);
+        }
+    }
+
+    #[Test]
+    public function synthesizeOverLengthExceptionReportsCodepointLengthInContext(): void
+    {
+        $subject = $this->createSubject();
+
+        // 4097 two-byte characters: the context must report the CODEPOINT
+        // length 4097, not the byte length 8194, alongside the provider key.
+        try {
+            $subject->synthesize(str_repeat('ü', 4097));
+            self::fail('Expected ServiceUnavailableException was not thrown');
+        } catch (ServiceUnavailableException $e) {
+            self::assertStringContainsString('Input text exceeds maximum length', $e->getMessage());
+            self::assertSame(['provider' => 'tts', 'length' => 4097], $e->context);
+        }
+    }
+
+    #[Test]
+    public function synthesizeSubstitutesInvalidUtf8InPayload(): void
+    {
+        $subject = $this->createSubject();
+
+        $captured = ['method' => '', 'url' => '', 'body' => '', 'headers' => []];
+        $this->setupCapturingRequest($captured);
+
+        // "\xE9" is an invalid UTF-8 byte. JSON_INVALID_UTF8_SUBSTITUTE
+        // replaces it with U+FFFD so the request still encodes; without the
+        // flag combination json_encode() returns false and the stream
+        // factory would reject it.
+        $result = $subject->synthesize("Caf\xE9 test");
+
+        self::assertSame('audio-binary-content', $result->audioContent);
+        $decoded = json_decode($captured['body'], true);
+        self::assertIsArray($decoded);
+        self::assertSame("Caf\u{FFFD} test", $decoded['input']);
+    }
+
+    #[Test]
+    public function synthesizeTreatsStatus300AsError(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupFailedRequest(300, 'Multiple choices');
+
+        // The success window is [200, 300): a 300 response is an error and
+        // maps through the default branch of mapErrorStatus().
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('OpenAI TTS API error: Multiple choices');
+
+        $subject->synthesize('Hello world');
+    }
+
+    #[Test]
+    public function sendBinaryRequestLogsApiErrorWithStatusCode(): void
+    {
+        $this->setupFailedRequest(500, 'Server error');
+
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock
+            ->expects(self::once())
+            ->method('error')
+            ->with('TTS API error', ['status_code' => 500, 'error' => 'Server error']);
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $this->usageTrackerStub,
+            $loggerMock,
+        );
+
+        $this->expectException(ServiceUnavailableException::class);
+
+        $subject->synthesize('Test text');
+    }
+
+    #[Test]
+    public function sendBinaryRequestLogsAndWrapsConnectionException(): void
+    {
+        $connectionError = new RuntimeException('Connection refused');
+
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+        $this->requestFactoryStub->method('createRequest')->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub->method('createStream')->willReturn($streamStub);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willThrowException($connectionError);
+
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock
+            ->expects(self::once())
+            ->method('error')
+            ->with('TTS API connection error', ['exception' => $connectionError]);
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $this->usageTrackerStub,
+            $loggerMock,
+        );
+
+        try {
+            $subject->synthesize('Test text');
+            self::fail('Expected ServiceUnavailableException was not thrown');
+        } catch (ServiceUnavailableException $e) {
+            self::assertSame('Failed to connect to TTS API', $e->getMessage());
+            self::assertSame('speech', $e->service);
+            self::assertSame(['provider' => 'tts'], $e->context);
+            self::assertSame(0, $e->getCode());
+            self::assertSame($connectionError, $e->getPrevious());
+        }
+    }
+
+    #[Test]
+    public function synthesizeLongChecksAvailabilityBeforeParsingOptions(): void
+    {
+        $subject = $this->createSubjectWithoutApiKey();
+
+        // ensureAvailable() must fire BEFORE the options array is parsed:
+        // an invalid voice would otherwise surface as an
+        // InvalidArgumentException from the options validation instead of
+        // the not-configured error.
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('Tts service is not configured');
+
+        $subject->synthesizeLong('Hello world', ['voice' => 'not-a-real-voice']);
     }
 }
