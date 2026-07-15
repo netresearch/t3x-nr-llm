@@ -2767,4 +2767,591 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // No 'data' key → modelList is [] → no models found
         self::assertEmpty($models);
     }
+
+    // ==================== outgoing-request pinning (URL / method / headers) ====================
+
+    /**
+     * Configure the request-factory stub to record the exact method, URI and
+     * every header set on the outgoing request, so a test can assert the exact
+     * request the service built (endpoint construction, HTTP verb, auth headers).
+     *
+     * @param array{method: ?string, uri: ?string, headers: array<string, string>} $captured
+     */
+    private function configureCapturingRequestFactory(array &$captured): void
+    {
+        $captured = ['method' => null, 'uri' => null, 'headers' => []];
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturnCallback(function (string $method, string $uri) use (&$captured): RequestInterface {
+                $captured['method'] = $method;
+                $captured['uri'] = $uri;
+
+                $request = self::createStub(RequestInterface::class);
+                $request->method('withHeader')->willReturnCallback(
+                    function (string $name, mixed $value) use (&$captured, $request): RequestInterface {
+                        $captured['headers'][$name] = is_array($value) ? implode(', ', $value) : (is_string($value) ? $value : '');
+
+                        return $request;
+                    },
+                );
+                $request->method('withBody')->willReturnCallback(static fn(): RequestInterface => $request);
+                $request->method('getMethod')->willReturn($method);
+
+                return $request;
+            });
+    }
+
+    #[Test]
+    public function testConnectionBuildsModelsUrlWithBearerAuthForOpenAi(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $captured = [];
+        $this->configureCapturingRequestFactory($captured);
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{}'));
+
+        $this->subject->testConnection($provider, 'test-api-key');
+
+        self::assertSame('GET', $captured['method']);
+        self::assertSame('https://api.openai.com/models', $captured['uri']);
+        self::assertSame('Bearer test-api-key', $captured['headers']['Authorization'] ?? null);
+    }
+
+    #[Test]
+    public function testConnectionStripsTrailingSlashFromEndpoint(): void
+    {
+        // A user-entered trailing slash must not produce "https://…//models".
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com/',
+            suggestedName: 'OpenAI',
+        );
+
+        $captured = [];
+        $this->configureCapturingRequestFactory($captured);
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{}'));
+
+        $this->subject->testConnection($provider, 'test-api-key');
+
+        self::assertSame('https://api.openai.com/models', $captured['uri']);
+    }
+
+    #[Test]
+    public function testConnectionSendsAnthropicKeyAndVersionHeaders(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'anthropic',
+            endpoint: 'https://api.anthropic.com',
+            suggestedName: 'Anthropic',
+        );
+
+        $captured = [];
+        $this->configureCapturingRequestFactory($captured);
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{}'));
+
+        $this->subject->testConnection($provider, 'test-api-key');
+
+        self::assertSame('https://api.anthropic.com/models', $captured['uri']);
+        self::assertSame('test-api-key', $captured['headers']['x-api-key'] ?? null);
+        self::assertSame('2023-06-01', $captured['headers']['anthropic-version'] ?? null);
+        // Anthropic must NOT get a Bearer Authorization header.
+        self::assertArrayNotHasKey('Authorization', $captured['headers']);
+    }
+
+    #[Test]
+    public function testConnectionSendsGeminiApiKeyHeader(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'gemini',
+            endpoint: 'https://generativelanguage.googleapis.com',
+            suggestedName: 'Google Gemini',
+        );
+
+        $captured = [];
+        $this->configureCapturingRequestFactory($captured);
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{}'));
+
+        $this->subject->testConnection($provider, 'test-api-key');
+
+        self::assertSame('https://generativelanguage.googleapis.com/models', $captured['uri']);
+        self::assertSame('test-api-key', $captured['headers']['x-goog-api-key'] ?? null);
+        self::assertArrayNotHasKey('Authorization', $captured['headers']);
+    }
+
+    #[Test]
+    public function testConnectionUsesTagsEndpointAndNoAuthForOllama(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'ollama',
+            endpoint: 'http://localhost:11434',
+            suggestedName: 'Ollama',
+        );
+
+        $captured = [];
+        $this->configureCapturingRequestFactory($captured);
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{}'));
+
+        $this->subject->testConnection($provider, '');
+
+        self::assertSame('http://localhost:11434/api/tags', $captured['uri']);
+        // Ollama needs no authentication — no headers at all.
+        self::assertSame([], $captured['headers']);
+    }
+
+    #[Test]
+    public function testConnectionStripsTrailingApiSegmentForOllama(): void
+    {
+        // A legacy/user-entered trailing "/api" must be stripped so the tags URL
+        // does not become ".../api/api/tags".
+        $provider = new DetectedProvider(
+            adapterType: 'ollama',
+            endpoint: 'http://localhost:11434/api',
+            suggestedName: 'Ollama',
+        );
+
+        $captured = [];
+        $this->configureCapturingRequestFactory($captured);
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{}'));
+
+        $this->subject->testConnection($provider, '');
+
+        self::assertSame('http://localhost:11434/api/tags', $captured['uri']);
+    }
+
+    #[Test]
+    public function testConnectionTreatsStatus300AsFailure(): void
+    {
+        // The success window is 200–299; 300 must be reported as a failure.
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(300, '{}'));
+
+        $result = $this->subject->testConnection($provider, 'test-key');
+
+        self::assertFalse($result['success']);
+        self::assertStringContainsString('status code 300', $result['message']);
+    }
+
+    #[Test]
+    public function discoverOpenAiBuildsModelsUrlWithBearerAndContentTypeHeaders(): void
+    {
+        // Trailing slash also exercises discover()'s rtrim: the URL must be a
+        // single ".../models", never ".../…//models".
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com/',
+            suggestedName: 'OpenAI',
+        );
+
+        $captured = [];
+        $this->configureCapturingRequestFactory($captured);
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, '{"data": []}'));
+
+        $this->subject->discover($provider, 'test-key');
+
+        self::assertSame('GET', $captured['method']);
+        self::assertSame('https://api.openai.com/models', $captured['uri']);
+        self::assertSame('Bearer test-key', $captured['headers']['Authorization'] ?? null);
+        self::assertSame('application/json', $captured['headers']['Content-Type'] ?? null);
+    }
+
+    // ==================== discoverOpenAI transformation pinning ====================
+
+    #[Test]
+    public function discoverOpenAiReturnsFallbackOnNonOkStatusEvenWithParseableBody(): void
+    {
+        // A non-200 status must short-circuit to the fallback catalog and NOT
+        // parse the (otherwise valid) body — proven by a body whose model id is
+        // absent from the fallback list.
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(
+                500,
+                (string)json_encode(['data' => [['id' => 'gpt-4.1']]]),
+            ));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        self::assertTrue($this->subject->wasLastDiscoveryFromFallback());
+        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        self::assertContains('gpt-5.5', $modelIds);
+        self::assertNotContains('gpt-4.1', $modelIds);
+    }
+
+    #[Test]
+    public function discoverOpenAiSortsRecommendedModelsFirst(): void
+    {
+        // Insertion order is [non-recommended, recommended]; the usort must move
+        // the recommended model to the front. Kills both the removed-sort and the
+        // flipped-comparison mutants.
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(
+                200,
+                (string)json_encode(['data' => [['id' => 'gpt-4o'], ['id' => 'gpt-5.5']]]),
+            ));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        self::assertSame('gpt-5.5', $models[0]->modelId);
+        self::assertTrue($models[0]->recommended);
+    }
+
+    #[Test]
+    public function discoverOpenAiContinuesPastNonArrayItemsWithoutStopping(): void
+    {
+        // A non-array entry must be skipped (continue), NOT terminate the loop
+        // (break). A trailing, fallback-absent model id proves the loop kept
+        // going after the bad entry.
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(
+                200,
+                (string)json_encode(['data' => ['not-an-array', ['id' => 'gpt-4.1']]]),
+            ));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
+        $modelIds = array_map(static fn(DiscoveredModel $m): string => $m->modelId, $models);
+        self::assertContains('gpt-4.1', $modelIds);
+    }
+
+    #[Test]
+    public function discoverOpenAiEnrichesEverySpecWithExactValues(): void
+    {
+        // Pin every field of the June-2026 OpenAI spec table so that a change to
+        // any name/description/capability/context/token/cost/recommended value is
+        // caught. Values mirror ModelDiscovery::openAIModelSpecs().
+        // [name, description, capabilities, contextLength, maxOutputTokens, costInput, costOutput, recommended]
+        $expected = [
+            'gpt-5.5' => ['GPT-5.5', 'Latest flagship model with enhanced reasoning', ['chat', 'vision', 'tools', 'streaming', 'reasoning'], 400000, 128000, 500, 3000, true],
+            'gpt-5.3' => ['GPT-5.3', 'Flagship model with enhanced reasoning', ['chat', 'vision', 'tools', 'streaming', 'reasoning'], 400000, 128000, 175, 1400, true],
+            'gpt-5.3-chat-latest' => ['GPT-5.3 Chat', 'Fast responses for interactive use', ['chat', 'vision', 'tools', 'streaming'], 400000, 32000, 100, 400, true],
+            'gpt-5.3-mini' => ['GPT-5.3 Mini', 'Small, fast, cost-effective', ['chat', 'vision', 'tools', 'streaming'], 200000, 32000, 30, 120, true],
+            'gpt-5.2' => ['GPT-5.2 Thinking', 'Flagship model for coding, reasoning, and agentic tasks', ['chat', 'vision', 'tools', 'streaming', 'reasoning'], 400000, 128000, 175, 1400, false],
+            'gpt-5.2-pro' => ['GPT-5.2 Pro', 'Extended thinking for complex tasks', ['chat', 'vision', 'tools', 'streaming', 'reasoning'], 400000, 128000, 350, 2800, false],
+            'gpt-5.2-chat-latest' => ['GPT-5.2 Instant', 'Fast responses for interactive use', ['chat', 'vision', 'tools', 'streaming'], 400000, 32000, 100, 400, false],
+            'gpt-5' => ['GPT-5', 'Previous generation flagship model', ['chat', 'vision', 'tools', 'streaming', 'reasoning'], 200000, 64000, 150, 600, false],
+            'gpt-5-mini' => ['GPT-5 Mini', 'Smaller, faster, cost-effective', ['chat', 'vision', 'tools', 'streaming'], 128000, 32000, 30, 120, false],
+            'o4-mini' => ['O4 Mini', 'Fast reasoning for math, coding, visual tasks', ['chat', 'vision', 'tools', 'reasoning'], 200000, 100000, 110, 440, false],
+            'o3' => ['O3', 'Advanced reasoning model', ['chat', 'vision', 'tools', 'reasoning'], 200000, 100000, 200, 800, false],
+            'gpt-4o' => ['GPT-4o', 'Legacy multimodal model', ['chat', 'vision', 'tools', 'streaming'], 128000, 16384, 250, 1000, false],
+            'gpt-4.1' => ['GPT-4.1', 'Coding and instruction-following model', ['chat', 'vision', 'tools', 'streaming'], 1047576, 32768, 200, 800, false],
+            'gpt-4.1-mini' => ['GPT-4.1 Mini', 'Fast coding model', ['chat', 'vision', 'tools', 'streaming'], 1047576, 32768, 40, 160, false],
+            'gpt-image-2' => ['GPT Image 2', 'Image generation model', ['image'], 0, 0, 0, 0, false],
+            'tts-1' => ['TTS-1', 'Text-to-speech model optimized for speed', ['text_to_speech'], 0, 0, 0, 0, false],
+            'tts-1-hd' => ['TTS-1 HD', 'Text-to-speech model optimized for quality', ['text_to_speech'], 0, 0, 0, 0, false],
+            'whisper-1' => ['Whisper', 'Speech-to-text transcription model', ['transcription'], 0, 0, 0, 0, false],
+        ];
+
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $data = array_map(static fn(string $id): array => ['id' => $id], array_keys($expected));
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(
+                200,
+                (string)json_encode(['data' => $data]),
+            ));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        $byId = [];
+        foreach ($models as $model) {
+            $byId[$model->modelId] = $model;
+        }
+
+        foreach ($expected as $id => $spec) {
+            self::assertArrayHasKey($id, $byId, sprintf('Model %s missing from discovery result', $id));
+            $model = $byId[$id];
+            self::assertSame($spec[0], $model->name, $id . ' name');
+            self::assertSame($spec[1], $model->description, $id . ' description');
+            self::assertSame($spec[2], $model->capabilities, $id . ' capabilities');
+            self::assertSame($spec[3], $model->contextLength, $id . ' contextLength');
+            self::assertSame($spec[4], $model->maxOutputTokens, $id . ' maxOutputTokens');
+            self::assertSame($spec[5], $model->costInput, $id . ' costInput');
+            self::assertSame($spec[6], $model->costOutput, $id . ' costOutput');
+            self::assertSame($spec[7], $model->recommended, $id . ' recommended');
+        }
+    }
+
+    #[Test]
+    public function discoverOpenAiEnrichesUnspecifiedModelWithDefaults(): void
+    {
+        // A relevant model with no spec entry falls back to modelId-as-name,
+        // a generic description, chat capability and zeroed numeric fields.
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(
+                200,
+                (string)json_encode(['data' => [['id' => 'chatgpt-4o-latest']]]),
+            ));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        $model = $models[0];
+        self::assertSame('chatgpt-4o-latest', $model->modelId);
+        self::assertSame('chatgpt-4o-latest', $model->name);
+        self::assertSame('OpenAI model', $model->description);
+        self::assertSame(['chat'], $model->capabilities);
+        self::assertSame(0, $model->contextLength);
+        self::assertSame(0, $model->maxOutputTokens);
+        self::assertSame(0, $model->costInput);
+        self::assertSame(0, $model->costOutput);
+        self::assertFalse($model->recommended);
+    }
+
+    #[Test]
+    public function discoverOpenAiDerivesDefaultCapabilitiesFromModelIdShape(): void
+    {
+        // Unspecified models get their capability from the id shape
+        // (defaultOpenAICapabilities): image / text_to_speech / transcription.
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(
+                200,
+                (string)json_encode(['data' => [
+                    ['id' => 'dall-e-3'],
+                    ['id' => 'gpt-image-1'],
+                    ['id' => 'gpt-4o-mini-tts'],
+                    ['id' => 'gpt-4o-transcribe'],
+                ]]),
+            ));
+
+        $models = $this->subject->discover($provider, 'test-key');
+
+        $byId = [];
+        foreach ($models as $model) {
+            $byId[$model->modelId] = $model;
+        }
+
+        self::assertSame(['image'], $byId['dall-e-3']->capabilities);
+        self::assertSame(['image'], $byId['gpt-image-1']->capabilities);
+        self::assertSame(['text_to_speech'], $byId['gpt-4o-mini-tts']->capabilities);
+        self::assertSame(['transcription'], $byId['gpt-4o-transcribe']->capabilities);
+    }
+
+    // ==================== diagnostic logging pinning ====================
+
+    private function makeSubjectWithLogger(LoggerInterface $logger): ModelDiscovery
+    {
+        $subject = new ModelDiscovery(
+            $this->vaultStub,
+            $this->httpClientFactory,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $logger,
+        );
+        $subject->setHttpClient($this->httpClientStub);
+
+        return $subject;
+    }
+
+    #[Test]
+    public function discoverOpenAiLogsHttpErrorWithProviderAndStatus(): void
+    {
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(503, '{}'));
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())
+            ->method('warning')
+            ->with(
+                'LLM model discovery returned an unexpected HTTP status',
+                self::callback(static fn(array $ctx): bool => ($ctx['provider'] ?? null) === 'openai' && ($ctx['status'] ?? null) === 503),
+            );
+
+        $subject = $this->makeSubjectWithLogger($logger);
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $subject->discover($provider, 'test-key');
+    }
+
+    #[Test]
+    public function discoverOpenAiLogsRequestFailureWithExceptionClass(): void
+    {
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willThrowException(new RuntimeException('boom'));
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())
+            ->method('warning')
+            ->with(
+                'LLM model discovery request failed',
+                self::callback(static fn(array $ctx): bool => ($ctx['provider'] ?? null) === 'openai'
+                    && ($ctx['exception'] ?? null) === RuntimeException::class
+                    && ($ctx['message'] ?? null) === 'boom'),
+            );
+
+        $subject = $this->makeSubjectWithLogger($logger);
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $subject->discover($provider, 'test-key');
+    }
+
+    #[Test]
+    public function testConnectionLogsSanitizedExceptionWithProvider(): void
+    {
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willThrowException(new RuntimeException('network detail'));
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())
+            ->method('warning')
+            ->with(
+                'LLM setup-wizard connection test failed',
+                self::callback(static fn(array $ctx): bool => ($ctx['provider'] ?? null) === 'openai'
+                    && array_key_exists('exception', $ctx)),
+            );
+
+        $subject = $this->makeSubjectWithLogger($logger);
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $subject->testConnection($provider, 'test-key');
+    }
+
+    #[Test]
+    public function discoverOpenAiLogsMalformedJsonWithProviderAndBodySample(): void
+    {
+        // The malformed-JSON warning records the provider and a 200-char sample
+        // taken from the START of the body.
+        $body = 'A' . str_repeat('x', 300);
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForDiscovery(200, $body));
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())
+            ->method('warning')
+            ->with(
+                'LLM model discovery received a malformed JSON response',
+                self::callback(static fn(array $ctx): bool => ($ctx['provider'] ?? null) === 'openai'
+                    && ($ctx['sample'] ?? null) === substr($body, 0, 200)),
+            );
+
+        $subject = $this->makeSubjectWithLogger($logger);
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com',
+            suggestedName: 'OpenAI',
+        );
+
+        $subject->discover($provider, 'test-key');
+    }
 }
