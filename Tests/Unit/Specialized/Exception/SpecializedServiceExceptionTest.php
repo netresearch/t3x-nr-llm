@@ -44,6 +44,21 @@ class SpecializedServiceExceptionTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function getDetailedMessageWithNonUtf8ContextDoesNotThrow(): void
+    {
+        // The context may echo the offending payload; formatting the error must
+        // substitute invalid bytes, not throw \JsonException and mask the
+        // original failure.
+        $exception = new TranslatorException(
+            'Translation failed',
+            'translation',
+            ['echo' => "caf\xE9"],
+        );
+
+        self::assertStringContainsString('[translation] Translation failed', $exception->getDetailedMessage());
+    }
+
+    #[Test]
     public function getDetailedMessageExcludesEmptyContext(): void
     {
         $exception = new TranslatorException('Error', 'translation', []);

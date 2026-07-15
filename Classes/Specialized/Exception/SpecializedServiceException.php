@@ -45,7 +45,9 @@ abstract class SpecializedServiceException extends RuntimeException
         $details = sprintf('[%s] %s', $this->service, $this->getMessage());
 
         if ($this->context !== null && $this->context !== []) {
-            $details .= ' | Context: ' . json_encode($this->context, JSON_THROW_ON_ERROR);
+            // Substitute invalid bytes: the context may echo the offending payload,
+            // and formatting the error must not throw and mask the original failure.
+            $details .= ' | Context: ' . json_encode($this->context, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
         }
 
         return $details;

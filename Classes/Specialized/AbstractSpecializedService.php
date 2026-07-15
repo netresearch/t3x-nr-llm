@@ -560,7 +560,11 @@ abstract class AbstractSpecializedService
         }
 
         if ($this->methodAllowsBody($method)) {
-            $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR));
+            // JSON_INVALID_UTF8_SUBSTITUTE: a request payload carrying an invalid
+            // byte (e.g. a prompt pasted from a Latin-1 source) must degrade to a
+            // replacement character, never throw \JsonException and abort the call
+            // — matching AbstractProvider's request-encode guard (PR #315/#316).
+            $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
             $request = $request->withBody($body);
         }
 

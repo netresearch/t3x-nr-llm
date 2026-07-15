@@ -198,7 +198,7 @@ final class ConfigurationGenerator
 
         $request = $this->requestFactory->createRequest('POST', $endpoint)
             ->withHeader('Content-Type', 'application/json')
-            ->withBody($this->streamFactory->createStream(json_encode($body, JSON_THROW_ON_ERROR)));
+            ->withBody($this->streamFactory->createStream(json_encode($body, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)));
 
         // Add auth header based on provider
         $request = match ($provider->adapterType) {

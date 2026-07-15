@@ -448,7 +448,7 @@ final class TextToSpeechService extends AbstractSpecializedService
             $request = $request->withHeader($name, $value);
         }
         $request = $request->withBody(
-            $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR)),
+            $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)),
         );
 
         try {

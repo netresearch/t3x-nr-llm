@@ -69,6 +69,19 @@ class CacheManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function generateCacheKeyWithNonUtf8ParamsDoesNotThrow(): void
+    {
+        // The key material includes user prompt/message text; an invalid byte
+        // must substitute into a stable hash input, not throw \JsonException and
+        // abort the otherwise-cacheable call.
+        $params = ['messages' => [['role' => 'user', 'content' => "caf\xE9"]]];
+
+        $key = $this->subject->generateCacheKey('openai', 'completion', $params);
+
+        self::assertStringStartsWith('openai_completion_', $key);
+    }
+
+    #[Test]
     public function sanitizeCacheTagReducesDottedIdentifierToTheAllowedTagCharset(): void
     {
         // Exposed for callers that build tags from dotted preset identifiers
