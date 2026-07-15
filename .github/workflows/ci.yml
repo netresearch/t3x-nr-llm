@@ -42,18 +42,9 @@ jobs:
       #
       # Two things are traded here, per event:
       #
-      #   PR / merge_group -> speed. No coverage, so setup-php's xdebug is
-      #     forced off (XDEBUG_MODE overrides the ini at runtime): Xdebug in
-      #     coverage mode costs ~1.6x even when nothing is collected. The 81
-      #     test classes then run in parallel; typo3/testing-framework keys each
-      #     test instance on substr(sha1(static::class), 0, 7)
-      #     (FunctionalTestCase::getInstanceIdentifier), so one process per test
-      #     FILE cannot collide. Per-class output is buffered and only replayed
-      #     for failures, otherwise 4 interleaved streams make CI unreadable.
-      #     Deliberately NO opcache.enable_cli: one process per file means every
-      #     process starts with a cold cache, so it buys nothing here (it is
-      #     worth ~1.17x only for the single-process serial run), and it
-      #     segfaulted DataHandler on the 8.4/^14.3 cell when tried.
+      #   PR / merge_group -> speed. Build/Scripts/ciFunctionalParallel.sh runs
+      #     one PHPUnit process per test class with Xdebug forced off; see that
+      #     script for why the sharding is safe and why opcache is absent.
       #
       #   schedule / workflow_dispatch -> coverage. Serial, with Xdebug, so
       #     Codecov gets a real functional report (parallel would need per-process
@@ -61,23 +52,11 @@ jobs:
       #     NOTE: this deliberately does not key off `push`, because preflight
       #     skips push-to-main runs already validated by merge_group -- gating
       #     coverage on push would mean it never runs.
-      #
-      # Both globs are required: Build/FunctionalTests.xml runs the `functional`
-      # AND `e2e-backend` suites, and dropping the latter is how #272 rotted.
       functional-test-command: |
         if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           composer ci:test:php:functional -- --coverage-clover=coverage-functional.xml
         else
-          mkdir -p .Build/Web/typo3temp/var/tests/functional-sqlite-dbs .Build/logs/functional
-          find Tests/Functional Tests/E2E/Backend -name '*Test.php' -print0 \
-            | xargs -0 -P"$(nproc)" -I{} sh -c '
-                log=".Build/logs/functional/$(printf %s "$1" | tr / _).log"
-                if ! php -d xdebug.mode=off \
-                       .Build/bin/phpunit -c Build/FunctionalTests.xml "$1" > "$log" 2>&1; then
-                  echo "::group::FAILED $1"; cat "$log"; echo "::endgroup::"
-                  exit 1
-                fi
-              ' _ {}
+          Build/Scripts/ciFunctionalParallel.sh
         fi
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -97,6 +76,21 @@ jobs:
       run-functional-tests: true
       functional-test-db: mariadb
       db-image: 'mariadb:10.11'
+      # Shard by test class here too. With the SQLite cells down to ~2.5min this
+      # leg became the single longest job in CI at 6min, i.e. the whole
+      # critical-path term of the wall clock.
+      #
+      # Safe on a SHARED MariaDB server for the same reason it is safe on
+      # SQLite: the framework derives the database name from the same per-class
+      # identifier — $originalDatabaseName . '_ft' . substr(sha1(static::class), 0, 7)
+      # (FunctionalTestCase.php:361) — so each process creates its OWN database
+      # (typo3_test_ft<hash>). No CREATE race, no shared state, and 4 processes
+      # are nowhere near mariadb:10.11's default max_connections of 151.
+      #
+      # No event split: this leg never uploaded coverage (upload-coverage is
+      # unset here, so the reusable resolves coverage: none). It exists purely to
+      # keep the MySQL-only branches exercised.
+      functional-test-command: 'Build/Scripts/ciFunctionalParallel.sh'
       # This call previously also ran Lint/Code Style/PHPStan/Rector/Unit — all
       # byte-for-byte repeats of the sibling call above, none of them required
       # checks, none of them engine-dependent. They cost ~5 job-min per run and

@@ -489,7 +489,11 @@ case ${TEST_SUITE} in
             PARALLEL_JOBS=$(( ($(nproc) + 1) / 2 ))
         fi
 
-        COMMAND="find Tests/Functional -name '*Test.php' | xargs -P${PARALLEL_JOBS} -I{} php ${PHP_FUNCTIONAL_OPTS} -dxdebug.mode=off .Build/bin/phpunit -c Build/FunctionalTests.xml {}"
+        # Both globs are required: Build/FunctionalTests.xml runs the `functional`
+        # AND the `e2e-backend` suites. Globbing only Tests/Functional silently
+        # dropped all 8 Tests/E2E/Backend classes here — the same rot as #272,
+        # where the suite was skipped wholesale and nobody noticed.
+        COMMAND="find Tests/Functional Tests/E2E/Backend -name '*Test.php' | xargs -P${PARALLEL_JOBS} -I{} php ${PHP_FUNCTIONAL_OPTS} -dxdebug.mode=off .Build/bin/phpunit -c Build/FunctionalTests.xml {}"
         CONTAINERPARAMS="-e typo3DatabaseDriver=pdo_sqlite --tmpfs ${ROOT_DIR}/.Build/Web/typo3temp/var/tests/functional-sqlite-dbs/:rw,noexec,nosuid,mode=1777"
         ${CONTAINER_BIN} run ${CONTAINER_COMMON_PARAMS} --name functional-parallel-${SUFFIX} ${XDEBUG_MODE} -e XDEBUG_CONFIG="${XDEBUG_CONFIG}" ${CONTAINERPARAMS} ${IMAGE_PHP} /bin/sh -c "${COMMAND}"
         SUITE_EXIT_CODE=$?
