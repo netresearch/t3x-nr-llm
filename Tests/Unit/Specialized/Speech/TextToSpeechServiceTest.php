@@ -35,6 +35,7 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
+use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
 use ReflectionClass;
 use RuntimeException;
@@ -211,6 +212,61 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->willReturn($responseStub);
     }
 
+    /**
+     * Wire the shared factory/client stubs so the outgoing request is captured
+     * verbatim: method + URI passed to createRequest(), each withHeader() name
+     * and value, and the JSON body handed to createStream(). Callers MUST
+     * initialise the by-ref array with all four keys before invoking (see the
+     * call sites) so PHPStan sees a concrete shape and no offset is undefined.
+     *
+     * @param array{method: string, url: string, body: string, headers: array<string, string>} $captured
+     */
+    private function setupCapturingRequest(array &$captured, string $audioContent = 'audio-binary-content'): void
+    {
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnCallback(
+            static function (string $name, string $value) use (&$captured, $requestStub): RequestInterface {
+                $captured['headers'][$name] = $value;
+
+                return $requestStub;
+            },
+        );
+        $requestStub->method('withBody')->willReturnSelf();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturnCallback(
+                static function (string $method, UriInterface|string $uri) use (&$captured, $requestStub): RequestInterface {
+                    $captured['method'] = $method;
+                    $captured['url']    = (string)$uri;
+
+                    return $requestStub;
+                },
+            );
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturnCallback(
+                static function (string $content) use (&$captured, $streamStub): StreamInterface {
+                    $captured['body'] = $content;
+
+                    return $streamStub;
+                },
+            );
+
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn($audioContent);
+
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($responseStub);
+    }
+
     // ==================== isAvailable tests ====================
 
     #[Test]
@@ -303,6 +359,10 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubjectWithoutApiKey();
 
         $this->expectException(ServiceUnavailableException::class);
+        // ensureAvailable() fires FIRST, before any request is built — the
+        // not-configured message is distinct from the generic API-error
+        // message the send path would otherwise raise.
+        $this->expectExceptionMessage('Tts service is not configured');
 
         $subject->synthesize('Hello world');
     }
@@ -313,6 +373,9 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject();
 
         $this->expectException(ServiceUnavailableException::class);
+        // trim('   ') is empty, so validateInput() rejects it with this exact
+        // message — pins both the trim() unwrap and the throw itself.
+        $this->expectExceptionMessage('Input text cannot be empty');
 
         $subject->synthesize('   ');
     }
@@ -324,6 +387,9 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $longText = str_repeat('a', 4097);
 
         $this->expectException(ServiceUnavailableException::class);
+        // Over-length input is rejected by validateInput() before any request
+        // — pins the throw against the generic send-path error message.
+        $this->expectExceptionMessage('Input text exceeds maximum length');
 
         $subject->synthesize($longText);
     }
@@ -1248,5 +1314,246 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $result = $subject->synthesizeLong($text);
 
         self::assertGreaterThanOrEqual(1, count($result));
+    }
+
+    // ==================== outgoing-request payload tests ====================
+
+    #[Test]
+    public function synthesizeSendsExactPostPayloadWithDefaults(): void
+    {
+        $subject = $this->createSubject();
+
+        $captured = ['method' => '', 'url' => '', 'body' => '', 'headers' => []];
+        $this->setupCapturingRequest($captured);
+
+        $subject->synthesize('Hello world');
+
+        self::assertSame('POST', $captured['method']);
+        // Default config leaves speech.tts.baseUrl unset, so the base falls back
+        // to getDefaultBaseUrl(); buildEndpointUrl('') is that base verbatim.
+        self::assertSame('https://api.openai.com/v1/audio/speech', $captured['url']);
+        self::assertSame('application/json', $captured['headers']['Content-Type']);
+
+        $decoded = json_decode($captured['body'], true);
+        self::assertIsArray($decoded);
+        self::assertSame('tts-1', $decoded['model']);
+        self::assertSame('Hello world', $decoded['input']);
+        self::assertSame('alloy', $decoded['voice']);
+        self::assertSame('mp3', $decoded['response_format']);
+        self::assertEqualsWithDelta(1.0, $decoded['speed'], 1e-9);
+    }
+
+    #[Test]
+    public function synthesizeSendsProvidedOptionValuesInPayload(): void
+    {
+        $subject = $this->createSubject();
+
+        $captured = ['method' => '', 'url' => '', 'body' => '', 'headers' => []];
+        $this->setupCapturingRequest($captured);
+
+        $options = new SpeechSynthesisOptions(
+            model: 'tts-1-hd',
+            voice: 'nova',
+            format: 'opus',
+            speed: 1.5,
+        );
+
+        $subject->synthesize('Hello world', $options);
+
+        $decoded = json_decode($captured['body'], true);
+        self::assertIsArray($decoded);
+        self::assertSame('tts-1-hd', $decoded['model']);
+        self::assertSame('Hello world', $decoded['input']);
+        self::assertSame('nova', $decoded['voice']);
+        self::assertSame('opus', $decoded['response_format']);
+        self::assertEqualsWithDelta(1.5, $decoded['speed'], 1e-9);
+    }
+
+    #[Test]
+    public function synthesizeTargetsConfiguredCustomBaseUrl(): void
+    {
+        $subject = $this->createSubject([
+            'speech' => [
+                'tts' => [
+                    'baseUrl' => 'https://custom-api.example.com/v1/audio/speech',
+                ],
+            ],
+        ]);
+
+        $captured = ['method' => '', 'url' => '', 'body' => '', 'headers' => []];
+        $this->setupCapturingRequest($captured);
+
+        $subject->synthesize('Hello world');
+
+        // The custom base URL only reaches the request when the config is read
+        // from the speech.tts branch; a wrong service path silently falls back
+        // to the default endpoint.
+        self::assertSame('https://custom-api.example.com/v1/audio/speech', $captured['url']);
+    }
+
+    #[Test]
+    public function synthesizeCountsMultibyteCharactersByCodepoint(): void
+    {
+        $this->setupSuccessfulRequest();
+
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        // 3000 two-byte characters: mb_strlen 3000, strlen 6000. A byte-length
+        // count would over-report AND trip the 4096 length guard.
+        $text = str_repeat('ü', 3000);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'speech',
+                'tts',
+                self::callback(static fn(array $metrics): bool => $metrics['characters'] === 3000),
+            );
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
+
+        $result = $subject->synthesize($text);
+
+        self::assertSame(3000, $result->characterCount);
+    }
+
+    #[Test]
+    public function getDefaultTimeoutReturnsSixtySeconds(): void
+    {
+        $subject = $this->createSubject();
+
+        $reflection = new ReflectionClass($subject);
+        $timeout = $reflection->getMethod('getDefaultTimeout')->invoke($subject);
+
+        self::assertSame(60, $timeout);
+    }
+
+    #[Test]
+    public function resolveDefaultModelSkipsModelIdOutsideTtsVocabulary(): void
+    {
+        // A registry record carrying the text_to_speech capability but whose
+        // model id is neither tts-*  nor *-tts must be skipped: this service
+        // cannot speak it, so resolution falls back to the given default.
+        $foreign = new Model();
+        $foreign->setModelId('dall-e-3');
+
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->method('findByCapability')->willReturn(new InMemoryQueryResult([$foreign]));
+
+        $subject = $this->createSubject(modelRepository: $modelRepository);
+
+        self::assertSame('tts-1', $subject->resolveDefaultModel('tts-1'));
+    }
+
+    #[Test]
+    public function synthesizeLongAcceptsOptionsObjectForShortText(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest();
+
+        $result = $subject->synthesizeLong('Short text', new SpeechSynthesisOptions(voice: 'nova'));
+
+        self::assertCount(1, $result);
+        // The already-normalised options object must pass through untouched;
+        // re-running fromArray() on it would be a type error.
+        self::assertSame('nova', $result[0]->voice);
+    }
+
+    #[Test]
+    public function splitTextIntoChunksJoinsSentencesWithSingleSpace(): void
+    {
+        $subject = $this->createSubject();
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, 'Aa. Bb.');
+
+        // Two sentences that fit within the limit are re-joined with exactly one
+        // space between them — pins the concatenation order and separator.
+        self::assertSame(['Aa. Bb.'], $chunks);
+    }
+
+    #[Test]
+    public function splitTextIntoChunksCombinesUpToTheCharacterLimit(): void
+    {
+        $subject = $this->createSubject();
+
+        // Two sentences whose combined length (2048 + 1 space + 2047) is exactly
+        // MAX_INPUT_LENGTH: with `<=` they merge into one chunk; a strict `<`
+        // would split them.
+        $first  = str_repeat('a', 2047) . '.';
+        $second = str_repeat('b', 2046) . '.';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $first . ' ' . $second);
+
+        self::assertIsArray($chunks);
+        self::assertCount(1, $chunks);
+    }
+
+    #[Test]
+    public function splitTextIntoChunksMeasuresCombinedLengthByCodepoint(): void
+    {
+        $subject = $this->createSubject();
+
+        // Two multibyte sentences: combined codepoint length 3003 (<= limit, so
+        // one chunk), but combined byte length 6003 would exceed it. A byte-wise
+        // measure would wrongly split them.
+        $first  = str_repeat('ü', 1500) . '.';
+        $second = str_repeat('ü', 1500) . '.';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $first . ' ' . $second);
+
+        self::assertIsArray($chunks);
+        self::assertCount(1, $chunks);
+    }
+
+    #[Test]
+    public function splitTextIntoChunksSplitsAtSentenceBoundariesNotFixedWidth(): void
+    {
+        $subject = $this->createSubject();
+
+        // Two 4001-char sentences (8003 chars total) split at the sentence
+        // boundary: the first chunk is the whole first sentence (4001 chars),
+        // not a blind 4096-char slice.
+        $first  = str_repeat('a', 4000) . '.';
+        $second = str_repeat('b', 4000) . '.';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $first . ' ' . $second);
+
+        self::assertIsArray($chunks);
+        self::assertCount(2, $chunks);
+        self::assertIsString($chunks[0]);
+        self::assertSame(4001, mb_strlen($chunks[0]));
+    }
+
+    #[Test]
+    public function splitTextIntoChunksMeasuresSentenceLengthByCodepoint(): void
+    {
+        $subject = $this->createSubject();
+
+        // A 3001-codepoint multibyte sentence (6001 bytes) is within the limit
+        // and combines with the short tail into a single chunk. A byte-wise
+        // over-limit check would hard-split it and yield two chunks.
+        $sentence = str_repeat('ü', 3000) . '.';
+
+        $reflection = new ReflectionClass($subject);
+        $chunks = $reflection->getMethod('splitTextIntoChunks')->invoke($subject, $sentence . ' Tail.');
+
+        self::assertIsArray($chunks);
+        self::assertCount(1, $chunks);
     }
 }

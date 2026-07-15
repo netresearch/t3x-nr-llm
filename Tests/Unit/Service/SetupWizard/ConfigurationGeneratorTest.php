@@ -20,9 +20,11 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
+use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
@@ -1399,5 +1401,520 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         self::assertNotEmpty($result);
         self::assertEquals('embedded-config', $result[0]->identifier);
+    }
+
+    // ==================== outgoing request capture ====================
+
+    /**
+     * Install capturing callbacks on the request/stream factory stubs so a
+     * test can assert on the exact HTTP request the generator builds
+     * (method, URI, headers, JSON body). The request stub records every
+     * withHeader() call and returns itself for chaining, mirroring the real
+     * PSR-7 immutable-with pattern closely enough for assertions.
+     *
+     * @param array<string, mixed> $capturedHeaders
+     */
+    private function captureOutgoingRequest(
+        string &$capturedMethod,
+        string &$capturedUri,
+        array &$capturedHeaders,
+        string &$capturedBody,
+    ): void {
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturnCallback(
+                function (string $method, string $uri) use (&$capturedMethod, &$capturedUri, &$capturedHeaders): RequestInterface {
+                    $capturedMethod = $method;
+                    $capturedUri    = $uri;
+
+                    $uriStub = self::createStub(UriInterface::class);
+                    $uriStub->method('getHost')->willReturn((string)(parse_url($uri, PHP_URL_HOST) ?? ''));
+
+                    $request = self::createStub(RequestInterface::class);
+                    $request->method('getMethod')->willReturn($method);
+                    $request->method('getUri')->willReturn($uriStub);
+                    $request->method('withHeader')->willReturnCallback(
+                        function (string $name, mixed $value) use (&$capturedHeaders, $request): RequestInterface {
+                            $capturedHeaders[$name] = $value;
+                            return $request;
+                        },
+                    );
+                    $request->method('withBody')->willReturnCallback(fn(): RequestInterface => $request);
+
+                    return $request;
+                },
+            );
+
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturnCallback(
+                function (string $content) use (&$capturedBody): StreamInterface {
+                    $capturedBody = $content;
+                    $stream       = self::createStub(StreamInterface::class);
+                    $stream->method('getContents')->willReturn($content);
+                    return $stream;
+                },
+            );
+    }
+
+    #[Test]
+    public function generateSendsExpectedOpenAiRequest(): void
+    {
+        $provider = $this->createOpenAiProvider();
+        $models   = $this->createTestModels();
+
+        $capturedMethod  = '';
+        $capturedUri     = '';
+        $capturedHeaders = [];
+        $capturedBody    = '';
+        $this->captureOutgoingRequest($capturedMethod, $capturedUri, $capturedHeaders, $capturedBody);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, '{}'));
+
+        $this->subject->generate($provider, 'test-key', $models);
+
+        // Method + endpoint (endpoint helper builds it from the provider URL).
+        self::assertSame('POST', $capturedMethod);
+        self::assertSame('https://api.openai.com/chat/completions', $capturedUri);
+
+        // Headers: content type + bearer auth, no anthropic key.
+        self::assertArrayHasKey('Content-Type', $capturedHeaders);
+        $contentType = $capturedHeaders['Content-Type'];
+        self::assertIsString($contentType);
+        self::assertSame('application/json', $contentType);
+
+        self::assertArrayHasKey('Authorization', $capturedHeaders);
+        $authorization = $capturedHeaders['Authorization'];
+        self::assertIsString($authorization);
+        self::assertSame('Bearer test-key', $authorization);
+
+        self::assertArrayNotHasKey('x-api-key', $capturedHeaders);
+        self::assertArrayNotHasKey('anthropic-version', $capturedHeaders);
+
+        // Body: OpenAI chat-completions shape.
+        $body = json_decode($capturedBody, true);
+        self::assertIsArray($body);
+
+        // Selected model is the recommended, higher-context one (gpt-5.2).
+        self::assertSame('gpt-5.2', $body['model'] ?? null);
+        self::assertSame(0.7, $body['temperature'] ?? null);
+        self::assertSame(4096, $body['max_tokens'] ?? null);
+        self::assertSame(['type' => 'json_object'], $body['response_format'] ?? null);
+
+        self::assertArrayHasKey('messages', $body);
+        $messages = $body['messages'];
+        self::assertIsArray($messages);
+        self::assertCount(2, $messages);
+
+        self::assertSame('system', $messages[0]['role'] ?? null);
+        $systemContent = $messages[0]['content'] ?? null;
+        self::assertIsString($systemContent);
+        self::assertStringStartsWith('You are an expert at configuring LLM integrations.', $systemContent);
+
+        self::assertSame('user', $messages[1]['role'] ?? null);
+        self::assertSame(
+            "Available models:\n"
+            . "- GPT-5.2 (gpt-5.2): Advanced model\n"
+            . "- GPT-4o (gpt-4o): Multimodal model\n\n"
+            . 'Generate configuration presets that work well with these models.',
+            $messages[1]['content'] ?? null,
+        );
+    }
+
+    #[Test]
+    public function generateStripsTrailingSlashFromOpenAiEndpoint(): void
+    {
+        $provider = new DetectedProvider(
+            adapterType: 'openai',
+            endpoint: 'https://api.openai.com/',
+            suggestedName: 'OpenAI',
+        );
+        $models = $this->createTestModels();
+
+        $capturedMethod  = '';
+        $capturedUri     = '';
+        $capturedHeaders = [];
+        $capturedBody    = '';
+        $this->captureOutgoingRequest($capturedMethod, $capturedUri, $capturedHeaders, $capturedBody);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, '{}'));
+
+        $this->subject->generate($provider, 'test-key', $models);
+
+        // rtrim() removes exactly one trailing slash — no double slash.
+        self::assertSame('https://api.openai.com/chat/completions', $capturedUri);
+    }
+
+    #[Test]
+    public function generateSendsExpectedAnthropicRequest(): void
+    {
+        $provider = $this->createAnthropicProvider();
+        $models   = [
+            new DiscoveredModel(
+                modelId: 'claude-opus-4-5',
+                name: 'Claude Opus 4.5',
+                description: 'Most capable',
+                capabilities: ['chat'],
+                contextLength: 200000,
+                recommended: true,
+            ),
+        ];
+
+        $capturedMethod  = '';
+        $capturedUri     = '';
+        $capturedHeaders = [];
+        $capturedBody    = '';
+        $this->captureOutgoingRequest($capturedMethod, $capturedUri, $capturedHeaders, $capturedBody);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, '{}'));
+
+        $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertSame('POST', $capturedMethod);
+        self::assertSame('https://api.anthropic.com/messages', $capturedUri);
+
+        // Anthropic auth headers, not a bearer token.
+        self::assertArrayHasKey('x-api-key', $capturedHeaders);
+        $apiKeyHeader = $capturedHeaders['x-api-key'];
+        self::assertIsString($apiKeyHeader);
+        self::assertSame('test-key', $apiKeyHeader);
+
+        self::assertArrayHasKey('anthropic-version', $capturedHeaders);
+        $versionHeader = $capturedHeaders['anthropic-version'];
+        self::assertIsString($versionHeader);
+        self::assertSame('2023-06-01', $versionHeader);
+
+        self::assertArrayHasKey('Content-Type', $capturedHeaders);
+        $contentType = $capturedHeaders['Content-Type'];
+        self::assertIsString($contentType);
+        self::assertSame('application/json', $contentType);
+
+        self::assertArrayNotHasKey('Authorization', $capturedHeaders);
+
+        // Body: Anthropic messages shape (system top-level, no response_format).
+        $body = json_decode($capturedBody, true);
+        self::assertIsArray($body);
+        self::assertSame('claude-opus-4-5', $body['model'] ?? null);
+        self::assertSame(0.7, $body['temperature'] ?? null);
+        self::assertSame(4096, $body['max_tokens'] ?? null);
+        self::assertArrayNotHasKey('response_format', $body);
+        self::assertArrayNotHasKey('contents', $body);
+
+        $system = $body['system'] ?? null;
+        self::assertIsString($system);
+        self::assertStringStartsWith('You are an expert at configuring LLM integrations.', $system);
+
+        self::assertArrayHasKey('messages', $body);
+        $messages = $body['messages'];
+        self::assertIsArray($messages);
+        self::assertCount(1, $messages);
+        self::assertSame('user', $messages[0]['role'] ?? null);
+        self::assertSame(
+            "Available models:\n"
+            . "- Claude Opus 4.5 (claude-opus-4-5): Most capable\n\n"
+            . "Generate configuration presets that work well with these models.\n\n"
+            . 'Respond with valid JSON only.',
+            $messages[0]['content'] ?? null,
+        );
+    }
+
+    #[Test]
+    public function generateSendsExpectedGeminiRequest(): void
+    {
+        $provider = $this->createGeminiProvider();
+        $models   = [
+            new DiscoveredModel(
+                modelId: 'gemini-3-flash',
+                name: 'Gemini 3 Flash',
+                description: 'Fast model',
+                capabilities: ['chat'],
+                contextLength: 1000000,
+                recommended: true,
+            ),
+        ];
+
+        $capturedMethod  = '';
+        $capturedUri     = '';
+        $capturedHeaders = [];
+        $capturedBody    = '';
+        $this->captureOutgoingRequest($capturedMethod, $capturedUri, $capturedHeaders, $capturedBody);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, '{}'));
+
+        $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertSame('POST', $capturedMethod);
+        self::assertSame(
+            'https://generativelanguage.googleapis.com/models/gemini-3-flash:generateContent',
+            $capturedUri,
+        );
+
+        // Gemini carries the key in the URL — no auth headers are added.
+        self::assertArrayHasKey('Content-Type', $capturedHeaders);
+        $contentType = $capturedHeaders['Content-Type'];
+        self::assertIsString($contentType);
+        self::assertSame('application/json', $contentType);
+        self::assertArrayNotHasKey('Authorization', $capturedHeaders);
+        self::assertArrayNotHasKey('x-api-key', $capturedHeaders);
+
+        // Body: Gemini contents/generationConfig shape.
+        $body = json_decode($capturedBody, true);
+        self::assertIsArray($body);
+        self::assertArrayNotHasKey('model', $body);
+        self::assertArrayNotHasKey('messages', $body);
+
+        self::assertArrayHasKey('generationConfig', $body);
+        $generationConfig = $body['generationConfig'];
+        self::assertIsArray($generationConfig);
+        self::assertSame(0.7, $generationConfig['temperature'] ?? null);
+        self::assertSame(4096, $generationConfig['maxOutputTokens'] ?? null);
+        self::assertSame('application/json', $generationConfig['responseMimeType'] ?? null);
+
+        self::assertArrayHasKey('contents', $body);
+        $contents = $body['contents'];
+        self::assertIsArray($contents);
+        $text = $contents[0]['parts'][0]['text'] ?? null;
+        self::assertIsString($text);
+        self::assertStringStartsWith('You are an expert at configuring LLM integrations.', $text);
+        self::assertStringContainsString(
+            "Available models:\n- Gemini 3 Flash (gemini-3-flash): Fast model",
+            $text,
+        );
+        self::assertStringEndsWith("\n\nRespond with valid JSON only.", $text);
+    }
+
+    #[Test]
+    public function generatePromptListsAtMostFirstFiveModels(): void
+    {
+        $provider = $this->createOpenAiProvider();
+        $models   = [];
+        for ($i = 1; $i <= 6; $i++) {
+            $models[] = new DiscoveredModel(
+                modelId: 'model-' . $i,
+                name: 'Model ' . $i,
+                description: 'Description ' . $i,
+                capabilities: ['chat'],
+                contextLength: 1000 - $i, // strictly descending, first stays first
+                recommended: false,
+            );
+        }
+
+        $capturedMethod  = '';
+        $capturedUri     = '';
+        $capturedHeaders = [];
+        $capturedBody    = '';
+        $this->captureOutgoingRequest($capturedMethod, $capturedUri, $capturedHeaders, $capturedBody);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, '{}'));
+
+        $this->subject->generate($provider, 'test-key', $models);
+
+        $body = json_decode($capturedBody, true);
+        self::assertIsArray($body);
+        $messages = $body['messages'] ?? null;
+        self::assertIsArray($messages);
+        $userContent = $messages[1]['content'] ?? null;
+        self::assertIsString($userContent);
+
+        // First five models are listed, in order; the sixth is dropped.
+        self::assertStringContainsString('- Model 1 (model-1): Description 1', $userContent);
+        self::assertStringContainsString('- Model 5 (model-5): Description 5', $userContent);
+        self::assertStringNotContainsString('Model 6', $userContent);
+    }
+
+    #[Test]
+    public function generateSelectsHigherContextModelAmongRecommended(): void
+    {
+        $provider = $this->createOpenAiProvider();
+        $models   = [
+            new DiscoveredModel(
+                modelId: 'small-context',
+                name: 'Small',
+                description: 'Test',
+                capabilities: ['chat'],
+                contextLength: 100000,
+                recommended: true,
+            ),
+            new DiscoveredModel(
+                modelId: 'large-context',
+                name: 'Large',
+                description: 'Test',
+                capabilities: ['chat'],
+                contextLength: 200000,
+                recommended: true,
+            ),
+        ];
+
+        $capturedMethod  = '';
+        $capturedUri     = '';
+        $capturedHeaders = [];
+        $capturedBody    = '';
+        $this->captureOutgoingRequest($capturedMethod, $capturedUri, $capturedHeaders, $capturedBody);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, '{}'));
+
+        $this->subject->generate($provider, 'test-key', $models);
+
+        $body = json_decode($capturedBody, true);
+        self::assertIsArray($body);
+        // Descending sort by context length picks the 200k model.
+        self::assertSame('large-context', $body['model'] ?? null);
+    }
+
+    #[Test]
+    public function generatePrefersRecommendedOverHigherContextNonRecommended(): void
+    {
+        $provider = $this->createOpenAiProvider();
+        $models   = [
+            new DiscoveredModel(
+                modelId: 'huge-non-recommended',
+                name: 'Huge',
+                description: 'Test',
+                capabilities: ['chat'],
+                contextLength: 900000,
+                recommended: false,
+            ),
+            new DiscoveredModel(
+                modelId: 'recommended-model',
+                name: 'Recommended',
+                description: 'Test',
+                capabilities: ['chat'],
+                contextLength: 100000,
+                recommended: true,
+            ),
+        ];
+
+        $capturedMethod  = '';
+        $capturedUri     = '';
+        $capturedHeaders = [];
+        $capturedBody    = '';
+        $this->captureOutgoingRequest($capturedMethod, $capturedUri, $capturedHeaders, $capturedBody);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, '{}'));
+
+        $this->subject->generate($provider, 'test-key', $models);
+
+        $body = json_decode($capturedBody, true);
+        self::assertIsArray($body);
+        // The recommended filter wins even though a non-recommended model has
+        // a much larger context length.
+        self::assertSame('recommended-model', $body['model'] ?? null);
+    }
+
+    #[Test]
+    public function generateUsesAvailableModelAndParsesWhenNoneRecommended(): void
+    {
+        // With no recommended models, selectGenerationModel falls back to the
+        // full list (rather than returning null): the API call still runs and
+        // its parsed result is returned instead of the static fallback.
+        $provider = $this->createOpenAiProvider();
+        $models   = [
+            new DiscoveredModel(
+                modelId: 'only-model',
+                name: 'Only Model',
+                description: 'Test',
+                capabilities: ['chat'],
+                contextLength: 50000,
+                recommended: false,
+            ),
+        ];
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $llmResponse = (string)json_encode([
+            'choices' => [
+                [
+                    'message' => [
+                        'content' => json_encode([
+                            [
+                                'identifier' => 'parsed-from-non-recommended',
+                                'name' => 'Parsed',
+                                'description' => 'Test',
+                                'systemPrompt' => 'Help.',
+                            ],
+                        ]),
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator(200, $llmResponse));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertCount(1, $result);
+        self::assertSame('parsed-from-non-recommended', $result[0]->identifier);
+        self::assertSame('only-model', $result[0]->recommendedModelId);
+    }
+
+    #[Test]
+    public function generateLogsSanitizedWarningContextOnFailure(): void
+    {
+        $provider = $this->createAnthropicProvider();
+        $models   = $this->createTestModels();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects(self::once())
+            ->method('warning')
+            ->with(
+                'LLM setup-wizard configuration generation failed; using fallback presets',
+                self::callback(static function (mixed $context): bool {
+                    self::assertIsArray($context);
+                    self::assertArrayHasKey('provider', $context);
+                    self::assertArrayHasKey('exception', $context);
+                    self::assertSame('anthropic', $context['provider']);
+                    return true;
+                }),
+            );
+
+        $subject = new ConfigurationGenerator(
+            $this->vaultStub,
+            $this->createSecureHttpClientFactoryMock(),
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $loggerMock,
+        );
+        $subject->setHttpClient($this->httpClientStub);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willThrowException(new RuntimeException('Network error'));
+
+        $result = $subject->generate($provider, 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertContains('content-assistant', array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 }
