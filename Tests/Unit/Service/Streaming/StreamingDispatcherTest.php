@@ -25,11 +25,11 @@ use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
+use Netresearch\NrLlm\Tests\Unit\Fixture\RecordingLogger;
 use Netresearch\NrLlm\Tests\Unit\Fixture\RecordingUsageTracker;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
-use Psr\Log\NullLogger;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Context\AspectInterface;
@@ -42,11 +42,14 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
 
     private InMemoryTelemetryRepository $telemetry;
 
+    private RecordingLogger $logger;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->usage     = new RecordingUsageTracker();
         $this->telemetry = new InMemoryTelemetryRepository();
+        $this->logger    = new RecordingLogger();
     }
 
     #[Test]
@@ -115,20 +118,34 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         self::assertSame(6, $call['metrics']['tokens']);
         self::assertSame(0.25, $call['metrics']['cost']);
         self::assertSame(9, $call['configurationUid']);
+        // The served model's uid (getUid() => 3) is attributed, not the 0/null fallback.
+        self::assertSame(3, $call['modelUid']);
         self::assertSame('gpt-4o', $call['modelId']);
         self::assertSame(42, $call['beUserUid']);
+        // No task metadata was supplied, so readInt() yields its 0 default.
+        self::assertSame(0, $call['taskUid']);
 
         self::assertCount(1, $this->telemetry->records);
         $record = $this->telemetry->records[0];
         self::assertSame('stream', $record->operation);
         self::assertSame('corr-1', $record->correlationId);
         self::assertSame('primary', $record->configurationIdentifier);
+        // beUser is resolved from the caller-supplied metadata (42), not the
+        // ambient backend.user aspect (0).
+        self::assertSame(42, $record->beUser);
         self::assertTrue($record->success);
         self::assertSame('', $record->errorClass);
         self::assertFalse($record->cacheHit);
         self::assertSame(0, $record->fallbackAttempts);
         self::assertNotNull($record->timeToFirstTokenMs);
         self::assertGreaterThanOrEqual(0, $record->timeToFirstTokenMs);
+        // latencyMs is a small elapsed duration (endNs - startNs); the additive
+        // mutant would make it an astronomically large hrtime sum.
+        self::assertGreaterThanOrEqual(0, $record->latencyMs);
+        self::assertLessThan(60000, $record->latencyMs);
+        self::assertLessThan(60000, $record->timeToFirstTokenMs);
+        // A completed stream is never the "aborted before completion" path.
+        self::assertNull($this->logger->firstMatching('info', 'aborted before completion'));
     }
 
     #[Test]
@@ -162,6 +179,9 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         ));
 
         self::assertSame('groq', $this->usage->calls[0]['provider']);
+        // "x" is one byte => ceil(1/4) = 1 completion token; a -1 seed for the
+        // byte counter (0 tokens) or round() instead of ceil() (0 tokens) both fail this.
+        self::assertSame(1, $this->usage->calls[0]['metrics']['completionTokens']);
     }
 
     #[Test]
@@ -187,11 +207,21 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         self::assertCount(1, $this->usage->calls, 'Partial usage must be recorded on early break.');
         // Only the first 4-char chunk was drained => 1 completion token.
         self::assertSame(1, $this->usage->calls[0]['metrics']['completionTokens']);
+        // 0 prompt chars => estimateTokens(0) = 0 (the <= 0 guard returns 0).
+        self::assertSame(0, $this->usage->calls[0]['metrics']['promptTokens']);
+        // The served config carries no model, so modelUid falls back to 0.
+        self::assertSame(0, $this->usage->calls[0]['modelUid']);
 
         self::assertCount(1, $this->telemetry->records);
         $record = $this->telemetry->records[0];
         self::assertFalse($record->success, 'An abandoned stream did not complete.');
         self::assertSame('', $record->errorClass, 'An early break is not an exception.');
+
+        // The abort branch (no success, no exception) logs the partial length.
+        $abort = $this->requireLog('info', 'aborted before completion');
+        self::assertSame(4, $abort['context']['completionChars']);
+        self::assertSame('corr-1', $abort['context']['correlationId']);
+        self::assertSame('stream', $abort['context']['operation']);
     }
 
     #[Test]
@@ -341,18 +371,25 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
             throw new ProviderConnectionException($config->getIdentifier() . ' down', 1495872191);
         };
 
-        $caught = false;
+        $surfaced = null;
         try {
             iterator_to_array($dispatcher->stream(
                 $this->context([StreamingDispatcher::METADATA_PROMPT_CHARS => 4]),
                 $primary,
                 $open,
             ));
-        } catch (ProviderConnectionException) {
-            $caught = true;
+        } catch (ProviderConnectionException $e) {
+            $surfaced = $e;
         }
 
-        self::assertTrue($caught, 'An exhausted streaming fallback chain must surface the last error.');
+        if ($surfaced === null) {
+            self::fail('An exhausted streaming fallback chain must surface the last error.');
+        }
+        // The LAST retryable exception is surfaced (the ?? fallback default is
+        // never reached because $lastRetryable is set) — code/message prove the
+        // actual candidate error propagated, not a freshly built default.
+        self::assertSame(1495872191, $surfaced->getCode());
+        self::assertSame('fb2 down', $surfaced->getMessage());
         self::assertSame([], $this->usage->calls, 'A stream that produced nothing bills no usage.');
         self::assertSame(2, $this->telemetry->records[0]->fallbackAttempts);
         self::assertFalse($this->telemetry->records[0]->success);
@@ -444,9 +481,205 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         self::assertSame([], $this->telemetry->records, 'Telemetry must honour the disabled setting.');
     }
 
+    #[Test]
+    public function propagatesANonRetryablePrimingFailureWithoutDispatchingTheFallback(): void
+    {
+        $fallback = $this->configuration('fallback', providerType: 'claude', modelId: 'claude', uid: 5);
+
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findOneByIdentifier')->willReturn($fallback);
+
+        $dispatcher = $this->dispatcher(repository: $repository);
+
+        $primary = $this->configuration(
+            'primary',
+            providerType: 'openai',
+            modelId: 'gpt-4o',
+            fallbackChain: new FallbackChain(['primary', 'fallback']),
+        );
+
+        // 400 on priming => non-retryable: it must throw immediately, never
+        // reaching the fallback candidate.
+        $open = static function (LlmConfiguration $config): Generator {
+            if ($config->getIdentifier() === 'primary') {
+                yield from [];
+
+                throw new ProviderResponseException('bad request', 400);
+            }
+
+            yield 'must-not-be-served';
+        };
+
+        $caught = false;
+        try {
+            iterator_to_array($dispatcher->stream(
+                $this->context([StreamingDispatcher::METADATA_PROMPT_CHARS => 4]),
+                $primary,
+                $open,
+            ));
+        } catch (ProviderResponseException) {
+            $caught = true;
+        }
+
+        self::assertTrue($caught, 'A non-retryable priming failure must propagate.');
+        self::assertSame([], $this->usage->calls, 'No candidate served, so nothing is billed.');
+        self::assertCount(1, $this->telemetry->records);
+        self::assertFalse($this->telemetry->records[0]->success);
+        self::assertSame(0, $this->telemetry->records[0]->fallbackAttempts, 'The fallback must not be dispatched.');
+        self::assertSame(ProviderResponseException::class, $this->telemetry->records[0]->errorClass);
+    }
+
+    #[Test]
+    public function treatsARateLimitedPrimingFailureAsRetryableAndSwapsToTheFallback(): void
+    {
+        $fallback = $this->configuration('fallback', providerType: 'claude', modelId: 'claude', uid: 5);
+
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findOneByIdentifier')->willReturn($fallback);
+
+        $dispatcher = $this->dispatcher(repository: $repository);
+
+        $primary = $this->configuration(
+            'primary',
+            providerType: 'openai',
+            modelId: 'gpt-4o',
+            fallbackChain: new FallbackChain(['primary', 'fallback']),
+        );
+
+        // HTTP 429 on priming: a sibling provider might not be throttled, so a
+        // ProviderResponseException with code 429 is the one that IS retryable.
+        $open = static function (LlmConfiguration $config): Generator {
+            if ($config->getIdentifier() === 'primary') {
+                yield from [];
+
+                throw new ProviderResponseException('rate limited', 429);
+            }
+
+            yield 'served-by-fallback';
+        };
+
+        $chunks = iterator_to_array($dispatcher->stream(
+            $this->context([StreamingDispatcher::METADATA_PROMPT_CHARS => 4]),
+            $primary,
+            $open,
+        ));
+
+        self::assertSame(['served-by-fallback'], $chunks, 'A 429 primary must fall back, not surface.');
+        self::assertCount(1, $this->telemetry->records);
+        self::assertTrue($this->telemetry->records[0]->success);
+        self::assertSame(1, $this->telemetry->records[0]->fallbackAttempts);
+        self::assertSame('claude', $this->usage->calls[0]['provider']);
+
+        // The retry decision is logged with the failing configuration named.
+        $warning = $this->requireLog('warning', 'attempt failed before first chunk');
+        self::assertSame('primary', $warning['context']['configuration']);
+        self::assertSame('corr-1', $warning['context']['correlationId']);
+        self::assertSame('stream', $warning['context']['operation']);
+    }
+
+    #[Test]
+    public function skipsAnInactiveFallbackConfiguration(): void
+    {
+        // Present but inactive: candidates() must drop it, like FallbackMiddleware.
+        $inactive = $this->configuration('fb1', providerType: 'claude', active: false);
+
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findOneByIdentifier')->willReturn($inactive);
+
+        $dispatcher = $this->dispatcher(repository: $repository);
+
+        $primary = $this->configuration(
+            'primary',
+            providerType: 'openai',
+            fallbackChain: new FallbackChain(['primary', 'fb1']),
+        );
+
+        // Primary fails priming retryably; fb1 would serve IF it were considered.
+        $open = static function (LlmConfiguration $config): Generator {
+            if ($config->getIdentifier() === 'primary') {
+                yield from [];
+
+                throw new ProviderConnectionException('primary down', 1495872199);
+            }
+
+            yield 'must-not-be-served';
+        };
+
+        $caught = false;
+        try {
+            iterator_to_array($dispatcher->stream(
+                $this->context([StreamingDispatcher::METADATA_PROMPT_CHARS => 4]),
+                $primary,
+                $open,
+            ));
+        } catch (ProviderConnectionException) {
+            $caught = true;
+        }
+
+        self::assertTrue($caught, 'With the only fallback inactive, the chain is exhausted and surfaces.');
+        self::assertSame([], $this->usage->calls, 'The inactive fallback never served, so nothing is billed.');
+        self::assertCount(1, $this->telemetry->records);
+        self::assertFalse($this->telemetry->records[0]->success);
+        self::assertSame(0, $this->telemetry->records[0]->fallbackAttempts, 'An inactive fallback is not dispatched.');
+    }
+
+    #[Test]
+    public function attributesNoConfigurationUidWhenTheServedConfigurationIsUnpersisted(): void
+    {
+        $dispatcher = $this->dispatcher();
+
+        iterator_to_array($dispatcher->stream(
+            $this->context([StreamingDispatcher::METADATA_PROMPT_CHARS => 4]),
+            // A transient / unpersisted configuration reports uid 0.
+            $this->configuration('primary', providerType: 'openai', uid: 0),
+            $this->staticStream(['ok']),
+        ));
+
+        self::assertCount(1, $this->usage->calls);
+        self::assertNull(
+            $this->usage->calls[0]['configurationUid'],
+            'A uid of 0 (unpersisted) must map to a null configuration attribution.',
+        );
+    }
+
+    #[Test]
+    public function fallsBackToUnknownProviderWhenNeitherConfigNorMetadataNamesOne(): void
+    {
+        $dispatcher = $this->dispatcher();
+
+        iterator_to_array($dispatcher->stream(
+            $this->context([
+                StreamingDispatcher::METADATA_PROMPT_CHARS => 4,
+                // Present but empty: a blank string names no provider.
+                StreamingDispatcher::METADATA_PROVIDER     => '',
+            ]),
+            $this->configuration('ad-hoc:stream', providerType: ''),
+            $this->staticStream(['x']),
+        ));
+
+        self::assertSame('unknown', $this->usage->calls[0]['provider']);
+    }
+
     // -----------------------------------------------------------------------
     // Test helpers
     // -----------------------------------------------------------------------
+
+    /**
+     * The first captured log record of the given level whose message contains
+     * $needle. Fails the test (never-returning) when none matched, so the
+     * caller can use the returned array without a null check.
+     *
+     * @return array{level: mixed, message: string, context: array<array-key, mixed>}
+     */
+    private function requireLog(string $level, string $needle): array
+    {
+        $record = $this->logger->firstMatching($level, $needle);
+        if ($record === null) {
+            self::fail(sprintf('Expected a "%s" log containing "%s".', $level, $needle));
+        }
+
+        return $record;
+    }
 
     private function dispatcher(
         ?BudgetServiceInterface $budget = null,
@@ -458,7 +691,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
             $this->usage,
             $this->telemetry,
             $repository ?? self::createStub(LlmConfigurationRepository::class),
-            new NullLogger(),
+            $this->logger,
             $this->contextWithAmbientUser(0),
             $extensionConfiguration ?? $this->extensionConfiguration(true),
         );
@@ -499,6 +732,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         ?Model $model = null,
         ?int $uid = null,
         ?FallbackChain $fallbackChain = null,
+        bool $active = true,
     ): LlmConfiguration&MockObject {
         $configuration = $this->createMock(LlmConfiguration::class);
         $configuration->method('getIdentifier')->willReturn($identifier);
@@ -506,7 +740,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         $configuration->method('getModelId')->willReturn($modelId);
         $configuration->method('getLlmModel')->willReturn($model);
         $configuration->method('getUid')->willReturn($uid);
-        $configuration->method('isActive')->willReturn(true);
+        $configuration->method('isActive')->willReturn($active);
         $configuration->method('getFallbackChainDTO')->willReturn($fallbackChain ?? new FallbackChain());
 
         return $configuration;

@@ -170,6 +170,12 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->with(
                 self::stringContains('UPDATE tx_nrllm_service_usage SET'),
                 self::callback(fn(array $params) => $params['tokens'] === 500
+                        && $params['promptTokens'] === 25
+                        && $params['completionTokens'] === 75
+                        && $params['characters'] === 300
+                        && $params['audioSeconds'] === 12
+                        && $params['images'] === 3
+                        && $params['cost'] === 0.05
                         && $params['uid'] === 123),
             );
 
@@ -179,7 +185,15 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->willReturn($connectionMock);
 
         $subject = new UsageTrackerService($connectionPoolStub, $this->contextMock);
-        $subject->trackUsage('chat', 'openai', ['tokens' => 500]);
+        $subject->trackUsage('chat', 'openai', [
+            'tokens' => 500,
+            'promptTokens' => 25,
+            'completionTokens' => 75,
+            'characters' => 300,
+            'audioSeconds' => 12,
+            'images' => 3,
+            'cost' => 0.05,
+        ]);
     }
 
     #[Test]
@@ -235,6 +249,8 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
 
         $metrics = [
             'tokens' => 100,
+            'promptTokens' => 25,
+            'completionTokens' => 75,
             'characters' => 500,
             'audioSeconds' => 30,
             'images' => 2,
@@ -249,6 +265,8 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->with(
                 'tx_nrllm_service_usage',
                 self::callback(fn(array $data) => $data['tokens_used'] === $metrics['tokens']
+                        && $data['prompt_tokens'] === $metrics['promptTokens']
+                        && $data['completion_tokens'] === $metrics['completionTokens']
                         && $data['characters_used'] === $metrics['characters']
                         && $data['audio_seconds_used'] === $metrics['audioSeconds']
                         && $data['images_generated'] === $metrics['images']
@@ -338,7 +356,21 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_service_usage',
-                self::callback(fn(array $data) => $data['be_user'] === 0),
+                self::callback(fn(array $data) => $data['be_user'] === 0
+                        && array_key_exists('pid', $data)
+                        && $data['pid'] === 0
+                        && $data['configuration_uid'] === 0
+                        && $data['task_uid'] === 0
+                        && $data['model_uid'] === 0
+                        && $data['model_id'] === ''
+                        && $data['request_count'] === 1
+                        && $data['tokens_used'] === 0
+                        && $data['prompt_tokens'] === 0
+                        && $data['completion_tokens'] === 0
+                        && $data['characters_used'] === 0
+                        && $data['audio_seconds_used'] === 0
+                        && $data['images_generated'] === 0
+                        && $data['estimated_cost'] === 0.0),
             );
 
         $connectionPoolStub = self::createStub(ConnectionPool::class);
@@ -348,6 +380,146 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
 
         $subject = new UsageTrackerService($connectionPoolStub, $this->contextMock);
         $subject->trackUsage('translation', 'deepl', []);
+    }
+
+    #[Test]
+    public function trackUsageUpdateUsesZeroDefaultsForEmptyMetrics(): void
+    {
+        // On the UPDATE path every increment falls back to a neutral 0 / 0.0
+        // when the corresponding metric is absent, so the running totals do not
+        // move for the missing dimensions.
+        $this->setupBackendUser(5);
+
+        $resultStub = self::createStub(Result::class);
+        $resultStub->method('fetchOne')->willReturn(456);
+
+        $queryBuilderStub = self::createStub(QueryBuilder::class);
+        $queryBuilderStub->method('select')->willReturnSelf();
+        $queryBuilderStub->method('from')->willReturnSelf();
+        $queryBuilderStub->method('where')->willReturnSelf();
+        $queryBuilderStub->method('expr')->willReturn($this->exprStub);
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
+
+        $connectionMock = $this->createMock(Connection::class);
+        $connectionMock->method('createQueryBuilder')->willReturn($queryBuilderStub);
+        $connectionMock
+            ->expects(self::once())
+            ->method('executeStatement')
+            ->with(
+                self::stringContains('UPDATE tx_nrllm_service_usage SET'),
+                self::callback(fn(array $params) => $params['tokens'] === 0
+                        && $params['promptTokens'] === 0
+                        && $params['completionTokens'] === 0
+                        && $params['characters'] === 0
+                        && $params['audioSeconds'] === 0
+                        && $params['images'] === 0
+                        && $params['cost'] === 0.0
+                        && $params['uid'] === 456),
+            );
+
+        $connectionPoolStub = self::createStub(ConnectionPool::class);
+        $connectionPoolStub
+            ->method('getConnectionForTable')
+            ->willReturn($connectionMock);
+
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextMock);
+        $subject->trackUsage('chat', 'openai', []);
+    }
+
+    #[Test]
+    public function trackUsageLookupUsesConfigurationUidInWhereClause(): void
+    {
+        // The daily-aggregation lookup keys on configuration_uid: null collapses
+        // to 0, an explicit value is used verbatim. Capture the expr()->eq()
+        // arguments to pin the exact value that enters the WHERE clause.
+        $this->setupBackendUser(5);
+
+        /** @var list<array{0: string, 1: mixed}> $eqCalls */
+        $eqCalls = [];
+        $exprStub = self::createStub(ExpressionBuilder::class);
+        $exprStub->method('eq')->willReturnCallback(
+            function (string $fieldName, mixed $value) use (&$eqCalls): string {
+                $eqCalls[] = [$fieldName, $value];
+
+                return 'eq_expr';
+            },
+        );
+
+        $resultStub = self::createStub(Result::class);
+        $resultStub->method('fetchOne')->willReturn(false);
+
+        $queryBuilderStub = self::createStub(QueryBuilder::class);
+        $queryBuilderStub->method('select')->willReturnSelf();
+        $queryBuilderStub->method('from')->willReturnSelf();
+        $queryBuilderStub->method('where')->willReturnSelf();
+        $queryBuilderStub->method('expr')->willReturn($exprStub);
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
+
+        $connectionStub = self::createStub(Connection::class);
+        $connectionStub->method('createQueryBuilder')->willReturn($queryBuilderStub);
+
+        $connectionPoolStub = self::createStub(ConnectionPool::class);
+        $connectionPoolStub->method('getConnectionForTable')->willReturn($connectionStub);
+
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextMock);
+        // No configuration → default 0 in the lookup key.
+        $subject->trackUsage('chat', 'openai', []);
+        // Explicit configuration → its own value in the lookup key.
+        $subject->trackUsage('chat', 'openai', [], 42);
+
+        self::assertContains(['configuration_uid', 0], $eqCalls);
+        self::assertContains(['configuration_uid', 42], $eqCalls);
+        self::assertContains(['task_uid', 0], $eqCalls);
+        self::assertContains(['model_uid', 0], $eqCalls);
+        self::assertContains(['be_user', 5], $eqCalls);
+    }
+
+    #[Test]
+    public function trackUsageAttributesUsageToExplicitBackendUser(): void
+    {
+        // An explicit beUserUid must win over the ambient backend.user context
+        // (the ?? coalesces beUserUid FIRST, only falling back to the context).
+        $aspectStub = new class implements AspectInterface {
+            public function get(string $name): mixed
+            {
+                return match ($name) {
+                    'id' => 5,
+                    default => null,
+                };
+            }
+        };
+        $this->contextMock->method('getAspect')->willReturn($aspectStub);
+
+        $resultStub = self::createStub(Result::class);
+        $resultStub->method('fetchOne')->willReturn(false);
+
+        $queryBuilderStub = self::createStub(QueryBuilder::class);
+        $queryBuilderStub->method('select')->willReturnSelf();
+        $queryBuilderStub->method('from')->willReturnSelf();
+        $queryBuilderStub->method('where')->willReturnSelf();
+        $queryBuilderStub->method('expr')->willReturn($this->exprStub);
+        $queryBuilderStub->method('createNamedParameter')->willReturnCallback(fn(string|int|float $v): string => "'$v'");
+        $queryBuilderStub->method('executeQuery')->willReturn($resultStub);
+
+        $connectionMock = $this->createMock(Connection::class);
+        $connectionMock->method('createQueryBuilder')->willReturn($queryBuilderStub);
+        $connectionMock
+            ->expects(self::once())
+            ->method('insert')
+            ->with(
+                'tx_nrllm_service_usage',
+                self::callback(fn(array $data) => $data['be_user'] === 99),
+            );
+
+        $connectionPoolStub = self::createStub(ConnectionPool::class);
+        $connectionPoolStub
+            ->method('getConnectionForTable')
+            ->willReturn($connectionMock);
+
+        $subject = new UsageTrackerService($connectionPoolStub, $this->contextMock);
+        $subject->trackUsage('chat', 'openai', [], beUserUid: 99);
     }
 
     // ==================== getUsageReport tests ====================
