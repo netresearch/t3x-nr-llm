@@ -111,3 +111,21 @@ jobs:
       run-phpstan: false
       run-rector: false
       run-unit-tests: false
+
+  # Property-based (fuzzy) + mutation testing. Enabled here rather than in the
+  # template-governed checks.yml because turning these on is a per-extension
+  # choice and this file is intentional-drift. Fuzzy runs on every event
+  # (~seconds); mutation runs only on the weekly schedule (~13 min, 10k+
+  # mutants) and is report-only for now — the reusable's Infection step is
+  # continue-on-error and covered MSI is still climbing toward the 70/74 target
+  # shown here, so the run surfaces the gap without blocking.
+  fuzz-mutation:
+    uses: netresearch/typo3-ci-workflows/.github/workflows/fuzz.yml@main
+    permissions:
+      contents: read
+    with:
+      run-fuzz-tests: true
+      fuzz-testsuite: fuzzy
+      run-mutation-tests: ${{ github.event_name == 'schedule' }}
+      mutation-min-msi: 70
+      mutation-min-covered-msi: 74
