@@ -159,6 +159,14 @@ final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInter
 
     private function recordFailure(string $provider, CircuitState $state, int $now, CircuitBreakerConfig $config): void
     {
+        // Non-atomic counter — best-effort, the same posture ADR-063 accepts for
+        // the half-open probe gate. $state was loaded at the top of handle(), so
+        // concurrent failures each read the same pre-failure count and write
+        // count+1, losing increments; under heavy concurrent failure the breaker
+        // trips a little LATE (the count still climbs ~one per cooldown window)
+        // rather than never. The cache backend offers no portable atomic
+        // increment; a strict count would need \TYPO3\CMS\Core\Locking\LockFactory
+        // around this read-modify-write (hot-path contention) — deferred.
         $failures = $state->consecutiveFailures + 1;
 
         // Open when the threshold is reached, or keep it open when a half-open
