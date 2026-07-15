@@ -13,7 +13,7 @@ use Netresearch\NrLlm\Domain\DTO\FallbackChain;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
 
@@ -23,8 +23,16 @@ use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
  * Exercises the full round-trip: DTO -> JSON column -> Extbase hydration
  * -> DTO. Confirms the Extbase property mapping (snake_case column ->
  * camelCase property) works as expected for the new field.
+ *
+ * `Classes/Domain/Model/` is excluded from the coverage source set (Build/
+ * phpunit.xml and Build/FunctionalTests.xml alike), so `#[CoversClass(
+ * LlmConfiguration::class)]` raised "not a valid target for code coverage",
+ * which failOnWarning=true escalates to a failure. The claim went unnoticed
+ * because coverage never actually ran between 2026-04-24 and now. The
+ * behaviour below is unchanged and still asserted; only the coverage claim is
+ * dropped, exactly as the enum tests do.
  */
-#[CoversClass(LlmConfiguration::class)]
+#[CoversNothing]
 class LlmConfigurationFallbackChainTest extends AbstractFunctionalTestCase
 {
     private LlmConfigurationRepository $subject;

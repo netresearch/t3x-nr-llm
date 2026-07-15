@@ -5,11 +5,18 @@ on:
     branches: [main]
   pull_request:
   merge_group:
+  workflow_dispatch:
   schedule:
     - cron: '0 6 * * 1'
 
 permissions:
   contents: read
+
+# Supersede stale PR runs. Never cancel merge_group (a queue entry must finish
+# validating or the queue stalls) or push-to-main.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Per-extension test matrix (intentional-drift). Security/quality jobs are in checks.yml.
 jobs:
@@ -20,20 +27,56 @@ jobs:
     with:
       php-versions: '["8.2","8.3","8.4","8.5"]'
       typo3-versions: '["^13.4","^14.3"]'
+      # Keeps the unit job's Codecov upload on every PR — that job is ~1min, so
+      # its Xdebug tax is negligible and patch coverage stays useful. The
+      # expensive functional matrix opts out via functional-test-command below.
       upload-coverage: true
       # Run PHPUnit functional tests (default is false in the reusable workflow).
       # composer ci:test:php:functional invokes the full Build/FunctionalTests.xml,
       # which covers BOTH the `functional` and `e2e-backend` testsuites — without
       # this the whole functional job was skipped and both suites rotted (#272).
       run-functional-tests: true
+      # Functional tests are the entire CI critical path: 8 matrix cells at
+      # 8-11min each while every other job finishes in ~1min, and 95% of a cell
+      # is one serial PHPUnit process.
+      #
+      # Two things are traded here, per event:
+      #
+      #   PR / merge_group -> speed. Build/Scripts/ciFunctionalParallel.sh runs
+      #     one PHPUnit process per test class with Xdebug forced off; see that
+      #     script for why the sharding is safe and why opcache is absent.
+      #
+      #   schedule / workflow_dispatch -> coverage. Serial, with Xdebug, so
+      #     Codecov gets a real functional report (parallel would need per-process
+      #     clover merging for no benefit when nobody is waiting on the run).
+      #     NOTE: this deliberately does not key off `push`, because preflight
+      #     skips push-to-main runs already validated by merge_group -- gating
+      #     coverage on push would mean it never runs.
+      functional-test-command: |
+        if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          composer ci:test:php:functional -- --coverage-clover=coverage-functional.xml
+          # A suite that skipped itself out still writes a well-formed clover
+          # claiming zero covered statements — which would upload as a coverage
+          # COLLAPSE and stay green, the same silent-green shape as the outage
+          # this split exists to end. The last <metrics> before </project> is the
+          # clover project total.
+          covered=$(grep -oE 'coveredstatements="[0-9]+"' coverage-functional.xml | tail -1 | tr -dc '0-9')
+          if [ "${covered:-0}" -eq 0 ]; then
+            echo "::error::functional coverage reports 0 covered statements — the suite proved nothing; refusing to upload a false collapse to Codecov."
+            exit 1
+          fi
+          echo "functional coverage: ${covered} covered statements"
+        else
+          Build/Scripts/ciFunctionalParallel.sh
+        fi
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
   # MariaDB functional leg (one cell): keeps the MySQL-only branches —
   # ke_search MATCH...AGAINST retrieval — permanently exercised in CI.
   # mariadb:10.11 LTS: images >= 11 ship only mariadb-admin, which fails
   # the reusable workflow's hardcoded mysqladmin health check.
-  # The full matrix above stays on SQLite; this narrow second call trades
-  # a small duplicate unit/PHPStan run for permanent engine coverage.
+  # The full matrix above stays on SQLite; this narrow second call exists ONLY
+  # for the MariaDB functional leg.
   ci-functional-mariadb:
     uses: netresearch/typo3-ci-workflows/.github/workflows/ci.yml@main # NOSONAR — own-org reusable workflow deliberately tracks main, like the sibling job above
     permissions:
@@ -44,3 +87,27 @@ jobs:
       run-functional-tests: true
       functional-test-db: mariadb
       db-image: 'mariadb:10.11'
+      # Shard by test class here too. With the SQLite cells down to ~2.5min this
+      # leg became the single longest job in CI at 6min, i.e. the whole
+      # critical-path term of the wall clock.
+      #
+      # Safe on a SHARED MariaDB server for the same reason it is safe on
+      # SQLite: the framework derives the database name from the same per-class
+      # identifier — $originalDatabaseName . '_ft' . substr(sha1(static::class), 0, 7)
+      # (FunctionalTestCase.php:361) — so each process creates its OWN database
+      # (typo3_test_ft<hash>). No CREATE race, no shared state, and 4 processes
+      # are nowhere near mariadb:10.11's default max_connections of 151.
+      #
+      # No event split: this leg never uploaded coverage (upload-coverage is
+      # unset here, so the reusable resolves coverage: none). It exists purely to
+      # keep the MySQL-only branches exercised.
+      functional-test-command: 'Build/Scripts/ciFunctionalParallel.sh'
+      # This call previously also ran Lint/Code Style/PHPStan/Rector/Unit — all
+      # byte-for-byte repeats of the sibling call above, none of them required
+      # checks, none of them engine-dependent. They cost ~5 job-min per run and
+      # proved nothing the SQLite call had not already proven.
+      run-lint: false
+      run-cgl: false
+      run-phpstan: false
+      run-rector: false
+      run-unit-tests: false
