@@ -23,6 +23,7 @@ use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -32,6 +33,7 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
+use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
 use ReflectionClass;
 use RuntimeException;
@@ -48,6 +50,12 @@ class FalImageServiceTest extends AbstractUnitTestCase
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
     private LoggerInterface&Stub $loggerStub;
     private VaultServiceInterface $vaultStub;
+
+    /** @var list<array{method: string, uri: string}> */
+    private array $capturedRequests = [];
+
+    /** @var list<string> */
+    private array $capturedBodies = [];
 
     protected function setUp(): void
     {
@@ -348,6 +356,147 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $this->httpClientStub
             ->method('sendRequest')
             ->willReturn($responseStub);
+    }
+
+    /**
+     * Wire the request/stream factory stubs to record every outgoing request
+     * (method + URI) and every serialized request body, so a test can assert
+     * the exact URL the service constructed and the exact JSON payload it sent.
+     * The recorded data lands in $this->capturedRequests / $this->capturedBodies.
+     */
+    private function installCapturingFactories(): void
+    {
+        $this->capturedRequests = [];
+        $this->capturedBodies = [];
+
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturnCallback(function (string $method, UriInterface|string $uri) use ($requestStub): RequestInterface {
+                $this->capturedRequests[] = ['method' => $method, 'uri' => (string)$uri];
+
+                return $requestStub;
+            });
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturnCallback(function (string $content = '') use ($streamStub): StreamInterface {
+                $this->capturedBodies[] = $content;
+
+                return $streamStub;
+            });
+    }
+
+    /**
+     * Queue a single successful JSON (non-queue path) response. Pairs with
+     * installCapturingFactories() — it does not touch the request/stream
+     * factories, so the capturing callbacks stay in place.
+     *
+     * @param array<string, mixed> $responseData
+     */
+    private function respondWithJson(array $responseData): void
+    {
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn((string)json_encode($responseData));
+
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($responseStub);
+    }
+
+    /**
+     * Queue the submit -> COMPLETED status -> result sequence a queue-based
+     * model drives. Pairs with installCapturingFactories().
+     *
+     * @param array<string, mixed> $finalResponseData
+     */
+    private function respondWithQueue(array $finalResponseData): void
+    {
+        $submitBody = self::createStub(StreamInterface::class);
+        $submitBody->method('__toString')->willReturn((string)json_encode(['request_id' => 'test-request-123']));
+        $submitResponse = self::createStub(ResponseInterface::class);
+        $submitResponse->method('getStatusCode')->willReturn(200);
+        $submitResponse->method('getBody')->willReturn($submitBody);
+
+        $statusBody = self::createStub(StreamInterface::class);
+        $statusBody->method('__toString')->willReturn((string)json_encode(['status' => 'COMPLETED']));
+        $statusResponse = self::createStub(ResponseInterface::class);
+        $statusResponse->method('getStatusCode')->willReturn(200);
+        $statusResponse->method('getBody')->willReturn($statusBody);
+
+        $resultBody = self::createStub(StreamInterface::class);
+        $resultBody->method('__toString')->willReturn((string)json_encode($finalResponseData));
+        $resultResponse = self::createStub(ResponseInterface::class);
+        $resultResponse->method('getStatusCode')->willReturn(200);
+        $resultResponse->method('getBody')->willReturn($resultBody);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturnOnConsecutiveCalls($submitResponse, $statusResponse, $resultResponse);
+    }
+
+    /**
+     * Set up a non-2xx response carrying the given (already-structured) JSON
+     * error body, so error-decoding branches can be asserted precisely.
+     *
+     * @param array<string, mixed> $bodyData
+     */
+    private function setupFailedRequestRaw(int $statusCode, array $bodyData): void
+    {
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn((string)json_encode($bodyData));
+
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn($statusCode);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($responseStub);
+    }
+
+    /**
+     * Read a (possibly non-public) property off the subject via reflection.
+     */
+    private function readProperty(FalImageService $subject, string $property): mixed
+    {
+        return (new ReflectionClass($subject))->getProperty($property)->getValue($subject);
+    }
+
+    /**
+     * Decode the JSON body the service sent for the request at the given index.
+     *
+     * @return array<string, mixed>
+     */
+    private function decodedBody(int $index = 0): array
+    {
+        self::assertArrayHasKey($index, $this->capturedBodies, 'no request body was captured');
+        $decoded = json_decode($this->capturedBodies[$index], true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
     }
 
     // ==================== isAvailable tests ====================
@@ -785,8 +934,9 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $this->setupFailedRequest(422, 'Invalid prompt');
 
         $this->expectException(ServiceUnavailableException::class);
-        // FAL surfaces 422 with its own validation wording (see mapErrorStatus()).
-        $this->expectExceptionMessage('FAL API validation error');
+        // FAL surfaces 422 with its own validation wording (see mapErrorStatus()):
+        // the prefix and the decoded detail in that exact order.
+        $this->expectExceptionMessage('FAL API validation error: Invalid prompt');
 
         $subject->generate('A sunset');
     }
@@ -1248,5 +1398,439 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $results = $subject->generateMultiple('A sunset', 0); // Should be set to 1
 
         self::assertCount(1, $results);
+    }
+
+    // ==================== request URL / endpoint construction ====================
+
+    #[Test]
+    public function generateBuildsQueueUrlFromMappedModelEndpoint(): void
+    {
+        // flux-pro maps to fal-ai/flux-pro (self::MODELS) and is not a "fast"
+        // model, so it takes the queue path. Pins resolveModelEndpoint()'s
+        // mapped-model branch and the queue-URL assembly.
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithQueue(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generate('A sunset', 'flux-pro');
+
+        self::assertSame('POST', $this->capturedRequests[0]['method']);
+        self::assertSame('https://queue.fal.run/fal-ai/flux-pro', $this->capturedRequests[0]['uri']);
+    }
+
+    #[Test]
+    public function generateUsesFullEndpointPathVerbatimInQueueUrl(): void
+    {
+        // A slash-bearing model id is an explicit endpoint and must be used
+        // verbatim (resolveModelEndpoint()'s str_contains branch), never
+        // rewritten to the flux-schnell fallback.
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithQueue(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generate('A sunset', 'fal-ai/custom-model');
+
+        self::assertSame('POST', $this->capturedRequests[0]['method']);
+        self::assertSame('https://queue.fal.run/fal-ai/custom-model', $this->capturedRequests[0]['uri']);
+    }
+
+    #[Test]
+    public function generateSendsPromptAndDefaultImageSizeInPayload(): void
+    {
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithJson(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generate('A beautiful sunset');
+
+        $payload = $this->decodedBody();
+        self::assertSame('A beautiful sunset', $payload['prompt']);
+        self::assertSame('square_hd', $payload['image_size']);
+    }
+
+    // ==================== num_images clamping (payload) ====================
+
+    /**
+     * @return array<string, array{int, int}>
+     */
+    public static function numImagesClampProvider(): array
+    {
+        return [
+            'one stays one'        => [1, 1],
+            'zero clamps up to one' => [0, 1],
+            'two stays two'        => [2, 2],
+            'four stays four'      => [4, 4],
+            'ten clamps to four'   => [10, 4],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('numImagesClampProvider')]
+    public function generateMultipleClampsNumImagesInPayload(int $inputCount, int $expectedNumImages): void
+    {
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithJson(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generateMultiple('A sunset', $inputCount);
+
+        self::assertSame($expectedNumImages, $this->decodedBody()['num_images']);
+    }
+
+    #[Test]
+    public function generateMultipleDefaultsToASingleImageInPayload(): void
+    {
+        // Default $count (omitted) must resolve to num_images = 1.
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithJson(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generateMultiple('A sunset');
+
+        self::assertSame(1, $this->decodedBody()['num_images']);
+    }
+
+    // ==================== availability guards ====================
+
+    #[Test]
+    public function generateMultipleThrowsWhenServiceUnavailable(): void
+    {
+        $subject = $this->createSubjectWithoutApiKey();
+
+        $this->expectException(ServiceUnavailableException::class);
+
+        $subject->generateMultiple('A sunset', 2);
+    }
+
+    #[Test]
+    public function imageToImageThrowsWhenServiceUnavailable(): void
+    {
+        $subject = $this->createSubjectWithoutApiKey();
+
+        $this->expectException(ServiceUnavailableException::class);
+
+        $subject->imageToImage('https://example.com/source.png', 'Make it colorful');
+    }
+
+    // ==================== imageToImage payload ====================
+
+    #[Test]
+    public function imageToImageKeepsCallerStrengthInPayload(): void
+    {
+        // The caller-supplied strength must survive (`??=` keeps it); it is
+        // only defaulted when absent.
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithQueue(['images' => [['url' => 'https://example.com/transformed.png']]]);
+
+        $subject->imageToImage(
+            'https://example.com/source.png',
+            'Make it darker',
+            'flux-dev',
+            ['strength' => 0.5],
+        );
+
+        $payload = $this->decodedBody();
+        self::assertSame('https://example.com/source.png', $payload['image_url']);
+        self::assertSame(0.5, $payload['strength']);
+    }
+
+    #[Test]
+    public function imageToImageAppliesDefaultStrengthInPayload(): void
+    {
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithQueue(['images' => [['url' => 'https://example.com/transformed.png']]]);
+
+        $subject->imageToImage('https://example.com/source.png', 'Make it colorful');
+
+        self::assertSame(0.75, $this->decodedBody()['strength']);
+    }
+
+    // ==================== response parsing: metadata / url / size ====================
+
+    #[Test]
+    public function generatePrefersResponseSeedOverImageSeedInMetadata(): void
+    {
+        // metadata seed = $response['seed'] ?? $image['seed']: the top-level
+        // response seed wins over the per-image seed.
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'images' => [['url' => 'https://example.com/image.png', 'seed' => 222]],
+            'seed'   => 111,
+        ]);
+
+        $result = $subject->generate('A sunset');
+
+        assert(isset($result->metadata['seed']));
+        self::assertSame(111, $result->metadata['seed']);
+    }
+
+    #[Test]
+    public function generateFallsBackToImageSeedWhenResponseSeedMissing(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'images' => [['url' => 'https://example.com/image.png', 'seed' => 222]],
+        ]);
+
+        $result = $subject->generate('A sunset');
+
+        assert(isset($result->metadata['seed']));
+        self::assertSame(222, $result->metadata['seed']);
+    }
+
+    #[Test]
+    public function generateReturnsEmptyImageWhenFirstImageIsNotAnArray(): void
+    {
+        // images is a list, but images[0] is a scalar: the guard
+        // (is_array($images) && isset($images[0]) && is_array($images[0]))
+        // must fall to the empty-image branch, yielding an empty URL and the
+        // default size rather than dereferencing the scalar.
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'images' => ['not-an-array-element'],
+        ]);
+
+        $result = $subject->generate('A sunset');
+
+        self::assertSame('', $result->url);
+        self::assertSame('1024x1024', $result->size);
+    }
+
+    #[Test]
+    public function generateMultipleExposesImageUrls(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'images' => [
+                ['url' => 'https://example.com/image1.png'],
+                ['url' => 'https://example.com/image2.png'],
+            ],
+        ]);
+
+        $results = $subject->generateMultiple('A sunset', 2);
+
+        self::assertSame('https://example.com/image1.png', $results[0]->url);
+        self::assertSame('https://example.com/image2.png', $results[1]->url);
+    }
+
+    #[Test]
+    public function generateMultipleYieldsEmptyUrlForNonStringUrl(): void
+    {
+        // A non-string url must be rejected by the
+        // isset() && is_string() guard, leaving an empty URL.
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'images' => [
+                ['url' => 12345],
+            ],
+        ]);
+
+        $results = $subject->generateMultiple('A sunset', 1);
+
+        self::assertCount(1, $results);
+        self::assertSame('', $results[0]->url);
+    }
+
+    #[Test]
+    public function generateMultipleIncludesPerImageSeedInMetadata(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'images' => [
+                ['url' => 'https://example.com/image.png', 'seed' => 987],
+            ],
+        ]);
+
+        $results = $subject->generateMultiple('A sunset', 1);
+
+        assert(isset($results[0]->metadata['seed']));
+        self::assertSame(987, $results[0]->metadata['seed']);
+    }
+
+    #[Test]
+    public function generateMultipleContinuesPastLeadingInvalidImageData(): void
+    {
+        // The invalid (non-array) entry comes FIRST: the loop must `continue`
+        // past it and still collect the trailing valid image (a `break` here
+        // would drop it).
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'images' => [
+                'invalid',
+                ['url' => 'https://example.com/image.png'],
+            ],
+        ]);
+
+        $results = $subject->generateMultiple('A sunset', 2);
+
+        self::assertCount(1, $results);
+        self::assertSame('https://example.com/image.png', $results[0]->url);
+    }
+
+    // ==================== usage attribution (beUserUid) ====================
+
+    #[Test]
+    public function generateAttributesUsageToZeroBeUserUid(): void
+    {
+        // uid 0 is a valid backend user id (>= 0), so it must reach the usage
+        // row rather than being treated as absent.
+        $this->setupSuccessfulRequest(['images' => [['url' => 'https://fal.ai/image.png']]]);
+
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['image' => ['fal' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with('image', 'fal', ['images' => 1], null, 0, 'flux-schnell', 0, 0);
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
+
+        $subject->generate('A sunset', options: ['beUserUid' => 0]);
+    }
+
+    #[Test]
+    public function generateTreatsNegativeBeUserUidAsAbsent(): void
+    {
+        // A negative uid is not a real backend user: extractBeUserUid() must
+        // drop it (is_int AND >= 0), so attribution falls back to null.
+        $this->setupSuccessfulRequest(['images' => [['url' => 'https://fal.ai/image.png']]]);
+
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['image' => ['fal' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with('image', 'fal', ['images' => 1], null, 0, 'flux-schnell', 0, null);
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
+
+        $subject->generate('A sunset', options: ['beUserUid' => -5]);
+    }
+
+    // ==================== error decoding / mapping ====================
+
+    #[Test]
+    public function generateSurfacesErrorDetailInMessage(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupFailedRequest(500, 'Boom detail');
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('Boom detail');
+
+        $subject->generate('A sunset');
+    }
+
+    #[Test]
+    public function generateUsesUnknownLabelWhenDetailAndMessageEmpty(): void
+    {
+        // An empty detail AND empty message must not be surfaced verbatim —
+        // decodeErrorMessage() falls through to the unknown-error label.
+        $subject = $this->createSubject();
+        $this->setupFailedRequestRaw(500, ['detail' => '', 'message' => '']);
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('Unknown FAL API error');
+
+        $subject->generate('A sunset');
+    }
+
+    #[Test]
+    public function validationErrorCarriesProviderContext(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupFailedRequest(422, 'Invalid prompt');
+
+        try {
+            $subject->generate('A sunset');
+            self::fail('Expected ServiceUnavailableException');
+        } catch (ServiceUnavailableException $e) {
+            self::assertSame(['provider' => 'fal'], $e->context);
+        }
+    }
+
+    // ==================== configuration: timeout / pollInterval ====================
+
+    #[Test]
+    public function defaultTimeoutIsTwoMinutes(): void
+    {
+        $subject = $this->createSubject();
+
+        $method = (new ReflectionClass($subject))->getMethod('getDefaultTimeout');
+
+        self::assertSame(120, $method->invoke($subject));
+    }
+
+    #[Test]
+    public function loadConfigurationCastsNumericStringTimeoutToInt(): void
+    {
+        $subject = $this->createSubject([
+            'image' => ['fal' => ['timeout' => '180']],
+        ]);
+
+        self::assertSame(180, $this->readProperty($subject, 'timeout'));
+    }
+
+    #[Test]
+    public function loadConfigurationDefaultsPollIntervalToOneThousand(): void
+    {
+        $subject = $this->createSubject(); // no pollInterval configured
+
+        self::assertSame(1000, $this->readProperty($subject, 'pollInterval'));
+    }
+
+    #[Test]
+    public function loadConfigurationCastsNumericStringPollIntervalToInt(): void
+    {
+        $subject = $this->createSubject([
+            'image' => ['fal' => ['pollInterval' => '2000']],
+        ]);
+
+        self::assertSame(2000, $this->readProperty($subject, 'pollInterval'));
+    }
+
+    #[Test]
+    public function loadConfigurationDefaultsPollIntervalWhenNonNumeric(): void
+    {
+        $subject = $this->createSubject([
+            'image' => ['fal' => ['pollInterval' => 'not-a-number']],
+        ]);
+
+        self::assertSame(1000, $this->readProperty($subject, 'pollInterval'));
+    }
+
+    #[Test]
+    public function loadConfigurationClampsPollIntervalToAtLeastOne(): void
+    {
+        // A configured 1ms interval must pass through unchanged (max(1, …)).
+        $subject = $this->createSubject([
+            'image' => ['fal' => ['pollInterval' => 1]],
+        ]);
+
+        self::assertSame(1, $this->readProperty($subject, 'pollInterval'));
     }
 }

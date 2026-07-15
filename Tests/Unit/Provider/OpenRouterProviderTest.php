@@ -22,9 +22,11 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
+use Psr\Http\Message\UriInterface;
 
 #[CoversClass(OpenRouterProvider::class)]
 class OpenRouterProviderTest extends AbstractUnitTestCase
@@ -1371,5 +1373,570 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $this->expectException(ProviderException::class);
 
         $this->subject->testConnection();
+    }
+
+    // ---------------------------------------------------------------------
+    // Request-transformation assertions
+    //
+    // The tests below capture the outgoing PSR-7 request and assert the exact
+    // URL, method, headers and decoded JSON payload the provider constructs,
+    // plus the exact fields it parses back from the response. This pins down
+    // the request/response transformation that the happy-path tests above only
+    // exercise without asserting.
+    // ---------------------------------------------------------------------
+
+    /**
+     * Build a provider whose request factory records every outgoing request
+     * (method, URI, headers, JSON body) into $captured.
+     *
+     * @param array<string, mixed>                                                                   $config
+     * @param list<array{method: string, uri: string, headers: array<string, string>, body: string}> $captured
+     */
+    private function createCapturingProvider(
+        array $config,
+        ResponseInterface $response,
+        array &$captured,
+    ): OpenRouterProvider {
+        $requestFactory = self::createStub(RequestFactoryInterface::class);
+        $requestFactory->method('createRequest')->willReturnCallback(
+            function (string $method, string $uri) use (&$captured): RequestInterface {
+                $index            = count($captured);
+                $captured[$index] = ['method' => $method, 'uri' => $uri, 'headers' => [], 'body' => ''];
+
+                $uriStub = self::createStub(UriInterface::class);
+                $uriStub->method('__toString')->willReturn($uri);
+
+                $request = self::createStub(RequestInterface::class);
+                $request->method('getMethod')->willReturn($method);
+                $request->method('getUri')->willReturn($uriStub);
+                $request->method('withoutHeader')->willReturnCallback(static fn(): RequestInterface => $request);
+                $request->method('withHeader')->willReturnCallback(
+                    function (string $name, $value) use (&$captured, $index, $request): RequestInterface {
+                        $captured[$index]['headers'][$name] = is_array($value)
+                            ? implode(',', $value)
+                            : (is_string($value) ? $value : '');
+                        return $request;
+                    },
+                );
+                $request->method('withBody')->willReturnCallback(
+                    function (StreamInterface $body) use (&$captured, $index, $request): RequestInterface {
+                        $captured[$index]['body'] = $body->getContents();
+                        return $request;
+                    },
+                );
+
+                return $request;
+            },
+        );
+
+        $httpClient = self::createStub(ClientInterface::class);
+        $httpClient->method('sendRequest')->willReturn($response);
+
+        $provider = new OpenRouterProvider(
+            $requestFactory,
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+
+        $defaultConfig = [
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'anthropic/claude-3.5-sonnet',
+            'timeout' => 60,
+        ];
+
+        $provider->configure(array_merge($defaultConfig, $config));
+        $provider->setHttpClient($httpClient);
+
+        return $provider;
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     */
+    private function chatResponse(array $response = []): ResponseInterface
+    {
+        return $this->createJsonResponseMock($response + [
+            'id' => 'gen-test',
+            'model' => 'test-model',
+            'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decodeCapturedBody(string $body): array
+    {
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+        return $decoded;
+    }
+
+    #[Test]
+    public function getAvailableModelsReturnsExactCuratedList(): void
+    {
+        self::assertSame(
+            [
+                'anthropic/claude-opus-4-5' => 'Claude Opus 4.5 (Anthropic)',
+                'anthropic/claude-sonnet-4-5' => 'Claude Sonnet 4.5 (Anthropic)',
+                'anthropic/claude-opus-4-1' => 'Claude Opus 4.1 (Anthropic)',
+                'openai/gpt-5.2' => 'GPT-5.2 (OpenAI)',
+                'openai/gpt-5.2-pro' => 'GPT-5.2 Pro (OpenAI)',
+                'openai/o3' => 'O3 Reasoning (OpenAI)',
+                'openai/o4-mini' => 'O4 Mini (OpenAI)',
+                'google/gemini-3-flash' => 'Gemini 3 Flash (Google)',
+                'google/gemini-3-pro' => 'Gemini 3 Pro (Google)',
+                'google/gemini-2.5-flash' => 'Gemini 2.5 Flash (Google)',
+                'meta-llama/llama-3.3-70b-instruct' => 'Llama 3.3 70B (Meta)',
+                'meta-llama/llama-3.1-405b-instruct' => 'Llama 3.1 405B (Meta)',
+                'mistralai/mistral-large' => 'Mistral Large (Mistral AI)',
+                'mistralai/pixtral-large' => 'Pixtral Large (Mistral AI)',
+                'cohere/command-r-plus' => 'Command R+ (Cohere)',
+            ],
+            $this->subject->getAvailableModels(),
+        );
+    }
+
+    #[Test]
+    public function chatCompletionBuildsExactRequest(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            [
+                'siteUrl' => 'https://example.com',
+                'appName' => 'Test App',
+            ],
+            $this->chatResponse(),
+            $captured,
+        );
+
+        $provider->chatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'openai/gpt-4o'],
+        );
+
+        self::assertCount(1, $captured);
+        $request = $captured[0];
+
+        self::assertSame('POST', $request['method']);
+        self::assertSame('https://openrouter.ai/api/v1/chat/completions', $request['uri']);
+        self::assertSame('application/json', $request['headers']['Content-Type'] ?? null);
+        self::assertSame('https://example.com', $request['headers']['HTTP-Referer'] ?? null);
+        self::assertSame('Test App', $request['headers']['X-Title'] ?? null);
+
+        $body = $this->decodeCapturedBody($request['body']);
+
+        self::assertSame('openai/gpt-4o', $body['model']);
+        self::assertSame([['role' => 'user', 'content' => 'Hi']], $body['messages']);
+        self::assertSame(0.7, $body['temperature']);
+        self::assertSame(4096, $body['max_tokens']);
+        self::assertSame('fallback', $body['route']);
+        self::assertArrayNotHasKey('models', $body);
+        self::assertArrayNotHasKey('stop', $body);
+        self::assertArrayNotHasKey('transforms', $body);
+        self::assertArrayNotHasKey('top_p', $body);
+    }
+
+    #[Test]
+    public function chatCompletionPayloadHonorsProvidedOptions(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider([], $this->chatResponse(), $captured);
+
+        $provider->chatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            [
+                'model' => 'openai/gpt-4o',
+                'temperature' => 0.2,
+                'max_tokens' => 123,
+                'top_p' => 0.9,
+                'frequency_penalty' => 0.5,
+                'presence_penalty' => 0.3,
+                'stop' => ['STOP'],
+                'transforms' => ['middle-out'],
+            ],
+        );
+
+        $body = $this->decodeCapturedBody($captured[0]['body']);
+
+        self::assertSame(0.2, $body['temperature']);
+        self::assertSame(123, $body['max_tokens']);
+        self::assertSame(0.9, $body['top_p']);
+        self::assertSame(0.5, $body['frequency_penalty']);
+        self::assertSame(0.3, $body['presence_penalty']);
+        self::assertSame(['STOP'], $body['stop']);
+        self::assertSame(['middle-out'], $body['transforms']);
+    }
+
+    #[Test]
+    public function chatCompletionMapsStopSequencesToStop(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider([], $this->chatResponse(), $captured);
+
+        $provider->chatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'openai/gpt-4o', 'stop_sequences' => ['END']],
+        );
+
+        $body = $this->decodeCapturedBody($captured[0]['body']);
+
+        self::assertSame(['END'], $body['stop']);
+    }
+
+    #[Test]
+    public function chatCompletionOmitsStopForEmptyStopSequences(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider([], $this->chatResponse(), $captured);
+
+        $provider->chatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'openai/gpt-4o', 'stop_sequences' => []],
+        );
+
+        $body = $this->decodeCapturedBody($captured[0]['body']);
+
+        self::assertArrayNotHasKey('stop', $body);
+    }
+
+    #[Test]
+    public function chatCompletionIncludesFallbackModelsInPayload(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            [
+                'autoFallback' => true,
+                'fallbackModels' => 'openai/gpt-4o, anthropic/claude-3-opus',
+            ],
+            $this->chatResponse(),
+            $captured,
+        );
+
+        $provider->chatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'primary/model'],
+        );
+
+        $body = $this->decodeCapturedBody($captured[0]['body']);
+
+        self::assertSame('fallback', $body['route']);
+        self::assertSame(
+            ['primary/model', 'openai/gpt-4o', 'anthropic/claude-3-opus'],
+            $body['models'],
+        );
+    }
+
+    #[Test]
+    public function chatCompletionOmitsRouteWhenAutoFallbackDisabled(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            ['autoFallback' => false, 'fallbackModels' => 'openai/gpt-4o'],
+            $this->chatResponse(),
+            $captured,
+        );
+
+        $provider->chatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'primary/model'],
+        );
+
+        $body = $this->decodeCapturedBody($captured[0]['body']);
+
+        self::assertArrayNotHasKey('route', $body);
+        self::assertArrayNotHasKey('models', $body);
+    }
+
+    #[Test]
+    public function chatCompletionParsesResponseFields(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            [],
+            $this->createJsonResponseMock([
+                'id' => 'gen-test',
+                'model' => 'resolved/model',
+                'choices' => [[
+                    'message' => ['content' => 'the answer'],
+                    'finish_reason' => 'length',
+                ]],
+                'usage' => ['prompt_tokens' => 11, 'completion_tokens' => 22, 'total_tokens' => 33],
+            ]),
+            $captured,
+        );
+
+        $result = $provider->chatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'requested/model'],
+        );
+
+        self::assertSame('the answer', $result->content);
+        self::assertSame('resolved/model', $result->model);
+        self::assertSame('length', $result->finishReason);
+        self::assertSame(11, $result->usage->promptTokens);
+        self::assertSame(22, $result->usage->completionTokens);
+    }
+
+    #[Test]
+    public function chatCompletionDefaultsModelAndFinishReasonWhenAbsent(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            [],
+            $this->createJsonResponseMock([
+                'id' => 'gen-test',
+                'choices' => [['message' => ['content' => 'x']]],
+                'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            ]),
+            $captured,
+        );
+
+        $result = $provider->chatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'requested/model'],
+        );
+
+        self::assertSame('requested/model', $result->model);
+        self::assertSame('stop', $result->finishReason);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsBuildsExactRequest(): void
+    {
+        $spec = ToolSpec::fromArray([
+            'type' => 'function',
+            'function' => ['name' => 'get_weather', 'description' => 'w'],
+        ]);
+
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            [],
+            $this->chatResponse(['provider' => 'anthropic']),
+            $captured,
+        );
+
+        $provider->chatCompletionWithTools(
+            [['role' => 'user', 'content' => 'Hi']],
+            [$spec],
+            ['model' => 'openai/gpt-4o', 'tool_choice' => 'auto'],
+        );
+
+        self::assertSame('POST', $captured[0]['method']);
+        self::assertSame('https://openrouter.ai/api/v1/chat/completions', $captured[0]['uri']);
+
+        $body = $this->decodeCapturedBody($captured[0]['body']);
+
+        self::assertSame('openai/gpt-4o', $body['model']);
+        self::assertSame([['role' => 'user', 'content' => 'Hi']], $body['messages']);
+        self::assertSame([$spec->toArray()], $body['tools']);
+        self::assertSame(0.7, $body['temperature']);
+        self::assertSame(4096, $body['max_tokens']);
+        self::assertSame('auto', $body['tool_choice']);
+        self::assertSame('fallback', $body['route']);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsMetadataIncludesActualProvider(): void
+    {
+        $spec = ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'f']]);
+
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            [],
+            $this->createJsonResponseMock([
+                'id' => 'gen-test',
+                'model' => 'test-model',
+                'provider' => 'openai',
+                'total_cost' => 0.0042,
+                'choices' => [['message' => ['content' => 'x', 'tool_calls' => []], 'finish_reason' => 'stop']],
+                'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            ]),
+            $captured,
+        );
+
+        $result = $provider->chatCompletionWithTools(
+            [['role' => 'user', 'content' => 'Hi']],
+            [$spec],
+            ['model' => 'openai/gpt-4o'],
+        );
+
+        /** @var array{actual_provider: string, cost: float} $metadata */
+        $metadata = $result->metadata;
+        self::assertSame('openai', $metadata['actual_provider']);
+        self::assertSame(0.0042, $metadata['cost']);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsMetadataDefaultsActualProviderToUnknown(): void
+    {
+        $spec = ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'f']]);
+
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            [],
+            $this->createJsonResponseMock([
+                'id' => 'gen-test',
+                'model' => 'test-model',
+                'choices' => [['message' => ['content' => 'x', 'tool_calls' => []], 'finish_reason' => 'stop']],
+                'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            ]),
+            $captured,
+        );
+
+        $result = $provider->chatCompletionWithTools(
+            [['role' => 'user', 'content' => 'Hi']],
+            [$spec],
+            ['model' => 'openai/gpt-4o'],
+        );
+
+        /** @var array{actual_provider: string} $metadata */
+        $metadata = $result->metadata;
+        self::assertSame('unknown', $metadata['actual_provider']);
+    }
+
+    #[Test]
+    public function embeddingsBuildsExactRequestForStringInput(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            [],
+            $this->createJsonResponseMock([
+                'model' => 'openai/text-embedding-3-small',
+                'data' => [['index' => 0, 'embedding' => [0.1, 0.2]]],
+                'usage' => ['prompt_tokens' => 5, 'total_tokens' => 5],
+            ]),
+            $captured,
+        );
+
+        $provider->embeddings('hello', ['dimensions' => 256]);
+
+        self::assertSame('POST', $captured[0]['method']);
+        self::assertSame('https://openrouter.ai/api/v1/embeddings', $captured[0]['uri']);
+
+        $body = $this->decodeCapturedBody($captured[0]['body']);
+
+        self::assertSame('openai/text-embedding-3-small', $body['model']);
+        self::assertSame(['hello'], $body['input']);
+        self::assertSame(256, $body['dimensions']);
+    }
+
+    #[Test]
+    public function fetchAvailableModelsParsesEveryFieldExactly(): void
+    {
+        $modelsResponse = [
+            'data' => [
+                [
+                    'id' => 'anthropic/claude-x',
+                    'name' => 'Claude X',
+                    'context_length' => 200000,
+                    'architecture' => ['modality' => 'multimodal'],
+                    'pricing' => ['prompt' => 0.003, 'completion' => 0.015],
+                    'supports_function_calling' => true,
+                ],
+                [
+                    // No name, no pricing keys, text modality, no function calling.
+                    'id' => 'openai/gpt',
+                    'context_length' => 8000,
+                    'architecture' => ['modality' => 'text'],
+                ],
+            ],
+        ];
+
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($modelsResponse));
+
+        $result = $this->subject->fetchAvailableModels();
+
+        self::assertCount(2, $result);
+
+        self::assertSame(
+            [
+                'name' => 'Claude X',
+                'context_length' => 200000,
+                'pricing' => ['prompt' => 0.003, 'completion' => 0.015],
+                'capabilities' => ['vision' => true, 'function_calling' => true],
+                'provider' => 'anthropic',
+            ],
+            $result['anthropic/claude-x'],
+        );
+
+        self::assertSame(
+            [
+                'name' => 'openai/gpt',
+                'context_length' => 8000,
+                'pricing' => ['prompt' => 0.0, 'completion' => 0.0],
+                'capabilities' => ['vision' => false, 'function_calling' => false],
+                'provider' => 'openai',
+            ],
+            $result['openai/gpt'],
+        );
+    }
+
+    #[Test]
+    public function fetchAvailableModelsReturnsCachedResultWithoutRefetching(): void
+    {
+        $firstResponse = [
+            'data' => [[
+                'id' => 'first/model',
+                'name' => 'First',
+                'context_length' => 8000,
+                'architecture' => ['modality' => 'text'],
+                'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
+                'supports_function_calling' => false,
+            ]],
+        ];
+        $secondResponse = [
+            'data' => [[
+                'id' => 'second/model',
+                'name' => 'Second',
+                'context_length' => 8000,
+                'architecture' => ['modality' => 'text'],
+                'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
+                'supports_function_calling' => false,
+            ]],
+        ];
+
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturnOnConsecutiveCalls(
+                $this->createJsonResponseMock($firstResponse),
+                $this->createJsonResponseMock($secondResponse),
+            );
+
+        $first  = $this->subject->fetchAvailableModels();
+        $second = $this->subject->fetchAvailableModels();
+
+        self::assertArrayHasKey('first/model', $first);
+        // The second call must hit the cache, not the (differing) second response.
+        self::assertArrayHasKey('first/model', $second);
+        self::assertArrayNotHasKey('second/model', $second);
+        self::assertSame($first, $second);
+    }
+
+    #[Test]
+    public function getCreditsDefaultsMissingFieldsToZero(): void
+    {
+        $creditsResponse = [
+            'data' => [
+                'is_free_tier' => true,
+                'rate_limit' => ['requests' => 200, 'interval' => '10s'],
+            ],
+        ];
+
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($creditsResponse));
+
+        $result = $this->subject->getCredits();
+
+        self::assertSame(0.0, $result['balance']);
+        self::assertSame(0.0, $result['usage']);
+        self::assertTrue($result['is_free_tier']);
+        self::assertSame(['requests' => 200, 'interval' => '10s'], $result['rate_limit']);
     }
 }

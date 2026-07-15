@@ -23,8 +23,10 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use stdClass;
+use Throwable;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 #[CoversClass(WizardGeneratorService::class)]
@@ -181,6 +183,13 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     {
         $defaultConfig = $this->createConfigurationWithModel();
         $this->stubDefaultConfig($defaultConfig);
+
+        // A uid of 0 must NOT trigger a repository lookup: the guard is `> 0`, not `>= 0`,
+        // and it is an AND with the null check. Both mutations (`>= 0`, `||`) would let 0
+        // through to findByUid().
+        $this->configurationRepository
+            ->expects(self::never())
+            ->method('findByUid');
 
         $result = $this->subject->resolveConfiguration(0);
 
@@ -1702,5 +1711,381 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $result = $this->subject->generateConfiguration('limit test', $config);
 
         self::assertTrue($result['generated']);
+    }
+
+    // ==================== Outgoing request payload assertions ====================
+
+    /**
+     * Configure the LLM manager mock to capture the outgoing messages array and
+     * return $response. Captures into $captured by reference.
+     *
+     * @param array<int, mixed>|null $captured
+     */
+    private function stubChatCapturing(CompletionResponse $response, ?array &$captured): void
+    {
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willReturnCallback(
+                function (array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []) use (&$captured, $response): CompletionResponse {
+                    $captured = $messages;
+
+                    return $response;
+                },
+            );
+    }
+
+    /**
+     * Assert the message at $index has the expected role and a string 'content',
+     * returning that content for further inspection.
+     *
+     * @param array<int, mixed>|null $messages
+     */
+    private function messageContent(?array $messages, int $index, string $expectedRole): string
+    {
+        self::assertIsArray($messages);
+        self::assertCount(2, $messages);
+        self::assertArrayHasKey($index, $messages);
+
+        $message = $messages[$index];
+        self::assertIsArray($message);
+        self::assertArrayHasKey('role', $message);
+        self::assertSame($expectedRole, $message['role']);
+        self::assertArrayHasKey('content', $message);
+
+        $content = $message['content'];
+        self::assertIsString($content);
+
+        return $content;
+    }
+
+    private function assertOccursBefore(string $haystack, string $first, string $second): void
+    {
+        $posFirst = strpos($haystack, $first);
+        $posSecond = strpos($haystack, $second);
+        self::assertIsInt($posFirst, "'{$first}' not found in prompt");
+        self::assertIsInt($posSecond, "'{$second}' not found in prompt");
+        self::assertLessThan($posSecond, $posFirst, "'{$first}' should occur before '{$second}'");
+    }
+
+    #[Test]
+    public function testGenerateConfigurationSendsSystemAndUserMessages(): void
+    {
+        $config = $this->createConfigurationWithModel();
+
+        // 12 active models so the array_slice(…, 0, 10) window is observable.
+        $models = [];
+        for ($i = 1; $i <= 12; ++$i) {
+            $m = $this->createActiveModel('model-' . $i, 'Model ' . $i);
+            $m->setDescription('Description ' . $i);
+            $models[] = $m;
+        }
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub($models));
+
+        // Non-LlmConfiguration item FIRST: with `continue` the valid one is still collected;
+        // a `break` mutation would drop it.
+        $existingConfig = new LlmConfiguration();
+        $existingConfig->setName('Existing One');
+        $existingConfig->setDescription('Avoid me');
+        $this->configurationRepository->method('findAll')->willReturn([new stdClass(), $existingConfig]);
+
+        $llmJson = json_encode([
+            'identifier' => 'payload-config',
+            'name' => 'Payload Config',
+            'description' => 'Payload check.',
+            'system_prompt' => 'Be helpful.',
+        ], JSON_THROW_ON_ERROR);
+
+        $captured = null;
+        $this->stubChatCapturing($this->createCompletionResponse($llmJson), $captured);
+
+        $result = $this->subject->generateConfiguration('generate config capture', $config);
+
+        self::assertTrue($result['generated']);
+
+        // System message: exact role + the distinctive configuration-prompt text.
+        $systemContent = $this->messageContent($captured, 0, 'system');
+        self::assertStringContainsString('You are an expert at configuring LLM integrations', $systemContent);
+
+        // User message: description + full built context.
+        $userContent = $this->messageContent($captured, 1, 'user');
+        self::assertStringContainsString('User request: generate config capture', $userContent);
+
+        // Models section: label present, slice window [0,10) — models 1-10 in, 11-12 out.
+        self::assertStringContainsString('Available models:', $userContent);
+        self::assertStringContainsString('(model-1)', $userContent);
+        self::assertStringContainsString('(model-10)', $userContent);
+        self::assertStringNotContainsString('(model-11)', $userContent);
+        self::assertStringNotContainsString('(model-12)', $userContent);
+        $this->assertOccursBefore($userContent, 'Available models:', '(model-1)');
+
+        // Configs section: label present, collected config kept, correct concat order.
+        self::assertStringContainsString('Existing configurations (avoid duplicates):', $userContent);
+        self::assertStringContainsString('Existing One', $userContent);
+        $this->assertOccursBefore($userContent, 'Existing configurations (avoid duplicates):', 'Existing One');
+    }
+
+    #[Test]
+    public function testGenerateTaskSendsSystemAndUserMessages(): void
+    {
+        $config = $this->createConfigurationWithModel();
+
+        // Non-LlmConfiguration item FIRST so a `break` mutation drops the valid config.
+        $existingConfig = new LlmConfiguration();
+        $existingConfig->setName('Task Cfg');
+        $existingConfig->setIdentifier('task-cfg');
+        $this->configurationRepository->method('findAll')->willReturn([new stdClass(), $existingConfig]);
+
+        $llmJson = json_encode([
+            'identifier' => 'payload-task',
+            'name' => 'Payload Task',
+            'description' => 'Payload check.',
+            'category' => 'content',
+            'prompt_template' => '{{input}}',
+            'output_format' => 'markdown',
+        ], JSON_THROW_ON_ERROR);
+
+        $captured = null;
+        $this->stubChatCapturing($this->createCompletionResponse($llmJson), $captured);
+
+        $result = $this->subject->generateTask('generate task capture', $config);
+
+        self::assertTrue($result['generated']);
+
+        $systemContent = $this->messageContent($captured, 0, 'system');
+        self::assertStringContainsString('You are an expert at creating LLM task templates', $systemContent);
+
+        $userContent = $this->messageContent($captured, 1, 'user');
+        self::assertStringContainsString('User request: generate task capture', $userContent);
+        self::assertStringContainsString('Task categories: content, log_analysis, system, developer, general', $userContent);
+        self::assertStringContainsString('Output formats: markdown, json, plain, html', $userContent);
+        self::assertStringContainsString('Available configurations:', $userContent);
+        self::assertStringContainsString('Task Cfg (identifier: task-cfg)', $userContent);
+        $this->assertOccursBefore($userContent, 'Available configurations:', 'Task Cfg (identifier: task-cfg)');
+    }
+
+    #[Test]
+    public function testGenerateTaskWithChainSendsSystemAndUserMessages(): void
+    {
+        $config = $this->createConfigurationWithModel();
+
+        $model = $this->createActiveModel('gpt-5.2', 'GPT-5.2');
+        $model->setDescription('Flagship');
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([$model]));
+
+        $existingConfig = new LlmConfiguration();
+        $existingConfig->setName('Chain Existing');
+        $existingConfig->setIdentifier('chain-existing');
+        $existingConfig->setDescription('Reference config');
+        $this->configurationRepository->method('findAll')->willReturn([new stdClass(), $existingConfig]);
+
+        $llmJson = json_encode([
+            'task' => [
+                'identifier' => 'chain-payload',
+                'name' => 'Chain Payload',
+                'description' => 'Payload check.',
+                'category' => 'general',
+                'prompt_template' => '{{input}}',
+                'output_format' => 'markdown',
+            ],
+            'configuration' => [
+                'identifier' => 'chain-payload-config',
+                'name' => 'Chain Payload Config',
+                'description' => 'Config.',
+                'system_prompt' => 'Help.',
+                'temperature' => 0.7,
+                'max_tokens' => 4096,
+                'top_p' => 1.0,
+                'frequency_penalty' => 0.0,
+                'presence_penalty' => 0.0,
+            ],
+            'recommended_model_id' => 'gpt-5.2',
+            'suggested_model' => [
+                'name' => 'GPT-5.2',
+                'model_id' => 'gpt-5.2',
+                'description' => 'Fit',
+                'capabilities' => 'chat',
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $captured = null;
+        $this->stubChatCapturing($this->createCompletionResponse($llmJson), $captured);
+
+        $result = $this->subject->generateTaskWithChain('generate chain capture', $config);
+
+        self::assertTrue($result['generated']);
+
+        $systemContent = $this->messageContent($captured, 0, 'system');
+        self::assertStringContainsString('You are an expert at creating complete LLM task setups', $systemContent);
+
+        $userContent = $this->messageContent($captured, 1, 'user');
+        self::assertStringContainsString('User request: generate chain capture', $userContent);
+        self::assertStringContainsString('Available models (prefer these):', $userContent);
+        self::assertStringContainsString('(gpt-5.2)', $userContent);
+        self::assertStringContainsString('Existing configurations (for reference, avoid duplicate names):', $userContent);
+        self::assertStringContainsString('Chain Existing', $userContent);
+    }
+
+    // ==================== Exception path logs the cause ====================
+
+    #[Test]
+    public function testGenerateConfigurationLogsExceptionCauseOnFailure(): void
+    {
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willThrowException(new RuntimeException('boom'));
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger
+            ->expects(self::once())
+            ->method('warning')
+            ->with(
+                'Wizard configuration generation failed; using fallback',
+                self::callback(
+                    static fn(array $context): bool => array_key_exists('exception', $context)
+                        && $context['exception'] instanceof Throwable,
+                ),
+            );
+
+        $subject = new WizardGeneratorService(
+            $this->llmServiceManager,
+            $this->configurationRepository,
+            $this->modelRepository,
+            $logger,
+        );
+
+        $result = $subject->generateConfiguration('log config', $this->createConfigurationWithModel());
+
+        self::assertFalse($result['generated']);
+    }
+
+    #[Test]
+    public function testGenerateTaskLogsExceptionCauseOnFailure(): void
+    {
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willThrowException(new RuntimeException('boom'));
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger
+            ->expects(self::once())
+            ->method('warning')
+            ->with(
+                'Wizard task generation failed; using fallback',
+                self::callback(
+                    static fn(array $context): bool => array_key_exists('exception', $context)
+                        && $context['exception'] instanceof Throwable,
+                ),
+            );
+
+        $subject = new WizardGeneratorService(
+            $this->llmServiceManager,
+            $this->configurationRepository,
+            $this->modelRepository,
+            $logger,
+        );
+
+        $result = $subject->generateTask('log task', $this->createConfigurationWithModel());
+
+        self::assertFalse($result['generated']);
+    }
+
+    #[Test]
+    public function testGenerateTaskWithChainLogsExceptionCauseOnFailure(): void
+    {
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
+        $this->configurationRepository->method('findAll')->willReturn([]);
+        $this->llmServiceManager
+            ->method('chatWithConfiguration')
+            ->willThrowException(new RuntimeException('boom'));
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger
+            ->expects(self::once())
+            ->method('warning')
+            ->with(
+                'Wizard task-chain generation failed; using fallback',
+                self::callback(
+                    static fn(array $context): bool => array_key_exists('exception', $context)
+                        && $context['exception'] instanceof Throwable,
+                ),
+            );
+
+        $subject = new WizardGeneratorService(
+            $this->llmServiceManager,
+            $this->configurationRepository,
+            $this->modelRepository,
+            $logger,
+        );
+
+        $result = $subject->generateTaskWithChain('log chain', $this->createConfigurationWithModel());
+
+        self::assertFalse($result['generated']);
+    }
+
+    // ==================== findBestExistingModel loop stops at first match ====================
+
+    #[Test]
+    public function testFindBestExistingModelExactMatchStopsAtFirst(): void
+    {
+        $first = $this->createActiveModel('dup-model', 'First');
+        $second = $this->createActiveModel('dup-model', 'Second');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([$first, $second]));
+
+        $result = $this->subject->findBestExistingModel('dup-model');
+
+        // `break` returns the first exact match; a `continue` mutation would overwrite
+        // it with the second.
+        self::assertSame($first, $result);
+    }
+
+    #[Test]
+    public function testFindBestExistingModelPartialMatchStopsAtFirst(): void
+    {
+        $first = $this->createActiveModel('gpt-4-alpha', 'Alpha');
+        $second = $this->createActiveModel('gpt-4-beta', 'Beta');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResultStub([$first, $second]));
+
+        // No exact match on 'gpt-4'; both partially match. `break` returns the first.
+        $result = $this->subject->findBestExistingModel('gpt-4');
+
+        self::assertSame($first, $result);
+    }
+
+    // ==================== getDefaultConfiguration requires instanceof AND active AND model ====================
+
+    #[Test]
+    public function testGenerateConfigurationSkipsInactiveConfigWithModel(): void
+    {
+        $model = new Model();
+        $model->setModelId('gpt-5.2');
+
+        $inactiveWithModel = new LlmConfiguration();
+        $inactiveWithModel->_setProperty('llmModel', $model);
+        $inactiveWithModel->_setProperty('isActive', false);
+        $inactiveWithModel->_setProperty('isDefault', false);
+
+        $this->configurationRepository->method('findDefault')->willReturn(null);
+        $this->configurationRepository->method('findAll')->willReturn([$inactiveWithModel]);
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
+
+        // The only candidate is inactive: getDefaultConfiguration() must return null and the
+        // wizard must fall back WITHOUT ever calling the LLM. Both `&&`→`||` mutations would
+        // wrongly accept this config and reach chatWithConfiguration().
+        $this->llmServiceManager
+            ->expects(self::never())
+            ->method('chatWithConfiguration');
+
+        $result = $this->subject->generateConfiguration('inactive only');
+
+        self::assertFalse($result['generated']);
     }
 }

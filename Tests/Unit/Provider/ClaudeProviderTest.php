@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\ClaudeProvider;
@@ -1434,5 +1435,402 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         $this->expectException(ProviderResponseException::class);
 
         $this->subject->testConnection();
+    }
+
+    // ===== Request-payload transformation tests =====
+
+    /**
+     * Capture the JSON-encoded request body produced by $invoke and return it
+     * decoded. Mirrors captureChatPayload() but works for any endpoint (chat,
+     * tools, vision) by delegating the provider call to the caller.
+     *
+     * @param callable(ClaudeProvider): void $invoke
+     *
+     * @return array<string, mixed>
+     */
+    private function captureRequestPayload(callable $invoke): array
+    {
+        $capturedBody = null;
+        $streamFactory = self::createStub(StreamFactoryInterface::class);
+        $streamFactory->method('createStream')->willReturnCallback(
+            function (string $content) use (&$capturedBody): StreamInterface {
+                $capturedBody = $content;
+                $stream = self::createStub(StreamInterface::class);
+                $stream->method('__toString')->willReturn($content);
+                $stream->method('getContents')->willReturn($content);
+                return $stream;
+            },
+        );
+
+        $subject = new ClaudeProvider(
+            $this->createRequestFactoryMock(),
+            $streamFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'claude-sonnet-4-20250514',
+            'baseUrl' => '',
+            'timeout' => 30,
+        ]);
+        $subject->setHttpClient($this->httpClientStub);
+
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [['type' => 'text', 'text' => 'Response']],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+        ];
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $invoke($subject);
+
+        self::assertIsString($capturedBody);
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode($capturedBody, true, 512, JSON_THROW_ON_ERROR);
+
+        return $decoded;
+    }
+
+    /**
+     * Pin down the exact chat request payload: model, default max_tokens, the
+     * top-level system field, the converted messages list and the merged
+     * sampling params (temperature + stop_sequences).
+     */
+    #[Test]
+    public function chatCompletionRequestPayloadHasExactShape(): void
+    {
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s): void {
+                $s->chatCompletion(
+                    [
+                        ['role' => 'system', 'content' => 'You are helpful.'],
+                        ['role' => 'user', 'content' => 'Hello'],
+                    ],
+                    ['temperature' => 0.4, 'stop_sequences' => ['END']],
+                );
+            },
+        );
+
+        self::assertSame('claude-sonnet-4-20250514', $payload['model']);
+        self::assertSame(4096, $payload['max_tokens']);
+        self::assertSame('You are helpful.', $payload['system']);
+        self::assertSame([['role' => 'user', 'content' => 'Hello']], $payload['messages']);
+        self::assertArrayHasKey('temperature', $payload);
+        self::assertIsNumeric($payload['temperature']);
+        self::assertEqualsWithDelta(0.4, (float)$payload['temperature'], 1e-9);
+        self::assertSame(['END'], $payload['stop_sequences']);
+    }
+
+    #[Test]
+    public function chatCompletionHonoursExplicitMaxTokens(): void
+    {
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s): void {
+                $s->chatCompletion(
+                    [['role' => 'user', 'content' => 'Hello']],
+                    ['max_tokens' => 2048],
+                );
+            },
+        );
+
+        self::assertSame(2048, $payload['max_tokens']);
+    }
+
+    #[Test]
+    public function chatCompletionOmitsSystemKeyWithoutSystemMessage(): void
+    {
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s): void {
+                $s->chatCompletion([['role' => 'user', 'content' => 'Hello']]);
+            },
+        );
+
+        self::assertArrayNotHasKey('system', $payload);
+    }
+
+    #[Test]
+    public function chatCompletionConvertsChatMessageObjectsToArrays(): void
+    {
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s): void {
+                $s->chatCompletion([ChatMessage::user('Hello from VO')]);
+            },
+        );
+
+        self::assertSame([['role' => 'user', 'content' => 'Hello from VO']], $payload['messages']);
+    }
+
+    #[Test]
+    public function chatCompletionCombinesNativeAndInlineThinking(): void
+    {
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [
+                ['type' => 'thinking', 'thinking' => 'native reason'],
+                ['type' => 'text', 'text' => '<think>inline reason</think>Answer'],
+            ],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion([['role' => 'user', 'content' => 'test']]);
+
+        self::assertSame('Answer', $result->content);
+        self::assertSame("native reason\ninline reason", $result->thinking);
+    }
+
+    /**
+     * Pin down the exact tool-calling request payload: model, default
+     * max_tokens, system field, converted messages, the Claude-shaped tools
+     * (name/description/input_schema) and the merged sampling params.
+     */
+    #[Test]
+    public function chatCompletionWithToolsRequestPayloadHasExactShape(): void
+    {
+        $tools = [
+            ToolSpec::fromArray([
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_weather',
+                    'description' => 'Get weather',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => ['location' => ['type' => 'string']],
+                    ],
+                ],
+            ]),
+        ];
+
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s) use ($tools): void {
+                $s->chatCompletionWithTools(
+                    [
+                        ['role' => 'system', 'content' => 'You are helpful.'],
+                        ['role' => 'user', 'content' => 'Weather?'],
+                    ],
+                    $tools,
+                    ['temperature' => 0.4, 'stop_sequences' => ['STOP']],
+                );
+            },
+        );
+
+        self::assertSame('claude-sonnet-4-20250514', $payload['model']);
+        self::assertSame(4096, $payload['max_tokens']);
+        self::assertSame('You are helpful.', $payload['system']);
+        self::assertSame([['role' => 'user', 'content' => 'Weather?']], $payload['messages']);
+        self::assertSame([
+            [
+                'name'         => 'get_weather',
+                'description'  => 'Get weather',
+                'input_schema' => [
+                    'type'       => 'object',
+                    'properties' => ['location' => ['type' => 'string']],
+                ],
+            ],
+        ], $payload['tools']);
+        self::assertArrayHasKey('temperature', $payload);
+        self::assertIsNumeric($payload['temperature']);
+        self::assertEqualsWithDelta(0.4, (float)$payload['temperature'], 1e-9);
+        self::assertSame(['STOP'], $payload['stop_sequences']);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsConvertsChatMessageObjectsToArrays(): void
+    {
+        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
+
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s) use ($tools): void {
+                $s->chatCompletionWithTools([ChatMessage::user('VO message')], $tools);
+            },
+        );
+
+        self::assertSame([['role' => 'user', 'content' => 'VO message']], $payload['messages']);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsConcatenatesTextBlocks(): void
+    {
+        $messages = [['role' => 'user', 'content' => 'test']];
+        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
+
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [
+                ['type' => 'text', 'text' => 'First part. '],
+                ['type' => 'text', 'text' => 'Second part.'],
+            ],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 15],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertSame('First part. Second part.', $result->content);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsCombinesNativeAndInlineThinking(): void
+    {
+        $messages = [['role' => 'user', 'content' => 'test']];
+        $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'Test', 'parameters' => []]])];
+
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [
+                ['type' => 'thinking', 'thinking' => 'native reason'],
+                ['type' => 'text', 'text' => '<think>inline reason</think>Answer'],
+                ['type' => 'tool_use', 'id' => 'call_1', 'name' => 'test', 'input' => []],
+            ],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'tool_use',
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertSame('Answer', $result->content);
+        self::assertSame("native reason\ninline reason", $result->thinking);
+    }
+
+    #[Test]
+    public function embeddingsExceptionCarriesStableCode(): void
+    {
+        $this->expectException(UnsupportedFeatureException::class);
+        $this->expectExceptionCode(8109610521);
+
+        $this->subject->embeddings('test text');
+    }
+
+    /**
+     * Pin down the exact vision request payload: the hardcoded default model,
+     * default max_tokens, the user message envelope, the converted vision
+     * content blocks (text + plain-URL image) and the system prompt.
+     */
+    #[Test]
+    public function analyzeImageRequestPayloadHasExactShape(): void
+    {
+        $content = [
+            VisionContent::fromArray(['type' => 'text', 'text' => 'Describe this']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/x.png']]),
+        ];
+
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s) use ($content): void {
+                $s->analyzeImage($content, ['system_prompt' => 'Be brief']);
+            },
+        );
+
+        self::assertSame('claude-sonnet-4-5-20250929', $payload['model']);
+        self::assertSame(4096, $payload['max_tokens']);
+        self::assertSame('Be brief', $payload['system']);
+        self::assertSame([
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'Describe this'],
+                    [
+                        'type' => 'image',
+                        'source' => ['type' => 'url', 'url' => 'https://example.com/x.png'],
+                    ],
+                ],
+            ],
+        ], $payload['messages']);
+    }
+
+    #[Test]
+    public function analyzeImageOmitsSystemKeyWithoutSystemPrompt(): void
+    {
+        $content = [VisionContent::fromArray(['type' => 'text', 'text' => 'Describe'])];
+
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s) use ($content): void {
+                $s->analyzeImage($content);
+            },
+        );
+
+        self::assertArrayNotHasKey('system', $payload);
+    }
+
+    #[Test]
+    public function analyzeImageConvertsBase64DataUrlToImageBlock(): void
+    {
+        $content = [
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,iVBORw0KGgo=']]),
+        ];
+
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s) use ($content): void {
+                $s->analyzeImage($content);
+            },
+        );
+
+        self::assertSame([
+            [
+                'role' => 'user',
+                'content' => [
+                    [
+                        'type' => 'image',
+                        'source' => [
+                            'type'       => 'base64',
+                            'media_type' => 'image/png',
+                            'data'       => 'iVBORw0KGgo=',
+                        ],
+                    ],
+                ],
+            ],
+        ], $payload['messages']);
+    }
+
+    #[Test]
+    public function analyzeImageSkipsNonImageDataUrl(): void
+    {
+        $content = [
+            VisionContent::fromArray(['type' => 'text', 'text' => 'What is this?']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'data:application/pdf;base64,JVBERi0=']]),
+        ];
+
+        $payload = $this->captureRequestPayload(
+            static function (ClaudeProvider $s) use ($content): void {
+                $s->analyzeImage($content);
+            },
+        );
+
+        self::assertSame([
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'What is this?'],
+                ],
+            ],
+        ], $payload['messages']);
     }
 }
