@@ -364,3 +364,4 @@ Tools
    Adr063ProviderResilience
    Adr064CentralPrivacyModel
    Adr065ReducePublicServiceSurface
+   Adr066CriteriaConfigurationResolution
