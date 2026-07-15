@@ -110,12 +110,13 @@ final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInter
         $now      = time();
         $state    = $this->store->load($provider);
 
-        $status = $state->status($now, $cooldown);
+        $status        = $state->status($now, $cooldown);
+        $halfOpenProbe = $status === CircuitStatus::HalfOpen;
         if ($status === CircuitStatus::Open) {
             // Fail fast so FallbackMiddleware can try the next provider.
             throw new CircuitOpenException($provider, $state->secondsUntilHalfOpen($now, $cooldown));
         }
-        if ($status === CircuitStatus::HalfOpen) {
+        if ($halfOpenProbe) {
             // Cooldown elapsed. Reserve the single probe by refreshing the open
             // window up front, so any concurrent caller keeps failing fast while
             // this probe is in flight (a pragmatic single-probe gate without
@@ -132,10 +133,18 @@ final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInter
         } catch (Throwable $e) {
             if ($this->isTrippingFailure($e)) {
                 $this->recordFailure($provider, $state, $now, $config);
+            } elseif ($halfOpenProbe) {
+                // A non-tripping failure means the provider RESPONDED (a client
+                // 4xx / misconfiguration), so it is not a health signal. On a
+                // half-open probe the reservation above already moved the open
+                // window to now; restore the pre-probe state so the circuit
+                // re-derives to half-open (a further probe stays due) instead of
+                // re-arming Open for a full cooldown — otherwise recurring
+                // non-tripping probes would starve the recovery path.
+                $this->store->save($provider, $state, $this->stateLifetime($cooldown));
             }
 
-            // Non-tripping failures (client 4xx, misconfiguration) mean the
-            // provider responded — leave the circuit untouched.
+            // Non-tripping failures on a closed circuit leave it untouched.
             throw $e;
         }
 

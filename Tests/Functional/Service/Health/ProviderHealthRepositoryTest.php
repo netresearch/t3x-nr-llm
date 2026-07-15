@@ -77,6 +77,24 @@ final class ProviderHealthRepositoryTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function ignoresRunsServedByAFallback(): void
+    {
+        $now = time();
+        // openai failed serving the request itself (fallback_attempts = 0) ...
+        $this->insertRow('openai', false, 200, $now, 0);
+        // ... and a run where openai was the requested PRIMARY but a fallback
+        // rescued it (success = 1, fallback_attempts = 2). The success belongs
+        // to the fallback, not to openai — it must not credit openai's health.
+        $this->insertRow('openai', true, 150, $now, 2);
+
+        $scores = $this->repository->scoresSince($now - 900);
+
+        self::assertArrayHasKey('openai', $scores);
+        self::assertSame(1, $scores['openai']->sampleCount, 'Only the self-served run counts');
+        self::assertSame(0.0, $scores['openai']->successRate);
+    }
+
+    #[Test]
     public function separatesProvidersIntoDistinctScores(): void
     {
         $now = time();
@@ -91,7 +109,7 @@ final class ProviderHealthRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame(0.0, $scores['claude']->successRate);
     }
 
-    private function insertRow(string $provider, bool $success, int $latencyMs, int $crdate): void
+    private function insertRow(string $provider, bool $success, int $latencyMs, int $crdate, int $fallbackAttempts = 0): void
     {
         $this->connectionPool->getConnectionForTable(self::TABLE)->insert(self::TABLE, [
             'pid'                      => 0,
@@ -105,7 +123,7 @@ final class ProviderHealthRepositoryTest extends AbstractFunctionalTestCase
             'error_class'              => '',
             'latency_ms'               => $latencyMs,
             'cache_hit'                => 0,
-            'fallback_attempts'        => 0,
+            'fallback_attempts'        => $fallbackAttempts,
             'crdate'                   => $crdate,
         ]);
     }

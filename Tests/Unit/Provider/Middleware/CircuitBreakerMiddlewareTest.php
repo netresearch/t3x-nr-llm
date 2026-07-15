@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Provider\CircuitBreaker\CircuitState;
+use Netresearch\NrLlm\Provider\CircuitBreaker\CircuitStatus;
 use Netresearch\NrLlm\Provider\Exception\CircuitOpenException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
@@ -203,6 +204,35 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
         self::assertNotNull($state->openedAt);
         // Fresh window: reopened at ~now, not the original open time.
         self::assertGreaterThan(time() - 5, $state->openedAt);
+    }
+
+    #[Test]
+    public function halfOpenProbeNonTrippingFailureKeepsCircuitHalfOpen(): void
+    {
+        $store    = new InMemoryCircuitBreakerStore();
+        $openedAt = time() - 31; // cooldown 30 elapsed → half-open
+        $store->seed(self::PROVIDER, new CircuitState(5, $openedAt));
+
+        try {
+            $this->middleware($store, cooldown: 30)->handle(
+                $this->context(),
+                $this->config(self::PROVIDER),
+                // 401: the provider responded, so it is not a health signal.
+                static fn(LlmConfiguration $c): never => throw new ProviderResponseException('unauthorized', 401),
+            );
+            self::fail('Expected the response exception to propagate');
+        } catch (ProviderResponseException) {
+            // expected
+        }
+
+        // The probe reservation (openedAt = now) must be rolled back, so the
+        // circuit stays half-open (a further probe is due) instead of re-arming
+        // Open for a fresh cooldown — otherwise recurring non-tripping probes
+        // would starve recovery.
+        $state = $store->load(self::PROVIDER);
+        self::assertSame($openedAt, $state->openedAt, 'The pre-probe open window must be restored');
+        self::assertSame(5, $state->consecutiveFailures);
+        self::assertSame(CircuitStatus::HalfOpen, $state->status(time(), 30));
     }
 
     #[Test]

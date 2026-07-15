@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Health;
 
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\SingletonInterface;
 
@@ -43,6 +44,13 @@ final readonly class ProviderHealthRepository implements ProviderHealthRepositor
             ->where(
                 $queryBuilder->expr()->gte('crdate', $queryBuilder->createNamedParameter($sinceTimestamp)),
                 $queryBuilder->expr()->neq(self::COL_PROVIDER, $queryBuilder->createNamedParameter('')),
+                // Only count runs the provider served ITSELF. A telemetry row
+                // names the requested PRIMARY provider, but `success` reflects
+                // the whole pipeline outcome — a fallback may have rescued a
+                // failed primary. Excluding fallback runs (fallback_attempts > 0)
+                // stops a failing primary from being scored healthy on the back
+                // of a sibling that answered for it.
+                $queryBuilder->expr()->eq('fallback_attempts', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
             )
             ->groupBy(self::COL_PROVIDER)
             ->executeQuery()
