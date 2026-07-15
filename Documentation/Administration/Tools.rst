@@ -383,6 +383,31 @@ value is the extension key, so an admin can disable an extension's whole
 tool family with one toggle. The design is recorded in
 :ref:`ADR-043 <adr-043>`.
 
+.. _administration-tools-egress:
+
+Network egress policy per group
+===============================
+
+Network egress is governed **per tool group** and is **fail-closed**
+(:ref:`ADR-061 <adr-061>`). Each group has a declared egress scope; a group
+with no declaration may make **no** outbound request:
+
+===============  ============================================================
+Scope            Meaning
+===============  ============================================================
+``none``         No outbound network request (the default for every group).
+``own_site``     Only the instance's own configured site hosts, resolved
+                 through ``SiteFinder`` — the exact allow-listing ``probe_url``
+                 applies, now lifted to the group boundary.
+===============  ============================================================
+
+Only the ``system`` group (which carries ``probe_url``, the one built-in that
+fetches over the network) is granted ``own_site``; every other group is
+``none``. There is no "any host" scope, so a newly installed or mis-declared
+tool group can never egress to an arbitrary target. The diagnostics tools that
+share the ``system`` group (``get_env``, ``fetch_logs`` …) never make a network
+request, so the grant does not loosen them.
+
 .. _administration-tools-playground:
 
 Using the Tool Playground

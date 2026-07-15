@@ -9,9 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Domain\Enum\SkillAuditEvent;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillSourceRepository;
+use Netresearch\NrLlm\Service\Skill\SkillAuditService;
 use Netresearch\NrLlm\Service\Skill\SkillSyncService;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -43,6 +45,11 @@ final class SkillSourceController extends ActionController
         private readonly PageRenderer $pageRenderer,
         private readonly IconFactory $iconFactory,
         private readonly FormEngineUrlBuilder $formEngineUrlBuilder,
+        // Optional + trailing so the existing lean test construction keeps
+        // working; autowired in production. When absent the enable/disable
+        // audit record is simply skipped (the ingest records still come from
+        // SkillSyncService).
+        private readonly ?SkillAuditService $audit = null,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -103,6 +110,7 @@ final class SkillSourceController extends ActionController
             'created' => $result->created,
             'updated' => $result->updated,
             'disabledOnChange' => $result->disabledOnChange,
+            'injectionBlocked' => $result->injectionBlocked,
             'orphaned' => $result->orphaned,
             'errors' => $result->errors,
         ]);
@@ -122,6 +130,11 @@ final class SkillSourceController extends ActionController
         $skill->setEnabled($this->boolFromBody($body, 'enabled'));
         $this->skillRepository->update($skill);
         $this->persistenceManager->persistAll();
+        // Append-only audit record of the admin's enable/disable (ADR-061).
+        $this->audit?->recordSkillEvent(
+            $skill->isEnabled() ? SkillAuditEvent::ENABLED : SkillAuditEvent::DISABLED,
+            $skill,
+        );
         return new JsonResponse(['success' => true, 'enabled' => $skill->isEnabled()]);
     }
 

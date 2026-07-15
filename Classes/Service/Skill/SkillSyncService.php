@@ -9,12 +9,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Skill;
 
+use Netresearch\NrLlm\Domain\Enum\InjectionSeverity;
+use Netresearch\NrLlm\Domain\Enum\SkillAuditEvent;
 use Netresearch\NrLlm\Domain\Enum\SkillSourceType;
 use Netresearch\NrLlm\Domain\Enum\SyncStatus;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\SkillSource;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillSourceRepository;
+use Netresearch\NrLlm\Domain\ValueObject\InjectionScanResult;
 use Netresearch\NrLlm\Domain\ValueObject\ParsedSkill;
 use Netresearch\NrLlm\Domain\ValueObject\SyncResult;
 use Netresearch\NrLlm\Service\Skill\Exception\GitHubApiException;
@@ -67,6 +70,14 @@ final class SkillSyncService
         private readonly int $maxFiles = 500,
         private readonly int $maxSeconds = 120,
         private readonly int $heartbeatSeconds = 30,
+        // Isolation collaborators (ADR-061), autowired in production. Optional
+        // and trailing so the existing lean test constructions keep working;
+        // when a collaborator is absent the corresponding control degrades to a
+        // no-op (never a silent LOOSENING — trust denormalisation, which needs
+        // no collaborator, always runs).
+        private readonly ?PromptInjectionScanner $scanner = null,
+        private readonly ?SkillManifestVerifier $manifestVerifier = null,
+        private readonly ?SkillAuditService $audit = null,
     ) {}
 
     public function sync(SkillSource $source): SyncResult
@@ -91,47 +102,61 @@ final class SkillSyncService
         $created = 0;
         $updated = 0;
         $disabledOnChange = 0;
+        $injectionBlocked = 0;
         $orphaned = 0;
 
         try {
             $collected = $this->collect($source, $errors);
             $sourcePrefix = $source->getUid() . ':';
 
-            foreach ($collected['parsed'] as [$sha, $parsed]) {
-                $identifier = $sourcePrefix . $parsed->path;
-                // Keyed set: O(1) dedup instead of in_array() over a growing list.
-                if (isset($seen[$identifier])) {
-                    $errors[] = sprintf('duplicate identifier "%s", first wins', $identifier);
-                    continue;
+            // Fail-closed manifest fingerprint gate (ADR-061): when the source
+            // declares an expected fingerprint, the whole discovered set must
+            // verify BEFORE any skill is materialized. A mismatch blocks the
+            // ingest entirely — no upsert, no orphaning — leaving the last
+            // known-good skills untouched, and is audited.
+            if ($this->fingerprintRejected($source, $collected['parsed'], $sourcePrefix)) {
+                $errors[] = 'Manifest fingerprint verification failed; ingest blocked (no skills were materialized).';
+                $status = SyncStatus::ERROR;
+                $orphaned = 0;
+                $source->setSyncError($this->sanitizeErrorMessage(implode("\n", $errors)));
+            } else {
+                foreach ($collected['parsed'] as [$sha, $parsed]) {
+                    $identifier = $sourcePrefix . $parsed->path;
+                    // Keyed set: O(1) dedup instead of in_array() over a growing list.
+                    if (isset($seen[$identifier])) {
+                        $errors[] = sprintf('duplicate identifier "%s", first wins', $identifier);
+                        continue;
+                    }
+                    $seen[$identifier] = true;
+                    [$outcome, $blocked] = $this->upsert($source, $identifier, $sha, $parsed);
+                    $created += $outcome === 'created' ? 1 : 0;
+                    $updated += $outcome === 'updated' ? 1 : 0;
+                    $disabledOnChange += $outcome === 'changed' ? 1 : 0;
+                    $injectionBlocked += $blocked ? 1 : 0;
                 }
-                $seen[$identifier] = true;
-                $outcome = $this->upsert($source, $identifier, $sha, $parsed);
-                $created += $outcome === 'created' ? 1 : 0;
-                $updated += $outcome === 'updated' ? 1 : 0;
-                $disabledOnChange += $outcome === 'changed' ? 1 : 0;
-            }
 
-            // Orphan by upstream PRESENCE (discovered identifiers), not by parse success.
-            $discoveredIds = array_map(
-                static fn(string $path): string => $sourcePrefix . $path,
-                $collected['discovered'],
-            );
-            $prefixIds = static fn(?array $prefixes): ?array => $prefixes === null
-                ? null
-                : array_map(static fn(string $prefix): string => $sourcePrefix . $prefix, $prefixes);
-            $orphaned = $this->orphanRemoved(
-                $source,
-                $discoveredIds,
-                $prefixIds($collected['reachedPrefixes']),
-                $prefixIds($collected['listedPrefixes']),
-            );
+                // Orphan by upstream PRESENCE (discovered identifiers), not by parse success.
+                $discoveredIds = array_map(
+                    static fn(string $path): string => $sourcePrefix . $path,
+                    $collected['discovered'],
+                );
+                $prefixIds = static fn(?array $prefixes): ?array => $prefixes === null
+                    ? null
+                    : array_map(static fn(string $prefix): string => $sourcePrefix . $prefix, $prefixes);
+                $orphaned = $this->orphanRemoved(
+                    $source,
+                    $discoveredIds,
+                    $prefixIds($collected['reachedPrefixes']),
+                    $prefixIds($collected['listedPrefixes']),
+                );
 
-            $status = $errors === [] ? SyncStatus::OK : SyncStatus::PARTIAL;
-            // Only single_file/repo pin the source SHA; marketplace child-repo SHAs must not overwrite it.
-            if ($collected['rootSha'] !== null) {
-                $source->setPinnedSha($collected['rootSha']);
+                $status = $errors === [] ? SyncStatus::OK : SyncStatus::PARTIAL;
+                // Only single_file/repo pin the source SHA; marketplace child-repo SHAs must not overwrite it.
+                if ($collected['rootSha'] !== null) {
+                    $source->setPinnedSha($collected['rootSha']);
+                }
+                $source->setSyncError($this->sanitizeErrorMessage(implode("\n", $errors)));
             }
-            $source->setSyncError($this->sanitizeErrorMessage(implode("\n", $errors)));
         } catch (Throwable $e) {
             // Keep the full stack trace server-side (GitHub rate limits, network
             // timeouts, DBAL/persistence errors) — the user only sees getMessage().
@@ -151,7 +176,43 @@ final class SkillSyncService
         $source->setLastSynced(time());
         $this->persistSource($source);
 
-        return new SyncResult($status, $created, $updated, $disabledOnChange, $orphaned, $errors);
+        return new SyncResult($status, $created, $updated, $disabledOnChange, $orphaned, $errors, $injectionBlocked);
+    }
+
+    /**
+     * Fail-closed manifest fingerprint gate for a source that declares one.
+     *
+     * Returns true (ingest must be blocked) only when a fingerprint is declared
+     * AND the recomputed manifest digest over the discovered
+     * (identifier → body-checksum) set does not verify. An undeclared
+     * fingerprint, an absent verifier (lean test wiring) or a successful verify
+     * all return false (ingest proceeds). A rejection is recorded in the audit
+     * trail before the sync is aborted.
+     *
+     * @param list<array{0:string,1:ParsedSkill}> $parsed
+     */
+    private function fingerprintRejected(SkillSource $source, array $parsed, string $sourcePrefix): bool
+    {
+        if ($this->manifestVerifier === null || !$this->manifestVerifier->isDeclared($source->getExpectedFingerprint())) {
+            return false;
+        }
+
+        $manifest = [];
+        foreach ($parsed as [, $parsedSkill]) {
+            $manifest[$sourcePrefix . $parsedSkill->path] = hash('sha256', $parsedSkill->body);
+        }
+
+        if ($this->manifestVerifier->verify($source->getExpectedFingerprint(), $manifest)) {
+            return false;
+        }
+
+        $this->audit?->recordSourceEvent(
+            SkillAuditEvent::FINGERPRINT_REJECTED,
+            $source,
+            sprintf('computed %s', $this->manifestVerifier->computeFingerprint($manifest)),
+        );
+
+        return true;
     }
 
     /**
@@ -401,11 +462,20 @@ final class SkillSyncService
     }
 
     /**
-     * Returns 'created' | 'updated' | 'changed' (changed = enabled skill auto-disabled on body change).
+     * Upsert one parsed skill, applying the ADR-061 isolation controls
+     * (trust denormalisation, injection scan + fail-closed force-disable) and
+     * recording the outcome in the audit trail.
+     *
+     * @return array{0:string,1:bool} [outcome, forcedDisable] where outcome is
+     *                                'created' | 'updated' | 'changed' (an enabled skill auto-disabled on
+     *                                body change) and forcedDisable is true when a high-confidence injection
+     *                                finding disabled a skill that would otherwise have been enabled.
      */
-    private function upsert(SkillSource $source, string $identifier, string $sha, ParsedSkill $parsed): string
+    private function upsert(SkillSource $source, string $identifier, string $sha, ParsedSkill $parsed): array
     {
         $checksum = hash('sha256', $parsed->body);
+        $scan     = $this->scanner?->scan($parsed->body);
+        $highConf = $scan?->hasHighConfidence() ?? false;
         $existing = $this->skillRepository->findBySourceAndIdentifier($source->getUid(), $identifier);
 
         if ($existing === null) {
@@ -413,23 +483,79 @@ final class SkillSyncService
             $skill->setSource($source->getUid());
             $skill->setIdentifier($identifier);
             $this->apply($skill, $parsed, $sha, $checksum);
-            $skill->setEnabled($source->getTypeEnum() === SkillSourceType::SINGLE_FILE);
+            $this->applyIsolationMetadata($skill, $source, $scan);
+            // single_file defaults enabled; a high-confidence injection finding
+            // force-disables it (fail-closed) regardless of source type.
+            $wouldEnable   = $source->getTypeEnum() === SkillSourceType::SINGLE_FILE;
+            $forcedDisable = $highConf && $wouldEnable;
+            $skill->setEnabled($wouldEnable && !$highConf);
             $skill->setOrphaned(false);
             $this->skillRepository->add($skill);
-            return 'created';
+            $this->audit?->recordSkillEvent(SkillAuditEvent::INGEST_CREATED, $skill);
+            if ($forcedDisable) {
+                $this->audit?->recordSkillEvent(SkillAuditEvent::INJECTION_BLOCKED, $skill, $this->highConfidenceLabels($scan));
+            }
+
+            return ['created', $forcedDisable];
         }
 
-        $changed = $existing->getBodyChecksum() !== $checksum;
+        $changed    = $existing->getBodyChecksum() !== $checksum;
         $wasEnabled = $existing->isEnabled();
         $this->apply($existing, $parsed, $sha, $checksum);
+        $this->applyIsolationMetadata($existing, $source, $scan);
         $existing->setOrphaned(false);
-        $outcome = 'updated';
-        if ($changed && $wasEnabled) {
+        $outcome       = 'updated';
+        $forcedDisable = $highConf && $wasEnabled;
+        // Auto-disable an enabled skill on a body change (ADR-035) OR on a
+        // high-confidence injection finding (ADR-061) — both are fail-closed
+        // re-reviews. 'changed' is reserved for the body-change reason.
+        if ($wasEnabled && ($changed || $highConf)) {
             $existing->setEnabled(false);
-            $outcome = 'changed';
+            $outcome = $changed ? 'changed' : 'updated';
         }
         $this->skillRepository->update($existing);
-        return $outcome;
+        $this->audit?->recordSkillEvent(
+            $outcome === 'changed' ? SkillAuditEvent::INGEST_DISABLED_ON_CHANGE : SkillAuditEvent::INGEST_UPDATED,
+            $existing,
+        );
+        if ($forcedDisable) {
+            $this->audit?->recordSkillEvent(SkillAuditEvent::INJECTION_BLOCKED, $existing, $this->highConfidenceLabels($scan));
+        }
+
+        return [$outcome, $forcedDisable];
+    }
+
+    /**
+     * Denormalise the source's trust level onto the skill and store the
+     * injection-scan findings (mirrors how support_status flows from parse to
+     * skill). Trust is copied every sync so a source re-classification takes
+     * effect on the next sync; the scan JSON is only overwritten when a scanner
+     * is wired.
+     */
+    private function applyIsolationMetadata(Skill $skill, SkillSource $source, ?InjectionScanResult $scan): void
+    {
+        $skill->setTrustLevel($source->getTrustLevel());
+        if ($scan !== null) {
+            $skill->setInjectionScan((string)json_encode($scan->toArray()));
+        }
+    }
+
+    /**
+     * Comma-joined HIGH-severity finding labels for the audit detail.
+     */
+    private function highConfidenceLabels(?InjectionScanResult $scan): string
+    {
+        if ($scan === null) {
+            return '';
+        }
+        $labels = [];
+        foreach ($scan->findings as $finding) {
+            if ($finding->severity === InjectionSeverity::HIGH) {
+                $labels[] = $finding->label;
+            }
+        }
+
+        return $labels === [] ? '' : 'high-confidence: ' . implode(', ', array_values(array_unique($labels)));
     }
 
     private function apply(Skill $skill, ParsedSkill $parsed, string $sha, string $checksum): void

@@ -915,6 +915,31 @@
             <trans-unit id="tx_nrllm_skill_source.enabled">
                 <source>Enabled</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.trust_level">
+                <source>Publisher trust level</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.trust_level.description">
+                <source>Provenance classification of this source. Independent of the support status. Raising the instance-wide minimum trust level (extension configuration) drops skills below it from prompts and tool grants.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.expected_fingerprint">
+                <source>Expected manifest fingerprint (sha256)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill_source.expected_fingerprint.description">
+                <source>Optional. The sha256 the source's whole skill set must hash to. When set, a mismatch at sync fails closed: no skill is materialized. Leave empty to rely on the commit-SHA pin alone.</source>
+            </trans-unit>
+            <!-- Shared skill trust levels (ADR-061) -->
+            <trans-unit id="tx_nrllm.trust_level.untrusted">
+                <source>Untrusted (anonymous public source)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm.trust_level.community">
+                <source>Community</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm.trust_level.verified">
+                <source>Verified publisher</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm.trust_level.first_party">
+                <source>First-party (operator-controlled)</source>
+            </trans-unit>
             <!-- Skill table -->
             <trans-unit id="tx_nrllm_skill">
                 <source>LLM Skill</source>
@@ -942,6 +967,12 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_skill.raw_frontmatter">
                 <source>Raw front-matter (JSON)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.trust_level">
+                <source>Trust level</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.injection_scan">
+                <source>Injection scan findings (JSON)</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_skill.support_status">
                 <source>Support status</source>

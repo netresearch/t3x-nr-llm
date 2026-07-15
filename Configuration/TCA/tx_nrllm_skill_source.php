@@ -34,6 +34,8 @@ return [
                     type,
                     url,
                     ref,
+                    trust_level,
+                    expected_fingerprint,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.metadata,
                     pinned_sha,
                     sync_status,
@@ -112,6 +114,38 @@ return [
         'github_token' => [
             'config' => [
                 'type' => 'passthrough',
+            ],
+        ],
+        // Publisher-trust classification (ADR-061). Admin-editable — this is
+        // the authoritative trust edit surface; skills denormalize it on sync.
+        // Distinct from sync-status: trust is provenance, not health.
+        'trust_level' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.trust_level',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.trust_level.description',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectSingle',
+                'items' => [
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.trust_level.untrusted', 'value' => 'untrusted'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.trust_level.community', 'value' => 'community'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.trust_level.verified', 'value' => 'verified'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.trust_level.first_party', 'value' => 'first_party'],
+                ],
+                'default' => 'untrusted',
+                'required' => true,
+            ],
+        ],
+        // Optional declared sha256 the source's whole skill set must hash to
+        // (ADR-061). When set, a mismatch at ingest fails closed.
+        'expected_fingerprint' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.expected_fingerprint',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_skill_source.expected_fingerprint.description',
+            'config' => [
+                'type' => 'input',
+                'size' => 50,
+                'max' => 64,
+                'trim' => true,
+                'eval' => 'lower',
             ],
         ],
         'sync_status' => [

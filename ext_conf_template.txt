@@ -68,6 +68,13 @@ image.fal.pollInterval = 1000
 image.fal.defaultModel = flux-schnell
 
 # =============================================================================
+# Skills (ingest isolation — ADR-061)
+# =============================================================================
+
+# cat=skills; type=options[untrusted,community,verified,first_party]; label=Minimum Skill Trust Level: Only skills from a source classified at or above this publisher-trust level are injected into prompts and may grant tools. "untrusted" (default) accepts every enabled skill; raising it drops lower-trust skills fail-closed.
+skills.minTrustLevel = untrusted
+
+# =============================================================================
 # Testing
 # =============================================================================
 

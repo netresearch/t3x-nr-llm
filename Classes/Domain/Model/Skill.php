@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
@@ -25,6 +26,8 @@ class Skill extends AbstractEntity
     protected string $supportStatus = SupportStatus::FULL->value;
     protected string $unsupportedNotes = '';
     protected string $allowedTools = '';
+    protected string $trustLevel = SkillTrustLevel::UNTRUSTED->value;
+    protected string $injectionScan = '';
     protected bool $orphaned = false;
     protected bool $enabled = false;
 
@@ -183,6 +186,72 @@ class Skill extends AbstractEntity
         }
         $decoded = json_decode($this->allowedTools, true);
         return is_array($decoded) ? array_values(array_filter($decoded, is_string(...))) : null;
+    }
+
+    public function getTrustLevel(): string
+    {
+        return $this->trustLevel;
+    }
+
+    /**
+     * Trust level as an enum, failing CLOSED to the lowest level for an empty
+     * or unrecognised stored value — a skill never reads as more trusted than
+     * its denormalised source classification.
+     */
+    public function getTrustLevelEnum(): SkillTrustLevel
+    {
+        return SkillTrustLevel::fromStringOrUntrusted($this->trustLevel);
+    }
+
+    public function setTrustLevel(string $trustLevel): void
+    {
+        $this->trustLevel = $trustLevel;
+    }
+
+    public function getInjectionScan(): string
+    {
+        return $this->injectionScan;
+    }
+
+    public function setInjectionScan(string $injectionScan): void
+    {
+        $this->injectionScan = $injectionScan;
+    }
+
+    /**
+     * Decode the stored prompt-injection scan findings.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function getInjectionFindings(): array
+    {
+        if (trim($this->injectionScan) === '') {
+            return [];
+        }
+        $decoded = json_decode($this->injectionScan, true);
+        if (!is_array($decoded) || !array_is_list($decoded)) {
+            return [];
+        }
+        $out = [];
+        foreach ($decoded as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            $row = [];
+            foreach ($entry as $key => $value) {
+                $row[(string)$key] = $value;
+            }
+            $out[] = $row;
+        }
+        return $out;
+    }
+
+    /**
+     * Whether the ingest scanner flagged any injection pattern on this body.
+     */
+    public function hasInjectionFindings(): bool
+    {
+        return $this->getInjectionFindings() !== [];
     }
 
     public function isOrphaned(): bool
