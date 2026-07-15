@@ -75,6 +75,22 @@ image.fal.defaultModel = flux-schnell
 skills.minTrustLevel = untrusted
 
 # =============================================================================
+# Resilience (circuit breaker + provider health — ADR-063)
+# =============================================================================
+
+# cat=resilience; type=boolean; label=Circuit Breaker Enabled: Trip a per-provider circuit after repeated failures so calls fail fast (and fall back) instead of waiting on a timeout against a provider that is down.
+circuitBreaker.enabled = 1
+
+# cat=resilience; type=int+; label=Circuit Breaker Failure Threshold: Number of consecutive tripping failures (connection/timeout/5xx/429) before a provider's circuit opens.
+circuitBreaker.failureThreshold = 5
+
+# cat=resilience; type=int+; label=Circuit Breaker Cooldown (seconds): How long an open circuit fails fast before allowing one half-open probe call.
+circuitBreaker.cooldownSeconds = 30
+
+# cat=resilience; type=boolean; label=Health-Aware Fallback Reorder: When on, the fallback chain is reordered by recent provider health (from telemetry) so a healthier provider is preferred; configured order is the tie-break. Off (default) keeps the configured order untouched.
+health.reorderFallback = 0
+
+# =============================================================================
 # Testing
 # =============================================================================
 

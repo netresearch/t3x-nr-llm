@@ -37,7 +37,8 @@ use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
  *       BudgetMiddleware     <-- pre-flight denial                 (priority 75)
  *         FallbackMiddleware <-- swaps config on retryable failure (priority 50)
  *           UsageMiddleware  <-- records the call that ran         (priority 25)
- *             <terminal>
+ *             CircuitBreaker <-- guards the provider call          (priority 20)
+ *               <terminal>
  *
  * What it records: the OPERATION and requested primary CONFIGURATION
  * (identifier, plus its provider/model). When FallbackMiddleware swaps to a

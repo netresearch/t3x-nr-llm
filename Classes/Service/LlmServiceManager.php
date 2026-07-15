@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
@@ -161,7 +162,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             return $this->chatWithConfiguration(
                 $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
                 $defaultConfiguration,
-                $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
+                $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
                 $optionsArray,
             );
         }
@@ -172,7 +173,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $this->synthesizeTransientConfiguration(ProviderOperation::Chat, $providerKey),
             ProviderOperation::Chat,
             fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($this->messageShaper->applySystemPrompt($normalisedMessages, $optionsArray), $optionsArray),
-            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
         );
     }
 
@@ -190,7 +191,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             return $this->completeWithConfiguration(
                 $this->injectConfigSkillsIntoPrompt($prompt, $defaultConfiguration),
                 $defaultConfiguration,
-                $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
+                $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
                 $optionsArray,
             );
         }
@@ -199,7 +200,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $this->synthesizeTransientConfiguration(ProviderOperation::Completion, $providerKey),
             ProviderOperation::Completion,
             fn(): CompletionResponse => $this->getProvider($providerKey)->complete($prompt, $optionsArray),
-            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
         );
     }
 
@@ -218,7 +219,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // is left out and CacheMiddleware becomes a no-op for this call. The
         // ad-hoc path keys by provider identifier.
         $cacheTtl = is_int($optionsArray['cache_ttl'] ?? null) ? $optionsArray['cache_ttl'] : 0;
-        $metadata = $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost());
+        $metadata = $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey());
         $resolvedProvider = $providerKey ?? 'default';
         $metadata += $this->embedCacheKeyBuilder->build(
             $cacheTtl,
@@ -292,7 +293,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
                 return $provider->analyzeImage($normalisedContent, $optionsArray);
             },
-            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
         );
     }
 
@@ -395,7 +396,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
                 return $provider->chatCompletionWithTools($this->messageShaper->applySystemPrompt($normalisedMessages, $optionsArray), $normalisedTools, $optionsArray);
             },
-            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
         );
     }
 
@@ -453,7 +454,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     $callOptions,
                 );
             },
-            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
         );
     }
 
@@ -489,7 +490,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $optionOverrides = $options->toArray();
         unset($optionOverrides['provider']);
 
-        $metadata = $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost());
+        $metadata = $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey());
 
         // Cache metadata mirrors embed(), but the configuration path keys by
         // configuration identifier plus the effective model (options override
@@ -784,6 +785,24 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         }
 
         return $chars;
+    }
+
+    /**
+     * Translate an optional idempotency key (ADR-063) into the metadata key the
+     * IdempotencyMiddleware reads. Empty / absent keys produce no entry, so the
+     * middleware's pass-through branch fires and non-idempotent calls are
+     * untouched. Disjoint from {@see self::buildBudgetMetadata()} keys, so the
+     * two merge with `+` at every call site.
+     *
+     * @return array<string, mixed>
+     */
+    private function idempotencyMetadata(?string $idempotencyKey): array
+    {
+        if ($idempotencyKey === null || $idempotencyKey === '') {
+            return [];
+        }
+
+        return [IdempotencyMiddleware::METADATA_IDEMPOTENCY_KEY => $idempotencyKey];
     }
 
     /**

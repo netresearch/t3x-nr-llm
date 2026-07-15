@@ -63,7 +63,8 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  *       BudgetMiddleware     <-- pre-flight only on miss            (priority 75)
  *         FallbackMiddleware <-- swaps config on retryable failure  (priority 50)
  *           UsageMiddleware  <-- records the call that actually ran (priority 25)
- *             <terminal>
+ *             CircuitBreaker <-- guards the provider call           (priority 20)
+ *               <terminal>
  *
  * Callers who want cache accounting (count hits against budget / usage)
  * should assemble a custom pipeline with Cache *inside* those layers — it is

@@ -39,6 +39,38 @@ defined('TYPO3') or die();
         'groups' => ['nrllm'],
     ];
 
+    // Per-provider circuit breaker state (ADR-063). The store writes its own
+    // per-entry lifetime; this default applies only to entries written without.
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_circuit'] ??= [
+        'frontend' => VariableFrontend::class,
+        'options' => [
+            'defaultLifetime' => 300,
+        ],
+        'groups' => ['nrllm'],
+    ];
+
+    // Short-lived provider health snapshot (ADR-063).
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_health'] ??= [
+        'frontend' => VariableFrontend::class,
+        'options' => [
+            'defaultLifetime' => 60,
+        ],
+        'groups' => ['nrllm'],
+    ];
+
+    // Request idempotency store (ADR-063). The middleware writes its own
+    // per-entry TTL (the idempotency window).
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['nrllm_idempotency'] ??= [
+        'frontend' => VariableFrontend::class,
+        'options' => [
+            'defaultLifetime' => 86400,
+        ],
+        'groups' => ['nrllm'],
+    ];
+
     // Register custom TCA renderType for model_id field with API fetch
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SYS']['formEngine']['nodeRegistry'][1741427200] = [

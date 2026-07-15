@@ -20,11 +20,38 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
 abstract class AbstractOptions
 {
     /**
+     * Optional request idempotency key (ADR-063). A repeated call carrying the
+     * same key returns the stored result instead of calling the provider again
+     * (see IdempotencyMiddleware). NOT a provider option — it is deliberately
+     * kept out of {@see self::toArray()} so it is never sent to the provider;
+     * the service layer forwards it as call metadata.
+     */
+    protected ?string $idempotencyKey = null;
+
+    /**
      * Convert options to array format for providers.
      *
      * @return array<string, mixed>
      */
     abstract public function toArray(): array;
+
+    public function getIdempotencyKey(): ?string
+    {
+        return $this->idempotencyKey;
+    }
+
+    /**
+     * Return a copy tagged with an idempotency key. A repeat call with the same
+     * key is served from the idempotency store rather than re-hitting the
+     * provider (ADR-063).
+     */
+    public function withIdempotencyKey(string $idempotencyKey): static
+    {
+        $clone = clone $this;
+        $clone->idempotencyKey = $idempotencyKey;
+
+        return $clone;
+    }
 
     /**
      * Validate value is within numeric range.
