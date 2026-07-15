@@ -9,14 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
-use Exception;
 use Generator;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
-use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
@@ -27,7 +25,6 @@ use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
-use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
@@ -37,30 +34,20 @@ use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
-use Psr\Log\LoggerInterface;
-use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\SingletonInterface;
 
-final class LlmServiceManager implements LlmServiceManagerInterface, SingletonInterface
+final readonly class LlmServiceManager implements LlmServiceManagerInterface, SingletonInterface
 {
-    /** @var array<string, ProviderInterface> */
-    private array $providers = [];
-
-    /** @var array<string, mixed> */
-    private array $configuration = [];
-
     public function __construct(
-        private readonly ExtensionConfiguration $extensionConfiguration,
-        private readonly LoggerInterface $logger,
-        private readonly ProviderAdapterRegistryInterface $adapterRegistry,
-        private readonly MiddlewarePipeline $pipeline,
-        private readonly CacheManagerInterface $cacheManager,
-        private readonly ?LlmConfigurationRepository $configurationRepository = null,
-        private readonly ?SkillInjectionService $skillInjection = null,
-        private readonly ?ModelSelectionServiceInterface $modelSelectionService = null,
-    ) {
-        $this->loadConfiguration();
-    }
+        private ProviderAdapterRegistryInterface $adapterRegistry,
+        private MiddlewarePipeline $pipeline,
+        private KeyedProviderRegistry $providerRegistry,
+        private ConfigurationResolver $configurationResolver,
+        private MessageShaper $messageShaper,
+        private EmbedCacheKeyBuilder $embedCacheKeyBuilder,
+        private ?SkillInjectionService $skillInjection = null,
+        private ?ModelSelectionServiceInterface $modelSelectionService = null,
+    ) {}
 
     /**
      * Prepend the resolved configuration's attached skills to a plain prompt.
@@ -105,102 +92,24 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Resolve the backend-module-managed default configuration for a generic
-     * (provider-agnostic) completion/chat call. Returns null when the caller
-     * pinned an explicit provider, when no repository is wired (unit tests), or
-     * when no active default configuration exists — in which case the generic
-     * path requires a per-call pinned provider and otherwise throws (there is
-     * no extension-config default-provider fallback; see ADR-034).
-     *
-     * Uses the repository directly rather than LlmConfigurationService, whose
-     * getDefaultConfiguration() enforces a backend-user access check that the
-     * CLI worker (Symfony Messenger consumer) has no user for.
-     */
-    private function resolveDefaultConfiguration(?string $providerKey): ?LlmConfiguration
-    {
-        if ($providerKey !== null) {
-            return null;
-        }
-
-        $configuration = $this->configurationRepository?->findDefault();
-
-        // Treat as "no default" when the default configuration is missing, has no model
-        // (getAdapterFromConfiguration() would throw), or is access-restricted to specific BE
-        // groups. Returning null here means the generic call needs a per-call pinned provider —
-        // otherwise getProvider(null) throws. The generic chat()/complete()/streamChat()
-        // path has no backend-user context to enforce group membership against (notably the CLI
-        // worker), so an access-restricted default must not be auto-applied to arbitrary callers.
-        if ($configuration === null
-            || $configuration->getLlmModel() === null
-            || $configuration->hasAccessRestrictions()
-        ) {
-            return null;
-        }
-
-        return $configuration;
-    }
-
-    /**
      * Resolve the effective configuration for a configuration-driven completion.
      *
-     * Returns the explicitly passed configuration when set, otherwise the
-     * backend-module-managed active default — resolved through the very same
-     * guards the generic complete()/chat() path uses (see
-     * {@see self::resolveDefaultConfiguration()}), so callers never duplicate
-     * that logic. Returns null when neither resolves; the caller must then
-     * dispatch through the generic path so the existing "no provider specified"
-     * error is raised.
+     * Delegates to {@see ConfigurationResolver}; retained on the manager
+     * because it is part of {@see LlmServiceManagerInterface}.
      */
     public function resolveEffectiveConfiguration(?LlmConfiguration $configuration = null): ?LlmConfiguration
     {
-        return $configuration ?? $this->resolveDefaultConfiguration(null);
-    }
-
-    private function loadConfiguration(): void
-    {
-        try {
-            /** @var array<string, mixed> $config */
-            $config = $this->extensionConfiguration->get('nr_llm');
-            $this->configuration = $config;
-        } catch (Exception $e) {
-            $this->logger->warning('Failed to load extension configuration', ['exception' => $e]);
-            $this->configuration = [];
-        }
+        return $this->configurationResolver->resolveEffectiveConfiguration($configuration);
     }
 
     public function registerProvider(ProviderInterface $provider): void
     {
-        $identifier = $provider->getIdentifier();
-        $this->providers[$identifier] = $provider;
-
-        // Configure provider if configuration exists
-        /** @var array<string, array<string, mixed>> $providers */
-        $providers = is_array($this->configuration['providers'] ?? null) ? $this->configuration['providers'] : [];
-        $providerConfig = $providers[$identifier] ?? [];
-        if ($providerConfig !== []) {
-            $provider->configure($providerConfig);
-        }
-
-        $this->logger->debug('Registered LLM provider', ['provider' => $identifier]);
+        $this->providerRegistry->registerProvider($provider);
     }
 
     public function getProvider(?string $identifier = null): ProviderInterface
     {
-        if ($identifier === null) {
-            throw new ProviderException(
-                'No provider specified and no default provider configured. '
-                . 'Set up a default in the LLM backend module: create a Provider, a Model and a '
-                . 'Configuration, then mark that Configuration active and default. '
-                . '(The plugin.tx_nrllm TypoScript settings are not evaluated — provider configuration is database-backed.)',
-                4867297358,
-            );
-        }
-
-        if (!isset($this->providers[$identifier])) {
-            throw new ProviderException(sprintf('Provider "%s" not found', $identifier), 6273324883);
-        }
-
-        return $this->providers[$identifier];
+        return $this->providerRegistry->getProvider($identifier);
     }
 
     /**
@@ -208,10 +117,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function getAvailableProviders(): array
     {
-        return array_filter(
-            $this->providers,
-            static fn(ProviderInterface $provider) => $provider->isAvailable(),
-        );
+        return $this->providerRegistry->getAvailableProviders();
     }
 
     /**
@@ -219,7 +125,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function hasAvailableProvider(): bool
     {
-        return $this->getAvailableProviders() !== [];
+        return $this->providerRegistry->hasAvailableProvider();
     }
 
     /**
@@ -227,11 +133,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function getProviderList(): array
     {
-        $list = [];
-        foreach ($this->providers as $identifier => $provider) {
-            $list[$identifier] = $provider->getName();
-        }
-        return $list;
+        return $this->providerRegistry->getProviderList();
     }
 
     /**
@@ -245,16 +147,14 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     public function chat(array $messages, ?ChatOptions $options = null): CompletionResponse
     {
         $options ??= new ChatOptions();
-        $optionsArray = $options->toArray();
-        $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
-        unset($optionsArray['provider']);
+        [$providerKey, $optionsArray] = $this->splitProviderKey($options->toArray());
 
         // Single source of truth: with no explicit provider pinned, prefer the
         // backend-module-managed default DB configuration so it drives generation.
         // The per-call options override the configuration's stored defaults. When
         // no default configuration resolves and no provider is pinned, the call
         // throws (no extension-config fallback; see ADR-034).
-        $defaultConfiguration = $this->resolveDefaultConfiguration($providerKey);
+        $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey);
         if ($defaultConfiguration !== null) {
             return $this->chatWithConfiguration(
                 $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
@@ -264,12 +164,12 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             );
         }
 
-        $normalisedMessages = $this->normaliseMessages($messages);
+        $normalisedMessages = $this->messageShaper->normalise($messages);
 
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Chat, $providerKey),
             ProviderOperation::Chat,
-            fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($this->applySystemPrompt($normalisedMessages, $optionsArray), $optionsArray),
+            fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($this->messageShaper->applySystemPrompt($normalisedMessages, $optionsArray), $optionsArray),
             $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
         );
     }
@@ -280,12 +180,10 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
         $options ??= new ChatOptions();
-        $optionsArray = $options->toArray();
-        $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
-        unset($optionsArray['provider']);
+        [$providerKey, $optionsArray] = $this->splitProviderKey($options->toArray());
 
         // Single source of truth: prefer the default DB configuration (see chat()).
-        $defaultConfiguration = $this->resolveDefaultConfiguration($providerKey);
+        $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey);
         if ($defaultConfiguration !== null) {
             return $this->completeWithConfiguration(
                 $this->injectConfigSkillsIntoPrompt($prompt, $defaultConfiguration),
@@ -311,32 +209,21 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     public function embed(string|array $input, ?EmbeddingOptions $options = null): EmbeddingResponse
     {
         $options ??= new EmbeddingOptions();
-        $optionsArray = $options->toArray();
-        $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
-        unset($optionsArray['provider']);
+        [$providerKey, $optionsArray] = $this->splitProviderKey($options->toArray());
 
-        // Cache metadata: CacheMiddleware short-circuits when it sees a key.
-        // Callers pass cache_ttl: 0 (via EmbeddingOptions::noCache()) to
-        // disable caching for ephemeral content — we honour that by leaving
-        // the key out of metadata so the middleware becomes a no-op for
-        // this call.
+        // Cache metadata: EmbedCacheKeyBuilder returns an empty array when
+        // cache_ttl <= 0 (the EmbeddingOptions::noCache() contract), so the key
+        // is left out and CacheMiddleware becomes a no-op for this call. The
+        // ad-hoc path keys by provider identifier.
         $cacheTtl = is_int($optionsArray['cache_ttl'] ?? null) ? $optionsArray['cache_ttl'] : 0;
         $metadata = $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost());
-        if ($cacheTtl > 0) {
-            $resolvedProvider = $providerKey ?? 'default';
-            $metadata += [
-                CacheMiddleware::METADATA_CACHE_KEY => $this->cacheManager->generateCacheKey(
-                    $resolvedProvider,
-                    'embeddings',
-                    ['input' => $input, 'options' => $optionsArray],
-                ),
-                CacheMiddleware::METADATA_CACHE_TTL  => $cacheTtl,
-                CacheMiddleware::METADATA_CACHE_TAGS => [
-                    'nrllm_embeddings',
-                    'nrllm_provider_' . $resolvedProvider,
-                ],
-            ];
-        }
+        $resolvedProvider = $providerKey ?? 'default';
+        $metadata += $this->embedCacheKeyBuilder->build(
+            $cacheTtl,
+            $resolvedProvider,
+            ['input' => $input, 'options' => $optionsArray],
+            'nrllm_provider_' . $resolvedProvider,
+        );
 
         // Terminal returns an array-shaped payload so CacheMiddleware (which
         // persists `array<string, mixed>`) can round-trip through the TYPO3
@@ -381,9 +268,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     public function vision(array $content, ?VisionOptions $options = null): VisionResponse
     {
         $options ??= new VisionOptions();
-        $optionsArray = $options->toArray();
-        $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
-        unset($optionsArray['provider']);
+        [$providerKey, $optionsArray] = $this->splitProviderKey($options->toArray());
 
         $normalisedContent = array_values(array_map(
             static fn(VisionContent|array $item): VisionContent
@@ -422,13 +307,11 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     public function streamChat(array $messages, ?ChatOptions $options = null): Generator
     {
         $options ??= new ChatOptions();
-        $optionsArray = $options->toArray();
-        $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
-        unset($optionsArray['provider']);
+        [$providerKey, $optionsArray] = $this->splitProviderKey($options->toArray());
 
         // Single source of truth: prefer the default DB configuration (see chat()),
         // so streaming and non-streaming calls resolve the same provider/model.
-        $defaultConfiguration = $this->resolveDefaultConfiguration($providerKey);
+        $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey);
         if ($defaultConfiguration !== null) {
             return $this->streamChatWithConfiguration(
                 $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
@@ -446,7 +329,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
             );
         }
 
-        return $provider->streamChatCompletion($this->applySystemPrompt($this->normaliseMessages($messages), $optionsArray), $optionsArray);
+        return $provider->streamChatCompletion($this->messageShaper->applySystemPrompt($this->messageShaper->normalise($messages), $optionsArray), $optionsArray);
     }
 
     /**
@@ -463,11 +346,9 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse
     {
         $options ??= new ToolOptions();
-        $optionsArray = $options->toArray();
-        $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider']) ? $optionsArray['provider'] : null;
-        unset($optionsArray['provider']);
+        [$providerKey, $optionsArray] = $this->splitProviderKey($options->toArray());
 
-        $normalisedMessages = $this->normaliseMessages($messages);
+        $normalisedMessages = $this->messageShaper->normalise($messages);
         $normalisedTools    = array_values(array_map(
             static fn(ToolSpec|array $tool): ToolSpec => $tool instanceof ToolSpec ? $tool : ToolSpec::fromArray($tool),
             $tools,
@@ -485,7 +366,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                     );
                 }
 
-                return $provider->chatCompletionWithTools($this->applySystemPrompt($normalisedMessages, $optionsArray), $normalisedTools, $optionsArray);
+                return $provider->chatCompletionWithTools($this->messageShaper->applySystemPrompt($normalisedMessages, $optionsArray), $normalisedTools, $optionsArray);
             },
             $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
         );
@@ -518,7 +399,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         $optionOverrides = $options->toArray();
         unset($optionOverrides['provider']);
 
-        $normalisedMessages = $this->normaliseMessages($messages);
+        $normalisedMessages = $this->messageShaper->normalise($messages);
         $normalisedTools    = array_values(array_map(
             static fn(ToolSpec|array $tool): ToolSpec => $tool instanceof ToolSpec ? $tool : ToolSpec::fromArray($tool),
             $tools,
@@ -540,7 +421,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                 unset($callOptions['provider']);
 
                 return $adapter->chatCompletionWithTools(
-                    $this->applySystemPrompt($normalisedMessages, $callOptions),
+                    $this->messageShaper->applySystemPrompt($normalisedMessages, $callOptions),
                     $normalisedTools,
                     $callOptions,
                 );
@@ -583,31 +464,25 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
 
         $metadata = $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost());
 
-        // Cache metadata: CacheMiddleware short-circuits when it sees a key;
-        // cache_ttl: 0 (EmbeddingOptions::noCache()) leaves the key out so
-        // the middleware becomes a no-op for this call — same contract as
-        // embed().
+        // Cache metadata mirrors embed(), but the configuration path keys by
+        // configuration identifier plus the effective model (options override
+        // or the configuration's model id) so two configurations pointing at
+        // different models never share entries. EmbedCacheKeyBuilder returns an
+        // empty array for cache_ttl <= 0 (EmbeddingOptions::noCache()).
         $cacheTtl = is_int($optionOverrides['cache_ttl'] ?? null) ? $optionOverrides['cache_ttl'] : 0;
-        if ($cacheTtl > 0) {
-            $effectiveModel = is_string($optionOverrides['model'] ?? null)
-                ? $optionOverrides['model']
-                : $configuration->getModelId();
-            $metadata += [
-                CacheMiddleware::METADATA_CACHE_KEY => $this->cacheManager->generateCacheKey(
-                    $configuration->getIdentifier(),
-                    'embeddings',
-                    ['input' => $input, 'options' => $optionOverrides, 'model' => $effectiveModel],
-                ),
-                CacheMiddleware::METADATA_CACHE_TTL  => $cacheTtl,
-                CacheMiddleware::METADATA_CACHE_TAGS => [
-                    'nrllm_embeddings',
-                    // Sanitize: configuration identifiers use the dotted preset scheme
-                    // (nr_ai_search.embeddings), and the cache frontend rejects a tag
-                    // containing a dot with an InvalidArgumentException on set().
-                    'nrllm_configuration_' . $this->cacheManager->sanitizeCacheTag($configuration->getIdentifier()),
-                ],
-            ];
-        }
+        $effectiveModel = is_string($optionOverrides['model'] ?? null)
+            ? $optionOverrides['model']
+            : $configuration->getModelId();
+        // EmbedCacheKeyBuilder sanitizes the scope tag: configuration
+        // identifiers use the dotted preset scheme (nr_ai_search.embeddings),
+        // and the cache frontend rejects a tag containing a dot with an
+        // InvalidArgumentException on set().
+        $metadata += $this->embedCacheKeyBuilder->build(
+            $cacheTtl,
+            $configuration->getIdentifier(),
+            ['input' => $input, 'options' => $optionOverrides, 'model' => $effectiveModel],
+            'nrllm_configuration_' . $configuration->getIdentifier(),
+        );
 
         // Terminal returns an array-shaped payload so CacheMiddleware (which
         // persists `array<string, mixed>`) can round-trip through the TYPO3
@@ -646,12 +521,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function supportsFeature(string $feature, ?string $provider = null): bool
     {
-        try {
-            $providerInstance = $this->getProvider($provider);
-            return $providerInstance->supportsFeature($feature);
-        } catch (ProviderException) {
-            return false;
-        }
+        return $this->providerRegistry->supportsFeature($feature, $provider);
     }
 
     /**
@@ -661,9 +531,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function getProviderConfiguration(string $identifier): array
     {
-        /** @var array<string, array<string, mixed>> $providers */
-        $providers = is_array($this->configuration['providers'] ?? null) ? $this->configuration['providers'] : [];
-        return $providers[$identifier] ?? [];
+        return $this->providerRegistry->getProviderConfiguration($identifier);
     }
 
     /**
@@ -673,11 +541,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function configureProvider(string $identifier, array $config): void
     {
-        if (!isset($this->providers[$identifier])) {
-            throw new ProviderException(sprintf('Provider "%s" not found', $identifier), 5332497319);
-        }
-
-        $this->providers[$identifier]->configure($config);
+        $this->providerRegistry->configureProvider($identifier, $config);
     }
 
     // ========================================
@@ -741,7 +605,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
      */
     public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []): CompletionResponse
     {
-        $normalisedMessages = $this->normaliseMessages($messages);
+        $normalisedMessages = $this->messageShaper->normalise($messages);
 
         return $this->runThroughPipeline(
             $configuration,
@@ -750,7 +614,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
                 $adapter = $this->getAdapterFromConfiguration($config);
                 $options = array_merge($config->toOptionsArray(), $optionOverrides);
                 unset($options['provider']);
-                return $adapter->chatCompletion($this->applySystemPrompt($normalisedMessages, $options), $options);
+                return $adapter->chatCompletion($this->messageShaper->applySystemPrompt($normalisedMessages, $options), $options);
             },
             $metadata,
         );
@@ -849,84 +713,26 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
     }
 
     /**
-     * Prepend the effective system prompt (from the merged call options) as a
-     * system message when the caller has not already supplied one.
+     * Split the pinned provider key out of a call's options array.
      *
-     * The provider adapters read the system instruction from the message list,
-     * NOT from `options['system_prompt']`. A configuration's stored system
-     * prompt is surfaced via {@see LlmConfiguration::toOptionsArray()} under
-     * that option key, so without this step it would be silently dropped on
-     * every chat and tool-loop call. An explicit system message already present
-     * in $messages always wins (per-call precedence over the configuration).
+     * Every generic (provider-agnostic) entry point — chat(), complete(),
+     * embed(), vision(), streamChat(), chatWithTools() — reads the pinned
+     * provider from the options, then strips it so the remaining options can be
+     * forwarded to the adapter. Returns the nullable provider key and the
+     * options array with `provider` removed.
      *
-     * @param list<ChatMessage|array<string, mixed>> $messages
-     * @param array<string, mixed>                   $options
+     * @param array<string, mixed> $optionsArray
      *
-     * @return list<ChatMessage|array<string, mixed>>
+     * @return array{0: ?string, 1: array<string, mixed>}
      */
-    private function applySystemPrompt(array $messages, array $options): array
+    private function splitProviderKey(array $optionsArray): array
     {
-        $systemPrompt = $options['system_prompt'] ?? null;
-        if (!is_string($systemPrompt) || $systemPrompt === '') {
-            return $messages;
-        }
+        $providerKey = isset($optionsArray['provider']) && is_string($optionsArray['provider'])
+            ? $optionsArray['provider']
+            : null;
+        unset($optionsArray['provider']);
 
-        foreach ($messages as $message) {
-            $isSystem = $message instanceof ChatMessage
-                ? $message->isSystem()
-                : (is_array($message) && ($message['role'] ?? null) === 'system');
-            if ($isSystem) {
-                return $messages;
-            }
-        }
-
-        array_unshift($messages, ChatMessage::system($systemPrompt));
-
-        return $messages;
-    }
-
-    /**
-     * Normalise a public-API messages list for forwarding to providers.
-     *
-     * Simple legacy fixtures matching the `ChatMessage` shape (`{role: string,
-     * content: string}` only) are routed through `ChatMessage::fromArray()`
-     * so providers downstream see typed VOs whenever the sender used the
-     * documented shape. Richer provider-specific arrays carrying
-     * `tool_call_id`, `tool_calls`, `name`, or multimodal `content` arrays
-     * are passed through unchanged so their additional fields survive the
-     * round-trip. `ChatMessage` models the tool-turn keys (`tool_calls`,
-     * `tool_call_id`) since #345 — typed tool turns pass through as VOs and
-     * serialise those fields in `toArray()` — but `name` and multimodal
-     * `content` arrays remain array-only shapes, and eagerly running them
-     * through `fromArray()` would silently drop the extra keys (and break
-     * `ClaudeProvider::convertMessagesForClaude()` for multimodal messages).
-     *
-     * @param list<ChatMessage|array<string, mixed>> $messages
-     *
-     * @return list<ChatMessage|array<string, mixed>>
-     */
-    private function normaliseMessages(array $messages): array
-    {
-        return array_values(array_map(
-            static function (ChatMessage|array $message): ChatMessage|array {
-                if ($message instanceof ChatMessage) {
-                    return $message;
-                }
-
-                if (
-                    count($message) === 2
-                    && array_key_exists('role', $message)
-                    && array_key_exists('content', $message)
-                    && is_string($message['role'])
-                    && is_string($message['content'])
-                ) {
-                    return ChatMessage::fromArray($message);
-                }
-
-                return $message;
-            },
-            $messages,
-        ));
+        return [$providerKey, $optionsArray];
     }
 
     /**
@@ -991,7 +797,7 @@ final class LlmServiceManager implements LlmServiceManagerInterface, SingletonIn
         }
 
         return $adapter->streamChatCompletion(
-            $this->applySystemPrompt($this->normaliseMessages($messages), $options),
+            $this->messageShaper->applySystemPrompt($this->messageShaper->normalise($messages), $options),
             $options,
         );
     }

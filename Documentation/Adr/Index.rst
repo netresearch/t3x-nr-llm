@@ -357,5 +357,6 @@ Tools
    Adr056ConfigurationPresets
    Adr057SpecializedServiceAttribution
    Adr058TelemetryMiddleware
+   Adr059DecomposeLlmServiceManager
    Adr060QualityEvaluation
    Adr061SkillTrustEgressAndAudit

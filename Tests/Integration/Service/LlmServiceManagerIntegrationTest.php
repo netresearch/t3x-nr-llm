@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Integration\AbstractIntegrationTestCase;
+use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -35,6 +36,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(LlmServiceManager::class)]
 class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 {
+    use LlmServiceManagerTestFactory;
     private LlmServiceManager $subject;
     private ExtensionConfiguration&MockObject $extensionConfigStub;
     private ProviderAdapterRegistryInterface&Stub $adapterRegistryStub;
@@ -61,7 +63,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 
         $this->adapterRegistryStub = self::createStub(ProviderAdapterRegistryInterface::class);
 
-        $this->subject = new LlmServiceManager(
+        $this->subject = $this->createLlmServiceManager(
             $this->extensionConfigStub,
             new NullLogger(),
             $this->adapterRegistryStub,
@@ -234,7 +236,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
             'providers' => [],
         ]);
 
-        $manager = new LlmServiceManager($configMock, new NullLogger(), $this->adapterRegistryStub, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
+        $manager = $this->createLlmServiceManager($configMock, new NullLogger(), $this->adapterRegistryStub, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
 
         $this->expectException(ProviderException::class);
         $this->expectExceptionMessage('No provider specified and no default provider configured');

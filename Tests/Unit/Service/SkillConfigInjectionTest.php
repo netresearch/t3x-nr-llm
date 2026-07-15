@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -44,6 +45,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(LlmServiceManager::class)]
 final class SkillConfigInjectionTest extends AbstractUnitTestCase
 {
+    use LlmServiceManagerTestFactory;
     private const SKILL_NEEDLE = '### Skill: Config Skill';
 
     private const SYSTEM_PROMPT = 'You are a translator.';
@@ -116,7 +118,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
             },
         );
 
-        $manager = new LlmServiceManager(
+        $manager = $this->createLlmServiceManager(
             $this->extensionConfigStub(),
             self::createStub(LoggerInterface::class),
             self::createStub(ProviderAdapterRegistryInterface::class),
@@ -154,7 +156,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
             },
         );
 
-        $manager = new LlmServiceManager(
+        $manager = $this->createLlmServiceManager(
             $this->extensionConfigStub(),
             self::createStub(LoggerInterface::class),
             self::createStub(ProviderAdapterRegistryInterface::class),
@@ -185,7 +187,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $registry = self::createStub(ProviderAdapterRegistryInterface::class);
         $registry->method('createAdapterFromModel')->willReturn($adapter);
 
-        return new LlmServiceManager(
+        return $this->createLlmServiceManager(
             $this->extensionConfigStub(),
             self::createStub(LoggerInterface::class),
             $registry,

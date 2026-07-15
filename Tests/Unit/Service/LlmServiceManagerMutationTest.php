@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -26,6 +27,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(LlmServiceManager::class)]
 class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 {
+    use LlmServiceManagerTestFactory;
     /**
      * @param array<string, mixed> $config
      */
@@ -38,7 +40,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
         $loggerStub = self::createStub(LoggerInterface::class);
         $adapterRegistryStub = self::createStub(ProviderAdapterRegistryInterface::class);
 
-        return new LlmServiceManager($extensionConfigStub, $loggerStub, $adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+        return $this->createLlmServiceManager($extensionConfigStub, $loggerStub, $adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
     }
 
     private function createProviderStub(string $identifier, string $name = 'Test'): ProviderInterface

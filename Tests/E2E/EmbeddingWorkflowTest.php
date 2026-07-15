@@ -17,8 +17,8 @@ use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Feature\EmbeddingService;
-use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
+use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
@@ -33,6 +33,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(EmbeddingService::class)]
 class EmbeddingWorkflowTest extends AbstractE2ETestCase
 {
+    use LlmServiceManagerTestFactory;
     #[Test]
     public function completeEmbeddingWorkflow(): void
     {
@@ -57,7 +58,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
+        $serviceManager = $this->createLlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
@@ -107,7 +108,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
-        $serviceManager = new LlmServiceManager(
+        $serviceManager = $this->createLlmServiceManager(
             $extensionConfig,
             new NullLogger(),
             $adapterRegistry,
@@ -180,7 +181,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
+        $serviceManager = $this->createLlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
@@ -244,7 +245,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         ]);
 
         $adapterRegistry = self::createStub(ProviderAdapterRegistryInterface::class);
-        $serviceManager = new LlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
+        $serviceManager = $this->createLlmServiceManager($extensionConfig, new NullLogger(), $adapterRegistry, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
         $serviceManager->registerProvider($provider);
         // setHttpClient must be called AFTER registerProvider() since it calls configure()
         $provider->setHttpClient($httpClient);
