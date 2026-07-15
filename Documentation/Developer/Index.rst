@@ -238,5 +238,6 @@ Best practices
    FallbackChain
    CapabilityPermissions
    ConfigurationPresets
+   QualityEvaluation
    IntegrationGuide
    FeatureServices/Index

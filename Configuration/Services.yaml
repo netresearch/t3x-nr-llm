@@ -182,6 +182,19 @@ services:
     alias: Netresearch\NrLlm\Service\Telemetry\TelemetryRepository
     public: false
 
+  # Quality-evaluation subsystem (ADR-060). Everything here is private:
+  # the persistence layer is instantiated directly in its functional test
+  # (its only dependency is ConnectionPool), the command is made public by
+  # the console.command tag below, and the golden-set provider interface is
+  # discovered via the nr_llm.golden_prompt_set tag (AutoconfigureTag).
+  Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface:
+    alias: Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepository
+    public: false
+
+  Netresearch\NrLlm\Service\Evaluation\ModelQualityScoreProviderInterface:
+    alias: Netresearch\NrLlm\Service\Evaluation\EvaluationQualityScoreProvider
+    public: false
+
   # ========================================
   # Repositories (PUBLIC)
   # ========================================
@@ -315,4 +328,18 @@ services:
 
   Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator:
     public: true
+
+  # ========================================
+  # Console Commands
+  # ========================================
+  # The console.command tag registers the command with TYPO3's
+  # CommandRegistry and is made public by ConsoleCommandPass — it does not
+  # add a `public: true` override to the audited surface (ADR-028 / ADR-060).
+
+  Netresearch\NrLlm\Command\EvalRunCommand:
+    tags:
+      - name: 'console.command'
+        command: 'nrllm:eval:run'
+        description: 'Run a golden prompt set against a model and report grading and regression.'
+        schedulable: false
 
