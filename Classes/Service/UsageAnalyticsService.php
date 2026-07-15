@@ -14,7 +14,6 @@ use DateTimeInterface;
 use Netresearch\NrLlm\Domain\Model\UserBudget;
 use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
-use Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -55,7 +54,6 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     public function __construct(
         private ConnectionPool $connectionPool,
         private UserBudgetRepository $userBudgetRepository,
-        private BudgetUsageWindowsInterface $budgetUsageWindows,
     ) {}
 
     public function getKpiTotals(DateTimeInterface $from, DateTimeInterface $to): array
@@ -179,13 +177,18 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
 
         $now = new DateTimeImmutable();
         $monthStart = $now->modify('first day of this month')->setTime(0, 0, 0)->getTimestamp();
+        // Batch the month-to-date cost for every user in one grouped query
+        // instead of one aggregate SUM per budgeted user inside the loop (N+1).
+        $monthlyCosts = $this->monthlyCostByUser(
+            array_map(static fn(array $entry): int => $entry['beUserUid'], $merged),
+            $monthStart,
+            $now->getTimestamp(),
+        );
         $result = [];
         foreach ($merged as $entry) {
             $entry['budget'] = $this->budgetConsumption(
-                $entry['beUserUid'],
                 $budgets[$entry['beUserUid']] ?? null,
-                $monthStart,
-                $now->getTimestamp(),
+                $monthlyCosts[$entry['beUserUid']] ?? 0.0,
             );
             $result[] = $entry;
         }
@@ -378,27 +381,64 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     }
 
     /**
-     * @param UserBudget|null $budget Pre-fetched budget for $beUserUid (batch-loaded by the caller).
+     * @param UserBudget|null $budget   Pre-fetched budget for the user (batch-loaded by the caller).
+     * @param float           $usedCost Pre-fetched month-to-date cost for the user (batch-loaded by the caller).
      *
      * @return array{usedCost: float, limitCost: float, percent: float}|null
      */
-    private function budgetConsumption(int $beUserUid, ?UserBudget $budget, int $monthStart, int $now): ?array
+    private function budgetConsumption(?UserBudget $budget, float $usedCost): ?array
     {
-        if ($beUserUid <= 0) {
-            return null;
-        }
         if ($budget === null || !$budget->isActive() || $budget->getMaxCostPerMonth() <= 0.0) {
             return null;
         }
 
-        $windows = $this->budgetUsageWindows->aggregate($beUserUid, null, $monthStart, $now);
-        $used = $windows['monthly']['cost'];
         $limit = $budget->getMaxCostPerMonth();
 
         return [
-            'usedCost'  => $used,
+            'usedCost'  => $usedCost,
             'limitCost' => $limit,
-            'percent'   => $limit > 0.0 ? min(100.0, ($used / $limit) * 100.0) : 0.0,
+            'percent'   => $limit > 0.0 ? min(100.0, ($usedCost / $limit) * 100.0) : 0.0,
         ];
+    }
+
+    /**
+     * Month-to-date cost per backend user, in one grouped query.
+     *
+     * Collapses what was an N+1 (one SUM per budgeted user) into a single
+     * `GROUP BY be_user` over the same rollup table the per-user view reads.
+     * Returns a uid => cost map; users with no rows in the window are absent.
+     *
+     * @param list<int> $beUserUids
+     *
+     * @return array<int, float>
+     */
+    private function monthlyCostByUser(array $beUserUids, int $monthStart, int $now): array
+    {
+        $beUserUids = array_values(array_unique(array_filter($beUserUids, static fn(int $uid): bool => $uid > 0)));
+        if ($beUserUids === []) {
+            return [];
+        }
+
+        $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $rows = $qb
+            ->select('be_user')
+            ->addSelectLiteral('SUM(estimated_cost) AS cost')
+            ->from(self::TABLE)
+            ->where(
+                $qb->expr()->in('be_user', $qb->createNamedParameter($beUserUids, Connection::PARAM_INT_ARRAY)),
+                $qb->expr()->gte('request_date', $qb->createNamedParameter($monthStart)),
+                $qb->expr()->lte('request_date', $qb->createNamedParameter($now)),
+            )
+            ->groupBy('be_user')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $costs = [];
+        foreach ($rows as $row) {
+            $uid = is_numeric($row['be_user'] ?? null) ? (int)$row['be_user'] : 0;
+            $costs[$uid] = is_numeric($row['cost'] ?? null) ? (float)$row['cost'] : 0.0;
+        }
+
+        return $costs;
     }
 }
