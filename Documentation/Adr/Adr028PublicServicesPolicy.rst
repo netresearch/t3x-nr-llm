@@ -6,9 +6,21 @@
 ADR-028: Public services policy in ``Configuration/Services.yaml``
 ================================================================
 
-:Status: Accepted
+:Status: Accepted (count and Category 3 / tail rationale superseded by :ref:`adr-065`)
 :Date: 2026-04-30
 :Slice: 25 (audit 2026-04-23 REC #9c)
+
+.. note::
+
+   :ref:`adr-065` supersedes this ADR's **count** (45 → 27) and its
+   Category 3 / class-name-resolution-tail rationale. The premise below —
+   that repositories and the tail must be public because
+   ``FunctionalTestCase::get()`` only resolves public services — is
+   incorrect: the testing framework's ``PrivateContainerWeakRefPass``
+   makes every private service resolvable through ``get()``. The policy,
+   the category framework, and the enforcement test remain in force; only
+   the expected total and the two test-driven categories changed. Read
+   ADR-065 for the current public set.
 
 Context
 =======

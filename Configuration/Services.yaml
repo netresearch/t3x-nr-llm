@@ -121,11 +121,18 @@ services:
     public: true
 
   # ========================================
-  # Supporting Services (PUBLIC)
+  # Supporting Services (interface aliases stay public; concretes private)
   # ========================================
-
-  Netresearch\NrLlm\Service\PromptTemplateService:
-    public: true
+  # The concrete supporting services (CacheManager, UsageTrackerService,
+  # UsageAnalyticsService, PromptTemplateService, LlmConfigurationService)
+  # are autoregistered PRIVATE by the namespace block above. Consumers
+  # wire against the public interface alias; the interface aliases below
+  # (and CacheManager/UsageTrackerService interfaces in the Core section)
+  # stay public so the DI contract holds. Functional tests that resolve a
+  # concrete by class name go through the testing-framework private
+  # container (ADR-062, supersedes ADR-028). PromptSnippetComposer has no
+  # interface and is the documented ADR-031 snippet surface, so it stays
+  # public as a concrete.
 
   Netresearch\NrLlm\Service\PromptTemplateServiceInterface:
     alias: Netresearch\NrLlm\Service\PromptTemplateService
@@ -134,20 +141,8 @@ services:
   Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer:
     public: true
 
-  Netresearch\NrLlm\Service\CacheManager:
-    public: true
-
-  Netresearch\NrLlm\Service\LlmConfigurationService:
-    public: true
-
   Netresearch\NrLlm\Service\LlmConfigurationServiceInterface:
     alias: Netresearch\NrLlm\Service\LlmConfigurationService
-    public: true
-
-  Netresearch\NrLlm\Service\UsageTrackerService:
-    public: true
-
-  Netresearch\NrLlm\Service\UsageAnalyticsService:
     public: true
 
   # ========================================
@@ -196,32 +191,17 @@ services:
     public: false
 
   # ========================================
-  # Repositories (PUBLIC)
+  # Repositories (private)
   # ========================================
-
-  Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository:
-    public: true
-
-  Netresearch\NrLlm\Domain\Repository\ProviderRepository:
-    public: true
-
-  Netresearch\NrLlm\Domain\Repository\ModelRepository:
-    public: true
-
-  Netresearch\NrLlm\Domain\Repository\TaskRepository:
-    public: true
-
-  Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository:
-    public: true
-
-  Netresearch\NrLlm\Domain\Repository\UserBudgetRepository:
-    public: true
-
-  Netresearch\NrLlm\Domain\Repository\SkillRepository:
-    public: true
-
-  Netresearch\NrLlm\Domain\Repository\SkillSourceRepository:
-    public: true
+  # Repositories are autoregistered PRIVATE by the namespace block above.
+  # They are injected via constructor DI in production; the functional and
+  # backend-E2E tests that resolve them by class name do so through the
+  # testing-framework private container (PrivateContainerWeakRefPass makes
+  # every private service resolvable via FunctionalTestCase::get()), so no
+  # public override is needed (ADR-062, supersedes ADR-028 Category 3).
+  # PromptSnippetRepository's documented ADR-031 query surface for
+  # consuming extensions is exposed via the public PromptSnippetComposer,
+  # not the repository itself.
 
   Netresearch\NrLlm\Service\Skill\GitHubClientInterface:
     alias: Netresearch\NrLlm\Service\Skill\GitHubClient
@@ -240,9 +220,8 @@ services:
   Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface:
     alias: Netresearch\NrLlm\Service\Tool\ToolAvailabilityService
 
-  Netresearch\NrLlm\Service\BudgetService:
-    public: true
-
+  # Concrete BudgetService is private (autoregistered); consumers wire
+  # against the public BudgetServiceInterface alias.
   Netresearch\NrLlm\Service\BudgetServiceInterface:
     alias: Netresearch\NrLlm\Service\BudgetService
     public: true
@@ -275,9 +254,8 @@ services:
   # ========================================
   # Translation Registry
   # ========================================
-
-  Netresearch\NrLlm\Specialized\Translation\TranslatorRegistry:
-    public: true
+  # Concrete TranslatorRegistry is private (autoregistered); consumers wire
+  # against the public TranslatorRegistryInterface alias (Core section).
 
   # ========================================
   # Specialized Translators
@@ -315,19 +293,21 @@ services:
   # ========================================
   # Setup Wizard Services
   # ========================================
+  # ProviderDetector stays PUBLIC: it is resolved via
+  # GeneralUtility::makeInstance() in ProviderEndpointNormalizationHook
+  # (a DataHandler hook, outside DI), and makeInstance() only reuses the
+  # container-built instance for public services. ModelDiscovery and
+  # ConfigurationGenerator are private (autoregistered) — injected via DI,
+  # resolved in tests through the private container (ADR-062). The
+  # ModelDiscoveryInterface alias stays for autowiring but is private;
+  # tests resolve it through the private container too.
 
   Netresearch\NrLlm\Service\SetupWizard\ProviderDetector:
     public: true
 
-  Netresearch\NrLlm\Service\SetupWizard\ModelDiscovery:
-    public: true
-
   Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface:
     alias: Netresearch\NrLlm\Service\SetupWizard\ModelDiscovery
-    public: true
-
-  Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator:
-    public: true
+    public: false
 
   # ========================================
   # Console Commands
