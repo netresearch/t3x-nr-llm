@@ -187,8 +187,11 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
                 $config = new LlmConfiguration();
                 $config->setTemperature($temp);
 
-                // Valid values should be preserved exactly (within float precision)
-                $this->assertEqualsWithDelta($temp, $config->getTemperature(), 0.0001);
+                // An in-range value is preserved at the model's storage scale:
+                // the setter rounds to the decimal(3,2) column precision (#336),
+                // so the property is preservation-at-2-decimals, not bit-exact
+                // round-trip of a generator value that can carry 4 decimals.
+                $this->assertEqualsWithDelta(round($temp, 2), $config->getTemperature(), 0.0001);
             });
     }
 
@@ -201,7 +204,8 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
                 $config = new LlmConfiguration();
                 $config->setTopP($topP);
 
-                $this->assertEqualsWithDelta($topP, $config->getTopP(), 0.0001);
+                // Preserved at the decimal(3,2) storage scale (see temperature).
+                $this->assertEqualsWithDelta(round($topP, 2), $config->getTopP(), 0.0001);
             });
     }
 
@@ -215,8 +219,9 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
                 $config->setFrequencyPenalty($penalty);
                 $config->setPresencePenalty($penalty);
 
-                $this->assertEqualsWithDelta($penalty, $config->getFrequencyPenalty(), 0.0001);
-                $this->assertEqualsWithDelta($penalty, $config->getPresencePenalty(), 0.0001);
+                // Preserved at the decimal(3,2) storage scale (see temperature).
+                $this->assertEqualsWithDelta(round($penalty, 2), $config->getFrequencyPenalty(), 0.0001);
+                $this->assertEqualsWithDelta(round($penalty, 2), $config->getPresencePenalty(), 0.0001);
             });
     }
 
