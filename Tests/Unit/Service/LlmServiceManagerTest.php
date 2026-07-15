@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service;
 
 use Exception;
 use Generator;
+use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\DTO\FallbackChain;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
@@ -37,6 +38,7 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
@@ -44,12 +46,18 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
+use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
+use Netresearch\NrLlm\Tests\Unit\Fixture\RecordingUsageTracker;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use TYPO3\CMS\Core\Context\AspectInterface;
+use TYPO3\CMS\Core\Context\Context;
 
 #[CoversClass(LlmServiceManager::class)]
 class LlmServiceManagerTest extends AbstractUnitTestCase
@@ -1419,6 +1427,112 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $this->expectExceptionMessage('does not support streaming');
 
         iterator_to_array($manager->streamChatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config));
+    }
+
+    /**
+     * When a StreamingDispatcher is wired the manager routes streamChat through
+     * it, so a streamed call lands in the usage and telemetry tables just like a
+     * non-streaming call (ADR-062). The unwired constructions in the other
+     * streaming tests keep the legacy raw-generator path.
+     */
+    #[Test]
+    public function streamChatRoutesThroughTheStreamingLifecycleWhenWired(): void
+    {
+        $usage     = new RecordingUsageTracker();
+        $telemetry = new InMemoryTelemetryRepository();
+
+        $manager = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            null,
+            null,
+            null,
+            $this->streamingDispatcher($usage, $telemetry),
+        );
+        $manager->registerProvider(new TestableStreamingProvider());
+
+        $chunks = iterator_to_array($manager->streamChat(
+            [['role' => 'user', 'content' => 'Hi']],
+            new ChatOptions(provider: 'openai-stream'),
+        ));
+
+        self::assertSame(['Hello', ' World'], $chunks);
+
+        self::assertCount(1, $usage->calls);
+        self::assertSame('stream', $usage->calls[0]['serviceType']);
+        self::assertSame('openai-stream', $usage->calls[0]['provider']);
+
+        self::assertCount(1, $telemetry->records);
+        self::assertSame('stream', $telemetry->records[0]->operation);
+        self::assertTrue($telemetry->records[0]->success);
+    }
+
+    /**
+     * The capability check must fire eagerly (at call time), not lazily on the
+     * first iteration, even in the wired path — consistent with the legacy path
+     * and non-streaming calls (ADR-062 review finding 3).
+     */
+    #[Test]
+    public function streamChatWithConfigurationRejectsANonStreamingProviderEagerlyWhenWired(): void
+    {
+        $model  = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn([]);
+
+        $nonStreaming = self::createStub(ProviderInterface::class);
+        $nonStreaming->method('getIdentifier')->willReturn('non-streaming');
+        $registry = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registry->method('createAdapterFromModel')->willReturn($nonStreaming);
+
+        $manager = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registry,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            null,
+            null,
+            null,
+            $this->streamingDispatcher(new RecordingUsageTracker(), new InMemoryTelemetryRepository()),
+        );
+
+        $this->expectException(UnsupportedFeatureException::class);
+        $this->expectExceptionMessage('does not support streaming');
+
+        // No iteration: the throw must come from the call itself, proving the
+        // check is eager rather than deferred into the dispatcher generator.
+        $manager->streamChatWithConfiguration([['role' => 'user', 'content' => 'Hi']], $config);
+    }
+
+    private function streamingDispatcher(
+        RecordingUsageTracker $usage,
+        InMemoryTelemetryRepository $telemetry,
+    ): StreamingDispatcher {
+        $budget = self::createStub(BudgetServiceInterface::class);
+        $budget->method('check')->willReturn(BudgetCheckResult::allowed());
+
+        $aspect = self::createStub(AspectInterface::class);
+        $aspect->method('get')->willReturn(0);
+        $context = self::createStub(Context::class);
+        $context->method('getAspect')->willReturn($aspect);
+
+        $extensionConfiguration = self::createStub(ExtensionConfiguration::class);
+        $extensionConfiguration->method('get')->willReturn(['telemetry' => ['enabled' => '1']]);
+
+        return new StreamingDispatcher(
+            $budget,
+            $usage,
+            $telemetry,
+            self::createStub(LlmConfigurationRepository::class),
+            new NullLogger(),
+            $context,
+            $extensionConfiguration,
+        );
     }
 
     // ====================================================================

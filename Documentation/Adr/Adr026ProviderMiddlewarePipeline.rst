@@ -178,9 +178,12 @@ the test matrix keeps green end-to-end:
    :php:`ProviderCallContext` metadata, not from the configuration.
 
    Streaming (:php:`streamChat` / :php:`streamChatWithConfiguration`)
-   deliberately stays out of the pipeline per the ADR's original scope:
-   once the first chunk has been emitted, we cannot swap providers
-   mid-stream, and most middleware assume a single terminal result.
+   stays out of *this* pipeline — a lazy generator wrapped as the terminal
+   would make every middleware fire against a not-yet-started stream — but is
+   no longer an unaccounted bypass. It runs through an equivalent streaming
+   lifecycle (:ref:`adr-062`) that applies the same budget pre-flight, usage,
+   and telemetry, plus pre-first-chunk fallback. The single asymmetry is that
+   a provider swap is impossible once the first chunk has been emitted.
 
    **Why the centralised form rather than "every feature service owns
    glue":** the ADR's problem statement explicitly identifies direct
@@ -273,17 +276,17 @@ In every case the bypass is deliberate:
 * **Cache** — caching the result of a probe would defeat the purpose
   of probing.
 
-Together with streaming (see :ref:`adr-026-followups` step 5 — once
-the first chunk has been emitted we cannot swap providers
-mid-stream, and most middleware assume a single terminal result),
-these three diagnostic actions are the documented exemptions from
-the "productive provider calls go through the pipeline" rule. There
-are no others. New diagnostic / health-check entry points should
-follow the same pattern as the three listed here: build the adapter
-via :php:`ProviderAdapterRegistry`, call the capability method
-directly, sanitize and surface the error themselves. New
-non-streaming *productive* entry points must go through
-:php:`MiddlewarePipeline::run()`.
+These three diagnostic actions are the documented exemptions from the
+"productive provider calls are accounted for" rule — they run no budget,
+usage, telemetry, or fallback on purpose. There are no others. Streaming is
+**not** an exemption: it does not use :php:`MiddlewarePipeline::run()` (a lazy
+generator cannot be wrapped as the terminal), but it runs an equivalent
+lifecycle (:ref:`adr-062`) that applies the same accounting. New diagnostic /
+health-check entry points should follow the same pattern as the three listed
+here: build the adapter via :php:`ProviderAdapterRegistry`, call the capability
+method directly, sanitize and surface the error themselves. New non-streaming
+*productive* entry points must go through :php:`MiddlewarePipeline::run()`;
+new streaming entry points must go through the streaming lifecycle.
 
 .. _adr-026-alternatives:
 

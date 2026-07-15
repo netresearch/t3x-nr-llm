@@ -34,6 +34,7 @@ use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use TYPO3\CMS\Core\SingletonInterface;
 
 final readonly class LlmServiceManager implements LlmServiceManagerInterface, SingletonInterface
@@ -47,6 +48,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         private EmbedCacheKeyBuilder $embedCacheKeyBuilder,
         private ?SkillInjectionService $skillInjection = null,
         private ?ModelSelectionServiceInterface $modelSelectionService = null,
+        private ?StreamingDispatcher $streaming = null,
     ) {}
 
     /**
@@ -311,25 +313,50 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
         // Single source of truth: prefer the default DB configuration (see chat()),
         // so streaming and non-streaming calls resolve the same provider/model.
+        // Budget attribution is forwarded so the streaming lifecycle can gate the
+        // same over-budget users the non-streaming path rejects.
         $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey);
         if ($defaultConfiguration !== null) {
             return $this->streamChatWithConfiguration(
                 $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
                 $defaultConfiguration,
                 $optionsArray,
+                $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
             );
         }
 
-        $provider = $this->getProvider($providerKey);
+        // Ad-hoc: a pinned provider with no configuration entity — no fallback
+        // chain, provider resolved by key.
+        $open = function () use ($messages, $optionsArray, $providerKey): Generator {
+            $provider = $this->getProvider($providerKey);
+            $this->assertStreamingCapable($provider, 1581627129);
 
-        if (!$provider instanceof StreamingCapableInterface) {
-            throw new UnsupportedFeatureException(
-                sprintf('Provider "%s" does not support streaming', $provider->getIdentifier()),
-                1581627129,
+            return $provider->streamChatCompletion(
+                $this->messageShaper->applySystemPrompt($this->messageShaper->normalise($messages), $optionsArray),
+                $optionsArray,
             );
+        };
+
+        $configuration = $this->synthesizeTransientConfiguration(ProviderOperation::Stream, $providerKey);
+
+        if ($this->streaming === null) {
+            return $open();
         }
 
-        return $provider->streamChatCompletion($this->messageShaper->applySystemPrompt($this->messageShaper->normalise($messages), $optionsArray), $optionsArray);
+        // Check capability eagerly so an unsupported provider throws at call time
+        // (as the legacy path and non-streaming calls do), not lazily on the
+        // first iteration inside the dispatcher.
+        $this->assertStreamingCapable($this->getProvider($providerKey), 1581627129);
+
+        $metadata = $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost());
+        $metadata[StreamingDispatcher::METADATA_PROVIDER]     = $providerKey ?? 'default';
+        $metadata[StreamingDispatcher::METADATA_PROMPT_CHARS] = $this->estimatePromptChars($messages);
+
+        return $this->streaming->stream(
+            ProviderCallContext::for(ProviderOperation::Stream, $metadata),
+            $configuration,
+            $open,
+        );
     }
 
     /**
@@ -713,6 +740,53 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     }
 
     /**
+     * Assert a resolved adapter can stream, else throw the typed
+     * UnsupportedFeatureException. Shared by both streaming entry points so the
+     * eager (call-time) check and the per-fallback opener check raise the same
+     * error; the `@phpstan-assert` narrows the adapter for the caller.
+     *
+     * @phpstan-assert StreamingCapableInterface $adapter
+     */
+    private function assertStreamingCapable(ProviderInterface $adapter, int $code): void
+    {
+        if (!$adapter instanceof StreamingCapableInterface) {
+            throw new UnsupportedFeatureException(
+                sprintf('Provider "%s" does not support streaming', $adapter->getIdentifier()),
+                $code,
+            );
+        }
+    }
+
+    /**
+     * Sum the character length of a message list's textual content, for the
+     * streaming lifecycle's prompt-token estimate (ADR-062). Computed here
+     * because the manager holds the messages; the dispatcher only sees the
+     * count, never the payload. Non-string (multimodal) content contributes
+     * nothing — the estimate is deliberately rough, matching the ≈4 chars/token
+     * heuristic the dispatcher applies to it.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     */
+    private function estimatePromptChars(array $messages): int
+    {
+        $chars = 0;
+        foreach ($messages as $message) {
+            if ($message instanceof ChatMessage) {
+                $chars += strlen($message->content);
+
+                continue;
+            }
+
+            $content = $message['content'] ?? '';
+            if (is_string($content)) {
+                $chars += strlen($content);
+            }
+        }
+
+        return $chars;
+    }
+
+    /**
      * Split the pinned provider key out of a call's options array.
      *
      * Every generic (provider-agnostic) entry point — chat(), complete(),
@@ -769,36 +843,61 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     /**
      * Stream chat completion using an LlmConfiguration entity.
      *
-     * Fallback chain is intentionally NOT applied to streaming: once the first
-     * chunk has been yielded to the caller we cannot swap providers mid-stream.
-     * Use chatWithConfiguration() if fallback protection is required.
+     * Routed through the streaming lifecycle (ADR-062): budget pre-flight before
+     * the first chunk, usage + telemetry settlement at stream end. Fallback IS
+     * applied, but only in the pre-first-chunk window — once a chunk has been
+     * yielded a provider swap is impossible, so a mid-stream failure surfaces to
+     * the caller rather than re-routing. Use chatWithConfiguration() for full
+     * mid-call fallback protection.
      *
      * Legacy array-shaped messages are accepted for back-compat and
      * normalised via `ChatMessage::fromArray()` before dispatch.
      *
+     * `$metadata` is threaded onto the streaming ProviderCallContext (budget
+     * attribution, task uid); it is the trailing parameter so the pre-existing
+     * three-argument callers stay source-compatible. Direct callers that omit it
+     * get an empty map, which the budget gate reads as "no budget owner —
+     * skip the check", matching chatWithConfiguration()'s contract.
+     *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $optionOverrides per-call options that take precedence over the configuration's stored defaults
+     * @param array<string, mixed>                   $metadata        cross-cutting streaming context (budget attribution, task uid)
      *
      * @return Generator<int, string, mixed, void>
      */
-    public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration, array $optionOverrides = []): Generator
+    public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration, array $optionOverrides = [], array $metadata = []): Generator
     {
-        $adapter = $this->getAdapterFromConfiguration($configuration);
-        $options = array_merge($configuration->toOptionsArray(), $optionOverrides);
+        $open = function (LlmConfiguration $config) use ($messages, $optionOverrides): Generator {
+            $adapter = $this->getAdapterFromConfiguration($config);
+            $options = array_merge($config->toOptionsArray(), $optionOverrides);
 
-        // Remove provider key as we already have the adapter
-        unset($options['provider']);
+            // Remove provider key as we already have the adapter
+            unset($options['provider']);
 
-        if (!$adapter instanceof StreamingCapableInterface) {
-            throw new UnsupportedFeatureException(
-                sprintf('Provider "%s" does not support streaming', $adapter->getIdentifier()),
-                1735300101,
+            $this->assertStreamingCapable($adapter, 1735300101);
+
+            return $adapter->streamChatCompletion(
+                $this->messageShaper->applySystemPrompt($this->messageShaper->normalise($messages), $options),
+                $options,
             );
+        };
+
+        if ($this->streaming === null) {
+            return $open($configuration);
         }
 
-        return $adapter->streamChatCompletion(
-            $this->messageShaper->applySystemPrompt($this->messageShaper->normalise($messages), $options),
-            $options,
+        // Check the PRIMARY provider's capability eagerly so an unsupported
+        // provider throws at call time, not lazily on the first iteration inside
+        // the dispatcher; fallback candidates are still checked per-attempt in
+        // the opener above.
+        $this->assertStreamingCapable($this->getAdapterFromConfiguration($configuration), 1735300101);
+
+        $metadata[StreamingDispatcher::METADATA_PROMPT_CHARS] = $this->estimatePromptChars($messages);
+
+        return $this->streaming->stream(
+            ProviderCallContext::for(ProviderOperation::Stream, $metadata),
+            $configuration,
+            $open,
         );
     }
 
