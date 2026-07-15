@@ -365,3 +365,4 @@ Tools
    Adr064CentralPrivacyModel
    Adr065ReducePublicServiceSurface
    Adr066CriteriaConfigurationResolution
+   Adr067SolrPerLanguageCoreFilter

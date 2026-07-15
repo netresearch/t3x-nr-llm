@@ -29,9 +29,13 @@ use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
  * `{scheme}://{host}:{port}{path}/solr/{core}/select`.
  *
  * Public-only: every query carries `fq={!typo3access}0,-1` — the
- * server-side access parser EXT:solr ships in its configsets — plus a
- * language filter. Any HTTP or parse failure makes the cascade continue
- * with the next backend.
+ * server-side access parser EXT:solr ships in its configsets. The query
+ * language is selected by the per-language read core (`solr_core_read`
+ * override), not by a `language` fq: EXT:solr uses one core per language
+ * (a core is shared only across sites of the SAME language, disambiguated
+ * by siteHash) and its index schema has no `language` field, so
+ * `fq=language:X` matches nothing. Any HTTP or parse failure makes the
+ * cascade continue with the next backend.
  */
 final class SolrSearchBackend implements SearchBackendInterface
 {
@@ -86,10 +90,9 @@ final class SolrSearchBackend implements SearchBackendInterface
                 'rows' => (string)$query->maxSources,
                 'wt' => 'json',
             ];
-            $filters = [
-                '{!typo3access}0,-1',
-                'language:' . $query->languageId,
-            ];
+            // No language fq: selectUrl() already picked the per-language read
+            // core, and EXT:solr's index schema has no `language` field.
+            $filters = ['{!typo3access}0,-1'];
 
             foreach ($this->select($endpoint, $parameters, $filters) as $document) {
                 $source = $this->toEvidence($document, $site, $query);
@@ -135,10 +138,10 @@ final class SolrSearchBackend implements SearchBackendInterface
                 'wt' => 'json',
             ],
             [
+                // Language is encoded by the read core (selectUrl), not an fq.
                 '{!typo3access}0,-1',
                 'type:' . $type,
                 'uid:' . self::toInt($uid),
-                'language:' . self::toInt($languageId),
             ],
         );
 
