@@ -64,6 +64,22 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
 
     private string $lastRequestUrl = '';
 
+    /**
+     * The exact multipart/form-data body the service handed to the stream
+     * factory in the last `setupSuccessfulRequest()` flow — lets tests
+     * inspect the encoded parts (file, model, language, …) without a real
+     * HTTP request.
+     */
+    private string $lastRequestBody = '';
+
+    /**
+     * Headers set on the last request built through `setupSuccessfulRequest()`,
+     * keyed by header name (e.g. `Content-Type`).
+     *
+     * @var array<string, mixed>
+     */
+    private array $lastRequestHeaders = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -185,7 +201,13 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     private function setupSuccessfulRequest(string $responseBody): void
     {
         $requestStub = self::createStub(RequestInterface::class);
-        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withHeader')->willReturnCallback(
+            function (string $name, mixed $value) use ($requestStub): RequestInterface {
+                $this->lastRequestHeaders[$name] = $value;
+
+                return $requestStub;
+            },
+        );
         $requestStub->method('withBody')->willReturnSelf();
 
         $this->requestFactoryStub
@@ -202,7 +224,13 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $streamStub = self::createStub(StreamInterface::class);
         $this->streamFactoryStub
             ->method('createStream')
-            ->willReturn($streamStub);
+            ->willReturnCallback(
+                function (string $content = '') use ($streamStub): StreamInterface {
+                    $this->lastRequestBody = $content;
+
+                    return $streamStub;
+                },
+            );
 
         $responseBodyStub = self::createStub(StreamInterface::class);
         $responseBodyStub->method('__toString')->willReturn($responseBody);
@@ -547,7 +575,10 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubjectWithoutApiKey();
         $audioFile = $this->createTestAudioFile();
 
+        // The availability guard runs before any request work; without it the
+        // path would later surface a generic connection failure instead.
         $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('Whisper service is not configured');
 
         $subject->transcribe($audioFile);
     }
@@ -732,6 +763,8 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $largeContent = str_repeat('a', 26 * 1024 * 1024); // > 25MB
 
         $this->expectException(UnsupportedFormatException::class);
+        // 25 * 1024 * 1024 / 1024 / 1024 = 25 MB in the limit message.
+        $this->expectExceptionMessage('Audio content exceeds maximum size of 25 MB');
 
         $subject->transcribeFromContent($largeContent, 'test.mp3');
     }
@@ -1158,6 +1191,13 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $result = $subject->transcribe($audioFile);
 
         self::assertInstanceOf(TranscriptionResult::class, $result);
+        // The configured `speech.whisper.baseUrl` must be the base the endpoint
+        // path is appended to (config is read at [speech][whisper], not
+        // elsewhere), so the request targets the custom host.
+        self::assertSame(
+            'https://custom-whisper.example.com/api/transcriptions',
+            $this->lastRequestUrl,
+        );
     }
 
     #[Test]
@@ -1175,5 +1215,273 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         self::assertEquals('Text without language', $result->text);
         // Should default to 'en'
         self::assertEquals('en', $result->language);
+    }
+
+    // ==================== outgoing request shape tests ====================
+
+    #[Test]
+    public function transcribePostsMultipartRequestToTranscriptionsEndpoint(): void
+    {
+        // Default createSubject() carries no baseUrl override, so the OpenAI
+        // default base (proven by emptyStringBaseUrlFallsBackToApiUrl) applies
+        // and the transcription endpoint is appended to it.
+        $subject = $this->createSubject();
+        $audioFile = $this->createTestAudioFile();
+        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+
+        $subject->transcribe($audioFile);
+
+        self::assertSame('POST', $this->lastRequestMethod);
+        self::assertSame('https://api.openai.com/v1/audio/transcriptions', $this->lastRequestUrl);
+
+        // The Content-Type carries the multipart boundary, prefixed `whisper-`.
+        self::assertArrayHasKey('Content-Type', $this->lastRequestHeaders);
+        $contentType = $this->lastRequestHeaders['Content-Type'];
+        self::assertIsString($contentType);
+        self::assertStringStartsWith('multipart/form-data; boundary=whisper-', $contentType);
+
+        // The boundary is `whisper-` concatenated with a uniqid() suffix; the
+        // body's first boundary line therefore has hex/dot chars after the
+        // prefix (rules out a bare, dropped, or reordered concatenation).
+        self::assertStringContainsString('--whisper-', $this->lastRequestBody);
+        self::assertMatchesRegularExpression('#^--whisper-[0-9a-f.]+\r\n#', $this->lastRequestBody);
+
+        // File part first, then the mandatory model field — both must survive.
+        self::assertStringContainsString(
+            'Content-Disposition: form-data; name="file"; filename="',
+            $this->lastRequestBody,
+        );
+        self::assertStringContainsString(
+            "Content-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-1\r\n",
+            $this->lastRequestBody,
+        );
+    }
+
+    #[Test]
+    public function transcribeSendsConfiguredModelValueInBody(): void
+    {
+        // The model field value is `$options->model ?? DEFAULT` — a caller model
+        // distinct from the `whisper-1` default proves the coalesce direction.
+        $subject = $this->createSubject();
+        $audioFile = $this->createTestAudioFile();
+        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+
+        $subject->transcribe($audioFile, new TranscriptionOptions(model: 'gpt-4o-transcribe'));
+
+        self::assertStringContainsString(
+            "Content-Disposition: form-data; name=\"model\"\r\n\r\ngpt-4o-transcribe\r\n",
+            $this->lastRequestBody,
+        );
+    }
+
+    #[Test]
+    public function transcribeEncodesOptionalFieldPartsWithNamesAndValues(): void
+    {
+        $subject = $this->createSubject();
+        $audioFile = $this->createTestAudioFile();
+        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Bonjour']));
+
+        $options = new TranscriptionOptions(
+            language: 'fr',
+            format: 'json',
+            prompt: 'Tech talk',
+            temperature: 0.5,
+        );
+
+        $subject->transcribe($audioFile, $options);
+
+        // Each optional field is added only when set, keyed by its API name and
+        // carrying its exact value (temperature is string-cast).
+        self::assertStringContainsString(
+            "Content-Disposition: form-data; name=\"language\"\r\n\r\nfr\r\n",
+            $this->lastRequestBody,
+        );
+        self::assertStringContainsString(
+            "Content-Disposition: form-data; name=\"response_format\"\r\n\r\njson\r\n",
+            $this->lastRequestBody,
+        );
+        self::assertStringContainsString(
+            "Content-Disposition: form-data; name=\"prompt\"\r\n\r\nTech talk\r\n",
+            $this->lastRequestBody,
+        );
+        self::assertStringContainsString(
+            "Content-Disposition: form-data; name=\"temperature\"\r\n\r\n0.5\r\n",
+            $this->lastRequestBody,
+        );
+    }
+
+    #[Test]
+    public function transcribeOmitsOptionalFieldPartsWhenUnset(): void
+    {
+        // With language/prompt/temperature unset (and format explicitly null so
+        // no response_format part is emitted), only the file and model parts
+        // remain — the `!== null` guards must skip the absent fields.
+        $subject = $this->createSubject();
+        $audioFile = $this->createTestAudioFile();
+        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+
+        $subject->transcribe($audioFile, new TranscriptionOptions(format: null));
+
+        self::assertStringNotContainsString('name="language"', $this->lastRequestBody);
+        self::assertStringNotContainsString('name="response_format"', $this->lastRequestBody);
+        self::assertStringNotContainsString('name="prompt"', $this->lastRequestBody);
+        self::assertStringNotContainsString('name="temperature"', $this->lastRequestBody);
+    }
+
+    #[Test]
+    public function transcribeFromContentEncodesFilePartWithFilenameAndContent(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+
+        $subject->transcribeFromContent('fake audio content', 'test.mp3');
+
+        self::assertStringContainsString(
+            "Content-Disposition: form-data; name=\"file\"; filename=\"test.mp3\"\r\n"
+            . "Content-Type: application/octet-stream\r\n\r\n"
+            . "fake audio content\r\n",
+            $this->lastRequestBody,
+        );
+    }
+
+    #[Test]
+    public function translateToEnglishPostsToTranslationsEndpoint(): void
+    {
+        // Translation dispatches to the `translations` endpoint, distinct from
+        // transcription's `transcriptions`.
+        $subject = $this->createSubject();
+        $audioFile = $this->createTestAudioFile();
+        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+
+        $subject->translateToEnglish($audioFile);
+
+        self::assertSame('POST', $this->lastRequestMethod);
+        self::assertSame('https://api.openai.com/v1/audio/translations', $this->lastRequestUrl);
+    }
+
+    #[Test]
+    public function transcribeFromContentThrowsWhenServiceUnavailable(): void
+    {
+        // The availability guard runs before any content work; without it the
+        // path would later surface a generic connection failure instead.
+        $subject = $this->createSubjectWithoutApiKey();
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('Whisper service is not configured');
+
+        $subject->transcribeFromContent('fake audio content', 'test.mp3');
+    }
+
+    #[Test]
+    public function translateToEnglishThrowsWhenServiceUnavailable(): void
+    {
+        $subject = $this->createSubjectWithoutApiKey();
+        $audioFile = $this->createTestAudioFile();
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('Whisper service is not configured');
+
+        $subject->translateToEnglish($audioFile);
+    }
+
+    #[Test]
+    public function translateToEnglishValidatesAudioFileBeforeSending(): void
+    {
+        // The file validation runs before the request; a missing file must
+        // raise the format exception rather than a downstream read failure.
+        $subject = $this->createSubject();
+
+        $this->expectException(UnsupportedFormatException::class);
+
+        $subject->translateToEnglish('/non/existent/file.mp3');
+    }
+
+    #[Test]
+    public function transcribeThrowsWhenFileExceedsMaxSize(): void
+    {
+        // A file larger than the limit must be rejected by the size guard; the
+        // check is an OR of the read-failure and over-size conditions.
+        $subject = $this->createSubject();
+        $largeFile = tempnam(sys_get_temp_dir(), 'whisper_big_') . '.mp3';
+        file_put_contents($largeFile, str_repeat('a', 26 * 1024 * 1024)); // > 25MB
+        $this->tempFile = $largeFile;
+
+        $this->expectException(UnsupportedFormatException::class);
+        $this->expectExceptionMessage('Audio file exceeds maximum size of 25 MB');
+
+        $subject->transcribe($largeFile);
+    }
+
+    #[Test]
+    public function transcribeFromContentAcceptsUppercaseExtension(): void
+    {
+        // The extension is lower-cased before the supported-format check, so an
+        // uppercase `.MP3` filename is accepted like its lowercase form.
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+
+        $result = $subject->transcribeFromContent('fake audio content', 'test.MP3');
+
+        self::assertInstanceOf(TranscriptionResult::class, $result);
+    }
+
+    #[Test]
+    public function transcribeAcceptsUppercaseFileExtension(): void
+    {
+        $subject = $this->createSubject();
+        $uppercaseFile = tempnam(sys_get_temp_dir(), 'whisper_upper_') . '.MP3';
+        file_put_contents($uppercaseFile, 'fake audio content');
+        $this->tempFile = $uppercaseFile;
+        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+
+        $result = $subject->transcribe($uppercaseFile);
+
+        self::assertInstanceOf(TranscriptionResult::class, $result);
+    }
+
+    #[Test]
+    public function resolveDefaultModelSkipsModelIdsThisServiceCannotSpeak(): void
+    {
+        // The registry query is provider-agnostic; a record whose model id is
+        // neither `whisper-*` nor `*-transcribe` must be skipped, so resolution
+        // falls back rather than returning that foreign id.
+        $foreign = new Model();
+        $foreign->setModelId('some-other-model');
+
+        $modelRepository = $this->createMock(ModelRepository::class);
+        $modelRepository->method('findByCapability')
+            ->willReturn(new InMemoryQueryResult([$foreign]));
+
+        $subject = $this->createSubject(modelRepository: $modelRepository);
+
+        self::assertSame('whisper-1', $subject->resolveDefaultModel('whisper-1'));
+    }
+
+    #[Test]
+    public function transcribeWithVerboseJsonExposesEveryParsedResponseField(): void
+    {
+        $subject = $this->createSubject();
+        $audioFile = $this->createTestAudioFile();
+        $this->setupSuccessfulRequest((string)json_encode([
+            'text' => 'Hello world',
+            'language' => 'de',
+            'duration' => 5.5,
+            'task' => 'transcribe',
+            'segments' => [
+                ['id' => 0, 'text' => 'Hello', 'start' => 0.0, 'end' => 2.5],
+                ['id' => 1, 'text' => 'world', 'start' => 2.5, 'end' => 5.5],
+            ],
+        ]));
+
+        $result = $subject->transcribe($audioFile, new TranscriptionOptions(format: 'verbose_json'));
+
+        self::assertSame('Hello world', $result->text);
+        self::assertSame('de', $result->language);
+        self::assertSame(5.5, $result->duration);
+        self::assertNotNull($result->segments);
+        self::assertCount(2, $result->segments);
+        self::assertNotNull($result->metadata);
+        self::assertSame('verbose_json', $result->metadata['format'] ?? null);
+        self::assertSame('transcribe', $result->metadata['task'] ?? null);
     }
 }

@@ -952,6 +952,14 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         self::assertCount(1, $results);
         self::assertInstanceOf(ImageGenerationResult::class, $results[0]);
         self::assertEquals('dall-e-2', $results[0]->model);
+        // The response URL is mapped onto the result, and the variation
+        // metadata tag is preserved.
+        self::assertSame('https://example.com/variation.png', $results[0]->url);
+        self::assertSame('[variation of uploaded image]', $results[0]->prompt);
+        self::assertSame('1024x1024', $results[0]->size);
+        /** @var array<string, mixed> $metadata */
+        $metadata = $results[0]->metadata;
+        self::assertSame('variation', $metadata['type'] ?? null);
     }
 
     #[Test]
@@ -1068,6 +1076,13 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         self::assertInstanceOf(ImageGenerationResult::class, $result);
         self::assertEquals('Add a hat', $result->prompt);
         self::assertEquals('dall-e-2', $result->model);
+        // The first response entry's URL is mapped onto the result, and the
+        // edit metadata tag is preserved.
+        self::assertSame('https://example.com/edited.png', $result->url);
+        self::assertSame('1024x1024', $result->size);
+        /** @var array<string, mixed> $metadata */
+        $metadata = $result->metadata;
+        self::assertSame('edit', $metadata['type'] ?? null);
     }
 
     #[Test]
@@ -1193,6 +1208,8 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             self::assertStringContainsString('DALL-E API error: Invalid request', $e->getMessage());
             self::assertIsArray($e->context);
             self::assertSame('validation', $e->context['type'] ?? null);
+            // The 400 branch keeps the provider tag in the exception payload.
+            self::assertSame('dall-e', $e->context['provider'] ?? null);
         }
     }
 
@@ -1285,6 +1302,25 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         self::assertIsInt($timeout);
 
         return $timeout;
+    }
+
+    /**
+     * Extract a scalar form-field value from an encoded multipart/form-data
+     * body (the shape produced by MultipartBodyBuilderTrait): a field part is
+     * `Content-Disposition: form-data; name="<name>"\r\n\r\n<value>\r\n`.
+     * File parts carry an extra `; filename="..."` and are therefore skipped
+     * by this name-anchored pattern.
+     */
+    private function multipartFieldValue(string $body, string $name): string
+    {
+        $pattern = sprintf(
+            '/Content-Disposition: form-data; name="%s"\r\n\r\n(.*?)\r\n/s',
+            preg_quote($name, '/'),
+        );
+        self::assertMatchesRegularExpression($pattern, $body);
+        preg_match($pattern, $body, $matches);
+
+        return is_string($matches[1] ?? null) ? $matches[1] : '';
     }
 
     #[Test]
@@ -1553,6 +1589,8 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 null,
                 0,
                 'gpt-image-2',
+                0,
+                null,
             );
 
         $subject = $this->buildService(
@@ -1599,6 +1637,8 @@ class DallEImageServiceTest extends AbstractUnitTestCase
                 null,
                 0,
                 'gpt-image-2',
+                0,
+                null,
             );
 
         $subject = $this->buildService(
@@ -1656,5 +1696,276 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $this->expectExceptionMessageMatches('/Image file not found/');
 
         $subject->edit($imageFile, 'Add a hat', '/non/existent/mask.png');
+    }
+
+    // ==================== generateMultiple guards + request shaping ====================
+
+    #[Test]
+    public function generateMultipleDefaultsToSingleImage(): void
+    {
+        // The default count is 1: with the default model (dall-e-3) the loop
+        // runs exactly once and returns a single result.
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'data' => [['url' => 'https://example.com/image.png']],
+        ]);
+
+        $results = $subject->generateMultiple('A cat');
+
+        self::assertCount(1, $results);
+    }
+
+    #[Test]
+    public function generateMultipleThrowsWhenServiceUnavailable(): void
+    {
+        // The dall-e-2 batch path is guarded by ensureAvailable() before it
+        // ever builds a request; a dall-e-2 model avoids the dall-e-3 loop's
+        // own generate() guard so this pins generateMultiple()'s own check.
+        $subject = $this->createSubjectWithoutApiKey();
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessageMatches('/is not configured/');
+
+        $subject->generateMultiple('A cat', 2, new ImageGenerationOptions(model: 'dall-e-2', size: '512x512'));
+    }
+
+    #[Test]
+    public function generateMultipleWithDallE2ValidatesPrompt(): void
+    {
+        // The dall-e-2 batch path validates the prompt before dispatching.
+        // A successful transport is wired so that, were the validation removed,
+        // the call would return normally instead of throwing.
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest(['data' => []]);
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessage('Prompt cannot be empty');
+
+        $subject->generateMultiple('   ', 2, new ImageGenerationOptions(model: 'dall-e-2', size: '512x512'));
+    }
+
+    #[Test]
+    public function generateMultipleWithDallE2SendsClampedNAndMapsResultFields(): void
+    {
+        // The dall-e-2 batch sends a single request with n clamped to 10 and
+        // maps every response entry onto a result (URL, revised prompt, size,
+        // metadata).
+        $captured = null;
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+        $this->requestFactoryStub->method('createRequest')->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub->method('createStream')->willReturnCallback(
+            function (string $json) use (&$captured, $streamStub): StreamInterface {
+                $captured = $json;
+                return $streamStub;
+            },
+        );
+
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn((string)json_encode([
+            'data' => array_fill(0, 10, ['url' => 'https://example.com/i.png', 'revised_prompt' => 'rev']),
+        ]));
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
+        $this->httpClientStub->method('sendRequest')->willReturn($responseStub);
+
+        $options = new ImageGenerationOptions(model: 'dall-e-2', size: '512x512');
+        $results = $this->createSubject()->generateMultiple('A cat', 20, $options);
+
+        self::assertIsString($captured);
+        $payload = json_decode($captured, true);
+        self::assertIsArray($payload);
+        // Count 20 is clamped to the dall-e-2 maximum of 10 in the request body.
+        self::assertSame(10, $payload['n']);
+        self::assertSame('dall-e-2', $payload['model']);
+        self::assertSame('512x512', $payload['size']);
+
+        self::assertCount(10, $results);
+        self::assertSame('https://example.com/i.png', $results[0]->url);
+        self::assertSame('rev', $results[0]->revisedPrompt);
+        self::assertSame('A cat', $results[0]->prompt);
+        self::assertSame('512x512', $results[0]->size);
+        /** @var array<string, mixed> $metadata */
+        $metadata = $results[0]->metadata;
+        self::assertSame('standard', $metadata['quality'] ?? null);
+    }
+
+    // ==================== createVariations / edit guards + request shaping ====================
+
+    #[Test]
+    public function createVariationsThrowsWhenServiceUnavailable(): void
+    {
+        $subject = $this->createSubjectWithoutApiKey();
+        $imageFile = $this->createTestImageFile();
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessageMatches('/is not configured/');
+
+        $subject->createVariations($imageFile);
+    }
+
+    #[Test]
+    public function createVariationsSendsClampedCountAndFieldsInMultipartBody(): void
+    {
+        // n is clamped to [1, 10] and shipped as a string form field alongside
+        // size and response_format.
+        $bodies = [];
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+        $this->requestFactoryStub->method('createRequest')->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub->method('createStream')->willReturnCallback(
+            function (string $body) use (&$bodies, $streamStub): StreamInterface {
+                $bodies[] = $body;
+                return $streamStub;
+            },
+        );
+
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn((string)json_encode([
+            'data' => [['url' => 'https://example.com/v.png']],
+        ]));
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
+        $this->httpClientStub->method('sendRequest')->willReturn($responseStub);
+
+        $subject = $this->createSubject();
+        $imageFile = $this->createTestImageFile();
+
+        $subject->createVariations($imageFile);       // default count -> clamped to 1
+        $subject->createVariations($imageFile, 0);    // clamped up to 1
+        $subject->createVariations($imageFile, 99);   // clamped down to 10
+
+        self::assertCount(3, $bodies);
+        self::assertSame('1', $this->multipartFieldValue($bodies[0], 'n'));
+        self::assertSame('1', $this->multipartFieldValue($bodies[1], 'n'));
+        self::assertSame('10', $this->multipartFieldValue($bodies[2], 'n'));
+        self::assertSame('1024x1024', $this->multipartFieldValue($bodies[0], 'size'));
+        self::assertSame('url', $this->multipartFieldValue($bodies[0], 'response_format'));
+    }
+
+    #[Test]
+    public function editThrowsWhenServiceUnavailable(): void
+    {
+        $subject = $this->createSubjectWithoutApiKey();
+        $imageFile = $this->createTestImageFile();
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessageMatches('/is not configured/');
+
+        $subject->edit($imageFile, 'Add a hat');
+    }
+
+    #[Test]
+    public function editThrowsWhenSourceImageFileNotFound(): void
+    {
+        // The source image is validated before dispatch: a missing file yields
+        // the "not found" message, distinct from the later read failure.
+        $subject = $this->createSubject();
+
+        $this->expectException(ServiceUnavailableException::class);
+        $this->expectExceptionMessageMatches('/Image file not found/');
+
+        $subject->edit('/non/existent/source.png', 'Add a hat');
+    }
+
+    #[Test]
+    public function editSendsPromptAndFieldsInMultipartBody(): void
+    {
+        // The prompt, size and response_format ride along as form fields.
+        $captured = null;
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+        $this->requestFactoryStub->method('createRequest')->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub->method('createStream')->willReturnCallback(
+            function (string $body) use (&$captured, $streamStub): StreamInterface {
+                $captured = $body;
+                return $streamStub;
+            },
+        );
+
+        $responseBodyStub = self::createStub(StreamInterface::class);
+        $responseBodyStub->method('__toString')->willReturn((string)json_encode([
+            'data' => [['url' => 'https://example.com/edited.png']],
+        ]));
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($responseBodyStub);
+        $this->httpClientStub->method('sendRequest')->willReturn($responseStub);
+
+        $subject = $this->createSubject();
+        $imageFile = $this->createTestImageFile();
+        $subject->edit($imageFile, 'Add a red hat');
+
+        self::assertIsString($captured);
+        self::assertSame('Add a red hat', $this->multipartFieldValue($captured, 'prompt'));
+        self::assertSame('1024x1024', $this->multipartFieldValue($captured, 'size'));
+        self::assertSame('url', $this->multipartFieldValue($captured, 'response_format'));
+    }
+
+    // ==================== gpt-image usage: numeric-string token coercion ====================
+
+    #[Test]
+    public function generateWithGptImageModelCoercesNumericStringTokensToInt(): void
+    {
+        // A usage object may serialise token counts as numeric strings; the
+        // service casts them to ints so the recorded metrics stay strictly
+        // integer.
+        $this->setupSuccessfulRequest([
+            'data' => [['b64_json' => base64_encode('png-bytes')]],
+            'usage' => [
+                'input_tokens' => '50',
+                'output_tokens' => '1000',
+                'total_tokens' => '1050',
+                'input_tokens_details' => ['image_tokens' => 10],
+            ],
+        ]);
+
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']],
+            ]);
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'image',
+                'dall-e',
+                self::callback(
+                    static fn(array $metrics): bool => $metrics['tokens'] === 1050
+                        && $metrics['promptTokens'] === 50
+                        && $metrics['completionTokens'] === 1000,
+                ),
+                null,
+                0,
+                'gpt-image-2',
+                0,
+                null,
+            );
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $usageTrackerMock,
+            $this->loggerStub,
+        );
+
+        $subject->generate('A cat', ['model' => 'gpt-image-2']);
     }
 }

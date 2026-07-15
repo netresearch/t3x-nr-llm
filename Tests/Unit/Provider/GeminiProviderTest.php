@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
@@ -27,6 +28,7 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 
 #[CoversClass(GeminiProvider::class)]
@@ -1548,5 +1550,453 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $this->expectException(ProviderResponseException::class);
 
         $this->subject->testConnection();
+    }
+
+    // ===== Outgoing-request assertions =====
+    //
+    // The tests below pin the exact request the provider constructs (method,
+    // relative URI, decoded JSON body) rather than only the parsed response.
+    // The subject is built with baseUrl '' (mirroring setUp), so the captured
+    // URI is the RELATIVE path AbstractProvider::sendRequest() produces
+    // (rtrim('', '/') . '/' . ltrim($endpoint, '/')), never the production
+    // https://generativelanguage.googleapis.com/... base URL.
+
+    /**
+     * Build a subject whose request-factory / stream-factory capture the
+     * outgoing method, URI and JSON body, and whose HTTP client returns the
+     * given decoded response.
+     *
+     * @param array<string, mixed> $apiResponse
+     */
+    private function createCapturingSubject(
+        array $apiResponse,
+        ?string &$capturedMethod,
+        ?string &$capturedUri,
+        ?string &$capturedBody,
+    ): GeminiProvider {
+        $requestFactory = self::createStub(RequestFactoryInterface::class);
+        $requestFactory->method('createRequest')
+            ->willReturnCallback(function (string $method, string $uri) use (
+                &$capturedMethod,
+                &$capturedUri,
+            ): RequestInterface {
+                $capturedMethod = $method;
+                $capturedUri    = $uri;
+
+                return $this->createRequestMock($method, $uri);
+            });
+
+        $streamFactory = self::createStub(StreamFactoryInterface::class);
+        $streamFactory->method('createStream')
+            ->willReturnCallback(function (string $content) use (&$capturedBody): StreamInterface {
+                $capturedBody = $content;
+                $stream       = self::createStub(StreamInterface::class);
+                $stream->method('__toString')->willReturn($content);
+                $stream->method('getContents')->willReturn($content);
+
+                return $stream;
+            });
+
+        $subject = new GeminiProvider(
+            $requestFactory,
+            $streamFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gemini-3-flash-preview',
+            'baseUrl' => '',
+            'timeout' => 30,
+        ]);
+        $subject->setHttpClient($this->createJsonHttpClient($apiResponse));
+
+        return $subject;
+    }
+
+    /**
+     * @param array<string, mixed> $apiResponse
+     */
+    private function createJsonHttpClient(array $apiResponse): ClientInterface
+    {
+        $httpClient = self::createStub(ClientInterface::class);
+        $httpClient->method('sendRequest')->willReturn($this->createJsonResponseMock($apiResponse));
+
+        return $httpClient;
+    }
+
+    /**
+     * Decode a captured JSON request body into an array for assertions.
+     *
+     * @return array<string, mixed>
+     */
+    private function decodeCapturedBody(?string $capturedBody): array
+    {
+        self::assertIsString($capturedBody);
+        $decoded = json_decode($capturedBody, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
+    }
+
+    #[Test]
+    public function chatCompletionSendsExactRequestPayload(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            [
+                'candidates' => [[
+                    'content' => ['parts' => [['text' => 'ok']], 'role' => 'model'],
+                    'finishReason' => 'STOP',
+                ]],
+                'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
+            ],
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->chatCompletion([['role' => 'user', 'content' => 'Hello']]);
+
+        self::assertSame('POST', $capturedMethod);
+        self::assertSame('/models/gemini-3-flash-preview:generateContent', $capturedUri);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [['role' => 'user', 'parts' => [['text' => 'Hello']]]],
+            $body['contents'],
+        );
+        self::assertIsArray($body['generationConfig']);
+        self::assertArrayHasKey('temperature', $body['generationConfig']);
+        self::assertSame(0.7, $body['generationConfig']['temperature']);
+        self::assertArrayHasKey('maxOutputTokens', $body['generationConfig']);
+        self::assertSame(4096, $body['generationConfig']['maxOutputTokens']);
+    }
+
+    #[Test]
+    public function chatCompletionConvertsChatMessageObjectsToArrays(): void
+    {
+        // A ChatMessage instance (not a plain array) must be normalised via
+        // toArray() before conversion; without that map the value object reaches
+        // asArray() as an object → [] → an empty user turn.
+        $capturedBody = null;
+        $capturedUri  = null;
+        $capturedMethod = null;
+
+        $subject = $this->createCapturingSubject(
+            [
+                'candidates' => [[
+                    'content' => ['parts' => [['text' => 'ok']], 'role' => 'model'],
+                    'finishReason' => 'STOP',
+                ]],
+                'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
+            ],
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->chatCompletion([new ChatMessage('user', 'Hello from VO')]);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [['role' => 'user', 'parts' => [['text' => 'Hello from VO']]]],
+            $body['contents'],
+        );
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsSendsExactToolPayload(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            [
+                'candidates' => [[
+                    'content' => ['parts' => [['text' => 'ok']], 'role' => 'model'],
+                    'finishReason' => 'STOP',
+                ]],
+                'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
+            ],
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $tools = [
+            ToolSpec::fromArray([
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_weather',
+                    'description' => 'Get current weather',
+                    'parameters' => ['type' => 'object', 'properties' => ['location' => ['type' => 'string']]],
+                ],
+            ]),
+        ];
+
+        $subject->chatCompletionWithTools([['role' => 'user', 'content' => 'Weather?']], $tools);
+
+        self::assertSame('POST', $capturedMethod);
+        self::assertSame('/models/gemini-3-flash-preview:generateContent', $capturedUri);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [['role' => 'user', 'parts' => [['text' => 'Weather?']]]],
+            $body['contents'],
+        );
+        self::assertSame(
+            [[
+                'functionDeclarations' => [[
+                    'name' => 'get_weather',
+                    'description' => 'Get current weather',
+                    'parameters' => ['type' => 'object', 'properties' => ['location' => ['type' => 'string']]],
+                ]],
+            ]],
+            $body['tools'],
+        );
+        self::assertIsArray($body['generationConfig']);
+        self::assertArrayHasKey('temperature', $body['generationConfig']);
+        self::assertSame(0.7, $body['generationConfig']['temperature']);
+        self::assertArrayHasKey('maxOutputTokens', $body['generationConfig']);
+        self::assertSame(4096, $body['generationConfig']['maxOutputTokens']);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsConvertsChatMessageObjectsToArrays(): void
+    {
+        $capturedBody   = null;
+        $capturedUri    = null;
+        $capturedMethod = null;
+
+        $subject = $this->createCapturingSubject(
+            [
+                'candidates' => [[
+                    'content' => ['parts' => [['text' => 'ok']], 'role' => 'model'],
+                    'finishReason' => 'STOP',
+                ]],
+                'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
+            ],
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $tools = [
+            ToolSpec::fromArray([
+                'type' => 'function',
+                'function' => ['name' => 'noop', 'description' => 'x', 'parameters' => ['type' => 'object']],
+            ]),
+        ];
+
+        $subject->chatCompletionWithTools([new ChatMessage('user', 'VO message')], $tools);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [['role' => 'user', 'parts' => [['text' => 'VO message']]]],
+            $body['contents'],
+        );
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsRejectsInvalidModelId(): void
+    {
+        $this->expectException(ProviderConfigurationException::class);
+
+        $tools = [
+            ToolSpec::fromArray([
+                'type' => 'function',
+                'function' => ['name' => 'noop', 'description' => 'x', 'parameters' => ['type' => 'object']],
+            ]),
+        ];
+
+        $this->subject->chatCompletionWithTools(
+            [['role' => 'user', 'content' => 'hi']],
+            $tools,
+            ['model' => '../../secret'],
+        );
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsConcatenatesMultipleTextParts(): void
+    {
+        // Two text parts in one candidate exercise the `$rawContent .= $text`
+        // accumulation; a plain assignment would keep only the last part.
+        ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
+
+        $tools = [
+            ToolSpec::fromArray([
+                'type' => 'function',
+                'function' => ['name' => 'get_weather', 'description' => 'x', 'parameters' => ['type' => 'object']],
+            ]),
+        ];
+
+        $apiResponse = [
+            'candidates' => [[
+                'content' => [
+                    'parts' => [
+                        ['text' => 'Part one. '],
+                        ['text' => 'Part two.'],
+                    ],
+                    'role' => 'model',
+                ],
+                'finishReason' => 'STOP',
+            ]],
+            'usageMetadata' => ['promptTokenCount' => 5, 'candidatesTokenCount' => 5],
+        ];
+
+        $httpClientMock
+            ->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $subject->chatCompletionWithTools([['role' => 'user', 'content' => 'hi']], $tools);
+
+        self::assertSame('Part one. Part two.', $result->content);
+    }
+
+    #[Test]
+    public function embeddingsSendsExactRequestPayload(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            ['embedding' => ['values' => [0.1, 0.2, 0.3]]],
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->embeddings('Test text');
+
+        self::assertSame('POST', $capturedMethod);
+        // embeddings() defaults to the EMBEDDING_MODEL constant, not the
+        // configured chat defaultModel.
+        self::assertSame('/models/gemini-embedding-2:embedContent', $capturedUri);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame('models/gemini-embedding-2', $body['model']);
+        self::assertSame(
+            ['parts' => [['text' => 'Test text']]],
+            $body['content'],
+        );
+    }
+
+    #[Test]
+    public function embeddingsReportsPromptTokensFromTextLength(): void
+    {
+        // 'Test text' is 9 characters → 9/4 = 2.25 → (int) 2 prompt tokens;
+        // completion tokens are always 0 for the embeddings endpoint.
+        ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
+
+        $httpClientMock
+            ->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock(['embedding' => ['values' => [0.1, 0.2]]]));
+
+        $result = $subject->embeddings('Test text');
+
+        self::assertSame(2, $result->usage->promptTokens);
+        self::assertSame(0, $result->usage->completionTokens);
+    }
+
+    #[Test]
+    public function embeddingsAccumulatesPromptTokensAcrossInputs(): void
+    {
+        // 'First text' (10) + 'Second text' (11): 10/4 + 11/4 = 2.5 + 2.75
+        // = 5.25 → (int) 5. A non-accumulating assignment would report 2.
+        ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
+
+        $httpClientMock
+            ->expects(self::exactly(2))
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock(['embedding' => ['values' => [0.1]]]));
+
+        $result = $subject->embeddings(['First text', 'Second text']);
+
+        self::assertSame(5, $result->usage->promptTokens);
+    }
+
+    #[Test]
+    public function embeddingsCastsStringValuesToFloat(): void
+    {
+        // Gemini can return numeric-string components; they must be cast to
+        // float so the vector is a list<float>, not a list<string>.
+        ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
+
+        $httpClientMock
+            ->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock(['embedding' => ['values' => ['0.1', '0.2', '0.3']]]));
+
+        $result = $subject->embeddings('Test text');
+
+        self::assertSame([0.1, 0.2, 0.3], $result->embeddings[0]);
+    }
+
+    #[Test]
+    public function analyzeImageSendsExactRequestPayload(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            [
+                'candidates' => [[
+                    'content' => ['parts' => [['text' => 'desc']], 'role' => 'model'],
+                    'finishReason' => 'STOP',
+                ]],
+                'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
+            ],
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $content = [
+            VisionContent::fromArray(['type' => 'text', 'text' => 'Describe this image']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'data:image/jpeg;base64,/9j/4AAQ']]),
+        ];
+
+        $subject->analyzeImage($content);
+
+        self::assertSame('POST', $capturedMethod);
+        self::assertSame('/models/gemini-3-flash-preview:generateContent', $capturedUri);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [[
+                'role' => 'user',
+                'parts' => [
+                    ['text' => 'Describe this image'],
+                    ['inlineData' => ['mimeType' => 'image/jpeg', 'data' => '/9j/4AAQ']],
+                ],
+            ]],
+            $body['contents'],
+        );
+        self::assertIsArray($body['generationConfig']);
+        self::assertArrayHasKey('maxOutputTokens', $body['generationConfig']);
+        self::assertSame(4096, $body['generationConfig']['maxOutputTokens']);
+    }
+
+    #[Test]
+    public function analyzeImageRejectsInvalidModelId(): void
+    {
+        $this->expectException(ProviderConfigurationException::class);
+
+        $content = [
+            VisionContent::fromArray(['type' => 'text', 'text' => 'Describe']),
+        ];
+
+        $this->subject->analyzeImage($content, ['model' => '../../secret']);
     }
 }
